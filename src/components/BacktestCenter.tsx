@@ -96,9 +96,11 @@ export const BacktestCenter: React.FC = () => {
         commissionPct,
         slippagePct,
         trailingStopPct
-      }
+      },
+      undefined,
+      currentProvenance
     );
-  }, [historicalBars, selectedAsset, initialCapital, commissionPct, slippagePct, trailingStopPct]);
+  }, [historicalBars, selectedAsset, initialCapital, commissionPct, slippagePct, trailingStopPct, currentProvenance]);
 
   // Walk-Forward Analysis Result
   const walkForwardResult = useMemo(() => {
@@ -140,10 +142,10 @@ export const BacktestCenter: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs px-2 py-0.5 rounded-md font-mono font-bold">
-                Motor Cuantitativo vectorbt / FinRL Layer
+                Motor Cuantitativo TypeScript
               </span>
               <span className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs px-2 py-0.5 rounded-md font-mono">
-                100% Anti-Look-Ahead
+                Backtesting experimental
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">

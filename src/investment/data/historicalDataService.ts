@@ -1,13 +1,16 @@
 import { Asset } from '../../types';
 import { ALL_AVAILABLE_ASSETS } from '../../data/marketData';
-import { DataProvenance, HistoricalDataRequest, HistoricalDataResponse } from './types';
+import { HistoricalDataRequest, HistoricalDataResponse } from './types';
 import { StaticReferenceProvider } from './staticReferenceProvider';
 import { SyntheticDataGenerator } from './syntheticDataGenerator';
+import { DataValidator } from './validators';
 
 export class HistoricalDataService {
   /**
    * Main facade to retrieve historical data for backtesting, analytics, or UI charts.
-   * Explicitly separates STATIC_REFERENCE and SYNTHETIC data modes.
+   * Explicitly validates the dataset using DataValidator before returning.
+   * If the dataset contains any invalid prices, unordered/duplicate timestamps, or invalid volumes,
+   * it throws a DataValidationError without silent correction.
    */
   public static getHistoricalData(
     asset: Asset,
@@ -15,12 +18,19 @@ export class HistoricalDataService {
   ): HistoricalDataResponse {
     const mode = request.mode ?? 'SYNTHETIC';
 
+    let response: HistoricalDataResponse;
+
     if (mode === 'STATIC_REFERENCE') {
-      return StaticReferenceProvider.getStaticBarsForAsset(asset);
+      response = StaticReferenceProvider.getStaticBarsForAsset(asset);
+    } else {
+      // Default to SYNTHETIC with deterministic seeded PRNG
+      response = SyntheticDataGenerator.generateFromAsset(asset, request.syntheticConfig);
     }
 
-    // Default to SYNTHETIC with deterministic seeded PRNG
-    return SyntheticDataGenerator.generateFromAsset(asset, request.syntheticConfig);
+    // Strict validation before returning dataset
+    DataValidator.assertValidPriceBars(response.bars);
+
+    return response;
   }
 
   public static getHistoricalDataById(

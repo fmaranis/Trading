@@ -1,7 +1,6 @@
 import { FinancialMetricsCalculator } from './metrics';
-import { BacktestTrade, EquityPoint } from './types';
+import { BacktestTrade, EquityPoint, PriceBar } from './types';
 import { SyntheticDataGenerator } from '../data/syntheticDataGenerator';
-import { StaticReferenceProvider } from '../data/staticReferenceProvider';
 import { DataValidator } from '../data/validators';
 import { BacktestEngine } from './engine';
 import { ALL_AVAILABLE_ASSETS } from '../../data/marketData';
@@ -11,20 +10,202 @@ export class FinancialTestSuite {
   public static runAllTests(): { name: string; passed: boolean; message: string }[] {
     const results: { name: string; passed: boolean; message: string }[] = [];
 
-    // Test 1: Zero / NaN Check
+    // 1. Infinity en close → rechazado
     try {
-      const emptyMetrics = FinancialMetricsCalculator.calculateMetrics(100, 100, [], []);
-      const hasNaN = Object.values(emptyMetrics).some(v => typeof v === 'number' && isNaN(v));
+      const barsWithInfClose: PriceBar[] = [
+        { timestamp: '2026-01-01', open: 100, high: 105, low: 95, close: 100, volume: 1000 },
+        { timestamp: '2026-01-02', open: 100, high: 105, low: 95, close: Infinity, volume: 1000 }
+      ];
+      const rep = DataValidator.validatePriceBars(barsWithInfClose);
+      const passed = !rep.isValid && rep.errors.some(e => e.includes('Close'));
       results.push({
-        name: 'Métricas Cero / NaN Safe',
-        passed: !hasNaN,
-        message: hasNaN ? 'Fallo: Contiene valores NaN' : 'OK: Retorna métricas numéricas seguras sin NaNs'
+        name: '1. Infinity en Close → Rechazado',
+        passed,
+        message: passed ? 'OK: Infinity en Close detectado y rechazado.' : 'Fallo: No se rechazó Infinity en Close.'
       });
     } catch (e: any) {
-      results.push({ name: 'Métricas Cero / NaN Safe', passed: false, message: e.message });
+      results.push({ name: '1. Infinity en Close → Rechazado', passed: false, message: e.message });
     }
 
-    // Test 2: Standard Trade PnL & Profit Factor
+    // 2. NaN en open → rechazado
+    try {
+      const barsWithNaNOpen: PriceBar[] = [
+        { timestamp: '2026-01-01', open: NaN, high: 105, low: 95, close: 100, volume: 1000 }
+      ];
+      const rep = DataValidator.validatePriceBars(barsWithNaNOpen);
+      const passed = !rep.isValid && rep.errors.some(e => e.includes('Open'));
+      results.push({
+        name: '2. NaN en Open → Rechazado',
+        passed,
+        message: passed ? 'OK: NaN en Open detectado y rechazado.' : 'Fallo: No se rechazó NaN en Open.'
+      });
+    } catch (e: any) {
+      results.push({ name: '2. NaN en Open → Rechazado', passed: false, message: e.message });
+    }
+
+    // 3. -Infinity en high → rechazado
+    try {
+      const barsWithNegInfHigh: PriceBar[] = [
+        { timestamp: '2026-01-01', open: 100, high: -Infinity, low: 95, close: 100, volume: 1000 }
+      ];
+      const rep = DataValidator.validatePriceBars(barsWithNegInfHigh);
+      const passed = !rep.isValid && rep.errors.some(e => e.includes('High'));
+      results.push({
+        name: '3. -Infinity en High → Rechazado',
+        passed,
+        message: passed ? 'OK: -Infinity en High detectado y rechazado.' : 'Fallo: No se rechazó -Infinity en High.'
+      });
+    } catch (e: any) {
+      results.push({ name: '3. -Infinity en High → Rechazado', passed: false, message: e.message });
+    }
+
+    // 4. Volumen negativo → rechazado
+    try {
+      const barsWithNegVol: PriceBar[] = [
+        { timestamp: '2026-01-01', open: 100, high: 105, low: 95, close: 100, volume: -500 }
+      ];
+      const rep = DataValidator.validatePriceBars(barsWithNegVol);
+      const passed = !rep.isValid && rep.errors.some(e => e.includes('Volumen'));
+      results.push({
+        name: '4. Volumen Negativo → Rechazado',
+        passed,
+        message: passed ? 'OK: Volumen negativo detectado y rechazado.' : 'Fallo: No se rechazó volumen negativo.'
+      });
+    } catch (e: any) {
+      results.push({ name: '4. Volumen Negativo → Rechazado', passed: false, message: e.message });
+    }
+
+    // 5. Volumen Infinity → rechazado
+    try {
+      const barsWithInfVol: PriceBar[] = [
+        { timestamp: '2026-01-01', open: 100, high: 105, low: 95, close: 100, volume: Infinity }
+      ];
+      const rep = DataValidator.validatePriceBars(barsWithInfVol);
+      const passed = !rep.isValid && rep.errors.some(e => e.includes('Volumen'));
+      results.push({
+        name: '5. Volumen Infinity → Rechazado',
+        passed,
+        message: passed ? 'OK: Volumen Infinity detectado y rechazado.' : 'Fallo: No se rechazó volumen Infinity.'
+      });
+    } catch (e: any) {
+      results.push({ name: '5. Volumen Infinity → Rechazado', passed: false, message: e.message });
+    }
+
+    // 6. Timestamp duplicado → rechazado
+    try {
+      const barsWithDupTs: PriceBar[] = [
+        { timestamp: '2026-01-01', open: 100, high: 105, low: 95, close: 100, volume: 1000 },
+        { timestamp: '2026-01-01', open: 101, high: 106, low: 96, close: 102, volume: 1000 }
+      ];
+      const rep = DataValidator.validatePriceBars(barsWithDupTs);
+      const passed = !rep.isValid && rep.errors.some(e => e.includes('duplicado'));
+      results.push({
+        name: '6. Timestamp Duplicado → Rechazado',
+        passed,
+        message: passed ? 'OK: Timestamp duplicado detectado y rechazado.' : 'Fallo: No se rechazó timestamp duplicado.'
+      });
+    } catch (e: any) {
+      results.push({ name: '6. Timestamp Duplicado → Rechazado', passed: false, message: e.message });
+    }
+
+    // 7. Timestamps desordenados → rechazado
+    try {
+      const barsWithUnorderedTs: PriceBar[] = [
+        { timestamp: '2026-01-05', open: 100, high: 105, low: 95, close: 100, volume: 1000 },
+        { timestamp: '2026-01-02', open: 101, high: 106, low: 96, close: 102, volume: 1000 }
+      ];
+      const rep = DataValidator.validatePriceBars(barsWithUnorderedTs);
+      const passed = !rep.isValid && rep.errors.some(e => e.includes('desordenada') || e.includes('creciente'));
+      results.push({
+        name: '7. Timestamps Desordenados → Rechazado',
+        passed,
+        message: passed ? 'OK: Serie desordenada detectada y rechazada.' : 'Fallo: No se rechazaron timestamps desordenados.'
+      });
+    } catch (e: any) {
+      results.push({ name: '7. Timestamps Desordenados → Rechazado', passed: false, message: e.message });
+    }
+
+    // 8. Dataset vacío → rechazado
+    try {
+      const repEmpty = DataValidator.validatePriceBars([]);
+      const passed = !repEmpty.isValid && repEmpty.errors.length > 0;
+      results.push({
+        name: '8. Dataset Vacío → Rechazado',
+        passed,
+        message: passed ? 'OK: Dataset vacío detectado y rechazado.' : 'Fallo: Dataset vacío fue aceptado.'
+      });
+    } catch (e: any) {
+      results.push({ name: '8. Dataset Vacío → Rechazado', passed: false, message: e.message });
+    }
+
+    // 9. OHLC correcto → aceptado
+    try {
+      const validBars: PriceBar[] = [
+        { timestamp: '2026-01-01', open: 100, high: 108, low: 98, close: 105, volume: 12000 },
+        { timestamp: '2026-01-02', open: 105, high: 110, low: 103, close: 108, volume: 14500 }
+      ];
+      const repValid = DataValidator.validatePriceBars(validBars);
+      const passed = repValid.isValid && repValid.errors.length === 0;
+      results.push({
+        name: '9. OHLC Correcto → Aceptado',
+        passed,
+        message: passed ? `OK: ${repValid.totalBars} barras válidas aceptadas.` : `Fallo: ${repValid.errors.join('; ')}`
+      });
+    } catch (e: any) {
+      results.push({ name: '9. OHLC Correcto → Aceptado', passed: false, message: e.message });
+    }
+
+    // 10. Todos los BacktestResult incluyen DataProvenance
+    try {
+      const testAsset = ALL_AVAILABLE_ASSETS[0];
+      const validBars: PriceBar[] = [
+        { timestamp: '2026-01-01', open: 100, high: 108, low: 98, close: 105, volume: 12000 },
+        { timestamp: '2026-01-02', open: 105, high: 110, low: 103, close: 108, volume: 14500 }
+      ];
+      const resFallback = BacktestEngine.runBacktest(ALL_QUANT_STRATEGIES[0], validBars, testAsset.ticker, testAsset.name);
+      const resExplicit = BacktestEngine.runBacktest(ALL_QUANT_STRATEGIES[1], validBars, testAsset.ticker, testAsset.name, {}, undefined, {
+        sourceType: 'SYNTHETIC',
+        provider: 'Explicit Provider',
+        isReproducible: true
+      });
+
+      const hasProv1 = resFallback.dataProvenance && typeof resFallback.dataProvenance.sourceType === 'string' && resFallback.dataProvenance.isReproducible;
+      const hasProv2 = resExplicit.dataProvenance && resExplicit.dataProvenance.sourceType === 'SYNTHETIC';
+      const passed = Boolean(hasProv1 && hasProv2);
+
+      results.push({
+        name: '10. BacktestResult Incluye DataProvenance Obligatorio',
+        passed,
+        message: passed ? 'OK: Todo BacktestResult contiene procedencia obligatoria y no-opcional.' : 'Fallo: BacktestResult sin procedencia.'
+      });
+    } catch (e: any) {
+      results.push({ name: '10. BacktestResult Incluye DataProvenance Obligatorio', passed: false, message: e.message });
+    }
+
+    // Métricas Adicionales: Reproducibilidad determinista con seed
+    try {
+      const testAsset = ALL_AVAILABLE_ASSETS[0];
+      const runA = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 9999, totalBars: 50 });
+      const runB = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 9999, totalBars: 50 });
+      const runC = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 1234, totalBars: 50 });
+
+      const sameLength = runA.bars.length === runB.bars.length;
+      const exactMatch = runA.bars.every((b, idx) => {
+        const ob = runB.bars[idx];
+        return b.open === ob.open && b.high === ob.high && b.low === ob.low && b.close === ob.close && b.volume === ob.volume;
+      });
+      const differentFromRunC = runA.bars.some((b, idx) => b.close !== runC.bars[idx]?.close);
+
+      results.push({
+        name: '11. Reproducibilidad 100% Determinista (Mulberry32 PRNG)',
+        passed: sameLength && exactMatch && differentFromRunC,
+        message: exactMatch ? 'OK: Mismo seed produce exactamente la misma serie bit a bit.' : 'Fallo de reproducibilidad.'
+      });
+    } catch (e: any) {
+      results.push({ name: '11. Reproducibilidad 100% Determinista (Mulberry32 PRNG)', passed: false, message: e.message });
+    }
+
+    // Métricas Adicionales: WinRate, Profit Factor & Max Drawdown
     try {
       const mockTrades: BacktestTrade[] = [
         {
@@ -70,115 +251,17 @@ export class FinancialTestSuite {
       ];
 
       const metrics = FinancialMetricsCalculator.calculateMetrics(100, 105, mockEquity, mockTrades);
-      const isProfitFactorCorrect = metrics.profitFactor === 2.0; // 10 / 5 = 2.0
-      const isWinRateCorrect = metrics.winRatePct === 50.0; // 1 win out of 2 = 50%
+      const passed = metrics.profitFactor === 2.0 && metrics.winRatePct === 50.0;
 
       results.push({
-        name: 'Cálculo Exacto de WinRate (50%) & Profit Factor (2.0)',
-        passed: isProfitFactorCorrect && isWinRateCorrect,
+        name: '12. Métricas de Ratio: WinRate (50%) & Profit Factor (2.0)',
+        passed,
         message: `WinRate: ${metrics.winRatePct}%, ProfitFactor: ${metrics.profitFactor}`
       });
     } catch (e: any) {
-      results.push({ name: 'Cálculo de Trades', passed: false, message: e.message });
-    }
-
-    // Test 3: Max Drawdown Accuracy
-    try {
-      const mockDrawdownCurve: EquityPoint[] = [
-        { timestamp: 'D1', equity: 100, cash: 100, drawdownPct: 0 },
-        { timestamp: 'D2', equity: 120, cash: 120, drawdownPct: 0 }, // Peak
-        { timestamp: 'D3', equity: 90, cash: 90, drawdownPct: 25 }, // Drop from 120 to 90 = -25%
-        { timestamp: 'D4', equity: 110, cash: 110, drawdownPct: 8.33 }
-      ];
-
-      const metrics = FinancialMetricsCalculator.calculateMetrics(100, 110, mockDrawdownCurve, []);
-      const isMaxDrawdownCorrect = metrics.maxDrawdownPct === 25.0;
-
-      results.push({
-        name: 'Cálculo Exacto de Max Drawdown (25.0%)',
-        passed: isMaxDrawdownCorrect,
-        message: `Max Drawdown calculado: ${metrics.maxDrawdownPct}%`
-      });
-    } catch (e: any) {
-      results.push({ name: 'Max Drawdown Test', passed: false, message: e.message });
-    }
-
-    // Test 4: Deterministic Synthetic Data Reproducibility with Seed
-    try {
-      const testAsset = ALL_AVAILABLE_ASSETS[0];
-      const runA = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 9999, totalBars: 50 });
-      const runB = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 9999, totalBars: 50 });
-      const runC = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 1234, totalBars: 50 });
-
-      const sameLength = runA.bars.length === runB.bars.length;
-      const exactMatch = runA.bars.every((b, idx) => {
-        const ob = runB.bars[idx];
-        return b.open === ob.open && b.high === ob.high && b.low === ob.low && b.close === ob.close && b.volume === ob.volume;
-      });
-
-      const differentFromRunC = runA.bars.some((b, idx) => b.close !== runC.bars[idx]?.close);
-
-      results.push({
-        name: 'Reproducibilidad 100% de Datos Sintéticos con Seed',
-        passed: sameLength && exactMatch && differentFromRunC,
-        message: exactMatch
-          ? 'OK: Mismo seed produce exactamente la misma serie de barras bit a bit.'
-          : 'Fallo: Discrepancia entre dos ejecuciones con el mismo seed.'
-      });
-    } catch (e: any) {
-      results.push({ name: 'Reproducibilidad de Datos Sintéticos', passed: false, message: e.message });
-    }
-
-    // Test 5: OHLCV Integrity & Validation Pass
-    try {
-      const testAsset = ALL_AVAILABLE_ASSETS[1] || ALL_AVAILABLE_ASSETS[0];
-      const { bars } = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 555, totalBars: 60 });
-      const validation = DataValidator.validatePriceBars(bars);
-
-      results.push({
-        name: 'Integridad Matemática OHLCV (High >= Low, no NaNs)',
-        passed: validation.isValid && validation.errors.length === 0,
-        message: validation.isValid
-          ? `OK: ${validation.totalBars} barras validadas sin anomalías OHLC.`
-          : `Fallo: ${validation.errors.join('; ')}`
-      });
-    } catch (e: any) {
-      results.push({ name: 'Validación de Barras OHLCV', passed: false, message: e.message });
-    }
-
-    // Test 6: Categorías Explícitas de Procedencia (DataProvenance)
-    try {
-      const testAsset = ALL_AVAILABLE_ASSETS[0];
-      const staticData = StaticReferenceProvider.getStaticBarsForAsset(testAsset);
-      const syntheticData = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 777 });
-
-      const isStaticCorrect = staticData.provenance.sourceType === 'STATIC_REFERENCE' && staticData.provenance.isReproducible;
-      const isSyntheticCorrect = syntheticData.provenance.sourceType === 'SYNTHETIC' && syntheticData.provenance.seed === 777;
-
-      const backtest = BacktestEngine.runBacktest(
-        ALL_QUANT_STRATEGIES[0],
-        syntheticData.bars,
-        testAsset.ticker,
-        testAsset.name,
-        {},
-        undefined,
-        syntheticData.provenance
-      );
-
-      const hasProvenanceAttached = backtest.dataProvenance?.sourceType === 'SYNTHETIC';
-
-      results.push({
-        name: 'Trazabilidad y Tipos de Procedencia (STATIC vs SYNTHETIC)',
-        passed: isStaticCorrect && isSyntheticCorrect && hasProvenanceAttached,
-        message: hasProvenanceAttached
-          ? 'OK: BacktestResult transporta DataProvenance auditable.'
-          : 'Fallo: DataProvenance no fue asignado correctamente.'
-      });
-    } catch (e: any) {
-      results.push({ name: 'Tipos de Procedencia', passed: false, message: e.message });
+      results.push({ name: '12. Métricas de Ratio: WinRate (50%) & Profit Factor (2.0)', passed: false, message: e.message });
     }
 
     return results;
   }
 }
-

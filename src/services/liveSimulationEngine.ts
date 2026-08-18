@@ -1,7 +1,7 @@
 import { Asset, Portfolio, Position, SimulatedOrder, BotState, BotStrategyType, BotBacktestValidation } from '../types';
 import { ALL_AVAILABLE_ASSETS } from '../data/marketData';
 import { PortfolioEngine } from './portfolioEngine';
-import { HistoricalDataTransformer } from '../investment/data/historicalTransformer';
+import { HistoricalDataService } from '../investment/data/historicalDataService';
 import { StrategyComparator } from '../investment/analytics/strategyComparator';
 
 export interface MarketTickEvent {
@@ -158,7 +158,10 @@ export class LiveSimulationEngine {
 
       for (const candidate of candidateAssets) {
         // 1. Generate real historical price bars
-        const bars = HistoricalDataTransformer.assetToPriceBars(candidate, 60);
+        const { bars, provenance } = HistoricalDataService.getHistoricalData(candidate, {
+          mode: 'SYNTHETIC',
+          syntheticConfig: { totalBars: 60 }
+        });
         
         // 2. Run Backtesting across all 4 quant strategies on this asset
         const comparison = StrategyComparator.compareAll(
@@ -170,7 +173,9 @@ export class LiveSimulationEngine {
             commissionPct: 0.05,
             slippagePct: 0.02,
             trailingStopPct: botState.trailingStopPct
-          }
+          },
+          undefined,
+          provenance
         );
 
         const optimal = comparison.bestBySharpe;

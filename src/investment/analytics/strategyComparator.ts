@@ -2,6 +2,7 @@ import { PriceBar, BacktestResult, StrategyComparisonItem, BacktestConfig } from
 import { IStrategy } from '../strategies/baseStrategy';
 import { ALL_QUANT_STRATEGIES } from '../strategies/standardStrategies';
 import { BacktestEngine } from '../backtesting/engine';
+import { DataProvenance } from '../data/types';
 
 export class StrategyComparator {
   /**
@@ -12,7 +13,8 @@ export class StrategyComparator {
     assetTicker: string = 'ASSET',
     assetName: string = 'Activo de Inversión',
     config: Partial<BacktestConfig> = {},
-    strategies: IStrategy[] = ALL_QUANT_STRATEGIES
+    strategies: IStrategy[] = ALL_QUANT_STRATEGIES,
+    dataProvenance?: DataProvenance
   ): {
     ranking: StrategyComparisonItem[];
     detailedResults: Record<string, BacktestResult>;
@@ -23,8 +25,17 @@ export class StrategyComparator {
     const detailedResults: Record<string, BacktestResult> = {};
     const comparisonItems: StrategyComparisonItem[] = [];
 
+    const provenance: DataProvenance = dataProvenance ?? {
+      sourceType: 'STATIC_REFERENCE',
+      provider: 'StrategyComparator Dataset',
+      isReproducible: true,
+      startDate: bars[0]?.timestamp,
+      endDate: bars[bars.length - 1]?.timestamp,
+      notes: 'Comparativa multiestrategia'
+    };
+
     for (const strat of strategies) {
-      const res = BacktestEngine.runBacktest(strat, bars, assetTicker, assetName, config);
+      const res = BacktestEngine.runBacktest(strat, bars, assetTicker, assetName, config, undefined, provenance);
       detailedResults[strat.id] = res;
 
       comparisonItems.push({

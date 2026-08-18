@@ -105,7 +105,7 @@ export interface BacktestResult {
   equityCurve: EquityPoint[];
   trades: BacktestTrade[];
   signals: Signal[];
-  dataProvenance?: DataProvenance;
+  dataProvenance: DataProvenance;
 }
 
 export interface StrategyComparisonItem {

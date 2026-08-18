@@ -35,7 +35,15 @@ export class WalkForwardEngine {
       'IN-SAMPLE',
       'Entrenamiento (In-Sample)',
       config,
-      strategyParams
+      strategyParams,
+      {
+        sourceType: 'SYNTHETIC',
+        provider: 'Walk-Forward In-Sample Split',
+        isReproducible: true,
+        startDate: inSampleBars[0]?.timestamp,
+        endDate: inSampleBars[inSampleBars.length - 1]?.timestamp,
+        notes: `Partición In-Sample (${inSampleBars.length} barras, ratio ${Math.round(trainRatio * 100)}%)`
+      }
     );
 
     // Run Out-Of-Sample Backtest (Strictly unseen data)
@@ -45,7 +53,15 @@ export class WalkForwardEngine {
       'OUT-OF-SAMPLE',
       'Validación Ciega (Out-of-Sample)',
       config,
-      strategyParams
+      strategyParams,
+      {
+        sourceType: 'SYNTHETIC',
+        provider: 'Walk-Forward Out-of-Sample Split',
+        isReproducible: true,
+        startDate: outOfSampleBars[0]?.timestamp,
+        endDate: outOfSampleBars[outOfSampleBars.length - 1]?.timestamp,
+        notes: `Partición Out-of-Sample ciega (${outOfSampleBars.length} barras)`
+      }
     );
 
     const inSharpe = Math.max(0.01, inSampleResult.metrics.sharpeRatio);

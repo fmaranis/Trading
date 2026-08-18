@@ -188,6 +188,13 @@ export class BacktestEngine {
       pt.drawdownPct = peak > 0 ? Number((((peak - pt.equity) / peak) * 100).toFixed(2)) : 0;
     }
 
+    const resolvedProvenance: DataProvenance = dataProvenance ?? {
+      sourceType: 'STATIC_REFERENCE',
+      provider: 'Legacy/Internal Dataset',
+      isReproducible: true,
+      notes: 'Procedencia heredada pendiente de migración'
+    };
+
     return {
       strategyName: strategy.name,
       strategyDescription: strategy.description,
@@ -198,7 +205,7 @@ export class BacktestEngine {
       equityCurve,
       trades,
       signals,
-      dataProvenance
+      dataProvenance: resolvedProvenance
     };
   }
 }
