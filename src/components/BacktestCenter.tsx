@@ -5,7 +5,8 @@ import { BacktestEngine } from '../investment/backtesting/engine';
 import { StrategyComparator } from '../investment/analytics/strategyComparator';
 import { WalkForwardEngine } from '../investment/backtesting/walkForward';
 import { AssetScorer } from '../investment/analytics/assetScorer';
-import { HistoricalDataTransformer } from '../investment/data/historicalTransformer';
+import { HistoricalDataService } from '../investment/data/historicalDataService';
+import { DataSourceType } from '../investment/data/types';
 import { FinancialTestSuite } from '../investment/backtesting/testSuite';
 import {
   TrendingUp,
@@ -20,7 +21,9 @@ import {
   Sliders,
   CheckCircle2,
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  Database,
+  Fingerprint
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -38,6 +41,8 @@ import {
 export const BacktestCenter: React.FC = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<string>('vanguard-msci-world');
   const [selectedStrategyId, setSelectedStrategyId] = useState<string>('momentum_breakout');
+  const [dataMode, setDataMode] = useState<DataSourceType>('SYNTHETIC');
+  const [customSeed, setCustomSeed] = useState<number>(42);
   const [initialCapital, setInitialCapital] = useState<number>(100.0);
   const [commissionPct, setCommissionPct] = useState<number>(0.05);
   const [slippagePct, setSlippagePct] = useState<number>(0.02);
@@ -52,9 +57,15 @@ export const BacktestCenter: React.FC = () => {
     return ALL_QUANT_STRATEGIES.find(s => s.id === selectedStrategyId) || ALL_QUANT_STRATEGIES[0];
   }, [selectedStrategyId]);
 
-  const historicalBars = useMemo(() => {
-    return HistoricalDataTransformer.assetToPriceBars(selectedAsset, 75);
-  }, [selectedAsset]);
+  const { bars: historicalBars, provenance: currentProvenance } = useMemo(() => {
+    return HistoricalDataService.getHistoricalData(selectedAsset, {
+      mode: dataMode,
+      syntheticConfig: {
+        totalBars: 75,
+        seed: customSeed
+      }
+    });
+  }, [selectedAsset, dataMode, customSeed]);
 
   // Single Backtest Result
   const singleResult = useMemo(() => {
@@ -68,9 +79,11 @@ export const BacktestCenter: React.FC = () => {
         commissionPct,
         slippagePct,
         trailingStopPct
-      }
+      },
+      undefined,
+      currentProvenance
     );
-  }, [selectedStrategy, historicalBars, selectedAsset, initialCapital, commissionPct, slippagePct, trailingStopPct]);
+  }, [selectedStrategy, historicalBars, selectedAsset, initialCapital, commissionPct, slippagePct, trailingStopPct, currentProvenance]);
 
   // Strategy Comparison Results
   const comparisonResults = useMemo(() => {
@@ -105,7 +118,10 @@ export const BacktestCenter: React.FC = () => {
   // Multi-Factor Asset Scores
   const assetScores = useMemo(() => {
     return ALL_AVAILABLE_ASSETS.map(asset => {
-      const bars = HistoricalDataTransformer.assetToPriceBars(asset, 40);
+      const { bars } = HistoricalDataService.getHistoricalData(asset, {
+        mode: 'SYNTHETIC',
+        syntheticConfig: { totalBars: 40, seed: 100 }
+      });
       return AssetScorer.scoreAsset(asset, bars);
     }).sort((a, b) => b.compositeScore - a.compositeScore);
   }, []);
@@ -172,6 +188,43 @@ export const BacktestCenter: React.FC = () => {
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase font-semibold block mb-0.5">Procedencia Datos</label>
+              <select
+                id="select-backtest-data-source"
+                value={dataMode}
+                onChange={e => setDataMode(e.target.value as DataSourceType)}
+                className="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono"
+              >
+                <option value="SYNTHETIC">SYNTHETIC (PRNG Seed #{customSeed})</option>
+                <option value="STATIC_REFERENCE">STATIC_REFERENCE (Hitos Mensuales)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Data Provenance Badge */}
+        <div className="mt-3 py-1.5 px-3 bg-slate-950/80 border border-slate-800/80 rounded-xl flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <div className="flex items-center gap-2 text-slate-300">
+            <Database className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <span className="font-mono font-semibold text-white">
+              {currentProvenance.sourceType}:
+            </span>
+            <span className="text-slate-400">
+              {currentProvenance.notes || currentProvenance.provider}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-slate-400 font-mono text-[10px]">
+            {currentProvenance.seed !== undefined && (
+              <span className="bg-indigo-950/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30 flex items-center gap-1">
+                <Fingerprint className="w-3 h-3" />
+                Seed: {currentProvenance.seed} (100% Reproducible)
+              </span>
+            )}
+            <span className="bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
+              {historicalBars.length} Barras
+            </span>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import { PriceBar, BacktestConfig, BacktestResult, BacktestTrade, EquityPoint, Signal } from './types';
 import { IStrategy } from '../strategies/baseStrategy';
 import { FinancialMetricsCalculator } from './metrics';
+import { DataProvenance } from '../data/types';
 
 export class BacktestEngine {
   public static readonly DEFAULT_CONFIG: BacktestConfig = {
@@ -26,7 +27,8 @@ export class BacktestEngine {
     assetTicker: string = 'ASSET',
     assetName: string = 'Activo de Inversión',
     customConfig: Partial<BacktestConfig> = {},
-    strategyParams?: Record<string, any>
+    strategyParams?: Record<string, any>,
+    dataProvenance?: DataProvenance
   ): BacktestResult {
     const config: BacktestConfig = { ...this.DEFAULT_CONFIG, ...customConfig };
 
@@ -195,7 +197,8 @@ export class BacktestEngine {
       metrics,
       equityCurve,
       trades,
-      signals
+      signals,
+      dataProvenance
     };
   }
 }

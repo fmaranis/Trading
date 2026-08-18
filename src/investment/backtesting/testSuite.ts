@@ -1,5 +1,11 @@
 import { FinancialMetricsCalculator } from './metrics';
 import { BacktestTrade, EquityPoint } from './types';
+import { SyntheticDataGenerator } from '../data/syntheticDataGenerator';
+import { StaticReferenceProvider } from '../data/staticReferenceProvider';
+import { DataValidator } from '../data/validators';
+import { BacktestEngine } from './engine';
+import { ALL_AVAILABLE_ASSETS } from '../../data/marketData';
+import { ALL_QUANT_STRATEGIES } from '../strategies/standardStrategies';
 
 export class FinancialTestSuite {
   public static runAllTests(): { name: string; passed: boolean; message: string }[] {
@@ -97,6 +103,82 @@ export class FinancialTestSuite {
       results.push({ name: 'Max Drawdown Test', passed: false, message: e.message });
     }
 
+    // Test 4: Deterministic Synthetic Data Reproducibility with Seed
+    try {
+      const testAsset = ALL_AVAILABLE_ASSETS[0];
+      const runA = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 9999, totalBars: 50 });
+      const runB = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 9999, totalBars: 50 });
+      const runC = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 1234, totalBars: 50 });
+
+      const sameLength = runA.bars.length === runB.bars.length;
+      const exactMatch = runA.bars.every((b, idx) => {
+        const ob = runB.bars[idx];
+        return b.open === ob.open && b.high === ob.high && b.low === ob.low && b.close === ob.close && b.volume === ob.volume;
+      });
+
+      const differentFromRunC = runA.bars.some((b, idx) => b.close !== runC.bars[idx]?.close);
+
+      results.push({
+        name: 'Reproducibilidad 100% de Datos Sintéticos con Seed',
+        passed: sameLength && exactMatch && differentFromRunC,
+        message: exactMatch
+          ? 'OK: Mismo seed produce exactamente la misma serie de barras bit a bit.'
+          : 'Fallo: Discrepancia entre dos ejecuciones con el mismo seed.'
+      });
+    } catch (e: any) {
+      results.push({ name: 'Reproducibilidad de Datos Sintéticos', passed: false, message: e.message });
+    }
+
+    // Test 5: OHLCV Integrity & Validation Pass
+    try {
+      const testAsset = ALL_AVAILABLE_ASSETS[1] || ALL_AVAILABLE_ASSETS[0];
+      const { bars } = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 555, totalBars: 60 });
+      const validation = DataValidator.validatePriceBars(bars);
+
+      results.push({
+        name: 'Integridad Matemática OHLCV (High >= Low, no NaNs)',
+        passed: validation.isValid && validation.errors.length === 0,
+        message: validation.isValid
+          ? `OK: ${validation.totalBars} barras validadas sin anomalías OHLC.`
+          : `Fallo: ${validation.errors.join('; ')}`
+      });
+    } catch (e: any) {
+      results.push({ name: 'Validación de Barras OHLCV', passed: false, message: e.message });
+    }
+
+    // Test 6: Categorías Explícitas de Procedencia (DataProvenance)
+    try {
+      const testAsset = ALL_AVAILABLE_ASSETS[0];
+      const staticData = StaticReferenceProvider.getStaticBarsForAsset(testAsset);
+      const syntheticData = SyntheticDataGenerator.generateFromAsset(testAsset, { seed: 777 });
+
+      const isStaticCorrect = staticData.provenance.sourceType === 'STATIC_REFERENCE' && staticData.provenance.isReproducible;
+      const isSyntheticCorrect = syntheticData.provenance.sourceType === 'SYNTHETIC' && syntheticData.provenance.seed === 777;
+
+      const backtest = BacktestEngine.runBacktest(
+        ALL_QUANT_STRATEGIES[0],
+        syntheticData.bars,
+        testAsset.ticker,
+        testAsset.name,
+        {},
+        undefined,
+        syntheticData.provenance
+      );
+
+      const hasProvenanceAttached = backtest.dataProvenance?.sourceType === 'SYNTHETIC';
+
+      results.push({
+        name: 'Trazabilidad y Tipos de Procedencia (STATIC vs SYNTHETIC)',
+        passed: isStaticCorrect && isSyntheticCorrect && hasProvenanceAttached,
+        message: hasProvenanceAttached
+          ? 'OK: BacktestResult transporta DataProvenance auditable.'
+          : 'Fallo: DataProvenance no fue asignado correctamente.'
+      });
+    } catch (e: any) {
+      results.push({ name: 'Tipos de Procedencia', passed: false, message: e.message });
+    }
+
     return results;
   }
 }
+

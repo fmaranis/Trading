@@ -1,3 +1,5 @@
+import { DataProvenance } from '../data/types';
+
 export interface PriceBar {
   timestamp: string; // ISO or YYYY-MM-DD
   open: number;
@@ -103,6 +105,7 @@ export interface BacktestResult {
   equityCurve: EquityPoint[];
   trades: BacktestTrade[];
   signals: Signal[];
+  dataProvenance?: DataProvenance;
 }
 
 export interface StrategyComparisonItem {

@@ -1,0 +1,41 @@
+import { PriceBar } from '../backtesting/types';
+
+/**
+ * Explicit data source categories:
+ * - REAL: Data downloaded directly from a verifiable external market provider (currently 0 in project).
+ * - STATIC_REFERENCE: Manually compiled reference points from marketData.ts without intraday interpolation.
+ * - SYNTHETIC: Generated, simulated, Brownian motion or interpolated data points.
+ */
+export type DataSourceType = 'REAL' | 'STATIC_REFERENCE' | 'SYNTHETIC';
+
+export interface DataProvenance {
+  sourceType: DataSourceType;
+  provider?: string;
+  symbol?: string;
+  fetchedAt?: string;
+  timeframe?: string;
+  startDate?: string;
+  endDate?: string;
+  isReproducible: boolean;
+  notes?: string;
+  seed?: number;
+}
+
+export interface SyntheticGenerationConfig {
+  seed: number;
+  totalBars?: number;
+  subBarsPerMonth?: number;
+  noiseFactor?: number;
+}
+
+export interface HistoricalDataRequest {
+  assetId?: string;
+  ticker?: string;
+  mode?: DataSourceType;
+  syntheticConfig?: Partial<SyntheticGenerationConfig>;
+}
+
+export interface HistoricalDataResponse {
+  bars: PriceBar[];
+  provenance: DataProvenance;
+}
