@@ -138,6 +138,18 @@ export const BacktestCenter: React.FC = () => {
     return FinancialTestSuite.runAllTests();
   }, []);
 
+  // Format helpers for nullable financial metrics
+  const formatNum = (val: number | null | undefined, digits: number = 2): string => {
+    if (val === null || val === undefined || isNaN(val)) return 'N/D';
+    return val.toFixed(digits);
+  };
+
+  const formatPct = (val: number | null | undefined, digits: number = 2, showSign: boolean = true): string => {
+    if (val === null || val === undefined || isNaN(val)) return 'N/D';
+    const sign = showSign && val > 0 ? '+' : '';
+    return `${sign}${val.toFixed(digits)}%`;
+  };
+
   return (
     <div id="backtest-center-module" className="space-y-6">
       
@@ -381,10 +393,10 @@ export const BacktestCenter: React.FC = () => {
               <div className="text-base font-bold text-white">{comparisonResults.bestBySharpe.strategyName}</div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-xl font-bold font-mono text-emerald-400">
-                  Sharpe {comparisonResults.bestBySharpe.sharpeRatio}
+                  Sharpe {formatNum(comparisonResults.bestBySharpe.sharpeRatio)}
                 </span>
                 <span className="text-xs text-slate-400">
-                  ({comparisonResults.bestBySharpe.totalReturnPct > 0 ? '+' : ''}{comparisonResults.bestBySharpe.totalReturnPct}%)
+                  ({formatPct(comparisonResults.bestBySharpe.totalReturnPct)})
                 </span>
               </div>
             </div>
@@ -394,10 +406,10 @@ export const BacktestCenter: React.FC = () => {
               <div className="text-base font-bold text-white">{comparisonResults.bestByReturn.strategyName}</div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-xl font-bold font-mono text-emerald-400">
-                  +{comparisonResults.bestByReturn.totalReturnPct}%
+                  {formatPct(comparisonResults.bestByReturn.totalReturnPct)}
                 </span>
                 <span className="text-xs text-slate-400">
-                  (Profit Factor: {comparisonResults.bestByReturn.profitFactor})
+                  (Profit Factor: {formatNum(comparisonResults.bestByReturn.profitFactor)})
                 </span>
               </div>
             </div>
@@ -407,7 +419,7 @@ export const BacktestCenter: React.FC = () => {
               <div className="text-base font-bold text-white">{comparisonResults.safestByDrawdown.strategyName}</div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-xl font-bold font-mono text-amber-400">
-                  -{comparisonResults.safestByDrawdown.maxDrawdownPct}%
+                  -{formatNum(comparisonResults.safestByDrawdown.maxDrawdownPct)}%
                 </span>
                 <span className="text-xs text-slate-400">
                   (Trades: {comparisonResults.safestByDrawdown.totalTrades})
@@ -428,6 +440,7 @@ export const BacktestCenter: React.FC = () => {
                   <tr>
                     <th className="py-2.5 px-4">Estrategia</th>
                     <th className="py-2.5 px-3">Retorno Total</th>
+                    <th className="py-2.5 px-3">CAGR</th>
                     <th className="py-2.5 px-3">Sharpe</th>
                     <th className="py-2.5 px-3">Sortino</th>
                     <th className="py-2.5 px-3">Max DD</th>
@@ -449,13 +462,14 @@ export const BacktestCenter: React.FC = () => {
                         </div>
                       </td>
                       <td className={`py-3 px-3 font-bold ${item.totalReturnPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {item.totalReturnPct >= 0 ? '+' : ''}{item.totalReturnPct}%
+                        {formatPct(item.totalReturnPct)}
                       </td>
-                      <td className="py-3 px-3 text-indigo-300 font-bold">{item.sharpeRatio}</td>
-                      <td className="py-3 px-3 text-slate-300">{item.sortinoRatio}</td>
-                      <td className="py-3 px-3 text-rose-400">-{item.maxDrawdownPct}%</td>
-                      <td className="py-3 px-3 text-slate-300">{item.profitFactor}</td>
-                      <td className="py-3 px-3 text-slate-300">{item.winRatePct}%</td>
+                      <td className="py-3 px-3 text-slate-300">{formatPct(item.annualizedReturnPct)}</td>
+                      <td className="py-3 px-3 text-indigo-300 font-bold">{formatNum(item.sharpeRatio)}</td>
+                      <td className="py-3 px-3 text-slate-300">{formatNum(item.sortinoRatio)}</td>
+                      <td className="py-3 px-3 text-rose-400">-{formatNum(item.maxDrawdownPct)}%</td>
+                      <td className="py-3 px-3 text-slate-300">{formatNum(item.profitFactor)}</td>
+                      <td className="py-3 px-3 text-slate-300">{formatNum(item.winRatePct)}%</td>
                       <td className="py-3 px-3 text-slate-400">{item.totalTrades}</td>
                       <td className="py-3 px-3 text-right font-sans">
                         <button
@@ -480,46 +494,83 @@ export const BacktestCenter: React.FC = () => {
       {/* VIEW 2: SINGLE BACKTEST DETAIL */}
       {activeSubTab === 'single' && (
         <div className="space-y-5">
-          {/* Key Metric KPI grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+          {/* Quality & Audit Header */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] uppercase border ${
+                singleResult.metrics.diagnostics.quality === 'FULL'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  : singleResult.metrics.diagnostics.quality === 'PARTIAL'
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+              }`}>
+                Calidad: {singleResult.metrics.diagnostics.quality}
+              </span>
+              <span className="text-slate-400 font-mono">
+                Frecuencia: <strong className="text-slate-200">{singleResult.metrics.diagnostics.frequencyDetected}</strong>
+                {singleResult.metrics.diagnostics.periodsPerYearUsed ? ` (${singleResult.metrics.diagnostics.periodsPerYearUsed} periodos/año)` : ''}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 text-slate-400 font-mono text-[11px]">
+              <span>Rf: <strong className="text-slate-200">3.0% anual</strong></span>
+              <span>Costes Fricción: <strong className="text-amber-300">{formatNum(singleResult.metrics.totalTradingCostsEur)} € ({formatNum(singleResult.metrics.tradingCostsPctOfInitialCapital)}% cap)</strong></span>
+            </div>
+          </div>
+
+          {/* Key Metric KPI grid (8 cards) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
               <span className="text-[10px] uppercase text-slate-400 block">Patrimonio Final</span>
-              <span className="text-base font-bold font-mono text-white">{singleResult.metrics.finalEquity.toFixed(2)} €</span>
+              <span className="text-base font-bold font-mono text-white">{formatNum(singleResult.metrics.finalEquity)} €</span>
               <span className={`text-[10px] block font-mono ${singleResult.metrics.totalReturnPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                ({singleResult.metrics.totalReturnPct >= 0 ? '+' : ''}{singleResult.metrics.totalReturnPct}%)
+                {formatPct(singleResult.metrics.totalReturnPct)}
               </span>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] uppercase text-slate-400 block">CAGR Anualizado</span>
+              <span className={`text-base font-bold font-mono ${singleResult.metrics.cagrPct !== null && singleResult.metrics.cagrPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {formatPct(singleResult.metrics.cagrPct)}
+              </span>
+              <span className="text-[10px] text-slate-400 block">Tiempo real</span>
             </div>
 
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
               <span className="text-[10px] uppercase text-slate-400 block">Sharpe Ratio</span>
-              <span className="text-base font-bold font-mono text-indigo-400">{singleResult.metrics.sharpeRatio}</span>
-              <span className="text-[10px] text-slate-400 block">Rf = 3.0%</span>
+              <span className="text-base font-bold font-mono text-indigo-400">{formatNum(singleResult.metrics.sharpeRatio)}</span>
+              <span className="text-[10px] text-slate-400 block">Vol: {formatPct(singleResult.metrics.annualizedVolatilityPct, 1, false)}</span>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] uppercase text-slate-400 block">Sortino Ratio</span>
+              <span className="text-base font-bold font-mono text-indigo-300">{formatNum(singleResult.metrics.sortinoRatio)}</span>
+              <span className="text-[10px] text-slate-400 block">MAR = Rf</span>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] uppercase text-slate-400 block">Calmar Ratio</span>
+              <span className="text-base font-bold font-mono text-cyan-400">{formatNum(singleResult.metrics.calmarRatio)}</span>
+              <span className="text-[10px] text-slate-400 block">CAGR / MaxDD</span>
             </div>
 
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
               <span className="text-[10px] uppercase text-slate-400 block">Max Drawdown</span>
-              <span className="text-base font-bold font-mono text-rose-400">-{singleResult.metrics.maxDrawdownPct}%</span>
-              <span className="text-[10px] text-slate-400 block">{singleResult.metrics.maxDrawdownDurationBars} barras</span>
+              <span className="text-base font-bold font-mono text-rose-400">-{formatNum(singleResult.metrics.maxDrawdownPct)}%</span>
+              <span className="text-[10px] text-slate-400 block">{singleResult.metrics.maxDrawdownDurationBars} barras {singleResult.metrics.maxDrawdownDurationDays ? `(${singleResult.metrics.maxDrawdownDurationDays}d)` : ''}</span>
             </div>
 
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-              <span className="text-[10px] uppercase text-slate-400 block">Profit Factor</span>
-              <span className="text-base font-bold font-mono text-emerald-400">{singleResult.metrics.profitFactor}</span>
-              <span className="text-[10px] text-slate-400 block">Ganancia / Pérdida</span>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-              <span className="text-[10px] uppercase text-slate-400 block">Win Rate</span>
-              <span className="text-base font-bold font-mono text-white">{singleResult.metrics.winRatePct}%</span>
-              <span className="text-[10px] text-slate-400 block">{singleResult.metrics.winningTrades} de {singleResult.metrics.totalTrades}</span>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-              <span className="text-[10px] uppercase text-slate-400 block">Alpha vs Benchmark</span>
-              <span className={`text-base font-bold font-mono ${singleResult.metrics.alphaPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {singleResult.metrics.alphaPct >= 0 ? '+' : ''}{singleResult.metrics.alphaPct}%
+              <span className="text-[10px] uppercase text-slate-400 block">Jensen Alpha / Beta</span>
+              <span className={`text-base font-bold font-mono ${singleResult.metrics.alphaAnnualizedPct !== null && singleResult.metrics.alphaAnnualizedPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {formatPct(singleResult.metrics.alphaAnnualizedPct)}
               </span>
-              <span className="text-[10px] text-slate-400 block">Benchmark: +{singleResult.metrics.benchmarkTotalReturnPct}%</span>
+              <span className="text-[10px] text-slate-400 block font-mono">Beta: {formatNum(singleResult.metrics.beta)} (R²: {formatNum(singleResult.metrics.rSquared)})</span>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <span className="text-[10px] uppercase text-slate-400 block">Profit Factor / Exp.</span>
+              <span className="text-base font-bold font-mono text-emerald-400">{formatNum(singleResult.metrics.profitFactor)}</span>
+              <span className="text-[10px] text-slate-400 block">Exp: {formatNum(singleResult.metrics.expectancyEur)} €/op</span>
             </div>
           </div>
 
@@ -644,7 +695,7 @@ export const BacktestCenter: React.FC = () => {
             }`}>
               <div className="flex items-center gap-2 font-bold text-sm mb-1">
                 {walkForwardResult.isRobust ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-amber-400" />}
-                <span>Ratio de Eficiencia Fuera de Muestra: {walkForwardResult.efficiencyRatio}</span>
+                <span>Ratio de Eficiencia Fuera de Muestra: {formatNum(walkForwardResult.efficiencyRatio)}</span>
               </div>
               <p className="text-xs">{walkForwardResult.diagnosis}</p>
             </div>
@@ -657,19 +708,19 @@ export const BacktestCenter: React.FC = () => {
                 <div className="space-y-2 text-xs font-mono">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Retorno Total:</span>
-                    <span className="text-white font-bold">{walkForwardResult.inSampleResult.metrics.totalReturnPct}%</span>
+                    <span className="text-white font-bold">{formatPct(walkForwardResult.inSampleResult.metrics.totalReturnPct)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Sharpe Ratio:</span>
-                    <span className="text-indigo-300 font-bold">{walkForwardResult.inSampleResult.metrics.sharpeRatio}</span>
+                    <span className="text-indigo-300 font-bold">{formatNum(walkForwardResult.inSampleResult.metrics.sharpeRatio)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Max Drawdown:</span>
-                    <span className="text-rose-400 font-bold">-{walkForwardResult.inSampleResult.metrics.maxDrawdownPct}%</span>
+                    <span className="text-rose-400 font-bold">-{formatNum(walkForwardResult.inSampleResult.metrics.maxDrawdownPct)}%</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Win Rate:</span>
-                    <span className="text-slate-200 font-bold">{walkForwardResult.inSampleResult.metrics.winRatePct}%</span>
+                    <span className="text-slate-200 font-bold">{formatNum(walkForwardResult.inSampleResult.metrics.winRatePct)}%</span>
                   </div>
                 </div>
               </div>
@@ -681,19 +732,19 @@ export const BacktestCenter: React.FC = () => {
                 <div className="space-y-2 text-xs font-mono">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Retorno Total:</span>
-                    <span className="text-white font-bold">{walkForwardResult.outOfSampleResult.metrics.totalReturnPct}%</span>
+                    <span className="text-white font-bold">{formatPct(walkForwardResult.outOfSampleResult.metrics.totalReturnPct)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Sharpe Ratio:</span>
-                    <span className="text-emerald-300 font-bold">{walkForwardResult.outOfSampleResult.metrics.sharpeRatio}</span>
+                    <span className="text-emerald-300 font-bold">{formatNum(walkForwardResult.outOfSampleResult.metrics.sharpeRatio)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Max Drawdown:</span>
-                    <span className="text-rose-400 font-bold">-{walkForwardResult.outOfSampleResult.metrics.maxDrawdownPct}%</span>
+                    <span className="text-rose-400 font-bold">-{formatNum(walkForwardResult.outOfSampleResult.metrics.maxDrawdownPct)}%</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Win Rate:</span>
-                    <span className="text-slate-200 font-bold">{walkForwardResult.outOfSampleResult.metrics.winRatePct}%</span>
+                    <span className="text-slate-200 font-bold">{formatNum(walkForwardResult.outOfSampleResult.metrics.winRatePct)}%</span>
                   </div>
                 </div>
               </div>

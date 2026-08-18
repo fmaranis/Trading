@@ -22,6 +22,35 @@ export interface Signal {
 
 export type ExecutionMode = 'NEXT_OPEN' | 'SAME_CLOSE';
 
+export type DataFrequency =
+  | 'DAILY'
+  | 'WEEKLY'
+  | 'MONTHLY'
+  | 'INTRADAY'
+  | 'UNKNOWN';
+
+export interface MetricsContext {
+  frequency: DataFrequency;
+  periodsPerYear?: number;
+  riskFreeRateAnnualPct: number;
+}
+
+export type MetricsQuality =
+  | 'FULL'
+  | 'PARTIAL'
+  | 'INSUFFICIENT_DATA';
+
+export interface MetricsDiagnostics {
+  quality: MetricsQuality;
+  frequencyDetected: DataFrequency;
+  periodsPerYearUsed?: number;
+  calculatedMetrics: string[];
+  unavailableMetrics: {
+    metric: string;
+    reason: string;
+  }[];
+}
+
 export type IntrabarConflictPolicy =
   | 'CONSERVATIVE'
   | 'STOP_FIRST'
@@ -110,19 +139,29 @@ export interface BacktestMetrics {
   initialCapital: number;
   finalEquity: number;
   totalReturnPct: number;
-  annualizedReturnPct: number;
-  cagrPct: number;
+  annualizedReturnPct: number | null;
+  cagrPct: number | null;
   benchmarkTotalReturnPct: number;
-  alphaPct: number;
-  beta: number;
+  
+  // CAPM / Benchmark Relative
+  alphaPct: number | null; // Legacy alias for alphaAnnualizedPct
+  alphaAnnualizedPct: number | null;
+  beta: number | null;
+  benchmarkCorrelation: number | null;
+  rSquared: number | null;
+  informationRatio: number | null;
   
   // Risk & Volatility
-  annualizedVolatilityPct: number;
+  annualizedVolatilityPct: number | null;
   maxDrawdownPct: number;
   maxDrawdownDurationBars: number;
-  sharpeRatio: number;
-  sortinoRatio: number;
-  calmarRatio: number;
+  maxDrawdownDurationDays: number | null;
+  maxDrawdownStart?: string;
+  maxDrawdownTrough?: string;
+  maxDrawdownRecovery?: string | null;
+  sharpeRatio: number | null;
+  sortinoRatio: number | null;
+  calmarRatio: number | null;
   
   // Trade Statistics
   totalTrades: number;
@@ -130,18 +169,28 @@ export interface BacktestMetrics {
   losingTrades: number;
   winRatePct: number;
   lossRatePct: number;
-  profitFactor: number; // Gross Profit / Gross Loss
+  profitFactor: number | null; // Gross Profit / Gross Loss (null if no losing trades)
   avgTradeReturnPct: number;
   avgWinReturnPct: number;
   avgLossReturnPct: number;
-  winLossRatio: number; // Avg Win / Avg Loss
+  winLossRatio: number | null; // Avg Win / Avg Loss (null if no losing trades)
   maxConsecutiveWins: number;
   maxConsecutiveLosses: number;
   expectancyEur: number;
-  totalCommissionsPaidEur: number;
+  expectancyPct: number | null;
+  
+  // Cost breakdown
+  totalCommissionEur: number;
+  totalSlippageEur: number;
+  totalTradingCostsEur: number;
+  tradingCostsPctOfInitialCapital: number;
+  totalCommissionsPaidEur: number; // Legacy alias for totalTradingCostsEur
   
   // Exposure
   marketExposurePct: number; // % of time in market
+
+  // Quality Diagnostics
+  diagnostics: MetricsDiagnostics;
 }
 
 export interface BacktestResult {
@@ -164,11 +213,11 @@ export interface StrategyComparisonItem {
   strategyId: string;
   strategyName: string;
   totalReturnPct: number;
-  annualizedReturnPct: number;
-  sharpeRatio: number;
-  sortinoRatio: number;
+  annualizedReturnPct: number | null;
+  sharpeRatio: number | null;
+  sortinoRatio: number | null;
   maxDrawdownPct: number;
-  profitFactor: number;
+  profitFactor: number | null;
   winRatePct: number;
   totalTrades: number;
   equityCurve: { timestamp: string; equity: number }[];

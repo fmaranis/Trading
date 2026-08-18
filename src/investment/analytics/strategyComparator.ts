@@ -53,10 +53,14 @@ export class StrategyComparator {
       });
     }
 
-    // Rank by Sharpe Ratio descending
-    const ranking = [...comparisonItems].sort((a, b) => b.sharpeRatio - a.sharpeRatio);
+    // Rank by Sharpe Ratio descending (null values placed at bottom)
+    const ranking = [...comparisonItems].sort((a, b) => {
+      const sA = a.sharpeRatio !== null ? a.sharpeRatio : -Infinity;
+      const sB = b.sharpeRatio !== null ? b.sharpeRatio : -Infinity;
+      return sB - sA;
+    });
 
-    const bestBySharpe = [...comparisonItems].sort((a, b) => b.sharpeRatio - a.sharpeRatio)[0];
+    const bestBySharpe = ranking[0];
     const bestByReturn = [...comparisonItems].sort((a, b) => b.totalReturnPct - a.totalReturnPct)[0];
     const safestByDrawdown = [...comparisonItems].sort((a, b) => a.maxDrawdownPct - b.maxDrawdownPct)[0];
 

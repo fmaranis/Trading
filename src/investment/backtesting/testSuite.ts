@@ -689,6 +689,512 @@ export class FinancialTestSuite {
       results.push({ name: '25. Input Desordenado Rechazado', passed: false, message: e.message });
     }
 
+    // 26. Detección de Frecuencia Temporal (Daily, Weekly, Monthly, Unknown)
+    try {
+      const dailyCurve: EquityPoint[] = [
+        { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-02', equity: 101, cash: 101, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-05', equity: 102, cash: 102, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-06', equity: 103, cash: 103, positionMarketValue: 0, drawdownPct: 0 }
+      ];
+      const weeklyCurve: EquityPoint[] = [
+        { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-08', equity: 101, cash: 101, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-15', equity: 102, cash: 102, positionMarketValue: 0, drawdownPct: 0 }
+      ];
+      const monthlyCurve: EquityPoint[] = [
+        { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-02-01', equity: 101, cash: 101, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-03-01', equity: 102, cash: 102, positionMarketValue: 0, drawdownPct: 0 }
+      ];
+
+      const dailyFreq = FinancialMetricsCalculator.detectFrequency(dailyCurve);
+      const weeklyFreq = FinancialMetricsCalculator.detectFrequency(weeklyCurve);
+      const monthlyFreq = FinancialMetricsCalculator.detectFrequency(monthlyCurve);
+
+      const passed =
+        dailyFreq.frequency === 'DAILY' && dailyFreq.periodsPerYear === 252 &&
+        weeklyFreq.frequency === 'WEEKLY' && weeklyFreq.periodsPerYear === 52 &&
+        monthlyFreq.frequency === 'MONTHLY' && monthlyFreq.periodsPerYear === 12;
+
+      results.push({
+        name: '26. Detección Rigurosa de Frecuencia Temporal',
+        passed,
+        message: passed
+          ? `OK: Frecuencias detectadas correctamente (Daily=252, Weekly=52, Monthly=12).`
+          : `Fallo en detección: D=${dailyFreq.frequency}, W=${weeklyFreq.frequency}, M=${monthlyFreq.frequency}`
+      });
+    } catch (e: any) {
+      results.push({ name: '26. Detección de Frecuencia', passed: false, message: e.message });
+    }
+
+    // 27. Retornos Periódicos Decimales Exactos
+    try {
+      const eqCurve: EquityPoint[] = [
+        { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-02', equity: 105, cash: 105, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-03', equity: 102.9, cash: 102.9, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-04', equity: 108.045, cash: 108.045, positionMarketValue: 0, drawdownPct: 0 }
+      ];
+      const returns = FinancialMetricsCalculator.calculatePeriodicReturns(eqCurve);
+      const expected = [0.05, -0.02, 0.05];
+      const passed = returns.length === 3 && returns.every((r, idx) => Math.abs(r - expected[idx]) < 1e-6);
+
+      results.push({
+        name: '27. Retornos Periódicos Decimales Exactos',
+        passed,
+        message: passed
+          ? 'OK: Retornos periódicos calculados en formato decimal exacto (+5%, -2%, +5%).'
+          : `Fallo en retornos: ${JSON.stringify(returns)}`
+      });
+    } catch (e: any) {
+      results.push({ name: '27. Retornos Periódicos', passed: false, message: e.message });
+    }
+
+    // 28. Varianza y Desviación Típica Muestral (n-1)
+    try {
+      const vec = [0.02, -0.01, 0.04, 0.01];
+      const mean = (0.02 - 0.01 + 0.04 + 0.01) / 4; // 0.015
+      const sqDiffs = [(0.02 - 0.015) ** 2, (-0.01 - 0.015) ** 2, (0.04 - 0.015) ** 2, (0.01 - 0.015) ** 2];
+      const expectedVar = sqDiffs.reduce((a, b) => a + b, 0) / 3; // sample variance (n - 1 = 3)
+      const expectedStd = Math.sqrt(expectedVar);
+
+      const metrics = FinancialMetricsCalculator.calculateMetrics(
+        100,
+        106.12,
+        [
+          { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+          { timestamp: '2026-01-02', equity: 102, cash: 102, positionMarketValue: 0, drawdownPct: 0 },
+          { timestamp: '2026-01-03', equity: 100.98, cash: 100.98, positionMarketValue: 0, drawdownPct: 0 },
+          { timestamp: '2026-01-04', equity: 105.0192, cash: 105.0192, positionMarketValue: 0, drawdownPct: 0 },
+          { timestamp: '2026-01-05', equity: 106.069392, cash: 106.069392, positionMarketValue: 0, drawdownPct: 0 }
+        ],
+        [],
+        0,
+        0,
+        { frequency: 'DAILY', periodsPerYear: 252 }
+      );
+
+      const computedAnnualVol = metrics.annualizedVolatilityPct;
+      const expectedAnnualVol = expectedStd * Math.sqrt(252) * 100;
+      const passed = computedAnnualVol !== null && Math.abs(computedAnnualVol - expectedAnnualVol) < 0.01;
+
+      results.push({
+        name: '28. Varianza y Desviación Típica Muestral (n-1)',
+        passed,
+        message: passed
+          ? `OK: Volatilidad anualizada muestral exacta (${computedAnnualVol?.toFixed(2)}%).`
+          : `Fallo: esperado ${expectedAnnualVol}, obtenido ${computedAnnualVol}`
+      });
+    } catch (e: any) {
+      results.push({ name: '28. Varianza Muestral', passed: false, message: e.message });
+    }
+
+    // 29. Covarianza y Correlación Muestral con Benchmark Alineado
+    try {
+      const eqStrat: EquityPoint[] = [
+        { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0, benchmarkEquity: 100 },
+        { timestamp: '2026-01-02', equity: 102, cash: 102, positionMarketValue: 0, drawdownPct: 0, benchmarkEquity: 101 },
+        { timestamp: '2026-01-03', equity: 104, cash: 104, positionMarketValue: 0, drawdownPct: 0, benchmarkEquity: 102 },
+        { timestamp: '2026-01-04', equity: 106, cash: 106, positionMarketValue: 0, drawdownPct: 0, benchmarkEquity: 103 }
+      ];
+      const metrics = FinancialMetricsCalculator.calculateMetrics(
+        100,
+        106,
+        eqStrat,
+        [],
+        3,
+        0,
+        { frequency: 'DAILY', periodsPerYear: 252 }
+      );
+
+      const passed =
+        metrics.benchmarkCorrelation !== null &&
+        Math.abs(metrics.benchmarkCorrelation - 1.0) < 0.001 &&
+        metrics.rSquared !== null &&
+        Math.abs(metrics.rSquared - 1.0) < 0.001 &&
+        metrics.beta !== null &&
+        Math.abs(metrics.beta - 2.0) < 0.05;
+
+      results.push({
+        name: '29. Covarianza, Beta y Correlación Perfecta Muestral',
+        passed,
+        message: passed
+          ? `OK: Correlación = ${metrics.benchmarkCorrelation?.toFixed(2)}, R² = ${metrics.rSquared?.toFixed(2)}, Beta = ${metrics.beta?.toFixed(2)}.`
+          : `Fallo en correlación/beta: Corr=${metrics.benchmarkCorrelation}, Beta=${metrics.beta}`
+      });
+    } catch (e: any) {
+      results.push({ name: '29. Covarianza y Correlación', passed: false, message: e.message });
+    }
+
+    // 30. CAGR Basado en Timestamps Reales (Años Transcurridos)
+    try {
+      const eqCurve2Years: EquityPoint[] = [
+        { timestamp: '2024-01-01T00:00:00Z', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-01T00:00:00Z', equity: 121, cash: 121, positionMarketValue: 0, drawdownPct: 0 }
+      ];
+      const metrics = FinancialMetricsCalculator.calculateMetrics(100, 121, eqCurve2Years, []);
+      // 100 -> 121 in 2.0 years => (1.21)^(0.5) - 1 = 1.1 - 1 = 10.0%
+      const passed = metrics.cagrPct !== null && Math.abs(metrics.cagrPct - 10.0) < 0.1;
+
+      results.push({
+        name: '30. CAGR Temporal Basado en Timestamps Exactos',
+        passed,
+        message: passed
+          ? `OK: CAGR exacto calculado a partir de fechas calendario (${metrics.cagrPct?.toFixed(2)}%).`
+          : `Fallo en CAGR: ${metrics.cagrPct}`
+      });
+    } catch (e: any) {
+      results.push({ name: '30. CAGR Temporal', passed: false, message: e.message });
+    }
+
+    // 31. Sharpe Ratio con Tasa Libre de Riesgo Anualizada
+    try {
+      const eqDaily: EquityPoint[] = [
+        { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-02', equity: 101, cash: 101, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-05', equity: 102, cash: 102, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-06', equity: 103, cash: 103, positionMarketValue: 0, drawdownPct: 0 }
+      ];
+      const metrics = FinancialMetricsCalculator.calculateMetrics(100, 103, eqDaily, [], 0, 3.0, {
+        frequency: 'DAILY',
+        periodsPerYear: 252
+      });
+      const passed = metrics.sharpeRatio !== null && metrics.sharpeRatio > 0 && !isNaN(metrics.sharpeRatio);
+
+      results.push({
+        name: '31. Sharpe Ratio Anualizado con Descuento de Rf Periódico',
+        passed,
+        message: passed
+          ? `OK: Sharpe Ratio calculado con Rf periódica (${metrics.sharpeRatio?.toFixed(2)}).`
+          : `Fallo en Sharpe: ${metrics.sharpeRatio}`
+      });
+    } catch (e: any) {
+      results.push({ name: '31. Sharpe Ratio', passed: false, message: e.message });
+    }
+
+    // 32. Sortino Ratio con Downside Deviation y MAR
+    try {
+      const eqVol: EquityPoint[] = [
+        { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-02', equity: 103, cash: 103, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-03', equity: 101, cash: 101, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-04', equity: 105, cash: 105, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-05', equity: 102, cash: 102, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-06', equity: 107, cash: 107, positionMarketValue: 0, drawdownPct: 0 }
+      ];
+      const metrics = FinancialMetricsCalculator.calculateMetrics(100, 107, eqVol, [], 0, 2.0, {
+        frequency: 'DAILY',
+        periodsPerYear: 252
+      });
+      const passed = metrics.sortinoRatio !== null && metrics.sortinoRatio > 0;
+
+      results.push({
+        name: '32. Sortino Ratio con Downside Deviation Frente a MAR',
+        passed,
+        message: passed
+          ? `OK: Sortino Ratio calculado exclusivamente sobre caídas (${metrics.sortinoRatio?.toFixed(2)}).`
+          : `Fallo en Sortino: ${metrics.sortinoRatio}`
+      });
+    } catch (e: any) {
+      results.push({ name: '32. Sortino Ratio', passed: false, message: e.message });
+    }
+
+    // 33. Max Drawdown y Duración de Caída
+    try {
+      const eqDD: EquityPoint[] = [
+        { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-02', equity: 120, cash: 120, positionMarketValue: 0, drawdownPct: 0 }, // Peak
+        { timestamp: '2026-01-03', equity: 108, cash: 108, positionMarketValue: 0, drawdownPct: 10 },
+        { timestamp: '2026-01-04', equity: 96, cash: 96, positionMarketValue: 0, drawdownPct: 20 },  // Trough: (120-96)/120 = 20%
+        { timestamp: '2026-01-05', equity: 114, cash: 114, positionMarketValue: 0, drawdownPct: 5 },
+        { timestamp: '2026-01-06', equity: 130, cash: 130, positionMarketValue: 0, drawdownPct: 0 }  // Recovery
+      ];
+      const metrics = FinancialMetricsCalculator.calculateMetrics(100, 130, eqDD, []);
+      const passed =
+        Math.abs(metrics.maxDrawdownPct - 20.0) < 0.01 &&
+        metrics.maxDrawdownDurationBars === 3 &&
+        metrics.maxDrawdownStart === '2026-01-02' &&
+        metrics.maxDrawdownTrough === '2026-01-04' &&
+        metrics.maxDrawdownRecovery === '2026-01-06';
+
+      results.push({
+        name: '33. Max Drawdown y Trazabilidad de Duración/Recuperación',
+        passed,
+        message: passed
+          ? `OK: Max Drawdown = ${metrics.maxDrawdownPct}% (Pico: ${metrics.maxDrawdownStart}, Fondo: ${metrics.maxDrawdownTrough}, Recuperación: ${metrics.maxDrawdownRecovery}).`
+          : `Fallo en Max DD: ${metrics.maxDrawdownPct}%, Start: ${metrics.maxDrawdownStart}, End: ${metrics.maxDrawdownRecovery}`
+      });
+    } catch (e: any) {
+      results.push({ name: '33. Max Drawdown', passed: false, message: e.message });
+    }
+
+    // 34. Calmar Ratio (CAGR / Max DD)
+    try {
+      const eqCalmar: EquityPoint[] = [
+        { timestamp: '2025-01-01T00:00:00Z', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2025-06-01T00:00:00Z', equity: 90, cash: 90, positionMarketValue: 0, drawdownPct: 10 },
+        { timestamp: '2026-01-01T00:00:00Z', equity: 120, cash: 120, positionMarketValue: 0, drawdownPct: 0 }
+      ];
+      const metrics = FinancialMetricsCalculator.calculateMetrics(100, 120, eqCalmar, []);
+      // CAGR ~ 20%, Max DD = 10% => Calmar ~ 2.0
+      const passed = metrics.calmarRatio !== null && Math.abs(metrics.calmarRatio - 2.0) < 0.1;
+
+      results.push({
+        name: '34. Calmar Ratio (CAGR / Max Drawdown)',
+        passed,
+        message: passed
+          ? `OK: Calmar Ratio exacto (${metrics.calmarRatio?.toFixed(2)}).`
+          : `Fallo en Calmar: ${metrics.calmarRatio}`
+      });
+    } catch (e: any) {
+      results.push({ name: '34. Calmar Ratio', passed: false, message: e.message });
+    }
+
+    // 35. Profit Factor y Win/Loss Ratio con Manejo Seguro de Cero Pérdidas (Null)
+    try {
+      const winTrades: BacktestTrade[] = [
+        {
+          id: 'T1',
+          entryDate: '2026-01-01',
+          exitDate: '2026-01-02',
+          entryPrice: 100,
+          exitPrice: 110,
+          shares: 1,
+          amountInvested: 100,
+          entryCommission: 0,
+          exitCommission: 0,
+          entrySlippageEur: 0,
+          exitSlippageEur: 0,
+          totalCommission: 0,
+          totalSlippage: 0,
+          totalTradingCosts: 0,
+          grossPnlEur: 10,
+          netPnlEur: 10,
+          grossReturnPct: 10,
+          netReturnPct: 10,
+          pnlEur: 10,
+          pnlPct: 10,
+          commissionPaid: 0,
+          slippagePaid: 0,
+          returnFactor: 1.1,
+          exitReason: 'TAKE_PROFIT',
+          holdingPeriodBars: 1,
+          isWin: true,
+          intrabarConflict: false
+        }
+      ];
+      const metricsNoLoss = FinancialMetricsCalculator.calculateMetrics(100, 110, [], winTrades);
+      const passed = metricsNoLoss.profitFactor === null && metricsNoLoss.winLossRatio === null;
+
+      results.push({
+        name: '35. Profit Factor Nulo en Ausencia de Pérdidas (Sin Divisiones por Cero)',
+        passed,
+        message: passed
+          ? 'OK: Profit Factor y Win/Loss Ratio son null (no 99.9 ni Infinity) cuando no hay trades perdedores.'
+          : `Fallo: Profit Factor = ${metricsNoLoss.profitFactor}`
+      });
+    } catch (e: any) {
+      results.push({ name: '35. Profit Factor Seguro', passed: false, message: e.message });
+    }
+
+    // 36. Esperanza Matemática por Operación (Expectancy)
+    try {
+      const trades: BacktestTrade[] = [
+        {
+          id: 'T1',
+          entryDate: '2026-01-01',
+          exitDate: '2026-01-02',
+          entryPrice: 100,
+          exitPrice: 110,
+          shares: 1,
+          amountInvested: 100,
+          entryCommission: 0,
+          exitCommission: 0,
+          entrySlippageEur: 0,
+          exitSlippageEur: 0,
+          totalCommission: 0,
+          totalSlippage: 0,
+          totalTradingCosts: 0,
+          grossPnlEur: 10,
+          netPnlEur: 10,
+          grossReturnPct: 10,
+          netReturnPct: 10,
+          pnlEur: 10,
+          pnlPct: 10,
+          commissionPaid: 0,
+          slippagePaid: 0,
+          returnFactor: 1.1,
+          exitReason: 'SIGNAL',
+          holdingPeriodBars: 1,
+          isWin: true,
+          intrabarConflict: false
+        },
+        {
+          id: 'T2',
+          entryDate: '2026-01-03',
+          exitDate: '2026-01-04',
+          entryPrice: 100,
+          exitPrice: 95,
+          shares: 1,
+          amountInvested: 100,
+          entryCommission: 0,
+          exitCommission: 0,
+          entrySlippageEur: 0,
+          exitSlippageEur: 0,
+          totalCommission: 0,
+          totalSlippage: 0,
+          totalTradingCosts: 0,
+          grossPnlEur: -5,
+          netPnlEur: -5,
+          grossReturnPct: -5,
+          netReturnPct: -5,
+          pnlEur: -5,
+          pnlPct: -5,
+          commissionPaid: 0,
+          slippagePaid: 0,
+          returnFactor: 0.95,
+          exitReason: 'STOP_LOSS',
+          holdingPeriodBars: 1,
+          isWin: false,
+          intrabarConflict: false
+        }
+      ];
+      // 50% win (10€), 50% loss (5€) => Expectancy = 0.5 * 10 - 0.5 * 5 = +2.50 €
+      const metrics = FinancialMetricsCalculator.calculateMetrics(100, 105, [], trades);
+      const passed = Math.abs(metrics.expectancyEur - 2.50) < 0.01;
+
+      results.push({
+        name: '36. Esperanza Matemática por Trade (Expectancy EUR y %)',
+        passed,
+        message: passed
+          ? `OK: Esperanza matemática exacta (+${metrics.expectancyEur.toFixed(2)} € por operación).`
+          : `Fallo en Expectancy: ${metrics.expectancyEur}`
+      });
+    } catch (e: any) {
+      results.push({ name: '36. Expectancy', passed: false, message: e.message });
+    }
+
+    // 37. Desglose Integral de Costes de Trading
+    try {
+      const tradesWithCosts: BacktestTrade[] = [
+        {
+          id: 'T1',
+          entryDate: '2026-01-01',
+          exitDate: '2026-01-02',
+          entryPrice: 100.02,
+          exitPrice: 109.98,
+          shares: 1,
+          amountInvested: 100,
+          entryCommission: 0.05,
+          exitCommission: 0.05,
+          entrySlippageEur: 0.02,
+          exitSlippageEur: 0.02,
+          totalCommission: 0.10,
+          totalSlippage: 0.04,
+          totalTradingCosts: 0.14,
+          grossPnlEur: 10,
+          netPnlEur: 9.86,
+          grossReturnPct: 10,
+          netReturnPct: 9.86,
+          pnlEur: 9.86,
+          pnlPct: 9.86,
+          commissionPaid: 0.10,
+          slippagePaid: 0.04,
+          returnFactor: 1.0986,
+          exitReason: 'SIGNAL',
+          holdingPeriodBars: 1,
+          isWin: true,
+          intrabarConflict: false
+        }
+      ];
+      const metrics = FinancialMetricsCalculator.calculateMetrics(100, 109.86, [], tradesWithCosts);
+      const passed =
+        Math.abs(metrics.totalCommissionEur - 0.10) < 0.001 &&
+        Math.abs(metrics.totalSlippageEur - 0.04) < 0.001 &&
+        Math.abs(metrics.totalTradingCostsEur - 0.14) < 0.001 &&
+        Math.abs(metrics.tradingCostsPctOfInitialCapital - 0.14) < 0.001;
+
+      results.push({
+        name: '37. Desglose Integral de Costes de Trading e Impacto en Capital',
+        passed,
+        message: passed
+          ? `OK: Costes desglosados (Comisiones: ${metrics.totalCommissionEur}€, Slippage: ${metrics.totalSlippageEur}€, Total: ${metrics.totalTradingCostsEur}€).`
+          : `Fallo en costes: Comm=${metrics.totalCommissionEur}, Slip=${metrics.totalSlippageEur}`
+      });
+    } catch (e: any) {
+      results.push({ name: '37. Desglose de Costes', passed: false, message: e.message });
+    }
+
+    // 38. Jensen's Alpha Anualizado y Ratio de Información con Benchmark
+    try {
+      const eqAlpha: EquityPoint[] = [
+        { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0, benchmarkEquity: 100 },
+        { timestamp: '2026-01-02', equity: 104, cash: 104, positionMarketValue: 0, drawdownPct: 0, benchmarkEquity: 102 },
+        { timestamp: '2026-01-03', equity: 102, cash: 102, positionMarketValue: 0, drawdownPct: 0, benchmarkEquity: 101 },
+        { timestamp: '2026-01-04', equity: 108, cash: 108, positionMarketValue: 0, drawdownPct: 0, benchmarkEquity: 104 },
+        { timestamp: '2026-01-05', equity: 106, cash: 106, positionMarketValue: 0, drawdownPct: 0, benchmarkEquity: 103 },
+        { timestamp: '2026-01-06', equity: 112, cash: 112, positionMarketValue: 0, drawdownPct: 0, benchmarkEquity: 106 }
+      ];
+      const metrics = FinancialMetricsCalculator.calculateMetrics(100, 112, eqAlpha, [], 6, 2.0, {
+        frequency: 'DAILY',
+        periodsPerYear: 252
+      });
+
+      const passed = metrics.alphaAnnualizedPct !== null && metrics.informationRatio !== null;
+
+      results.push({
+        name: '38. Jensen Alpha Anualizado y Information Ratio con Benchmark',
+        passed,
+        message: passed
+          ? `OK: Alpha = ${metrics.alphaAnnualizedPct?.toFixed(2)}%, IR = ${metrics.informationRatio?.toFixed(2)}.`
+          : `Fallo en Alpha/IR: Alpha=${metrics.alphaAnnualizedPct}, IR=${metrics.informationRatio}`
+      });
+    } catch (e: any) {
+      results.push({ name: '38. Alpha e IR', passed: false, message: e.message });
+    }
+
+    // 39. Diagnóstico de Calidad de Métricas (FULL / PARTIAL / INSUFFICIENT_DATA)
+    try {
+      const shortCurve: EquityPoint[] = [
+        { timestamp: '2026-01-01', equity: 100, cash: 100, positionMarketValue: 0, drawdownPct: 0 },
+        { timestamp: '2026-01-02', equity: 101, cash: 101, positionMarketValue: 0, drawdownPct: 0 }
+      ];
+      const midCurve: EquityPoint[] = Array.from({ length: 5 }, (_, i) => ({
+        timestamp: `2026-01-0${i + 1}`,
+        equity: 100 + i,
+        cash: 100 + i,
+        positionMarketValue: 0,
+        drawdownPct: 0
+      }));
+      const fullCurve: EquityPoint[] = Array.from({ length: 20 }, (_, i) => ({
+        timestamp: `2026-01-${(i + 1).toString().padStart(2, '0')}`,
+        equity: 100 + i * 0.5,
+        cash: 100 + i * 0.5,
+        positionMarketValue: 0,
+        drawdownPct: 0
+      }));
+
+      const mShort = FinancialMetricsCalculator.calculateMetrics(100, 101, shortCurve, []);
+      const mMid = FinancialMetricsCalculator.calculateMetrics(100, 104, midCurve, []);
+      const mFull = FinancialMetricsCalculator.calculateMetrics(100, 110, fullCurve, []);
+
+      const passed =
+        mShort.diagnostics.quality === 'INSUFFICIENT_DATA' &&
+        mMid.diagnostics.quality === 'PARTIAL' &&
+        mFull.diagnostics.quality === 'FULL';
+
+      results.push({
+        name: '39. Diagnóstico de Calidad de Métricas (FULL / PARTIAL / INSUFFICIENT_DATA)',
+        passed,
+        message: passed
+          ? 'OK: Trazabilidad de calidad auditada según el tamaño de muestra y regularidad temporal.'
+          : `Fallo: Short=${mShort.diagnostics.quality}, Mid=${mMid.diagnostics.quality}, Full=${mFull.diagnostics.quality}`
+      });
+    } catch (e: any) {
+      results.push({ name: '39. Diagnóstico de Calidad', passed: false, message: e.message });
+    }
+
     return results;
   }
 }

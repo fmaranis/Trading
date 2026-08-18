@@ -64,8 +64,8 @@ export class WalkForwardEngine {
       }
     );
 
-    const inSharpe = Math.max(0.01, inSampleResult.metrics.sharpeRatio);
-    const outSharpe = outOfSampleResult.metrics.sharpeRatio;
+    const inSharpe = inSampleResult.metrics.sharpeRatio !== null ? Math.max(0.01, inSampleResult.metrics.sharpeRatio) : 0.01;
+    const outSharpe = outOfSampleResult.metrics.sharpeRatio !== null ? outOfSampleResult.metrics.sharpeRatio : 0;
     const efficiencyRatio = Number((outSharpe / inSharpe).toFixed(2));
 
     const isRobust = efficiencyRatio >= 0.50 && outOfSampleResult.metrics.totalReturnPct > -5.0;
