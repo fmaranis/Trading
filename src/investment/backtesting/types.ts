@@ -232,6 +232,74 @@ export interface WalkForwardSplit {
   efficiencyRatio?: number; // OutOfSample Sharpe / InSample Sharpe
 }
 
+export type OptimizationMetric =
+  | 'SHARPE'
+  | 'SORTINO'
+  | 'CALMAR'
+  | 'TOTAL_RETURN'
+  | 'MAX_DRAWDOWN_ADJUSTED';
+
+export interface ParameterRange {
+  name: string;
+  values: number[];
+}
+
+export interface WalkForwardConfig {
+  trainWindowBars: number;
+  testWindowBars: number;
+  stepBars: number;
+  optimizationMetric: OptimizationMetric;
+  minimumTrades?: number;
+  minimumTrainBars?: number;
+  parameterGrid: ParameterRange[];
+  isExpandingWindow?: boolean;
+}
+
+export interface WalkForwardWindowResult {
+  windowIndex: number;
+  trainStart: string;
+  trainEnd: string;
+  testStart: string;
+  testEnd: string;
+  trainBarsCount: number;
+  testBarsCount: number;
+  selectedParameters: Record<string, number>;
+  trainMetrics: BacktestMetrics;
+  testMetrics: BacktestMetrics;
+  trainResult: BacktestResult;
+  testResult: BacktestResult;
+  efficiencyRatio: number;
+  parameterEvaluationsCount: number;
+}
+
+export interface WalkForwardOptimizationResult {
+  strategyName: string;
+  config: WalkForwardConfig;
+  windows: WalkForwardWindowResult[];
+  combinedOutOfSampleEquity: EquityPoint[];
+  combinedOutOfSampleMetrics: BacktestMetrics;
+  combinedOutOfSampleTrades: BacktestTrade[];
+  averageEfficiencyRatio: number;
+  robustnessScore: number; // 0-100
+  profitableWindowsPct: number;
+  isRobust: boolean;
+  diagnosis: string;
+  parameterStability: Record<string, {
+    values: number[];
+    distinctValuesCount: number;
+    mostFrequentValue: number;
+    stabilityPct: number;
+  }>;
+}
+
+export interface HoldoutValidationResult {
+  inSampleResult: BacktestResult;
+  outOfSampleResult: BacktestResult;
+  efficiencyRatio: number;
+  isRobust: boolean;
+  diagnosis: string;
+}
+
 export class BacktestAccountingError extends Error {
   constructor(message: string) {
     super(message);

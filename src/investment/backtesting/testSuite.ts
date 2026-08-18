@@ -4,6 +4,8 @@ import { IStrategy } from '../strategies/baseStrategy';
 import { SyntheticDataGenerator } from '../data/syntheticDataGenerator';
 import { DataValidator } from '../data/validators';
 import { BacktestEngine } from './engine';
+import { WalkForwardEngine } from './walkForward';
+import { WalkForwardConfig, ParameterRange } from './types';
 import { ALL_AVAILABLE_ASSETS } from '../../data/marketData';
 import { ALL_QUANT_STRATEGIES } from '../strategies/standardStrategies';
 
@@ -1195,6 +1197,199 @@ export class FinancialTestSuite {
       results.push({ name: '39. Diagnóstico de Calidad', passed: false, message: e.message });
     }
 
+    // 40. Holdout Validation (70/30 Split) con Separación Estricta
+    try {
+      const bars = SyntheticDataGenerator.generateBars(60, { basePrice: 100, volatility: 0.01, trend: 0.001 });
+      const holdoutRes = WalkForwardEngine.runHoldoutValidation(buyHoldStrategy, bars, 0.70);
+      const passed =
+        holdoutRes.inSampleResult.equityCurve.length === 42 &&
+        holdoutRes.outOfSampleResult.equityCurve.length === 18 &&
+        typeof holdoutRes.efficiencyRatio === 'number' &&
+        typeof holdoutRes.isRobust === 'boolean';
+
+      results.push({
+        name: '40. Holdout Validation (Partición In-Sample / Out-of-Sample 70-30)',
+        passed,
+        message: passed
+          ? `OK: Holdout ejecutado con 42 barras Train y 18 barras Test (Efficiency Ratio: ${holdoutRes.efficiencyRatio}).`
+          : 'Fallo en partición de Holdout Validation.'
+      });
+    } catch (e: any) {
+      results.push({ name: '40. Holdout Validation', passed: false, message: e.message });
+    }
+
+    // 41. Generación de Rejilla de Parámetros (Cartesian Product)
+    try {
+      const grid: ParameterRange[] = [
+        { name: 'fastPeriod', values: [5, 10] },
+        { name: 'slowPeriod', values: [20, 50, 100] },
+        { name: 'threshold', values: [1.5] }
+      ];
+      const combinations = WalkForwardEngine.generateParameterCombinations(grid);
+      const passed =
+        combinations.length === 6 &&
+        combinations.every(c => 'fastPeriod' in c && 'slowPeriod' in c && 'threshold' in c);
+
+      results.push({
+        name: '41. Generación de Rejilla de Parámetros (Producto Cartesiano)',
+        passed,
+        message: passed
+          ? `OK: ${combinations.length} combinaciones generadas exactamente a partir de la rejilla.`
+          : `Fallo: se generaron ${combinations.length} combinaciones (esperadas 6).`
+      });
+    } catch (e: any) {
+      results.push({ name: '41. Rejilla Parámetros', passed: false, message: e.message });
+    }
+
+    // 42. Aislamiento Estricto de Datos: Cero Fuga de Información en WFO Train vs Test
+    try {
+      // Creamos dos series que tienen EXACTAMENTE los mismos datos en los primeros 30 compases (Train),
+      // pero datos completamente divergentes en los compases 31-45 (Test).
+      const trainPart = SyntheticDataGenerator.generateBars(30, { basePrice: 100, volatility: 0.01, trend: 0.002, seed: 123 });
+      const testPartA = SyntheticDataGenerator.generateBars(15, { basePrice: 110, volatility: 0.02, trend: 0.005, seed: 456 });
+      const testPartB = SyntheticDataGenerator.generateBars(15, { basePrice: 110, volatility: 0.05, trend: -0.01, seed: 789 });
+
+      // Ajustamos fechas correlativas para la serie B
+      const seriesA = [...trainPart, ...testPartA];
+      const seriesB = [...trainPart, ...testPartB.map((b, idx) => ({ ...b, timestamp: `2026-02-${(idx + 1).toString().padStart(2, '0')}` }))];
+
+      const rsiStrat = ALL_QUANT_STRATEGIES.find(s => s.id === 'rsi_mean_reversion') || ALL_QUANT_STRATEGIES[0];
+      const wfoCfg: WalkForwardConfig = {
+        trainWindowBars: 30,
+        testWindowBars: 15,
+        stepBars: 15,
+        optimizationMetric: 'TOTAL_RETURN',
+        minimumTrades: 0,
+        parameterGrid: [
+          { name: 'oversold', values: [20, 30, 40] },
+          { name: 'overbought', values: [60, 70, 80] }
+        ]
+      };
+
+      const resA = WalkForwardEngine.runWalkForwardOptimization(rsiStrat, seriesA, wfoCfg);
+      const resB = WalkForwardEngine.runWalkForwardOptimization(rsiStrat, seriesB, wfoCfg);
+
+      // Los parámetros seleccionados en la ventana 1 (Train) DEBEN SER IDÉNTICOS,
+      // demostrando que ningún dato de Test afectó a la optimización de Train.
+      const paramMatch = JSON.stringify(resA.windows[0].selectedParameters) === JSON.stringify(resB.windows[0].selectedParameters);
+      const trainScoreMatch = Math.abs(resA.windows[0].trainMetrics.totalReturnPct - resB.windows[0].trainMetrics.totalReturnPct) < 1e-6;
+      const testDiffers = resA.windows[0].testMetrics.totalReturnPct !== resB.windows[0].testMetrics.totalReturnPct;
+
+      const passed = paramMatch && trainScoreMatch && testDiffers;
+
+      results.push({
+        name: '42. Aislamiento Estricto de Datos: Cero Fuga de Información en WFO Train vs Test',
+        passed,
+        message: passed
+          ? 'OK: Los parámetros de Train son 100% idénticos e inmunes a cambios futuros en Test (cero lookahead bias).'
+          : 'Fallo: Hubo fuga de información entre Train y Test.'
+      });
+    } catch (e: any) {
+      results.push({ name: '42. Aislamiento WFO', passed: false, message: e.message });
+    }
+
+    // 43. Desplazamiento y Segmentación de Ventanas Rolling WFO
+    try {
+      const bars = SyntheticDataGenerator.generateBars(80, { basePrice: 100, volatility: 0.01 });
+      const wfoCfg: WalkForwardConfig = {
+        trainWindowBars: 30,
+        testWindowBars: 10,
+        stepBars: 10,
+        optimizationMetric: 'SHARPE',
+        minimumTrades: 0,
+        parameterGrid: [{ name: 'param', values: [1, 2] }]
+      };
+
+      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, wfoCfg);
+      // Con 80 barras:
+      // W1: Train [0..30], Test [30..40]
+      // W2: Train [10..40], Test [40..50]
+      // W3: Train [20..50], Test [50..60]
+      // W4: Train [30..60], Test [60..70]
+      // W5: Train [40..70], Test [70..80]
+      // Total 5 ventanas
+      const passed =
+        wfoRes.windows.length === 5 &&
+        wfoRes.windows[0].trainBarsCount === 30 &&
+        wfoRes.windows[0].testBarsCount === 10 &&
+        wfoRes.windows[4].testBarsCount === 10;
+
+      results.push({
+        name: '43. Desplazamiento Secuencial de Ventanas Rolling WFO',
+        passed,
+        message: passed
+          ? `OK: ${wfoRes.windows.length} ventanas rolling ejecutadas secuencialmente sin solapamiento en Test.`
+          : `Fallo: Se generaron ${wfoRes.windows.length} ventanas (esperadas 5).`
+      });
+    } catch (e: any) {
+      results.push({ name: '43. Desplazamiento WFO', passed: false, message: e.message });
+    }
+
+    // 44. Encadenamiento Continuo de Equity Out-of-Sample (Stitched Curve)
+    try {
+      const bars = SyntheticDataGenerator.generateBars(60, { basePrice: 100, volatility: 0.01, trend: 0.001 });
+      const wfoCfg: WalkForwardConfig = {
+        trainWindowBars: 30,
+        testWindowBars: 15,
+        stepBars: 15,
+        optimizationMetric: 'SHARPE',
+        minimumTrades: 0,
+        parameterGrid: [{ name: 'param', values: [1] }]
+      };
+
+      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, wfoCfg, { initialCapital: 10000 });
+      const stitched = wfoRes.combinedOutOfSampleEquity;
+
+      // La curva cosida debe tener puntos continuos y capital preservado
+      const hasPoints = stitched.length === 30; // 2 ventanas de 15 barras = 30 barras test
+      const finalEqConsistent = Math.abs(wfoRes.combinedOutOfSampleMetrics.finalEquity - stitched[stitched.length - 1].equity) < 0.1;
+      const passed = hasPoints && finalEqConsistent && wfoRes.combinedOutOfSampleMetrics.initialCapital === 10000;
+
+      results.push({
+        name: '44. Encadenamiento Continuo de Curva de Equity Out-of-Sample',
+        passed,
+        message: passed
+          ? `OK: Curva OOS encadenada (${stitched.length} compases, Capital final: ${wfoRes.combinedOutOfSampleMetrics.finalEquity.toFixed(2)} €).`
+          : 'Fallo en encadenamiento de curva de equity Out-of-Sample.'
+      });
+    } catch (e: any) {
+      results.push({ name: '44. Curva OOS Encadenada', passed: false, message: e.message });
+    }
+
+    // 45. Diagnóstico de Robustez y Estabilidad de Parámetros WFO
+    try {
+      const bars = SyntheticDataGenerator.generateBars(60, { basePrice: 100, volatility: 0.01 });
+      const wfoCfg: WalkForwardConfig = {
+        trainWindowBars: 30,
+        testWindowBars: 15,
+        stepBars: 15,
+        optimizationMetric: 'TOTAL_RETURN',
+        minimumTrades: 0,
+        parameterGrid: [{ name: 'dummyParam', values: [5, 10] }]
+      };
+
+      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, wfoCfg);
+      const stability = wfoRes.parameterStability['dummyParam'];
+      const passed =
+        stability !== undefined &&
+        typeof stability.stabilityPct === 'number' &&
+        typeof wfoRes.robustnessScore === 'number' &&
+        wfoRes.robustnessScore >= 0 && wfoRes.robustnessScore <= 100 &&
+        typeof wfoRes.diagnosis === 'string' &&
+        wfoRes.diagnosis.length > 0;
+
+      results.push({
+        name: '45. Estabilidad de Parámetros y Score Cuantitativo de Robustez',
+        passed,
+        message: passed
+          ? `OK: Score de Robustez = ${wfoRes.robustnessScore}/100, Estabilidad = ${stability.stabilityPct}%, Diagnóstico: "${wfoRes.diagnosis.slice(0, 40)}...".`
+          : 'Fallo en diagnóstico de robustez/estabilidad.'
+      });
+    } catch (e: any) {
+      results.push({ name: '45. Estabilidad de Parámetros', passed: false, message: e.message });
+    }
+
     return results;
   }
 }
+

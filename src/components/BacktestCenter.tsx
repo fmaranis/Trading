@@ -7,7 +7,7 @@ import { WalkForwardEngine } from '../investment/backtesting/walkForward';
 import { AssetScorer } from '../investment/analytics/assetScorer';
 import { HistoricalDataService } from '../investment/data/historicalDataService';
 import { DataSourceType } from '../investment/data/types';
-import { ExecutionMode } from '../investment/backtesting/types';
+import { ExecutionMode, OptimizationMetric, ParameterRange } from '../investment/backtesting/types';
 import { FinancialTestSuite } from '../investment/backtesting/testSuite';
 import {
   TrendingUp,
@@ -24,7 +24,10 @@ import {
   AlertCircle,
   HelpCircle,
   Database,
-  Fingerprint
+  Fingerprint,
+  RefreshCw,
+  GitBranch,
+  Target
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -51,12 +54,50 @@ export const BacktestCenter: React.FC = () => {
   const [trailingStopPct, setTrailingStopPct] = useState<number>(3.5);
   const [activeSubTab, setActiveSubTab] = useState<'single' | 'comparator' | 'walk_forward' | 'scoring' | 'tests'>('comparator');
 
+  // Walk-Forward Optimization & Validation State
+  const [wfValidationMode, setWfValidationMode] = useState<'wfo' | 'holdout'>('wfo');
+  const [wfoTrainBars, setWfoTrainBars] = useState<number>(35);
+  const [wfoTestBars, setWfoTestBars] = useState<number>(15);
+  const [wfoStepBars, setWfoStepBars] = useState<number>(15);
+  const [wfoMetric, setWfoMetric] = useState<OptimizationMetric>('SHARPE');
+  const [wfoExpanding, setWfoExpanding] = useState<boolean>(false);
+  const [wfoMinTrades, setWfoMinTrades] = useState<number>(0);
+
   const selectedAsset = useMemo(() => {
     return ALL_AVAILABLE_ASSETS.find(a => a.id === selectedAssetId) || ALL_AVAILABLE_ASSETS[0];
   }, [selectedAssetId]);
 
   const selectedStrategy = useMemo(() => {
     return ALL_QUANT_STRATEGIES.find(s => s.id === selectedStrategyId) || ALL_QUANT_STRATEGIES[0];
+  }, [selectedStrategyId]);
+
+  // Strategy default parameter grids for WFO
+  const strategyParameterGrid = useMemo<ParameterRange[]>(() => {
+    switch (selectedStrategyId) {
+      case 'ema_cross':
+        return [
+          { name: 'fastPeriod', values: [5, 10, 15] },
+          { name: 'slowPeriod', values: [20, 30, 40] }
+        ];
+      case 'rsi_mean_reversion':
+        return [
+          { name: 'oversold', values: [25, 30, 35] },
+          { name: 'overbought', values: [65, 70, 75] }
+        ];
+      case 'bollinger_mean_reversion':
+        return [
+          { name: 'period', values: [15, 20, 25] },
+          { name: 'stdDevMultiplier', values: [1.8, 2.0, 2.2] }
+        ];
+      case 'momentum_breakout':
+        return [
+          { name: 'lookbackPeriod', values: [10, 15, 20, 30] }
+        ];
+      default:
+        return [
+          { name: 'stopLossPct', values: [2, 4, 6] }
+        ];
+    }
   }, [selectedStrategyId]);
 
   const { bars: historicalBars, provenance: currentProvenance } = useMemo(() => {
@@ -106,21 +147,68 @@ export const BacktestCenter: React.FC = () => {
     );
   }, [historicalBars, selectedAsset, initialCapital, commissionPct, slippagePct, trailingStopPct, executionMode, currentProvenance]);
 
-  // Walk-Forward Analysis Result
-  const walkForwardResult = useMemo(() => {
-    return WalkForwardEngine.runWalkForwardValidation(
-      selectedStrategy,
-      historicalBars,
-      0.70,
-      {
-        initialCapital,
-        commissionPct,
-        slippagePct,
-        trailingStopPct,
-        executionMode
-      }
-    );
+  // Holdout Validation (70/30 In-Sample vs Out-of-Sample Split)
+  const holdoutResult = useMemo(() => {
+    try {
+      return WalkForwardEngine.runHoldoutValidation(
+        selectedStrategy,
+        historicalBars,
+        0.70,
+        {
+          initialCapital,
+          commissionPct,
+          slippagePct,
+          trailingStopPct,
+          executionMode
+        }
+      );
+    } catch {
+      return null;
+    }
   }, [selectedStrategy, historicalBars, initialCapital, commissionPct, slippagePct, trailingStopPct, executionMode]);
+
+  // Quantitative Walk-Forward Optimization (Rolling/Expanding Windows)
+  const wfoResult = useMemo(() => {
+    try {
+      return WalkForwardEngine.runWalkForwardOptimization(
+        selectedStrategy,
+        historicalBars,
+        {
+          trainWindowBars: wfoTrainBars,
+          testWindowBars: wfoTestBars,
+          stepBars: wfoStepBars,
+          optimizationMetric: wfoMetric,
+          minimumTrades: wfoMinTrades,
+          parameterGrid: strategyParameterGrid,
+          isExpandingWindow: wfoExpanding
+        },
+        {
+          initialCapital,
+          commissionPct,
+          slippagePct,
+          trailingStopPct,
+          executionMode
+        }
+      );
+    } catch {
+      return null;
+    }
+  }, [
+    selectedStrategy,
+    historicalBars,
+    wfoTrainBars,
+    wfoTestBars,
+    wfoStepBars,
+    wfoMetric,
+    wfoMinTrades,
+    strategyParameterGrid,
+    wfoExpanding,
+    initialCapital,
+    commissionPct,
+    slippagePct,
+    trailingStopPct,
+    executionMode
+  ]);
 
   // Multi-Factor Asset Scores
   const assetScores = useMemo(() => {
@@ -678,77 +766,460 @@ export const BacktestCenter: React.FC = () => {
         </div>
       )}
 
-      {/* VIEW 3: WALK-FORWARD VALIDATION */}
+      {/* VIEW 3: WALK-FORWARD OPTIMIZATION & HOLDOUT VALIDATION */}
       {activeSubTab === 'walk_forward' && (
-        <div className="space-y-5">
+        <div className="space-y-6">
+          {/* Header & Sub-Mode Switcher */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <ShieldAlert className="w-5 h-5 text-indigo-400" />
-              <h3 className="font-bold text-base text-white">Análisis Walk-Forward & Test Fuera de Muestra (Out-of-Sample)</h3>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              Para proteger tu capital de la ilusión estadística (*curve fitting* o sesgo de sobreoptimización), dividimos la serie histórica en dos bloques estancos: <strong>70% In-Sample (Entrenamiento)</strong> y <strong>30% Out-of-Sample (Prueba Ciega)</strong>.
-            </p>
-
-            <div className={`p-4 rounded-xl border mb-5 ${
-              walkForwardResult.isRobust ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200' : 'bg-amber-950/30 border-amber-500/40 text-amber-200'
-            }`}>
-              <div className="flex items-center gap-2 font-bold text-sm mb-1">
-                {walkForwardResult.isRobust ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-amber-400" />}
-                <span>Ratio de Eficiencia Fuera de Muestra: {formatNum(walkForwardResult.efficiencyRatio)}</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-indigo-400" />
+                  <h3 className="font-bold text-base text-white">Validación Cuantitativa & Walk-Forward</h3>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Protección institucional contra sobreajuste (*curve fitting*): optimización estricta en Train con parámetros congelados en Test ciego.
+                </p>
               </div>
-              <p className="text-xs">{walkForwardResult.diagnosis}</p>
+
+              {/* Mode Selector */}
+              <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                <button
+                  onClick={() => setWfValidationMode('wfo')}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                    wfValidationMode === 'wfo'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Walk-Forward Optimization (WFO)
+                </button>
+                <button
+                  onClick={() => setWfValidationMode('holdout')}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                    wfValidationMode === 'holdout'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Holdout Validation (70/30)
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
-                <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider block mb-2">
-                  1. Periodo In-Sample (70% Datos)
-                </span>
-                <div className="space-y-2 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Retorno Total:</span>
-                    <span className="text-white font-bold">{formatPct(walkForwardResult.inSampleResult.metrics.totalReturnPct)}</span>
+            {/* WFO CONFIGURATION BAR */}
+            {wfValidationMode === 'wfo' && (
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-4 mb-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-indigo-300">
+                  <Sliders className="w-4 h-4" />
+                  <span>Configuración de Ventanas y Rejilla de Optimización</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Train Bars (IS)</label>
+                    <input
+                      type="number"
+                      min={15}
+                      max={60}
+                      step={5}
+                      value={wfoTrainBars}
+                      onChange={(e) => setWfoTrainBars(Math.max(15, Number(e.target.value)))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Sharpe Ratio:</span>
-                    <span className="text-indigo-300 font-bold">{formatNum(walkForwardResult.inSampleResult.metrics.sharpeRatio)}</span>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Test Bars (OOS)</label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={30}
+                      step={5}
+                      value={wfoTestBars}
+                      onChange={(e) => setWfoTestBars(Math.max(5, Number(e.target.value)))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Max Drawdown:</span>
-                    <span className="text-rose-400 font-bold">-{formatNum(walkForwardResult.inSampleResult.metrics.maxDrawdownPct)}%</span>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Paso (Step Bars)</label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={30}
+                      step={5}
+                      value={wfoStepBars}
+                      onChange={(e) => setWfoStepBars(Math.max(5, Number(e.target.value)))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Win Rate:</span>
-                    <span className="text-slate-200 font-bold">{formatNum(walkForwardResult.inSampleResult.metrics.winRatePct)}%</span>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Métrica Objetivo</label>
+                    <select
+                      value={wfoMetric}
+                      onChange={(e) => setWfoMetric(e.target.value as OptimizationMetric)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs"
+                    >
+                      <option value="SHARPE">Sharpe Ratio</option>
+                      <option value="SORTINO">Sortino Ratio</option>
+                      <option value="CALMAR">Calmar Ratio</option>
+                      <option value="TOTAL_RETURN">Retorno Total (%)</option>
+                      <option value="MAX_DRAWDOWN_ADJUSTED">Retorno / Max DD</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Tipo de Ventana</label>
+                    <select
+                      value={wfoExpanding ? 'expanding' : 'rolling'}
+                      onChange={(e) => setWfoExpanding(e.target.value === 'expanding')}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs"
+                    >
+                      <option value="rolling">Rolling (Deslizante)</option>
+                      <option value="expanding">Expanding (Acumulativa)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Min Trades / Ventana</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      value={wfoMinTrades}
+                      onChange={(e) => setWfoMinTrades(Math.max(0, Number(e.target.value)))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Grid preview badges */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800 text-[11px]">
+                  <span className="text-slate-400">Rejilla activa para {selectedStrategy.name}:</span>
+                  {strategyParameterGrid.map((p) => (
+                    <span key={p.name} className="px-2 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono text-[10px] border border-slate-700">
+                      {p.name}: [{p.values.join(', ')}]
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* WFO RESULTS SECTION */}
+            {wfValidationMode === 'wfo' && wfoResult && (
+              <div className="space-y-5">
+                {/* Robustness Master Card */}
+                <div className={`p-4 rounded-xl border ${
+                  wfoResult.isRobust
+                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
+                    : 'bg-amber-950/30 border-amber-500/40 text-amber-200'
+                }`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2">
+                      {wfoResult.isRobust ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                      )}
+                      <div>
+                        <span className="font-bold text-sm text-white">Score de Robustez Cuantitativa: </span>
+                        <span className="font-mono font-bold text-base text-indigo-300">{wfoResult.robustnessScore}/100</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs font-mono">
+                      <span>WFE Ratio: <strong className="text-white">{formatNum(wfoResult.averageEfficiencyRatio)}</strong></span>
+                      <span>Ventanas Ganadoras: <strong className="text-white">{wfoResult.profitableWindowsPct}%</strong> ({wfoResult.windows.filter(w => w.testMetrics.totalReturnPct > 0).length}/{wfoResult.windows.length})</span>
+                    </div>
+                  </div>
+                  <p className="text-xs leading-relaxed">{wfoResult.diagnosis}</p>
+                </div>
+
+                {/* Stitched Out-of-Sample KPI Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                    <span className="text-[10px] uppercase text-slate-400 block">Patrimonio OOS</span>
+                    <span className="text-base font-bold font-mono text-white">{formatNum(wfoResult.combinedOutOfSampleMetrics.finalEquity)} €</span>
+                    <span className={`text-[10px] block font-mono ${wfoResult.combinedOutOfSampleMetrics.totalReturnPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {formatPct(wfoResult.combinedOutOfSampleMetrics.totalReturnPct)}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                    <span className="text-[10px] uppercase text-slate-400 block">CAGR OOS</span>
+                    <span className={`text-base font-bold font-mono ${wfoResult.combinedOutOfSampleMetrics.cagrPct !== null && wfoResult.combinedOutOfSampleMetrics.cagrPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {formatPct(wfoResult.combinedOutOfSampleMetrics.cagrPct)}
+                    </span>
+                    <span className="text-[10px] text-slate-400 block">Tiempo real</span>
+                  </div>
+
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                    <span className="text-[10px] uppercase text-slate-400 block">Sharpe OOS</span>
+                    <span className="text-base font-bold font-mono text-indigo-400">{formatNum(wfoResult.combinedOutOfSampleMetrics.sharpeRatio)}</span>
+                    <span className="text-[10px] text-slate-400 block">Vol: {formatPct(wfoResult.combinedOutOfSampleMetrics.annualizedVolatilityPct, 1, false)}</span>
+                  </div>
+
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                    <span className="text-[10px] uppercase text-slate-400 block">Sortino OOS</span>
+                    <span className="text-base font-bold font-mono text-indigo-300">{formatNum(wfoResult.combinedOutOfSampleMetrics.sortinoRatio)}</span>
+                    <span className="text-[10px] text-slate-400 block">MAR = Rf</span>
+                  </div>
+
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                    <span className="text-[10px] uppercase text-slate-400 block">Calmar OOS</span>
+                    <span className="text-base font-bold font-mono text-cyan-400">{formatNum(wfoResult.combinedOutOfSampleMetrics.calmarRatio)}</span>
+                    <span className="text-[10px] text-slate-400 block">CAGR / MaxDD</span>
+                  </div>
+
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                    <span className="text-[10px] uppercase text-slate-400 block">Max DD OOS</span>
+                    <span className="text-base font-bold font-mono text-rose-400">-{formatNum(wfoResult.combinedOutOfSampleMetrics.maxDrawdownPct)}%</span>
+                    <span className="text-[10px] text-slate-400 block">{wfoResult.combinedOutOfSampleMetrics.maxDrawdownDurationBars} barras</span>
+                  </div>
+
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                    <span className="text-[10px] uppercase text-slate-400 block">Win Rate OOS</span>
+                    <span className="text-base font-bold font-mono text-emerald-400">{formatNum(wfoResult.combinedOutOfSampleMetrics.winRatePct)}%</span>
+                    <span className="text-[10px] text-slate-400 block">{wfoResult.combinedOutOfSampleMetrics.winningTrades} / {wfoResult.combinedOutOfSampleMetrics.totalTrades}</span>
+                  </div>
+
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+                    <span className="text-[10px] uppercase text-slate-400 block">Costes Fricción</span>
+                    <span className="text-base font-bold font-mono text-amber-300">{formatNum(wfoResult.combinedOutOfSampleMetrics.totalTradingCostsEur)} €</span>
+                    <span className="text-[10px] text-slate-400 block">{formatNum(wfoResult.combinedOutOfSampleMetrics.tradingCostsPctOfInitialCapital)}% cap</span>
+                  </div>
+                </div>
+
+                {/* Stitched Out-of-Sample Equity Curve vs Benchmark */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Curva de Equity Fuera de Muestra Encadenada (Stitched OOS Track Record)
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Resultados estrictamente fuera de muestra de todas las ventanas concatenadas sin fuga de datos.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="flex items-center gap-1 text-indigo-400">
+                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span> Estrategia WFO (OOS)
+                      </span>
+                      <span className="flex items-center gap-1 text-slate-500">
+                        <span className="w-2.5 h-2.5 rounded-full bg-slate-600 inline-block"></span> Benchmark
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={wfoResult.combinedOutOfSampleEquity} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                        <XAxis dataKey="timestamp" stroke="#64748b" tick={{ fontSize: 10 }} />
+                        <YAxis stroke="#64748b" tick={{ fontSize: 10 }} domain={['dataMin - 2', 'dataMax + 2']} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }}
+                          formatter={(val: number) => [`${val.toFixed(2)} €`, 'Patrimonio']}
+                        />
+                        <Line type="monotone" dataKey="equity" stroke="#6366f1" strokeWidth={2.5} dot={false} name="Estrategia WFO" />
+                        <Line type="monotone" dataKey="benchmarkEquity" stroke="#64748b" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Benchmark" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Window-by-Window Execution Table */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Auditoría Ventana por Ventana (Train vs Test OOS)
+                    </h4>
+                    <span className="text-xs text-slate-400 font-mono">{wfoResult.windows.length} Ventanas Ejecutadas</span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-mono">
+                        <tr>
+                          <th className="py-2 px-3">Ventana</th>
+                          <th className="py-2 px-3">Periodo Train (IS)</th>
+                          <th className="py-2 px-3">Periodo Test (OOS)</th>
+                          <th className="py-2 px-3">Parámetros Seleccionados</th>
+                          <th className="py-2 px-3 text-right">Train Sharpe</th>
+                          <th className="py-2 px-3 text-right">Test OOS Sharpe</th>
+                          <th className="py-2 px-3 text-right">Eficiencia (WFE)</th>
+                          <th className="py-2 px-3 text-right">Retorno OOS</th>
+                          <th className="py-2 px-3 text-right">Trades OOS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-mono">
+                        {wfoResult.windows.map((w) => (
+                          <tr key={w.windowIndex} className="hover:bg-slate-800/30">
+                            <td className="py-2.5 px-3 font-bold text-slate-300">W{w.windowIndex}</td>
+                            <td className="py-2.5 px-3 text-slate-400 text-[11px] font-sans">
+                              {w.trainStart} → {w.trainEnd} ({w.trainBarsCount}b)
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-300 text-[11px] font-sans">
+                              {w.testStart} → {w.testEnd} ({w.testBarsCount}b)
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="px-2 py-0.5 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-800/50 text-[10px]">
+                                {Object.entries(w.selectedParameters).map(([k, v]) => `${k}=${v}`).join(', ')}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-indigo-300">{formatNum(w.trainMetrics.sharpeRatio)}</td>
+                            <td className={`py-2.5 px-3 text-right font-bold ${
+                              (w.testMetrics.sharpeRatio ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {formatNum(w.testMetrics.sharpeRatio)}
+                            </td>
+                            <td className={`py-2.5 px-3 text-right font-bold ${
+                              w.efficiencyRatio >= 0.5 ? 'text-emerald-400' : 'text-amber-400'
+                            }`}>
+                              {formatNum(w.efficiencyRatio)}
+                            </td>
+                            <td className={`py-2.5 px-3 text-right font-bold ${
+                              w.testMetrics.totalReturnPct >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {formatPct(w.testMetrics.totalReturnPct)}
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-slate-400">{w.testMetrics.totalTrades}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Parameter Stability Analysis */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-2">
+                    Estabilidad Temporal de Parámetros
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mb-3">
+                    Mide si los parámetros óptimos se mantienen estables a lo largo del tiempo o si mutan drásticamente entre ventanas consecutivas.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {Object.entries(wfoResult.parameterStability).map(([paramName, stat]) => {
+                      const s = stat as {
+                        values: number[];
+                        distinctValuesCount: number;
+                        mostFrequentValue: number;
+                        stabilityPct: number;
+                      };
+                      return (
+                        <div key={paramName} className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-mono text-xs font-bold text-indigo-300">{paramName}</span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                              s.stabilityPct >= 60 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                            }`}>
+                              Estabilidad: {s.stabilityPct}%
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 space-y-1 mt-2 font-mono">
+                            <div>Valor Más Frecuente: <strong className="text-white">{s.mostFrequentValue}</strong></div>
+                            <div>Variedad de Valores: <strong className="text-white">{s.distinctValuesCount}</strong></div>
+                            <div className="text-[10px] text-slate-500 truncate">Secuencia: [{s.values.join(', ')}]</div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
+            )}
 
-              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
-                <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider block mb-2">
-                  2. Periodo Out-of-Sample Ciego (30% Datos)
-                </span>
-                <div className="space-y-2 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Retorno Total:</span>
-                    <span className="text-white font-bold">{formatPct(walkForwardResult.outOfSampleResult.metrics.totalReturnPct)}</span>
+            {/* WFO INSUFFICIENT DATA ALERT */}
+            {wfValidationMode === 'wfo' && !wfoResult && (
+              <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/40 text-amber-200 text-xs">
+                Se requieren más barras históricas ({historicalBars.length} disponibles) para la configuración actual de Train ({wfoTrainBars}) + Test ({wfoTestBars}). Reduce el tamaño de Train/Test o aumenta el total de barras en el panel lateral.
+              </div>
+            )}
+
+            {/* HOLDOUT VALIDATION SECTION */}
+            {wfValidationMode === 'holdout' && holdoutResult && (
+              <div className="space-y-5">
+                <div className={`p-4 rounded-xl border ${
+                  holdoutResult.isRobust ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200' : 'bg-amber-950/30 border-amber-500/40 text-amber-200'
+                }`}>
+                  <div className="flex items-center gap-2 font-bold text-sm mb-1">
+                    {holdoutResult.isRobust ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-amber-400" />}
+                    <span>Ratio de Eficiencia Holdout Fuera de Muestra: {formatNum(holdoutResult.efficiencyRatio)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Sharpe Ratio:</span>
-                    <span className="text-emerald-300 font-bold">{formatNum(walkForwardResult.outOfSampleResult.metrics.sharpeRatio)}</span>
+                  <p className="text-xs">{holdoutResult.diagnosis}</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+                    <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider block mb-2">
+                      1. Periodo In-Sample (70% Datos)
+                    </span>
+                    <div className="space-y-2 text-xs font-mono">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Retorno Total:</span>
+                        <span className="text-white font-bold">{formatPct(holdoutResult.inSampleResult.metrics.totalReturnPct)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">CAGR:</span>
+                        <span className="text-slate-300 font-bold">{formatPct(holdoutResult.inSampleResult.metrics.cagrPct)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Sharpe Ratio:</span>
+                        <span className="text-indigo-300 font-bold">{formatNum(holdoutResult.inSampleResult.metrics.sharpeRatio)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Sortino Ratio:</span>
+                        <span className="text-indigo-200 font-bold">{formatNum(holdoutResult.inSampleResult.metrics.sortinoRatio)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Max Drawdown:</span>
+                        <span className="text-rose-400 font-bold">-{formatNum(holdoutResult.inSampleResult.metrics.maxDrawdownPct)}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Win Rate:</span>
+                        <span className="text-slate-200 font-bold">{formatNum(holdoutResult.inSampleResult.metrics.winRatePct)}%</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Max Drawdown:</span>
-                    <span className="text-rose-400 font-bold">-{formatNum(walkForwardResult.outOfSampleResult.metrics.maxDrawdownPct)}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Win Rate:</span>
-                    <span className="text-slate-200 font-bold">{formatNum(walkForwardResult.outOfSampleResult.metrics.winRatePct)}%</span>
+
+                  <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+                    <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider block mb-2">
+                      2. Periodo Out-of-Sample Ciego (30% Datos)
+                    </span>
+                    <div className="space-y-2 text-xs font-mono">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Retorno Total:</span>
+                        <span className="text-white font-bold">{formatPct(holdoutResult.outOfSampleResult.metrics.totalReturnPct)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">CAGR:</span>
+                        <span className="text-slate-300 font-bold">{formatPct(holdoutResult.outOfSampleResult.metrics.cagrPct)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Sharpe Ratio:</span>
+                        <span className="text-emerald-300 font-bold">{formatNum(holdoutResult.outOfSampleResult.metrics.sharpeRatio)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Sortino Ratio:</span>
+                        <span className="text-emerald-200 font-bold">{formatNum(holdoutResult.outOfSampleResult.metrics.sortinoRatio)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Max Drawdown:</span>
+                        <span className="text-rose-400 font-bold">-{formatNum(holdoutResult.outOfSampleResult.metrics.maxDrawdownPct)}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Win Rate:</span>
+                        <span className="text-slate-200 font-bold">{formatNum(holdoutResult.outOfSampleResult.metrics.winRatePct)}%</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

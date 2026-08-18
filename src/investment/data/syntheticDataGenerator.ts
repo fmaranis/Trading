@@ -206,4 +206,15 @@ export class SyntheticDataGenerator {
 
     return { bars, provenance };
   }
+
+  /**
+   * Helper to generate a quick array of valid synthetic price bars for backtests and test suites.
+   */
+  public static generateBars(
+    totalBars: number = 60,
+    opts: { basePrice?: number; volatility?: number; trend?: number; seed?: number } = {}
+  ): PriceBar[] {
+    const { basePrice = 100, volatility = 15, trend = 8, seed = 42 } = opts;
+    return this.generateGeometricBrownianTrajectory(basePrice, trend, volatility, { totalBars, seed }).bars;
+  }
 }
