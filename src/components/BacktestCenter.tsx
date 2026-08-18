@@ -7,6 +7,7 @@ import { WalkForwardEngine } from '../investment/backtesting/walkForward';
 import { AssetScorer } from '../investment/analytics/assetScorer';
 import { HistoricalDataService } from '../investment/data/historicalDataService';
 import { DataSourceType } from '../investment/data/types';
+import { ExecutionMode } from '../investment/backtesting/types';
 import { FinancialTestSuite } from '../investment/backtesting/testSuite';
 import {
   TrendingUp,
@@ -42,6 +43,7 @@ export const BacktestCenter: React.FC = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<string>('vanguard-msci-world');
   const [selectedStrategyId, setSelectedStrategyId] = useState<string>('momentum_breakout');
   const [dataMode, setDataMode] = useState<DataSourceType>('SYNTHETIC');
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>('NEXT_OPEN');
   const [customSeed, setCustomSeed] = useState<number>(42);
   const [initialCapital, setInitialCapital] = useState<number>(100.0);
   const [commissionPct, setCommissionPct] = useState<number>(0.05);
@@ -78,12 +80,13 @@ export const BacktestCenter: React.FC = () => {
         initialCapital,
         commissionPct,
         slippagePct,
-        trailingStopPct
+        trailingStopPct,
+        executionMode
       },
       undefined,
       currentProvenance
     );
-  }, [selectedStrategy, historicalBars, selectedAsset, initialCapital, commissionPct, slippagePct, trailingStopPct, currentProvenance]);
+  }, [selectedStrategy, historicalBars, selectedAsset, initialCapital, commissionPct, slippagePct, trailingStopPct, executionMode, currentProvenance]);
 
   // Strategy Comparison Results
   const comparisonResults = useMemo(() => {
@@ -95,12 +98,13 @@ export const BacktestCenter: React.FC = () => {
         initialCapital,
         commissionPct,
         slippagePct,
-        trailingStopPct
+        trailingStopPct,
+        executionMode
       },
       undefined,
       currentProvenance
     );
-  }, [historicalBars, selectedAsset, initialCapital, commissionPct, slippagePct, trailingStopPct, currentProvenance]);
+  }, [historicalBars, selectedAsset, initialCapital, commissionPct, slippagePct, trailingStopPct, executionMode, currentProvenance]);
 
   // Walk-Forward Analysis Result
   const walkForwardResult = useMemo(() => {
@@ -112,10 +116,11 @@ export const BacktestCenter: React.FC = () => {
         initialCapital,
         commissionPct,
         slippagePct,
-        trailingStopPct
+        trailingStopPct,
+        executionMode
       }
     );
-  }, [selectedStrategy, historicalBars, initialCapital, commissionPct, slippagePct, trailingStopPct]);
+  }, [selectedStrategy, historicalBars, initialCapital, commissionPct, slippagePct, trailingStopPct, executionMode]);
 
   // Multi-Factor Asset Scores
   const assetScores = useMemo(() => {
@@ -203,10 +208,23 @@ export const BacktestCenter: React.FC = () => {
                 <option value="STATIC_REFERENCE">STATIC_REFERENCE (Hitos Mensuales)</option>
               </select>
             </div>
+
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase font-semibold block mb-0.5">Modo de Ejecución</label>
+              <select
+                id="select-backtest-execution-mode"
+                value={executionMode}
+                onChange={e => setExecutionMode(e.target.value as ExecutionMode)}
+                className="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono"
+              >
+                <option value="NEXT_OPEN">NEXT_OPEN (Señal t Close → Ejecución t+1 Open)</option>
+                <option value="SAME_CLOSE">SAME_CLOSE (Experimental · Mismo Close)</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Data Provenance Badge */}
+        {/* Data Provenance & Execution Mode Badge */}
         <div className="mt-3 py-1.5 px-3 bg-slate-950/80 border border-slate-800/80 rounded-xl flex flex-wrap items-center justify-between gap-2 text-[11px]">
           <div className="flex items-center gap-2 text-slate-300">
             <Database className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
@@ -218,6 +236,13 @@ export const BacktestCenter: React.FC = () => {
             </span>
           </div>
           <div className="flex items-center gap-2 text-slate-400 font-mono text-[10px]">
+            <span className={`px-2 py-0.5 rounded border ${
+              executionMode === 'NEXT_OPEN'
+                ? 'bg-indigo-950/60 text-indigo-300 border-indigo-500/30'
+                : 'bg-amber-950/60 text-amber-300 border-amber-500/30'
+            }`}>
+              Modo: {executionMode} {executionMode === 'SAME_CLOSE' ? '(Experimental)' : '(Estricto Anti-Lookahead)'}
+            </span>
             {currentProvenance.seed !== undefined && (
               <span className="bg-indigo-950/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30 flex items-center gap-1">
                 <Fingerprint className="w-3 h-3" />
@@ -548,23 +573,35 @@ export const BacktestCenter: React.FC = () => {
                   <thead className="bg-slate-950/70 text-slate-400 border-b border-slate-800 text-[11px] uppercase">
                     <tr>
                       <th className="py-2 px-3">ID</th>
-                      <th className="py-2 px-3">Entrada</th>
-                      <th className="py-2 px-3">Salida</th>
-                      <th className="py-2 px-3">P. Compra</th>
-                      <th className="py-2 px-3">P. Venta</th>
+                      <th className="py-2 px-3">Señal Compra (t)</th>
+                      <th className="py-2 px-3">Ejecución Compra (t+1)</th>
+                      <th className="py-2 px-3">Señal Venta</th>
+                      <th className="py-2 px-3">Ejecución Venta</th>
                       <th className="py-2 px-3">Resultado</th>
                       <th className="py-2 px-3">Motivo Salida</th>
-                      <th className="py-2 px-3 text-right">Comisión</th>
+                      <th className="py-2 px-3 text-right">Costes</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/50">
                     {singleResult.trades.map(t => (
                       <tr key={t.id} className="hover:bg-slate-800/30">
                         <td className="py-2.5 px-3 text-slate-400">{t.id}</td>
-                        <td className="py-2.5 px-3 text-slate-300">{t.entryDate}</td>
-                        <td className="py-2.5 px-3 text-slate-300">{t.exitDate}</td>
-                        <td className="py-2.5 px-3 text-slate-300">{t.entryPrice.toFixed(2)} €</td>
-                        <td className="py-2.5 px-3 text-slate-300">{t.exitPrice.toFixed(2)} €</td>
+                        <td className="py-2.5 px-3">
+                          <span className="text-slate-300 block">{t.signalDate || t.entryDate}</span>
+                          <span className="text-[10px] text-slate-500 block">Close: {(t.signalPrice ?? t.entryPrice).toFixed(2)} €</span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="text-slate-200 font-semibold block">{t.entryDate}</span>
+                          <span className="text-[10px] text-indigo-400 block">Open: {t.entryPrice.toFixed(2)} €</span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="text-slate-300 block">{t.exitSignalDate || t.exitDate}</span>
+                          <span className="text-[10px] text-slate-500 block">Close: {(t.exitSignalPrice ?? t.exitPrice).toFixed(2)} €</span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="text-slate-200 font-semibold block">{t.exitDate}</span>
+                          <span className="text-[10px] text-indigo-400 block">Open: {t.exitPrice.toFixed(2)} €</span>
+                        </td>
                         <td className={`py-2.5 px-3 font-bold ${t.pnlEur >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                           {t.pnlEur >= 0 ? '+' : ''}{t.pnlEur.toFixed(2)} € ({t.pnlPct >= 0 ? '+' : ''}{t.pnlPct.toFixed(1)}%)
                         </td>

@@ -262,6 +262,77 @@ export class FinancialTestSuite {
       results.push({ name: '12. Métricas de Ratio: WinRate (50%) & Profit Factor (2.0)', passed: false, message: e.message });
     }
 
+    // 13. Verificación de Modo NEXT_OPEN (Señal t Close → Ejecución t+1 Open)
+    try {
+      const customBars: PriceBar[] = [
+        { timestamp: '2026-01-01', open: 100, high: 105, low: 95, close: 102, volume: 1000 },
+        { timestamp: '2026-01-02', open: 108, high: 112, low: 107, close: 110, volume: 1200 },
+        { timestamp: '2026-01-03', open: 111, high: 115, low: 109, close: 112, volume: 1100 }
+      ];
+
+      // BuyAndHold emits BUY signal on bar 0 (2026-01-01)
+      const resNextOpen = BacktestEngine.runBacktest(
+        ALL_QUANT_STRATEGIES[0],
+        customBars,
+        'TEST_ASSET',
+        'Test Asset',
+        { executionMode: 'NEXT_OPEN', commissionPct: 0, slippagePct: 0 }
+      );
+
+      const trade = resNextOpen.trades[0];
+      const correctSignalDate = trade?.signalDate === '2026-01-01';
+      const correctEntryDate = trade?.entryDate === '2026-01-02';
+      const correctEntryPrice = trade?.entryPrice === 108; // Bar 1 open price
+      const passed = Boolean(
+        resNextOpen.executionMode === 'NEXT_OPEN' &&
+        trade &&
+        correctSignalDate &&
+        correctEntryDate &&
+        correctEntryPrice
+      );
+
+      results.push({
+        name: '13. Ejecución Estricta NEXT_OPEN (Señal t Close → Ejecución t+1 Open)',
+        passed,
+        message: passed
+          ? `OK: Señal emitida en ${trade?.signalDate} (Close 102€) ejecutada en ${trade?.entryDate} a precio Open (${trade?.entryPrice}€).`
+          : `Fallo: Señal o ejecución incorrecta (${trade?.signalDate} -> ${trade?.entryDate} a ${trade?.entryPrice}€)`
+      });
+    } catch (e: any) {
+      results.push({ name: '13. Ejecución Estricta NEXT_OPEN', passed: false, message: e.message });
+    }
+
+    // 14. Verificación de Modo SAME_CLOSE (Experimental)
+    try {
+      const customBars: PriceBar[] = [
+        { timestamp: '2026-01-01', open: 100, high: 105, low: 95, close: 102, volume: 1000 },
+        { timestamp: '2026-01-02', open: 108, high: 112, low: 107, close: 110, volume: 1200 }
+      ];
+
+      const resSameClose = BacktestEngine.runBacktest(
+        ALL_QUANT_STRATEGIES[0],
+        customBars,
+        'TEST_ASSET',
+        'Test Asset',
+        { executionMode: 'SAME_CLOSE', commissionPct: 0, slippagePct: 0 }
+      );
+
+      const trade = resSameClose.trades[0];
+      const isSameDate = trade?.entryDate === '2026-01-01';
+      const isSamePrice = trade?.entryPrice === 102; // Bar 0 close
+      const passed = resSameClose.executionMode === 'SAME_CLOSE' && isSameDate && isSamePrice;
+
+      results.push({
+        name: '14. Modo Experimental SAME_CLOSE (Mismo Close)',
+        passed,
+        message: passed
+          ? 'OK: Modo SAME_CLOSE marcado explícitamente en BacktestResult y ejecutado en Close.'
+          : 'Fallo en modo SAME_CLOSE.'
+      });
+    } catch (e: any) {
+      results.push({ name: '14. Modo Experimental SAME_CLOSE', passed: false, message: e.message });
+    }
+
     return results;
   }
 }

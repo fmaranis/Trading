@@ -20,6 +20,16 @@ export interface Signal {
   metadata?: Record<string, any>;
 }
 
+export type ExecutionMode = 'NEXT_OPEN' | 'SAME_CLOSE';
+
+export interface PendingOrder {
+  type: 'BUY' | 'SELL';
+  signalTimestamp: string;
+  signalPrice: number;
+  reason?: string;
+  triggerReason?: 'SIGNAL' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'TRAILING_STOP' | 'END_OF_DATA';
+}
+
 export interface BacktestConfig {
   initialCapital: number;
   commissionPct: number; // e.g. 0.1 for 0.1%
@@ -29,13 +39,18 @@ export interface BacktestConfig {
   stopLossPct?: number; // Optional stop loss %
   takeProfitPct?: number; // Optional take profit %
   trailingStopPct?: number; // Optional trailing stop %
+  executionMode: ExecutionMode;
 }
 
 export interface BacktestTrade {
   id: string;
+  signalDate?: string;
   entryDate: string;
-  exitDate: string;
+  signalPrice?: number;
   entryPrice: number;
+  exitSignalDate?: string;
+  exitDate: string;
+  exitSignalPrice?: number;
   exitPrice: number;
   shares: number;
   amountInvested: number;
@@ -101,6 +116,7 @@ export interface BacktestResult {
   assetTicker: string;
   assetName: string;
   config: BacktestConfig;
+  executionMode: ExecutionMode;
   metrics: BacktestMetrics;
   equityCurve: EquityPoint[];
   trades: BacktestTrade[];
