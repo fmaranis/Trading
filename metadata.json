@@ -1,0 +1,6 @@
+{
+  "name": "Custodia - Gestor de Inversión, Bot 2X & Modo Asistido MyInvestor",
+  "description": "Plataforma de simulación y trading algorítmico en tiempo real 1:1 con bot para duplicar capital a 200€, cálculo de lag/slippage y modo asistido MyInvestor con verificación 2FA y código ISIN.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
