@@ -217,7 +217,7 @@ export const BacktestCenter: React.FC = () => {
                 onChange={e => setExecutionMode(e.target.value as ExecutionMode)}
                 className="bg-slate-800 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 font-mono"
               >
-                <option value="NEXT_OPEN">NEXT_OPEN (Señal t Close → Ejecución t+1 Open)</option>
+                <option value="NEXT_OPEN">NEXT_OPEN · Señal Close(t) → Fill Open(t+1)</option>
                 <option value="SAME_CLOSE">SAME_CLOSE (Experimental · Mismo Close)</option>
               </select>
             </div>
@@ -241,7 +241,7 @@ export const BacktestCenter: React.FC = () => {
                 ? 'bg-indigo-950/60 text-indigo-300 border-indigo-500/30'
                 : 'bg-amber-950/60 text-amber-300 border-amber-500/30'
             }`}>
-              Modo: {executionMode} {executionMode === 'SAME_CLOSE' ? '(Experimental)' : '(Estricto Anti-Lookahead)'}
+              Modo: {executionMode === 'NEXT_OPEN' ? 'NEXT_OPEN · Señal Close(t) → Fill Open(t+1)' : 'SAME_CLOSE (Experimental)'}
             </span>
             {currentProvenance.seed !== undefined && (
               <span className="bg-indigo-950/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30 flex items-center gap-1">

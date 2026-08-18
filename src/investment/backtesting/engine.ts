@@ -1,6 +1,17 @@
-import { PriceBar, BacktestConfig, BacktestResult, BacktestTrade, EquityPoint, Signal, PendingOrder, ExecutionMode } from './types';
+import {
+  PriceBar,
+  BacktestConfig,
+  BacktestResult,
+  BacktestTrade,
+  EquityPoint,
+  Signal,
+  PendingOrder,
+  BacktestAccountingError
+} from './types';
 import { IStrategy } from '../strategies/baseStrategy';
 import { FinancialMetricsCalculator } from './metrics';
+import { DataValidator } from '../data/validators';
+import { ExecutionCalculator } from './executionCalculator';
 import { DataProvenance } from '../data/types';
 
 export class BacktestEngine {
@@ -12,14 +23,13 @@ export class BacktestEngine {
     positionSizingPct: 100.0, // 100% of available cash per entry
     trailingStopPct: 3.5,
     stopLossPct: 4.0,
-    executionMode: 'NEXT_OPEN' // Default strict anti-lookahead
+    executionMode: 'NEXT_OPEN', // Default strict anti-lookahead
+    intrabarConflictPolicy: 'CONSERVATIVE' // Default conservative
   };
 
   /**
    * Executes an auditable, strictly non-anticipative backtest simulation on historical price bars.
-   * Execution Modes:
-   * - NEXT_OPEN (Default): Signal at Bar t Close → Pending Order → Execution at Bar t+1 Open.
-   * - SAME_CLOSE (Experimental/Legacy): Execution at Bar t Close.
+   * Input bars are validated without silent sorting (throws DataValidationError if unordered).
    */
   public static runBacktest(
     strategy: IStrategy,
@@ -32,83 +42,94 @@ export class BacktestEngine {
   ): BacktestResult {
     const config: BacktestConfig = { ...this.DEFAULT_CONFIG, ...customConfig };
 
-    if (!bars || bars.length < 2) {
+    // 1. Strict Validation - NEVER auto-sort silently
+    DataValidator.assertValidPriceBars(bars);
+
+    if (bars.length < 2) {
       throw new Error('El motor de backtest requiere al menos 2 barras de precios cronológicas.');
     }
 
-    // Sort bars to guarantee time monotonicity
-    const sortedBars = [...bars].sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
+    // 2. Generate Signals from Strategy (strictly historical up to bar t)
+    const signals: Signal[] = strategy.generateSignals(bars, strategyParams);
 
-    // 1. Generate Signals from Strategy (only uses historical data up to each index)
-    const signals: Signal[] = strategy.generateSignals(sortedBars, strategyParams);
+    // 3. Independent Benchmark Calculation (immune to stops, take profits, or strategy logic)
+    const benchmarkData = ExecutionCalculator.calculateBuyAndHoldBenchmark(bars, config.initialCapital);
 
-    // 2. Simulation & Accounting State
+    // 4. Simulation & Accounting State
     let cash = config.initialCapital;
     let shares = 0;
     let inPosition = false;
     let pendingOrder: PendingOrder | null = null;
+    const unfilledOrders: PendingOrder[] = [];
 
-    let entryPrice = 0;
+    let entryPrice = 0; // Effective fill price after slippage
+    let marketEntryPrice = 0; // Base market price
     let entryBarIndex = 0;
     let entryDate = '';
     let signalDate = '';
     let signalPrice = 0;
     let entryCommissionPaid = 0;
-    let entrySlippagePaid = 0;
+    let entrySlippageEur = 0;
     let highestPriceDuringTrade = 0;
 
     const trades: BacktestTrade[] = [];
     const equityCurve: EquityPoint[] = [];
 
-    // Benchmark calculation (Buy & Hold from bar 0 to N)
-    const initialPrice = sortedBars[0].close;
-    const finalPrice = sortedBars[sortedBars.length - 1].close;
-    const benchmarkReturnPct = initialPrice > 0 ? ((finalPrice - initialPrice) / initialPrice) * 100 : 0;
-    const benchmarkShares = config.initialCapital / initialPrice;
+    // 5. Main Execution Loop across every chronological bar
+    for (let i = 0; i < bars.length; i++) {
+      const currentBar = bars[i];
 
-    // 3. Execution Loop across every chronological bar
-    for (let i = 0; i < sortedBars.length; i++) {
-      const currentBar = sortedBars[i];
-
-      // ─── STEP A: Execute Pending Orders at Bar Open (NEXT_OPEN mode) ───
+      // ─── STEP A: Execute Pending Signal Orders at Bar Open (NEXT_OPEN mode) ───
       if (config.executionMode === 'NEXT_OPEN' && pendingOrder) {
         if (pendingOrder.type === 'BUY' && !inPosition && cash >= 1.0) {
-          const execPrice = currentBar.open;
-          const entrySlippage = execPrice * (config.slippagePct / 100);
-          const effectiveEntryPrice = execPrice + entrySlippage;
           const capitalToAllocate = cash * (config.positionSizingPct / 100);
-          const entryCommission = capitalToAllocate * (config.commissionPct / 100);
-          const netCapitalForShares = capitalToAllocate - entryCommission;
+          const commRate = config.commissionPct / 100;
+          const entryCommission = capitalToAllocate * commRate;
+          const netCapital = capitalToAllocate - entryCommission;
 
-          if (netCapitalForShares > 0) {
-            shares = netCapitalForShares / effectiveEntryPrice;
-            entryPrice = effectiveEntryPrice;
-            entryDate = currentBar.timestamp;
-            signalDate = pendingOrder.signalTimestamp;
-            signalPrice = pendingOrder.signalPrice;
-            entryCommissionPaid = entryCommission;
-            entrySlippagePaid = shares * entrySlippage;
-            entryBarIndex = i;
-            highestPriceDuringTrade = effectiveEntryPrice;
-            inPosition = true;
-            cash -= capitalToAllocate;
+          const fill = ExecutionCalculator.calculateFill('BUY_NEXT_OPEN', currentBar.open, 1, config.slippagePct);
+          const purchasedShares = netCapital / fill.effectivePrice;
+          const calculatedSlippageEur = purchasedShares * fill.slippagePerShare;
+
+          cash -= capitalToAllocate;
+          if (cash < -0.001) {
+            throw new BacktestAccountingError(`Cash negativo tras compra: ${cash.toFixed(4)}€`);
           }
+
+          shares = purchasedShares;
+          entryPrice = fill.effectivePrice;
+          marketEntryPrice = currentBar.open;
+          entryDate = currentBar.timestamp;
+          signalDate = pendingOrder.signalTimestamp;
+          signalPrice = pendingOrder.signalPrice;
+          entryCommissionPaid = entryCommission;
+          entrySlippageEur = calculatedSlippageEur;
+          entryBarIndex = i;
+          highestPriceDuringTrade = currentBar.open;
+          inPosition = true;
           pendingOrder = null;
         } else if (pendingOrder.type === 'SELL' && inPosition) {
-          const execPrice = currentBar.open;
-          const exitSlippage = execPrice * (config.slippagePct / 100);
-          const effectiveExitPrice = Math.max(0.001, execPrice - exitSlippage);
-          const grossExitAmount = shares * effectiveExitPrice;
+          const fill = ExecutionCalculator.calculateFill('SELL_NEXT_OPEN', currentBar.open, shares, config.slippagePct);
+          const grossExitAmount = shares * fill.effectivePrice;
           const exitCommission = grossExitAmount * (config.commissionPct / 100);
           const netExitAmount = grossExitAmount - exitCommission;
 
-          const totalInvested = shares * entryPrice;
-          const pnlEur = netExitAmount - totalInvested;
-          const pnlPct = totalInvested > 0 ? (pnlEur / totalInvested) * 100 : 0;
+          const marketEntryVal = shares * marketEntryPrice;
+          const marketExitVal = shares * fill.marketPrice;
+          const grossPnlEur = marketExitVal - marketEntryVal;
+          const totalCommission = entryCommissionPaid + exitCommission;
+          const exitSlippageEur = fill.slippageEur;
+          const totalSlippage = entrySlippageEur + exitSlippageEur;
+          const totalTradingCosts = totalCommission + totalSlippage;
+          const netPnlEur = grossPnlEur - totalTradingCosts;
+          const totalInvestedCash = shares * entryPrice + entryCommissionPaid;
+          const netReturnPct = totalInvestedCash > 0 ? (netPnlEur / totalInvestedCash) * 100 : 0;
+          const grossReturnPct = marketEntryVal > 0 ? (grossPnlEur / marketEntryVal) * 100 : 0;
 
           cash += netExitAmount;
+          if (cash < -0.001) {
+            throw new BacktestAccountingError(`Cash negativo tras venta: ${cash.toFixed(4)}€`);
+          }
 
           trades.push({
             id: `trade-${trades.length + 1}`,
@@ -116,20 +137,39 @@ export class BacktestEngine {
             entryDate,
             signalPrice: Number(signalPrice.toFixed(3)),
             entryPrice: Number(entryPrice.toFixed(3)),
+            marketEntryPrice: Number(marketEntryPrice.toFixed(3)),
             exitSignalDate: pendingOrder.signalTimestamp,
             exitDate: currentBar.timestamp,
             exitSignalPrice: Number(pendingOrder.signalPrice.toFixed(3)),
-            exitPrice: Number(effectiveExitPrice.toFixed(3)),
+            exitPrice: Number(fill.effectivePrice.toFixed(3)),
+            marketExitPrice: Number(fill.marketPrice.toFixed(3)),
             shares: Number(shares.toFixed(4)),
-            amountInvested: Number(totalInvested.toFixed(2)),
-            pnlEur: Number(pnlEur.toFixed(2)),
-            pnlPct: Number(pnlPct.toFixed(2)),
-            returnFactor: Number((effectiveExitPrice / entryPrice).toFixed(3)),
-            commissionPaid: Number((entryCommissionPaid + exitCommission).toFixed(3)),
-            slippagePaid: Number((entrySlippagePaid + shares * exitSlippage).toFixed(3)),
+            amountInvested: Number(totalInvestedCash.toFixed(2)),
+
+            entryCommission: Number(entryCommissionPaid.toFixed(3)),
+            exitCommission: Number(exitCommission.toFixed(3)),
+            entrySlippageEur: Number(entrySlippageEur.toFixed(3)),
+            exitSlippageEur: Number(exitSlippageEur.toFixed(3)),
+            totalCommission: Number(totalCommission.toFixed(3)),
+            totalSlippage: Number(totalSlippage.toFixed(3)),
+            totalTradingCosts: Number(totalTradingCosts.toFixed(3)),
+
+            grossPnlEur: Number(grossPnlEur.toFixed(2)),
+            netPnlEur: Number(netPnlEur.toFixed(2)),
+            grossReturnPct: Number(grossReturnPct.toFixed(2)),
+            netReturnPct: Number(netReturnPct.toFixed(2)),
+
+            pnlEur: Number(netPnlEur.toFixed(2)),
+            pnlPct: Number(netReturnPct.toFixed(2)),
+            commissionPaid: Number(totalCommission.toFixed(3)),
+            slippagePaid: Number(totalSlippage.toFixed(3)),
+            returnFactor: Number((fill.effectivePrice / entryPrice).toFixed(3)),
+
             exitReason: pendingOrder.triggerReason || 'SIGNAL',
             holdingPeriodBars: i - entryBarIndex,
-            isWin: pnlEur > 0
+            isWin: netPnlEur > 0,
+            intrabarConflict: false,
+            intrabarConflictPolicyUsed: config.intrabarConflictPolicy
           });
 
           inPosition = false;
@@ -140,95 +180,122 @@ export class BacktestEngine {
         }
       }
 
-      // ─── STEP B: Intra-Bar Price Tracking & Risk Thresholds ───
-      let riskExitReason: BacktestTrade['exitReason'] | null = null;
+      // ─── STEP B: Intrabar Active Risk Orders (Stop Loss / Take Profit / Trailing Stop) ───
+      // Risk stops execute IN THIS SAME BAR at trigger/gap price
       if (inPosition) {
-        if (currentBar.high > highestPriceDuringTrade) {
-          highestPriceDuringTrade = currentBar.high;
-        }
+        const riskEval = ExecutionCalculator.evaluateIntrabarRisk(
+          currentBar,
+          entryPrice,
+          highestPriceDuringTrade,
+          config
+        );
 
-        const dropFromPeakPct = ((highestPriceDuringTrade - currentBar.low) / highestPriceDuringTrade) * 100;
-        const lossFromEntryPct = ((currentBar.low - entryPrice) / entryPrice) * 100;
-        const gainFromEntryPct = ((currentBar.high - entryPrice) / entryPrice) * 100;
+        if (riskEval.triggered && riskEval.reason) {
+          const fill = ExecutionCalculator.calculateFill(
+            riskEval.reason,
+            riskEval.marketExecutionPrice,
+            shares,
+            config.slippagePct
+          );
 
-        if (config.trailingStopPct && dropFromPeakPct >= config.trailingStopPct) {
-          riskExitReason = 'TRAILING_STOP';
-        } else if (config.stopLossPct && lossFromEntryPct <= -config.stopLossPct) {
-          riskExitReason = 'STOP_LOSS';
-        } else if (config.takeProfitPct && gainFromEntryPct >= config.takeProfitPct) {
-          riskExitReason = 'TAKE_PROFIT';
-        }
+          const grossExitAmount = shares * fill.effectivePrice;
+          const exitCommission = grossExitAmount * (config.commissionPct / 100);
+          const netExitAmount = grossExitAmount - exitCommission;
 
-        // If risk stop triggered during the bar
-        if (riskExitReason) {
-          if (config.executionMode === 'SAME_CLOSE') {
-            // Immediate same-bar close execution
-            const currentPrice = currentBar.close;
-            const exitSlippage = currentPrice * (config.slippagePct / 100);
-            const effectiveExitPrice = Math.max(0.001, currentPrice - exitSlippage);
-            const grossExitAmount = shares * effectiveExitPrice;
-            const exitCommission = grossExitAmount * (config.commissionPct / 100);
-            const netExitAmount = grossExitAmount - exitCommission;
+          const marketEntryVal = shares * marketEntryPrice;
+          const marketExitVal = shares * fill.marketPrice;
+          const grossPnlEur = marketExitVal - marketEntryVal;
+          const totalCommission = entryCommissionPaid + exitCommission;
+          const exitSlippageEur = fill.slippageEur;
+          const totalSlippage = entrySlippageEur + exitSlippageEur;
+          const totalTradingCosts = totalCommission + totalSlippage;
+          const netPnlEur = grossPnlEur - totalTradingCosts;
+          const totalInvestedCash = shares * entryPrice + entryCommissionPaid;
+          const netReturnPct = totalInvestedCash > 0 ? (netPnlEur / totalInvestedCash) * 100 : 0;
+          const grossReturnPct = marketEntryVal > 0 ? (grossPnlEur / marketEntryVal) * 100 : 0;
 
-            const totalInvested = shares * entryPrice;
-            const pnlEur = netExitAmount - totalInvested;
-            const pnlPct = totalInvested > 0 ? (pnlEur / totalInvested) * 100 : 0;
+          cash += netExitAmount;
+          if (cash < -0.001) {
+            throw new BacktestAccountingError(`Cash negativo tras ejecución de stop: ${cash.toFixed(4)}€`);
+          }
 
-            cash += netExitAmount;
+          trades.push({
+            id: `trade-${trades.length + 1}`,
+            signalDate: entryDate,
+            entryDate,
+            signalPrice: Number(marketEntryPrice.toFixed(3)),
+            entryPrice: Number(entryPrice.toFixed(3)),
+            marketEntryPrice: Number(marketEntryPrice.toFixed(3)),
+            exitSignalDate: currentBar.timestamp,
+            exitDate: currentBar.timestamp,
+            exitSignalPrice: Number(riskEval.marketExecutionPrice.toFixed(3)),
+            exitPrice: Number(fill.effectivePrice.toFixed(3)),
+            marketExitPrice: Number(fill.marketPrice.toFixed(3)),
+            shares: Number(shares.toFixed(4)),
+            amountInvested: Number(totalInvestedCash.toFixed(2)),
 
-            trades.push({
-              id: `trade-${trades.length + 1}`,
-              signalDate: entryDate,
-              entryDate,
-              signalPrice: Number(entryPrice.toFixed(3)),
-              entryPrice: Number(entryPrice.toFixed(3)),
-              exitSignalDate: currentBar.timestamp,
-              exitDate: currentBar.timestamp,
-              exitSignalPrice: Number(currentPrice.toFixed(3)),
-              exitPrice: Number(effectiveExitPrice.toFixed(3)),
-              shares: Number(shares.toFixed(4)),
-              amountInvested: Number(totalInvested.toFixed(2)),
-              pnlEur: Number(pnlEur.toFixed(2)),
-              pnlPct: Number(pnlPct.toFixed(2)),
-              returnFactor: Number((effectiveExitPrice / entryPrice).toFixed(3)),
-              commissionPaid: Number((entryCommissionPaid + exitCommission).toFixed(3)),
-              slippagePaid: Number((entrySlippagePaid + shares * exitSlippage).toFixed(3)),
-              exitReason: riskExitReason,
-              holdingPeriodBars: i - entryBarIndex,
-              isWin: pnlEur > 0
-            });
+            entryCommission: Number(entryCommissionPaid.toFixed(3)),
+            exitCommission: Number(exitCommission.toFixed(3)),
+            entrySlippageEur: Number(entrySlippageEur.toFixed(3)),
+            exitSlippageEur: Number(exitSlippageEur.toFixed(3)),
+            totalCommission: Number(totalCommission.toFixed(3)),
+            totalSlippage: Number(totalSlippage.toFixed(3)),
+            totalTradingCosts: Number(totalTradingCosts.toFixed(3)),
 
-            inPosition = false;
-            shares = 0;
-            entryPrice = 0;
-            highestPriceDuringTrade = 0;
-          } else {
-            // Queue pending SELL order for next open
-            pendingOrder = {
-              type: 'SELL',
-              signalTimestamp: currentBar.timestamp,
-              signalPrice: currentBar.close,
-              triggerReason: riskExitReason,
-              reason: `Risk trigger: ${riskExitReason}`
-            };
+            grossPnlEur: Number(grossPnlEur.toFixed(2)),
+            netPnlEur: Number(netPnlEur.toFixed(2)),
+            grossReturnPct: Number(grossReturnPct.toFixed(2)),
+            netReturnPct: Number(netReturnPct.toFixed(2)),
+
+            pnlEur: Number(netPnlEur.toFixed(2)),
+            pnlPct: Number(netReturnPct.toFixed(2)),
+            commissionPaid: Number(totalCommission.toFixed(3)),
+            slippagePaid: Number(totalSlippage.toFixed(3)),
+            returnFactor: Number((fill.effectivePrice / entryPrice).toFixed(3)),
+
+            exitReason: riskEval.reason,
+            holdingPeriodBars: i - entryBarIndex,
+            isWin: netPnlEur > 0,
+            intrabarConflict: riskEval.intrabarConflict,
+            intrabarConflictPolicyUsed: riskEval.policyUsed
+          });
+
+          inPosition = false;
+          shares = 0;
+          entryPrice = 0;
+          highestPriceDuringTrade = 0;
+          pendingOrder = null;
+        } else {
+          // Update peak price reached during position for trailing stops
+          if (currentBar.high > highestPriceDuringTrade) {
+            highestPriceDuringTrade = currentBar.high;
           }
         }
       }
 
       // ─── STEP C: End-of-Data Liquidation (Last Bar) ───
-      if (inPosition && i === sortedBars.length - 1 && !riskExitReason) {
-        const currentPrice = currentBar.close;
-        const exitSlippage = currentPrice * (config.slippagePct / 100);
-        const effectiveExitPrice = Math.max(0.001, currentPrice - exitSlippage);
-        const grossExitAmount = shares * effectiveExitPrice;
+      if (inPosition && i === bars.length - 1) {
+        const fill = ExecutionCalculator.calculateFill('END_OF_DATA', currentBar.close, shares, config.slippagePct);
+        const grossExitAmount = shares * fill.effectivePrice;
         const exitCommission = grossExitAmount * (config.commissionPct / 100);
         const netExitAmount = grossExitAmount - exitCommission;
 
-        const totalInvested = shares * entryPrice;
-        const pnlEur = netExitAmount - totalInvested;
-        const pnlPct = totalInvested > 0 ? (pnlEur / totalInvested) * 100 : 0;
+        const marketEntryVal = shares * marketEntryPrice;
+        const marketExitVal = shares * fill.marketPrice;
+        const grossPnlEur = marketExitVal - marketEntryVal;
+        const totalCommission = entryCommissionPaid + exitCommission;
+        const exitSlippageEur = fill.slippageEur;
+        const totalSlippage = entrySlippageEur + exitSlippageEur;
+        const totalTradingCosts = totalCommission + totalSlippage;
+        const netPnlEur = grossPnlEur - totalTradingCosts;
+        const totalInvestedCash = shares * entryPrice + entryCommissionPaid;
+        const netReturnPct = totalInvestedCash > 0 ? (netPnlEur / totalInvestedCash) * 100 : 0;
+        const grossReturnPct = marketEntryVal > 0 ? (grossPnlEur / marketEntryVal) * 100 : 0;
 
         cash += netExitAmount;
+        if (cash < -0.001) {
+          throw new BacktestAccountingError(`Cash negativo tras liquidación fin de datos: ${cash.toFixed(4)}€`);
+        }
 
         trades.push({
           id: `trade-${trades.length + 1}`,
@@ -236,75 +303,107 @@ export class BacktestEngine {
           entryDate,
           signalPrice: Number(signalPrice.toFixed(3)),
           entryPrice: Number(entryPrice.toFixed(3)),
+          marketEntryPrice: Number(marketEntryPrice.toFixed(3)),
           exitSignalDate: currentBar.timestamp,
           exitDate: currentBar.timestamp,
-          exitSignalPrice: Number(currentPrice.toFixed(3)),
-          exitPrice: Number(effectiveExitPrice.toFixed(3)),
+          exitSignalPrice: Number(currentBar.close.toFixed(3)),
+          exitPrice: Number(fill.effectivePrice.toFixed(3)),
+          marketExitPrice: Number(fill.marketPrice.toFixed(3)),
           shares: Number(shares.toFixed(4)),
-          amountInvested: Number(totalInvested.toFixed(2)),
-          pnlEur: Number(pnlEur.toFixed(2)),
-          pnlPct: Number(pnlPct.toFixed(2)),
-          returnFactor: Number((effectiveExitPrice / entryPrice).toFixed(3)),
-          commissionPaid: Number((entryCommissionPaid + exitCommission).toFixed(3)),
-          slippagePaid: Number((entrySlippagePaid + shares * exitSlippage).toFixed(3)),
+          amountInvested: Number(totalInvestedCash.toFixed(2)),
+
+          entryCommission: Number(entryCommissionPaid.toFixed(3)),
+          exitCommission: Number(exitCommission.toFixed(3)),
+          entrySlippageEur: Number(entrySlippageEur.toFixed(3)),
+          exitSlippageEur: Number(exitSlippageEur.toFixed(3)),
+          totalCommission: Number(totalCommission.toFixed(3)),
+          totalSlippage: Number(totalSlippage.toFixed(3)),
+          totalTradingCosts: Number(totalTradingCosts.toFixed(3)),
+
+          grossPnlEur: Number(grossPnlEur.toFixed(2)),
+          netPnlEur: Number(netPnlEur.toFixed(2)),
+          grossReturnPct: Number(grossReturnPct.toFixed(2)),
+          netReturnPct: Number(netReturnPct.toFixed(2)),
+
+          pnlEur: Number(netPnlEur.toFixed(2)),
+          pnlPct: Number(netReturnPct.toFixed(2)),
+          commissionPaid: Number(totalCommission.toFixed(3)),
+          slippagePaid: Number(totalSlippage.toFixed(3)),
+          returnFactor: Number((fill.effectivePrice / entryPrice).toFixed(3)),
+
           exitReason: 'END_OF_DATA',
           holdingPeriodBars: i - entryBarIndex,
-          isWin: pnlEur > 0
+          isWin: netPnlEur > 0,
+          intrabarConflict: false,
+          intrabarConflictPolicyUsed: config.intrabarConflictPolicy
         });
 
         inPosition = false;
         shares = 0;
         entryPrice = 0;
+        highestPriceDuringTrade = 0;
       }
 
-      // ─── STEP D: Bar Close Accounting & Equity Curve ───
-      const currentPositionVal = inPosition ? shares * currentBar.close : 0;
-      const totalEquity = cash + currentPositionVal;
-      const benchmarkCurrentEquity = benchmarkShares * currentBar.close;
+      // ─── STEP D: Bar Close Accounting & Equity Curve Integrity ───
+      const positionMarketValue = inPosition ? shares * currentBar.close : 0;
+      const totalEquity = cash + positionMarketValue;
+
+      // Assert Cash & Equity Integrity
+      if (cash < -0.001) {
+        throw new BacktestAccountingError(`Incoherencia contable: cash negativo detectado (${cash.toFixed(4)}€)`);
+      }
+      if (Math.abs(totalEquity - (cash + positionMarketValue)) > 0.01) {
+        throw new BacktestAccountingError('Fallo de integridad patrimonial: equity !== cash + positionMarketValue');
+      }
+
+      const currentBenchmarkEquity = benchmarkData.benchmarkEquityCurve[i] ?? config.initialCapital;
 
       equityCurve.push({
         timestamp: currentBar.timestamp,
         equity: Number(totalEquity.toFixed(2)),
         cash: Number(cash.toFixed(2)),
+        positionMarketValue: Number(positionMarketValue.toFixed(2)),
         drawdownPct: 0,
-        benchmarkEquity: Number(benchmarkCurrentEquity.toFixed(2))
+        benchmarkEquity: Number(currentBenchmarkEquity.toFixed(2))
       });
 
       // ─── STEP E: Strategy Signal Evaluation at Bar Close ───
       const signal = signals[i] || { type: 'HOLD', price: currentBar.close, timestamp: currentBar.timestamp, reason: '' };
 
-      if (!pendingOrder && i < sortedBars.length - 1) {
+      if (!pendingOrder && i < bars.length - 1) {
         if (!inPosition && signal.type === 'BUY' && cash >= 1.0) {
           if (config.executionMode === 'NEXT_OPEN') {
             pendingOrder = {
               type: 'BUY',
               signalTimestamp: currentBar.timestamp,
               signalPrice: currentBar.close,
-              triggerReason: 'SIGNAL',
-              reason: signal.reason
+              signalReason: signal.reason || 'Strategy BUY signal',
+              generatedAtBarIndex: i,
+              triggerReason: 'SIGNAL'
             };
           } else {
             // SAME_CLOSE immediate execution
-            const currentPrice = currentBar.close;
             const capitalToAllocate = cash * (config.positionSizingPct / 100);
-            const entrySlippage = currentPrice * (config.slippagePct / 100);
-            const effectiveEntryPrice = currentPrice + entrySlippage;
-            const entryCommission = capitalToAllocate * (config.commissionPct / 100);
-            const netCapitalForShares = capitalToAllocate - entryCommission;
+            const commRate = config.commissionPct / 100;
+            const entryCommission = capitalToAllocate * commRate;
+            const netCapital = capitalToAllocate - entryCommission;
 
-            if (netCapitalForShares > 0) {
-              shares = netCapitalForShares / effectiveEntryPrice;
-              entryPrice = effectiveEntryPrice;
-              entryBarIndex = i;
-              entryDate = currentBar.timestamp;
-              signalDate = currentBar.timestamp;
-              signalPrice = currentPrice;
-              entryCommissionPaid = entryCommission;
-              entrySlippagePaid = shares * entrySlippage;
-              highestPriceDuringTrade = effectiveEntryPrice;
-              inPosition = true;
-              cash -= capitalToAllocate;
-            }
+            const fill = ExecutionCalculator.calculateFill('BUY_SAME_CLOSE', currentBar.close, 1, config.slippagePct);
+            const purchasedShares = netCapital / fill.effectivePrice;
+            const calculatedSlippageEur = purchasedShares * fill.slippagePerShare;
+
+            cash -= capitalToAllocate;
+            shares = purchasedShares;
+            entryPrice = fill.effectivePrice;
+            marketEntryPrice = currentBar.close;
+            entryDate = currentBar.timestamp;
+            signalDate = currentBar.timestamp;
+            signalPrice = currentBar.close;
+            entryCommissionPaid = entryCommission;
+            entrySlippageEur = calculatedSlippageEur;
+            entryBarIndex = i;
+            highestPriceDuringTrade = fill.effectivePrice;
+            inPosition = true;
           }
         } else if (inPosition && signal.type === 'SELL') {
           if (config.executionMode === 'NEXT_OPEN') {
@@ -312,21 +411,28 @@ export class BacktestEngine {
               type: 'SELL',
               signalTimestamp: currentBar.timestamp,
               signalPrice: currentBar.close,
-              triggerReason: 'SIGNAL',
-              reason: signal.reason
+              signalReason: signal.reason || 'Strategy SELL signal',
+              generatedAtBarIndex: i,
+              triggerReason: 'SIGNAL'
             };
           } else {
             // SAME_CLOSE immediate execution
-            const currentPrice = currentBar.close;
-            const exitSlippage = currentPrice * (config.slippagePct / 100);
-            const effectiveExitPrice = Math.max(0.001, currentPrice - exitSlippage);
-            const grossExitAmount = shares * effectiveExitPrice;
+            const fill = ExecutionCalculator.calculateFill('SELL_SAME_CLOSE', currentBar.close, shares, config.slippagePct);
+            const grossExitAmount = shares * fill.effectivePrice;
             const exitCommission = grossExitAmount * (config.commissionPct / 100);
             const netExitAmount = grossExitAmount - exitCommission;
 
-            const totalInvested = shares * entryPrice;
-            const pnlEur = netExitAmount - totalInvested;
-            const pnlPct = totalInvested > 0 ? (pnlEur / totalInvested) * 100 : 0;
+            const marketEntryVal = shares * marketEntryPrice;
+            const marketExitVal = shares * fill.marketPrice;
+            const grossPnlEur = marketExitVal - marketEntryVal;
+            const totalCommission = entryCommissionPaid + exitCommission;
+            const exitSlippageEur = fill.slippageEur;
+            const totalSlippage = entrySlippageEur + exitSlippageEur;
+            const totalTradingCosts = totalCommission + totalSlippage;
+            const netPnlEur = grossPnlEur - totalTradingCosts;
+            const totalInvestedCash = shares * entryPrice + entryCommissionPaid;
+            const netReturnPct = totalInvestedCash > 0 ? (netPnlEur / totalInvestedCash) * 100 : 0;
+            const grossReturnPct = marketEntryVal > 0 ? (grossPnlEur / marketEntryVal) * 100 : 0;
 
             cash += netExitAmount;
 
@@ -334,22 +440,41 @@ export class BacktestEngine {
               id: `trade-${trades.length + 1}`,
               signalDate: entryDate,
               entryDate,
-              signalPrice: Number(entryPrice.toFixed(3)),
+              signalPrice: Number(marketEntryPrice.toFixed(3)),
               entryPrice: Number(entryPrice.toFixed(3)),
+              marketEntryPrice: Number(marketEntryPrice.toFixed(3)),
               exitSignalDate: currentBar.timestamp,
               exitDate: currentBar.timestamp,
-              exitSignalPrice: Number(currentPrice.toFixed(3)),
-              exitPrice: Number(effectiveExitPrice.toFixed(3)),
+              exitSignalPrice: Number(currentBar.close.toFixed(3)),
+              exitPrice: Number(fill.effectivePrice.toFixed(3)),
+              marketExitPrice: Number(fill.marketPrice.toFixed(3)),
               shares: Number(shares.toFixed(4)),
-              amountInvested: Number(totalInvested.toFixed(2)),
-              pnlEur: Number(pnlEur.toFixed(2)),
-              pnlPct: Number(pnlPct.toFixed(2)),
-              returnFactor: Number((effectiveExitPrice / entryPrice).toFixed(3)),
-              commissionPaid: Number((entryCommissionPaid + exitCommission).toFixed(3)),
-              slippagePaid: Number((entrySlippagePaid + shares * exitSlippage).toFixed(3)),
+              amountInvested: Number(totalInvestedCash.toFixed(2)),
+
+              entryCommission: Number(entryCommissionPaid.toFixed(3)),
+              exitCommission: Number(exitCommission.toFixed(3)),
+              entrySlippageEur: Number(entrySlippageEur.toFixed(3)),
+              exitSlippageEur: Number(exitSlippageEur.toFixed(3)),
+              totalCommission: Number(totalCommission.toFixed(3)),
+              totalSlippage: Number(totalSlippage.toFixed(3)),
+              totalTradingCosts: Number(totalTradingCosts.toFixed(3)),
+
+              grossPnlEur: Number(grossPnlEur.toFixed(2)),
+              netPnlEur: Number(netPnlEur.toFixed(2)),
+              grossReturnPct: Number(grossReturnPct.toFixed(2)),
+              netReturnPct: Number(netReturnPct.toFixed(2)),
+
+              pnlEur: Number(netPnlEur.toFixed(2)),
+              pnlPct: Number(netReturnPct.toFixed(2)),
+              commissionPaid: Number(totalCommission.toFixed(3)),
+              slippagePaid: Number(totalSlippage.toFixed(3)),
+              returnFactor: Number((fill.effectivePrice / entryPrice).toFixed(3)),
+
               exitReason: 'SIGNAL',
               holdingPeriodBars: i - entryBarIndex,
-              isWin: pnlEur > 0
+              isWin: netPnlEur > 0,
+              intrabarConflict: false,
+              intrabarConflictPolicyUsed: config.intrabarConflictPolicy
             });
 
             inPosition = false;
@@ -358,18 +483,44 @@ export class BacktestEngine {
             highestPriceDuringTrade = 0;
           }
         }
+      } else if (i === bars.length - 1) {
+        // Last bar: any signal produced cannot be filled because there is no bar t+1
+        if (!inPosition && signal.type === 'BUY' && cash >= 1.0) {
+          unfilledOrders.push({
+            type: 'BUY',
+            signalTimestamp: currentBar.timestamp,
+            signalPrice: currentBar.close,
+            signalReason: signal.reason || 'Signal emitted on final bar (no t+1 bar available)',
+            generatedAtBarIndex: i,
+            triggerReason: 'SIGNAL'
+          });
+        } else if (inPosition && signal.type === 'SELL') {
+          unfilledOrders.push({
+            type: 'SELL',
+            signalTimestamp: currentBar.timestamp,
+            signalPrice: currentBar.close,
+            signalReason: signal.reason || 'Signal emitted on final bar (no t+1 bar available)',
+            generatedAtBarIndex: i,
+            triggerReason: 'SIGNAL'
+          });
+        }
       }
+    }
+
+    if (pendingOrder) {
+      unfilledOrders.push(pendingOrder);
+      pendingOrder = null;
     }
 
     const finalEquity = equityCurve[equityCurve.length - 1]?.equity || config.initialCapital;
 
-    // 4. Calculate Complete Statistical Metrics
+    // 6. Calculate Complete Statistical Metrics
     const metrics = FinancialMetricsCalculator.calculateMetrics(
       config.initialCapital,
       finalEquity,
       equityCurve,
       trades,
-      benchmarkReturnPct,
+      benchmarkData.benchmarkReturnPct,
       config.riskFreeRateAnnualPct
     );
 
@@ -398,7 +549,9 @@ export class BacktestEngine {
       equityCurve,
       trades,
       signals,
-      dataProvenance: resolvedProvenance
+      unfilledOrders,
+      dataProvenance: resolvedProvenance,
+      benchmarkIncludesCosts: false
     };
   }
 }

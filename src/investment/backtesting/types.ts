@@ -22,24 +22,35 @@ export interface Signal {
 
 export type ExecutionMode = 'NEXT_OPEN' | 'SAME_CLOSE';
 
+export type IntrabarConflictPolicy =
+  | 'CONSERVATIVE'
+  | 'STOP_FIRST'
+  | 'TAKE_PROFIT_FIRST';
+
 export interface PendingOrder {
   type: 'BUY' | 'SELL';
   signalTimestamp: string;
   signalPrice: number;
-  reason?: string;
-  triggerReason?: 'SIGNAL' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'TRAILING_STOP' | 'END_OF_DATA';
+  signalReason: string;
+  generatedAtBarIndex: number;
+  triggerReason:
+    | 'SIGNAL'
+    | 'STOP_LOSS'
+    | 'TAKE_PROFIT'
+    | 'TRAILING_STOP';
 }
 
 export interface BacktestConfig {
   initialCapital: number;
-  commissionPct: number; // e.g. 0.1 for 0.1%
-  slippagePct: number; // e.g. 0.05 for 0.05%
+  commissionPct: number; // e.g. 0.05 for 0.05%
+  slippagePct: number; // e.g. 0.02 for 0.02%
   riskFreeRateAnnualPct: number; // e.g. 3.0 for 3%
   positionSizingPct: number; // e.g. 100 for all-in or 30 for 30% per trade
   stopLossPct?: number; // Optional stop loss %
   takeProfitPct?: number; // Optional take profit %
   trailingStopPct?: number; // Optional trailing stop %
   executionMode: ExecutionMode;
+  intrabarConflictPolicy: IntrabarConflictPolicy;
 }
 
 export interface BacktestTrade {
@@ -47,27 +58,50 @@ export interface BacktestTrade {
   signalDate?: string;
   entryDate: string;
   signalPrice?: number;
-  entryPrice: number;
+  entryPrice: number; // Effective fill price after slippage
+  marketEntryPrice?: number; // Pre-slippage price
   exitSignalDate?: string;
   exitDate: string;
   exitSignalPrice?: number;
-  exitPrice: number;
+  exitPrice: number; // Effective fill price after slippage
+  marketExitPrice?: number; // Pre-slippage price
   shares: number;
   amountInvested: number;
-  pnlEur: number;
-  pnlPct: number;
+  
+  // Cost breakdown
+  entryCommission: number;
+  exitCommission: number;
+  entrySlippageEur: number;
+  exitSlippageEur: number;
+  totalCommission: number;
+  totalSlippage: number;
+  totalTradingCosts: number;
+
+  // PnL breakdown
+  grossPnlEur: number;
+  netPnlEur: number;
+  grossReturnPct: number;
+  netReturnPct: number;
+
+  // Legacy aliases (mapped directly to net / total)
+  pnlEur: number; // = netPnlEur
+  pnlPct: number; // = netReturnPct
+  commissionPaid: number; // = totalCommission
+  slippagePaid: number; // = totalSlippage
   returnFactor: number;
-  commissionPaid: number;
-  slippagePaid: number;
+
   exitReason: 'SIGNAL' | 'STOP_LOSS' | 'TAKE_PROFIT' | 'TRAILING_STOP' | 'END_OF_DATA';
   holdingPeriodBars: number;
   isWin: boolean;
+  intrabarConflict: boolean;
+  intrabarConflictPolicyUsed?: IntrabarConflictPolicy;
 }
 
 export interface EquityPoint {
   timestamp: string;
   equity: number;
   cash: number;
+  positionMarketValue: number;
   drawdownPct: number;
   benchmarkEquity?: number;
 }
@@ -121,7 +155,9 @@ export interface BacktestResult {
   equityCurve: EquityPoint[];
   trades: BacktestTrade[];
   signals: Signal[];
+  unfilledOrders: PendingOrder[];
   dataProvenance: DataProvenance;
+  benchmarkIncludesCosts: false;
 }
 
 export interface StrategyComparisonItem {
@@ -145,4 +181,11 @@ export interface WalkForwardSplit {
   inSampleResult?: BacktestResult;
   outOfSampleResult?: BacktestResult;
   efficiencyRatio?: number; // OutOfSample Sharpe / InSample Sharpe
+}
+
+export class BacktestAccountingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BacktestAccountingError';
+  }
 }
