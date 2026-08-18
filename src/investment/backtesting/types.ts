@@ -229,7 +229,7 @@ export interface WalkForwardSplit {
   outOfSampleBars: PriceBar[];
   inSampleResult?: BacktestResult;
   outOfSampleResult?: BacktestResult;
-  efficiencyRatio?: number; // OutOfSample Sharpe / InSample Sharpe
+  efficiencyRatio?: number | null; // OutOfSample Sharpe / InSample Sharpe
 }
 
 export type OptimizationMetric =
@@ -244,58 +244,94 @@ export interface ParameterRange {
   values: number[];
 }
 
+export interface OptimizationEvaluation {
+  score: number | null;
+  valid: boolean;
+  rejectionReason?: string;
+}
+
 export interface WalkForwardConfig {
   trainWindowBars: number;
   testWindowBars: number;
   stepBars: number;
   optimizationMetric: OptimizationMetric;
-  minimumTrades?: number;
+  minimumTrades?: number; // default: 3
   minimumTrainBars?: number;
+  maxParameterCombinations?: number; // default: 500
   parameterGrid: ParameterRange[];
   isExpandingWindow?: boolean;
 }
 
+export interface ParameterStabilityReport {
+  parameterStats: {
+    parameter: string;
+    selections: number[];
+    mean: number | null;
+    stdDev: number | null;
+    min: number | null;
+    max: number | null;
+    uniqueValues: number;
+    stabilityScore: number | null;
+  }[];
+  stabilityScore: number | null;
+}
+
 export interface WalkForwardWindowResult {
   windowIndex: number;
+  status: 'SUCCESS' | 'NO_VALID_PARAMETERS';
   trainStart: string;
   trainEnd: string;
   testStart: string;
   testEnd: string;
   trainBarsCount: number;
   testBarsCount: number;
-  selectedParameters: Record<string, number>;
-  trainMetrics: BacktestMetrics;
-  testMetrics: BacktestMetrics;
-  trainResult: BacktestResult;
-  testResult: BacktestResult;
-  efficiencyRatio: number;
-  parameterEvaluationsCount: number;
+  selectedParameters: Record<string, number> | null;
+  testedCombinations: number;
+  rejectedCombinations: number;
+  minimumTradesFilterRejections: number;
+  trainMetrics: BacktestMetrics | null;
+  testMetrics: BacktestMetrics | null;
+  trainResult: BacktestResult | null;
+  testResult: BacktestResult | null;
+  trainScore: number | null;
+  testScore: number | null;
+  efficiencyRatio: number | null;
+  degradationPct: number | null;
+  bestTrainScore: number | null;
+  medianTrainScore: number | null;
+  worstTrainScore: number | null;
+  parameterSensitivity: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
 }
 
 export interface WalkForwardOptimizationResult {
   strategyName: string;
   config: WalkForwardConfig;
+  validationEvidence: 'SYNTHETIC_ONLY' | 'STATIC_REFERENCE_ONLY' | 'REAL_MARKET_DATA';
+  estimatedBacktests: number;
+  executedBacktests: number;
   windows: WalkForwardWindowResult[];
   combinedOutOfSampleEquity: EquityPoint[];
   combinedOutOfSampleMetrics: BacktestMetrics;
   combinedOutOfSampleTrades: BacktestTrade[];
-  averageEfficiencyRatio: number;
-  robustnessScore: number; // 0-100
+  averageEfficiencyRatio: number | null;
+  robustnessScore: number | null; // 0-100
+  robustnessComponents: {
+    oosPerformance: number | null;
+    degradation: number | null;
+    parameterStability: number | null;
+    consistency: number | null;
+  };
   profitableWindowsPct: number;
+  positiveScoreWindowsPct: number | null;
   isRobust: boolean;
   diagnosis: string;
-  parameterStability: Record<string, {
-    values: number[];
-    distinctValuesCount: number;
-    mostFrequentValue: number;
-    stabilityPct: number;
-  }>;
+  parameterStability: ParameterStabilityReport;
 }
 
 export interface HoldoutValidationResult {
   inSampleResult: BacktestResult;
   outOfSampleResult: BacktestResult;
-  efficiencyRatio: number;
+  efficiencyRatio: number | null;
   isRobust: boolean;
   diagnosis: string;
 }
@@ -304,5 +340,19 @@ export class BacktestAccountingError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'BacktestAccountingError';
+  }
+}
+
+export class InvalidWalkForwardConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidWalkForwardConfigurationError';
+  }
+}
+
+export class ParameterGridTooLargeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ParameterGridTooLargeError';
   }
 }

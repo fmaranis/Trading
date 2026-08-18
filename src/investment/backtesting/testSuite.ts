@@ -1197,59 +1197,507 @@ export class FinancialTestSuite {
       results.push({ name: '39. Diagnóstico de Calidad', passed: false, message: e.message });
     }
 
-    // 40. Holdout Validation (70/30 Split) con Separación Estricta
+    // 40. Prohibición de Ventanas TEST Solapadas (stepBars < testWindowBars)
     try {
-      const bars = SyntheticDataGenerator.generateBars(60, { basePrice: 100, volatility: 0.01, trend: 0.001 });
+      const bars = SyntheticDataGenerator.generateBars(50, { basePrice: 100 });
+      let caught = false;
+      try {
+        WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, {
+          trainWindowBars: 20,
+          testWindowBars: 10,
+          stepBars: 5, // ERROR: stepBars (5) < testWindowBars (10)
+          optimizationMetric: 'SHARPE',
+          parameterGrid: [{ name: 'dummy', values: [1] }]
+        });
+      } catch (err: any) {
+        caught = err.name === 'InvalidWalkForwardConfigurationError' && err.message.includes('stepBars');
+      }
+
+      results.push({
+        name: '40. Prohibición de Ventanas TEST Solapadas (stepBars < testWindowBars)',
+        passed: caught,
+        message: caught
+          ? 'OK: InvalidWalkForwardConfigurationError lanzado correctamente ante stepBars < testWindowBars.'
+          : 'Fallo: No se rechazó la configuración de stepBars < testWindowBars.'
+      });
+    } catch (e: any) {
+      results.push({ name: '40. Ventanas TEST Solapadas', passed: false, message: e.message });
+    }
+
+    // 41. Validación Exhaustiva de Configuración WFO
+    try {
+      const bars = SyntheticDataGenerator.generateBars(30, { basePrice: 100 });
+      let caughtTrainZero = false;
+      let caughtMinTrain = false;
+      let caughtBarsShort = false;
+
+      // 1. trainWindowBars <= 0
+      try {
+        WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, {
+          trainWindowBars: 0,
+          testWindowBars: 10,
+          stepBars: 10,
+          optimizationMetric: 'SHARPE',
+          parameterGrid: [{ name: 'dummy', values: [1] }]
+        });
+      } catch (err: any) {
+        caughtTrainZero = err.name === 'InvalidWalkForwardConfigurationError';
+      }
+
+      // 2. trainWindowBars < minimumTrainBars
+      try {
+        WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, {
+          trainWindowBars: 15,
+          minimumTrainBars: 25,
+          testWindowBars: 10,
+          stepBars: 10,
+          optimizationMetric: 'SHARPE',
+          parameterGrid: [{ name: 'dummy', values: [1] }]
+        });
+      } catch (err: any) {
+        caughtMinTrain = err.name === 'InvalidWalkForwardConfigurationError';
+      }
+
+      // 3. bars.length < trainWindowBars + testWindowBars
+      try {
+        WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars.slice(0, 15), {
+          trainWindowBars: 10,
+          testWindowBars: 10,
+          stepBars: 10,
+          optimizationMetric: 'SHARPE',
+          parameterGrid: [{ name: 'dummy', values: [1] }]
+        });
+      } catch (err: any) {
+        caughtBarsShort = err.name === 'InvalidWalkForwardConfigurationError';
+      }
+
+      const passed = caughtTrainZero && caughtMinTrain && caughtBarsShort;
+      results.push({
+        name: '41. Validación Exhaustiva de Parámetros de Configuración WFO',
+        passed,
+        message: passed
+          ? 'OK: Se validaron y rechazaron correctamente configuraciones imposibles con InvalidWalkForwardConfigurationError.'
+          : `Fallo en validaciones: TrainZero=${caughtTrainZero}, MinTrain=${caughtMinTrain}, BarsShort=${caughtBarsShort}`
+      });
+    } catch (e: any) {
+      results.push({ name: '41. Validación Config WFO', passed: false, message: e.message });
+    }
+
+    // 42. Cálculo de Tamaño de Rejilla Sin Instanciación Prematura
+    try {
+      const grid: ParameterRange[] = [
+        { name: 'p1', values: [1, 2, 3, 4, 5] },
+        { name: 'p2', values: [10, 20, 30, 40] },
+        { name: 'p3', values: [100, 200] }
+      ];
+      const count = WalkForwardEngine.calculateGridSize(grid); // 5 * 4 * 2 = 40
+      const passed = count === 40;
+
+      results.push({
+        name: '42. Cálculo de Tamaño de Rejilla Sin Instanciación Prematura',
+        passed,
+        message: passed
+          ? `OK: Tamaño de rejilla calculado exactamente (${count} combinaciones) en O(N) sin asignar arrays gigantes.`
+          : `Fallo: Tamaño calculado fue ${count}, esperado 40.`
+      });
+    } catch (e: any) {
+      results.push({ name: '42. Cálculo Rejilla', passed: false, message: e.message });
+    }
+
+    // 43. Límite Máximo de Espacio de Parámetros (ParameterGridTooLargeError)
+    try {
+      const bars = SyntheticDataGenerator.generateBars(60, { basePrice: 100 });
+      const largeGrid: ParameterRange[] = [
+        { name: 'p1', values: Array.from({ length: 25 }, (_, i) => i + 1) },
+        { name: 'p2', values: Array.from({ length: 25 }, (_, i) => i + 1) }
+      ]; // 25 * 25 = 625 combinaciones (> default 500)
+
+      let caught = false;
+      try {
+        WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, {
+          trainWindowBars: 30,
+          testWindowBars: 15,
+          stepBars: 15,
+          optimizationMetric: 'SHARPE',
+          maxParameterCombinations: 500,
+          parameterGrid: largeGrid
+        });
+      } catch (err: any) {
+        caught = err.name === 'ParameterGridTooLargeError' && err.message.includes('625');
+      }
+
+      results.push({
+        name: '43. Límite de Espacio de Parámetros (ParameterGridTooLargeError)',
+        passed: caught,
+        message: caught
+          ? 'OK: ParameterGridTooLargeError lanzado antes de instanciar combinaciones excesivas.'
+          : 'Fallo: No se rechazó la rejilla de parámetros excesiva.'
+      });
+    } catch (e: any) {
+      results.push({ name: '43. Límite Rejilla', passed: false, message: e.message });
+    }
+
+    // 44. Validadores Estructurales de Parámetros por Estrategia
+    try {
+      const invalidSma1 = WalkForwardEngine.validateStrategyParameters('sma_crossover', { fastPeriod: 20, slowPeriod: 10 });
+      const invalidSma2 = WalkForwardEngine.validateStrategyParameters('sma_crossover', { fastPeriod: 0, slowPeriod: 10 });
+      const validSma = WalkForwardEngine.validateStrategyParameters('sma_crossover', { fastPeriod: 10, slowPeriod: 30 });
+
+      const invalidRsi1 = WalkForwardEngine.validateStrategyParameters('rsi_mean_reversion', { period: 14, oversoldThreshold: 70, overboughtThreshold: 30 });
+      const invalidRsi2 = WalkForwardEngine.validateStrategyParameters('rsi_mean_reversion', { period: 0, oversoldThreshold: 30, overboughtThreshold: 70 });
+      const validRsi = WalkForwardEngine.validateStrategyParameters('rsi_mean_reversion', { period: 14, oversoldThreshold: 30, overboughtThreshold: 70 });
+
+      const invalidMom = WalkForwardEngine.validateStrategyParameters('momentum_breakout', { lookbackPeriod: 1 });
+      const invalidStop = WalkForwardEngine.validateStrategyParameters('momentum_breakout', { lookbackPeriod: 10, trailingStopPct: -2 });
+
+      const passed =
+        !invalidSma1.valid &&
+        !invalidSma2.valid &&
+        validSma.valid &&
+        !invalidRsi1.valid &&
+        !invalidRsi2.valid &&
+        validRsi.valid &&
+        !invalidMom.valid &&
+        !invalidStop.valid;
+
+      results.push({
+        name: '44. Validadores Estructurales de Parámetros por Estrategia',
+        passed,
+        message: passed
+          ? 'OK: Se filtraron y rechazaron parámetros absurdos (fast >= slow, period <= 0, oversold >= overbought, trailingStop <= 0).'
+          : 'Fallo en la validación estructural de parámetros de estrategias.'
+      });
+    } catch (e: any) {
+      results.push({ name: '44. Validadores Estrategias', passed: false, message: e.message });
+    }
+
+    // 45. Evaluación de Score Serializada sin -Infinity ni Sentinels
+    try {
+      const emptyMetrics = FinancialMetricsCalculator.calculateMetrics(10000, 10000, [], [], 0);
+      const eval1 = WalkForwardEngine.evaluateOptimizationScore(emptyMetrics, 'SHARPE', 3);
+      const eval2 = WalkForwardEngine.evaluateOptimizationScore({ ...emptyMetrics, totalTrades: 5, sharpeRatio: null }, 'SHARPE', 3);
+      const eval3 = WalkForwardEngine.evaluateOptimizationScore({ ...emptyMetrics, totalTrades: 5, sharpeRatio: 1.45678 }, 'SHARPE', 3);
+
+      const passed =
+        eval1.valid === false &&
+        eval1.score === null &&
+        eval1.rejectionReason !== undefined &&
+        eval2.valid === false &&
+        eval2.score === null &&
+        eval3.valid === true &&
+        eval3.score === 1.4568;
+
+      results.push({
+        name: '45. Evaluación de Score Serializada (OptimizationEvaluation)',
+        passed,
+        message: passed
+          ? 'OK: evaluateOptimizationScore devuelve objetos serializables estructurados sin -Infinity.'
+          : 'Fallo en serialización o evaluación de scores de optimización.'
+      });
+    } catch (e: any) {
+      results.push({ name: '45. Evaluación Score', passed: false, message: e.message });
+    }
+
+    // 46. Manejo de Ventana Sin Parámetros Válidos (NO_VALID_PARAMETERS)
+    try {
+      const bars = SyntheticDataGenerator.generateBars(50, { basePrice: 100 });
+      // Estrategia que no genera trades
+      const inactiveStrategy: IStrategy = {
+        id: 'sma_crossover',
+        name: 'Inactive SMA',
+        description: '',
+        category: 'TREND',
+        defaultParameters: {},
+        generateSignals: (b) => b.map(bar => ({ timestamp: bar.timestamp, type: 'HOLD', price: bar.close, reason: '' }))
+      };
+
+      const wfoCfg: WalkForwardConfig = {
+        trainWindowBars: 25,
+        testWindowBars: 15,
+        stepBars: 15,
+        optimizationMetric: 'SHARPE',
+        minimumTrades: 5, // Imposible de cumplir para estrategia inactiva
+        parameterGrid: [
+          { name: 'fastPeriod', values: [5] },
+          { name: 'slowPeriod', values: [20] }
+        ]
+      };
+
+      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(inactiveStrategy, bars, wfoCfg);
+      const window1 = wfoRes.windows[0];
+
+      const passed =
+        window1.status === 'NO_VALID_PARAMETERS' &&
+        window1.selectedParameters === null &&
+        window1.trainMetrics === null &&
+        window1.testMetrics === null &&
+        window1.minimumTradesFilterRejections > 0;
+
+      results.push({
+        name: '46. Manejo de Ventana Sin Parámetros Válidos (NO_VALID_PARAMETERS)',
+        passed,
+        message: passed
+          ? 'OK: Ventana marcada como NO_VALID_PARAMETERS con selectedParameters=null sin seleccionar parámetros falsos.'
+          : 'Fallo: No se gestionó correctamente el estado NO_VALID_PARAMETERS.'
+      });
+    } catch (e: any) {
+      results.push({ name: '46. No Valid Parameters', passed: false, message: e.message });
+    }
+
+    // 47. Preservación Estricta de DataProvenance (Sin conversión automática a SYNTHETIC)
+    try {
+      const bars = SyntheticDataGenerator.generateBars(50, { basePrice: 100 });
+      const realProvenance = {
+        sourceType: 'REAL' as const,
+        provider: 'Euronext Live API',
+        isReproducible: true
+      };
+
+      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(
+        buyHoldStrategy,
+        bars,
+        {
+          trainWindowBars: 25,
+          testWindowBars: 15,
+          stepBars: 15,
+          optimizationMetric: 'TOTAL_RETURN',
+          minimumTrades: 0,
+          parameterGrid: [{ name: 'param', values: [1] }]
+        },
+        {},
+        realProvenance
+      );
+
+      const passed =
+        wfoRes.validationEvidence === 'REAL_MARKET_DATA' &&
+        wfoRes.windows[0].trainResult?.dataProvenance.sourceType === 'REAL' &&
+        wfoRes.windows[0].testResult?.dataProvenance.provider === 'Euronext Live API';
+
+      results.push({
+        name: '47. Preservación Estricta de DataProvenance en WFO',
+        passed,
+        message: passed
+          ? `OK: DataProvenance ${realProvenance.sourceType} preservada íntegramente en Train y Test.`
+          : 'Fallo: DataProvenance fue alterada o forzada a SYNTHETIC.'
+      });
+    } catch (e: any) {
+      results.push({ name: '47. DataProvenance WFO', passed: false, message: e.message });
+    }
+
+    // 48. Estimación y Conteo de Backtests Ejecutados
+    try {
+      const bars = SyntheticDataGenerator.generateBars(70, { basePrice: 100 });
+      const wfoCfg: WalkForwardConfig = {
+        trainWindowBars: 30,
+        testWindowBars: 20,
+        stepBars: 20,
+        optimizationMetric: 'TOTAL_RETURN',
+        minimumTrades: 0,
+        parameterGrid: [
+          { name: 'fastPeriod', values: [5, 10] },
+          { name: 'slowPeriod', values: [20, 30] } // 4 combinaciones válidas para SMA
+        ]
+      };
+
+      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(
+        ALL_QUANT_STRATEGIES.find(s => s.id === 'sma_crossover') || buyHoldStrategy,
+        bars,
+        wfoCfg
+      );
+
+      // Con 70 barras, train=30, test=20, step=20:
+      // Ventanas = 2
+      // Combinaciones válidas = 4
+      // Estimated backtests = 2 ventanas * 4 combos train + 2 tests = 10
+      const passed =
+        wfoRes.windows.length === 2 &&
+        wfoRes.estimatedBacktests === 10 &&
+        wfoRes.executedBacktests === 10;
+
+      results.push({
+        name: '48. Estimación y Conteo de Backtests Ejecutados en WFO',
+        passed,
+        message: passed
+          ? `OK: Estimados = ${wfoRes.estimatedBacktests}, Ejecutados = ${wfoRes.executedBacktests} en ${wfoRes.windows.length} ventanas.`
+          : `Fallo: Estimados ${wfoRes.estimatedBacktests}, Ejecutados ${wfoRes.executedBacktests}.`
+      });
+    } catch (e: any) {
+      results.push({ name: '48. Estimación Backtests', passed: false, message: e.message });
+    }
+
+    // 49. Encadenamiento Real de Capital OOS (Compounding de Capital entre Ventanas)
+    try {
+      const bars = SyntheticDataGenerator.generateBars(60, { basePrice: 100, trend: 0.01 }); // Tendencia alcista clara
+      const wfoCfg: WalkForwardConfig = {
+        trainWindowBars: 20,
+        testWindowBars: 20,
+        stepBars: 20,
+        optimizationMetric: 'TOTAL_RETURN',
+        minimumTrades: 0,
+        parameterGrid: [{ name: 'param', values: [1] }]
+      };
+
+      const initialCap = 10000;
+      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, wfoCfg, { initialCapital: initialCap });
+
+      const win1 = wfoRes.windows[0];
+      const win2 = wfoRes.windows[1];
+
+      // El capital inicial de Test en Ventana 2 DEBE ser el capital final de Test en Ventana 1
+      const win1FinalEquity = win1.testMetrics!.finalEquity;
+      const win2InitialEquity = win2.testMetrics!.initialCapital;
+      const capitalChained = Math.abs(win1FinalEquity - win2InitialEquity) < 1e-4;
+
+      // El capital final del track record combinado debe coincidir con el final de Ventana 2
+      const masterFinalEquity = wfoRes.combinedOutOfSampleMetrics.finalEquity;
+      const win2FinalEquity = win2.testMetrics!.finalEquity;
+      const masterChained = Math.abs(masterFinalEquity - win2FinalEquity) < 1e-4;
+
+      const passed = capitalChained && masterChained && win1FinalEquity > initialCap;
+
+      results.push({
+        name: '49. Encadenamiento Real de Capital OOS (Compounding Inter-Ventana)',
+        passed,
+        message: passed
+          ? `OK: Ventana 1 finalizó con ${win1FinalEquity.toFixed(2)} €, capital inicial exacto de Ventana 2 (${win2InitialEquity.toFixed(2)} €).`
+          : `Fallo en capital compounding: Win1 Final = ${win1FinalEquity}, Win2 Initial = ${win2InitialEquity}`
+      });
+    } catch (e: any) {
+      results.push({ name: '49. Capital Compounding OOS', passed: false, message: e.message });
+    }
+
+    // 50. Cálculo Exacto de Degradación (degradationPct)
+    try {
+      const bars = SyntheticDataGenerator.generateBars(50, { basePrice: 100 });
+      const wfoCfg: WalkForwardConfig = {
+        trainWindowBars: 25,
+        testWindowBars: 25,
+        stepBars: 25,
+        optimizationMetric: 'TOTAL_RETURN',
+        minimumTrades: 0,
+        parameterGrid: [{ name: 'param', values: [1] }]
+      };
+
+      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, wfoCfg);
+      const win = wfoRes.windows[0];
+
+      let formulaMatch = false;
+      if (win.trainScore !== null && win.testScore !== null && win.degradationPct !== null) {
+        const expectedDegradation = Number((((win.testScore - win.trainScore) / Math.abs(win.trainScore)) * 100).toFixed(2));
+        formulaMatch = Math.abs(win.degradationPct - expectedDegradation) < 1e-4;
+      }
+
+      results.push({
+        name: '50. Cálculo Exacto de Degradación Out-of-Sample (degradationPct)',
+        passed: formulaMatch,
+        message: formulaMatch
+          ? `OK: degradationPct (${win.degradationPct}%) calculado con la fórmula cuantitativa (TestScore - TrainScore) / |TrainScore| * 100.`
+          : `Fallo en cálculo de degradationPct (obtenido: ${win.degradationPct}).`
+      });
+    } catch (e: any) {
+      results.push({ name: '50. DegradationPct', passed: false, message: e.message });
+    }
+
+    // 51. Reporte de Estabilidad de Parámetros con MathStats
+    try {
+      const bars = SyntheticDataGenerator.generateBars(75, { basePrice: 100 });
+      const wfoCfg: WalkForwardConfig = {
+        trainWindowBars: 25,
+        testWindowBars: 25,
+        stepBars: 25,
+        optimizationMetric: 'TOTAL_RETURN',
+        minimumTrades: 0,
+        parameterGrid: [
+          { name: 'fastPeriod', values: [5, 10] },
+          { name: 'slowPeriod', values: [20, 30] }
+        ]
+      };
+
+      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(
+        ALL_QUANT_STRATEGIES.find(s => s.id === 'sma_crossover') || buyHoldStrategy,
+        bars,
+        wfoCfg
+      );
+
+      const report = wfoRes.parameterStability;
+      const passed =
+        Array.isArray(report.parameterStats) &&
+        report.parameterStats.length === 2 &&
+        report.parameterStats.every(p => p.uniqueValues > 0 && typeof p.mean === 'number' && typeof p.stdDev === 'number') &&
+        typeof report.stabilityScore === 'number';
+
+      results.push({
+        name: '51. Reporte de Estabilidad de Parámetros Cuantitativo (MathStats)',
+        passed,
+        message: passed
+          ? `OK: Reporte generado con media, stdDev, min, max y stabilityScore global (${report.stabilityScore}%).`
+          : 'Fallo en generación de ParameterStabilityReport.'
+      });
+    } catch (e: any) {
+      results.push({ name: '51. ParameterStabilityReport', passed: false, message: e.message });
+    }
+
+    // 52. Score de Robustez Cuantitativa con Desglose Ponderado (40/25/20/15)
+    try {
+      const bars = SyntheticDataGenerator.generateBars(80, { basePrice: 100 });
+      const wfoCfg: WalkForwardConfig = {
+        trainWindowBars: 30,
+        testWindowBars: 25,
+        stepBars: 25,
+        optimizationMetric: 'SHARPE',
+        minimumTrades: 0,
+        parameterGrid: [{ name: 'param', values: [1] }]
+      };
+
+      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, wfoCfg);
+      const comps = wfoRes.robustnessComponents;
+
+      const passed =
+        typeof wfoRes.robustnessScore === 'number' &&
+        wfoRes.robustnessScore >= 0 && wfoRes.robustnessScore <= 100 &&
+        comps.oosPerformance !== null &&
+        comps.degradation !== null &&
+        comps.parameterStability !== null &&
+        comps.consistency !== null;
+
+      results.push({
+        name: '52. Score de Robustez Cuantitativa con Desglose Ponderado (40/25/20/15)',
+        passed,
+        message: passed
+          ? `OK: Score = ${wfoRes.robustnessScore}/100. Componentes: OOS=${comps.oosPerformance}pts (40%), Degr=${comps.degradation}pts (25%), ParamStab=${comps.parameterStability}pts (20%), Consist=${comps.consistency}pts (15%).`
+          : 'Fallo en el cálculo de componentes de robustez.'
+      });
+    } catch (e: any) {
+      results.push({ name: '52. Robustness Score Desglose', passed: false, message: e.message });
+    }
+
+    // 53. Holdout Validation vs Walk-Forward Optimization
+    try {
+      const bars = SyntheticDataGenerator.generateBars(60, { basePrice: 100, volatility: 0.01 });
       const holdoutRes = WalkForwardEngine.runHoldoutValidation(buyHoldStrategy, bars, 0.70);
       const passed =
         holdoutRes.inSampleResult.equityCurve.length === 42 &&
         holdoutRes.outOfSampleResult.equityCurve.length === 18 &&
-        typeof holdoutRes.efficiencyRatio === 'number' &&
+        holdoutRes.efficiencyRatio !== null &&
         typeof holdoutRes.isRobust === 'boolean';
 
       results.push({
-        name: '40. Holdout Validation (Partición In-Sample / Out-of-Sample 70-30)',
+        name: '53. Holdout Validation (Partición In-Sample / Out-of-Sample 70-30)',
         passed,
         message: passed
           ? `OK: Holdout ejecutado con 42 barras Train y 18 barras Test (Efficiency Ratio: ${holdoutRes.efficiencyRatio}).`
           : 'Fallo en partición de Holdout Validation.'
       });
     } catch (e: any) {
-      results.push({ name: '40. Holdout Validation', passed: false, message: e.message });
+      results.push({ name: '53. Holdout Validation', passed: false, message: e.message });
     }
 
-    // 41. Generación de Rejilla de Parámetros (Cartesian Product)
+    // 54. Aislamiento Estricto de Datos: Cero Fuga de Información (Zero Lookahead Bias)
     try {
-      const grid: ParameterRange[] = [
-        { name: 'fastPeriod', values: [5, 10] },
-        { name: 'slowPeriod', values: [20, 50, 100] },
-        { name: 'threshold', values: [1.5] }
-      ];
-      const combinations = WalkForwardEngine.generateParameterCombinations(grid);
-      const passed =
-        combinations.length === 6 &&
-        combinations.every(c => 'fastPeriod' in c && 'slowPeriod' in c && 'threshold' in c);
-
-      results.push({
-        name: '41. Generación de Rejilla de Parámetros (Producto Cartesiano)',
-        passed,
-        message: passed
-          ? `OK: ${combinations.length} combinaciones generadas exactamente a partir de la rejilla.`
-          : `Fallo: se generaron ${combinations.length} combinaciones (esperadas 6).`
-      });
-    } catch (e: any) {
-      results.push({ name: '41. Rejilla Parámetros', passed: false, message: e.message });
-    }
-
-    // 42. Aislamiento Estricto de Datos: Cero Fuga de Información en WFO Train vs Test
-    try {
-      // Creamos dos series que tienen EXACTAMENTE los mismos datos en los primeros 30 compases (Train),
-      // pero datos completamente divergentes en los compases 31-45 (Test).
       const trainPart = SyntheticDataGenerator.generateBars(30, { basePrice: 100, volatility: 0.01, trend: 0.002, seed: 123 });
       const testPartA = SyntheticDataGenerator.generateBars(15, { basePrice: 110, volatility: 0.02, trend: 0.005, seed: 456 });
       const testPartB = SyntheticDataGenerator.generateBars(15, { basePrice: 110, volatility: 0.05, trend: -0.01, seed: 789 });
 
-      // Ajustamos fechas correlativas para la serie B
       const seriesA = [...trainPart, ...testPartA];
       const seriesB = [...trainPart, ...testPartB.map((b, idx) => ({ ...b, timestamp: `2026-02-${(idx + 1).toString().padStart(2, '0')}` }))];
 
@@ -1261,132 +1709,29 @@ export class FinancialTestSuite {
         optimizationMetric: 'TOTAL_RETURN',
         minimumTrades: 0,
         parameterGrid: [
-          { name: 'oversold', values: [20, 30, 40] },
-          { name: 'overbought', values: [60, 70, 80] }
+          { name: 'oversoldThreshold', values: [20, 30, 40] },
+          { name: 'overboughtThreshold', values: [60, 70, 80] }
         ]
       };
 
       const resA = WalkForwardEngine.runWalkForwardOptimization(rsiStrat, seriesA, wfoCfg);
       const resB = WalkForwardEngine.runWalkForwardOptimization(rsiStrat, seriesB, wfoCfg);
 
-      // Los parámetros seleccionados en la ventana 1 (Train) DEBEN SER IDÉNTICOS,
-      // demostrando que ningún dato de Test afectó a la optimización de Train.
       const paramMatch = JSON.stringify(resA.windows[0].selectedParameters) === JSON.stringify(resB.windows[0].selectedParameters);
-      const trainScoreMatch = Math.abs(resA.windows[0].trainMetrics.totalReturnPct - resB.windows[0].trainMetrics.totalReturnPct) < 1e-6;
-      const testDiffers = resA.windows[0].testMetrics.totalReturnPct !== resB.windows[0].testMetrics.totalReturnPct;
+      const trainScoreMatch = Math.abs((resA.windows[0].trainMetrics?.totalReturnPct || 0) - (resB.windows[0].trainMetrics?.totalReturnPct || 0)) < 1e-6;
+      const testDiffers = resA.windows[0].testMetrics?.totalReturnPct !== resB.windows[0].testMetrics?.totalReturnPct;
 
       const passed = paramMatch && trainScoreMatch && testDiffers;
 
       results.push({
-        name: '42. Aislamiento Estricto de Datos: Cero Fuga de Información en WFO Train vs Test',
+        name: '54. Aislamiento Estricto de Datos: Cero Fuga de Información en WFO Train vs Test',
         passed,
         message: passed
           ? 'OK: Los parámetros de Train son 100% idénticos e inmunes a cambios futuros en Test (cero lookahead bias).'
           : 'Fallo: Hubo fuga de información entre Train y Test.'
       });
     } catch (e: any) {
-      results.push({ name: '42. Aislamiento WFO', passed: false, message: e.message });
-    }
-
-    // 43. Desplazamiento y Segmentación de Ventanas Rolling WFO
-    try {
-      const bars = SyntheticDataGenerator.generateBars(80, { basePrice: 100, volatility: 0.01 });
-      const wfoCfg: WalkForwardConfig = {
-        trainWindowBars: 30,
-        testWindowBars: 10,
-        stepBars: 10,
-        optimizationMetric: 'SHARPE',
-        minimumTrades: 0,
-        parameterGrid: [{ name: 'param', values: [1, 2] }]
-      };
-
-      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, wfoCfg);
-      // Con 80 barras:
-      // W1: Train [0..30], Test [30..40]
-      // W2: Train [10..40], Test [40..50]
-      // W3: Train [20..50], Test [50..60]
-      // W4: Train [30..60], Test [60..70]
-      // W5: Train [40..70], Test [70..80]
-      // Total 5 ventanas
-      const passed =
-        wfoRes.windows.length === 5 &&
-        wfoRes.windows[0].trainBarsCount === 30 &&
-        wfoRes.windows[0].testBarsCount === 10 &&
-        wfoRes.windows[4].testBarsCount === 10;
-
-      results.push({
-        name: '43. Desplazamiento Secuencial de Ventanas Rolling WFO',
-        passed,
-        message: passed
-          ? `OK: ${wfoRes.windows.length} ventanas rolling ejecutadas secuencialmente sin solapamiento en Test.`
-          : `Fallo: Se generaron ${wfoRes.windows.length} ventanas (esperadas 5).`
-      });
-    } catch (e: any) {
-      results.push({ name: '43. Desplazamiento WFO', passed: false, message: e.message });
-    }
-
-    // 44. Encadenamiento Continuo de Equity Out-of-Sample (Stitched Curve)
-    try {
-      const bars = SyntheticDataGenerator.generateBars(60, { basePrice: 100, volatility: 0.01, trend: 0.001 });
-      const wfoCfg: WalkForwardConfig = {
-        trainWindowBars: 30,
-        testWindowBars: 15,
-        stepBars: 15,
-        optimizationMetric: 'SHARPE',
-        minimumTrades: 0,
-        parameterGrid: [{ name: 'param', values: [1] }]
-      };
-
-      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, wfoCfg, { initialCapital: 10000 });
-      const stitched = wfoRes.combinedOutOfSampleEquity;
-
-      // La curva cosida debe tener puntos continuos y capital preservado
-      const hasPoints = stitched.length === 30; // 2 ventanas de 15 barras = 30 barras test
-      const finalEqConsistent = Math.abs(wfoRes.combinedOutOfSampleMetrics.finalEquity - stitched[stitched.length - 1].equity) < 0.1;
-      const passed = hasPoints && finalEqConsistent && wfoRes.combinedOutOfSampleMetrics.initialCapital === 10000;
-
-      results.push({
-        name: '44. Encadenamiento Continuo de Curva de Equity Out-of-Sample',
-        passed,
-        message: passed
-          ? `OK: Curva OOS encadenada (${stitched.length} compases, Capital final: ${wfoRes.combinedOutOfSampleMetrics.finalEquity.toFixed(2)} €).`
-          : 'Fallo en encadenamiento de curva de equity Out-of-Sample.'
-      });
-    } catch (e: any) {
-      results.push({ name: '44. Curva OOS Encadenada', passed: false, message: e.message });
-    }
-
-    // 45. Diagnóstico de Robustez y Estabilidad de Parámetros WFO
-    try {
-      const bars = SyntheticDataGenerator.generateBars(60, { basePrice: 100, volatility: 0.01 });
-      const wfoCfg: WalkForwardConfig = {
-        trainWindowBars: 30,
-        testWindowBars: 15,
-        stepBars: 15,
-        optimizationMetric: 'TOTAL_RETURN',
-        minimumTrades: 0,
-        parameterGrid: [{ name: 'dummyParam', values: [5, 10] }]
-      };
-
-      const wfoRes = WalkForwardEngine.runWalkForwardOptimization(buyHoldStrategy, bars, wfoCfg);
-      const stability = wfoRes.parameterStability['dummyParam'];
-      const passed =
-        stability !== undefined &&
-        typeof stability.stabilityPct === 'number' &&
-        typeof wfoRes.robustnessScore === 'number' &&
-        wfoRes.robustnessScore >= 0 && wfoRes.robustnessScore <= 100 &&
-        typeof wfoRes.diagnosis === 'string' &&
-        wfoRes.diagnosis.length > 0;
-
-      results.push({
-        name: '45. Estabilidad de Parámetros y Score Cuantitativo de Robustez',
-        passed,
-        message: passed
-          ? `OK: Score de Robustez = ${wfoRes.robustnessScore}/100, Estabilidad = ${stability.stabilityPct}%, Diagnóstico: "${wfoRes.diagnosis.slice(0, 40)}...".`
-          : 'Fallo en diagnóstico de robustez/estabilidad.'
-      });
-    } catch (e: any) {
-      results.push({ name: '45. Estabilidad de Parámetros', passed: false, message: e.message });
+      results.push({ name: '54. Aislamiento WFO', passed: false, message: e.message });
     }
 
     return results;

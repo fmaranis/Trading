@@ -925,16 +925,43 @@ export const BacktestCenter: React.FC = () => {
                       )}
                       <div>
                         <span className="font-bold text-sm text-white">Score de Robustez Cuantitativa: </span>
-                        <span className="font-mono font-bold text-base text-indigo-300">{wfoResult.robustnessScore}/100</span>
+                        <span className="font-mono font-bold text-base text-indigo-300">
+                          {wfoResult.robustnessScore !== null ? `${wfoResult.robustnessScore}/100` : 'N/D'}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs font-mono">
-                      <span>WFE Ratio: <strong className="text-white">{formatNum(wfoResult.averageEfficiencyRatio)}</strong></span>
-                      <span>Ventanas Ganadoras: <strong className="text-white">{wfoResult.profitableWindowsPct}%</strong> ({wfoResult.windows.filter(w => w.testMetrics.totalReturnPct > 0).length}/{wfoResult.windows.length})</span>
+                    <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+                      <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300 text-[10px]">
+                        Evidencia: <strong>{wfoResult.validationEvidence}</strong>
+                      </span>
+                      <span>Backtests: <strong>{wfoResult.executedBacktests}</strong> / {wfoResult.estimatedBacktests}</span>
+                      <span>WFE Ratio: <strong className="text-white">{wfoResult.averageEfficiencyRatio !== null ? formatNum(wfoResult.averageEfficiencyRatio) : 'N/D'}</strong></span>
+                      <span>Ventanas Ganadoras: <strong className="text-white">{wfoResult.profitableWindowsPct}%</strong> ({wfoResult.windows.filter(w => w.testMetrics && w.testMetrics.totalReturnPct > 0).length}/{wfoResult.windows.length})</span>
                     </div>
                   </div>
-                  <p className="text-xs leading-relaxed">{wfoResult.diagnosis}</p>
+
+                  <p className="text-xs leading-relaxed mb-3">{wfoResult.diagnosis}</p>
+
+                  {/* Robustness 4-Component Breakdown (40/25/20/15) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-slate-800/80 text-[11px] font-mono">
+                    <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                      <span className="text-slate-400 block text-[10px]">OOS Sharpe (40%)</span>
+                      <strong className="text-indigo-300">{wfoResult.robustnessComponents.oosPerformance ?? 'N/D'} pts</strong>
+                    </div>
+                    <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                      <span className="text-slate-400 block text-[10px]">Degradación WFE (25%)</span>
+                      <strong className="text-indigo-300">{wfoResult.robustnessComponents.degradation ?? 'N/D'} pts</strong>
+                    </div>
+                    <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                      <span className="text-slate-400 block text-[10px]">Estabilidad Params (20%)</span>
+                      <strong className="text-indigo-300">{wfoResult.robustnessComponents.parameterStability ?? 'N/D'} pts</strong>
+                    </div>
+                    <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                      <span className="text-slate-400 block text-[10px]">Consistencia OOS (15%)</span>
+                      <strong className="text-indigo-300">{wfoResult.robustnessComponents.consistency ?? 'N/D'} pts</strong>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Stitched Out-of-Sample KPI Cards */}
@@ -1044,20 +1071,30 @@ export const BacktestCenter: React.FC = () => {
                       <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-mono">
                         <tr>
                           <th className="py-2 px-3">Ventana</th>
-                          <th className="py-2 px-3">Periodo Train (IS)</th>
-                          <th className="py-2 px-3">Periodo Test (OOS)</th>
-                          <th className="py-2 px-3">Parámetros Seleccionados</th>
-                          <th className="py-2 px-3 text-right">Train Sharpe</th>
-                          <th className="py-2 px-3 text-right">Test OOS Sharpe</th>
-                          <th className="py-2 px-3 text-right">Eficiencia (WFE)</th>
+                          <th className="py-2 px-3">Estado</th>
+                          <th className="py-2 px-3">Periodo Train</th>
+                          <th className="py-2 px-3">Periodo Test OOS</th>
+                          <th className="py-2 px-3">Parámetros</th>
+                          <th className="py-2 px-3 text-right">Train Score</th>
+                          <th className="py-2 px-3 text-right">Test Score</th>
+                          <th className="py-2 px-3 text-right">WFE</th>
+                          <th className="py-2 px-3 text-right">Degradación</th>
+                          <th className="py-2 px-3 text-right">Sensibilidad</th>
                           <th className="py-2 px-3 text-right">Retorno OOS</th>
-                          <th className="py-2 px-3 text-right">Trades OOS</th>
+                          <th className="py-2 px-3 text-right">Trades</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60 font-mono">
                         {wfoResult.windows.map((w) => (
                           <tr key={w.windowIndex} className="hover:bg-slate-800/30">
                             <td className="py-2.5 px-3 font-bold text-slate-300">W{w.windowIndex}</td>
+                            <td className="py-2.5 px-3">
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                w.status === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                              }`}>
+                                {w.status === 'SUCCESS' ? 'OK' : 'SIN PARAMS'}
+                              </span>
+                            </td>
                             <td className="py-2.5 px-3 text-slate-400 text-[11px] font-sans">
                               {w.trainStart} → {w.trainEnd} ({w.trainBarsCount}b)
                             </td>
@@ -1065,27 +1102,50 @@ export const BacktestCenter: React.FC = () => {
                               {w.testStart} → {w.testEnd} ({w.testBarsCount}b)
                             </td>
                             <td className="py-2.5 px-3">
-                              <span className="px-2 py-0.5 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-800/50 text-[10px]">
-                                {Object.entries(w.selectedParameters).map(([k, v]) => `${k}=${v}`).join(', ')}
+                              {w.selectedParameters ? (
+                                <span className="px-2 py-0.5 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-800/50 text-[10px]">
+                                  {Object.entries(w.selectedParameters).map(([k, v]) => `${k}=${v}`).join(', ')}
+                                </span>
+                              ) : (
+                                <span className="text-slate-500 text-[10px]">N/A</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-indigo-300">
+                              {w.trainScore !== null ? formatNum(w.trainScore) : 'N/D'}
+                            </td>
+                            <td className={`py-2.5 px-3 text-right font-bold ${
+                              (w.testScore ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {w.testScore !== null ? formatNum(w.testScore) : 'N/D'}
+                            </td>
+                            <td className={`py-2.5 px-3 text-right font-bold ${
+                              (w.efficiencyRatio ?? 0) >= 0.5 ? 'text-emerald-400' : 'text-amber-400'
+                            }`}>
+                              {w.efficiencyRatio !== null ? formatNum(w.efficiencyRatio) : 'N/D'}
+                            </td>
+                            <td className={`py-2.5 px-3 text-right text-[10px] ${
+                              (w.degradationPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {w.degradationPct !== null ? `${formatPct(w.degradationPct, 1)}` : 'N/D'}
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] ${
+                                w.parameterSensitivity === 'LOW' ? 'bg-emerald-500/20 text-emerald-300' :
+                                w.parameterSensitivity === 'MEDIUM' ? 'bg-amber-500/20 text-amber-300' :
+                                w.parameterSensitivity === 'HIGH' ? 'bg-rose-500/20 text-rose-300' :
+                                'bg-slate-800 text-slate-400'
+                              }`}>
+                                {w.parameterSensitivity}
                               </span>
                             </td>
-                            <td className="py-2.5 px-3 text-right text-indigo-300">{formatNum(w.trainMetrics.sharpeRatio)}</td>
                             <td className={`py-2.5 px-3 text-right font-bold ${
-                              (w.testMetrics.sharpeRatio ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                              (w.testMetrics?.totalReturnPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
                             }`}>
-                              {formatNum(w.testMetrics.sharpeRatio)}
+                              {w.testMetrics ? formatPct(w.testMetrics.totalReturnPct) : 'N/D'}
                             </td>
-                            <td className={`py-2.5 px-3 text-right font-bold ${
-                              w.efficiencyRatio >= 0.5 ? 'text-emerald-400' : 'text-amber-400'
-                            }`}>
-                              {formatNum(w.efficiencyRatio)}
+                            <td className="py-2.5 px-3 text-right text-slate-400">
+                              {w.testMetrics ? w.testMetrics.totalTrades : 0}
                             </td>
-                            <td className={`py-2.5 px-3 text-right font-bold ${
-                              w.testMetrics.totalReturnPct >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                            }`}>
-                              {formatPct(w.testMetrics.totalReturnPct)}
-                            </td>
-                            <td className="py-2.5 px-3 text-right text-slate-400">{w.testMetrics.totalTrades}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1095,35 +1155,35 @@ export const BacktestCenter: React.FC = () => {
 
                 {/* Parameter Stability Analysis */}
                 <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-2">
-                    Estabilidad Temporal de Parámetros
-                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Estabilidad Temporal de Parámetros
+                    </h4>
+                    <span className="text-xs font-mono text-indigo-300">
+                      Score Global de Estabilidad: <strong>{wfoResult.parameterStability.stabilityScore ?? 'N/D'}%</strong>
+                    </span>
+                  </div>
                   <p className="text-[11px] text-slate-400 mb-3">
                     Mide si los parámetros óptimos se mantienen estables a lo largo del tiempo o si mutan drásticamente entre ventanas consecutivas.
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {Object.entries(wfoResult.parameterStability).map(([paramName, stat]) => {
-                      const s = stat as {
-                        values: number[];
-                        distinctValuesCount: number;
-                        mostFrequentValue: number;
-                        stabilityPct: number;
-                      };
+                    {wfoResult.parameterStability.parameterStats.map((pStat) => {
                       return (
-                        <div key={paramName} className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                        <div key={pStat.parameter} className="bg-slate-900 border border-slate-800 rounded-xl p-3">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="font-mono text-xs font-bold text-indigo-300">{paramName}</span>
+                            <span className="font-mono text-xs font-bold text-indigo-300">{pStat.parameter}</span>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                              s.stabilityPct >= 60 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                              (pStat.stabilityScore ?? 0) >= 60 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
                             }`}>
-                              Estabilidad: {s.stabilityPct}%
+                              Estabilidad: {pStat.stabilityScore !== null ? `${pStat.stabilityScore}%` : 'N/D'}
                             </span>
                           </div>
                           <div className="text-[11px] text-slate-400 space-y-1 mt-2 font-mono">
-                            <div>Valor Más Frecuente: <strong className="text-white">{s.mostFrequentValue}</strong></div>
-                            <div>Variedad de Valores: <strong className="text-white">{s.distinctValuesCount}</strong></div>
-                            <div className="text-[10px] text-slate-500 truncate">Secuencia: [{s.values.join(', ')}]</div>
+                            <div>Media: <strong className="text-white">{pStat.mean ?? 'N/D'}</strong> | StdDev: <strong className="text-white">{pStat.stdDev ?? 'N/D'}</strong></div>
+                            <div>Rango: <strong className="text-white">[{pStat.min ?? 'N/D'} - {pStat.max ?? 'N/D'}]</strong></div>
+                            <div>Valores Únicos Seleccionados: <strong className="text-white">{pStat.uniqueValues}</strong></div>
+                            <div className="text-[10px] text-slate-500 truncate">Secuencia: [{pStat.selections.join(', ')}]</div>
                           </div>
                         </div>
                       );
