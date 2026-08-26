@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   validate:
@@ -20,7 +21,29 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: TypeScript
-        run: npm run lint
+        id: typescript
+        shell: bash
+        run: |
+          set +e
+          npm run lint 2>&1 | tee tsc.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Publish TypeScript diagnostics
+        if: steps.typescript.outputs.exit_code != '0' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo '### TypeScript diagnostics'
+            echo '```text'
+            tail -n 120 tsc.log
+            echo '```'
+          } > tsc-comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file tsc-comment.md
+      - name: Fail on TypeScript errors
+        if: steps.typescript.outputs.exit_code != '0'
+        run: exit 1
       - name: Multi-asset tests 119-135
         run: npm run test:multi-asset
       - name: Production build
