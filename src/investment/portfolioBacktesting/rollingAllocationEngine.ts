@@ -16,14 +16,15 @@ export class RollingAllocationEngine {
   ): RollingAllocationDecision | null {
     if (executionIndex <= 0) return null;
 
-    const lookback = Math.max(3, policy.lookbackBars ?? 60);
-    const minHistory = Math.max(3, policy.minimumHistoryBars ?? lookback);
+    const lookbackReturns = Math.max(3, policy.lookbackBars ?? 60);
+    const requiredPrices = lookbackReturns + 1;
+    const minHistory = Math.max(requiredPrices, policy.minimumHistoryBars ?? requiredPrices);
     const availableHistory = executionIndex;
     if (availableHistory < minHistory) return null;
 
-    const start = Math.max(0, executionIndex - lookback - 1);
+    const start = Math.max(0, executionIndex - requiredPrices);
     const historyRows = aligned.rows.slice(start, executionIndex);
-    if (historyRows.length < 3) return null;
+    if (historyRows.length < requiredPrices) return null;
 
     const historicalAligned: AlignedMultiAssetDataset = {
       assetIds: aligned.assetIds,
@@ -34,7 +35,7 @@ export class RollingAllocationEngine {
 
     const allocation = DeterministicPortfolioAllocator.allocate(historicalAligned, {
       method: policy.method,
-      lookbackBars: Math.min(lookback, historyRows.length - 1),
+      lookbackBars: Math.min(lookbackReturns, historyRows.length - 1),
       topK: policy.topK,
       minimumMomentumPct: policy.minimumMomentumPct
     });
