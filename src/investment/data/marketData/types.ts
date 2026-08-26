@@ -9,7 +9,9 @@ export type AdjustmentStatus =
   | 'UNADJUSTED'
   | 'ADJUSTED_DERIVED'
   | 'ADJUSTED_PROVIDER'
-  | 'UNKNOWN';
+  | 'UNKNOWN'
+  /** @deprecated Legacy compatibility only. Production REAL data uses ADJUSTED_DERIVED. */
+  | 'ADJUSTED';
 
 export type DataLoadStatus = 'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR';
 
@@ -39,8 +41,8 @@ export interface MarketDataMetadata {
   timeframe: MarketTimeframe;
   adjusted: boolean;
   adjustmentStatus: AdjustmentStatus;
-  adjustmentMethod: AdjustmentMethod;
-  datasetFingerprint: string;
+  adjustmentMethod?: AdjustmentMethod;
+  datasetFingerprint?: string;
   currency?: string;
   exchange?: string;
   fetchedAt: string;
