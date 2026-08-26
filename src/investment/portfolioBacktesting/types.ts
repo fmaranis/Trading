@@ -4,6 +4,7 @@ import { DataProvenance } from '../data/types';
 export type CalendarAlignmentPolicy = 'INTERSECTION' | 'UNION_NO_FILL';
 export type RebalanceFrequency = 'NONE' | 'MONTHLY' | 'QUARTERLY';
 export type PortfolioEvidence = 'REAL_ONLY' | 'STATIC_ONLY' | 'SYNTHETIC_ONLY' | 'MIXED';
+export type DynamicAllocationMethod = 'INVERSE_VOLATILITY' | 'RISK_PARITY_ERC' | 'RELATIVE_MOMENTUM';
 
 export interface MultiAssetDatasetItem {
   assetId: string;
@@ -37,6 +38,14 @@ export interface AlignedMultiAssetDataset {
   policy: CalendarAlignmentPolicy;
 }
 
+export interface DynamicAllocationPolicy {
+  method: DynamicAllocationMethod;
+  lookbackBars?: number;
+  topK?: number;
+  minimumMomentumPct?: number;
+  minimumHistoryBars?: number;
+}
+
 export interface PortfolioBacktestConfig {
   initialCapital: number;
   commissionPct: number;
@@ -44,6 +53,7 @@ export interface PortfolioBacktestConfig {
   rebalanceFrequency: RebalanceFrequency;
   executionMode: 'NEXT_OPEN';
   targetWeights: Record<string, number>;
+  dynamicAllocation?: DynamicAllocationPolicy;
   minimumCashPct?: number;
   rebalanceTolerancePct?: number;
   alignmentPolicy?: CalendarAlignmentPolicy;
@@ -114,6 +124,15 @@ export interface PortfolioMetrics {
   totalTradingCostsEur: number;
 }
 
+export interface AllocationHistoryPoint {
+  executionDate: string;
+  informationEndDate: string;
+  method: 'STATIC' | DynamicAllocationMethod;
+  weights: Record<string, number>;
+  cashWeight: number;
+  historyBarsUsed: number;
+}
+
 export interface PortfolioBacktestResult {
   config: PortfolioBacktestConfig;
   provenance: PortfolioDataProvenance;
@@ -123,6 +142,7 @@ export interface PortfolioBacktestResult {
   trades: PortfolioTrade[];
   metrics: PortfolioMetrics;
   assetSummaries: PortfolioAssetSummary[];
+  allocationHistory: AllocationHistoryPoint[];
 }
 
 export class MultiAssetDataError extends Error {
