@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { AlignedMultiAssetDataset } from '../src/investment/portfolioBacktesting/types';
-import { DeterministicPortfolioAllocator, RealPortfolioAnalytics } from '../src/investment/portfolioAnalytics';
+import { DeterministicPortfolioAllocator, PortfolioRiskAnalyzer, RealPortfolioAnalytics } from '../src/investment/portfolioAnalytics';
 
 function bar(date: string, close: number) {
   return { timestamp: `${date}T00:00:00.000Z`, open: close, high: close, low: close, close, volume: 1000 };
@@ -95,6 +95,32 @@ test('151 momentum uses requested trailing lookback', () => {
 
 test('152 insufficient observations rejected', () => {
   assert.throws(() => RealPortfolioAnalytics.calculate(aligned([100, 101], [100, 99]), 1));
+});
+
+test('161 risk contributions sum to 100 percent', () => {
+  const analytics = RealPortfolioAnalytics.calculate(aligned([100, 102, 101, 104, 106], [100, 99, 101, 100, 102]), 3);
+  const risk = PortfolioRiskAnalyzer.analyze(analytics, { A: 0.5, B: 0.5 });
+  const sum = risk.contributions.reduce((s, x) => s + (x.riskContributionPct ?? 0), 0);
+  assert.ok(Math.abs(sum - 100) < 1e-8);
+});
+
+test('162 diversification ratio is positive for invested portfolio', () => {
+  const analytics = RealPortfolioAnalytics.calculate(aligned([100, 102, 101, 104, 106], [100, 99, 101, 100, 102]), 3);
+  const risk = PortfolioRiskAnalyzer.analyze(analytics, { A: 0.5, B: 0.5 });
+  assert.ok((risk.diversificationRatio ?? 0) > 0);
+});
+
+test('163 effective number of equally weighted assets equals two', () => {
+  const analytics = RealPortfolioAnalytics.calculate(aligned([100, 102, 101, 104], [100, 99, 101, 100]), 2);
+  const risk = PortfolioRiskAnalyzer.analyze(analytics, { A: 0.5, B: 0.5 });
+  assert.ok(Math.abs((risk.effectiveNumberOfAssets ?? 0) - 2) < 1e-12);
+});
+
+test('164 cash-only portfolio reports zero volatility', () => {
+  const analytics = RealPortfolioAnalytics.calculate(aligned([100, 102, 101, 104], [100, 99, 101, 100]), 2);
+  const risk = PortfolioRiskAnalyzer.analyze(analytics, { A: 0, B: 0 });
+  assert.equal(risk.portfolioAnnualizedVolatilityPct, 0);
+  assert.equal(risk.diversificationRatio, null);
 });
 
 let passed = 0;
