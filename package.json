@@ -13,7 +13,9 @@
     "test:market-data:integration": "tsx tests/integration/realMarketData.integration.ts",
     "test:smoke:real-backtest": "tsx scripts/realBacktestSmoke.ts",
     "test:backend:python": "PYTHONPATH=. python3 -m pytest backend/tests/",
-    "test:compare-engines": "tsx scripts/compareEngines.ts"
+    "test:compare-engines": "tsx scripts/compareEngines.ts",
+    "test:multi-asset": "tsx tests/multiAsset.unit.ts",
+    "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
