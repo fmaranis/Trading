@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Python local/runtime artifacts
+.venv/
+venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
