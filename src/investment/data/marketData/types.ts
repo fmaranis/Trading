@@ -3,21 +3,34 @@ import { DataProvenance } from '../types';
 
 export type MarketTimeframe = '1d' | '1wk' | '1mo';
 
-export type AdjustmentStatus = 'ADJUSTED' | 'UNADJUSTED' | 'UNKNOWN';
+export type AdjustmentMethod = 'NONE' | 'PROVIDER_ADJCLOSE_RATIO';
+
+export type AdjustmentStatus =
+  | 'UNADJUSTED'
+  | 'ADJUSTED_DERIVED'
+  | 'ADJUSTED_PROVIDER'
+  | 'UNKNOWN';
 
 export type DataLoadStatus = 'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR';
 
 export interface HistoricalMarketDataRequest {
   symbol: string;
-  startDate: string; // ISO 8601 string (e.g., '2023-01-01' or '2023-01-01T00:00:00.000Z')
+  startDate: string;
   endDate: string;
   timeframe: MarketTimeframe;
-  adjusted?: boolean; // Default true for backtesting
+  adjusted?: boolean;
+}
+
+export interface ProviderEndpointInfo {
+  id: string;
+  name: string;
+  endpointType: string;
 }
 
 export interface MarketDataMetadata {
   providerId: string;
   providerName: string;
+  provider?: ProviderEndpointInfo;
   symbol: string;
   requestedStartDate: string;
   requestedEndDate: string;
@@ -26,6 +39,8 @@ export interface MarketDataMetadata {
   timeframe: MarketTimeframe;
   adjusted: boolean;
   adjustmentStatus: AdjustmentStatus;
+  adjustmentMethod: AdjustmentMethod;
+  datasetFingerprint: string;
   currency?: string;
   exchange?: string;
   fetchedAt: string;
@@ -58,6 +73,7 @@ export interface MarketDataProvider {
   readonly id: string;
   readonly name: string;
   getHistoricalBars(request: HistoricalMarketDataRequest, options?: MarketDataFetchOptions): Promise<HistoricalMarketDataResponse>;
+  isSymbolFormatSupported?(symbol: string): boolean;
   supportsSymbol(symbol: string): Promise<boolean>;
   getCapabilities(): MarketDataProviderCapabilities;
 }
