@@ -4,6 +4,7 @@ export * from './requestValidator';
 export * from './cache';
 export * from './symbolMapping';
 export * from './registry';
+export * from './fingerprint';
 export * from './providers/mockProvider';
 export * from './providers/realMarketDataProvider';
 export * from './historicalMarketDataService';
