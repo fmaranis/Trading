@@ -158,7 +158,7 @@ export class LiveSimulationEngine {
 
       for (const candidate of candidateAssets) {
         // 1. Generate real historical price bars
-        const { bars, provenance } = HistoricalDataService.getHistoricalData(candidate, {
+        const { bars, provenance } = HistoricalDataService.getHistoricalDataSync(candidate, {
           mode: 'SYNTHETIC',
           syntheticConfig: { totalBars: 60 }
         });

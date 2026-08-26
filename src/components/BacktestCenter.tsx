@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ALL_AVAILABLE_ASSETS } from '../data/marketData';
 import { ALL_QUANT_STRATEGIES } from '../investment/strategies/standardStrategies';
 import { BacktestEngine } from '../investment/backtesting/engine';
@@ -6,7 +6,7 @@ import { StrategyComparator } from '../investment/analytics/strategyComparator';
 import { WalkForwardEngine } from '../investment/backtesting/walkForward';
 import { AssetScorer } from '../investment/analytics/assetScorer';
 import { HistoricalDataService } from '../investment/data/historicalDataService';
-import { DataSourceType } from '../investment/data/types';
+import { DataSourceType, HistoricalDataResponse } from '../investment/data/types';
 import { ExecutionMode, OptimizationMetric, ParameterRange } from '../investment/backtesting/types';
 import { FinancialTestSuite } from '../investment/backtesting/testSuite';
 import {
@@ -27,7 +27,9 @@ import {
   Fingerprint,
   RefreshCw,
   GitBranch,
-  Target
+  Target,
+  Globe,
+  Loader2
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -53,6 +55,13 @@ export const BacktestCenter: React.FC = () => {
   const [slippagePct, setSlippagePct] = useState<number>(0.02);
   const [trailingStopPct, setTrailingStopPct] = useState<number>(3.5);
   const [activeSubTab, setActiveSubTab] = useState<'single' | 'comparator' | 'walk_forward' | 'scoring' | 'tests'>('comparator');
+
+  // Asynchronous Data Loading State (Step 6)
+  const [dataLoadStatus, setDataLoadStatus] = useState<'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR'>('IDLE');
+  const [dataLoadError, setDataLoadError] = useState<string | null>(null);
+  const [loadedDataset, setLoadedDataset] = useState<HistoricalDataResponse | null>(null);
+  const [forceRefreshCount, setForceRefreshCount] = useState<number>(0);
+  const reqCounterRef = useRef<number>(0);
 
   // Walk-Forward Optimization & Validation State
   const [wfValidationMode, setWfValidationMode] = useState<'wfo' | 'holdout'>('wfo');
@@ -100,15 +109,66 @@ export const BacktestCenter: React.FC = () => {
     }
   }, [selectedStrategyId]);
 
-  const { bars: historicalBars, provenance: currentProvenance } = useMemo(() => {
-    return HistoricalDataService.getHistoricalData(selectedAsset, {
-      mode: dataMode,
-      syntheticConfig: {
-        totalBars: 75,
-        seed: customSeed
+  // Asynchronous fetch with Stale Request Protection & Zero Synthetic Fallback
+  useEffect(() => {
+    const currentRequestId = ++reqCounterRef.current;
+
+    if (dataMode === 'SYNTHETIC' || dataMode === 'STATIC_REFERENCE') {
+      try {
+        const syncRes = HistoricalDataService.getHistoricalDataSync(selectedAsset, {
+          mode: dataMode,
+          syntheticConfig: {
+            totalBars: 75,
+            seed: customSeed
+          }
+        });
+        if (reqCounterRef.current === currentRequestId) {
+          setLoadedDataset(syncRes);
+          setDataLoadStatus('SUCCESS');
+          setDataLoadError(null);
+        }
+      } catch (err: any) {
+        if (reqCounterRef.current === currentRequestId) {
+          setDataLoadError(err.message || 'Error al generar cotizaciones locales.');
+          setDataLoadStatus('ERROR');
+        }
       }
+    } else {
+      // REAL mode
+      setDataLoadStatus('LOADING');
+      setDataLoadError(null);
+
+      HistoricalDataService.getHistoricalData(selectedAsset, {
+        mode: 'REAL',
+        forceRefresh: forceRefreshCount > 0
+      })
+        .then(res => {
+          if (reqCounterRef.current === currentRequestId) {
+            setLoadedDataset(res);
+            setDataLoadStatus('SUCCESS');
+            setDataLoadError(null);
+          }
+        })
+        .catch(err => {
+          if (reqCounterRef.current === currentRequestId) {
+            setDataLoadError(err.message || 'Error al descargar datos de mercado reales del servidor.');
+            setDataLoadStatus('ERROR');
+          }
+        });
+    }
+  }, [selectedAsset, dataMode, customSeed, forceRefreshCount]);
+
+  // Fallback initial dataset (only if not loaded yet)
+  const defaultSyntheticFallback = useMemo(() => {
+    return HistoricalDataService.getHistoricalDataSync(selectedAsset, {
+      mode: 'SYNTHETIC',
+      syntheticConfig: { totalBars: 75, seed: customSeed }
     });
-  }, [selectedAsset, dataMode, customSeed]);
+  }, [selectedAsset, customSeed]);
+
+  const historicalBars = loadedDataset?.bars || defaultSyntheticFallback.bars;
+  const currentProvenance = loadedDataset?.provenance || defaultSyntheticFallback.provenance;
+  const currentMetadata = loadedDataset?.metadata;
 
   // Single Backtest Result
   const singleResult = useMemo(() => {
@@ -213,7 +273,7 @@ export const BacktestCenter: React.FC = () => {
   // Multi-Factor Asset Scores
   const assetScores = useMemo(() => {
     return ALL_AVAILABLE_ASSETS.map(asset => {
-      const { bars } = HistoricalDataService.getHistoricalData(asset, {
+      const { bars } = HistoricalDataService.getHistoricalDataSync(asset, {
         mode: 'SYNTHETIC',
         syntheticConfig: { totalBars: 40, seed: 100 }
       });
@@ -306,6 +366,7 @@ export const BacktestCenter: React.FC = () => {
               >
                 <option value="SYNTHETIC">SYNTHETIC (PRNG Seed #{customSeed})</option>
                 <option value="STATIC_REFERENCE">STATIC_REFERENCE (Hitos Mensuales)</option>
+                <option value="REAL">REAL (Datos Históricos Reales · Yahoo Finance)</option>
               </select>
             </div>
 
@@ -325,15 +386,30 @@ export const BacktestCenter: React.FC = () => {
         </div>
 
         {/* Data Provenance & Execution Mode Badge */}
-        <div className="mt-3 py-1.5 px-3 bg-slate-950/80 border border-slate-800/80 rounded-xl flex flex-wrap items-center justify-between gap-2 text-[11px]">
-          <div className="flex items-center gap-2 text-slate-300">
-            <Database className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-            <span className="font-mono font-semibold text-white">
-              {currentProvenance.sourceType}:
+        <div className="mt-3 py-2 px-3.5 bg-slate-950/90 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-center gap-2 text-slate-200">
+            {currentProvenance.sourceType === 'REAL' ? (
+              <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono font-bold text-[11px] flex items-center gap-1">
+                <Globe className="w-3 h-3 text-emerald-400" />
+                REAL
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-mono font-bold text-[11px] flex items-center gap-1">
+                <Database className="w-3 h-3 text-indigo-400" />
+                {currentProvenance.sourceType}
+              </span>
+            )}
+            <span className="font-semibold text-white">
+              {currentProvenance.provider || 'Proveedor Externo'}
             </span>
-            <span className="text-slate-400">
-              {currentProvenance.notes || currentProvenance.provider}
+            <span className="text-slate-400 font-mono text-[11px]">
+              {currentProvenance.symbol ? `· Símbolo: ${currentProvenance.symbol}` : (currentProvenance.notes ? `· ${currentProvenance.notes}` : '')}
             </span>
+            {currentMetadata?.adjustmentStatus && (
+              <span className="text-emerald-400/90 text-[10px] bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                Ajustado (Splits/Dividendos)
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 text-slate-400 font-mono text-[10px]">
             <span className={`px-2 py-0.5 rounded border ${
@@ -341,17 +417,35 @@ export const BacktestCenter: React.FC = () => {
                 ? 'bg-indigo-950/60 text-indigo-300 border-indigo-500/30'
                 : 'bg-amber-950/60 text-amber-300 border-amber-500/30'
             }`}>
-              Modo: {executionMode === 'NEXT_OPEN' ? 'NEXT_OPEN · Señal Close(t) → Fill Open(t+1)' : 'SAME_CLOSE (Experimental)'}
+              Modo: {executionMode === 'NEXT_OPEN' ? 'NEXT_OPEN' : 'SAME_CLOSE'}
             </span>
+            {currentMetadata?.cached !== undefined && (
+              <span className={`px-2 py-0.5 rounded border ${
+                currentMetadata.cached
+                  ? 'bg-indigo-950/60 text-indigo-300 border-indigo-500/30'
+                  : 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30'
+              }`}>
+                {currentMetadata.cached ? 'Caché: Sí (Memoria)' : 'Descargado: En vivo'}
+              </span>
+            )}
             {currentProvenance.seed !== undefined && (
               <span className="bg-indigo-950/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30 flex items-center gap-1">
                 <Fingerprint className="w-3 h-3" />
-                Seed: {currentProvenance.seed} (100% Reproducible)
+                Seed: #{currentProvenance.seed}
               </span>
             )}
-            <span className="bg-emerald-950/60 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/30">
+            <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
               {historicalBars.length} Barras
             </span>
+            {dataMode === 'REAL' && (
+              <button
+                onClick={() => setForceRefreshCount(c => c + 1)}
+                title="Refrescar cotizaciones del servidor proxy"
+                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${dataLoadStatus === 'LOADING' ? 'animate-spin text-indigo-400' : ''}`} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -419,60 +513,123 @@ export const BacktestCenter: React.FC = () => {
         </div>
       </div>
 
+      {/* ASYNCHRONOUS LOADING AND ERROR OVERLAYS FOR DATA FETCHING */}
+      {activeSubTab !== 'tests' && dataLoadStatus === 'LOADING' && (
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-10 text-center space-y-4 shadow-xl">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-indigo-950/70 border border-indigo-500/30 text-indigo-400">
+            <RefreshCw className="w-7 h-7 animate-spin" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white">Descargando Cotizaciones Históricas Reales...</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+              Consultando servidor proxy seguro para <strong>{selectedAsset.name}</strong> ({selectedAsset.ticker}).
+              Validando orden cronológico ascendente, ausencia de duplicados e integridad OHLC.
+            </p>
+          </div>
+          <div className="text-[11px] font-mono text-indigo-300/80 bg-indigo-950/40 py-1.5 px-3 rounded-lg inline-block border border-indigo-500/20">
+            Estado: Asíncrono · Validando Dataset antes de ejecutar el Backtest
+          </div>
+        </div>
+      )}
+
+      {activeSubTab !== 'tests' && dataLoadStatus === 'ERROR' && (
+        <div className="bg-rose-950/20 border border-rose-500/40 rounded-2xl p-6 sm:p-8 space-y-4 shadow-xl text-left">
+          <div className="flex items-start gap-3.5">
+            <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 shrink-0">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  Fallo en la Descarga de Datos de Mercado Reales
+                </h3>
+                <span className="text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded">
+                  PROHIBIDO FALLBACK SINTÉTICO
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-rose-200/90 leading-relaxed font-mono">
+                {dataLoadError}
+              </p>
+              <p className="text-xs text-slate-400 mt-2">
+                El sistema prohíbe sustituir silenciosamente datos reales por simulaciones para garantizar que cualquier análisis cuantitativo se base exclusivamente en cotizaciones verificadas.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-rose-500/20 flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setForceRefreshCount(c => c + 1)}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer shadow-md"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reintentar Conexión</span>
+            </button>
+            <button
+              onClick={() => setDataMode('SYNTHETIC')}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium flex items-center gap-2 transition-colors cursor-pointer border border-slate-700"
+            >
+              <span>Cambiar a Datos Sintéticos (Simulación PRNG)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* PARAMETERS CONFIGURATION DRAWER */}
-      <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-3.5 sm:p-4 text-xs">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-            <Sliders className="w-3.5 h-3.5 text-amber-400" />
-            Parámetros de Fricción & Capital del Test
-          </span>
-          <span className="text-[11px] text-slate-400">Modifica los valores para recalcular el backtest al instante</span>
+      {activeSubTab !== 'tests' && dataLoadStatus === 'SUCCESS' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-3.5 sm:p-4 text-xs">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5 text-amber-400" />
+              Parámetros de Fricción & Capital del Test
+            </span>
+            <span className="text-[11px] text-slate-400">Modifica los valores para recalcular el backtest al instante</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase block mb-1">Capital Inicial (€)</label>
+              <input
+                type="number"
+                value={initialCapital}
+                onChange={e => setInitialCapital(Number(e.target.value))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase block mb-1">Comisión Broker (%)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={commissionPct}
+                onChange={e => setCommissionPct(Number(e.target.value))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase block mb-1">Slippage Estimado (%)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={slippagePct}
+                onChange={e => setSlippagePct(Number(e.target.value))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase block mb-1">Trailing Stop (%)</label>
+              <input
+                type="number"
+                step="0.5"
+                value={trailingStopPct}
+                onChange={e => setTrailingStopPct(Number(e.target.value))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono"
+              />
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-            <label className="text-[10px] text-slate-400 uppercase block mb-1">Capital Inicial (€)</label>
-            <input
-              type="number"
-              value={initialCapital}
-              onChange={e => setInitialCapital(Number(e.target.value))}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] text-slate-400 uppercase block mb-1">Comisión Broker (%)</label>
-            <input
-              type="number"
-              step="0.01"
-              value={commissionPct}
-              onChange={e => setCommissionPct(Number(e.target.value))}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] text-slate-400 uppercase block mb-1">Slippage Estimado (%)</label>
-            <input
-              type="number"
-              step="0.01"
-              value={slippagePct}
-              onChange={e => setSlippagePct(Number(e.target.value))}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] text-slate-400 uppercase block mb-1">Trailing Stop (%)</label>
-            <input
-              type="number"
-              step="0.5"
-              value={trailingStopPct}
-              onChange={e => setTrailingStopPct(Number(e.target.value))}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white font-mono"
-            />
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* VIEW 1: COMPARATOR */}
-      {activeSubTab === 'comparator' && (
+      {activeSubTab === 'comparator' && dataLoadStatus === 'SUCCESS' && (
         <div className="space-y-5">
           {/* Comparison Matrix Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
@@ -580,7 +737,7 @@ export const BacktestCenter: React.FC = () => {
       )}
 
       {/* VIEW 2: SINGLE BACKTEST DETAIL */}
-      {activeSubTab === 'single' && (
+      {activeSubTab === 'single' && dataLoadStatus === 'SUCCESS' && (
         <div className="space-y-5">
           {/* Quality & Audit Header */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -767,7 +924,7 @@ export const BacktestCenter: React.FC = () => {
       )}
 
       {/* VIEW 3: WALK-FORWARD OPTIMIZATION & HOLDOUT VALIDATION */}
-      {activeSubTab === 'walk_forward' && (
+      {activeSubTab === 'walk_forward' && dataLoadStatus === 'SUCCESS' && (
         <div className="space-y-6">
           {/* Header & Sub-Mode Switcher */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">

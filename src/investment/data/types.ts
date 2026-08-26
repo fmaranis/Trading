@@ -31,11 +31,19 @@ export interface SyntheticGenerationConfig {
 export interface HistoricalDataRequest {
   assetId?: string;
   ticker?: string;
+  symbol?: string;
   mode?: DataSourceType;
+  startDate?: string;
+  endDate?: string;
+  timeframe?: string;
+  adjusted?: boolean;
+  providerId?: string;
+  forceRefresh?: boolean;
   syntheticConfig?: Partial<SyntheticGenerationConfig>;
 }
 
 export interface HistoricalDataResponse {
   bars: PriceBar[];
   provenance: DataProvenance;
+  metadata?: Record<string, any>;
 }
