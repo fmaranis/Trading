@@ -3,6 +3,7 @@ name: Step 9A Multi-Asset Validation
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
