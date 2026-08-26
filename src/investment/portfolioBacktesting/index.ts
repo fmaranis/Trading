@@ -4,3 +4,4 @@ export * from './rebalanceEngine';
 export * from './portfolioMetrics';
 export * from './rollingAllocationEngine';
 export * from './portfolioBacktestEngine';
+export * from './portfolioStrategyComparator';
