@@ -9,7 +9,11 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:market-data:integration": "tsx tests/integration/realMarketData.integration.ts",
+    "test:smoke:real-backtest": "tsx scripts/realBacktestSmoke.ts",
+    "test:backend:python": "PYTHONPATH=. python3 -m pytest backend/tests/",
+    "test:compare-engines": "tsx scripts/compareEngines.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
