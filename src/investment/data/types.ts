@@ -2,7 +2,7 @@ import { PriceBar } from '../backtesting/types';
 
 /**
  * Explicit data source categories:
- * - REAL: Data downloaded directly from a verifiable external market provider (currently 0 in project).
+ * - REAL: Data downloaded directly from a verifiable external market provider.
  * - STATIC_REFERENCE: Manually compiled reference points from marketData.ts without intraday interpolation.
  * - SYNTHETIC: Generated, simulated, Brownian motion or interpolated data points.
  */
@@ -19,6 +19,7 @@ export interface DataProvenance {
   isReproducible: boolean;
   notes?: string;
   seed?: number;
+  datasetFingerprint?: string;
 }
 
 export interface SyntheticGenerationConfig {
