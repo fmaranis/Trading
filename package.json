@@ -17,6 +17,7 @@
     "test:multi-asset": "tsx tests/multiAsset.unit.ts",
     "test:portfolio-analytics": "tsx tests/portfolioAnalytics.unit.ts",
     "test:rolling-allocation": "tsx tests/rollingAllocation.unit.ts",
+    "test:portfolio-comparator": "tsx tests/portfolioComparator.unit.ts",
     "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts"
   },
   "dependencies": {
