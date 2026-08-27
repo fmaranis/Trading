@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Clock3, RefreshCw, Search, ShieldCheck, Sparkles, WalletCards } from 'lucide-react';
+import { BarChart3, CheckCircle2, Clock3, RefreshCw, Search, ShieldCheck, Sparkles, WalletCards } from 'lucide-react';
 import {
   AssetUniverseScanResult,
   AssetUniverseScanner,
@@ -11,6 +11,11 @@ import {
   InvestorRiskProfile,
   InvestmentHorizonYears
 } from '../investment/decision';
+import {
+  AlphaVantageCrossValidationResult,
+  AlphaVantageCrossValidationService,
+  AlphaVantageStatus
+} from '../investment/data/marketData/alphaVantageCrossValidation';
 import { RecommendationEvidencePanel } from './RecommendationEvidencePanel';
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
@@ -39,9 +44,32 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastMarketRefresh, setLastMarketRefresh] = useState<string | null>(null);
   const [localRevision, setLocalRevision] = useState(0);
+  const [alphaStatus, setAlphaStatus] = useState<AlphaVantageStatus | null>(null);
+  const [alphaValidation, setAlphaValidation] = useState<AlphaVantageCrossValidationResult | null>(null);
+  const [alphaLoading, setAlphaLoading] = useState(false);
+  const [alphaError, setAlphaError] = useState<string | null>(null);
 
   const selectedById = useMemo(() => new Map((scan?.selected ?? []).map(c => [c.asset.assetId, c])), [scan]);
   const allocated = useMemo(() => result?.assets.reduce((s, a) => s + a.amountEur, 0) ?? 0, [result]);
+
+  const runSecondaryValidation = async (scanResult: AssetUniverseScanResult) => {
+    setAlphaLoading(true);
+    setAlphaError(null);
+    setAlphaValidation(null);
+    try {
+      const status = await AlphaVantageCrossValidationService.getStatus();
+      setAlphaStatus(status);
+      if (!status.configured) return;
+      const validation = await AlphaVantageCrossValidationService.crossValidate(
+        scanResult.selected.map(c => ({ ticker: c.asset.ticker, asOfDate: c.asOfDate, lastClose: c.lastClose }))
+      );
+      setAlphaValidation(validation);
+    } catch (e: any) {
+      setAlphaError(e?.message || String(e));
+    } finally {
+      setAlphaLoading(false);
+    }
+  };
 
   const refreshMarket = async (forceRefresh: boolean) => {
     setMarketLoading(true);
@@ -55,6 +83,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       );
       setScan(scanResult);
       setLastMarketRefresh(new Date().toLocaleString('es-ES'));
+      void runSecondaryValidation(scanResult);
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
@@ -93,7 +122,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
           <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-indigo-300"/><h1 className="text-xl sm:text-2xl font-bold text-white">¿Dónde invertir ahora?</h1></div>
-          <p className="mt-2 text-sm text-slate-300">Los datos de mercado se descargan una vez. Cambiar capital, riesgo u horizonte recalcula la decisión inmediatamente en el navegador, sin volver a consultar Yahoo.</p>
+          <p className="mt-2 text-sm text-slate-300">Yahoo Finance descarga automáticamente el universo REAL desde el backend. Si configuras Alpha Vantage, la app contrasta automáticamente el shortlist con un segundo proveedor sin exponer tu API key.</p>
         </div>
         {result && <div className={`rounded-xl border px-3 py-2 text-xs font-bold ${confidenceClass(result.confidence)}`}>Calidad de evidencia {result.confidence} · {result.confidenceScore}/100</div>}
       </div>
@@ -106,14 +135,14 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
-        <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-400">Mercado: {lastMarketRefresh ?? 'cargando…'}</span>
+        <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-400">Yahoo: {lastMarketRefresh ?? 'cargando…'}</span>
         <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-emerald-300">Recalculo local #{localRevision}</span>
         <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-sky-300">Capital/riesgo/horizonte no consumen red</span>
       </div>
     </section>
 
     {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200"><b>No puedo calcular la decisión.</b> {error}</div>}
-    {marketLoading && !scan && <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center text-sm text-slate-400">Consultando Yahoo Finance y validando el universo EUR…</div>}
+    {marketLoading && !scan && <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center text-sm text-slate-400">Consultando Yahoo Finance automáticamente y validando el universo EUR…</div>}
 
     {scan && <section className="rounded-2xl border border-sky-500/20 bg-slate-900 p-5">
       <div className="flex items-center gap-2"><Search className="h-5 w-5 text-sky-400"/><h2 className="font-bold">Embudo de selección</h2></div>
@@ -123,6 +152,22 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
         <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Descartados</div><div className="text-2xl font-bold text-rose-300">{scan.rejected}</div></div>
         <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Shortlist</div><div className="text-2xl font-bold text-indigo-300">{scan.selected.length}</div></div>
       </div>
+    </section>}
+
+    {scan && <section className="rounded-2xl border border-cyan-500/20 bg-slate-900 p-5">
+      <div className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-cyan-300"/><h2 className="font-bold">Validación cruzada de proveedores</h2></div>
+      {alphaLoading && <div className="mt-3 text-sm text-slate-400">Contrastando automáticamente los candidatos finales con Alpha Vantage…</div>}
+      {!alphaLoading && alphaStatus && !alphaStatus.configured && <div className="mt-3 text-sm text-amber-300">Alpha Vantage no está configurado. Yahoo sigue funcionando como proveedor primario. Añade `ALPHA_VANTAGE_API_KEY` como secreto del backend para activar el contraste automático.</div>}
+      {alphaError && <div className="mt-3 text-sm text-amber-300">Alpha Vantage no pudo completar el contraste: {alphaError}. La recomendación sigue usando Yahoo, sin fallback sintético.</div>}
+      {alphaValidation && <>
+        <div className="mt-4 grid gap-3 sm:grid-cols-4 text-sm">
+          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Solicitados</div><b>{alphaValidation.requested}</b></div>
+          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Comparables</div><b>{alphaValidation.checked}</b></div>
+          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Coinciden ≤1%</div><b className="text-emerald-300">{alphaValidation.matched}</b></div>
+          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Divergencias</div><b className={alphaValidation.divergent ? 'text-rose-300' : 'text-emerald-300'}>{alphaValidation.divergent}</b></div>
+        </div>
+        <div className="mt-3 overflow-x-auto"><table className="w-full text-xs"><thead className="text-slate-500"><tr><th className="p-2 text-left">Yahoo</th><th className="p-2 text-left">Alpha</th><th className="p-2 text-left">Estado</th><th className="p-2 text-right">Yahoo cierre</th><th className="p-2 text-right">Alpha cierre</th><th className="p-2 text-right">Diferencia</th></tr></thead><tbody>{alphaValidation.results.map(r => <tr key={r.ticker} className="border-t border-slate-800"><td className="p-2 font-mono">{r.ticker}</td><td className="p-2 font-mono">{r.alphaSymbol ?? '—'}</td><td className="p-2">{r.status}</td><td className="p-2 text-right">{r.yahooClose?.toFixed(2) ?? '—'}</td><td className="p-2 text-right">{r.alphaClose?.toFixed(2) ?? '—'}</td><td className="p-2 text-right">{r.differencePct != null ? `${r.differencePct.toFixed(2)}%` : '—'}</td></tr>)}</tbody></table></div>
+      </>}
     </section>}
 
     {result && <>
