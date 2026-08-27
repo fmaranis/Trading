@@ -8,3 +8,4 @@ export * from './causalUniverseBacktestEngine';
 export * from './brokerExecution';
 export * from './evidenceQuality';
 export * from './opportunityAlertEngine';
+export * from './marketSnapshotHistoryService';
