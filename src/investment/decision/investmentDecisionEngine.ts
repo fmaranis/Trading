@@ -121,15 +121,17 @@ export class InvestmentDecisionEngine {
       minimumMomentumPct: 0
     });
 
-    const cashWeight = clamp(Math.max(profileBaseCash(request.riskProfile), regimeCashOverlay(currentRegime.regime)), 0, 0.60);
+    const allocatorCash = clamp(raw.cashWeight ?? 0, 0, 1);
+    const cashWeight = allocatorCash >= 0.999999
+      ? 1
+      : clamp(Math.max(profileBaseCash(request.riskProfile), regimeCashOverlay(currentRegime.regime), allocatorCash), 0, 0.60);
     const investable = 1 - cashWeight;
     const caps = profileCaps(request.riskProfile, aligned.assetIds);
     let weights = normalizeWeights(raw.weights, investable, caps);
 
-    // Conservative profiles keep an explicit defensive floor when those instruments exist.
-    if (request.riskProfile === 'LOW') {
+    if (request.riskProfile === 'LOW' && investable > 0) {
       const defensiveIds = ['XEON', 'VAGF', '4GLD'].filter(id => id in weights);
-      const defensiveFloor = 0.45;
+      const defensiveFloor = Math.min(0.45, investable);
       const currentDefensive = defensiveIds.reduce((s, id) => s + weights[id], 0);
       if (defensiveIds.length && currentDefensive < defensiveFloor) {
         const needed = Math.min(defensiveFloor - currentDefensive, investable);
@@ -142,6 +144,10 @@ export class InvestmentDecisionEngine {
         }
       }
     }
+
+    const allocatedWeight = Object.values(weights).reduce((s, x) => s + x, 0);
+    const residualCashWeight = clamp(1 - allocatedWeight, 0, 1);
+    const finalCashWeight = Math.max(cashWeight, residualCashWeight);
 
     const stats = new Map(analytics.assetStatistics.map(x => [x.assetId, x]));
     const weighted = dataset.assets.map(asset => {
@@ -170,9 +176,10 @@ export class InvestmentDecisionEngine {
     if (dataAgeDays > 4) warnings.push(`Los últimos datos tienen ${dataAgeDays} días de antigüedad; no tratar la salida como actual.`);
     if (currentRegime.regime === 'UNKNOWN') warnings.push('No hay historial suficiente para clasificar el régimen con confianza.');
     if (request.horizonYears === 1) warnings.push('Horizonte de 1 año: la dispersión de resultados puede ser elevada incluso con diversificación.');
+    if (finalCashWeight >= 0.999999) warnings.push('Ningún activo supera las reglas de asignación actuales: el resultado es 100% efectivo.');
 
     const top = weighted.filter(x => x.weight > 0.01).slice(0, 3).map(x => `${x.ticker} ${(x.weight * 100).toFixed(0)}%`).join(' + ');
-    const summary = `Con ${request.capitalEur.toFixed(0)} € y riesgo ${request.riskProfile}, la regla actual asigna ${top || 'sin activos de riesgo'} y mantiene ${(cashWeight * 100).toFixed(0)}% en efectivo. Régimen: ${currentRegime.regime}.`;
+    const summary = `Con ${request.capitalEur.toFixed(0)} € y riesgo ${request.riskProfile}, la regla actual asigna ${top || 'sin activos de riesgo'} y mantiene ${(finalCashWeight * 100).toFixed(0)}% en efectivo. Régimen: ${currentRegime.regime}.`;
 
     return {
       generatedAt: now.toISOString(),
@@ -188,8 +195,8 @@ export class InvestmentDecisionEngine {
       confidence: confidence.label,
       confidenceScore: confidence.score,
       recommendedMethod: method,
-      cashWeight,
-      cashAmountEur: request.capitalEur * cashWeight,
+      cashWeight: finalCashWeight,
+      cashAmountEur: request.capitalEur * finalCashWeight,
       assets: weighted,
       portfolioDatasetFingerprint: provenance.portfolioDatasetFingerprint,
       evidence: 'REAL_ONLY',
