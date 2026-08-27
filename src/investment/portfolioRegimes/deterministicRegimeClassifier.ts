@@ -91,7 +91,7 @@ export class DeterministicRegimeClassifier {
       const baselineStart = Math.max(0, i - cfg.volatilityBaselineBars + 1);
       const historicalVols = rollingVols.slice(baselineStart, i + 1).filter((x): x is number => x != null && Number.isFinite(x));
       const baselineVolatilityPct = median(historicalVols);
-      if (baselineVolatilityPct == null || !(baselineVolatilityPct > 0)) {
+      if (historicalVols.length < cfg.volatilityBaselineBars || baselineVolatilityPct == null || !(baselineVolatilityPct > 0)) {
         return {
           tradingDate: row.tradingDate,
           regime: 'UNKNOWN',
