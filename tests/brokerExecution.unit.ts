@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildWholeShareExecutionPlan, MYINVESTOR_BROKER_PROFILE } from '../src/investment/decision';
+import { assessBrokerExecutionQuality, buildWholeShareExecutionPlan, estimateMinimumDiversifiedCapital, MYINVESTOR_BROKER_PROFILE } from '../src/investment/decision';
 
 const allocations = [
   { assetId: 'EUN6', ticker: 'EUN6.DE', amountEur: 40, weight: 0.40 },
@@ -21,10 +21,28 @@ for (const order of executable) {
   assert.ok(order.totalCostEur <= 100 + 1e-9);
 }
 
+const quality100 = assessBrokerExecutionQuality(plan, { minimumPositions: 2, maximumSinglePositionPct: 70, maximumFeeDragPct: 2 });
+assert.equal(quality100.diversifiedEnough, false);
+assert.equal(quality100.executablePositions, 1);
+assert.ok(quality100.reasons.some(r => r.startsWith('INSUFFICIENT_DIVERSIFICATION')));
+
+const minimum = estimateMinimumDiversifiedCapital(allocations, prices, MYINVESTOR_BROKER_PROFILE, {
+  minimumPositions: 2,
+  maximumSinglePositionPct: 70,
+  maximumFeeDragPct: 2,
+  startCapitalEur: 100,
+  maxCapitalEur: 1000,
+  stepEur: 1
+});
+assert.equal(minimum.found, true);
+assert.ok((minimum.minimumCapitalEur ?? 0) > 100);
+assert.ok(minimum.quality?.diversifiedEnough);
+assert.ok((minimum.plan?.orders.filter(o => o.executable).length ?? 0) >= 2);
+
 const cheap = buildWholeShareExecutionPlan(100, [
   { assetId: 'ISPA', ticker: 'ISPA.DE', amountEur: 95, weight: 0.95 }
 ], { ISPA: 40.255 }, MYINVESTOR_BROKER_PROFILE);
 assert.equal(cheap.orders.find(o => o.executable)?.shares, 2);
 assert.ok(cheap.estimatedFeesEur >= 1);
 
-console.log('Broker Execution: 8/8 whole-share/fee invariants passed.');
+console.log('Broker Execution: 14/14 whole-share/fee/diversification invariants passed.');
