@@ -29,10 +29,23 @@ function median(values: number[]): number | null {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function proxyClose(row: AlignedMultiAssetDataset['rows'][number], assetIds: string[]): number {
-  const relatives = assetIds.map(id => row.assets[id]?.close).filter((x): x is number => Number.isFinite(x) && x > 0);
-  if (relatives.length !== assetIds.length) throw new Error(`Fila incompleta al construir market proxy: ${row.tradingDate}`);
-  return relatives.reduce((a, b) => a + b, 0) / relatives.length;
+function buildEqualWeightProxy(aligned: AlignedMultiAssetDataset): number[] {
+  const first = aligned.rows[0];
+  const base: Record<string, number> = {};
+  for (const assetId of aligned.assetIds) {
+    const close = first.assets[assetId]?.close;
+    if (!(close > 0)) throw new Error(`Precio base inválido para ${assetId}.`);
+    base[assetId] = close;
+  }
+
+  return aligned.rows.map(row => {
+    const normalized = aligned.assetIds.map(assetId => {
+      const close = row.assets[assetId]?.close;
+      if (!(close > 0)) throw new Error(`Fila incompleta al construir market proxy: ${row.tradingDate}`);
+      return close / base[assetId];
+    });
+    return normalized.reduce((a, b) => a + b, 0) / normalized.length;
+  });
 }
 
 function classifyRegime(trendPct: number, highVol: boolean, cfg: Required<RegimeClassifierConfig>): MarketRegime {
@@ -49,7 +62,7 @@ export class DeterministicRegimeClassifier {
       throw new Error('Configuración de régimen inválida.');
     }
 
-    const closes = aligned.rows.map(row => proxyClose(row, aligned.assetIds));
+    const closes = buildEqualWeightProxy(aligned);
     const logReturns: number[] = [];
     for (let i = 1; i < closes.length; i++) logReturns.push(Math.log(closes[i] / closes[i - 1]));
 
