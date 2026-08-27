@@ -6,3 +6,5 @@ export * from './assetUniverse';
 export * from './assetUniverseScanner';
 export * from './causalUniverseBacktestEngine';
 export * from './brokerExecution';
+export * from './evidenceQuality';
+export * from './opportunityAlertEngine';
