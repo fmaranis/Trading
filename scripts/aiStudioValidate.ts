@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { HistoricalMarketDataService } from '../src/investment/data/marketData/historicalMarketDataService';
 import { MarketDataProviderRegistry } from '../src/investment/data/marketData/registry';
 import { RealMarketDataProvider } from '../src/investment/data/marketData/providers/realMarketDataProvider';
-import { AssetUniverseScanner, DecisionBacktestEngine, EUR_ASSET_UNIVERSE, InvestmentDecisionEngine, InvestorRiskProfile } from '../src/investment/decision';
+import { AssetUniverseScanner, CausalUniverseBacktestEngine, DecisionBacktestEngine, EUR_ASSET_UNIVERSE, InvestmentDecisionEngine, InvestorRiskProfile } from '../src/investment/decision';
 
 function runCommand(label: string, command: string, args: string[]): Promise<{ ok: boolean; exitCode: number | null; ms: number; tail: string }> {
   return new Promise(resolve => {
@@ -37,12 +37,20 @@ async function main() {
     universeScan: null,
     decisions: {},
     backtest: null,
+    causalUniverseBacktest: null,
     technicalBlockers: [] as string[],
     manualPilotBlockers: [] as string[]
   };
 
   for (const [key, script] of [
-    ['lint', 'lint'], ['decisionTests', 'test:decision'], ['decisionBacktestTests', 'test:decision-backtest'], ['multiAssetTests', 'test:multi-asset'], ['portfolioAnalyticsTests', 'test:portfolio-analytics'], ['regimeTests', 'test:regimes'], ['build', 'build']
+    ['lint', 'lint'],
+    ['decisionTests', 'test:decision'],
+    ['decisionBacktestTests', 'test:decision-backtest'],
+    ['causalUniverseBacktestTests', 'test:causal-universe-backtest'],
+    ['multiAssetTests', 'test:multi-asset'],
+    ['portfolioAnalyticsTests', 'test:portfolio-analytics'],
+    ['regimeTests', 'test:regimes'],
+    ['build', 'build']
   ] as const) {
     const result = await runCommand(key, 'npm', ['run', script]);
     report.commands[key] = result;
@@ -115,14 +123,35 @@ async function main() {
       fingerprint: bt.portfolioDatasetFingerprint
     };
 
-    report.manualPilotBlockers.push('CAUSAL_UNIVERSE_SELECTION_BACKTEST_PENDING: the scanner must re-select assets using only information available at each historical rebalance date.');
+    const causal = CausalUniverseBacktestEngine.run(
+      scan.acceptedDataset,
+      EUR_ASSET_UNIVERSE,
+      { initialCapital: 100, commissionPct: 0.05, slippagePct: 0.02, riskProfile: 'MEDIUM', horizonYears: 3, rebalanceFrequency: 'MONTHLY' },
+      8
+    );
+    report.causalUniverseBacktest = {
+      scope: causal.scope,
+      initialCapital: causal.initialCapital,
+      finalEquity: Number(causal.finalEquity.toFixed(2)),
+      totalReturnPct: Number(causal.totalReturnPct.toFixed(2)),
+      maxDrawdownPct: Number(causal.maxDrawdownPct.toFixed(2)),
+      totalTrades: causal.totalTrades,
+      rebalanceCount: causal.rebalanceCount,
+      totalTradingCostsEur: Number(causal.totalTradingCostsEur.toFixed(4)),
+      selectionWindows: causal.selectionHistory.length,
+      firstSelection: causal.selectionHistory[0] ?? null,
+      lastSelection: causal.selectionHistory.at(-1) ?? null,
+      fingerprint: causal.universeDatasetFingerprint,
+      residualBiasWarning: 'Selection is causal inside the currently validated/available universe, but historical delisted or no-longer-queryable instruments are not represented.'
+    };
+
     report.manualPilotBlockers.push('BROKER_EXECUTABILITY_NOT_VERIFIED: instrument availability, minimum order size and fractional-share support have not been verified against the intended broker.');
     if (requiresFractionalShares) report.manualPilotBlockers.push('EUR100_REQUIRES_FRACTIONAL_SHARES: at least one recommended allocation is below one whole share at the latest close.');
   } catch (err: any) {
     report.technicalBlockers.push(`live validation failed: ${err?.message || String(err)}`);
   } finally { if (ownsServer && server) server.kill('SIGTERM'); }
 
-  report.researchReady = report.technicalBlockers.length === 0 && report.commands.lint?.ok && report.commands.build?.ok && (report.universeScan?.selected?.length ?? 0) >= 2 && !!report.backtest;
+  report.researchReady = report.technicalBlockers.length === 0 && report.commands.lint?.ok && report.commands.build?.ok && (report.universeScan?.selected?.length ?? 0) >= 2 && !!report.causalUniverseBacktest;
   report.readyForManualPilot = report.researchReady && report.manualPilotBlockers.length === 0;
   console.log('\nAI_STUDIO_VALIDATION_RESULT'); console.log(JSON.stringify(report, null, 2));
   if (!report.researchReady) process.exitCode = 1;
