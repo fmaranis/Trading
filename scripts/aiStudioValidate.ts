@@ -30,16 +30,27 @@ async function waitForHealth(url: string, timeoutMs = 30_000): Promise<boolean> 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 
 async function main() {
-  const report: any = { generatedAt: new Date().toISOString(), mode: 'ZERO_LLM_DETERMINISTIC_VALIDATION', commands: {}, universeScan: null, decisions: {}, backtest: null, blockers: [] as string[] };
+  const report: any = {
+    generatedAt: new Date().toISOString(),
+    mode: 'ZERO_LLM_DETERMINISTIC_VALIDATION',
+    commands: {},
+    universeScan: null,
+    decisions: {},
+    backtest: null,
+    technicalBlockers: [] as string[],
+    manualPilotBlockers: [] as string[]
+  };
 
   for (const [key, script] of [
     ['lint', 'lint'], ['decisionTests', 'test:decision'], ['decisionBacktestTests', 'test:decision-backtest'], ['multiAssetTests', 'test:multi-asset'], ['portfolioAnalyticsTests', 'test:portfolio-analytics'], ['regimeTests', 'test:regimes'], ['build', 'build']
   ] as const) {
     const result = await runCommand(key, 'npm', ['run', script]);
     report.commands[key] = result;
-    if (!result.ok) report.blockers.push(`${key} failed (exit ${result.exitCode})`);
+    if (!result.ok) report.technicalBlockers.push(`${key} failed (exit ${result.exitCode})`);
   }
-  if (report.blockers.length) {
+  if (report.technicalBlockers.length) {
+    report.researchReady = false;
+    report.readyForManualPilot = false;
     console.log('\nAI_STUDIO_VALIDATION_RESULT'); console.log(JSON.stringify(report, null, 2)); process.exitCode = 1; return;
   }
 
@@ -50,8 +61,8 @@ async function main() {
     server = spawn('npm', ['run', 'dev'], { stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32', env: { ...process.env, DISABLE_HMR: 'true' } });
     ownsServer = true;
     if (!(await waitForHealth(healthUrl, 30_000))) {
-      report.blockers.push('Local server did not become healthy on port 3000');
-      server.kill('SIGTERM'); console.log('\nAI_STUDIO_VALIDATION_RESULT'); console.log(JSON.stringify(report, null, 2)); process.exitCode = 1; return;
+      report.technicalBlockers.push('Local server did not become healthy on port 3000');
+      server.kill('SIGTERM'); report.researchReady = false; report.readyForManualPilot = false; console.log('\nAI_STUDIO_VALIDATION_RESULT'); console.log(JSON.stringify(report, null, 2)); process.exitCode = 1; return;
     }
   }
 
@@ -76,23 +87,44 @@ async function main() {
     };
 
     const prices = Object.fromEntries(scan.selected.map(c => [c.asset.assetId, c.lastClose ?? 0]));
+    let requiresFractionalShares = false;
     for (const profile of ['LOW', 'MEDIUM', 'HIGH'] as InvestorRiskProfile[]) {
       const decision = InvestmentDecisionEngine.decide(scan.dataset, { capitalEur: 100, riskProfile: profile, horizonYears: 3 });
+      const allocations = decision.assets.filter(a => a.amountEur >= 0.01).map(a => {
+        const needsFractional = prices[a.assetId] ? a.amountEur + 1e-9 < prices[a.assetId] : null;
+        if (needsFractional === true) requiresFractionalShares = true;
+        return { ticker: a.ticker, amountEur: Number(a.amountEur.toFixed(2)), weightPct: Number((a.weight * 100).toFixed(2)), lastClose: Number((prices[a.assetId] || 0).toFixed(4)), estimatedShares: prices[a.assetId] ? Number((a.amountEur / prices[a.assetId]).toFixed(6)) : null, requiresFractionalShares: needsFractional };
+      });
       report.decisions[profile] = {
-        asOfDate: decision.asOfDate, dataAgeDays: decision.dataAgeDays, regime: decision.marketRegime, confidence: decision.confidence, confidenceScore: decision.confidenceScore, method: decision.recommendedMethod, cashEur: Number(decision.cashAmountEur.toFixed(2)),
-        allocations: decision.assets.filter(a => a.amountEur >= 0.01).map(a => ({ ticker: a.ticker, amountEur: Number(a.amountEur.toFixed(2)), weightPct: Number((a.weight * 100).toFixed(2)), lastClose: Number((prices[a.assetId] || 0).toFixed(4)), estimatedShares: prices[a.assetId] ? Number((a.amountEur / prices[a.assetId]).toFixed(6)) : null, requiresFractionalShares: prices[a.assetId] ? a.amountEur + 1e-9 < prices[a.assetId] : null })),
+        asOfDate: decision.asOfDate, dataAgeDays: decision.dataAgeDays, regime: decision.marketRegime, confidence: decision.confidence, confidenceScore: decision.confidenceScore, confidenceMeaning: 'EVIDENCE_QUALITY_NOT_PROFITABILITY_PROBABILITY', method: decision.recommendedMethod, cashEur: Number(decision.cashAmountEur.toFixed(2)), allocations,
         fingerprint: decision.portfolioDatasetFingerprint, warnings: decision.warnings
       };
     }
 
     const bt = DecisionBacktestEngine.run(scan.dataset, { initialCapital: 100, commissionPct: 0.05, slippagePct: 0.02, riskProfile: 'MEDIUM', horizonYears: 3, rebalanceFrequency: 'MONTHLY' });
-    report.backtest = { initialCapital: bt.initialCapital, finalEquity: Number(bt.finalEquity.toFixed(2)), totalReturnPct: Number(bt.totalReturnPct.toFixed(2)), maxDrawdownPct: Number(bt.maxDrawdownPct.toFixed(2)), totalTrades: bt.totalTrades, rebalanceCount: bt.rebalanceCount, totalTradingCostsEur: Number(bt.totalTradingCostsEur.toFixed(4)), fingerprint: bt.portfolioDatasetFingerprint };
+    report.backtest = {
+      scope: 'CURRENT_SHORTLIST_CONDITIONAL_BACKTEST',
+      selectionBiasWarning: 'The 8 assets were selected using current full-history scanner scores, then backtested historically. This is NOT a causal validation of the universe-selection step.',
+      initialCapital: bt.initialCapital,
+      finalEquity: Number(bt.finalEquity.toFixed(2)),
+      totalReturnPct: Number(bt.totalReturnPct.toFixed(2)),
+      maxDrawdownPct: Number(bt.maxDrawdownPct.toFixed(2)),
+      totalTrades: bt.totalTrades,
+      rebalanceCount: bt.rebalanceCount,
+      totalTradingCostsEur: Number(bt.totalTradingCostsEur.toFixed(4)),
+      fingerprint: bt.portfolioDatasetFingerprint
+    };
+
+    report.manualPilotBlockers.push('CAUSAL_UNIVERSE_SELECTION_BACKTEST_PENDING: the scanner must re-select assets using only information available at each historical rebalance date.');
+    report.manualPilotBlockers.push('BROKER_EXECUTABILITY_NOT_VERIFIED: instrument availability, minimum order size and fractional-share support have not been verified against the intended broker.');
+    if (requiresFractionalShares) report.manualPilotBlockers.push('EUR100_REQUIRES_FRACTIONAL_SHARES: at least one recommended allocation is below one whole share at the latest close.');
   } catch (err: any) {
-    report.blockers.push(`live validation failed: ${err?.message || String(err)}`);
+    report.technicalBlockers.push(`live validation failed: ${err?.message || String(err)}`);
   } finally { if (ownsServer && server) server.kill('SIGTERM'); }
 
-  report.readyForManualPilot = report.blockers.length === 0 && report.commands.lint?.ok && report.commands.build?.ok && (report.universeScan?.selected?.length ?? 0) >= 2 && !!report.backtest;
+  report.researchReady = report.technicalBlockers.length === 0 && report.commands.lint?.ok && report.commands.build?.ok && (report.universeScan?.selected?.length ?? 0) >= 2 && !!report.backtest;
+  report.readyForManualPilot = report.researchReady && report.manualPilotBlockers.length === 0;
   console.log('\nAI_STUDIO_VALIDATION_RESULT'); console.log(JSON.stringify(report, null, 2));
-  if (!report.readyForManualPilot) process.exitCode = 1;
+  if (!report.researchReady) process.exitCode = 1;
 }
 main().catch(err => { console.error('AI_STUDIO_VALIDATION_FATAL', err); process.exit(1); });
