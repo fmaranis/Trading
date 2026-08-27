@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { marketDataRouter } from './server/marketDataRoutes';
+import { alphaVantageRouter } from './server/alphaVantageRoutes';
 
 async function startServer() {
   const app = express();
@@ -15,8 +16,9 @@ async function startServer() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  // Mount market data proxy routes
+  // Primary market-data proxy (Yahoo Finance) and optional secondary validation provider (Alpha Vantage).
   app.use('/api/market-data', marketDataRouter);
+  app.use('/api/alpha-vantage', alphaVantageRouter);
 
   // 2. Vite middleware in development vs static serving in production
   if (process.env.NODE_ENV !== 'production') {
