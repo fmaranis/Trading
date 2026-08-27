@@ -22,7 +22,8 @@
     "test:regime-selector": "tsx tests/regimeSelector.unit.ts",
     "test:decision": "tsx tests/investmentDecision.unit.ts",
     "test:decision-backtest": "tsx tests/decisionBacktest.unit.ts",
-    "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts"
+    "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts",
+    "validate:aistudio": "tsx scripts/aiStudioValidate.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
