@@ -3,9 +3,10 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { marketDataRouter } from './server/marketDataRoutes';
 import { alphaVantageRouter } from './server/alphaVantageRoutes';
+import { eodhdRouter } from './server/eodhdRoutes';
 
 function redactSecrets(value: unknown): unknown {
-  const secrets = [process.env.ALPHA_VANTAGE_API_KEY, process.env.MARKET_DATA_API_KEY, process.env.GEMINI_API_KEY]
+  const secrets = [process.env.ALPHA_VANTAGE_API_KEY, process.env.EODHD_API_KEY, process.env.MARKET_DATA_API_KEY, process.env.GEMINI_API_KEY]
     .filter((v): v is string => Boolean(v && v.trim()));
   if (!secrets.length) return value;
   const scrub = (input: unknown): unknown => {
@@ -41,6 +42,7 @@ async function startServer() {
 
   app.use('/api/market-data', marketDataRouter);
   app.use('/api/alpha-vantage', alphaVantageRouter);
+  app.use('/api/eodhd', eodhdRouter);
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
