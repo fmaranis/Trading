@@ -32,6 +32,26 @@ export interface BrokerExecutionPlan {
   notes: string[];
 }
 
+export interface BrokerExecutionQuality {
+  executablePositions: number;
+  maxPositionWeightPct: number;
+  feeDragPct: number;
+  diversifiedEnough: boolean;
+  reasons: string[];
+}
+
+export interface MinimumPilotCapitalResult {
+  found: boolean;
+  minimumCapitalEur: number | null;
+  quality: BrokerExecutionQuality | null;
+  plan: BrokerExecutionPlan | null;
+  criteria: {
+    minimumPositions: number;
+    maximumSinglePositionPct: number;
+    maximumFeeDragPct: number;
+  };
+}
+
 export const MYINVESTOR_BROKER_PROFILE: BrokerExecutionProfile = {
   id: 'MYINVESTOR',
   name: 'MyInvestor',
@@ -114,4 +134,58 @@ export function buildWholeShareExecutionPlan(
     'El plan es una aproximación con último cierre; el precio de ejecución real y cánones/spread pueden variar.'
   ];
   return { broker: profile, capitalEur, orders, investedEur, estimatedFeesEur, residualCashEur: Math.max(0, remaining), executable: orders.some(o => o.executable), notes };
+}
+
+export function assessBrokerExecutionQuality(
+  plan: BrokerExecutionPlan,
+  criteria: { minimumPositions?: number; maximumSinglePositionPct?: number; maximumFeeDragPct?: number } = {}
+): BrokerExecutionQuality {
+  const minimumPositions = criteria.minimumPositions ?? 2;
+  const maximumSinglePositionPct = criteria.maximumSinglePositionPct ?? 70;
+  const maximumFeeDragPct = criteria.maximumFeeDragPct ?? 2;
+  const executableOrders = plan.orders.filter(o => o.executable && o.grossNotionalEur > 0);
+  const executablePositions = executableOrders.length;
+  const maxPositionWeightPct = plan.investedEur > 0
+    ? Math.max(0, ...executableOrders.map(o => o.grossNotionalEur / plan.investedEur * 100))
+    : 0;
+  const feeDragPct = plan.capitalEur > 0 ? plan.estimatedFeesEur / plan.capitalEur * 100 : Infinity;
+  const reasons: string[] = [];
+  if (!plan.executable) reasons.push('NO_EXECUTABLE_ORDER');
+  if (executablePositions < minimumPositions) reasons.push(`INSUFFICIENT_DIVERSIFICATION:${executablePositions}<${minimumPositions}`);
+  if (maxPositionWeightPct > maximumSinglePositionPct + 1e-9) reasons.push(`EXCESSIVE_SINGLE_POSITION:${maxPositionWeightPct.toFixed(2)}%>${maximumSinglePositionPct.toFixed(2)}%`);
+  if (feeDragPct > maximumFeeDragPct + 1e-9) reasons.push(`EXCESSIVE_INITIAL_FEES:${feeDragPct.toFixed(2)}%>${maximumFeeDragPct.toFixed(2)}%`);
+  return { executablePositions, maxPositionWeightPct, feeDragPct, diversifiedEnough: reasons.length === 0, reasons };
+}
+
+export function estimateMinimumDiversifiedCapital(
+  allocations: Array<{ assetId: string; ticker: string; amountEur: number; weight: number }>,
+  lastPrices: Record<string, number>,
+  profile: BrokerExecutionProfile = MYINVESTOR_BROKER_PROFILE,
+  options: {
+    minimumPositions?: number;
+    maximumSinglePositionPct?: number;
+    maximumFeeDragPct?: number;
+    startCapitalEur?: number;
+    maxCapitalEur?: number;
+    stepEur?: number;
+  } = {}
+): MinimumPilotCapitalResult {
+  const criteria = {
+    minimumPositions: options.minimumPositions ?? 2,
+    maximumSinglePositionPct: options.maximumSinglePositionPct ?? 70,
+    maximumFeeDragPct: options.maximumFeeDragPct ?? 2
+  };
+  const start = Math.max(1, Math.ceil(options.startCapitalEur ?? 50));
+  const max = Math.max(start, Math.ceil(options.maxCapitalEur ?? 5000));
+  const step = Math.max(1, Math.ceil(options.stepEur ?? 1));
+
+  for (let capital = start; capital <= max; capital += step) {
+    const scaled = allocations.map(a => ({ ...a, amountEur: capital * a.weight }));
+    const plan = buildWholeShareExecutionPlan(capital, scaled, lastPrices, profile);
+    const quality = assessBrokerExecutionQuality(plan, criteria);
+    if (quality.diversifiedEnough) {
+      return { found: true, minimumCapitalEur: capital, quality, plan, criteria };
+    }
+  }
+  return { found: false, minimumCapitalEur: null, quality: null, plan: null, criteria };
 }
