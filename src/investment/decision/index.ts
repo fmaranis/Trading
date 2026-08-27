@@ -4,3 +4,4 @@ export * from './decisionHistoryService';
 export * from './decisionBacktestEngine';
 export * from './assetUniverse';
 export * from './assetUniverseScanner';
+export * from './causalUniverseBacktestEngine';
