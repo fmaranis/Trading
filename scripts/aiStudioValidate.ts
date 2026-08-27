@@ -4,9 +4,11 @@ import { MarketDataProviderRegistry } from '../src/investment/data/marketData/re
 import { RealMarketDataProvider } from '../src/investment/data/marketData/providers/realMarketDataProvider';
 import {
   AssetUniverseScanner,
+  assessBrokerExecutionQuality,
   buildWholeShareExecutionPlan,
   CausalUniverseBacktestEngine,
   DecisionBacktestEngine,
+  estimateMinimumDiversifiedCapital,
   EUR_ASSET_UNIVERSE,
   InvestmentDecisionEngine,
   InvestorRiskProfile,
@@ -133,7 +135,15 @@ async function main() {
     }
 
     if (mediumDecision) {
+      const criteria = { minimumPositions: 2, maximumSinglePositionPct: 70, maximumFeeDragPct: 2 };
       const plan = buildWholeShareExecutionPlan(100, mediumDecision.assets, prices, MYINVESTOR_BROKER_PROFILE);
+      const quality = assessBrokerExecutionQuality(plan, criteria);
+      const minimumPilot = estimateMinimumDiversifiedCapital(
+        mediumDecision.assets,
+        prices,
+        MYINVESTOR_BROKER_PROFILE,
+        { ...criteria, startCapitalEur: 100, maxCapitalEur: 5000, stepEur: 1 }
+      );
       report.brokerExecution = {
         broker: plan.broker.name,
         supportsFractionalShares: plan.broker.supportsFractionalShares,
@@ -143,10 +153,35 @@ async function main() {
         estimatedFeesEur: Number(plan.estimatedFeesEur.toFixed(2)),
         residualCashEur: Number(plan.residualCashEur.toFixed(2)),
         executable: plan.executable,
+        portfolioQualityAt100: {
+          executablePositions: quality.executablePositions,
+          maxPositionWeightPct: Number(quality.maxPositionWeightPct.toFixed(2)),
+          feeDragPct: Number(quality.feeDragPct.toFixed(2)),
+          diversifiedEnough: quality.diversifiedEnough,
+          reasons: quality.reasons
+        },
+        minimumDiversifiedCapitalEur: minimumPilot.minimumCapitalEur,
+        minimumCapitalCriteria: minimumPilot.criteria,
+        minimumCapitalPlan: minimumPilot.plan ? {
+          investedEur: Number(minimumPilot.plan.investedEur.toFixed(2)),
+          estimatedFeesEur: Number(minimumPilot.plan.estimatedFeesEur.toFixed(2)),
+          residualCashEur: Number(minimumPilot.plan.residualCashEur.toFixed(2)),
+          orders: minimumPilot.plan.orders.filter(o => o.executable).map(o => ({
+            ticker: o.ticker,
+            shares: o.shares,
+            grossNotionalEur: Number(o.grossNotionalEur.toFixed(2)),
+            commissionEur: Number(o.commissionEur.toFixed(2)),
+            totalCostEur: Number(o.totalCostEur.toFixed(2))
+          }))
+        } : null,
         orders: plan.orders.filter(o => o.executable).map(o => ({ ticker: o.ticker, shares: o.shares, lastPriceEur: Number(o.lastPriceEur.toFixed(4)), grossNotionalEur: Number(o.grossNotionalEur.toFixed(2)), commissionEur: Number(o.commissionEur.toFixed(2)), totalCostEur: Number(o.totalCostEur.toFixed(2)), reason: o.reason ?? null })),
         rejectedTargets: plan.orders.filter(o => !o.executable).map(o => ({ ticker: o.ticker, targetAmountEur: Number(o.targetAmountEur.toFixed(2)), reason: o.reason }))
       };
-      if (!plan.executable) report.manualPilotBlockers.push('EUR100_NOT_EXECUTABLE_WITH_WHOLE_SHARES: no proposed ETF can be bought as a whole share after estimated MyInvestor fees.');
+      if (!plan.executable) {
+        report.manualPilotBlockers.push('EUR100_NOT_EXECUTABLE_WITH_WHOLE_SHARES: no proposed ETF can be bought as a whole share after estimated MyInvestor fees.');
+      } else if (!quality.diversifiedEnough) {
+        report.manualPilotBlockers.push(`EUR100_NOT_DIVERSIFIED_ENOUGH: ${quality.reasons.join(', ')}. Minimum diversified capital estimate: ${minimumPilot.minimumCapitalEur ?? 'not found <= 5000'} EUR.`);
+      }
     }
 
     const bt = DecisionBacktestEngine.run(scan.dataset, { initialCapital: 100, commissionPct: 0.05, slippagePct: 0.02, riskProfile: 'MEDIUM', horizonYears: 3, rebalanceFrequency: 'MONTHLY' });
