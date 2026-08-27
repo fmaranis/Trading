@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { AssetUniverseScanResult } from '../investment/decision';
+import { AssetUniverseScanResult, AssetUniverseScanner, EUR_ASSET_UNIVERSE } from '../investment/decision';
 
 type RangeYears = 1 | 3 | 5;
-
 type HistoryRow = { date: string; [ticker: string]: string | number | null };
 
+const SERIES_COLORS = ['#8b5cf6', '#22c55e', '#38bdf8', '#f59e0b', '#f43f5e', '#14b8a6', '#e879f9', '#a3e635'];
+
+function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function cutoffDate(years: RangeYears): number {
   const d = new Date();
   d.setUTCFullYear(d.getUTCFullYear() - years);
@@ -77,8 +79,8 @@ export const RecommendationEvidencePanel: React.FC<{ scan: AssetUniverseScanResu
   return <section className="rounded-2xl border border-violet-500/20 bg-slate-900 p-5">
     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div>
-        <h2 className="font-bold text-white">Por qué recomienda estos activos</h2>
-        <p className="mt-1 max-w-3xl text-xs text-slate-400">La gráfica compara la evolución de los candidatos finales normalizando cada activo a 100 al inicio del periodo. Así se compara trayectoria y no el precio nominal de una participación.</p>
+        <h2 className="font-bold text-white">Histórico y motivo de la recomendación</h2>
+        <p className="mt-1 max-w-3xl text-xs text-slate-400">Cada serie parte de 100 para comparar el comportamiento relativo. El selector no elige solo por subida: combina momentum con penalización por volatilidad y drawdown, y después fuerza diversificación por categorías.</p>
       </div>
       <div className="flex gap-1 rounded-lg bg-slate-950 p-1 text-xs">
         {([1, 3, 5] as RangeYears[]).map(y => <button key={y} onClick={() => setRangeYears(y)} className={`rounded-md px-3 py-1.5 ${rangeYears === y ? 'bg-violet-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{y}A</button>)}
@@ -93,11 +95,11 @@ export const RecommendationEvidencePanel: React.FC<{ scan: AssetUniverseScanResu
           <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} domain={['auto', 'auto']} width={45} />
           <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', fontSize: 11 }} labelStyle={{ color: '#cbd5e1' }} />
           <Legend wrapperStyle={{ fontSize: 10 }} />
-          {tickers.map((ticker, i) => <Line key={ticker} type="monotone" dataKey={ticker} connectNulls dot={false} strokeWidth={i < 3 ? 2.4 : 1.5} isAnimationActive={false} />)}
+          {tickers.map((ticker, i) => <Line key={ticker} type="monotone" dataKey={ticker} connectNulls dot={false} stroke={SERIES_COLORS[i % SERIES_COLORS.length]} strokeWidth={i < 3 ? 2.4 : 1.5} isAnimationActive={false} />)}
         </LineChart>
       </ResponsiveContainer>
     </div>
-    <div className="mt-2 text-[10px] text-slate-500">Base 100 = primer cierre disponible del periodo. Datos diarios ajustados obtenidos por el mismo pipeline REAL usado por el recomendador.</div>
+    <div className="mt-2 text-[10px] text-slate-500">Base 100 = primer cierre disponible del periodo. Datos diarios ajustados del mismo pipeline REAL del recomendador. No representa rentabilidad futura.</div>
 
     <div className="mt-5 overflow-x-auto">
       <table className="w-full text-xs">
@@ -109,7 +111,7 @@ export const RecommendationEvidencePanel: React.FC<{ scan: AssetUniverseScanResu
     <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
       <div className="font-semibold text-slate-200">Cómo se calcula el score</div>
       <div className="mt-2 font-mono text-[11px] text-slate-400">Score = 0,20×Momentum20 + 0,35×Momentum60 + 0,45×Momentum120 − 0,30×Volatilidad − 0,25×Drawdown + 2,5 si es defensivo</div>
-      <p className="mt-2 text-xs text-slate-500">Después del score, el selector fuerza diversificación: evita repetir categoría y reserva una exposición defensiva cuando existe. Por eso el shortlist no coincide necesariamente con los 8 scores más altos.</p>
+      <p className="mt-2 text-xs text-slate-500">Después del score, el selector evita repetir categoría y reserva una exposición defensiva cuando existe. Por eso el shortlist no coincide necesariamente con los 8 scores más altos.</p>
     </div>
 
     {excludedTop.length > 0 && <div className="mt-5">
@@ -117,4 +119,39 @@ export const RecommendationEvidencePanel: React.FC<{ scan: AssetUniverseScanResu
       <div className="mt-2 grid gap-2 md:grid-cols-2">{excludedTop.map(c => <div key={c.asset.assetId} className="rounded-xl border border-slate-800 bg-slate-950 p-3"><div className="flex items-center justify-between"><span className="font-mono font-semibold">{c.asset.ticker}</span><span className="font-mono text-xs text-slate-400">score {c.score?.toFixed(2)}</span></div><div className="mt-1 text-[11px] text-slate-500">{c.asset.category}</div><div className="mt-2 text-xs text-slate-400">{exclusionReason(scan, c.asset.assetId)}</div></div>)}</div>
     </div>}
   </section>;
+};
+
+export const RecommendationEvidenceStandalone: React.FC = () => {
+  const [scan, setScan] = useState<AssetUniverseScanResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const end = new Date();
+        const start = new Date(end);
+        start.setUTCFullYear(start.getUTCFullYear() - 7);
+        const result = await AssetUniverseScanner.scan(EUR_ASSET_UNIVERSE, isoDate(start), isoDate(end), {
+          forceRefresh: false,
+          concurrency: 3,
+          maxSelected: 8,
+          minimumBars: 252,
+          maxDataAgeDays: 7
+        });
+        if (!cancelled) setScan(result);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void run();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) return <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-400">Cargando histórico y evidencia de los activos recomendados…</section>;
+  if (error) return <section className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5 text-sm text-rose-200">No se pudo cargar la evidencia histórica: {error}</section>;
+  return scan ? <RecommendationEvidencePanel scan={scan} /> : null;
 };
