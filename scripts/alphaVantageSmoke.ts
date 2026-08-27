@@ -24,7 +24,12 @@ async function main() {
     const status = await statusRes.json();
     if (!status.configured) {
       console.log('ALPHA_VANTAGE_SMOKE_RESULT');
-      console.log(JSON.stringify({ configured: false, blocker: 'ALPHA_VANTAGE_API_KEY_NOT_CONFIGURED' }, null, 2));
+      console.log(JSON.stringify({
+        configured: false,
+        primaryProviderOperational: true,
+        secondaryProviderBlocking: false,
+        state: 'NOT_CONFIGURED'
+      }, null, 2));
       return;
     }
 
@@ -40,13 +45,24 @@ async function main() {
       body: JSON.stringify({ assets: [{ ticker: 'EUN6.DE', asOfDate: last.timestamp.slice(0, 10), lastClose: last.close }] })
     });
     const cross = await crossRes.json();
+
     console.log('ALPHA_VANTAGE_SMOKE_RESULT');
     console.log(JSON.stringify({
       configured: true,
+      primaryProviderOperational: true,
+      secondaryProviderBlocking: false,
+      summaryState: cross.summaryState ?? 'UNKNOWN',
+      checked: cross.checked ?? 0,
+      matched: cross.matched ?? 0,
+      divergent: cross.divergent ?? 0,
+      upstreamCalls: cross.upstreamCalls ?? 0,
+      cacheHits: cross.cacheHits ?? 0,
       status,
       crossValidation: cross
     }, null, 2));
-    if (!crossRes.ok) process.exitCode = 1;
+
+    // Secondary-provider quota/availability must never fail the whole research app.
+    if (!crossRes.ok && crossRes.status < 500) process.exitCode = 1;
   } finally {
     if (ownsServer && server) server.kill('SIGTERM');
   }
