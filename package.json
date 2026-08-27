@@ -20,6 +20,7 @@
     "test:portfolio-comparator": "tsx tests/portfolioComparator.unit.ts",
     "test:regimes": "tsx tests/regimeAnalysis.unit.ts",
     "test:regime-selector": "tsx tests/regimeSelector.unit.ts",
+    "test:decision": "tsx tests/investmentDecision.unit.ts",
     "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts"
   },
   "dependencies": {
