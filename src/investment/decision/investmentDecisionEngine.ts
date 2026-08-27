@@ -72,7 +72,8 @@ function profileCaps(profile: InvestorRiskProfile, ids: string[]): Record<string
 
 function confidenceFrom(dataAgeDays: number, bars: number, regime: MarketRegime): { score: number; label: DecisionConfidence } {
   let score = 100;
-  if (dataAgeDays > 4) score -= 35;
+  if (dataAgeDays > 14) score -= 60;
+  else if (dataAgeDays > 4) score -= 35;
   else if (dataAgeDays > 2) score -= 12;
   if (bars < 250) score -= 25;
   else if (bars < 500) score -= 10;
@@ -113,10 +114,11 @@ export class InvestmentDecisionEngine {
       : request.riskProfile === 'MEDIUM'
         ? 'RISK_PARITY_ERC'
         : 'RELATIVE_MOMENTUM';
+    const allocationLookback = request.horizonYears === 1 ? 60 : request.horizonYears === 3 ? 120 : 180;
 
-    const raw = DeterministicPortfolioAllocator.allocateFromAnalytics(aligned, analytics, {
+    const raw = DeterministicPortfolioAllocator.allocate(aligned, {
       method,
-      lookbackBars: request.horizonYears === 1 ? 60 : request.horizonYears === 3 ? 120 : 180,
+      lookbackBars: allocationLookback,
       topK: request.riskProfile === 'HIGH' ? 3 : dataset.assets.length,
       minimumMomentumPct: 0
     });
@@ -204,7 +206,7 @@ export class InvestmentDecisionEngine {
       summary,
       methodology: [
         'Datos históricos diarios REAL del mismo universo EUR, sin fallback sintético.',
-        `Asignación base: ${method}.`,
+        `Asignación base: ${method} con lookback de ${allocationLookback} barras.`,
         'Overlay de efectivo determinado por perfil de riesgo y régimen causal actual.',
         'Los pesos se limitan por activo para evitar concentraciones extremas.',
         'La salida describe una asignación de investigación, no una garantía de rentabilidad.'
