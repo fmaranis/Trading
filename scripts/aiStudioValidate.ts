@@ -2,7 +2,16 @@ import { spawn } from 'node:child_process';
 import { HistoricalMarketDataService } from '../src/investment/data/marketData/historicalMarketDataService';
 import { MarketDataProviderRegistry } from '../src/investment/data/marketData/registry';
 import { RealMarketDataProvider } from '../src/investment/data/marketData/providers/realMarketDataProvider';
-import { AssetUniverseScanner, CausalUniverseBacktestEngine, DecisionBacktestEngine, EUR_ASSET_UNIVERSE, InvestmentDecisionEngine, InvestorRiskProfile } from '../src/investment/decision';
+import {
+  AssetUniverseScanner,
+  buildWholeShareExecutionPlan,
+  CausalUniverseBacktestEngine,
+  DecisionBacktestEngine,
+  EUR_ASSET_UNIVERSE,
+  InvestmentDecisionEngine,
+  InvestorRiskProfile,
+  MYINVESTOR_BROKER_PROFILE
+} from '../src/investment/decision';
 
 function runCommand(label: string, command: string, args: string[]): Promise<{ ok: boolean; exitCode: number | null; ms: number; tail: string }> {
   return new Promise(resolve => {
@@ -38,6 +47,7 @@ async function main() {
     decisions: {},
     backtest: null,
     causalUniverseBacktest: null,
+    brokerExecution: null,
     technicalBlockers: [] as string[],
     manualPilotBlockers: [] as string[]
   };
@@ -47,6 +57,7 @@ async function main() {
     ['decisionTests', 'test:decision'],
     ['decisionBacktestTests', 'test:decision-backtest'],
     ['causalUniverseBacktestTests', 'test:causal-universe-backtest'],
+    ['brokerExecutionTests', 'test:broker-execution'],
     ['multiAssetTests', 'test:multi-asset'],
     ['portfolioAnalyticsTests', 'test:portfolio-analytics'],
     ['regimeTests', 'test:regimes'],
@@ -95,18 +106,47 @@ async function main() {
     };
 
     const prices = Object.fromEntries(scan.selected.map(c => [c.asset.assetId, c.lastClose ?? 0]));
-    let requiresFractionalShares = false;
+    let mediumDecision: ReturnType<typeof InvestmentDecisionEngine.decide> | null = null;
     for (const profile of ['LOW', 'MEDIUM', 'HIGH'] as InvestorRiskProfile[]) {
       const decision = InvestmentDecisionEngine.decide(scan.dataset, { capitalEur: 100, riskProfile: profile, horizonYears: 3 });
-      const allocations = decision.assets.filter(a => a.amountEur >= 0.01).map(a => {
-        const needsFractional = prices[a.assetId] ? a.amountEur + 1e-9 < prices[a.assetId] : null;
-        if (needsFractional === true) requiresFractionalShares = true;
-        return { ticker: a.ticker, amountEur: Number(a.amountEur.toFixed(2)), weightPct: Number((a.weight * 100).toFixed(2)), lastClose: Number((prices[a.assetId] || 0).toFixed(4)), estimatedShares: prices[a.assetId] ? Number((a.amountEur / prices[a.assetId]).toFixed(6)) : null, requiresFractionalShares: needsFractional };
-      });
+      if (profile === 'MEDIUM') mediumDecision = decision;
       report.decisions[profile] = {
-        asOfDate: decision.asOfDate, dataAgeDays: decision.dataAgeDays, regime: decision.marketRegime, confidence: decision.confidence, confidenceScore: decision.confidenceScore, confidenceMeaning: 'EVIDENCE_QUALITY_NOT_PROFITABILITY_PROBABILITY', method: decision.recommendedMethod, cashEur: Number(decision.cashAmountEur.toFixed(2)), allocations,
-        fingerprint: decision.portfolioDatasetFingerprint, warnings: decision.warnings
+        asOfDate: decision.asOfDate,
+        dataAgeDays: decision.dataAgeDays,
+        regime: decision.marketRegime,
+        confidence: decision.confidence,
+        confidenceScore: decision.confidenceScore,
+        confidenceMeaning: 'EVIDENCE_QUALITY_NOT_PROFITABILITY_PROBABILITY',
+        method: decision.recommendedMethod,
+        cashEur: Number(decision.cashAmountEur.toFixed(2)),
+        allocations: decision.assets.filter(a => a.amountEur >= 0.01).map(a => ({
+          ticker: a.ticker,
+          amountEur: Number(a.amountEur.toFixed(2)),
+          weightPct: Number((a.weight * 100).toFixed(2)),
+          lastClose: Number((prices[a.assetId] || 0).toFixed(4)),
+          estimatedShares: prices[a.assetId] ? Number((a.amountEur / prices[a.assetId]).toFixed(6)) : null,
+          requiresFractionalShares: prices[a.assetId] ? a.amountEur + 1e-9 < prices[a.assetId] : null
+        })),
+        fingerprint: decision.portfolioDatasetFingerprint,
+        warnings: decision.warnings
       };
+    }
+
+    if (mediumDecision) {
+      const plan = buildWholeShareExecutionPlan(100, mediumDecision.assets, prices, MYINVESTOR_BROKER_PROFILE);
+      report.brokerExecution = {
+        broker: plan.broker.name,
+        supportsFractionalShares: plan.broker.supportsFractionalShares,
+        etfCommissionPct: plan.broker.etfCommissionPct,
+        etfMinCommissionEur: plan.broker.etfMinCommissionEur,
+        investedEur: Number(plan.investedEur.toFixed(2)),
+        estimatedFeesEur: Number(plan.estimatedFeesEur.toFixed(2)),
+        residualCashEur: Number(plan.residualCashEur.toFixed(2)),
+        executable: plan.executable,
+        orders: plan.orders.filter(o => o.executable).map(o => ({ ticker: o.ticker, shares: o.shares, lastPriceEur: Number(o.lastPriceEur.toFixed(4)), grossNotionalEur: Number(o.grossNotionalEur.toFixed(2)), commissionEur: Number(o.commissionEur.toFixed(2)), totalCostEur: Number(o.totalCostEur.toFixed(2)), reason: o.reason ?? null })),
+        rejectedTargets: plan.orders.filter(o => !o.executable).map(o => ({ ticker: o.ticker, targetAmountEur: Number(o.targetAmountEur.toFixed(2)), reason: o.reason }))
+      };
+      if (!plan.executable) report.manualPilotBlockers.push('EUR100_NOT_EXECUTABLE_WITH_WHOLE_SHARES: no proposed ETF can be bought as a whole share after estimated MyInvestor fees.');
     }
 
     const bt = DecisionBacktestEngine.run(scan.dataset, { initialCapital: 100, commissionPct: 0.05, slippagePct: 0.02, riskProfile: 'MEDIUM', horizonYears: 3, rebalanceFrequency: 'MONTHLY' });
@@ -114,39 +154,18 @@ async function main() {
       scope: 'CURRENT_SHORTLIST_CONDITIONAL_BACKTEST',
       selectionBiasWarning: 'The 8 assets were selected using current full-history scanner scores, then backtested historically. This is NOT a causal validation of the universe-selection step.',
       initialCapital: bt.initialCapital,
-      finalEquity: Number(bt.finalEquity.toFixed(2)),
-      totalReturnPct: Number(bt.totalReturnPct.toFixed(2)),
-      maxDrawdownPct: Number(bt.maxDrawdownPct.toFixed(2)),
-      totalTrades: bt.totalTrades,
-      rebalanceCount: bt.rebalanceCount,
-      totalTradingCostsEur: Number(bt.totalTradingCostsEur.toFixed(4)),
-      fingerprint: bt.portfolioDatasetFingerprint
+      finalEquity: Number(bt.finalEquity.toFixed(2)), totalReturnPct: Number(bt.totalReturnPct.toFixed(2)), maxDrawdownPct: Number(bt.maxDrawdownPct.toFixed(2)), totalTrades: bt.totalTrades, rebalanceCount: bt.rebalanceCount, totalTradingCostsEur: Number(bt.totalTradingCostsEur.toFixed(4)), fingerprint: bt.portfolioDatasetFingerprint
     };
 
-    const causal = CausalUniverseBacktestEngine.run(
-      scan.acceptedDataset,
-      EUR_ASSET_UNIVERSE,
-      { initialCapital: 100, commissionPct: 0.05, slippagePct: 0.02, riskProfile: 'MEDIUM', horizonYears: 3, rebalanceFrequency: 'MONTHLY' },
-      8
-    );
+    const causal = CausalUniverseBacktestEngine.run(scan.acceptedDataset, EUR_ASSET_UNIVERSE, { initialCapital: 100, commissionPct: 0.05, slippagePct: 0.02, riskProfile: 'MEDIUM', horizonYears: 3, rebalanceFrequency: 'MONTHLY' }, 8);
     report.causalUniverseBacktest = {
       scope: causal.scope,
       initialCapital: causal.initialCapital,
-      finalEquity: Number(causal.finalEquity.toFixed(2)),
-      totalReturnPct: Number(causal.totalReturnPct.toFixed(2)),
-      maxDrawdownPct: Number(causal.maxDrawdownPct.toFixed(2)),
-      totalTrades: causal.totalTrades,
-      rebalanceCount: causal.rebalanceCount,
-      totalTradingCostsEur: Number(causal.totalTradingCostsEur.toFixed(4)),
-      selectionWindows: causal.selectionHistory.length,
-      firstSelection: causal.selectionHistory[0] ?? null,
-      lastSelection: causal.selectionHistory.at(-1) ?? null,
-      fingerprint: causal.universeDatasetFingerprint,
+      finalEquity: Number(causal.finalEquity.toFixed(2)), totalReturnPct: Number(causal.totalReturnPct.toFixed(2)), maxDrawdownPct: Number(causal.maxDrawdownPct.toFixed(2)), totalTrades: causal.totalTrades, rebalanceCount: causal.rebalanceCount, totalTradingCostsEur: Number(causal.totalTradingCostsEur.toFixed(4)), selectionWindows: causal.selectionHistory.length, firstSelection: causal.selectionHistory[0] ?? null, lastSelection: causal.selectionHistory.at(-1) ?? null, fingerprint: causal.universeDatasetFingerprint,
       residualBiasWarning: 'Selection is causal inside the currently validated/available universe, but historical delisted or no-longer-queryable instruments are not represented.'
     };
 
-    report.manualPilotBlockers.push('BROKER_EXECUTABILITY_NOT_VERIFIED: instrument availability, minimum order size and fractional-share support have not been verified against the intended broker.');
-    if (requiresFractionalShares) report.manualPilotBlockers.push('EUR100_REQUIRES_FRACTIONAL_SHARES: at least one recommended allocation is below one whole share at the latest close.');
+    report.manualPilotBlockers.push('BROKER_INSTRUMENT_AVAILABILITY_NOT_VERIFIED: MyInvestor whole-share and fee rules are modeled from official public documentation, but availability of the exact selected tickers/ISINs still requires confirmation in the MyInvestor/Inversis value finder.');
   } catch (err: any) {
     report.technicalBlockers.push(`live validation failed: ${err?.message || String(err)}`);
   } finally { if (ownsServer && server) server.kill('SIGTERM'); }
