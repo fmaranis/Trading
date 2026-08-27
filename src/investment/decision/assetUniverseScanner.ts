@@ -60,8 +60,7 @@ function maxDrawdown(prices: number[], lookback = 252): number | null {
 function scoreCandidate(m20: number | null, m60: number | null, m120: number | null, vol: number | null, dd: number | null, defensive: boolean): number {
   const momentum = (m20 ?? 0) * 0.20 + (m60 ?? 0) * 0.35 + (m120 ?? 0) * 0.45;
   const riskPenalty = (vol ?? 30) * 0.30 + (dd ?? 25) * 0.25;
-  const defensiveBonus = defensive ? 2.5 : 0;
-  return momentum - riskPenalty + defensiveBonus;
+  return momentum - riskPenalty + (defensive ? 2.5 : 0);
 }
 
 function daysBetween(a: string, b: string): number {
@@ -85,22 +84,20 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 function chooseDiversified(candidates: AssetScanCandidate[], maxSelected: number): AssetScanCandidate[] {
   const accepted = candidates.filter(c => c.status === 'ACCEPTED' && c.score != null).sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
   const selected: AssetScanCandidate[] = [];
-  const categoryCount = new Map<string, number>();
+  const usedCategories = new Set<string>();
 
-  // Ensure at least one defensive candidate if available.
   const bestDefensive = accepted.find(c => c.asset.defensive);
   if (bestDefensive) {
     selected.push(bestDefensive);
-    categoryCount.set(bestDefensive.asset.category, 1);
+    usedCategories.add(bestDefensive.asset.category);
   }
 
   for (const candidate of accepted) {
-    if (selected.some(s => s.asset.assetId === candidate.asset.assetId)) continue;
     if (selected.length >= maxSelected) break;
-    const count = categoryCount.get(candidate.asset.category) ?? 0;
-    if (count >= 2) continue;
+    if (selected.some(s => s.asset.assetId === candidate.asset.assetId)) continue;
+    if (usedCategories.has(candidate.asset.category)) continue;
     selected.push(candidate);
-    categoryCount.set(candidate.asset.category, count + 1);
+    usedCategories.add(candidate.asset.category);
   }
   return selected;
 }
@@ -117,18 +114,10 @@ export class AssetUniverseScanner {
 
     const candidates = await mapLimit(universe, options.concurrency ?? 3, async asset => {
       try {
-        const response = await HistoricalMarketDataService.getHistoricalBars({
-          symbol: asset.ticker,
-          startDate,
-          endDate,
-          timeframe: '1d',
-          adjusted: true
-        }, { forceRefresh: options.forceRefresh ?? false, maxRetries: 1 });
-
+        const response = await HistoricalMarketDataService.getHistoricalBars({ symbol: asset.ticker, startDate, endDate, timeframe: '1d', adjusted: true }, { forceRefresh: options.forceRefresh ?? false, maxRetries: 1 });
         const providerCurrency = response.metadata.currency;
         if (providerCurrency && providerCurrency !== 'EUR') return { asset, status: 'REJECTED' as const, reason: `NON_EUR:${providerCurrency}`, bars: response.bars.length, asOfDate: response.bars.at(-1)?.timestamp.slice(0, 10) ?? null, lastClose: response.bars.at(-1)?.close ?? null, momentum20Pct: null, momentum60Pct: null, momentum120Pct: null, annualizedVolatilityPct: null, maxDrawdownPct: null, score: null };
         if (response.bars.length < minimumBars) return { asset, status: 'REJECTED' as const, reason: 'INSUFFICIENT_HISTORY', bars: response.bars.length, asOfDate: response.bars.at(-1)?.timestamp.slice(0, 10) ?? null, lastClose: response.bars.at(-1)?.close ?? null, momentum20Pct: null, momentum60Pct: null, momentum120Pct: null, annualizedVolatilityPct: null, maxDrawdownPct: null, score: null };
-
         const asOfDate = response.bars.at(-1)!.timestamp.slice(0, 10);
         if (daysBetween(asOfDate, endDate) > maxDataAgeDays) return { asset, status: 'REJECTED' as const, reason: 'STALE_DATA', bars: response.bars.length, asOfDate, lastClose: response.bars.at(-1)!.close, momentum20Pct: null, momentum60Pct: null, momentum120Pct: null, annualizedVolatilityPct: null, maxDrawdownPct: null, score: null };
 
@@ -138,39 +127,18 @@ export class AssetUniverseScanner {
         const m120 = pctReturn(prices, 120);
         const vol = annualizedVolatility(prices, 60);
         const dd = maxDrawdown(prices, 252);
-        const score = scoreCandidate(m20, m60, m120, vol, dd, Boolean(asset.defensive));
-        return { asset, status: 'ACCEPTED' as const, bars: response.bars.length, asOfDate, lastClose: prices.at(-1) ?? null, momentum20Pct: m20, momentum60Pct: m60, momentum120Pct: m120, annualizedVolatilityPct: vol, maxDrawdownPct: dd, score, response };
+        return { asset, status: 'ACCEPTED' as const, bars: response.bars.length, asOfDate, lastClose: prices.at(-1) ?? null, momentum20Pct: m20, momentum60Pct: m60, momentum120Pct: m120, annualizedVolatilityPct: vol, maxDrawdownPct: dd, score: scoreCandidate(m20, m60, m120, vol, dd, Boolean(asset.defensive)), response };
       } catch (error: any) {
         return { asset, status: 'REJECTED' as const, reason: error?.name || error?.message || 'LOAD_ERROR', bars: 0, asOfDate: null, lastClose: null, momentum20Pct: null, momentum60Pct: null, momentum120Pct: null, annualizedVolatilityPct: null, maxDrawdownPct: null, score: null };
       }
     });
 
     const selected = chooseDiversified(candidates, Math.min(options.maxSelected ?? 8, 10));
-    if (selected.length < 2) throw new Error(`El escáner solo encontró ${selected.length} activos válidos; se requieren al menos 2.`);
+    if (selected.length < 2) throw new Error(`El escáner solo encontró ${selected.length} exposiciones válidas; se requieren al menos 2.`);
 
-    const dataset: MultiAssetDataset = {
-      timeframe: '1d',
-      assets: selected.map(c => ({
-        assetId: c.asset.assetId,
-        ticker: c.asset.ticker,
-        name: c.asset.name,
-        currency: 'EUR',
-        bars: c.response!.bars,
-        provenance: c.response!.provenance
-      }))
-    };
-
+    const dataset: MultiAssetDataset = { timeframe: '1d', assets: selected.map(c => ({ assetId: c.asset.assetId, ticker: c.asset.ticker, name: c.asset.name, currency: 'EUR', bars: c.response!.bars, provenance: c.response!.provenance })) };
     const rejectionCounts: Record<string, number> = {};
     for (const c of candidates.filter(c => c.status === 'REJECTED')) rejectionCounts[c.reason ?? 'UNKNOWN'] = (rejectionCounts[c.reason ?? 'UNKNOWN'] ?? 0) + 1;
-
-    return {
-      scanned: candidates.length,
-      accepted: candidates.filter(c => c.status === 'ACCEPTED').length,
-      rejected: candidates.filter(c => c.status === 'REJECTED').length,
-      selected,
-      candidates,
-      dataset,
-      rejectionCounts
-    };
+    return { scanned: candidates.length, accepted: candidates.filter(c => c.status === 'ACCEPTED').length, rejected: candidates.filter(c => c.status === 'REJECTED').length, selected, candidates, dataset, rejectionCounts };
   }
 }
