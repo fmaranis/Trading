@@ -16,13 +16,12 @@ export default defineConfig(() => {
         input: {
           main: path.resolve(__dirname, 'index.html'),
           portfolio: path.resolve(__dirname, 'portfolio.html'),
+          legacy: path.resolve(__dirname, 'legacy.html'),
         },
       },
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };
