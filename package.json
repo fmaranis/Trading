@@ -22,6 +22,7 @@
     "test:regime-selector": "tsx tests/regimeSelector.unit.ts",
     "test:decision": "tsx tests/investmentDecision.unit.ts",
     "test:decision-backtest": "tsx tests/decisionBacktest.unit.ts",
+    "test:causal-universe-backtest": "tsx tests/causalUniverseBacktest.unit.ts",
     "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts",
     "validate:aistudio": "tsx scripts/aiStudioValidate.ts"
   },
