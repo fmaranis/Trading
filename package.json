@@ -24,6 +24,7 @@
     "test:decision-backtest": "tsx tests/decisionBacktest.unit.ts",
     "test:causal-universe-backtest": "tsx tests/causalUniverseBacktest.unit.ts",
     "test:broker-execution": "tsx tests/brokerExecution.unit.ts",
+    "test:opportunity-alerts": "tsx tests/opportunityAlerts.unit.ts",
     "test:alpha-vantage": "tsx scripts/alphaVantageSmoke.ts",
     "test:eodhd": "tsx scripts/eodhdSmoke.ts",
     "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts",
