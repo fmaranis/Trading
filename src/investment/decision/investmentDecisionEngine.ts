@@ -71,14 +71,17 @@ function profileCaps(profile: InvestorRiskProfile, ids: string[]): Record<string
 }
 
 function confidenceFrom(dataAgeDays: number, bars: number, regime: MarketRegime): { score: number; label: DecisionConfidence } {
-  let score = 100;
+  // This is evidence/data confidence, NOT probability that the recommendation will be profitable.
+  // Cap at 85 while the market-data path relies on a single unofficial/non-contractual provider
+  // and the universe selector has not yet been validated with a causal historical re-selection backtest.
+  let score = 85;
   if (dataAgeDays > 14) score -= 60;
   else if (dataAgeDays > 4) score -= 35;
   else if (dataAgeDays > 2) score -= 12;
   if (bars < 250) score -= 25;
   else if (bars < 500) score -= 10;
   if (regime === 'UNKNOWN') score -= 30;
-  score = clamp(score, 0, 100);
+  score = clamp(score, 0, 85);
   return { score, label: score >= 75 ? 'HIGH' : score >= 50 ? 'MEDIUM' : 'LOW' };
 }
 
@@ -174,7 +177,10 @@ export class InvestmentDecisionEngine {
     }).sort((a, b) => b.weight - a.weight);
 
     const confidence = confidenceFrom(dataAgeDays, aligned.rows.length, currentRegime.regime);
-    const warnings: string[] = [];
+    const warnings: string[] = [
+      'La confianza mostrada mide calidad de evidencia/datos; no es una probabilidad de rentabilidad.',
+      'El proveedor actual es Yahoo Finance mediante un endpoint no contractual y todavía no hay validación cruzada con un segundo proveedor.'
+    ];
     if (dataAgeDays > 4) warnings.push(`Los últimos datos tienen ${dataAgeDays} días de antigüedad; no tratar la salida como actual.`);
     if (currentRegime.regime === 'UNKNOWN') warnings.push('No hay historial suficiente para clasificar el régimen con confianza.');
     if (request.horizonYears === 1) warnings.push('Horizonte de 1 año: la dispersión de resultados puede ser elevada incluso con diversificación.');
