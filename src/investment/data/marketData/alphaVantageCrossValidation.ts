@@ -1,15 +1,51 @@
+export type SecondaryProviderSummaryState =
+  | 'AVAILABLE'
+  | 'PARTIAL'
+  | 'PARTIAL_QUOTA_EXHAUSTED'
+  | 'QUOTA_EXHAUSTED'
+  | 'UNAVAILABLE';
+
+export interface SecondaryProviderHealth {
+  provider: string;
+  configured: boolean;
+  nonBlocking: boolean;
+  primaryProvider: string;
+  primaryDataAvailable: boolean;
+  summaryState: SecondaryProviderSummaryState;
+  requested: number;
+  checked: number;
+  matched: number;
+  divergent: number;
+  coveragePct: number;
+}
+
 export interface AlphaVantageStatus {
   provider: 'alpha_vantage';
   configured: boolean;
   role: 'SECONDARY_CROSS_VALIDATION';
   primaryProvider: 'yahoo_finance';
   keyExposedToClient: boolean;
+  nonBlocking: boolean;
+  cacheTtlHours?: number;
+  cachedEntries?: number;
 }
 
 export interface AlphaVantageCrossCheckItem {
   ticker: string;
   alphaSymbol?: string;
-  status: 'MATCH' | 'PRICE_DIVERGENCE' | 'NOT_FOUND' | 'NO_DATA' | 'RATE_LIMIT_OR_NOTICE' | 'HTTP_ERROR' | 'INVALID_INPUT' | 'INVALID_ALPHA_PRICE' | 'TIMEOUT' | 'NETWORK_ERROR';
+  status:
+    | 'MATCH'
+    | 'PRICE_DIVERGENCE'
+    | 'NOT_FOUND'
+    | 'NO_DATA'
+    | 'QUOTA_EXHAUSTED'
+    | 'SKIPPED_QUOTA_EXHAUSTED'
+    | 'PROVIDER_NOTICE'
+    | 'HTTP_ERROR'
+    | 'INVALID_INPUT'
+    | 'INVALID_ALPHA_PRICE'
+    | 'TIMEOUT'
+    | 'NETWORK_ERROR';
   yahooDate?: string;
   yahooClose?: number;
   alphaDate?: string;
@@ -17,20 +53,35 @@ export interface AlphaVantageCrossCheckItem {
   differencePct?: number;
   tolerancePct?: number;
   message?: string;
+  cached?: boolean;
 }
 
-export interface AlphaVantageCrossValidationResult {
+export interface AlphaVantageCrossValidationResult extends SecondaryProviderHealth {
   provider: 'alpha_vantage';
-  configured: boolean;
+  configured: true;
   primaryProvider: 'yahoo_finance';
   role: 'SECONDARY_CROSS_VALIDATION';
-  requested: number;
-  checked: number;
-  matched: number;
-  divergent: number;
-  coveragePct: number;
+  primaryDataAvailable: true;
+  failed: number;
+  cacheHits: number;
+  upstreamCalls: number;
+  cacheTtlHours: number;
   results: AlphaVantageCrossCheckItem[];
   checkedAt: string;
+}
+
+export function secondaryProviderStatusLabel(state: SecondaryProviderSummaryState): string {
+  switch (state) {
+    case 'AVAILABLE': return 'Validación secundaria disponible';
+    case 'PARTIAL': return 'Validación secundaria parcial';
+    case 'PARTIAL_QUOTA_EXHAUSTED': return 'Validación parcial · cuota agotada';
+    case 'QUOTA_EXHAUSTED': return 'Cuota diaria agotada';
+    default: return 'Validación secundaria no disponible';
+  }
+}
+
+export function secondaryProviderDoesNotBlock(state: SecondaryProviderSummaryState): boolean {
+  return state !== 'AVAILABLE';
 }
 
 export class AlphaVantageCrossValidationService {
