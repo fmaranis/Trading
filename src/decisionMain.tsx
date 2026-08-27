@@ -1,4 +1,3 @@
-import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { InvestmentDecisionCenter } from './components/InvestmentDecisionCenter';
 import './index.css';
@@ -28,8 +27,4 @@ function DecisionApp() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <DecisionApp />
-  </StrictMode>
-);
+createRoot(document.getElementById('root')!).render(<DecisionApp />);
