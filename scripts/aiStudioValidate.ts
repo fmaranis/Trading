@@ -148,7 +148,7 @@ async function main() {
       };
     }
 
-    const bt = DecisionBacktestEngine.run(dataset, { initialCapital: 100, commissionPct: 0.05, slippagePct: 0.02, riskProfile: 'MEDIUM', horizonYears: 3 });
+    const bt = DecisionBacktestEngine.run(dataset, { initialCapital: 100, commissionPct: 0.05, slippagePct: 0.02, riskProfile: 'MEDIUM', horizonYears: 3, rebalanceFrequency: 'MONTHLY' });
     report.backtest = {
       initialCapital: bt.initialCapital,
       finalEquity: Number(bt.finalEquity.toFixed(2)),

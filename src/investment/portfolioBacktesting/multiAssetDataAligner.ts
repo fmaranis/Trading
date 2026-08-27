@@ -98,7 +98,7 @@ export class MultiAssetDataAligner {
       dates = [...new Set(allDateSets.flatMap(s => [...s]))];
     }
     dates.sort();
-    if (dates.length < 2) throw new MultiAssetDataError('No hay suficientes fechas alineadas entre los activos.');
+    if (dates.length === 0) throw new MultiAssetDataError('No hay fechas alineadas entre los activos.');
 
     const rows = dates.map(tradingDate => {
       const assets: Record<string, PriceBar> = {};
