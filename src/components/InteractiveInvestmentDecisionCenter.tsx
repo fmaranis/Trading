@@ -16,6 +16,11 @@ import {
   AlphaVantageCrossValidationService,
   AlphaVantageStatus
 } from '../investment/data/marketData/alphaVantageCrossValidation';
+import {
+  EodhdCrossValidationResult,
+  EodhdCrossValidationService,
+  EodhdStatus
+} from '../investment/data/marketData/eodhdCrossValidation';
 import { RecommendationEvidencePanel } from './RecommendationEvidencePanel';
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
@@ -44,6 +49,12 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastMarketRefresh, setLastMarketRefresh] = useState<string | null>(null);
   const [localRevision, setLocalRevision] = useState(0);
+
+  const [eodhdStatus, setEodhdStatus] = useState<EodhdStatus | null>(null);
+  const [eodhdValidation, setEodhdValidation] = useState<EodhdCrossValidationResult | null>(null);
+  const [eodhdLoading, setEodhdLoading] = useState(false);
+  const [eodhdError, setEodhdError] = useState<string | null>(null);
+
   const [alphaStatus, setAlphaStatus] = useState<AlphaVantageStatus | null>(null);
   const [alphaValidation, setAlphaValidation] = useState<AlphaVantageCrossValidationResult | null>(null);
   const [alphaLoading, setAlphaLoading] = useState(false);
@@ -52,7 +63,10 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   const selectedById = useMemo(() => new Map((scan?.selected ?? []).map(c => [c.asset.assetId, c])), [scan]);
   const allocated = useMemo(() => result?.assets.reduce((s, a) => s + a.amountEur, 0) ?? 0, [result]);
 
-  const runSecondaryValidation = async (scanResult: AssetUniverseScanResult) => {
+  const shortlistPayload = (scanResult: AssetUniverseScanResult) =>
+    scanResult.selected.map(c => ({ ticker: c.asset.ticker, asOfDate: c.asOfDate, lastClose: c.lastClose }));
+
+  const runAlphaReserveValidation = async (scanResult: AssetUniverseScanResult) => {
     setAlphaLoading(true);
     setAlphaError(null);
     setAlphaValidation(null);
@@ -60,14 +74,44 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       const status = await AlphaVantageCrossValidationService.getStatus();
       setAlphaStatus(status);
       if (!status.configured) return;
-      const validation = await AlphaVantageCrossValidationService.crossValidate(
-        scanResult.selected.map(c => ({ ticker: c.asset.ticker, asOfDate: c.asOfDate, lastClose: c.lastClose }))
-      );
+      const validation = await AlphaVantageCrossValidationService.crossValidate(shortlistPayload(scanResult));
       setAlphaValidation(validation);
     } catch (e: any) {
       setAlphaError(e?.message || String(e));
     } finally {
       setAlphaLoading(false);
+    }
+  };
+
+  const runSecondaryValidation = async (scanResult: AssetUniverseScanResult) => {
+    setEodhdLoading(true);
+    setEodhdError(null);
+    setEodhdValidation(null);
+    setAlphaValidation(null);
+    setAlphaError(null);
+    try {
+      const status = await EodhdCrossValidationService.getStatus();
+      setEodhdStatus(status);
+      if (!status.configured) {
+        void runAlphaReserveValidation(scanResult);
+        return;
+      }
+
+      const validation = await EodhdCrossValidationService.crossValidate(shortlistPayload(scanResult));
+      setEodhdValidation(validation);
+
+      // Alpha is a reserve/third source. Only spend its quota if EODHD is incomplete
+      // or detects a material divergence that merits another opinion.
+      const needsReserve = validation.summaryState !== 'AVAILABLE' || validation.divergent > 0;
+      if (needsReserve) void runAlphaReserveValidation(scanResult);
+      else {
+        try { setAlphaStatus(await AlphaVantageCrossValidationService.getStatus()); } catch { /* non-blocking */ }
+      }
+    } catch (e: any) {
+      setEodhdError(e?.message || String(e));
+      void runAlphaReserveValidation(scanResult);
+    } finally {
+      setEodhdLoading(false);
     }
   };
 
@@ -122,7 +166,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-3xl">
           <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-indigo-300"/><h1 className="text-xl sm:text-2xl font-bold text-white">¿Dónde invertir ahora?</h1></div>
-          <p className="mt-2 text-sm text-slate-300">Yahoo Finance descarga automáticamente el universo REAL desde el backend. Si configuras Alpha Vantage, la app contrasta automáticamente el shortlist con un segundo proveedor sin exponer tu API key.</p>
+          <p className="mt-2 text-sm text-slate-300">Yahoo Finance escanea automáticamente el universo REAL. EODHD valida el shortlist como segundo proveedor preferente y Alpha Vantage queda como fuente de reserva si EODHD no puede completar el contraste o detecta una divergencia.</p>
         </div>
         {result && <div className={`rounded-xl border px-3 py-2 text-xs font-bold ${confidenceClass(result.confidence)}`}>Calidad de evidencia {result.confidence} · {result.confidenceScore}/100</div>}
       </div>
@@ -156,18 +200,25 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
 
     {scan && <section className="rounded-2xl border border-cyan-500/20 bg-slate-900 p-5">
       <div className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-cyan-300"/><h2 className="font-bold">Validación cruzada de proveedores</h2></div>
-      {alphaLoading && <div className="mt-3 text-sm text-slate-400">Contrastando automáticamente los candidatos finales con Alpha Vantage…</div>}
-      {!alphaLoading && alphaStatus && !alphaStatus.configured && <div className="mt-3 text-sm text-amber-300">Alpha Vantage no está configurado. Yahoo sigue funcionando como proveedor primario. Añade `ALPHA_VANTAGE_API_KEY` como secreto del backend para activar el contraste automático.</div>}
-      {alphaError && <div className="mt-3 text-sm text-amber-300">Alpha Vantage no pudo completar el contraste: {alphaError}. La recomendación sigue usando Yahoo, sin fallback sintético.</div>}
-      {alphaValidation && <>
+      <div className="mt-3 grid gap-3 md:grid-cols-3 text-xs">
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3"><div className="font-bold text-emerald-300">Yahoo Finance</div><div className="mt-1 text-slate-300">PRINCIPAL · ACTIVO</div></div>
+        <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3"><div className="font-bold text-cyan-300">EODHD</div><div className="mt-1 text-slate-300">SECUNDARIO PREFERENTE · {eodhdLoading ? 'VALIDANDO…' : eodhdValidation?.summaryState ?? (eodhdStatus?.configured ? 'LISTO' : 'NO CONFIGURADO')}</div></div>
+        <div className="rounded-xl border border-slate-700 bg-slate-950 p-3"><div className="font-bold text-slate-300">Alpha Vantage</div><div className="mt-1 text-slate-400">RESERVA · {alphaLoading ? 'VALIDANDO…' : alphaValidation?.summaryState ?? (alphaStatus?.configured ? 'LISTO' : 'NO CONFIGURADO')}</div></div>
+      </div>
+
+      {eodhdError && <div className="mt-3 text-sm text-amber-300">EODHD no pudo completar el contraste: {eodhdError}. Yahoo continúa operativo y se intenta Alpha como reserva.</div>}
+      {eodhdValidation && <>
         <div className="mt-4 grid gap-3 sm:grid-cols-4 text-sm">
-          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Solicitados</div><b>{alphaValidation.requested}</b></div>
-          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Comparables</div><b>{alphaValidation.checked}</b></div>
-          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Coinciden ≤1%</div><b className="text-emerald-300">{alphaValidation.matched}</b></div>
-          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Divergencias</div><b className={alphaValidation.divergent ? 'text-rose-300' : 'text-emerald-300'}>{alphaValidation.divergent}</b></div>
+          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">EODHD solicitados</div><b>{eodhdValidation.requested}</b></div>
+          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Comparables</div><b>{eodhdValidation.checked}</b></div>
+          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Coinciden ≤1%</div><b className="text-emerald-300">{eodhdValidation.matched}</b></div>
+          <div className="rounded-xl bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">Divergencias</div><b className={eodhdValidation.divergent ? 'text-rose-300' : 'text-emerald-300'}>{eodhdValidation.divergent}</b></div>
         </div>
-        <div className="mt-3 overflow-x-auto"><table className="w-full text-xs"><thead className="text-slate-500"><tr><th className="p-2 text-left">Yahoo</th><th className="p-2 text-left">Alpha</th><th className="p-2 text-left">Estado</th><th className="p-2 text-right">Yahoo cierre</th><th className="p-2 text-right">Alpha cierre</th><th className="p-2 text-right">Diferencia</th></tr></thead><tbody>{alphaValidation.results.map(r => <tr key={r.ticker} className="border-t border-slate-800"><td className="p-2 font-mono">{r.ticker}</td><td className="p-2 font-mono">{r.alphaSymbol ?? '—'}</td><td className="p-2">{r.status}</td><td className="p-2 text-right">{r.yahooClose?.toFixed(2) ?? '—'}</td><td className="p-2 text-right">{r.alphaClose?.toFixed(2) ?? '—'}</td><td className="p-2 text-right">{r.differencePct != null ? `${r.differencePct.toFixed(2)}%` : '—'}</td></tr>)}</tbody></table></div>
+        <div className="mt-3 overflow-x-auto"><table className="w-full text-xs"><thead className="text-slate-500"><tr><th className="p-2 text-left">Yahoo</th><th className="p-2 text-left">EODHD</th><th className="p-2 text-left">Estado</th><th className="p-2 text-right">Yahoo cierre</th><th className="p-2 text-right">EODHD cierre</th><th className="p-2 text-right">Diferencia</th></tr></thead><tbody>{eodhdValidation.results.map(r => <tr key={r.ticker} className="border-t border-slate-800"><td className="p-2 font-mono">{r.ticker}</td><td className="p-2 font-mono">{r.eodhdSymbol ?? '—'}</td><td className="p-2">{r.status}</td><td className="p-2 text-right">{r.yahooClose?.toFixed(2) ?? '—'}</td><td className="p-2 text-right">{r.eodhdClose?.toFixed(2) ?? '—'}</td><td className="p-2 text-right">{r.differencePct != null ? `${r.differencePct.toFixed(3)}%` : '—'}</td></tr>)}</tbody></table></div>
       </>}
+
+      {alphaError && <div className="mt-3 text-sm text-amber-300">Alpha Vantage no pudo completar el contraste de reserva: {alphaError}. La recomendación continúa con Yahoo/EODHD disponibles.</div>}
+      {alphaValidation && <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">Alpha reserva: estado <b>{alphaValidation.summaryState}</b> · comparables {alphaValidation.checked}/{alphaValidation.requested} · coincidencias {alphaValidation.matched} · divergencias {alphaValidation.divergent}.</div>}
     </section>}
 
     {result && <>
