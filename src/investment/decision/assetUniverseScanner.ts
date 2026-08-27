@@ -25,6 +25,7 @@ export interface AssetUniverseScanResult {
   selected: AssetScanCandidate[];
   candidates: AssetScanCandidate[];
   dataset: MultiAssetDataset;
+  acceptedDataset: MultiAssetDataset;
   rejectionCounts: Record<string, number>;
 }
 
@@ -85,13 +86,11 @@ function chooseDiversified(candidates: AssetScanCandidate[], maxSelected: number
   const accepted = candidates.filter(c => c.status === 'ACCEPTED' && c.score != null).sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
   const selected: AssetScanCandidate[] = [];
   const usedCategories = new Set<string>();
-
   const bestDefensive = accepted.find(c => c.asset.defensive);
   if (bestDefensive) {
     selected.push(bestDefensive);
     usedCategories.add(bestDefensive.asset.category);
   }
-
   for (const candidate of accepted) {
     if (selected.length >= maxSelected) break;
     if (selected.some(s => s.asset.assetId === candidate.asset.assetId)) continue;
@@ -100,6 +99,20 @@ function chooseDiversified(candidates: AssetScanCandidate[], maxSelected: number
     usedCategories.add(candidate.asset.category);
   }
   return selected;
+}
+
+function toDataset(candidates: AssetScanCandidate[]): MultiAssetDataset {
+  return {
+    timeframe: '1d',
+    assets: candidates.map(c => ({
+      assetId: c.asset.assetId,
+      ticker: c.asset.ticker,
+      name: c.asset.name,
+      currency: 'EUR',
+      bars: c.response!.bars,
+      provenance: c.response!.provenance
+    }))
+  };
 }
 
 export class AssetUniverseScanner {
@@ -111,7 +124,6 @@ export class AssetUniverseScanner {
   ): Promise<AssetUniverseScanResult> {
     const minimumBars = options.minimumBars ?? 252;
     const maxDataAgeDays = options.maxDataAgeDays ?? 7;
-
     const candidates = await mapLimit(universe, options.concurrency ?? 3, async asset => {
       try {
         const response = await HistoricalMarketDataService.getHistoricalBars({ symbol: asset.ticker, startDate, endDate, timeframe: '1d', adjusted: true }, { forceRefresh: options.forceRefresh ?? false, maxRetries: 1 });
@@ -120,7 +132,6 @@ export class AssetUniverseScanner {
         if (response.bars.length < minimumBars) return { asset, status: 'REJECTED' as const, reason: 'INSUFFICIENT_HISTORY', bars: response.bars.length, asOfDate: response.bars.at(-1)?.timestamp.slice(0, 10) ?? null, lastClose: response.bars.at(-1)?.close ?? null, momentum20Pct: null, momentum60Pct: null, momentum120Pct: null, annualizedVolatilityPct: null, maxDrawdownPct: null, score: null };
         const asOfDate = response.bars.at(-1)!.timestamp.slice(0, 10);
         if (daysBetween(asOfDate, endDate) > maxDataAgeDays) return { asset, status: 'REJECTED' as const, reason: 'STALE_DATA', bars: response.bars.length, asOfDate, lastClose: response.bars.at(-1)!.close, momentum20Pct: null, momentum60Pct: null, momentum120Pct: null, annualizedVolatilityPct: null, maxDrawdownPct: null, score: null };
-
         const prices = response.bars.map(b => b.close);
         const m20 = pctReturn(prices, 20);
         const m60 = pctReturn(prices, 60);
@@ -133,12 +144,20 @@ export class AssetUniverseScanner {
       }
     });
 
+    const acceptedCandidates = candidates.filter(c => c.status === 'ACCEPTED');
     const selected = chooseDiversified(candidates, Math.min(options.maxSelected ?? 8, 10));
     if (selected.length < 2) throw new Error(`El escáner solo encontró ${selected.length} exposiciones válidas; se requieren al menos 2.`);
-
-    const dataset: MultiAssetDataset = { timeframe: '1d', assets: selected.map(c => ({ assetId: c.asset.assetId, ticker: c.asset.ticker, name: c.asset.name, currency: 'EUR', bars: c.response!.bars, provenance: c.response!.provenance })) };
     const rejectionCounts: Record<string, number> = {};
     for (const c of candidates.filter(c => c.status === 'REJECTED')) rejectionCounts[c.reason ?? 'UNKNOWN'] = (rejectionCounts[c.reason ?? 'UNKNOWN'] ?? 0) + 1;
-    return { scanned: candidates.length, accepted: candidates.filter(c => c.status === 'ACCEPTED').length, rejected: candidates.filter(c => c.status === 'REJECTED').length, selected, candidates, dataset, rejectionCounts };
+    return {
+      scanned: candidates.length,
+      accepted: acceptedCandidates.length,
+      rejected: candidates.length - acceptedCandidates.length,
+      selected,
+      candidates,
+      dataset: toDataset(selected),
+      acceptedDataset: toDataset(acceptedCandidates),
+      rejectionCounts
+    };
   }
 }
