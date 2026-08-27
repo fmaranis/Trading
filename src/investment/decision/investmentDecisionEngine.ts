@@ -71,9 +71,10 @@ function profileCaps(profile: InvestorRiskProfile, ids: string[]): Record<string
 }
 
 function confidenceFrom(dataAgeDays: number, bars: number, regime: MarketRegime): { score: number; label: DecisionConfidence } {
-  // This is evidence/data confidence, NOT probability that the recommendation will be profitable.
-  // Cap at 85 while the market-data path relies on a single unofficial/non-contractual provider
-  // and the universe selector has not yet been validated with a causal historical re-selection backtest.
+  // This is base evidence/data confidence, NOT probability that the recommendation will be profitable.
+  // The deterministic engine intentionally scores only the primary dataset. Runtime cross-validation
+  // with EODHD/Alpha is reported as a separate evidence layer so external API availability cannot
+  // silently change portfolio weights or make deterministic tests network-dependent.
   let score = 85;
   if (dataAgeDays > 14) score -= 60;
   else if (dataAgeDays > 4) score -= 35;
@@ -179,7 +180,7 @@ export class InvestmentDecisionEngine {
     const confidence = confidenceFrom(dataAgeDays, aligned.rows.length, currentRegime.regime);
     const warnings: string[] = [
       'La confianza mostrada mide calidad de evidencia/datos; no es una probabilidad de rentabilidad.',
-      'El proveedor actual es Yahoo Finance mediante un endpoint no contractual y todavía no hay validación cruzada con un segundo proveedor.'
+      'La puntuación base se calcula sobre Yahoo Finance. La validación cruzada runtime con EODHD y, si hace falta, Alpha Vantage se informa por separado y no modifica silenciosamente los pesos.'
     ];
     if (dataAgeDays > 4) warnings.push(`Los últimos datos tienen ${dataAgeDays} días de antigüedad; no tratar la salida como actual.`);
     if (currentRegime.regime === 'UNKNOWN') warnings.push('No hay historial suficiente para clasificar el régimen con confianza.');
