@@ -168,6 +168,16 @@ Examples:
 - MyInvestor public fee/fraction rules do not prove a particular ticker/ISIN is available;
 - a successful Yahoo fetch does not prove a second-provider match.
 
+## D20. Backtest costs must be separated from broker-executable costs
+
+**Decision:** a percentage-only commission model may be retained for strategy research, but it must not be interpreted as broker-executable evidence when the broker has a fixed minimum commission per order.
+
+**Current implementation:** `brokerBacktestFeasibility.ts` computes a mathematical lower bound equal to `number of executed orders × broker minimum commission`, compares that lower bound with the modeled backtest commission, and reports the minimum capital required to keep that lower-bound commission drag under an explicit target.
+
+**Reason:** with small capital and high turnover, a model such as 0.05% per trade can materially understate the real economics of a broker charging at least 1 EUR per order.
+
+**Rule:** strategy performance and broker execution feasibility must be reported as separate evidence. A profitable research backtest is not sufficient for manual-pilot readiness if the broker minimum-fee lower bound invalidates the economics.
+
 ## Change protocol
 
 When a durable decision changes:
