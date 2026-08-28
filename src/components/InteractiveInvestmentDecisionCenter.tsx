@@ -16,7 +16,6 @@ import { AlphaVantageCrossValidationResult, AlphaVantageCrossValidationService, 
 import { EodhdCrossValidationResult, EodhdCrossValidationService, EodhdStatus } from '../investment/data/marketData/eodhdCrossValidation';
 import { RecommendationEvidencePanel } from './RecommendationEvidencePanel';
 import { MarketUtilityDashboard } from './MarketUtilityDashboard';
-import { PortfolioExecutionPlanPanel } from './PortfolioExecutionPlanPanel';
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function sevenYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 7); return isoDate(d); }
@@ -148,7 +147,6 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
 
     {scan && <RecommendationEvidencePanel scan={scan}/>} 
     {scan && result && <MarketUtilityDashboard scan={scan} decision={result} eodhdValidation={eodhdValidation}/>} 
-    {scan && result && <PortfolioExecutionPlanPanel scan={scan} decision={result}/>} 
 
     {scan && <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
       <div className="flex items-center justify-between gap-3"><div><h2 className="font-bold">Cobertura y proveedores</h2><p className="mt-1 text-[11px] text-slate-500">Detalle técnico secundario; no es otra recomendación.</p></div><div className="text-xs text-slate-400">{scan.accepted}/{scan.scanned} válidos · shortlist {scan.selected.length}</div></div>
