@@ -14,3 +14,4 @@ export * from './opportunityThresholdResearch';
 export * from './opportunityThresholdWalkForward';
 export * from './marketSnapshotHistoryService';
 export * from './userPortfolio';
+export * from './fundPortfolio';
