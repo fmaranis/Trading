@@ -5,6 +5,7 @@ export * from './decisionBacktestEngine';
 export * from './assetUniverse';
 export * from './assetUniverseScanner';
 export * from './brokerAvailability';
+export * from './cashBenchmark';
 export * from './causalUniverseBacktestEngine';
 export * from './brokerExecution';
 export * from './brokerBacktestFeasibility';
