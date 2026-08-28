@@ -4,7 +4,19 @@ import { getAlertAutomationStatus, runDailyOpportunityCheck } from './alertAutom
 export const alertAutomationRouter = express.Router();
 
 alertAutomationRouter.get('/status', (_req: Request, res: Response) => {
-  res.json(getAlertAutomationStatus());
+  const status = getAlertAutomationStatus();
+  res.json({
+    enabled: status.enabled,
+    timezone: status.timezone,
+    runTimeLocal: status.runTimeLocal,
+    notificationChannelConfigured: status.webhookConfigured,
+    lastSuccessAt: status.state.lastSuccessAt,
+    lastMarketDate: status.state.lastMarketDate,
+    lastEvidenceState: status.state.lastEvidenceState,
+    lastNotificationAt: status.state.lastNotificationAt,
+    lastErrorPresent: Boolean(status.state.lastError),
+    lastAlertCount: status.state.lastAlerts.length
+  });
 });
 
 alertAutomationRouter.post('/run-now', async (req: Request, res: Response): Promise<void> => {
