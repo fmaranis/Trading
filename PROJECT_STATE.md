@@ -12,7 +12,7 @@ Latest fully recorded validation: **2026-08-28 21:33 UTC**, green: global record
 
 Adaptive execution remains capital-dependent. At 100 EUR the policy correctly executes no ETF orders instead of paying destructive minimum fees. The latest REAL sweep has 73 causal rebalance windows.
 
-Fund diagnosis is now conclusive for the current EODHD history: 8 funds accepted, 2 currently shortlisted, but all 8 first reached the mandatory 252-bar causal-history threshold on **2026-08-19**, after the last monthly research information date **2026-07-31**. Therefore `fundOperations = 0` in the live historical sweep is a history-window limitation, not an engine failure. The independent mixed replay regression proves subscriptions/releases work when a causal fund selection actually exists.
+Fund diagnosis is conclusive for the current EODHD history: 8 funds accepted, 2 currently shortlisted, but all 8 first reached the mandatory 252-bar causal-history threshold on **2026-08-19**, after the last monthly research information date **2026-07-31**. Therefore `fundOperations = 0` in the live historical sweep is a history-window limitation, not an engine failure. The independent mixed replay regression proves subscriptions/releases work when a causal fund selection actually exists.
 
 ## Primary user flow
 
@@ -24,25 +24,44 @@ Fund diagnosis is now conclusive for the current EODHD history: 8 funds accepted
 
 The old simple decision backtest and duplicate ETF execution card are no longer shown in the primary flow. `/portfolio.html` is explicitly Laboratorio cuantitativo; `/legacy.html` is historical/experimental.
 
-## Broker / MyInvestor availability evidence — NEW
+## Broker / MyInvestor availability evidence
 
-New module: `src/investment/decision/brokerAvailability.ts`. Durable rule: `docs/DECISIONS.md` D25.
+Module: `src/investment/decision/brokerAvailability.ts`. Durable rule: `docs/DECISIONS.md` D25.
 
-Availability is now an evidence state separate from REAL market-data validity:
+Availability is separate from REAL market-data validity. Public evidence and user confirmations are preserved as different evidence sources.
 
-- `CONFIRMED_MYINVESTOR`: current first-party MyInvestor evidence captured;
-- `REQUIRES_INVERSIS_LOOKUP`: not disproven, but exact current availability still needs the MyInvestor/Inversis value finder;
-- `UNVERIFIED`: reserved for cases with no usable broker evidence/state.
+Effective states:
+
+- `CONFIRMED_MYINVESTOR`: either current first-party MyInvestor evidence or a persisted user confirmation;
+- `REQUIRES_INVERSIS_LOOKUP`: current availability still needs checking;
+- `USER_CONFIRMED_UNAVAILABLE`: user checked and did not find the instrument at that time;
+- `UNVERIFIED`: reserved fallback state.
+
+Evidence identifies whether confirmation came from `MYINVESTOR_OFFICIAL_CURRENT`, `MYINVESTOR_OFFICIAL_HISTORICAL`, `USER_CONFIRMED_MYINVESTOR`, or none.
+
+### Manual confirmation workflow — implemented, pending fresh validation
+
+`ManualMyInvestorAvailabilityService` persists confirmations in browser localStorage key `custodia_myinvestor_manual_availability_v1`, normalized by ISIN/ticker.
+
+In **Operaciones pendientes**, target BUY/SUBSCRIBE/TRANSFER lines now show broker availability and allow:
+
+- **Sí, está en MyInvestor** → persist `AVAILABLE` and render `Confirmado por ti en MyInvestor` on future recommendations;
+- **No lo encuentro** → persist `UNAVAILABLE` without pretending this is an official broker delisting;
+- **Borrar mi confirmación** → restore the underlying public/evidence state.
+
+Manual evidence takes precedence in the effective UI state but never mutates or overwrites the separate public evidence registry. This means a user can report that an officially documented instrument is currently unavailable, while the app still retains the original public evidence for auditability.
+
+New deterministic regression: `tests/brokerAvailability.unit.ts`; command `npm run test:broker-availability`; included in `validate:aistudio:raw`. It checks persistence, manual available/unavailable overrides, restoration after deletion, and separation between manual and official evidence.
 
 First public-evidence pass on 2026-08-28:
 
-- **IE0032126645 — Vanguard U.S. 500 Stock Index Fund:** `CONFIRMED_MYINVESTOR`. Current MyInvestor content names the fund/ISIN.
-- **IE00B03HD191 — Vanguard Global Stock Index Fund:** `CONFIRMED_MYINVESTOR`. Current MyInvestor content names it among funds used by MyInvestor investors.
-- **IE0031786696 — Vanguard Emerging Markets Stock Index Fund:** `CONFIRMED_MYINVESTOR`. Current MyInvestor content names it among index-fund options used by MyInvestor investors.
-- **IE00B5456744 — Vanguard ESG Developed World:** `REQUIRES_INVERSIS_LOOKUP`. MyInvestor has first-party historical evidence but documents replacement/removal from an indexed portfolio in 2021; this does not prove current standalone availability.
-- **Active shortlisted ETFs (XEON.DE, ISPA.DE, EUN6.DE, ZPRV.DE, EXSA.DE, XDWH.DE):** `REQUIRES_INVERSIS_LOOKUP`. Their exchange listings/REAL data are valid evidence of the instruments, but no captured first-party MyInvestor result yet proves exact broker availability.
+- **IE0032126645 — Vanguard U.S. 500 Stock Index Fund:** `CONFIRMED_MYINVESTOR` from current public MyInvestor evidence.
+- **IE00B03HD191 — Vanguard Global Stock Index Fund:** `CONFIRMED_MYINVESTOR` from current public MyInvestor evidence.
+- **IE0031786696 — Vanguard Emerging Markets Stock Index Fund:** `CONFIRMED_MYINVESTOR` from current public MyInvestor evidence.
+- **IE00B5456744 — Vanguard ESG Developed World:** `REQUIRES_INVERSIS_LOOKUP`; historical evidence does not prove current standalone availability.
+- **Active shortlisted ETFs:** remain `REQUIRES_INVERSIS_LOOKUP` until confirmed manually or by first-party evidence.
 
-Important MyInvestor rule confirmed from its current official broker/help pages: instruments absent from MyInvestor web/app may still be available through the Inversis-MyInvestor platform. Therefore a failed public-web search must never be encoded as `UNAVAILABLE`. Exact lookup by ISIN/ticker in Inversis is the correct final gate.
+Important: absence from public MyInvestor pages is not encoded as broker unavailability because additional instruments may be available through Inversis. Manual `UNAVAILABLE` means only that the user did not find the instrument in their broker search at the recorded time.
 
 ## Data / causal integrity
 
@@ -73,15 +92,15 @@ Important MyInvestor rule confirmed from its current official broker/help pages:
 
 ## Known blockers / limitations
 
-- Exact Inversis lookup remains pending for active shortlisted ETFs and several funds.
+- Manual broker confirmations are currently local to the browser/device; no authenticated cloud sync exists yet.
+- Exact Inversis lookup remains pending for active shortlisted ETFs and several funds until user/public evidence is captured.
 - Fund settlement/tax/transfer timing is not yet simulated.
 - Historical universe retains current-catalog survivorship bias.
 - Yahoo remains unofficial/non-contractual.
-- Public MyInvestor pages cannot be treated as an exhaustive instrument catalogue.
 
 ## Immediate next step
 
-1. Propagate `brokerAvailability.ts` into the actionable recommendation/execution-plan UI so every proposed instrument explicitly says broker-confirmed vs Inversis lookup required.
-2. Add deterministic tests preventing an unconfirmed instrument from being labeled broker-confirmed/executable.
-3. When exact Inversis lookup evidence is available, update the registry by ISIN/ticker rather than inferring availability from third-party listings.
-4. Re-run `npm run validate:aistudio` after the UI/test integration.
+1. Run `npm run validate:aistudio` and verify the new broker-availability persistence regression plus TypeScript/build.
+2. Use the new controls during real recommendations to confirm exact MyInvestor availability by ISIN/ticker.
+3. Once enough confirmations exist, optionally add authenticated/cloud persistence so confirmations follow the user across devices instead of remaining browser-local.
+4. Continue fund settlement/transfer modeling only after broker-specific operational rules are verified.
