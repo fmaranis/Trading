@@ -22,6 +22,7 @@ const STATE_FILE = path.join(STATE_DIR, 'alertAutomationState.json');
 export interface AlertAutomationState {
   lastAttemptAt: string | null;
   lastSuccessAt: string | null;
+  lastRunLocalDate: string | null;
   lastMarketDate: string | null;
   lastError: string | null;
   lastAlerts: OpportunityAlert[];
@@ -31,7 +32,7 @@ export interface AlertAutomationState {
 }
 
 const EMPTY_STATE: AlertAutomationState = {
-  lastAttemptAt: null, lastSuccessAt: null, lastMarketDate: null, lastError: null,
+  lastAttemptAt: null, lastSuccessAt: null, lastRunLocalDate: null, lastMarketDate: null, lastError: null,
   lastAlerts: [], lastDecision: null, lastEvidenceState: null, lastNotificationAt: null
 };
 
@@ -88,9 +89,24 @@ async function notifyWebhook(payload: unknown): Promise<boolean> {
   } finally { clearTimeout(timeout); }
 }
 
+function madridClock(now = new Date()): { date: string; hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(now);
+  const value = (type: string) => parts.find(p => p.type === type)?.value ?? '0';
+  return { date: `${value('year')}-${value('month')}-${value('day')}`, hour: Number(value('hour')), minute: Number(value('minute')) };
+}
+function configuredRunTime(): { hour: number; minute: number } {
+  const [h, m] = (process.env.ALERT_RUN_TIME_LOCAL || '22:30').split(':').map(Number);
+  return { hour: Number.isFinite(h) ? Math.max(0, Math.min(23, h)) : 22, minute: Number.isFinite(m) ? Math.max(0, Math.min(59, m)) : 30 };
+}
+
 export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> {
   const state = loadState();
+  const localRunDate = madridClock().date;
   state.lastAttemptAt = new Date().toISOString();
+  state.lastRunLocalDate = localRunDate;
   state.lastError = null;
   saveState(state);
   try {
@@ -128,31 +144,18 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
     }
 
     const next: AlertAutomationState = {
-      lastAttemptAt: state.lastAttemptAt, lastSuccessAt: new Date().toISOString(), lastMarketDate: decision.asOfDate,
-      lastError: null, lastAlerts: alerts, lastDecision: toHistoryEntry(decision),
+      lastAttemptAt: state.lastAttemptAt, lastSuccessAt: new Date().toISOString(), lastRunLocalDate: localRunDate,
+      lastMarketDate: decision.asOfDate, lastError: null, lastAlerts: alerts, lastDecision: toHistoryEntry(decision),
       lastEvidenceState: evidence?.state ?? 'PRIMARY_ONLY',
       lastNotificationAt: notificationSent ? new Date().toISOString() : state.lastNotificationAt
     };
     saveState(next);
     return next;
   } catch (error: any) {
-    const failed = { ...state, lastError: error?.message || String(error) };
+    const failed = { ...state, lastRunLocalDate: localRunDate, lastError: error?.message || String(error) };
     saveState(failed);
     throw error;
   }
-}
-
-function madridClock(now = new Date()): { date: string; hour: number; minute: number } {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
-  }).formatToParts(now);
-  const value = (type: string) => parts.find(p => p.type === type)?.value ?? '0';
-  return { date: `${value('year')}-${value('month')}-${value('day')}`, hour: Number(value('hour')), minute: Number(value('minute')) };
-}
-function configuredRunTime(): { hour: number; minute: number } {
-  const [h, m] = (process.env.ALERT_RUN_TIME_LOCAL || '22:30').split(':').map(Number);
-  return { hour: Number.isFinite(h) ? Math.max(0, Math.min(23, h)) : 22, minute: Number.isFinite(m) ? Math.max(0, Math.min(59, m)) : 30 };
 }
 
 export function getAlertAutomationStatus() {
@@ -175,7 +178,7 @@ export function startDailyAlertScheduler(): NodeJS.Timeout | null {
     const target = configuredRunTime();
     const state = loadState();
     const reached = clock.hour > target.hour || (clock.hour === target.hour && clock.minute >= target.minute);
-    if (!reached || state.lastMarketDate === clock.date) return;
+    if (!reached || state.lastRunLocalDate === clock.date) return;
     running = true;
     try { await runDailyOpportunityCheck(); }
     catch (err) { console.error('[Custodia] daily alert automation failed:', err); }
