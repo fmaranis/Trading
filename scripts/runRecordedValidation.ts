@@ -6,9 +6,10 @@ type ValidationMode = 'aistudio' | 'eodhd-shortlist';
 const mode = process.argv[2] as ValidationMode | undefined;
 const RESULT_BRANCH = 'validation-results';
 
-const config: Record<ValidationMode, { script: string; markers: Array<{ marker: string; fileName: string }> }> = {
+const config: Record<ValidationMode, { script: string; runFileName: string; markers: Array<{ marker: string; fileName: string }> }> = {
   aistudio: {
     script: 'validate:aistudio:raw',
+    runFileName: 'latest-aistudio-run.json',
     markers: [
       { marker: 'AI_STUDIO_VALIDATION_RESULT', fileName: 'latest-aistudio.json' },
       { marker: 'BROKER_BACKTEST_FEASIBILITY_RESULT', fileName: 'latest-broker-backtest-feasibility.json' },
@@ -17,6 +18,7 @@ const config: Record<ValidationMode, { script: string; markers: Array<{ marker: 
   },
   'eodhd-shortlist': {
     script: 'test:eodhd-shortlist:raw',
+    runFileName: 'latest-eodhd-shortlist-run.json',
     markers: [
       { marker: 'EODHD_SHORTLIST_VALIDATION_RESULT', fileName: 'latest-eodhd-shortlist.json' }
     ]
@@ -72,7 +74,23 @@ async function main() {
     child.on('error', reject);
   });
 
-  const records = [];
+  const detectedMarkers = selected.markers.filter(item => output.includes(item.marker)).map(item => item.marker);
+  const runPayload = {
+    generatedAt: new Date().toISOString(),
+    mode,
+    underlyingScript: selected.script,
+    exitCode: exitCode ?? 1,
+    ok: exitCode === 0,
+    expectedMarkers: selected.markers.map(item => item.marker),
+    detectedMarkers,
+    outputTail: output.slice(-12000)
+  };
+  const runRecord = recordValidationResult(selected.runFileName, 'VALIDATION_RUN_RESULT', runPayload, {
+    autoCommit: false,
+    commitMessage: `Record ${mode} validation run`
+  });
+  const records: Array<Record<string, any>> = [{ marker: 'VALIDATION_RUN_RESULT', fileName: selected.runFileName, ...runRecord }];
+
   for (const item of selected.markers) {
     const payload = extractJsonAfterMarker(output, item.marker);
     if (payload == null) continue;
@@ -80,13 +98,13 @@ async function main() {
     records.push({ ...item, ...record });
   }
 
-  if (!records.length) console.error('VALIDATION_RESULT_RECORDING_WARNING: no se encontró ningún marcador JSON reconocible.');
-  else {
-    console.log('\nVALIDATION_RESULTS_RECORDED');
-    console.log(JSON.stringify(records, null, 2));
+  if (detectedMarkers.length !== selected.markers.length) {
+    console.error(`VALIDATION_RESULT_RECORDING_WARNING: marcadores detectados ${detectedMarkers.length}/${selected.markers.length}. El registro general de ejecución sí se ha guardado.`);
   }
+  console.log('\nVALIDATION_RESULTS_RECORDED');
+  console.log(JSON.stringify(records, null, 2));
 
-  if (records.length && process.env.VALIDATION_AUTO_COMMIT !== '0') {
+  if (process.env.VALIDATION_AUTO_COMMIT !== '0') {
     const { execFileSync } = await import('node:child_process');
     const paths = records.map(record => record.path);
     try {
