@@ -17,10 +17,21 @@ export interface OpportunityAlert {
   action: 'REVIEW' | 'NO_ACTION';
 }
 
+export interface PreviousOpportunitySnapshot {
+  asOfDate: string;
+  shortlist: Array<{
+    ticker: string;
+    score: number | null;
+    momentum120Pct: number | null;
+    annualizedVolatilityPct: number | null;
+  }>;
+}
+
 export interface OpportunityAlertContext {
   scan: AssetUniverseScanResult;
   decision: InvestmentDecisionResult;
   previousDecision?: DecisionHistoryEntry | null;
+  previousSnapshot?: PreviousOpportunitySnapshot | null;
   evidence?: CrossProviderEvidenceQuality | null;
 }
 
@@ -28,9 +39,13 @@ function id(type: OpportunityAlertType, asOf: string, ticker?: string): string {
   return `${asOf}_${type}_${ticker ?? 'PORTFOLIO'}`;
 }
 
+function isEligible(score: number | null | undefined, momentum: number | null | undefined, vol: number | null | undefined): boolean {
+  return (score ?? -Infinity) >= 2 && (momentum ?? 0) > 0 && (vol ?? Infinity) <= 30;
+}
+
 export class OpportunityAlertEngine {
   static evaluate(context: OpportunityAlertContext): OpportunityAlert[] {
-    const { scan, decision, previousDecision, evidence } = context;
+    const { scan, decision, previousDecision, previousSnapshot, evidence } = context;
     const alerts: OpportunityAlert[] = [];
     const asOf = decision.asOfDate;
 
@@ -70,26 +85,47 @@ export class OpportunityAlertEngine {
       }
     }
 
-    const selected = [...scan.selected].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
-    const evidenceConfirmed = evidence?.state === 'CROSS_PROVIDER_CONFIRMED';
-    for (const candidate of selected.slice(0, 3)) {
-      const score = candidate.score ?? -Infinity;
-      const momentum = candidate.momentum120Pct ?? 0;
-      const vol = candidate.annualizedVolatilityPct ?? Infinity;
-      if (score < 2 || momentum <= 0 || vol > 30) continue;
-      alerts.push({
-        id: id('OPPORTUNITY', asOf, candidate.asset.ticker), asOfDate: asOf, type: 'OPPORTUNITY',
-        severity: 'REVIEW', ticker: candidate.asset.ticker,
-        title: `${candidate.asset.ticker} · señal candidata a revisión`,
-        message: `Top ${selected.indexOf(candidate) + 1} del scanner, score ${score.toFixed(2)}, momentum 120d ${momentum.toFixed(1)}%.`,
-        reasons: [
-          'Top 3 del ranking determinista',
-          `Volatilidad anualizada ${vol.toFixed(1)}%`,
-          evidenceConfirmed ? 'Precio confirmado por Yahoo + EODHD' : 'Validación cruzada no confirmada completamente',
-          'La confirmación de proveedores valida el dato, no una ventaja de rentabilidad; la señal permanece REVIEW hasta validación walk-forward positiva'
-        ],
-        action: 'REVIEW'
-      });
+    // A first snapshot establishes the baseline. It must not manufacture a "new opportunity".
+    if (previousSnapshot) {
+      const selected = [...scan.selected].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+      const previousRanked = [...previousSnapshot.shortlist].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+      const evidenceConfirmed = evidence?.state === 'CROSS_PROVIDER_CONFIRMED';
+
+      for (const candidate of selected.slice(0, 3)) {
+        const score = candidate.score ?? -Infinity;
+        const momentum = candidate.momentum120Pct ?? 0;
+        const vol = candidate.annualizedVolatilityPct ?? Infinity;
+        if (!isEligible(score, momentum, vol)) continue;
+
+        const previousIndex = previousRanked.findIndex(x => x.ticker === candidate.asset.ticker);
+        const previous = previousIndex >= 0 ? previousRanked[previousIndex] : null;
+        const previousRank = previousIndex >= 0 ? previousIndex + 1 : null;
+        const currentRank = selected.indexOf(candidate) + 1;
+        const enteredTop3 = previousRank == null || previousRank > 3;
+        const scoreJump = previous?.score != null && score - previous.score >= 1.0;
+        const eligibilityTransition = previous != null && !isEligible(previous.score, previous.momentum120Pct, previous.annualizedVolatilityPct);
+
+        if (!enteredTop3 && !scoreJump && !eligibilityTransition) continue;
+
+        const changeReasons: string[] = [];
+        if (enteredTop3) changeReasons.push(previousRank == null ? 'Nuevo en el shortlist y entra en Top 3' : `Entrada en Top 3 desde rango ${previousRank}`);
+        if (scoreJump) changeReasons.push(`Score mejora ≥1,0 (${previous!.score!.toFixed(2)} → ${score.toFixed(2)})`);
+        if (eligibilityTransition) changeReasons.push('Pasa de no elegible a elegible por las reglas actuales');
+
+        alerts.push({
+          id: id('OPPORTUNITY', asOf, candidate.asset.ticker), asOfDate: asOf, type: 'OPPORTUNITY',
+          severity: 'REVIEW', ticker: candidate.asset.ticker,
+          title: `${candidate.asset.ticker} · cambio relevante en el scanner`,
+          message: `Top ${currentRank}, score ${score.toFixed(2)}, momentum 120d ${momentum.toFixed(1)}%.`,
+          reasons: [
+            ...changeReasons,
+            `Volatilidad anualizada ${vol.toFixed(1)}%`,
+            evidenceConfirmed ? 'Precio confirmado por Yahoo + EODHD' : 'Validación cruzada no confirmada completamente',
+            'La evidencia histórica actual no demuestra edge relativo; la señal permanece REVIEW_ONLY'
+          ],
+          action: 'REVIEW'
+        });
+      }
     }
 
     return alerts.sort((a, b) => {
