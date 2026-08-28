@@ -71,10 +71,10 @@ function profileCaps(profile: InvestorRiskProfile, ids: string[]): Record<string
 }
 
 function confidenceFrom(dataAgeDays: number, bars: number, regime: MarketRegime): { score: number; label: DecisionConfidence } {
-  // This is base evidence/data confidence, NOT probability that the recommendation will be profitable.
-  // The deterministic engine intentionally scores only the primary dataset. Runtime cross-validation
-  // with EODHD/Alpha is reported as a separate evidence layer so external API availability cannot
-  // silently change portfolio weights or make deterministic tests network-dependent.
+  // Base evidence/data confidence only: never interpreted as probability of profit.
+  // The engine scores the primary REAL series for each instrument. Runtime cross-provider
+  // validation is a separate evidence layer so external API availability cannot silently
+  // alter portfolio weights or make deterministic tests network-dependent.
   let score = 85;
   if (dataAgeDays > 14) score -= 60;
   else if (dataAgeDays > 4) score -= 35;
@@ -104,7 +104,7 @@ export class InvestmentDecisionEngine {
     const provenance = buildPortfolioProvenance(dataset);
     if (provenance.portfolioEvidence !== 'REAL_ONLY') throw new Error('La decisión actual exige exclusivamente datos REAL.');
     const currencies = new Set(dataset.assets.map(a => a.currency).filter(Boolean));
-    if (currencies.size !== 1 || !currencies.has('EUR')) throw new Error('La decisión actual exige activos cotizados en EUR.');
+    if (currencies.size !== 1 || !currencies.has('EUR')) throw new Error('La decisión actual exige instrumentos denominados en EUR.');
 
     const aligned = MultiAssetDataAligner.align(dataset, 'INTERSECTION');
     const analytics = RealPortfolioAnalytics.calculate(aligned, 60);
@@ -180,7 +180,7 @@ export class InvestmentDecisionEngine {
     const confidence = confidenceFrom(dataAgeDays, aligned.rows.length, currentRegime.regime);
     const warnings: string[] = [
       'La confianza mostrada mide calidad de evidencia/datos; no es una probabilidad de rentabilidad.',
-      'La puntuación base se calcula sobre Yahoo Finance. La validación cruzada runtime con EODHD y, si hace falta, Alpha Vantage se informa por separado y no modifica silenciosamente los pesos.'
+      'La puntuación base usa la serie REAL primaria de cada instrumento: Yahoo para cotizados y EODHD NAV para fondos. La validación cruzada adicional se informa por separado y no modifica silenciosamente los pesos.'
     ];
     if (dataAgeDays > 4) warnings.push(`Los últimos datos tienen ${dataAgeDays} días de antigüedad; no tratar la salida como actual.`);
     if (currentRegime.regime === 'UNKNOWN') warnings.push('No hay historial suficiente para clasificar el régimen con confianza.');
@@ -212,10 +212,10 @@ export class InvestmentDecisionEngine {
       warnings,
       summary,
       methodology: [
-        'Datos históricos diarios REAL del mismo universo EUR, sin fallback sintético.',
+        'Series históricas diarias REAL del universo EUR, sin fallback sintético.',
         `Asignación base: ${method} con lookback de ${allocationLookback} barras.`,
         'Overlay de efectivo determinado por perfil de riesgo y régimen causal actual.',
-        'Los pesos se limitan por activo para evitar concentraciones extremas.',
+        'Los pesos se limitan por instrumento para evitar concentraciones extremas.',
         'La salida describe una asignación de investigación, no una garantía de rentabilidad.'
       ]
     };
