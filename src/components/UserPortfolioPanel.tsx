@@ -6,6 +6,7 @@ import {
   FundPosition,
   InvestmentDecisionResult,
   monthlyStagedAmount,
+  PortfolioDecisionEngine,
   StagedCapitalPlan,
   UserHolding,
   UserPortfolioService
@@ -15,6 +16,23 @@ import { FundMarketDataCard } from './FundMarketDataCard';
 interface Props {
   scan: AssetUniverseScanResult;
   decision: InvestmentDecisionResult;
+}
+
+function portfolioActionLabel(action: string): string {
+  switch (action) {
+    case 'ADD': return 'AUMENTAR';
+    case 'REDUCE': return 'REDUCIR';
+    case 'REVIEW_TRANSFER': return 'REVISAR TRASPASO';
+    case 'DATA_MISSING': return 'SIN DATOS';
+    default: return 'MANTENER';
+  }
+}
+
+function portfolioActionClass(action: string): string {
+  if (action === 'ADD') return 'text-emerald-300';
+  if (action === 'REDUCE' || action === 'REVIEW_TRANSFER') return 'text-amber-300';
+  if (action === 'DATA_MISSING') return 'text-rose-300';
+  return 'text-slate-400';
 }
 
 export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision }) => {
@@ -30,6 +48,7 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision }) => {
   const prices = useMemo(() => Object.fromEntries(scan.candidates.filter(c => c.lastClose && c.lastClose > 0).map(c => [c.asset.ticker.toUpperCase(), Number(c.lastClose)])), [scan]);
   const portfolio = useMemo(() => ({ cashEur: Math.max(0, cash), holdings, funds, stagedCapitalPlan: plan, updatedAt: new Date().toISOString() }), [cash, holdings, funds, plan, savedRevision]);
   const analysis = useMemo(() => analyzePortfolioRebalance(portfolio, decision.assets, prices, decision.cashWeight), [portfolio, decision, prices]);
+  const portfolioDecision = useMemo(() => PortfolioDecisionEngine.evaluate({ portfolio, scan, decision, fundMarketValues }), [portfolio, scan, decision, fundMarketValues]);
 
   const fundRegisteredValue = useMemo(() => funds.reduce((sum, f) => {
     const market = fundMarketValues[f.id];
@@ -62,22 +81,38 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision }) => {
 
   return <section className="space-y-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-      <div><div className="flex items-center gap-2"><WalletCards className="h-4 w-4 text-emerald-300"/><h3 className="font-bold">Mi cartera real</h3></div><p className="mt-1 text-[11px] text-slate-400">Una sola cartera: fondos, ETFs/otros activos, efectivo y capital pendiente. Los fondos consultan automáticamente VL e histórico por ISIN; las diferencias fiscales y de ejecución se gestionan internamente.</p></div>
-      <div className="flex flex-wrap gap-2"><button onClick={restoreExample} className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400"><RotateCcw className="h-3.5 w-3.5"/>Restaurar ejemplo</button><div className={`rounded-lg border px-3 py-2 text-xs font-bold ${analysis.rebalanceRecommended ? 'border-amber-500/30 text-amber-300' : 'border-emerald-500/30 text-emerald-300'}`}>{analysis.rebalanceRecommended ? 'REVISAR REBALANCEO ETF' : 'SIN CAMBIO ETF MATERIAL'}</div></div>
+      <div><div className="flex items-center gap-2"><WalletCards className="h-4 w-4 text-emerald-300"/><h3 className="font-bold">Mi cartera real</h3></div><p className="mt-1 text-[11px] text-slate-400">Una sola cartera: fondos, ETFs/otros activos, efectivo y capital pendiente. El motor descuenta la exposición que ya tienes antes de decidir dónde dirigir dinero nuevo.</p></div>
+      <div className="flex flex-wrap gap-2"><button onClick={restoreExample} className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400"><RotateCcw className="h-3.5 w-3.5"/>Restaurar ejemplo</button><div className="rounded-lg border border-emerald-500/30 px-3 py-2 text-xs font-bold text-emerald-300">DECISIÓN CONSOLIDADA ACTIVA</div></div>
     </div>
 
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5 text-xs">
       <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Valor ETF + efectivo</div><b>{analysis.totalPortfolioValueEur.toFixed(2)} €</b></div>
-      <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Fondos valorados</div><b>{fundRegisteredValue.toFixed(2)} €</b><div className="text-[9px] text-slate-600">VL automático; estimado si faltan participaciones</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Fondos valorados</div><b>{fundRegisteredValue.toFixed(2)} €</b><div className="text-[9px] text-slate-600">VL automático; exacto con participaciones</div></div>
       <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Pendiente de invertir</div><b>{plan.availableEur.toFixed(2)} €</b></div>
-      <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Capital registrado</div><b>{totalRegistered.toFixed(2)} €</b><div className="text-[9px] text-slate-600">fondos + activos + efectivo + pendiente</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Capital planificado</div><b>{portfolioDecision.totalPlannedCapitalEur.toFixed(2)} €</b><div className="text-[9px] text-slate-600">valorado + efectivo + pendiente</div></div>
       <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Referencia escalonada</div><b>{monthly.toFixed(2)} €/mes</b><div className="text-[9px] text-slate-600">durante {plan.horizonMonths} meses</div></div>
+    </div>
+
+    <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><b>Decisión sobre cartera completa</b><div className="mt-1 text-[11px] text-slate-400">Primero compara la exposición económica que ya posees con el objetivo. Después asigna solo el capital desplegable a los déficits restantes.</div></div><div className="rounded-lg border border-violet-500/30 px-3 py-2 text-xs text-violet-200">Nuevo a invertir: <b>{portfolioDecision.recommendedNewInvestmentEur.toFixed(2)} €</b> · cash planificado: <b>{portfolioDecision.residualPlannedCashEur.toFixed(2)} €</b></div></div>
+
+      <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4 text-xs">
+        {portfolioDecision.exposures.map(x => <div key={x.category} className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">{x.category}</div><div className="mt-1 flex justify-between"><span>Actual</span><b>{x.currentValueEur.toFixed(2)} €</b></div><div className="flex justify-between text-slate-400"><span>Objetivo</span><span>{x.targetValueEur.toFixed(2)} €</span></div><div className={`mt-1 text-right font-mono ${x.gapEur > 0 ? 'text-emerald-300' : x.gapEur < 0 ? 'text-amber-300' : 'text-slate-500'}`}>{x.gapEur >= 0 ? '+' : ''}{x.gapEur.toFixed(2)} € · {x.gapPctPoints >= 0 ? '+' : ''}{x.gapPctPoints.toFixed(1)} pp</div></div>)}
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3"><div className="text-xs font-bold">Qué hacer con lo que ya tienes</div><div className="mt-2 space-y-2">{portfolioDecision.existingPositions.length === 0 && <div className="text-xs text-slate-600">No hay posiciones existentes.</div>}{portfolioDecision.existingPositions.map(x => <div key={`${x.instrumentType}_${x.id}`} className="rounded-lg border border-slate-800 p-2 text-xs"><div className="flex items-start justify-between gap-2"><div><b>{x.label}</b><div className="text-[10px] text-slate-500">{x.instrumentType === 'MUTUAL_FUND' ? 'Fondo' : 'ETF/ETC'} · {x.category} · {x.currentValueEur == null ? 'N/D' : `${x.currentValueEur.toFixed(2)} €`}</div></div><b className={portfolioActionClass(x.action)}>{portfolioActionLabel(x.action)}</b></div><div className="mt-1 text-[10px] text-slate-500">{x.reason}</div></div>)}</div></div>
+
+        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3"><div className="text-xs font-bold">Dónde dirigir el capital nuevo</div><div className="mt-2 space-y-2">{portfolioDecision.contributions.length === 0 && <div className="text-xs text-slate-600">No hay déficits objetivos financiables con las reglas actuales.</div>}{portfolioDecision.contributions.map(x => <div key={x.assetId} className="rounded-lg border border-slate-800 p-2 text-xs"><div className="flex items-start justify-between gap-2"><div><b>{x.ticker}</b><div className="text-[10px] text-slate-500">{x.name} · {x.instrumentType === 'MUTUAL_FUND' ? 'FONDO' : 'ETF/ETC'} · {x.category}</div></div><b className="font-mono text-emerald-300">{x.amountEur.toFixed(2)} €</b></div><div className="mt-1 text-[10px] text-slate-500">{x.reason}</div></div>)}</div><div className="mt-2 text-[10px] text-slate-500">El efectivo objetivo se reserva antes de repartir nuevas aportaciones. No se venden posiciones existentes para financiar estas compras.</div></div>
+      </div>
+
+      {portfolioDecision.warnings.length > 0 && <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[10px] text-amber-100">{portfolioDecision.warnings.join(' · ')}</div>}
     </div>
 
     <div className="grid gap-3 lg:grid-cols-[0.34fr_0.66fr]">
       <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
         <div><label className="block text-[10px] uppercase text-slate-500">Efectivo libre actual</label><div className="mt-1 flex items-center gap-2"><input type="number" min="0" step="10" value={cash} onChange={e => setCash(Math.max(0, Number(e.target.value) || 0))} className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono"/><span>€</span></div></div>
-        <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3"><div className="text-[10px] uppercase text-violet-300">Capital pendiente de invertir</div><div className="mt-2 grid grid-cols-2 gap-2"><label className="text-[10px] text-slate-500">Disponible €<input type="number" min="0" value={plan.availableEur} onChange={e => setPlan({ ...plan, availableEur: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"/></label><label className="text-[10px] text-slate-500">Plazo meses<input type="number" min="1" max="120" value={plan.horizonMonths} onChange={e => setPlan({ ...plan, horizonMonths: Math.max(1, Number(e.target.value) || 1) })} className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"/></label></div><div className="mt-2 text-[10px] text-slate-500">{monthly.toFixed(2)} €/mes es solo una referencia uniforme; el motor podrá variar aportaciones o mantener parte en efectivo.</div></div>
+        <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3"><div className="text-[10px] uppercase text-violet-300">Capital pendiente de invertir</div><div className="mt-2 grid grid-cols-2 gap-2"><label className="text-[10px] text-slate-500">Disponible €<input type="number" min="0" value={plan.availableEur} onChange={e => setPlan({ ...plan, availableEur: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"/></label><label className="text-[10px] text-slate-500">Plazo meses<input type="number" min="1" max="120" value={plan.horizonMonths} onChange={e => setPlan({ ...plan, horizonMonths: Math.max(1, Number(e.target.value) || 1) })} className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"/></label></div><div className="mt-2 text-[10px] text-slate-500">{monthly.toFixed(2)} €/mes es una referencia uniforme. La propuesta consolidada de arriba puede dirigir las aportaciones a categorías distintas según los déficits reales.</div></div>
         <div className="grid grid-cols-2 gap-2"><button onClick={save} className="flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"><Save className="h-3.5 w-3.5"/>Guardar cartera</button><button onClick={clear} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400">Vaciar todo</button></div>
         <div className="text-[10px] text-slate-600">La cartera se guarda en este navegador. Los datos de mercado se consultan al backend; la clave del proveedor no se expone al navegador.</div>
       </div>
@@ -96,11 +131,12 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision }) => {
       </div>
     </div>
 
-    <div className="space-y-3">
+    <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/30 p-3">
+      <div><b className="text-xs">Detalle de ejecución de la parte ETF/ETC</b><div className="text-[10px] text-slate-500">Este bloque conserva títulos enteros y comisiones para activos cotizados. La decisión estratégica conjunta es la mostrada arriba.</div></div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-xs"><div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Valor ETF conocido</div><b>{analysis.knownHoldingsValueEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Rotación ETF teórica</div><b>{analysis.theoreticalTurnoverPct.toFixed(1)}%</b></div><div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Coste ETF estimado</div><b>{analysis.estimatedFeesEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Cash ETF proyectado</div><b>{analysis.projectedCashEur.toFixed(2)} €</b></div></div>
       <div className="overflow-x-auto rounded-xl border border-slate-800"><table className="w-full min-w-[760px] text-xs"><thead className="bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Activo ticker</th><th className="p-2 text-right">Actual</th><th className="p-2 text-right">Objetivo</th><th className="p-2 text-right">Desvío</th><th className="p-2 text-center">Revisión</th><th className="p-2 text-right">Títulos</th><th className="p-2 text-right">Coste/ingreso bruto</th></tr></thead><tbody>{analysis.lines.map(line => <tr key={line.ticker} className="border-t border-slate-800"><td className="p-2 font-mono"><b>{line.ticker}</b><div className="text-[10px] text-slate-600">{line.currentShares} títulos · {line.priceEur?.toFixed(2) ?? 'N/D'} €</div></td><td className="p-2 text-right">{line.currentWeightPct.toFixed(1)}%</td><td className="p-2 text-right">{line.targetWeightPct.toFixed(1)}%</td><td className={`p-2 text-right ${Math.abs(line.driftPctPoints) >= 5 ? 'text-amber-300' : 'text-slate-400'}`}>{line.driftPctPoints >= 0 ? '+' : ''}{line.driftPctPoints.toFixed(1)} pp</td><td className="p-2 text-center">{line.action === 'BUY' ? <span className="text-emerald-300"><ArrowDownToLine className="mr-1 inline h-3 w-3"/>COMPRAR</span> : line.action === 'SELL' ? <span className="text-amber-300"><ArrowUpFromLine className="mr-1 inline h-3 w-3"/>VENDER</span> : line.action === 'DATA_MISSING' ? <span className="text-rose-300">SIN DATOS</span> : <span className="text-slate-500">MANTENER</span>}</td><td className="p-2 text-right font-mono">{line.proposedShares || '—'}</td><td className="p-2 text-right">{line.estimatedNotionalEur ? `${line.estimatedNotionalEur.toFixed(2)} €` : '—'}</td></tr>)}</tbody></table></div>
       {analysis.warnings.length > 0 && <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-200">No se puede valorar toda la parte con ticker: {analysis.warnings.join(' · ')}.</div>}
-      <div className="flex items-start gap-2 text-[10px] text-slate-500"><CircleDollarSign className="mt-0.5 h-3.5 w-3.5 shrink-0"/><span><b>Una cartera, reglas distintas por producto.</b> Los ETFs se revisan con títulos enteros y comisión. Los fondos usan VL por ISIN y conservan coste/fecha fiscal; si procede, se compara traspaso frente a reembolso antes de materializar plusvalías. El siguiente paso del motor es incorporar esas exposiciones de fondos al rebalanceo global, no solo valorarlas.</span></div>
+      <div className="flex items-start gap-2 text-[10px] text-slate-500"><CircleDollarSign className="mt-0.5 h-3.5 w-3.5 shrink-0"/><span><b>Una cartera, ejecución distinta por producto.</b> Los fondos y ETFs compiten en el mismo objetivo económico. Solo la fase de ejecución mantiene reglas distintas: participaciones/VL y posible traspaso para fondos; títulos enteros y comisión para ETFs/ETCs.</span></div>
     </div>
   </section>;
 };
