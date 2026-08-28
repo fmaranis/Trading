@@ -41,12 +41,12 @@ export interface FundNavValuation {
 export const EXAMPLE_FUND_POSITIONS: FundPosition[] = [
   {
     id: 'example_vanguard_global', isin: 'IE00B03HD191', name: 'Vanguard Global Stock Index Fund EUR Acc',
-    category: 'GLOBAL_EQUITY', investedEur: 12600, acquisitionDate: '2026-08-11', currentValueEur: null, units: null,
+    category: 'GLOBAL_EQUITY', investedEur: 12600, acquisitionDate: '2026-08-11', currentValueEur: null, units: 196.59,
     transferable: true, broker: 'MyInvestor'
   },
   {
     id: 'example_vanguard_emerging', isin: 'IE0031786696', name: 'Vanguard Emerging Markets Stock Index Fund EUR Acc',
-    category: 'EMERGING_EQUITY', investedEur: 1400, acquisitionDate: '2026-08-12', currentValueEur: null, units: null,
+    category: 'EMERGING_EQUITY', investedEur: 1400, acquisitionDate: '2026-08-12', currentValueEur: null, units: 4.61,
     transferable: true, broker: 'MyInvestor'
   }
 ];
