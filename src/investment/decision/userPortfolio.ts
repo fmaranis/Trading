@@ -81,6 +81,7 @@ function normalizeFund(f: any): FundPosition | null {
     investedEur: Math.max(0, Number(f.investedEur) || 0),
     acquisitionDate: typeof f.acquisitionDate === 'string' ? f.acquisitionDate : new Date().toISOString().slice(0, 10),
     currentValueEur: f.currentValueEur == null || f.currentValueEur === '' ? null : Math.max(0, Number(f.currentValueEur) || 0),
+    units: f.units == null || f.units === '' ? null : Math.max(0, Number(f.units) || 0),
     transferable: Boolean(f.transferable),
     broker: typeof f.broker === 'string' ? f.broker : undefined
   };
