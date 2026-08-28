@@ -12,7 +12,7 @@ Latest fully recorded validation: **2026-08-28 22:58 UTC**, green: global record
 
 1. current market decision;
 2. **visible execution guardrails: cash benchmark + current shortlist + MyInvestor state**;
-3. historical/ranking evidence;
+3. lightweight research launcher;
 4. Mi cartera real;
 5. Operaciones pendientes;
 6. alerts/changes;
@@ -20,11 +20,11 @@ Latest fully recorded validation: **2026-08-28 22:58 UTC**, green: global record
 
 The main page must not hide important execution rules only inside the calculation engine.
 
-## Visible execution guardrails — NEW
+## Visible execution guardrails
 
-New component: `src/components/DecisionGuardrailsPanel.tsx`, rendered directly below the current market-decision summary.
+Component: `src/components/DecisionGuardrailsPanel.tsx`, rendered directly below the current market-decision summary.
 
-The primary screen now visibly shows, for every current shortlisted instrument:
+The primary screen visibly shows, for every current shortlisted instrument:
 
 - ticker/product type/category;
 - REAL 120-session momentum;
@@ -33,11 +33,29 @@ The primary screen now visibly shows, for every current shortlisted instrument:
 - explicit `SUPERA EFECTIVO` versus `MANTENER EN CUENTA` state;
 - effective MyInvestor availability state (`confirmed`, user-confirmed, unavailable by user check, or pending lookup).
 
-The MyInvestor cash reference is editable **on this primary panel**, defaults to 2.5% annually, and persists through `CashBenchmarkService` in browser localStorage.
+The MyInvestor cash reference is editable on this primary panel, defaults to 2.5% annually, and persists through `CashBenchmarkService` in browser localStorage.
 
-`PortfolioExecutionPlanPanel` no longer keeps an independent benchmark setting. Every time the user presses **Preparar/Actualizar plan**, it reloads the single persisted benchmark. This prevents the visible value and the execution value from diverging.
+`PortfolioExecutionPlanPanel` does not keep an independent benchmark setting. Every time the user presses **Preparar/Actualizar plan**, it reloads the single persisted benchmark. This prevents the visible value and the execution value from diverging.
 
 Important: the primary guardrail table compares the annualized 120-session proxy before order-specific ETF commission because no exact order exists yet. `Operaciones pendientes` applies the stronger final gate using the actual proposed notional and modeled entry commission. Passing the upper table therefore does not guarantee an executable buy.
+
+## Startup responsiveness / heavy research rendering
+
+A green deterministic validation is not sufficient if the browser UI becomes unresponsive.
+
+`InteractiveInvestmentDecisionCenter.tsx` now:
+
+- lets the first UI paint occur before starting the REAL universe scan by scheduling initial refresh through `requestIdleCallback` (fallback short timer);
+- shows a lightweight loading message while REAL data is fetched;
+- does **not** mount `RecommendationEvidencePanel` at startup;
+- exposes **Ver histórico y ranking completo** to mount the heavy Recharts multi-asset history only on demand;
+- keeps the visible cash-vs-investment guardrails and actionable portfolio flow outside that heavy research panel.
+
+Reason: the previous page simultaneously scanned 38 instruments with multi-year history and immediately constructed the full multi-asset chart. This was valid computationally but could make the development/browser environment appear hung, especially while validation was also consuming resources.
+
+Commit implementing this startup hardening: `271bbee6856eb72d90acabbb862050204c519006`.
+
+A fresh validation is required after this performance change. In addition, the app must be manually opened with no test running to verify perceived responsiveness; compile/build success alone is not considered sufficient evidence of UI usability.
 
 ## Broker / MyInvestor availability evidence
 
@@ -98,7 +116,7 @@ Fund diagnosis remains conclusive for the current EODHD history: 8 funds accepte
 
 ## Immediate next step
 
-1. Run `npm run validate:aistudio` after the visible-UI integration and inspect the recorded result from GitHub.
-2. Open the primary app and confirm the green **¿Compensa invertir frente a dejar el dinero en MyInvestor?** panel is visible before the historical/ranking section.
-3. Use the table to identify current targets that fail the 2.5% benchmark and exact targets still requiring MyInvestor confirmation.
-4. After this UI block is validated, extend historical replay/backtest reporting with an explicit remunerated-cash benchmark so strategy value-add versus doing nothing is visible historically as well.
+1. Run `npm run validate:aistudio` after commit `271bbee...` and inspect the recorded result from GitHub.
+2. Open the primary app **with validation stopped** and verify that the header/controls render immediately, then REAL data fills in without freezing the page.
+3. Confirm the green **¿Compensa invertir frente a dejar el dinero en MyInvestor?** panel is visible after data load and the heavy history chart appears only after pressing **Ver histórico y ranking completo**.
+4. Once startup responsiveness is confirmed, extend historical replay/backtest reporting with an explicit remunerated-cash benchmark so strategy value-add versus doing nothing is visible historically as well.
