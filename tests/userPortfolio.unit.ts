@@ -1,4 +1,4 @@
-import { analyzePortfolioRebalance, MYINVESTOR_BROKER_PROFILE } from '../src/investment/decision';
+import { analyzePortfolioRebalance, MYINVESTOR_BROKER_PROFILE, UserPortfolioService } from '../src/investment/decision';
 
 let passed = 0;
 function check(name: string, condition: boolean) {
@@ -42,4 +42,11 @@ const missing = analyzePortfolioRebalance(
 check('309 missing market price is explicit', missing.lines.some(x => x.ticker === 'UNKNOWN.DE' && x.action === 'DATA_MISSING'));
 check('310 unknown holding adds warning instead of fabricated price', missing.warnings.includes('PRICE_MISSING:UNKNOWN.DE'));
 
-console.log(`User portfolio rebalance: ${passed}/10 invariants passed.`);
+const unified = UserPortfolioService.load();
+check('311 default real portfolio contains the two example mutual funds', (unified.funds ?? []).length === 2);
+check('312 global fund is inside real portfolio state', unified.funds?.some(f => f.isin === 'IE00B03HD191' && f.investedEur === 12600 && f.acquisitionDate === '2026-08-11') === true);
+check('313 emerging fund is inside real portfolio state', unified.funds?.some(f => f.isin === 'IE0031786696' && f.investedEur === 1400 && f.acquisitionDate === '2026-08-12') === true);
+check('314 staged capital is inside the same real portfolio state', unified.stagedCapitalPlan?.availableEur === 13000 && unified.stagedCapitalPlan?.horizonMonths === 12);
+check('315 unified portfolio keeps ETF holdings and mutual funds as different product fields in one state', Array.isArray(unified.holdings) && Array.isArray(unified.funds));
+
+console.log(`User portfolio rebalance/unified state: ${passed}/15 invariants passed.`);
