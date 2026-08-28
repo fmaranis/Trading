@@ -71,7 +71,7 @@ export class MarketSnapshotHistoryService {
   }
 
   static asDecisionHistoryEntry(snapshot: MarketSnapshotEntry): DecisionHistoryEntry {
-    return {
+    const entry: DecisionHistoryEntry & { shortlist?: MarketSnapshotEntry['shortlist'] } = {
       id: snapshot.id,
       savedAt: snapshot.savedAt,
       asOfDate: snapshot.asOfDate,
@@ -84,8 +84,10 @@ export class MarketSnapshotHistoryService {
       cashWeight: snapshot.cashWeight,
       portfolioDatasetFingerprint: snapshot.portfolioDatasetFingerprint,
       recommendedMethod: 'RISK_PARITY_ERC',
-      allocations: snapshot.allocation
+      allocations: snapshot.allocation,
+      shortlist: snapshot.shortlist
     };
+    return entry;
   }
 
   static clear(): void {
