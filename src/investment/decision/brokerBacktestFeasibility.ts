@@ -36,12 +36,14 @@ export function assessBrokerBacktestCostFeasibility(
   profile: BrokerExecutionProfile = MYINVESTOR_BROKER_PROFILE,
   commissionDragTargetPct = 2
 ): BrokerBacktestCostFeasibility {
-  if (!(input.initialCapitalEur > 0)) throw new Error('initialCapitalEur debe ser > 0.');
+  if (!(input.initialCapitalEur > 0) || !Number.isFinite(input.initialCapitalEur)) throw new Error('initialCapitalEur debe ser finito y > 0.');
   if (!Number.isInteger(input.totalTrades) || input.totalTrades < 0) throw new Error('totalTrades debe ser un entero >= 0.');
   if (!(input.modeledCommissionEur >= 0) || !Number.isFinite(input.modeledCommissionEur)) throw new Error('modeledCommissionEur debe ser finita y >= 0.');
   if (!(commissionDragTargetPct > 0) || !Number.isFinite(commissionDragTargetPct)) throw new Error('commissionDragTargetPct debe ser > 0.');
 
-  const modeledSlippageEur = Math.max(0, Number(input.modeledSlippageEur ?? 0));
+  const modeledSlippageEur = Number(input.modeledSlippageEur ?? 0);
+  if (!(modeledSlippageEur >= 0) || !Number.isFinite(modeledSlippageEur)) throw new Error('modeledSlippageEur debe ser finita y >= 0.');
+
   const minimumCommissionLowerBoundEur = input.totalTrades * profile.etfMinCommissionEur;
   const minimumTradingCostLowerBoundEur = minimumCommissionLowerBoundEur + modeledSlippageEur;
   const minimumCommissionDragPct = minimumCommissionLowerBoundEur / input.initialCapitalEur * 100;
