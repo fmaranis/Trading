@@ -34,14 +34,49 @@ export interface CausalUniverseBacktestResult {
   notes: string[];
 }
 
-function commonTradingDates(dataset: MultiAssetDataset): string[] {
-  const sets = dataset.assets.map(asset => new Set(asset.bars.map(b => b.timestamp.slice(0, 10))));
-  if (!sets.length) return [];
-  return [...sets[0]].filter(d => sets.every(set => set.has(d))).sort();
+function timelineDates(dataset: MultiAssetDataset): string[] {
+  const dateCounts = new Map<string, number>();
+  for (const asset of dataset.assets) {
+    for (const bar of asset.bars) {
+      const d = bar.timestamp.slice(0, 10);
+      dateCounts.set(d, (dateCounts.get(d) ?? 0) + 1);
+    }
+  }
+  const minRequired = Math.min(2, dataset.assets.length);
+  return Array.from(dateCounts.entries())
+    .filter(([_, count]) => count >= minRequired)
+    .map(([date]) => date)
+    .sort();
 }
 
-function barByDate(dataset: MultiAssetDataset): Record<string, Map<string, any>> {
-  return Object.fromEntries(dataset.assets.map(a => [a.assetId, new Map(a.bars.map(b => [b.timestamp.slice(0, 10), b]))]));
+interface PriceBar {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+function buildAssetPriceMap(dataset: MultiAssetDataset, dates: string[]): Record<string, Map<string, PriceBar>> {
+  const result: Record<string, Map<string, PriceBar>> = {};
+  for (const asset of dataset.assets) {
+    const rawMap = new Map<string, PriceBar>();
+    for (const b of asset.bars) {
+      rawMap.set(b.timestamp.slice(0, 10), { open: b.open, high: b.high, low: b.low, close: b.close });
+    }
+    const denseMap = new Map<string, PriceBar>();
+    let lastKnown: PriceBar | null = null;
+    for (const d of dates) {
+      const existing = rawMap.get(d);
+      if (existing) {
+        lastKnown = existing;
+        denseMap.set(d, existing);
+      } else if (lastKnown) {
+        denseMap.set(d, { open: lastKnown.close, high: lastKnown.close, low: lastKnown.close, close: lastKnown.close });
+      }
+    }
+    result[asset.assetId] = denseMap;
+  }
+  return result;
 }
 
 function sliceDataset(dataset: MultiAssetDataset, assetIds: string[], endDate: string): MultiAssetDataset {
@@ -150,10 +185,10 @@ export class CausalUniverseBacktestEngine {
     const provenance = buildPortfolioProvenance(universeDataset);
     if (provenance.portfolioEvidence !== 'REAL_ONLY') throw new Error('El backtest causal exige universo REAL_ONLY.');
 
-    const dates = commonTradingDates(universeDataset);
+    const dates = timelineDates(universeDataset);
     const warmupBars = Math.max(config.warmupBars ?? CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS, CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS);
     if (dates.length <= warmupBars + 2) throw new Error('Histórico común insuficiente para backtest causal de selección.');
-    const bars = barByDate(universeDataset);
+    const bars = buildAssetPriceMap(universeDataset, dates);
     const positions: Record<string, MutablePortfolioPosition> = Object.fromEntries(
       universeDataset.assets.map(a => [a.assetId, { assetId: a.assetId, ticker: a.ticker, shares: 0 }])
     );
@@ -177,7 +212,7 @@ export class CausalUniverseBacktestEngine {
         if (selection.assetIds.length >= 2) {
           const historicalSelected = sliceDataset(universeDataset, selection.assetIds, previousDate);
           const equityBefore = cash + universeDataset.assets.reduce((sum, asset) => {
-            const p = bars[asset.assetId].get(previousDate);
+            const p = bars[asset.assetId]?.get(previousDate);
             return sum + positions[asset.assetId].shares * (p?.close ?? 0);
           }, 0);
           const decision = InvestmentDecisionEngine.decide(
@@ -187,7 +222,10 @@ export class CausalUniverseBacktestEngine {
           );
           const targetWeights = Object.fromEntries(universeDataset.assets.map(a => [a.assetId, 0]));
           for (const a of decision.assets) targetWeights[a.assetId] = a.weight;
-          const prices = Object.fromEntries(universeDataset.assets.map(a => [a.assetId, bars[a.assetId].get(executionDate)!.open]));
+          const prices = Object.fromEntries(universeDataset.assets.map(a => {
+            const bar = bars[a.assetId]?.get(executionDate);
+            return [a.assetId, bar ? bar.open : 0];
+          }));
           const pfConfig: PortfolioBacktestConfig = {
             initialCapital: config.initialCapital,
             commissionPct: config.commissionPct,
@@ -225,7 +263,7 @@ export class CausalUniverseBacktestEngine {
       }
 
       const positionsValue = universeDataset.assets.reduce((sum, asset) => {
-        const close = bars[asset.assetId].get(executionDate)!.close;
+        const close = bars[asset.assetId]?.get(executionDate)?.close ?? 0;
         return sum + positions[asset.assetId].shares * close;
       }, 0);
       const equity = cash + positionsValue;

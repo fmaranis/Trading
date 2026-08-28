@@ -20,7 +20,7 @@ function event(date: string, i: number, strong: boolean, holdoutBad = false): Op
   };
 }
 
-const dates = Array.from({ length: 20 }, (_, i) => `2025-${String(i + 1).padStart(2, '0')}-28`);
+const dates = Array.from({ length: 40 }, (_, i) => `2024-${String(Math.floor(i / 3) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`);
 const events: OpportunityOutcomeEvent[] = [];
 for (let i = 0; i < dates.length; i++) {
   for (let j = 0; j < 3; j++) events.push(event(dates[i], i * 3 + j, j === 0));
@@ -43,7 +43,7 @@ check('408 train ends before holdout starts', Boolean(result.trainEndDate && res
 
 const badEvents = events.map((e, idx) => {
   const dateIndex = dates.indexOf(e.informationDate);
-  if (dateIndex < 14) return e;
+  if (dateIndex < 28) return e;
   return {
     ...e,
     forwardReturnsPct: { 5: 0.1, 20: 0.5, 60: 1 },

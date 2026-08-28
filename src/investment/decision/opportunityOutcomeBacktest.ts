@@ -35,10 +35,42 @@ export interface OpportunityOutcomeBacktestResult {
   notes: string[];
 }
 
-function commonTradingDates(dataset: MultiAssetDataset): string[] {
-  const sets = dataset.assets.map(a => new Set(a.bars.map(b => b.timestamp.slice(0, 10))));
-  if (!sets.length) return [];
-  return [...sets[0]].filter(d => sets.every(s => s.has(d))).sort();
+function timelineDates(dataset: MultiAssetDataset): string[] {
+  const dateCounts = new Map<string, number>();
+  for (const asset of dataset.assets) {
+    for (const bar of asset.bars) {
+      const d = bar.timestamp.slice(0, 10);
+      dateCounts.set(d, (dateCounts.get(d) ?? 0) + 1);
+    }
+  }
+  const minRequired = Math.min(2, dataset.assets.length);
+  return Array.from(dateCounts.entries())
+    .filter(([_, count]) => count >= minRequired)
+    .map(([date]) => date)
+    .sort();
+}
+
+function buildAssetCloseMap(dataset: MultiAssetDataset, dates: string[]): Record<string, Map<string, number>> {
+  const result: Record<string, Map<string, number>> = {};
+  for (const asset of dataset.assets) {
+    const rawMap = new Map<string, number>();
+    for (const b of asset.bars) {
+      rawMap.set(b.timestamp.slice(0, 10), b.close);
+    }
+    const denseMap = new Map<string, number>();
+    let lastKnown: number | null = null;
+    for (const d of dates) {
+      const existing = rawMap.get(d);
+      if (existing != null) {
+        lastKnown = existing;
+        denseMap.set(d, existing);
+      } else if (lastKnown != null) {
+        denseMap.set(d, lastKnown);
+      }
+    }
+    result[asset.assetId] = denseMap;
+  }
+  return result;
 }
 function pricesUntil(dataset: MultiAssetDataset, assetId: string, endDate: string): number[] {
   const asset = dataset.assets.find(a => a.assetId === assetId);
@@ -86,10 +118,10 @@ export class OpportunityOutcomeBacktestEngine {
   static run(dataset: MultiAssetDataset, catalog: AssetUniverseItem[], maxSelected = 8): OpportunityOutcomeBacktestResult {
     if (dataset.assets.length < 2) throw new Error('Se requieren al menos 2 activos para validar oportunidades.');
     if (dataset.assets.some(a => a.provenance.sourceType !== 'REAL')) throw new Error('La validación de oportunidades exige datos REAL.');
-    const dates = commonTradingDates(dataset);
+    const dates = timelineDates(dataset);
     if (dates.length < 250) throw new Error('Histórico común insuficiente para validar oportunidades.');
     const catalogById = new Map(catalog.map(x => [x.assetId,x]));
-    const barMaps = Object.fromEntries(dataset.assets.map(a => [a.assetId, new Map(a.bars.map(b => [b.timestamp.slice(0,10), b.close]))]));
+    const barMaps = buildAssetCloseMap(dataset, dates);
     const events: OpportunityOutcomeEvent[] = [];
     let observationWindows = 0;
 
