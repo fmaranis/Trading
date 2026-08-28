@@ -11,7 +11,8 @@ const config: Record<ValidationMode, { script: string; markers: Array<{ marker: 
     script: 'validate:aistudio:raw',
     markers: [
       { marker: 'AI_STUDIO_VALIDATION_RESULT', fileName: 'latest-aistudio.json' },
-      { marker: 'BROKER_BACKTEST_FEASIBILITY_RESULT', fileName: 'latest-broker-backtest-feasibility.json' }
+      { marker: 'BROKER_BACKTEST_FEASIBILITY_RESULT', fileName: 'latest-broker-backtest-feasibility.json' },
+      { marker: 'BROKER_AWARE_EXECUTION_SWEEP_RESULT', fileName: 'latest-broker-aware-execution-sweep.json' }
     ]
   },
   'eodhd-shortlist': {
@@ -53,9 +54,7 @@ function extractJsonAfterMarker(output: string, marker: string): unknown | null 
 }
 
 async function main() {
-  if (!mode || !(mode in config)) {
-    throw new Error(`Modo de validación no soportado: ${mode ?? 'undefined'}`);
-  }
+  if (!mode || !(mode in config)) throw new Error(`Modo de validación no soportado: ${mode ?? 'undefined'}`);
 
   const selected = config[mode];
   const child = spawn('npm', ['run', selected.script], {
@@ -65,16 +64,8 @@ async function main() {
   });
 
   let output = '';
-  child.stdout.on('data', chunk => {
-    const text = String(chunk);
-    output += text;
-    process.stdout.write(text);
-  });
-  child.stderr.on('data', chunk => {
-    const text = String(chunk);
-    output += text;
-    process.stderr.write(text);
-  });
+  child.stdout.on('data', chunk => { const text = String(chunk); output += text; process.stdout.write(text); });
+  child.stderr.on('data', chunk => { const text = String(chunk); output += text; process.stderr.write(text); });
 
   const exitCode = await new Promise<number | null>((resolve, reject) => {
     child.on('close', resolve);
@@ -85,23 +76,16 @@ async function main() {
   for (const item of selected.markers) {
     const payload = extractJsonAfterMarker(output, item.marker);
     if (payload == null) continue;
-    const record = recordValidationResult(item.fileName, item.marker, payload, {
-      autoCommit: false,
-      commitMessage: `Record ${item.marker}`
-    });
+    const record = recordValidationResult(item.fileName, item.marker, payload, { autoCommit: false, commitMessage: `Record ${item.marker}` });
     records.push({ ...item, ...record });
   }
 
-  if (!records.length) {
-    console.error('VALIDATION_RESULT_RECORDING_WARNING: no se encontró ningún marcador JSON reconocible.');
-  } else {
+  if (!records.length) console.error('VALIDATION_RESULT_RECORDING_WARNING: no se encontró ningún marcador JSON reconocible.');
+  else {
     console.log('\nVALIDATION_RESULTS_RECORDED');
     console.log(JSON.stringify(records, null, 2));
   }
 
-  // Commit only generated validation files. Never stage unrelated local work.
-  // Publishing to main is best-effort. A dedicated validation-results branch is
-  // also updated so remote code changes on main cannot prevent result retrieval.
   if (records.length && process.env.VALIDATION_AUTO_COMMIT !== '0') {
     const { execFileSync } = await import('node:child_process');
     const paths = records.map(record => record.path);
@@ -118,37 +102,18 @@ async function main() {
 
       const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8' }).trim();
       let pushedMain = false;
-      try {
-        execFileSync('git', ['push', 'origin', branch], { stdio: 'ignore' });
-        pushedMain = true;
-      } catch {}
-
+      try { execFileSync('git', ['push', 'origin', branch], { stdio: 'ignore' }); pushedMain = true; } catch {}
       let pushedResultBranch = false;
-      try {
-        execFileSync('git', ['fetch', 'origin', RESULT_BRANCH], { stdio: 'ignore' });
-      } catch {}
+      try { execFileSync('git', ['fetch', 'origin', RESULT_BRANCH], { stdio: 'ignore' }); } catch {}
       try {
         execFileSync('git', ['push', '--force-with-lease', 'origin', `${commitSha}:refs/heads/${RESULT_BRANCH}`], { stdio: 'ignore' });
         pushedResultBranch = true;
       } catch {
-        // First publication or stale lease fallback: this branch contains only a
-        // pointer to a commit whose explicit result files were isolated above.
-        try {
-          execFileSync('git', ['push', '--force', 'origin', `${commitSha}:refs/heads/${RESULT_BRANCH}`], { stdio: 'ignore' });
-          pushedResultBranch = true;
-        } catch {}
+        try { execFileSync('git', ['push', '--force', 'origin', `${commitSha}:refs/heads/${RESULT_BRANCH}`], { stdio: 'ignore' }); pushedResultBranch = true; } catch {}
       }
 
       console.log('VALIDATION_RESULTS_GIT');
-      console.log(JSON.stringify({
-        committed,
-        pushedMain,
-        pushedResultBranch,
-        resultBranch: RESULT_BRANCH,
-        branch,
-        commitSha,
-        paths
-      }, null, 2));
+      console.log(JSON.stringify({ committed, pushedMain, pushedResultBranch, resultBranch: RESULT_BRANCH, branch, commitSha, paths }, null, 2));
     } catch (error: any) {
       console.error('VALIDATION_RESULTS_GIT_WARNING', error?.message || String(error));
     }
