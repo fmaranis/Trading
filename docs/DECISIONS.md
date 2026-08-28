@@ -124,6 +124,16 @@ Current bands:
 
 **Regression rule:** `mixedInstrumentCausalReplay.unit.ts` must prove independently that when a causal selection genuinely includes a mutual fund, the mixed engine can subscribe it and later release/review it without negative cash. This separates engine capability from live-universe selection evidence.
 
+## D25. Broker availability is an evidence state, not an assumption
+
+**Decision:** market-data validity and MyInvestor/Inversis tradability are separate facts. `brokerAvailability.ts` records broker evidence without changing research scores.
+
+Only current first-party MyInvestor evidence may set `CONFIRMED_MYINVESTOR`. Historical first-party evidence does not prove current availability and therefore remains `REQUIRES_INVERSIS_LOOKUP`. Failure to find an instrument on a public MyInvestor page is never evidence of unavailability: MyInvestor explicitly states that additional shares, ETFs and funds can be available through Inversis even when absent from its web/app catalogue.
+
+As of 2026-08-28, first-party MyInvestor content supports current MyInvestor presence for Vanguard Global Stock Index `IE00B03HD191`, Vanguard Emerging Markets Stock Index `IE0031786696`, and Vanguard U.S. 500 Stock Index `IE0032126645`. Vanguard ESG Developed World `IE00B5456744` has historical MyInvestor evidence but current standalone availability is not proven. Active shortlisted ETFs remain `REQUIRES_INVERSIS_LOOKUP` until their exact ISIN/ticker is returned by the MyInvestor/Inversis value finder or equivalent first-party evidence.
+
+A recommendation may remain research-valid while broker availability is pending, but it must not be represented as broker-confirmed/executable solely from exchange listing or third-party broker evidence.
+
 ## Change protocol
 
 When a durable decision changes:
