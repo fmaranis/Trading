@@ -6,18 +6,28 @@
 
 React + TypeScript + Vite research/decision-support app. It ranks, backtests, alerts and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation before the newest UI/fund-diagnostic cleanup: **2026-08-28 19:16 UTC**, green with `technicalBlockers: []`, `researchReady: true`, `readyForManualPilot: false`, lint/build PASS and all recorded suites green.
+Latest fully recorded validation: **2026-08-28 21:33 UTC**, green with `technicalBlockers: []`, `researchReady: true`, `readyForManualPilot: false`, lint/build PASS and all recorded suites (decision, causal, adaptive, mixed replay, analytics) green.
 
-### Recorded adaptive ETF execution sweep (19:16 UTC)
+### Recorded adaptive ETF execution sweep (21:33 UTC)
 
 Research reference: about 483 trades / 73 rebalance windows / +12.53% research return.
 
-- **100 EUR (MICRO):** 0 orders, 100 EUR cash, 0 fees.
-- **334 EUR (SMALL):** 16 orders, +0.61%, 16 EUR fees.
-- **500 EUR (SMALL):** 18 orders, +5.38%, 18 EUR fees.
-- **1,000 EUR (MEDIUM):** 31 orders, +12.88%, 31 EUR fees.
-- **5,000 EUR (LARGE):** 114 orders, +18.58%, 140.83 EUR fees.
-- **25,000 EUR (INSTITUTIONAL):** 141 orders, +15.62%, 460.22 EUR fees.
+- **100 EUR (MICRO):** 0 orders, 584 suppressed, 100 EUR cash (0% return, 0 fees).
+- **334 EUR (SMALL):** 16 orders, +0.61% net, 16 EUR fees (4.79% drag).
+- **500 EUR (SMALL):** 18 orders, +5.38% net, 18 EUR fees (3.60% drag).
+- **1,000 EUR (MEDIUM):** 33 orders, +12.69% net, 33 EUR fees (3.30% drag).
+- **5,000 EUR (LARGE):** 112 orders, +17.23% net, 138.04 EUR fees (2.76% drag).
+- **25,000 EUR (INSTITUTIONAL):** 145 orders, +15.01% net, 470.59 EUR fees (1.88% drag).
+
+### Fund eligibility diagnosis (21:33 UTC)
+
+- `acceptedFunds`: 8.
+- `currentlySelectedFunds`: 2.
+- `fundsEverSelectedCausally`: 0.
+- `noMonthlyWindowAfterEligibility`: 8 (all 8 accepted funds reached the mandatory 252-bar threshold only *after* the last monthly causal backtest rebalance window).
+- `eligibleButNotSelected`: 0.
+
+This formally confirms that the live zero-fund historical operations result from historical NAV length rather than an engine flaw or ranking exclusion. `tests/mixedInstrumentCausalReplay.unit.ts` confirms that when causal fund history exists, the engine executes subscriptions, releases and accounting properly.
 
 Historical diagnostics only, not forecasts.
 
@@ -138,19 +148,8 @@ Do not ask the user to paste normal output. Read `main`, then branch `validation
 - Fund settlement/tax/transfer timing is not yet simulated.
 - Historical universe retains current-catalog survivorship bias.
 - Yahoo remains unofficial/non-contractual.
-- New UI cleanup + fund eligibility diagnostic + mixed lifecycle regression require a fresh recorded validation before being called green.
 
 ## Immediate next step
 
-Run:
-
-`npm run validate:aistudio`
-
-Then retrieve the recorded results automatically and confirm:
-
-1. lint/build remain green after UI simplification;
-2. `test:mixed-instrument-replay` passes;
-3. fund eligibility diagnostics explain the live zero-fund operations without forcing funds into the shortlist;
-4. previous causal/broker/adaptive suites remain green.
-
-If green, next priority is exact MyInvestor/Inversis instrument availability plus deciding whether further legacy/dead UI code should be removed physically or simply remain isolated from the product path.
+1. Advance instrument availability verification against MyInvestor/Inversis for the active shortlisted universe.
+2. Advance fund settlement/transfer modeling when actual broker rules are specified.
