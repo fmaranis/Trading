@@ -6,7 +6,7 @@
 
 React + TypeScript + Vite research/decision-support app. It ranks, backtests, alerts and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation: **2026-08-28 21:33 UTC**, green: global recorded run `exitCode: 0`, `ok: true`; lint/build PASS and recorded deterministic suites green. `researchReady: true`; `readyForManualPilot: false` remains intentionally separate.
+Latest fully recorded validation: **2026-08-28 22:40 UTC**, green: global recorded run `exitCode: 0`, `ok: true`; lint/build PASS and recorded deterministic suites (including `test:broker-availability` and `test:portfolio-execution-plan` cash hurdle) green. `researchReady: true`; `readyForManualPilot: false` remains intentionally separate.
 
 ## Latest execution/fund findings
 
@@ -47,7 +47,7 @@ First public-evidence pass on 2026-08-28:
 - **IE00B5456744 — Vanguard ESG Developed World:** `REQUIRES_INVERSIS_LOOKUP`; historical evidence does not prove current standalone availability.
 - **Active shortlisted ETFs:** remain `REQUIRES_INVERSIS_LOOKUP` until confirmed manually or by first-party evidence.
 
-## NEW: cash benchmark / opportunity-cost hurdle — implemented, pending fresh validation
+## Cash benchmark / opportunity-cost hurdle (2.5% default)
 
 Durable rule: `docs/DECISIONS.md` D27. New module: `src/investment/decision/cashBenchmark.ts`.
 
@@ -107,7 +107,6 @@ The benchmark is editable in **Operaciones pendientes** and persisted in browser
 
 ## Immediate next step
 
-1. Run `npm run validate:aistudio` and verify TypeScript/build plus broker-availability and updated execution-plan hurdle regressions.
-2. Inspect the current real recommendation after validation to see which proposed assets actually clear the 2.5% cash hurdle net of modeled ETF entry fees.
-3. Use the manual controls to confirm exact MyInvestor availability by ISIN/ticker for any remaining actionable targets.
-4. Continue fund settlement/transfer modeling only after broker-specific operational rules are verified.
+1. Inspect the current real recommendation to check which proposed assets clear the 2.5% cash hurdle net of modeled ETF entry fees.
+2. Use the manual controls in "Operaciones pendientes" to confirm exact MyInvestor availability by ISIN/ticker for any remaining actionable targets.
+3. Continue fund settlement/transfer modeling only after broker-specific operational rules are verified.
