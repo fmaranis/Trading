@@ -128,11 +128,23 @@ Current bands:
 
 **Decision:** market-data validity and MyInvestor/Inversis tradability are separate facts. `brokerAvailability.ts` records broker evidence without changing research scores.
 
-Only current first-party MyInvestor evidence may set `CONFIRMED_MYINVESTOR`. Historical first-party evidence does not prove current availability and therefore remains `REQUIRES_INVERSIS_LOOKUP`. Failure to find an instrument on a public MyInvestor page is never evidence of unavailability: MyInvestor explicitly states that additional shares, ETFs and funds can be available through Inversis even when absent from its web/app catalogue.
+Current first-party MyInvestor evidence may set `CONFIRMED_MYINVESTOR`. Historical first-party evidence does not prove current availability and therefore remains `REQUIRES_INVERSIS_LOOKUP`. Failure to find an instrument on a public MyInvestor page is never, by itself, proof of unavailability.
 
-As of 2026-08-28, first-party MyInvestor content supports current MyInvestor presence for Vanguard Global Stock Index `IE00B03HD191`, Vanguard Emerging Markets Stock Index `IE0031786696`, and Vanguard U.S. 500 Stock Index `IE0032126645`. Vanguard ESG Developed World `IE00B5456744` has historical MyInvestor evidence but current standalone availability is not proven. Active shortlisted ETFs remain `REQUIRES_INVERSIS_LOOKUP` until their exact ISIN/ticker is returned by the MyInvestor/Inversis value finder or equivalent first-party evidence.
+As of 2026-08-28, first-party MyInvestor content supports current MyInvestor presence for Vanguard Global Stock Index `IE00B03HD191`, Vanguard Emerging Markets Stock Index `IE0031786696`, and Vanguard U.S. 500 Stock Index `IE0032126645`. Vanguard ESG Developed World `IE00B5456744` has historical MyInvestor evidence but current standalone availability is not proven. Active shortlisted ETFs remain `REQUIRES_INVERSIS_LOOKUP` until their exact ISIN/ticker is confirmed.
 
 A recommendation may remain research-valid while broker availability is pending, but it must not be represented as broker-confirmed/executable solely from exchange listing or third-party broker evidence.
+
+## D26. User broker confirmations are persistent evidence and must remain distinguishable from official evidence
+
+**Decision:** the user may manually confirm whether an exact ISIN/ticker is available in their MyInvestor account. `ManualMyInvestorAvailabilityService` persists that result by normalized ISIN/ticker in browser localStorage.
+
+Manual `AVAILABLE` becomes the effective `CONFIRMED_MYINVESTOR` state with evidence `USER_CONFIRMED_MYINVESTOR` and must render as **“Confirmado por ti en MyInvestor”**. Manual `UNAVAILABLE` becomes `USER_CONFIRMED_UNAVAILABLE`; it means only that the user did not find the instrument at the recorded time and must not be presented as an official delisting or global unavailability claim.
+
+Manual evidence has precedence in the actionable UI but does not mutate the separate first-party/public evidence registry. Removing the manual confirmation restores the underlying public evidence state. Confirmation controls belong on BUY/SUBSCRIBE/TRANSFER targets in `Operaciones pendientes`, keyed by exact ISIN/ticker.
+
+Current persistence is device/browser-local. Cross-device/account sync requires a future authenticated storage layer and must not be implied before it exists.
+
+`tests/brokerAvailability.unit.ts` must preserve persistence, available/unavailable override semantics, deletion/restoration, and separation of manual vs official evidence.
 
 ## Change protocol
 
