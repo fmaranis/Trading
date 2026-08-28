@@ -1,6 +1,5 @@
 import { createRoot } from 'react-dom/client';
 import { InteractiveInvestmentDecisionCenter } from './components/InteractiveInvestmentDecisionCenter';
-import { MarketProviderStatus } from './components/MarketProviderStatus';
 import './index.css';
 
 function DecisionApp() {
@@ -19,7 +18,6 @@ function DecisionApp() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-7xl px-3 py-5 sm:px-6 lg:px-8">
-        <MarketProviderStatus />
         <InteractiveInvestmentDecisionCenter />
       </main>
       <footer className="mx-auto max-w-7xl px-4 pb-8 text-center text-[11px] text-slate-600">
