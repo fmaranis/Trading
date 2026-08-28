@@ -10,5 +10,6 @@ export * from './executionFidelity';
 export * from './evidenceQuality';
 export * from './opportunityAlertEngine';
 export * from './opportunityOutcomeBacktest';
+export * from './opportunityThresholdResearch';
 export * from './marketSnapshotHistoryService';
 export * from './userPortfolio';
