@@ -9,5 +9,6 @@ export * from './brokerExecution';
 export * from './executionFidelity';
 export * from './evidenceQuality';
 export * from './opportunityAlertEngine';
+export * from './opportunityOutcomeBacktest';
 export * from './marketSnapshotHistoryService';
 export * from './userPortfolio';
