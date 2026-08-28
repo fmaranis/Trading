@@ -36,6 +36,7 @@
     "test:portfolio-decision": "tsx tests/portfolioDecisionEngine.unit.ts",
     "test:alpha-vantage": "tsx scripts/alphaVantageSmoke.ts",
     "test:eodhd": "tsx scripts/eodhdSmoke.ts",
+    "test:eodhd-shortlist": "tsx scripts/eodhdShortlistSmoke.ts",
     "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts",
     "validate:aistudio": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx tests/unifiedInvestmentUniverse.unit.ts && tsx tests/portfolioDecisionEngine.unit.ts && tsx scripts/aiStudioValidate.ts"
   },
