@@ -146,6 +146,18 @@ Current persistence is device/browser-local. Cross-device/account sync requires 
 
 `tests/brokerAvailability.unit.ts` must preserve persistence, available/unavailable override semantics, deletion/restoration, and separation of manual vs official evidence.
 
+## D27. Cash remuneration is an execution hurdle for new investment
+
+**Decision:** cash held in the user's remunerated MyInvestor account has an opportunity cost. The research ranking remains independent, but `Operaciones pendientes` must not propose deploying new cash into an ETF/fund unless the current return proxy beats the configured annual cash benchmark after modeled ETF entry commission.
+
+The default user benchmark is **2.5% annual**, stored separately in `cashBenchmark.ts` / browser localStorage and editable from the execution-plan UI because the account remuneration may change.
+
+The current comparison proxy annualizes the scanner's REAL trailing 120-session momentum to 252 sessions. For ETFs, estimated entry commission drag is subtracted from the first-year proxy before comparison. Funds currently use zero explicit transaction commission because broker-specific fund fees remain unverified. This proxy is historical/diagnostic and must never be described as a forecast or guaranteed expected return.
+
+If the net proxy is `<=` the cash benchmark, or cannot be computed, the target becomes `REVIEW` with explicit **“Mantener en cuenta / no invertir todavía”** wording. The theoretical research signal is preserved for auditability; only execution is suppressed. The same hurdle applies to a proposed fund destination before suggesting a transfer, while tax/operational transfer considerations remain separate.
+
+`tests/portfolioExecutionPlan.unit.ts` must prove that investments beating the benchmark can remain actionable and investments below it are suppressed to review.
+
 ## Change protocol
 
 When a durable decision changes:
