@@ -1,7 +1,15 @@
 import type { BrokerExecutionProfile } from './brokerExecution';
 import { MYINVESTOR_BROKER_PROFILE } from './brokerExecution';
+import {
+  EXAMPLE_FUND_POSITIONS,
+  EXAMPLE_STAGED_CAPITAL_PLAN,
+  type FundPosition,
+  type StagedCapitalPlan
+} from './fundPortfolio';
 
 const STORAGE_KEY = 'custodia_user_portfolio_v1';
+const LEGACY_FUNDS_KEY = 'custodia_fund_positions_v1';
+const LEGACY_PLAN_KEY = 'custodia_staged_capital_plan_v1';
 
 export interface UserHolding {
   ticker: string;
@@ -11,6 +19,9 @@ export interface UserHolding {
 export interface UserPortfolioState {
   cashEur: number;
   holdings: UserHolding[];
+  funds?: FundPosition[];
+  stagedCapitalPlan?: StagedCapitalPlan;
+  exampleInitialized?: boolean;
   updatedAt: string;
 }
 
@@ -54,37 +65,116 @@ function commission(notional: number, profile: BrokerExecutionProfile): number {
   return Math.min(profile.etfMaxCommissionEur, Math.max(profile.etfMinCommissionEur, notional * profile.etfCommissionPct / 100));
 }
 
+function normalizeHolding(h: any): UserHolding | null {
+  if (!h || !String(h.ticker || '').trim()) return null;
+  const shares = Math.max(0, Number(h.shares) || 0);
+  return shares > 0 ? { ticker: String(h.ticker).trim().toUpperCase(), shares } : null;
+}
+
+function normalizeFund(f: any): FundPosition | null {
+  if (!f || (!String(f.isin || '').trim() && !String(f.name || '').trim())) return null;
+  return {
+    id: String(f.id || `fund_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
+    isin: String(f.isin || '').trim().toUpperCase(),
+    name: String(f.name || 'Fondo de inversión').trim(),
+    category: ['GLOBAL_EQUITY', 'EMERGING_EQUITY', 'OTHER'].includes(f.category) ? f.category : 'OTHER',
+    investedEur: Math.max(0, Number(f.investedEur) || 0),
+    acquisitionDate: typeof f.acquisitionDate === 'string' ? f.acquisitionDate : new Date().toISOString().slice(0, 10),
+    currentValueEur: f.currentValueEur == null || f.currentValueEur === '' ? null : Math.max(0, Number(f.currentValueEur) || 0),
+    transferable: Boolean(f.transferable),
+    broker: typeof f.broker === 'string' ? f.broker : undefined
+  };
+}
+
+function normalizePlan(p: any): StagedCapitalPlan {
+  return {
+    availableEur: Math.max(0, Number(p?.availableEur) || 0),
+    horizonMonths: Math.max(1, Number(p?.horizonMonths) || 12),
+    preferredMode: 'MONTHLY'
+  };
+}
+
+function exampleState(): UserPortfolioState {
+  return {
+    cashEur: 0,
+    holdings: [],
+    funds: EXAMPLE_FUND_POSITIONS.map(f => ({ ...f })),
+    stagedCapitalPlan: { ...EXAMPLE_STAGED_CAPITAL_PLAN },
+    exampleInitialized: true,
+    updatedAt: new Date().toISOString()
+  };
+}
+
 export class UserPortfolioService {
   static load(): UserPortfolioState {
-    if (typeof window === 'undefined') return { cashEur: 0, holdings: [], updatedAt: new Date(0).toISOString() };
+    if (typeof window === 'undefined') return exampleState();
     try {
-      const raw = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}');
+      const rawText = window.localStorage.getItem(STORAGE_KEY);
+      const raw = rawText ? JSON.parse(rawText) : {};
+      const legacyFundsText = window.localStorage.getItem(LEGACY_FUNDS_KEY);
+      const legacyPlanText = window.localStorage.getItem(LEGACY_PLAN_KEY);
+      const legacyFunds = legacyFundsText ? JSON.parse(legacyFundsText) : null;
+      const legacyPlan = legacyPlanText ? JSON.parse(legacyPlanText) : null;
+
+      const hasUnifiedFundFields = Array.isArray(raw.funds) || raw.stagedCapitalPlan != null || raw.exampleInitialized === true;
+      const fundsSource = hasUnifiedFundFields
+        ? (Array.isArray(raw.funds) ? raw.funds : [])
+        : (Array.isArray(legacyFunds) ? legacyFunds : EXAMPLE_FUND_POSITIONS);
+      const planSource = hasUnifiedFundFields
+        ? (raw.stagedCapitalPlan ?? { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' })
+        : (legacyPlan ?? EXAMPLE_STAGED_CAPITAL_PLAN);
+
       return {
         cashEur: Math.max(0, Number(raw.cashEur) || 0),
-        holdings: Array.isArray(raw.holdings)
-          ? raw.holdings.filter((h: any) => h && String(h.ticker || '').trim()).map((h: any) => ({ ticker: String(h.ticker).trim().toUpperCase(), shares: Math.max(0, Number(h.shares) || 0) }))
-          : [],
+        holdings: Array.isArray(raw.holdings) ? raw.holdings.map(normalizeHolding).filter(Boolean) as UserHolding[] : [],
+        funds: fundsSource.map(normalizeFund).filter(Boolean) as FundPosition[],
+        stagedCapitalPlan: normalizePlan(planSource),
+        exampleInitialized: true,
         updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date(0).toISOString()
       };
     } catch {
-      return { cashEur: 0, holdings: [], updatedAt: new Date(0).toISOString() };
+      return exampleState();
     }
   }
 
-  static save(input: { cashEur: number; holdings: UserHolding[] }): UserPortfolioState {
+  static save(input: { cashEur: number; holdings: UserHolding[]; funds?: FundPosition[]; stagedCapitalPlan?: StagedCapitalPlan }): UserPortfolioState {
     const state: UserPortfolioState = {
       cashEur: Math.max(0, Number(input.cashEur) || 0),
-      holdings: input.holdings
-        .map(h => ({ ticker: h.ticker.trim().toUpperCase(), shares: Math.max(0, Number(h.shares) || 0) }))
-        .filter(h => h.ticker && h.shares > 0),
+      holdings: input.holdings.map(normalizeHolding).filter(Boolean) as UserHolding[],
+      funds: (input.funds ?? []).map(normalizeFund).filter(Boolean) as FundPosition[],
+      stagedCapitalPlan: normalizePlan(input.stagedCapitalPlan ?? { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' }),
+      exampleInitialized: true,
       updatedAt: new Date().toISOString()
     };
-    if (typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.localStorage.removeItem(LEGACY_FUNDS_KEY);
+      window.localStorage.removeItem(LEGACY_PLAN_KEY);
+    }
+    return state;
+  }
+
+  static restoreExample(): UserPortfolioState {
+    const state = exampleState();
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.localStorage.removeItem(LEGACY_FUNDS_KEY);
+      window.localStorage.removeItem(LEGACY_PLAN_KEY);
+    }
     return state;
   }
 
   static clear(): void {
-    if (typeof window !== 'undefined') window.localStorage.removeItem(STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      const empty: UserPortfolioState = {
+        cashEur: 0, holdings: [], funds: [],
+        stagedCapitalPlan: { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' },
+        exampleInitialized: true, updatedAt: new Date().toISOString()
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(empty));
+      window.localStorage.removeItem(LEGACY_FUNDS_KEY);
+      window.localStorage.removeItem(LEGACY_PLAN_KEY);
+    }
   }
 }
 
