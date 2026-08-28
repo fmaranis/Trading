@@ -4,181 +4,153 @@
 
 ## Current status — 2026-08-28
 
-The application is a React + TypeScript + Vite research/decision-support tool. It analyses, ranks, backtests, alerts and proposes manual execution plans; it does not submit broker trades.
+React + TypeScript + Vite research/decision-support app. It ranks, backtests, alerts and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation: **2026-08-28 19:16 UTC**, green with `technicalBlockers: []`, `researchReady: true`, `readyForManualPilot: false`, lint/build PASS, all unit and causal suites green, and the adaptive ETF + mixed ETF/fund capital sweep recorded.
+Latest fully recorded validation before the newest UI/fund-diagnostic cleanup: **2026-08-28 19:16 UTC**, green with `technicalBlockers: []`, `researchReady: true`, `readyForManualPilot: false`, lint/build PASS and all recorded suites green.
 
-### Multi-capital adaptive & mixed execution sweep results (19:16 UTC)
+### Recorded adaptive ETF execution sweep (19:16 UTC)
 
-Research signal baseline: 483 trades / 73 rebalance windows / +12.53% return.
+Research reference: about 483 trades / 73 rebalance windows / +12.53% research return.
 
-#### Adaptive ETF sweep (by capital band)
-- **100 EUR (MICRO)**: 0 orders executed, 584 suppressed, 73 windows suppressed. Equity remains **100.00 EUR** (+0.00%, max DD 0.00%, 0.00 EUR fees). Safely preserves capital without paying minimum fees.
-- **334 EUR (SMALL)**: 16 orders executed, 575 suppressed, 12 active windows. Equity: **336.05 EUR** (+0.61% net, max DD 2.67%), total fees 16.00 EUR (4.79% drag).
-- **500 EUR (SMALL)**: 18 orders executed, 574 suppressed, 12 active windows. Equity: **526.88 EUR** (+5.38% net, max DD 4.37%), total fees 18.00 EUR (3.60% drag).
-- **1,000 EUR (MEDIUM)**: 31 orders executed, 568 suppressed, 15 active windows. Equity: **1,128.79 EUR** (+12.88% net, max DD 2.32%), total fees 31.00 EUR (3.10% drag).
-- **5,000 EUR (LARGE)**: 114 orders executed, 698 suppressed, 39 active windows. Equity: **5,929.00 EUR** (+18.58% net, max DD 2.47%), total fees 140.83 EUR (2.82% drag).
-- **25,000 EUR (INSTITUTIONAL)**: 141 orders executed, 701 suppressed, 40 active windows. Equity: **28,906.02 EUR** (+15.62% net, max DD 2.48%), total fees 460.22 EUR (1.84% drag).
+- **100 EUR (MICRO):** 0 orders, 100 EUR cash, 0 fees.
+- **334 EUR (SMALL):** 16 orders, +0.61%, 16 EUR fees.
+- **500 EUR (SMALL):** 18 orders, +5.38%, 18 EUR fees.
+- **1,000 EUR (MEDIUM):** 31 orders, +12.88%, 31 EUR fees.
+- **5,000 EUR (LARGE):** 114 orders, +18.58%, 140.83 EUR fees.
+- **25,000 EUR (INSTITUTIONAL):** 141 orders, +15.62%, 460.22 EUR fees.
 
-#### Mixed ETF + mutual-fund sweep
-- **100 EUR**: 0 ETF orders, 0 fund operations, 584 suppressed ETF orders, final equity **100.00 EUR**.
-- **334 EUR**: 16 ETF orders, final equity **336.05 EUR** (+0.61% net).
-- **500 EUR**: 18 ETF orders, final equity **526.88 EUR** (+5.38% net).
-- **1,000 EUR**: 31 ETF orders, final equity **1,128.79 EUR** (+12.88% net).
-- **5,000 EUR**: 95 ETF orders, final equity **5,914.49 EUR** (+18.29% net, 121.65 EUR fees / 2.43% drag).
-- **25,000 EUR**: 139 ETF orders, final equity **28,915.45 EUR** (+15.66% net, 458.15 EUR fees / 1.83% drag).
+Historical diagnostics only, not forecasts.
 
-## Data and causal integrity
+## Data / causal integrity
 
-- Yahoo Finance primary daily history; EODHD secondary ETF cross-check and fund NAV/history.
-- REAL requests never silently fall back to synthetic.
-- Scanner and causal historical selection require at least 252 bars.
-- Historical selection uses only information available at the decision date.
+- Yahoo primary daily history; EODHD secondary ETF cross-check and mutual-fund NAV/history.
+- REAL never silently falls back to synthetic.
+- Scanner and causal selection require at least 252 bars.
+- Historical selection uses only information available at each decision date.
 - Current-catalog survivorship/availability bias remains explicit.
-- Latest shortlist-wide EODHD check passed 6/6 listed ETFs and 2/2 funds.
 
-## Decision engine
+## Decision / broker model
 
 - LOW → Inverse Volatility.
 - MEDIUM → Risk Parity ERC.
 - HIGH → Relative Momentum.
-- Confidence is evidence quality, not probability of profit.
+- Confidence means evidence quality, not probability of profit.
+- MyInvestor ETF model: whole shares, 0.12%, min 1 EUR/order, max 25 EUR/order.
+- Exact ticker/ISIN availability still requires MyInvestor/Inversis verification.
 
-## Broker / MyInvestor model
+## Actionable workflow
 
-Modeled ETF rules:
+Primary user flow is now intentionally:
 
-- whole shares only;
-- 0.12% commission;
-- 1 EUR minimum/order;
-- 25 EUR maximum/order;
-- exact ticker/ISIN availability still requires MyInvestor/Inversis verification.
+1. current market decision;
+2. **Mi cartera real**;
+3. **Operaciones pendientes**;
+4. alerts/changes;
+5. collapsed technical/history detail.
 
-Research targets and executable actions are separate layers.
+`portfolioExecutionPlan.ts` + `PortfolioExecutionPlanPanel.tsx` produce `BUY_ETF`, `SELL_ETF`, `SUBSCRIBE_FUND`, `TRANSFER_FUND`, `REDEEM_FUND`, `REVIEW` with ticker/ISIN, orientative amount/shares, estimated ETF fee, rationale and completion status.
 
-## Actionable portfolio workflow
+## Capital-adaptive execution
 
-`portfolioExecutionPlan.ts` + `PortfolioExecutionPlanPanel.tsx` produce persistent manual actions under `custodia_pending_execution_plan_v1`:
+`adaptiveExecutionPolicy.ts` changes only execution gates, never research targets:
 
-- `BUY_ETF`, `SELL_ETF`, `SUBSCRIBE_FUND`, `TRANSFER_FUND`, `REDEEM_FUND`, `REVIEW`.
+- MICRO `<300`: 12 pp drift / 100 EUR min ETF order / 1.25% max order fee drag / 0.50% window fee budget.
+- SMALL `300–999`: 8 pp / 80 EUR / 1.50% / 0.75%.
+- MEDIUM `1,000–4,999`: 6 pp / 75 EUR / 1.50% / 0.75%.
+- LARGE `5,000–24,999`: 4 pp / 100 EUR / 1.25% / 0.60%.
+- INSTITUTIONAL `>=25,000`: 3 pp / 150 EUR / 1.00% / 0.50%.
 
-The checklist keeps ticker/ISIN, amount/shares, estimated ETF fee, rationale and completion state. Fund transfer review never asserts final tax/operational eligibility.
+## Mixed ETF + fund replay
 
-## Cost-aware execution — validated 18:33 UTC
+`mixedInstrumentCausalReplay.ts`:
 
-`costAwareExecutionPolicy.ts` can suppress trades because of:
+- ETFs: whole-share broker execution;
+- funds: EUR/NAV with fractional units;
+- possible fund operations: `SUBSCRIBE`, `REDEEM`, `TRANSFER_REVIEW`;
+- ETF targets are measured against total equity including fund value;
+- no negative cash;
+- no claim of transfer tax eligibility;
+- settlement/tax/transfer timing remains unmodeled.
 
-- small allocation drift;
-- less than one whole share;
-- small notional;
-- excessive fee drag;
-- rebalance fee budget;
-- insufficient cash.
+The 19:16 live mixed sweep produced **0 fund operations at all six capital levels**. This is not being treated as an engine failure or “fixed” by forcing funds into the portfolio.
 
-Previous fixed-policy replay reduced the ~490 theoretical research trades to between 0 and 88 executed ETF orders depending on capital. At 100 EUR it correctly chose 100% cash instead of destructive fee turnover.
+## New fund-selection diagnosis — implemented, pending fresh validation
 
-## NEW: capital-adaptive execution policy — implemented, pending fresh validation
+`scripts/brokerAwareExecutionSweepLive.ts` now records per mutual fund:
 
-New module:
+- scanner acceptance/rejection;
+- bar count and current score;
+- current-shortlist presence;
+- first date on which 252 historical fund bars exist;
+- last causal monthly information date;
+- historical causal selection appearances;
+- diagnosis:
+  - `NO_MONTHLY_CAUSAL_WINDOW_AFTER_252_BAR_ELIGIBILITY`,
+  - `ELIGIBLE_BUT_OUTRANKED_OR_CATEGORY_DEDUPED`,
+  - `SELECTED_CAUSALLY`, or rejection reason.
 
-- `src/investment/decision/adaptiveExecutionPolicy.ts`
+This should determine whether the live zero-fund result is simply caused by insufficient historical NAV depth before the last monthly decision. Current evidence strongly points that way because accepted funds had only ~258 observations.
 
-Durable decision: `docs/DECISIONS.md` D23.
+New deterministic regression:
 
-Execution bands:
-
-- MICRO `<300 EUR`: 12 pp drift, 100 EUR min ETF order, 1.25% max order fee drag, 0.50% max rebalance fee budget;
-- SMALL `300–999 EUR`: 8 pp, 80 EUR, 1.50%, 0.75%;
-- MEDIUM `1,000–4,999 EUR`: 6 pp, 75 EUR, 1.50%, 0.75%;
-- LARGE `5,000–24,999 EUR`: 4 pp, 100 EUR, 1.25%, 0.60%;
-- INSTITUTIONAL `>=25,000 EUR`: 3 pp, 150 EUR, 1.00%, 0.50%.
-
-This changes execution only. Research scores/targets are unchanged.
-
-`PortfolioExecutionPlan` now also selects the adaptive band from `portfolioDecision.totalPlannedCapitalEur`, so the real checklist and historical execution diagnostics no longer use conflicting fixed thresholds.
-
-New deterministic test:
-
-- `tests/adaptiveExecutionPolicy.unit.ts`
-- command: `npm run test:adaptive-execution`
+- `tests/mixedInstrumentCausalReplay.unit.ts`
+- command: `npm run test:mixed-instrument-replay`
 - included in `validate:aistudio:raw`.
 
-`tests/portfolioExecutionPlan.unit.ts` was updated to test MEDIUM and MICRO adaptive behavior.
+It creates a causal mixed dataset where a fund genuinely enters and later leaves the selected universe, and requires the engine to produce a fund subscription followed by release/review while keeping cash non-negative. This separates **engine capability** from **live selection evidence**.
 
-## NEW: mixed ETF + mutual-fund causal execution replay — implemented, pending fresh validation
+## UI de-duplication — implemented, pending fresh validation
 
-New module:
+Durable policy: `docs/DECISIONS.md` D24.
 
-- `src/investment/decision/mixedInstrumentCausalReplay.ts`
+Removed from the primary decision flow:
 
-Scope:
+- old/simple `DecisionBacktestEngine` card shown beside the modern causal/execution evidence;
+- duplicate static `Ejecución ETF/ETC · MyInvestor` summary, because `Operaciones pendientes` is now the authoritative actionable surface;
+- duplicate always-visible provider status at page top.
 
-`MIXED_ETF_FUND_BROKER_AWARE_REPLAY_ON_CAUSAL_SELECTIONS`
+Collapsed by default:
 
-Semantics:
+- provider/coverage technical detail;
+- decision history.
 
-- causal selection dates remain those of the research backtest;
-- ETFs/ETCs execute as whole-share broker orders under the adaptive MyInvestor policy;
-- mutual funds execute by EUR amount and NAV with fractional units;
-- ETF target weights are measured against **total portfolio equity**, including current fund value;
-- fund operations use separate drift/minimum-movement gates;
-- possible fund-to-fund moves can be labeled `TRANSFER_REVIEW`, but this is only a review candidate;
-- no claim of fiscal eligibility;
-- fund transaction commission is currently modeled as zero for this diagnostic;
-- settlement delay, taxation, spread/cánones and transfer processing time are not simulated.
+Navigation cleanup:
 
-This is still a historical execution diagnostic, not a profitability forecast.
+- `/portfolio.html` is now labeled **Laboratorio cuantitativo**, not “Cartera”; it uses SPY/GLD/QQQ/TLT research data and simulated capital, so it must not be confused with the real portfolio.
+- `/legacy.html` is explicitly **Legacy** / historical experimental UI.
 
-## Updated capital sweep — pending fresh validation
-
-`scripts/brokerAwareExecutionSweepLive.ts` now produces two parallel sweeps for:
-
-- 100 EUR;
-- 334 EUR;
-- 500 EUR;
-- 1,000 EUR;
-- 5,000 EUR;
-- 25,000 EUR.
-
-Outputs:
-
-1. **adaptiveEtfSweep** — ETF-only execution using capital-specific thresholds;
-2. **mixedSweep** — ETF + fund execution with instrument-specific semantics.
-
-The existing marker remains `BROKER_AWARE_EXECUTION_SWEEP_RESULT`, so automatic result retrieval continues through `validation-results/latest-broker-aware-execution-sweep.json`.
+No research engines were deleted merely because their presentation was removed. The goal is less duplication without losing validation capability.
 
 ## Validation recording
 
 `npm run validate:aistudio` records:
 
-- `latest-aistudio-run.json` even on early failure;
+- `validation-results/latest-aistudio-run.json` even on early failure;
 - `latest-aistudio.json`;
 - `latest-broker-backtest-feasibility.json`;
 - `latest-broker-aware-execution-sweep.json`.
 
-Do not ask the user to paste normal validation output. Read `main` first and branch `validation-results` second.
+Do not ask the user to paste normal output. Read `main`, then branch `validation-results` as fallback.
 
 ## Known blockers / limitations
 
-- Exact MyInvestor/Inversis availability of selected ticker/ISINs is still unverified.
-- Fund settlement/tax/transfer timing is not yet simulated in the mixed replay.
-- Fund transaction-fee assumptions need broker-specific verification before manual-pilot claims.
+- Exact MyInvestor/Inversis availability of selected ticker/ISIN remains unverified.
+- Fund settlement/tax/transfer timing is not yet simulated.
 - Historical universe retains current-catalog survivorship bias.
 - Yahoo remains unofficial/non-contractual.
+- New UI cleanup + fund eligibility diagnostic + mixed lifecycle regression require a fresh recorded validation before being called green.
 
 ## Immediate next step
 
-Run a fresh:
+Run:
 
 `npm run validate:aistudio`
 
-Then retrieve the recorded files automatically and specifically verify:
+Then retrieve the recorded results automatically and confirm:
 
-1. TypeScript/lint and build;
-2. adaptive policy unit tests;
-3. updated portfolio execution-plan tests;
-4. mixed replay completes on REAL mixed universe without negative cash/accounting errors;
-5. compare adaptive ETF-only vs mixed ETF+fund results across all six capital levels;
-6. ensure previous decision/causal/broker suites remain green.
+1. lint/build remain green after UI simplification;
+2. `test:mixed-instrument-replay` passes;
+3. fund eligibility diagnostics explain the live zero-fund operations without forcing funds into the shortlist;
+4. previous causal/broker/adaptive suites remain green.
 
-If green, update this file with the new recorded sweep and then move to exact MyInvestor/Inversis instrument-availability verification and stronger fund settlement/transfer modeling.
+If green, next priority is exact MyInvestor/Inversis instrument availability plus deciding whether further legacy/dead UI code should be removed physically or simply remain isolated from the product path.
