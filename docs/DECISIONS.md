@@ -178,6 +178,16 @@ Examples:
 
 **Rule:** strategy performance and broker execution feasibility must be reported as separate evidence. A profitable research backtest is not sufficient for manual-pilot readiness if the broker minimum-fee lower bound invalidates the economics.
 
+## D21. Recommendations must become an explicit manual execution plan
+
+**Decision:** portfolio recommendations must not end at labels such as ADD, REDUCE or REVIEW_TRANSFER. The application should be able to convert them into a persistent manual checklist tied to the user's saved portfolio.
+
+**Current implementation:** `portfolioExecutionPlan.ts` and `PortfolioExecutionPlanPanel.tsx` create/store pending actions such as whole-share ETF buy/sell, fund subscription, fund transfer review and fund redemption review. Each line retains ticker/ISIN where available, an orientative amount/number of shares, rationale and completion status.
+
+**Fund rule:** when a current fund is marked transferable and a supported fund destination exists, the plan prefers a transfer review over a reimbursement + new subscription. It must not claim that the transfer is fiscally or operationally eligible until the broker/entity confirms it. ETFs are not treated as destinations for a tax-deferred fund-to-fund transfer.
+
+**Execution boundary:** this workflow remains manual guidance. It does not submit orders to MyInvestor/Inversis and must continue to require verification of instrument availability, minimums, commissions and transfer eligibility before real execution.
+
 ## Change protocol
 
 When a durable decision changes:
