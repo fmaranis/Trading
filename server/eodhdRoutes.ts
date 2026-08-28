@@ -14,7 +14,9 @@ type EodhdBar = {
 
 type CachedCrossCheck = { expiresAt: number; result: any };
 const crossCheckCache = new Map<string, CachedCrossCheck>();
+const fundHistoryCache = new Map<string, CachedCrossCheck>();
 const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const FUND_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 function toEodhdSymbol(yahooTicker: string): string {
   const clean = yahooTicker.trim().toUpperCase();
@@ -31,18 +33,108 @@ function isQuotaMessage(text: string): boolean {
   return normalized.includes('limit') || normalized.includes('quota') || normalized.includes('api calls');
 }
 
+function validIsin(value: string): boolean {
+  return /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(value);
+}
+
 eodhdRouter.get('/status', (_req: Request, res: Response) => {
   const configured = Boolean(process.env.EODHD_API_KEY?.trim());
   res.json({
     provider: 'eodhd',
     configured,
-    role: 'SECONDARY_CROSS_VALIDATION',
+    role: 'SECONDARY_CROSS_VALIDATION_AND_FUND_NAV',
     primaryProvider: 'yahoo_finance',
     keyExposedToClient: false,
     nonBlocking: true,
     cacheTtlHours: DEFAULT_CACHE_TTL_MS / 3_600_000,
-    cachedEntries: crossCheckCache.size
+    cachedEntries: crossCheckCache.size,
+    fundHistoryCachedEntries: fundHistoryCache.size
   });
+});
+
+eodhdRouter.get('/fund-history', async (req: Request, res: Response): Promise<void> => {
+  const apiKey = process.env.EODHD_API_KEY?.trim();
+  if (!apiKey) {
+    res.status(503).json({ provider: 'eodhd', configured: false, error: 'EODHD_API_KEY_NOT_CONFIGURED' });
+    return;
+  }
+
+  const isin = String(req.query.isin ?? '').trim().toUpperCase();
+  if (!validIsin(isin)) {
+    res.status(400).json({ error: 'INVALID_ISIN' });
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const defaultFromDate = new Date();
+  defaultFromDate.setUTCFullYear(defaultFromDate.getUTCFullYear() - 1);
+  const from = String(req.query.from ?? defaultFromDate.toISOString().slice(0, 10)).slice(0, 10);
+  const to = String(req.query.to ?? today).slice(0, 10);
+  const symbol = `${isin}.EUFUND`;
+  const key = `${symbol}|${from}|${to}`;
+  const cached = fundHistoryCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    res.json({ ...cached.result, cached: true });
+    return;
+  }
+  if (cached) fundHistoryCache.delete(key);
+
+  const timeoutMs = Number(process.env.MARKET_DATA_TIMEOUT_MS) || 10000;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const url = `https://eodhd.com/api/eod/${encodeURIComponent(symbol)}?api_token=${encodeURIComponent(apiKey)}&fmt=json&period=d&order=a&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    const upstream = await fetch(url, { headers: { Accept: 'application/json', 'User-Agent': 'Custodia/1.0' }, signal: controller.signal });
+    clearTimeout(timeout);
+    const text = await upstream.text();
+    if (!upstream.ok) {
+      if (upstream.status === 429 || isQuotaMessage(text)) {
+        res.status(429).json({ provider: 'eodhd', error: 'QUOTA_EXHAUSTED' });
+      } else if (upstream.status === 401 || upstream.status === 403) {
+        res.status(502).json({ provider: 'eodhd', error: 'AUTH_ERROR' });
+      } else if (upstream.status === 404) {
+        res.status(404).json({ provider: 'eodhd', error: 'FUND_NOT_FOUND', isin, symbol });
+      } else {
+        res.status(502).json({ provider: 'eodhd', error: 'UPSTREAM_HTTP_ERROR', httpStatus: upstream.status });
+      }
+      return;
+    }
+
+    let payload: unknown;
+    try { payload = JSON.parse(text); } catch { payload = null; }
+    if (!Array.isArray(payload)) {
+      res.status(502).json({ provider: 'eodhd', error: 'INVALID_UPSTREAM_PAYLOAD' });
+      return;
+    }
+
+    const points = (payload as EodhdBar[])
+      .map(bar => ({ date: String(bar.date ?? ''), nav: Number(bar.adjusted_close ?? bar.close) }))
+      .filter(point => /^\d{4}-\d{2}-\d{2}$/.test(point.date) && Number.isFinite(point.nav) && point.nav > 0)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (!points.length) {
+      res.status(404).json({ provider: 'eodhd', error: 'NO_FUND_HISTORY', isin, symbol });
+      return;
+    }
+
+    const latest = points.at(-1)!;
+    const result = {
+      provider: 'eodhd',
+      isin,
+      symbol,
+      currency: 'EUR',
+      points,
+      latestDate: latest.date,
+      latestNav: latest.nav,
+      fetchedAt: new Date().toISOString(),
+      cached: false
+    };
+    fundHistoryCache.set(key, { expiresAt: Date.now() + FUND_CACHE_TTL_MS, result });
+    res.json(result);
+  } catch {
+    clearTimeout(timeout);
+    res.status(controller.signal.aborted ? 504 : 502).json({ provider: 'eodhd', error: controller.signal.aborted ? 'TIMEOUT' : 'NETWORK_ERROR' });
+  }
 });
 
 eodhdRouter.post('/cross-check', async (req: Request, res: Response): Promise<void> => {
