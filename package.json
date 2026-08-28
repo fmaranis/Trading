@@ -32,10 +32,11 @@
     "research:opportunity-thresholds": "tsx scripts/opportunityThresholdResearchLive.ts",
     "test:user-portfolio": "tsx tests/userPortfolio.unit.ts",
     "test:fund-portfolio": "tsx tests/fundPortfolio.unit.ts",
+    "test:unified-universe": "tsx tests/unifiedInvestmentUniverse.unit.ts",
     "test:alpha-vantage": "tsx scripts/alphaVantageSmoke.ts",
     "test:eodhd": "tsx scripts/eodhdSmoke.ts",
     "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts",
-    "validate:aistudio": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx scripts/aiStudioValidate.ts"
+    "validate:aistudio": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx tests/unifiedInvestmentUniverse.unit.ts && tsx scripts/aiStudioValidate.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
