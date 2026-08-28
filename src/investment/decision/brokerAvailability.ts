@@ -1,7 +1,8 @@
 import type { AssetUniverseItem } from './assetUniverse';
 
-export type BrokerAvailabilityStatus = 'CONFIRMED_MYINVESTOR' | 'REQUIRES_INVERSIS_LOOKUP' | 'UNVERIFIED';
-export type BrokerAvailabilityEvidence = 'MYINVESTOR_OFFICIAL_CURRENT' | 'MYINVESTOR_OFFICIAL_HISTORICAL' | 'NONE';
+export type BrokerAvailabilityStatus = 'CONFIRMED_MYINVESTOR' | 'REQUIRES_INVERSIS_LOOKUP' | 'UNVERIFIED' | 'USER_CONFIRMED_UNAVAILABLE';
+export type BrokerAvailabilityEvidence = 'MYINVESTOR_OFFICIAL_CURRENT' | 'MYINVESTOR_OFFICIAL_HISTORICAL' | 'USER_CONFIRMED_MYINVESTOR' | 'NONE';
+export type ManualBrokerAvailabilityValue = 'AVAILABLE' | 'UNAVAILABLE';
 
 export interface BrokerAvailabilityRecord {
   isinOrTicker: string;
@@ -11,12 +12,20 @@ export interface BrokerAvailabilityRecord {
   note: string;
 }
 
+export interface ManualBrokerAvailabilityRecord {
+  isinOrTicker: string;
+  value: ManualBrokerAvailabilityValue;
+  confirmedAt: string;
+  note?: string;
+}
+
+const MANUAL_STORAGE_KEY = 'custodia_myinvestor_manual_availability_v1';
+
 /**
  * Broker availability is deliberately separate from market-data validity.
- * Only first-party MyInvestor evidence can promote an instrument to
- * CONFIRMED_MYINVESTOR. Absence from a public page is never treated as proof
- * that the instrument is unavailable because MyInvestor explicitly states
- * that additional instruments can be available through Inversis.
+ * Public/first-party evidence and user confirmations remain distinguishable.
+ * A manual confirmation may determine the effective UI state, but never gets
+ * mislabeled as automatic/official broker verification.
  */
 export const MYINVESTOR_AVAILABILITY: Record<string, BrokerAvailabilityRecord> = {
   IE0032126645: {
@@ -45,22 +54,77 @@ export const MYINVESTOR_AVAILABILITY: Record<string, BrokerAvailabilityRecord> =
     status: 'REQUIRES_INVERSIS_LOOKUP',
     evidence: 'MYINVESTOR_OFFICIAL_HISTORICAL',
     checkedAt: '2026-08-28',
-    note: 'MyInvestor documents historical use of this Vanguard ESG fund but also documents its removal from an indexed portfolio in 2021; current standalone availability is not proven.'
+    note: 'MyInvestor documents historical use of this Vanguard ESG fund but current standalone availability is not proven.'
   }
 };
 
-export function getMyInvestorAvailability(asset: AssetUniverseItem): BrokerAvailabilityRecord {
-  const key = asset.isin ?? asset.ticker;
+function normalizeKey(value: string): string { return value.trim().toUpperCase(); }
+
+export class ManualMyInvestorAvailabilityService {
+  static loadAll(): Record<string, ManualBrokerAvailabilityRecord> {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = window.localStorage.getItem(MANUAL_STORAGE_KEY);
+      return raw ? JSON.parse(raw) as Record<string, ManualBrokerAvailabilityRecord> : {};
+    } catch { return {}; }
+  }
+
+  static get(isinOrTicker: string): ManualBrokerAvailabilityRecord | null {
+    return this.loadAll()[normalizeKey(isinOrTicker)] ?? null;
+  }
+
+  static set(isinOrTicker: string, value: ManualBrokerAvailabilityValue, note?: string): ManualBrokerAvailabilityRecord {
+    const key = normalizeKey(isinOrTicker);
+    const record: ManualBrokerAvailabilityRecord = { isinOrTicker: key, value, confirmedAt: new Date().toISOString(), ...(note?.trim() ? { note: note.trim() } : {}) };
+    if (typeof window !== 'undefined') {
+      const all = this.loadAll();
+      all[key] = record;
+      window.localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify(all));
+    }
+    return record;
+  }
+
+  static remove(isinOrTicker: string): void {
+    if (typeof window === 'undefined') return;
+    const all = this.loadAll();
+    delete all[normalizeKey(isinOrTicker)];
+    window.localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify(all));
+  }
+
+  static clear(): void { if (typeof window !== 'undefined') window.localStorage.removeItem(MANUAL_STORAGE_KEY); }
+}
+
+export function getPublicMyInvestorAvailability(asset: AssetUniverseItem): BrokerAvailabilityRecord {
+  const key = normalizeKey(asset.isin ?? asset.ticker);
   const explicit = MYINVESTOR_AVAILABILITY[key];
   if (explicit) return explicit;
-
   return {
     isinOrTicker: key,
-    status: asset.instrumentType === 'MUTUAL_FUND' ? 'REQUIRES_INVERSIS_LOOKUP' : 'REQUIRES_INVERSIS_LOOKUP',
+    status: 'REQUIRES_INVERSIS_LOOKUP',
     evidence: 'NONE',
     checkedAt: '2026-08-28',
-    note: 'No first-party evidence captured yet. MyInvestor states that instruments absent from its public/app catalogue may still be available through Inversis, so availability must be checked there by ISIN/ticker.'
+    note: 'No first-party evidence captured yet. Availability should be checked in MyInvestor/Inversis by ISIN/ticker.'
   };
+}
+
+export function getMyInvestorAvailability(asset: AssetUniverseItem): BrokerAvailabilityRecord {
+  const key = normalizeKey(asset.isin ?? asset.ticker);
+  const manual = ManualMyInvestorAvailabilityService.get(key);
+  if (manual?.value === 'AVAILABLE') return {
+    isinOrTicker: key,
+    status: 'CONFIRMED_MYINVESTOR',
+    evidence: 'USER_CONFIRMED_MYINVESTOR',
+    checkedAt: manual.confirmedAt,
+    note: manual.note ? `Confirmado manualmente en MyInvestor. ${manual.note}` : 'Confirmado manualmente por el usuario tras localizar el instrumento en MyInvestor.'
+  };
+  if (manual?.value === 'UNAVAILABLE') return {
+    isinOrTicker: key,
+    status: 'USER_CONFIRMED_UNAVAILABLE',
+    evidence: 'USER_CONFIRMED_MYINVESTOR',
+    checkedAt: manual.confirmedAt,
+    note: manual.note ? `Marcado manualmente como no disponible. ${manual.note}` : 'El usuario no encontró el instrumento disponible en MyInvestor en la fecha indicada.'
+  };
+  return getPublicMyInvestorAvailability(asset);
 }
 
 export function summarizeMyInvestorAvailability(assets: AssetUniverseItem[]) {
@@ -68,6 +132,7 @@ export function summarizeMyInvestorAvailability(assets: AssetUniverseItem[]) {
   return {
     rows,
     confirmed: rows.filter(row => row.availability.status === 'CONFIRMED_MYINVESTOR').length,
+    userConfirmedUnavailable: rows.filter(row => row.availability.status === 'USER_CONFIRMED_UNAVAILABLE').length,
     requiresInversisLookup: rows.filter(row => row.availability.status === 'REQUIRES_INVERSIS_LOOKUP').length,
     unverified: rows.filter(row => row.availability.status === 'UNVERIFIED').length
   };
