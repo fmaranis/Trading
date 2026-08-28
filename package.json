@@ -38,9 +38,11 @@
     "test:portfolio-decision": "tsx tests/portfolioDecisionEngine.unit.ts",
     "test:alpha-vantage": "tsx scripts/alphaVantageSmoke.ts",
     "test:eodhd": "tsx scripts/eodhdSmoke.ts",
-    "test:eodhd-shortlist": "tsx scripts/eodhdShortlistSmoke.ts",
+    "test:eodhd-shortlist:raw": "tsx scripts/eodhdShortlistSmoke.ts",
+    "test:eodhd-shortlist": "tsx scripts/runRecordedValidation.ts eodhd-shortlist",
     "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts",
-    "validate:aistudio": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx tests/unifiedInvestmentUniverse.unit.ts && tsx tests/portfolioDecisionEngine.unit.ts && tsx tests/brokerBacktestFeasibility.unit.ts && tsx scripts/aiStudioValidate.ts && tsx scripts/brokerBacktestFeasibilityLive.ts"
+    "validate:aistudio:raw": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx tests/unifiedInvestmentUniverse.unit.ts && tsx tests/portfolioDecisionEngine.unit.ts && tsx tests/brokerBacktestFeasibility.unit.ts && tsx scripts/aiStudioValidate.ts && tsx scripts/brokerBacktestFeasibilityLive.ts",
+    "validate:aistudio": "tsx scripts/runRecordedValidation.ts aistudio"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
