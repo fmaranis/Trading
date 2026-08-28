@@ -16,9 +16,49 @@
 
 ## Product shape
 
-React + TypeScript + Vite research/decision-support application. It analyses, ranks, backtests, alerts and proposes execution plans; it does **not** execute broker trades.
+React + TypeScript + Vite research/decision-support application. It analyses, ranks, backtests, alerts and proposes manual execution plans; it does **not** submit broker trades.
 
-Implemented areas include REAL historical data with provenance/fingerprints, Yahoo primary daily data, EODHD secondary validation/fund NAV, portfolio analytics, risk-profile decisions, ETF/ETC/fund scanning, causal universe reselection, whole-share MyInvestor modelling, broker execution-quality/minimum-capital checks, broker-aware backtest cost diagnostics, opportunity research, unified ETF+fund portfolios and Python/vectorbt comparison infrastructure.
+Implemented areas include REAL historical data with provenance/fingerprints, Yahoo primary daily data, EODHD secondary validation/fund NAV, portfolio analytics, risk-profile decisions, ETF/ETC/fund scanning, causal universe reselection, whole-share MyInvestor modelling, broker execution-quality/minimum-capital checks, broker-aware backtest cost diagnostics, opportunity research, unified ETF+fund portfolios, actionable pending portfolio operations and Python/vectorbt comparison infrastructure.
+
+## Latest recorded full validation — 2026-08-28
+
+Automatic result files are available under `validation-results/`.
+
+Latest completed suite before the new pending-operation UI block:
+
+- `technicalBlockers: []`;
+- `researchReady: true`;
+- `readyForManualPilot: false`;
+- lint PASS;
+- build PASS;
+- decision tests PASS;
+- decision-backtest PASS;
+- causal-universe tests **13/13 PASS**;
+- broker-execution PASS;
+- execution-fidelity PASS;
+- opportunity tests PASS;
+- user portfolio PASS;
+- multi-asset PASS;
+- portfolio analytics PASS;
+- regime analytics PASS.
+
+Universe scan:
+
+- catalog: 38;
+- accepted: 30;
+- rejected: 8 (`MarketDataSymbolNotFoundError`);
+- selected: 8.
+
+Current causal MEDIUM research backtest from the recorded run:
+
+- initial capital: 100 EUR;
+- final equity: about **112.55 EUR**;
+- total return: about **+12.55%**;
+- max drawdown: about **2.63%**;
+- trades: **486** in the AI Studio report;
+- rebalance/selection windows: **73**.
+
+The mixed ETF/fund universe completed the causal path successfully in this recorded run, so the previous concern that common-date alignment might prevent the engine from running is currently closed. Different ETF trading-date and fund NAV semantics remain a modeling limitation and must not be hidden.
 
 ## Data providers
 
@@ -40,24 +80,19 @@ Implemented areas include REAL historical data with provenance/fingerprints, Yah
 
 `npm run test:eodhd-shortlist` passed with 8 selected assets: `XEON.DE`, `ISPA.DE`, `EUN6.DE`, `ZPRV.DE`, `EXSA.DE`, `IE00B5456744`, `XDWH.DE`, `IE0032126645`.
 
-- listed ETFs: **6/6 checked, 6/6 matched**;
-- observed listed-ETF price difference: **0.00%**;
-- mutual funds: **2/2** routed through fund NAV pipeline;
-- first pass: 8 upstream requests, 0 cache hits;
-- immediate rerun: 0 upstream calls, 8 cache hits;
-- same-process cache reuse: **100%**;
+- listed ETFs: 6/6 checked and 6/6 matched;
+- observed listed-ETF price difference: 0.00%;
+- mutual funds: 2/2 routed through fund NAV pipeline;
+- immediate rerun: 0 upstream calls and 8 cache hits;
 - `validationPassed: true`.
-
-The shortlist-wide EODHD blocker is closed.
 
 ## Causal integrity
 
 - Scanner minimum history: 252 bars.
-- `CausalUniverseBacktestEngine` now enforces the same 252-bar minimum before historical scoring/selection.
+- `CausalUniverseBacktestEngine` enforces the same 252-bar minimum before historical scoring/selection.
 - Causal warm-up cannot be forced below 252 bars.
 - Regression tests cover history threshold, warm-up, future-data mutation invariance and accounting.
 - Residual survivorship/catalog bias remains because delisted/no-longer-queryable historical instruments are absent.
-- Mixed ETF trading dates and mutual-fund NAV dates still need to remain healthy in the common-date causal path on the latest full validation.
 
 ## Decision engine
 
@@ -70,7 +105,7 @@ The shortlist-wide EODHD blocker is closed.
 
 ## Broker / MyInvestor
 
-Current model:
+Current modeled rules:
 
 - no fractional ETF shares;
 - ETF commission 0.12%;
@@ -78,74 +113,101 @@ Current model:
 - maximum 25 EUR/order;
 - exact selected ticker/ISIN availability still requires MyInvestor/Inversis verification.
 
-Theoretical allocation and executable portfolio remain separate concepts. For the 100 EUR MEDIUM case, whole-share execution can collapse to one position, so affordability alone is not sufficient diversification quality.
+Theoretical allocation and executable portfolio are separate concepts.
 
-## Broker-aware backtest integrity
+Latest recorded manual-pilot blockers:
 
-Module: `src/investment/decision/brokerBacktestFeasibility.ts`.
+1. 100 EUR does not preserve the current MEDIUM diversification criteria; recorded minimum diversified capital estimate is about **334 EUR** for at least two positions under the current static execution-quality criteria.
+2. Exact MyInvestor/Inversis availability of the selected ticker/ISIN set is not verified.
+3. High-turnover causal research results are not directly executable under the broker minimum-fee model.
 
-It prevents percentage-only research backtests from being interpreted as broker-executable economics when a fixed minimum commission applies. It reports:
+### Broker-aware backtest diagnostic
 
-- minimum commission lower bound = `totalTrades × broker minimum commission`;
-- lower-bound trading costs;
-- minimum commission drag as % of initial capital;
-- commission understatement in EUR/factor;
-- compatibility of the research commission model with the broker minimum;
-- minimum capital required for a specified commission-drag ceiling;
-- explicit warnings when simplified research costs are economically incompatible with MyInvestor.
+Latest live diagnostic reported approximately:
 
-Commands:
+- 490 research trades/orders;
+- modeled research commission: ~0.96 EUR;
+- MyInvestor minimum-commission lower bound: **490 EUR**;
+- lower-bound commission drag on 100 EUR: **490%**;
+- minimum capital for that same order count to keep minimum-commission drag <=2%: **24,500 EUR**.
 
-- `npm run test:broker-backtest-feasibility`
-- `npm run test:broker-backtest-feasibility:live`
+This does not mean the strategy requires 24,500 EUR in general. It means the current high-turnover research path cannot be translated literally into broker orders at 100 EUR. Real execution needs no-trade thresholds, batching/rebalance gating and/or lower turnover.
 
-`validate:aistudio` runs both deterministic and live broker-cost diagnostics. Durable policy is recorded in `docs/DECISIONS.md` D20.
+## Actionable portfolio execution workflow — implemented 2026-08-28
 
-## Automatic validation-result recording — hardened 2026-08-28
+The previous UI showed `AUMENTAR`, `REDUCIR` and `REVISAR TRASPASO` but did not convert those recommendations into an actionable workflow. This gap is now implemented.
 
-The user must **not** be asked to copy/paste validation output into chat as the normal workflow.
+New decision module:
 
-Infrastructure:
+- `src/investment/decision/portfolioExecutionPlan.ts`
 
-- `scripts/validationResultStore.ts`
-- `scripts/runRecordedValidation.ts`
-- `validation-results/README.md`
+New UI:
+
+- `src/components/PortfolioExecutionPlanPanel.tsx`
+
+Persistence:
+
+- localStorage key `custodia_pending_execution_plan_v1`.
+
+The panel appears immediately below **Mi cartera real** and provides **Operaciones pendientes · Mi cartera**.
+
+`Preparar operaciones` converts the current saved portfolio + current recommendation into persistent manual actions:
+
+- `BUY_ETF` — whole-share ETF/ETC purchase;
+- `SELL_ETF` — quantified whole-share reduction where possible;
+- `SUBSCRIBE_FUND` — fund subscription by amount;
+- `TRANSFER_FUND` — fund-to-fund transfer review;
+- `REDEEM_FUND` — fund redemption review;
+- `REVIEW` — non-executable/ambiguous case that needs manual review.
+
+Each line can retain:
+
+- source/destination ticker and/or ISIN;
+- orientative amount;
+- number of whole ETF shares;
+- rationale;
+- fund/fiscal note;
+- status `PENDING`, `DONE` or `DISMISSED`.
+
+Whole-share integrity:
+
+- an ETF contribution below one full share is not emitted as a fake executable purchase;
+- it becomes a `REVIEW` line with an explicit affordability warning.
+
+Fund transfer policy:
+
+- if an existing fund is marked transferable and a supported mutual-fund destination exists, the plan prefers **reviewing a transfer** before reimbursement + subscription;
+- ETFs are never treated as destinations for a tax-deferred fund-to-fund transfer;
+- the application does not assert tax or operational eligibility; MyInvestor/Inversis must confirm it before execution.
+
+The workflow is manual guidance only. It does not submit orders to a broker. Durable policy is recorded in `docs/DECISIONS.md` D21.
+
+New deterministic test:
+
+- `tests/portfolioExecutionPlan.unit.ts`
+- command: `npm run test:portfolio-execution-plan`
+- added to `validate:aistudio:raw`.
+
+**Important:** this new execution-plan block has been implemented but has not yet been validated by a fresh recorded `npm run validate:aistudio` after these commits. Do not claim it fully validated until that run is recorded.
+
+## Automatic validation-result recording
+
+The user must not be asked to copy/paste normal validation output into chat.
 
 Recorded commands:
 
 - `npm run validate:aistudio`
-  - executes internal `validate:aistudio:raw`;
-  - captures `AI_STUDIO_VALIDATION_RESULT`;
-  - captures `BROKER_BACKTEST_FEASIBILITY_RESULT`;
-  - writes `validation-results/latest-aistudio.json`;
-  - writes `validation-results/latest-broker-backtest-feasibility.json`.
 - `npm run test:eodhd-shortlist`
-  - executes internal `test:eodhd-shortlist:raw`;
-  - captures `EODHD_SHORTLIST_VALIDATION_RESULT`;
-  - writes `validation-results/latest-eodhd-shortlist.json`.
 
-Each recorded result includes timestamp, Git HEAD/branch and structured payload. The wrapper commits only generated validation-result files and does not stage unrelated local changes.
+Result files are written under `validation-results/`. The wrapper attempts publication to `main` and uses dedicated branch `validation-results` as remote fallback when the validation checkout cannot fast-forward `main`.
 
-### Remote publication policy
+Future retrieval order after the user says a validation/check finished:
 
-Publishing directly to `main` remains best-effort because the local validation checkout may lag behind remote `main` while ChatGPT is making direct repository commits.
+1. read `validation-results/latest-*.json` on `main`;
+2. if absent/stale, read branch `validation-results`;
+3. only request pasted terminal output if both automated paths demonstrably fail.
 
-To prevent a non-fast-forward `main` push from hiding validation results, `scripts/runRecordedValidation.ts` now also publishes the validation-result commit to the dedicated remote branch:
-
-`validation-results`
-
-The wrapper attempts:
-
-1. normal push of the current branch;
-2. independent publication of the exact result commit to remote branch `validation-results` using force-with-lease, with a force fallback only for this dedicated result branch.
-
-This branch is only a transport/reference point for latest validation artifacts; `main` remains canonical for application code.
-
-**Future-chat retrieval rule:** after the user says a validation/check finished:
-
-1. first try `validation-results/latest-*.json` on `main`;
-2. if absent, read the same files from branch `validation-results`;
-3. do not ask the user to paste terminal output unless both automated remote paths demonstrably failed.
+No GitHub Actions are used.
 
 ## Important validation commands
 
@@ -160,64 +222,47 @@ This branch is only a transport/reference point for latest validation artifacts;
 - `npm run test:execution-fidelity`
 - `npm run test:opportunity-alerts`
 - `npm run test:opportunity-outcomes`
-- `npm run test:opportunity-threshold-research`
-- `npm run test:opportunity-threshold-walk-forward`
 - `npm run test:user-portfolio`
 - `npm run test:fund-portfolio`
 - `npm run test:unified-universe`
 - `npm run test:portfolio-decision`
-- `npm run test:eodhd`
+- `npm run test:portfolio-execution-plan`
 - `npm run test:eodhd-shortlist`
 - `npm run validate:aistudio`
-
-Internal raw commands exist only so the recording wrapper can run the original checks without recursion:
-
-- `npm run validate:aistudio:raw`
-- `npm run test:eodhd-shortlist:raw`
-
-## Validation status
-
-Verified provider-dependent:
-
-- `test:eodhd-shortlist`: PASS;
-- 6/6 listed ETFs matched EODHD;
-- 2/2 mutual funds routed correctly;
-- immediate rerun 0 upstream / 8 cache hits;
-- `validationPassed: true`.
-
-Previous deterministic suite before the newest broker-aware/history-hardening commits had reported lint/build/core tests PASS, `technicalBlockers: []`, `researchReady: true`, `readyForManualPilot: false`.
-
-The first run after automatic-result recording was reported finished by the user, but its result did not reach remote `main`. Root cause: normal push may fail when the local validation checkout is behind remote `main`. The publishing workflow has now been hardened with the dedicated `validation-results` branch fallback.
 
 ## Known blockers / limitations
 
 - Exact MyInvestor/Inversis availability of the ultimately recommended ticker/ISIN set remains unverified.
-- 100 EUR is structurally too small for many diversified ETF allocations with whole shares and 1 EUR minimum commissions.
-- Percentage-only strategy backtests remain research evidence; broker-aware diagnostics accompany execution-readiness interpretation.
+- 100 EUR remains structurally too small for many diversified whole-share ETF allocations with 1 EUR minimum commissions.
+- Percentage-only strategy backtests remain research evidence; broker-aware diagnostics must accompany execution-readiness interpretation.
 - Historical universe retains survivorship/catalog-availability bias.
 - Yahoo remains unofficial despite successful EODHD validation of the current listed shortlist.
-- Mixed ETF/fund common-date alignment must remain verified on the latest causal run.
+- Fund transfer eligibility is not inferred solely from the app's `transferable` flag; final tax/operational eligibility must be confirmed by the broker/entity.
 - Cross-process cache persistence is not guaranteed by the in-memory EODHD cache.
 
 ## Immediate next step
 
-Run once more on an updated checkout:
+Run the current recorded validation after the new actionable portfolio workflow:
 
 `npm run validate:aistudio`
 
-After it finishes, do **not** request pasted output. Retrieve automatically in this order:
+Do not request pasted output. Retrieve the recorded results automatically from `validation-results/latest-aistudio.json` and `validation-results/latest-broker-backtest-feasibility.json`, using branch `validation-results` as fallback.
 
-1. `validation-results/latest-aistudio.json` from `main`;
-2. `validation-results/latest-broker-backtest-feasibility.json` from `main`;
-3. if absent, the same paths from remote branch `validation-results`.
+Specifically confirm:
 
-If green, continue with the highest-impact remaining blocker: broker/manual-pilot viability and exact instrument availability, while keeping strategy research separate from execution economics.
+1. `test:portfolio-execution-plan` passes;
+2. TypeScript/lint passes with the new UI/module;
+3. build passes;
+4. previous decision/portfolio/causal tests remain green;
+5. current live-data result remains technically healthy.
+
+If green, continue with the next execution-layer improvement: reduce real-world turnover through no-trade thresholds/order batching and improve exact MyInvestor instrument-availability verification.
 
 ## Working protocol for future chats
 
 1. Read this file from `fmaranis/Trading/main`.
 2. Read `docs/DECISIONS.md` when architecture/policy matters.
 3. Inspect current `main` HEAD and intervening commits before assuming state is current.
-4. Read `validation-results/latest-*.json` from `main`, then branch `validation-results`, before asking for any validation output.
+4. Read `validation-results/latest-*.json` from `main`, then branch `validation-results`, before asking for validation output.
 5. Continue from **Immediate next step** unless priority is explicitly changed.
 6. After meaningful work, update this file again.
