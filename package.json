@@ -26,6 +26,7 @@
     "test:broker-execution": "tsx tests/brokerExecution.unit.ts",
     "test:execution-fidelity": "tsx tests/executionFidelity.unit.ts",
     "test:opportunity-alerts": "tsx tests/opportunityAlerts.unit.ts",
+    "test:opportunity-outcomes": "tsx tests/opportunityOutcomeBacktest.unit.ts",
     "test:user-portfolio": "tsx tests/userPortfolio.unit.ts",
     "test:alpha-vantage": "tsx scripts/alphaVantageSmoke.ts",
     "test:eodhd": "tsx scripts/eodhdSmoke.ts",
