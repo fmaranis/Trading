@@ -9,12 +9,14 @@ import {
   buildWholeShareExecutionPlan,
   CrossProviderEvidenceQuality,
   estimateMinimumDiversifiedCapital,
+  EUR_ASSET_UNIVERSE,
   InvestmentDecisionResult,
   MarketSnapshotEntry,
   MarketSnapshotHistoryService,
   MYINVESTOR_BROKER_PROFILE,
   OpportunityAlert,
-  OpportunityAlertEngine
+  OpportunityAlertEngine,
+  OpportunityOutcomeBacktestEngine
 } from '../investment/decision';
 import { AlertAutomationStatusPanel } from './AlertAutomationStatusPanel';
 import { UserPortfolioPanel } from './UserPortfolioPanel';
@@ -65,6 +67,11 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdV
     return { plan, quality, fidelity, minimum };
   }, [scan, decision]);
 
+  const historicalOpportunityValidation = useMemo(() => {
+    try { return OpportunityOutcomeBacktestEngine.run(scan.acceptedDataset, EUR_ASSET_UNIVERSE, 8); }
+    catch { return null; }
+  }, [scan]);
+
   useEffect(() => {
     const previousSnapshot = MarketSnapshotHistoryService.latestBefore(decision.asOfDate, decision.riskProfile, decision.horizonYears);
     const previousDecision = previousSnapshot ? MarketSnapshotHistoryService.asDecisionHistoryEntry(previousSnapshot) : null;
@@ -95,6 +102,12 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdV
 
     <AlertAutomationStatusPanel />
     <UserPortfolioPanel scan={scan} decision={decision} />
+
+    {historicalOpportunityValidation && <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><h3 className="font-bold">¿Han funcionado históricamente estas reglas de oportunidad?</h3><p className="mt-1 text-[11px] text-slate-400">Validación causal mensual: la señal usa solo información disponible en esa fecha y después se mide frente al universo equiponderado.</p></div><div className="rounded-lg border border-indigo-500/30 px-3 py-1 text-xs font-bold text-indigo-300">{historicalOpportunityValidation.eventCount} señales históricas</div></div>
+      <div className="mt-3 grid gap-2 md:grid-cols-3">{historicalOpportunityValidation.metrics.map(m => <div key={m.horizonSessions} className="rounded-lg bg-slate-950 p-3 text-xs"><div className="text-[10px] uppercase text-slate-500">A {m.horizonSessions} sesiones</div><div className="mt-2 grid grid-cols-2 gap-2"><div><span className="text-slate-500">Retorno medio</span><br/><b>{m.averageReturnPct == null ? 'N/D' : `${m.averageReturnPct.toFixed(2)}%`}</b></div><div><span className="text-slate-500">Acierto positivo</span><br/><b>{m.positiveHitRatePct == null ? 'N/D' : `${m.positiveHitRatePct.toFixed(1)}%`}</b></div><div><span className="text-slate-500">Exceso vs universo</span><br/><b className={(m.averageExcessReturnPct ?? 0) >= 0 ? 'text-emerald-300' : 'text-amber-300'}>{m.averageExcessReturnPct == null ? 'N/D' : `${m.averageExcessReturnPct >= 0 ? '+' : ''}${m.averageExcessReturnPct.toFixed(2)} pp`}</b></div><div><span className="text-slate-500">Supera universo</span><br/><b>{m.outperformRatePct == null ? 'N/D' : `${m.outperformRatePct.toFixed(1)}%`}</b></div></div><div className="mt-2 text-[10px] text-slate-600">{m.evaluated} señales evaluadas</div></div>)}</div>
+      <div className="mt-3 text-[10px] text-slate-500">Esto evalúa las reglas dentro del universo hoy consultable y mantiene sesgo residual de survivorship. Sirve para juzgar la utilidad de la alerta; no convierte el resultado histórico en probabilidad de beneficio futuro.</div>
+    </div>}
 
     <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="flex items-center gap-2"><WalletCards className="h-4 w-4 text-fuchsia-300"/><div><h3 className="font-bold">Ejecutabilidad · MyInvestor</h3><p className="text-[11px] text-slate-400">Convierte los pesos teóricos en títulos enteros y separa calidad matemática de calidad de ejecución.</p></div></div><div className={`rounded-lg border px-3 py-1 text-xs font-bold ${execution.fidelity.level === 'HIGH' ? 'border-emerald-500/30 text-emerald-300' : execution.fidelity.level === 'MEDIUM' ? 'border-amber-500/30 text-amber-300' : 'border-rose-500/30 text-rose-300'}`}>Fidelidad {execution.fidelity.level} · {execution.fidelity.score.toFixed(0)}/100</div></div>
