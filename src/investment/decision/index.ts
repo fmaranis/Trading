@@ -11,5 +11,6 @@ export * from './evidenceQuality';
 export * from './opportunityAlertEngine';
 export * from './opportunityOutcomeBacktest';
 export * from './opportunityThresholdResearch';
+export * from './opportunityThresholdWalkForward';
 export * from './marketSnapshotHistoryService';
 export * from './userPortfolio';
