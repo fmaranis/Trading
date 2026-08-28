@@ -114,6 +114,16 @@ Current bands:
 
 **Validation:** the capital sweep must report both adaptive ETF-only execution and mixed ETF+fund execution for 100, 334, 500, 1,000, 5,000 and 25,000 EUR. These outputs are historical execution diagnostics, not forecasts.
 
+## D24. Primary UI is decision-first; research tools must not duplicate the actionable flow
+
+**Decision:** the main page should communicate one hierarchy: current decision → real portfolio → pending manual operations → alerts. Technical/research evidence may remain available but must not repeat a second execution plan or a weaker backtest beside the validated causal evidence.
+
+**UI cleanup:** the simple allocation-backtest card was removed from the primary decision page; the duplicate static ETF execution summary was removed because `PortfolioExecutionPlanPanel` is now the actionable execution surface; provider details and decision history are collapsed by default. `portfolio.html` is explicitly labeled **Laboratorio cuantitativo**, not “Cartera”, because it uses a research universe and simulated capital. `legacy.html` remains available only as a historical/experimental interface.
+
+**Fund-selection rule:** zero historical fund operations must not be “fixed” by forcing funds into the shortlist. The live sweep must diagnose each fund's 252-bar causal eligibility, current acceptance, current shortlist status and historical selection appearances. A fund with insufficient pre-decision history is distinct from a fund that was eligible but lost on score/category deduplication.
+
+**Regression rule:** `mixedInstrumentCausalReplay.unit.ts` must prove independently that when a causal selection genuinely includes a mutual fund, the mixed engine can subscribe it and later release/review it without negative cash. This separates engine capability from live-universe selection evidence.
+
 ## Change protocol
 
 When a durable decision changes:
