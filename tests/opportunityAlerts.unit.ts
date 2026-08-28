@@ -33,7 +33,7 @@ const alerts = OpportunityAlertEngine.evaluate({ scan, decision, previousDecisio
 check('205 regime change creates material alert', alerts.some(a => a.type === 'REGIME_CHANGE' && a.severity === 'MATERIAL'));
 check('206 material allocation change creates rebalance review', alerts.some(a => a.type === 'REBALANCE'));
 check('207 strong top-three candidate creates opportunity review', alerts.some(a => a.type === 'OPPORTUNITY' && a.ticker === 'AAA.DE'));
-check('208 confirmed strong opportunity may be material', alerts.some(a => a.ticker === 'AAA.DE' && a.severity === 'MATERIAL'));
+check('208 opportunity remains review-only even with confirmed market data', alerts.filter(a => a.type === 'OPPORTUNITY').every(a => a.severity === 'REVIEW'));
 
 const dataAlerts = OpportunityAlertEngine.evaluate({ scan, decision, evidence: divergence });
 check('209 provider divergence creates data warning', dataAlerts.some(a => a.type === 'DATA_WARNING'));
