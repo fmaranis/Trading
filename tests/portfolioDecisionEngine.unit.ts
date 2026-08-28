@@ -66,6 +66,7 @@ check('512 no contribution exceeds its category deficit', result.contributions.e
 const missing = PortfolioDecisionEngine.evaluate({ portfolio, scan, decision, fundMarketValues: {} });
 check('513 missing fund valuation stays explicit instead of using cost basis as market value', missing.existingPositions.filter(x => x.instrumentType === 'MUTUAL_FUND').every(x => x.action === 'DATA_MISSING'));
 check('514 missing fund market values are excluded from precise invested exposure', missing.currentInvestedValueEur === 0);
+check('515 missing existing valuations block new contribution recommendations', missing.recommendedNewInvestmentEur === 0 && missing.contributions.length === 0 && missing.warnings.some(x => x.includes('bloquea temporalmente')));
 
 const withEtf: any = {
   ...portfolio,
@@ -74,6 +75,6 @@ const withEtf: any = {
   stagedCapitalPlan: { availableEur: 1000, horizonMonths: 12, preferredMode: 'MONTHLY' }
 };
 const etfResult = PortfolioDecisionEngine.evaluate({ portfolio: withEtf, scan, decision, fundMarketValues: {} });
-check('515 listed holdings and mutual funds share the same category reconciliation layer', Math.abs((etfResult.exposures.find(x => x.category === 'GLOBAL_EQUITY')?.currentValueEur ?? 0) - 12500) < 1e-6);
+check('516 listed holdings and mutual funds share the same category reconciliation layer', Math.abs((etfResult.exposures.find(x => x.category === 'GLOBAL_EQUITY')?.currentValueEur ?? 0) - 12500) < 1e-6);
 
-console.log(`Portfolio-aware decision engine: ${passed}/15 invariants passed.`);
+console.log(`Portfolio-aware decision engine: ${passed}/16 invariants passed.`);
