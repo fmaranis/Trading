@@ -8,7 +8,7 @@ import { alertAutomationRouter } from './server/alertAutomationRoutes';
 import { startDailyAlertScheduler } from './server/alertAutomation';
 
 function redactSecrets(value: unknown): unknown {
-  const secrets = [process.env.ALPHA_VANTAGE_API_KEY, process.env.EODHD_API_KEY, process.env.MARKET_DATA_API_KEY, process.env.GEMINI_API_KEY, process.env.ALERT_WEBHOOK_URL]
+  const secrets = [process.env.ALPHA_VANTAGE_API_KEY, process.env.EODHD_API_KEY, process.env.MARKET_DATA_API_KEY, process.env.GEMINI_API_KEY, process.env.ALERT_WEBHOOK_URL, process.env.ALERT_ADMIN_TOKEN]
     .filter((v): v is string => Boolean(v && v.trim()));
   if (!secrets.length) return value;
   const scrub = (input: unknown): unknown => {
