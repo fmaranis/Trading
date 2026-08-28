@@ -14,51 +14,51 @@
 - Repository, not chat memory, is the source of truth.
 - Do not add or depend on GitHub Actions.
 
-## Product shape
+## Latest recorded full validation before current execution-policy block
 
-React + TypeScript + Vite research/decision-support application. It analyses, ranks, backtests, alerts and proposes manual execution plans; it does **not** submit broker trades.
-
-Implemented areas include REAL historical data with provenance/fingerprints, Yahoo primary daily data, EODHD secondary validation/fund NAV, portfolio analytics, risk-profile decisions, ETF/ETC/fund scanning, causal universe reselection, whole-share MyInvestor modelling, broker execution-quality/minimum-capital checks, broker-aware backtest cost diagnostics, opportunity research, unified ETF+fund portfolios, actionable pending portfolio operations and Python/vectorbt comparison infrastructure.
-
-## Latest recorded full validation — 2026-08-28
-
-Automatic result files are available under `validation-results/`.
-
-Latest completed suite before the new pending-operation UI block:
+Latest recorded `validation-results/latest-aistudio.json` is from **2026-08-28 17:55 UTC** and is green:
 
 - `technicalBlockers: []`;
 - `researchReady: true`;
 - `readyForManualPilot: false`;
 - lint PASS;
 - build PASS;
-- decision tests PASS;
-- decision-backtest PASS;
-- causal-universe tests **13/13 PASS**;
-- broker-execution PASS;
-- execution-fidelity PASS;
-- opportunity tests PASS;
-- user portfolio PASS;
-- multi-asset PASS;
-- portfolio analytics PASS;
-- regime analytics PASS.
+- decision 7/7 PASS;
+- decision backtest 8/8 PASS;
+- causal universe 13/13 PASS;
+- broker execution 14/14 PASS;
+- execution fidelity 10/10 PASS;
+- opportunity, portfolio, multi-asset, analytics and regime suites PASS.
 
-Universe scan:
+Latest recorded causal/broker diagnostic around that run:
 
-- catalog: 38;
-- accepted: 30;
-- rejected: 8 (`MarketDataSymbolNotFoundError`);
-- selected: 8.
+- 100 EUR research backtest → about 112.46 EUR;
+- return about +12.46%;
+- max drawdown about 2.64%;
+- about 488 research trades;
+- MyInvestor minimum-fee lower bound about 488 EUR;
+- minimum capital for the same raw order count to keep minimum commission drag <=2% about 24,400 EUR.
 
-Current causal MEDIUM research backtest from the recorded run:
+This confirms again that the research signal path is technically healthy but cannot be translated literally into broker orders at small capital.
 
-- initial capital: 100 EUR;
-- final equity: about **112.55 EUR**;
-- total return: about **+12.55%**;
-- max drawdown: about **2.63%**;
-- trades: **486** in the AI Studio report;
-- rebalance/selection windows: **73**.
+## Product shape
 
-The mixed ETF/fund universe completed the causal path successfully in this recorded run, so the previous concern that common-date alignment might prevent the engine from running is currently closed. Different ETF trading-date and fund NAV semantics remain a modeling limitation and must not be hidden.
+React + TypeScript + Vite research/decision-support application. It analyses, ranks, backtests, alerts and proposes manual execution plans; it does **not** submit broker trades.
+
+Implemented areas now include:
+
+- REAL historical data with provenance/fingerprints;
+- Yahoo primary daily data, EODHD secondary validation/fund NAV;
+- causal universe reselection;
+- risk-profile portfolio decisions;
+- whole-share MyInvestor modeling;
+- broker feasibility diagnostics;
+- actionable persistent portfolio operations;
+- **cost-aware no-trade execution policy**;
+- **broker-aware causal execution replay**;
+- **multi-capital execution sweep**;
+- opportunity research and portfolio analytics;
+- Python/vectorbt comparison infrastructure.
 
 ## Data providers
 
@@ -103,7 +103,7 @@ The mixed ETF/fund universe completed the causal path successfully in this recor
 - Confidence means evidence/data quality, not probability of profit.
 - Current confidence cap remains 85 unless evidence policy changes.
 
-## Broker / MyInvestor
+## Broker / MyInvestor model
 
 Current modeled rules:
 
@@ -115,154 +115,206 @@ Current modeled rules:
 
 Theoretical allocation and executable portfolio are separate concepts.
 
-Latest recorded manual-pilot blockers:
+## Actionable portfolio execution workflow
 
-1. 100 EUR does not preserve the current MEDIUM diversification criteria; recorded minimum diversified capital estimate is about **334 EUR** for at least two positions under the current static execution-quality criteria.
-2. Exact MyInvestor/Inversis availability of the selected ticker/ISIN set is not verified.
-3. High-turnover causal research results are not directly executable under the broker minimum-fee model.
-
-### Broker-aware backtest diagnostic
-
-Latest live diagnostic reported approximately:
-
-- 490 research trades/orders;
-- modeled research commission: ~0.96 EUR;
-- MyInvestor minimum-commission lower bound: **490 EUR**;
-- lower-bound commission drag on 100 EUR: **490%**;
-- minimum capital for that same order count to keep minimum-commission drag <=2%: **24,500 EUR**.
-
-This does not mean the strategy requires 24,500 EUR in general. It means the current high-turnover research path cannot be translated literally into broker orders at 100 EUR. Real execution needs no-trade thresholds, batching/rebalance gating and/or lower turnover.
-
-## Actionable portfolio execution workflow — implemented 2026-08-28
-
-The previous UI showed `AUMENTAR`, `REDUCIR` and `REVISAR TRASPASO` but did not convert those recommendations into an actionable workflow. This gap is now implemented.
-
-New decision module:
+Files:
 
 - `src/investment/decision/portfolioExecutionPlan.ts`
-
-New UI:
-
 - `src/components/PortfolioExecutionPlanPanel.tsx`
 
-Persistence:
+Persistence key: `custodia_pending_execution_plan_v1`.
 
-- localStorage key `custodia_pending_execution_plan_v1`.
+The panel appears immediately below **Mi cartera real** and can generate persistent manual actions:
 
-The panel appears immediately below **Mi cartera real** and provides **Operaciones pendientes · Mi cartera**.
+- `BUY_ETF`;
+- `SELL_ETF`;
+- `SUBSCRIBE_FUND`;
+- `TRANSFER_FUND`;
+- `REDEEM_FUND`;
+- `REVIEW`.
 
-`Preparar operaciones` converts the current saved portfolio + current recommendation into persistent manual actions:
+Each line may retain ticker/ISIN, amount, whole ETF shares, estimated commission, rationale, fund/fiscal note and status `PENDING`, `DONE` or `DISMISSED`.
 
-- `BUY_ETF` — whole-share ETF/ETC purchase;
-- `SELL_ETF` — quantified whole-share reduction where possible;
-- `SUBSCRIBE_FUND` — fund subscription by amount;
-- `TRANSFER_FUND` — fund-to-fund transfer review;
-- `REDEEM_FUND` — fund redemption review;
-- `REVIEW` — non-executable/ambiguous case that needs manual review.
+Funds marked transferable prefer a fund-to-fund transfer review when a supported fund destination exists. The app does not claim final tax/operational eligibility.
 
-Each line can retain:
+## Cost-aware execution policy — implemented 2026-08-28
 
-- source/destination ticker and/or ISIN;
-- orientative amount;
-- number of whole ETF shares;
-- rationale;
-- fund/fiscal note;
-- status `PENDING`, `DONE` or `DISMISSED`.
+New module:
 
-Whole-share integrity:
+- `src/investment/decision/costAwareExecutionPolicy.ts`
 
-- an ETF contribution below one full share is not emitted as a fake executable purchase;
-- it becomes a `REVIEW` line with an explicit affordability warning.
+Durable policy: `docs/DECISIONS.md` D22.
 
-Fund transfer policy:
+Default ETF execution gates:
 
-- if an existing fund is marked transferable and a supported mutual-fund destination exists, the plan prefers **reviewing a transfer** before reimbursement + subscription;
-- ETFs are never treated as destinations for a tax-deferred fund-to-fund transfer;
-- the application does not assert tax or operational eligibility; MyInvestor/Inversis must confirm it before execution.
+- minimum absolute allocation drift: **5 percentage points**;
+- minimum order notional: **50 EUR**;
+- maximum modeled commission drag per order: **2%**;
+- maximum total modeled commission per rebalance window: **1% of current equity**;
+- whole shares only;
+- MyInvestor modeled 0.12%, min 1 EUR, max 25 EUR;
+- sells before buys;
+- cash may never become negative.
 
-The workflow is manual guidance only. It does not submit orders to a broker. Durable policy is recorded in `docs/DECISIONS.md` D21.
+Suppression reasons are explicit:
 
-New deterministic test:
+- `DRIFT_BELOW_THRESHOLD`;
+- `BELOW_ONE_WHOLE_SHARE`;
+- `ORDER_NOTIONAL_TOO_SMALL`;
+- `ORDER_FEE_DRAG_TOO_HIGH`;
+- `REBALANCE_FEE_BUDGET_EXCEEDED`;
+- `INSUFFICIENT_CASH`.
 
-- `tests/portfolioExecutionPlan.unit.ts`
-- command: `npm run test:portfolio-execution-plan`
-- added to `validate:aistudio:raw`.
+The UI execution checklist now uses the same cost gate. A theoretical ETF recommendation can therefore become **REVISAR / NO OPERAR** rather than a buy/sell instruction when execution economics are poor. The theoretical recommendation remains visible as rationale.
 
-**Important:** this new execution-plan block has been implemented but has not yet been validated by a fresh recorded `npm run validate:aistudio` after these commits. Do not claim it fully validated until that run is recorded.
+## Broker-aware causal replay — implemented 2026-08-28
 
-## Automatic validation-result recording
+New module:
 
-The user must not be asked to copy/paste normal validation output into chat.
+- `src/investment/decision/brokerAwareCausalReplay.ts`
 
-Recorded commands:
+Scope:
 
-- `npm run validate:aistudio`
-- `npm run test:eodhd-shortlist`
+`BROKER_AWARE_ETF_EXECUTION_REPLAY_ON_CAUSAL_SELECTIONS`
 
-Result files are written under `validation-results/`. The wrapper attempts publication to `main` and uses dedicated branch `validation-results` as remote fallback when the validation checkout cannot fast-forward `main`.
+Key design:
 
-Future retrieval order after the user says a validation/check finished:
+- uses the already-causal research `selectionHistory` dates;
+- recomputes allocation using only historical selected data at each decision date;
+- does not alter research signals to improve broker results;
+- executes ETF targets using whole shares + cost-aware suppression;
+- reports executed and suppressed orders, commissions, windows with trades, cash, return and drawdown.
 
-1. read `validation-results/latest-*.json` on `main`;
-2. if absent/stale, read branch `validation-results`;
-3. only request pasted terminal output if both automated paths demonstrably fail.
+Important conservative fund boundary:
 
-No GitHub Actions are used.
+- mutual-fund target weights are **held as cash** in this replay;
+- they are not simulated as ETF trades;
+- fund NAV/settlement/transfer semantics require a separate future model;
+- therefore the replay is an execution/cost diagnostic, not a complete fund+ETF profitability forecast.
 
-## Important validation commands
+## Multi-capital execution sweep — implemented 2026-08-28
 
-- `npm run lint`
-- `npm run build`
-- `npm run test:decision`
-- `npm run test:decision-backtest`
-- `npm run test:causal-universe-backtest`
-- `npm run test:broker-execution`
-- `npm run test:broker-backtest-feasibility`
-- `npm run test:broker-backtest-feasibility:live`
-- `npm run test:execution-fidelity`
-- `npm run test:opportunity-alerts`
-- `npm run test:opportunity-outcomes`
-- `npm run test:user-portfolio`
-- `npm run test:fund-portfolio`
-- `npm run test:unified-universe`
-- `npm run test:portfolio-decision`
+New live diagnostic:
+
+- `scripts/brokerAwareExecutionSweepLive.ts`
+- command: `npm run test:broker-aware-execution-sweep:live`
+
+Capital levels:
+
+- 100 EUR;
+- 334 EUR;
+- 500 EUR;
+- 1,000 EUR;
+- 5,000 EUR;
+- 25,000 EUR.
+
+For each level it records:
+
+- final equity/return/drawdown;
+- executed orders;
+- suppressed orders;
+- rebalance windows;
+- windows with trades / fully suppressed;
+- total commission;
+- commission drag vs initial capital;
+- residual cash.
+
+This sweep is designed to answer whether cost-aware suppression materially improves practical executability instead of merely extrapolating `trades × 1 EUR`.
+
+## New deterministic tests
+
+- `tests/costAwareExecutionPolicy.unit.ts`
+  - whole shares;
+  - no negative cash;
+  - broker minimum commission;
+  - per-order fee cap;
+  - rebalance fee budget;
+  - small-drift suppression;
+  - explicit suppression reasons;
+  - broker-aware replay uses causal windows;
+  - replay order count expected below fractional research trade count;
+  - fund limitation explicit.
+
+- `tests/portfolioExecutionPlan.unit.ts` expanded:
+  - costed ETF buys/sells;
+  - order with whole shares but too-small notional becomes `REVIEW`;
+  - cost-policy warning explicit.
+
+Commands:
+
+- `npm run test:cost-aware-execution`
 - `npm run test:portfolio-execution-plan`
-- `npm run test:eodhd-shortlist`
-- `npm run validate:aistudio`
+
+Both are included in `validate:aistudio:raw`.
+
+## Automatic validation-result recording — hardened again 2026-08-28
+
+Normal user workflow must not require copying/pasting terminal output.
+
+`npm run validate:aistudio` now expects and records:
+
+- `AI_STUDIO_VALIDATION_RESULT` → `validation-results/latest-aistudio.json`;
+- `BROKER_BACKTEST_FEASIBILITY_RESULT` → `validation-results/latest-broker-backtest-feasibility.json`;
+- `BROKER_AWARE_EXECUTION_SWEEP_RESULT` → `validation-results/latest-broker-aware-execution-sweep.json`.
+
+Additionally the wrapper **always** writes:
+
+- `validation-results/latest-aistudio-run.json`
+
+with exit code, expected/detected markers and a bounded output tail. Therefore even an early failure before structured markers should leave a retrievable run record.
+
+`test:eodhd-shortlist` similarly writes a generic run record.
+
+Publication to `main` remains best-effort and the dedicated branch `validation-results` remains fallback. No GitHub Actions are used.
+
+## Current validation status of this newest block
+
+The 17:55 UTC suite validated the previous actionable-operation UI and all earlier code, but the **new cost-aware policy / broker-aware replay / capital sweep commits were added after that run**.
+
+Therefore do not yet claim this newest block is validated until a new `npm run validate:aistudio` result is recorded.
 
 ## Known blockers / limitations
 
 - Exact MyInvestor/Inversis availability of the ultimately recommended ticker/ISIN set remains unverified.
-- 100 EUR remains structurally too small for many diversified whole-share ETF allocations with 1 EUR minimum commissions.
-- Percentage-only strategy backtests remain research evidence; broker-aware diagnostics must accompany execution-readiness interpretation.
+- 100 EUR is structurally too small for many diversified whole-share ETF allocations.
+- The new cost-aware replay must be measured before deciding whether the 100 EUR case is practical or should stay in cash/funds/one-position mode.
 - Historical universe retains survivorship/catalog-availability bias.
 - Yahoo remains unofficial despite successful EODHD validation of the current listed shortlist.
-- Fund transfer eligibility is not inferred solely from the app's `transferable` flag; final tax/operational eligibility must be confirmed by the broker/entity.
-- Cross-process cache persistence is not guaranteed by the in-memory EODHD cache.
+- Fund replay is intentionally conservative/incomplete: fund target weights are held as cash.
+- Fund transfer eligibility is not inferred solely from `transferable`; final tax/operational eligibility must be confirmed by broker/entity.
 
 ## Immediate next step
 
-Run the current recorded validation after the new actionable portfolio workflow:
+Run:
 
 `npm run validate:aistudio`
 
-Do not request pasted output. Retrieve the recorded results automatically from `validation-results/latest-aistudio.json` and `validation-results/latest-broker-backtest-feasibility.json`, using branch `validation-results` as fallback.
+Then retrieve automatically:
 
-Specifically confirm:
+1. `validation-results/latest-aistudio-run.json`;
+2. `validation-results/latest-aistudio.json`;
+3. `validation-results/latest-broker-backtest-feasibility.json`;
+4. `validation-results/latest-broker-aware-execution-sweep.json`;
+5. branch `validation-results` as fallback if needed.
 
-1. `test:portfolio-execution-plan` passes;
-2. TypeScript/lint passes with the new UI/module;
-3. build passes;
-4. previous decision/portfolio/causal tests remain green;
-5. current live-data result remains technically healthy.
+Confirm specifically:
 
-If green, continue with the next execution-layer improvement: reduce real-world turnover through no-trade thresholds/order batching and improve exact MyInvestor instrument-availability verification.
+- lint/build remain green;
+- `test:portfolio-execution-plan` passes;
+- `test:cost-aware-execution` passes;
+- causal/research suites remain green;
+- capital sweep is generated for all six capitals;
+- order suppression materially reduces broker order count;
+- no negative cash or fee-budget violation;
+- compare 100/334/500/1k/5k/25k before changing policy thresholds.
+
+Do not tune thresholds merely to make 100 EUR look viable. Any threshold change must be evidence-based and recorded in D22.
 
 ## Working protocol for future chats
 
 1. Read this file from `fmaranis/Trading/main`.
 2. Read `docs/DECISIONS.md` when architecture/policy matters.
-3. Inspect current `main` HEAD and intervening commits before assuming state is current.
+3. Inspect current `main` before assuming state is current.
 4. Read `validation-results/latest-*.json` from `main`, then branch `validation-results`, before asking for validation output.
 5. Continue from **Immediate next step** unless priority is explicitly changed.
 6. After meaningful work, update this file again.
