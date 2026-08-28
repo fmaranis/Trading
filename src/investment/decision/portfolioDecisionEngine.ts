@@ -149,6 +149,7 @@ export class PortfolioDecisionEngine {
       unresolvedPositions.push({ index, category });
     }
 
+    const hasMissingValuation = existingPositions.some(x => x.action === 'DATA_MISSING');
     const currentCashEur = Math.max(0, portfolio.cashEur);
     const pendingCapitalEur = Math.max(0, portfolio.stagedCapitalPlan?.availableEur ?? 0);
     const totalPlannedCapitalEur = currentInvestedValueEur + currentCashEur + pendingCapitalEur;
@@ -219,9 +220,9 @@ export class PortfolioDecisionEngine {
     const deployableToAssetsEur = Math.max(0, deployablePool - targetCashEur);
     const positiveGaps = exposures.filter(x => x.gapEur > 0.01 && preferredByCategory.has(x.category));
     const totalPositiveGap = positiveGaps.reduce((s, x) => s + x.gapEur, 0);
-    const recommendedNewInvestmentEur = Math.min(deployableToAssetsEur, totalPositiveGap);
+    const recommendedNewInvestmentEur = hasMissingValuation ? 0 : Math.min(deployableToAssetsEur, totalPositiveGap);
 
-    const contributions: ContributionRecommendation[] = positiveGaps.map(exposure => {
+    const contributions: ContributionRecommendation[] = hasMissingValuation ? [] : positiveGaps.map(exposure => {
       const preferred = preferredByCategory.get(exposure.category)!;
       const asset = assets.get(preferred.assetId) ?? assets.get(preferred.ticker.toUpperCase())!;
       const amountEur = totalPositiveGap > 0
@@ -241,7 +242,7 @@ export class PortfolioDecisionEngine {
 
     const residualPlannedCashEur = Math.max(0, deployablePool - contributions.reduce((s, x) => s + x.amountEur, 0));
     const warnings: string[] = [];
-    if (existingPositions.some(x => x.action === 'DATA_MISSING')) warnings.push('Hay posiciones sin valoración REAL; las acciones sobre esas posiciones permanecen DATA_MISSING.');
+    if (hasMissingValuation) warnings.push('Hay posiciones sin valoración REAL: se bloquea temporalmente la asignación de capital nuevo para no calcular como si esas posiciones valieran cero.');
     if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Existen categorías sobreponderadas. El motor no vende automáticamente: separa la revisión de posiciones existentes de las nuevas aportaciones.');
     warnings.push('Las aportaciones nuevas priorizan déficits de categoría y evitan duplicar exposición ya mantenida en fondos o ETFs equivalentes.');
 
