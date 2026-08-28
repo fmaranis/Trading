@@ -16,6 +16,8 @@ export type AssetUniverseCategory =
   | 'GOLD'
   | 'COMMODITIES';
 
+export type InvestmentInstrumentType = 'ETF_ETC' | 'MUTUAL_FUND';
+
 export interface AssetUniverseItem {
   assetId: string;
   ticker: string;
@@ -23,14 +25,19 @@ export interface AssetUniverseItem {
   category: AssetUniverseCategory;
   currency: 'EUR';
   defensive?: boolean;
+  instrumentType?: InvestmentInstrumentType;
+  isin?: string;
+  marketDataProvider?: 'YAHOO' | 'EODHD_FUND';
 }
 
 /**
- * Initial discovery universe. Tickers are Yahoo/Xetra-style symbols and are
- * validated at runtime; unavailable, stale, non-EUR or insufficient-history
- * instruments are rejected by the scanner and never silently substituted.
+ * Unified discovery universe. ETFs/ETCs use Yahoo/Xetra symbols while mutual
+ * funds use EODHD NAV history by ISIN. Every instrument is scored with the
+ * same return/volatility/drawdown rules after its REAL series is loaded.
  */
 export const EUR_ASSET_UNIVERSE: AssetUniverseItem[] = [
+  { assetId: 'FUND_VANGUARD_GLOBAL', ticker: 'IE00B03HD191', isin: 'IE00B03HD191', name: 'Vanguard Global Stock Index Fund EUR Acc', category: 'GLOBAL_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
+  { assetId: 'FUND_VANGUARD_EMERGING', ticker: 'IE0031786696', isin: 'IE0031786696', name: 'Vanguard Emerging Markets Stock Index Fund EUR Acc', category: 'EMERGING_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
   { assetId: 'VWCE', ticker: 'VWCE.DE', name: 'Vanguard FTSE All-World UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
   { assetId: 'EUNL', ticker: 'EUNL.DE', name: 'iShares Core MSCI World UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
   { assetId: 'SXR8', ticker: 'SXR8.DE', name: 'iShares Core S&P 500 UCITS ETF', category: 'US_EQUITY', currency: 'EUR' },
