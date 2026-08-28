@@ -6,30 +6,43 @@
 
 React + TypeScript + Vite research/decision-support app. It ranks, backtests, alerts and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation: **2026-08-28 21:33 UTC**, green with `technicalBlockers: []`, `researchReady: true`, `readyForManualPilot: false`, lint/build PASS and all recorded suites (decision, causal, adaptive, mixed replay, analytics) green.
+Latest fully recorded validation: **2026-08-28 21:33 UTC**, green: global recorded run `exitCode: 0`, `ok: true`; lint/build PASS and recorded deterministic suites green. `researchReady: true`; `readyForManualPilot: false` remains intentionally separate.
 
-### Recorded adaptive ETF execution sweep (21:33 UTC)
+## Latest execution/fund findings
 
-Research reference: about 483 trades / 73 rebalance windows / +12.53% research return.
+Adaptive execution remains capital-dependent. At 100 EUR the policy correctly executes no ETF orders instead of paying destructive minimum fees. The latest REAL sweep has 73 causal rebalance windows.
 
-- **100 EUR (MICRO):** 0 orders, 584 suppressed, 100 EUR cash (0% return, 0 fees).
-- **334 EUR (SMALL):** 16 orders, +0.61% net, 16 EUR fees (4.79% drag).
-- **500 EUR (SMALL):** 18 orders, +5.38% net, 18 EUR fees (3.60% drag).
-- **1,000 EUR (MEDIUM):** 33 orders, +12.69% net, 33 EUR fees (3.30% drag).
-- **5,000 EUR (LARGE):** 112 orders, +17.23% net, 138.04 EUR fees (2.76% drag).
-- **25,000 EUR (INSTITUTIONAL):** 145 orders, +15.01% net, 470.59 EUR fees (1.88% drag).
+Fund diagnosis is now conclusive for the current EODHD history: 8 funds accepted, 2 currently shortlisted, but all 8 first reached the mandatory 252-bar causal-history threshold on **2026-08-19**, after the last monthly research information date **2026-07-31**. Therefore `fundOperations = 0` in the live historical sweep is a history-window limitation, not an engine failure. The independent mixed replay regression proves subscriptions/releases work when a causal fund selection actually exists.
 
-### Fund eligibility diagnosis (21:33 UTC)
+## Primary user flow
 
-- `acceptedFunds`: 8.
-- `currentlySelectedFunds`: 2.
-- `fundsEverSelectedCausally`: 0.
-- `noMonthlyWindowAfterEligibility`: 8 (all 8 accepted funds reached the mandatory 252-bar threshold only *after* the last monthly causal backtest rebalance window).
-- `eligibleButNotSelected`: 0.
+1. current market decision;
+2. Mi cartera real;
+3. Operaciones pendientes;
+4. alerts/changes;
+5. collapsed technical/history detail.
 
-This formally confirms that the live zero-fund historical operations result from historical NAV length rather than an engine flaw or ranking exclusion. `tests/mixedInstrumentCausalReplay.unit.ts` confirms that when causal fund history exists, the engine executes subscriptions, releases and accounting properly.
+The old simple decision backtest and duplicate ETF execution card are no longer shown in the primary flow. `/portfolio.html` is explicitly Laboratorio cuantitativo; `/legacy.html` is historical/experimental.
 
-Historical diagnostics only, not forecasts.
+## Broker / MyInvestor availability evidence — NEW
+
+New module: `src/investment/decision/brokerAvailability.ts`. Durable rule: `docs/DECISIONS.md` D25.
+
+Availability is now an evidence state separate from REAL market-data validity:
+
+- `CONFIRMED_MYINVESTOR`: current first-party MyInvestor evidence captured;
+- `REQUIRES_INVERSIS_LOOKUP`: not disproven, but exact current availability still needs the MyInvestor/Inversis value finder;
+- `UNVERIFIED`: reserved for cases with no usable broker evidence/state.
+
+First public-evidence pass on 2026-08-28:
+
+- **IE0032126645 — Vanguard U.S. 500 Stock Index Fund:** `CONFIRMED_MYINVESTOR`. Current MyInvestor content names the fund/ISIN.
+- **IE00B03HD191 — Vanguard Global Stock Index Fund:** `CONFIRMED_MYINVESTOR`. Current MyInvestor content names it among funds used by MyInvestor investors.
+- **IE0031786696 — Vanguard Emerging Markets Stock Index Fund:** `CONFIRMED_MYINVESTOR`. Current MyInvestor content names it among index-fund options used by MyInvestor investors.
+- **IE00B5456744 — Vanguard ESG Developed World:** `REQUIRES_INVERSIS_LOOKUP`. MyInvestor has first-party historical evidence but documents replacement/removal from an indexed portfolio in 2021; this does not prove current standalone availability.
+- **Active shortlisted ETFs (XEON.DE, ISPA.DE, EUN6.DE, ZPRV.DE, EXSA.DE, XDWH.DE):** `REQUIRES_INVERSIS_LOOKUP`. Their exchange listings/REAL data are valid evidence of the instruments, but no captured first-party MyInvestor result yet proves exact broker availability.
+
+Important MyInvestor rule confirmed from its current official broker/help pages: instruments absent from MyInvestor web/app may still be available through the Inversis-MyInvestor platform. Therefore a failed public-web search must never be encoded as `UNAVAILABLE`. Exact lookup by ISIN/ticker in Inversis is the correct final gate.
 
 ## Data / causal integrity
 
@@ -45,24 +58,12 @@ Historical diagnostics only, not forecasts.
 - MEDIUM → Risk Parity ERC.
 - HIGH → Relative Momentum.
 - Confidence means evidence quality, not probability of profit.
-- MyInvestor ETF model: whole shares, 0.12%, min 1 EUR/order, max 25 EUR/order.
-- Exact ticker/ISIN availability still requires MyInvestor/Inversis verification.
-
-## Actionable workflow
-
-Primary user flow is now intentionally:
-
-1. current market decision;
-2. **Mi cartera real**;
-3. **Operaciones pendientes**;
-4. alerts/changes;
-5. collapsed technical/history detail.
-
-`portfolioExecutionPlan.ts` + `PortfolioExecutionPlanPanel.tsx` produce `BUY_ETF`, `SELL_ETF`, `SUBSCRIBE_FUND`, `TRANSFER_FUND`, `REDEEM_FUND`, `REVIEW` with ticker/ISIN, orientative amount/shares, estimated ETF fee, rationale and completion status.
+- MyInvestor ETF cost model: whole shares, 0.12%, min 1 EUR/order, max 25 EUR/order.
+- Broker availability evidence does not alter research scores.
 
 ## Capital-adaptive execution
 
-`adaptiveExecutionPolicy.ts` changes only execution gates, never research targets:
+`adaptiveExecutionPolicy.ts` changes execution gates, never research targets:
 
 - MICRO `<300`: 12 pp drift / 100 EUR min ETF order / 1.25% max order fee drag / 0.50% window fee budget.
 - SMALL `300–999`: 8 pp / 80 EUR / 1.50% / 0.75%.
@@ -70,86 +71,17 @@ Primary user flow is now intentionally:
 - LARGE `5,000–24,999`: 4 pp / 100 EUR / 1.25% / 0.60%.
 - INSTITUTIONAL `>=25,000`: 3 pp / 150 EUR / 1.00% / 0.50%.
 
-## Mixed ETF + fund replay
-
-`mixedInstrumentCausalReplay.ts`:
-
-- ETFs: whole-share broker execution;
-- funds: EUR/NAV with fractional units;
-- possible fund operations: `SUBSCRIBE`, `REDEEM`, `TRANSFER_REVIEW`;
-- ETF targets are measured against total equity including fund value;
-- no negative cash;
-- no claim of transfer tax eligibility;
-- settlement/tax/transfer timing remains unmodeled.
-
-The 19:16 live mixed sweep produced **0 fund operations at all six capital levels**. This is not being treated as an engine failure or “fixed” by forcing funds into the portfolio.
-
-## New fund-selection diagnosis — implemented, pending fresh validation
-
-`scripts/brokerAwareExecutionSweepLive.ts` now records per mutual fund:
-
-- scanner acceptance/rejection;
-- bar count and current score;
-- current-shortlist presence;
-- first date on which 252 historical fund bars exist;
-- last causal monthly information date;
-- historical causal selection appearances;
-- diagnosis:
-  - `NO_MONTHLY_CAUSAL_WINDOW_AFTER_252_BAR_ELIGIBILITY`,
-  - `ELIGIBLE_BUT_OUTRANKED_OR_CATEGORY_DEDUPED`,
-  - `SELECTED_CAUSALLY`, or rejection reason.
-
-This should determine whether the live zero-fund result is simply caused by insufficient historical NAV depth before the last monthly decision. Current evidence strongly points that way because accepted funds had only ~258 observations.
-
-New deterministic regression:
-
-- `tests/mixedInstrumentCausalReplay.unit.ts`
-- command: `npm run test:mixed-instrument-replay`
-- included in `validate:aistudio:raw`.
-
-It creates a causal mixed dataset where a fund genuinely enters and later leaves the selected universe, and requires the engine to produce a fund subscription followed by release/review while keeping cash non-negative. This separates **engine capability** from **live selection evidence**.
-
-## UI de-duplication — implemented, pending fresh validation
-
-Durable policy: `docs/DECISIONS.md` D24.
-
-Removed from the primary decision flow:
-
-- old/simple `DecisionBacktestEngine` card shown beside the modern causal/execution evidence;
-- duplicate static `Ejecución ETF/ETC · MyInvestor` summary, because `Operaciones pendientes` is now the authoritative actionable surface;
-- duplicate always-visible provider status at page top.
-
-Collapsed by default:
-
-- provider/coverage technical detail;
-- decision history.
-
-Navigation cleanup:
-
-- `/portfolio.html` is now labeled **Laboratorio cuantitativo**, not “Cartera”; it uses SPY/GLD/QQQ/TLT research data and simulated capital, so it must not be confused with the real portfolio.
-- `/legacy.html` is explicitly **Legacy** / historical experimental UI.
-
-No research engines were deleted merely because their presentation was removed. The goal is less duplication without losing validation capability.
-
-## Validation recording
-
-`npm run validate:aistudio` records:
-
-- `validation-results/latest-aistudio-run.json` even on early failure;
-- `latest-aistudio.json`;
-- `latest-broker-backtest-feasibility.json`;
-- `latest-broker-aware-execution-sweep.json`.
-
-Do not ask the user to paste normal output. Read `main`, then branch `validation-results` as fallback.
-
 ## Known blockers / limitations
 
-- Exact MyInvestor/Inversis availability of selected ticker/ISIN remains unverified.
+- Exact Inversis lookup remains pending for active shortlisted ETFs and several funds.
 - Fund settlement/tax/transfer timing is not yet simulated.
 - Historical universe retains current-catalog survivorship bias.
 - Yahoo remains unofficial/non-contractual.
+- Public MyInvestor pages cannot be treated as an exhaustive instrument catalogue.
 
 ## Immediate next step
 
-1. Advance instrument availability verification against MyInvestor/Inversis for the active shortlisted universe.
-2. Advance fund settlement/transfer modeling when actual broker rules are specified.
+1. Propagate `brokerAvailability.ts` into the actionable recommendation/execution-plan UI so every proposed instrument explicitly says broker-confirmed vs Inversis lookup required.
+2. Add deterministic tests preventing an unconfirmed instrument from being labeled broker-confirmed/executable.
+3. When exact Inversis lookup evidence is available, update the registry by ISIN/ticker rather than inferring availability from third-party listings.
+4. Re-run `npm run validate:aistudio` after the UI/test integration.
