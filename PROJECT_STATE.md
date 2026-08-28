@@ -14,92 +14,50 @@
 - Repository, not chat memory, is the source of truth.
 - Do not add or depend on GitHub Actions.
 
-## Current product shape
+## Product shape
 
 React + TypeScript + Vite research/decision-support application. It analyses, ranks, backtests, alerts and proposes execution plans; it does **not** execute broker trades.
 
-Main implemented areas:
-
-- REAL historical market data with provenance/fingerprints;
-- Yahoo primary daily data;
-- EODHD secondary cross-validation + fund NAV/history;
-- single/multi-asset backtesting;
-- portfolio analytics and regime analysis;
-- risk-profile decision engine;
-- ETF/ETC/fund universe scanning;
-- causal historical universe reselection;
-- whole-share MyInvestor execution modelling;
-- broker execution quality and minimum diversified capital estimation;
-- broker-aware backtest cost feasibility diagnostics;
-- opportunity alerts/outcomes/threshold research/walk-forward;
-- user/fund portfolios and unified ETF+fund universe;
-- portfolio decision engine;
-- Python/vectorbt comparison infrastructure.
+Implemented areas include REAL historical data with provenance/fingerprints, Yahoo primary daily data, EODHD secondary validation/fund NAV, portfolio analytics, risk-profile decisions, ETF/ETC/fund scanning, causal universe reselection, whole-share MyInvestor modelling, broker execution-quality/minimum-capital checks, broker-aware backtest cost diagnostics, opportunity research, unified ETF+fund portfolios and Python/vectorbt comparison infrastructure.
 
 ## Data providers
 
 ### Yahoo Finance
 
 - Primary daily historical source through server proxy.
-- REAL requests must never silently fall back to synthetic data.
-- Yahoo remains unofficial/non-contractual and must not be described as exchange-grade real time.
+- REAL requests never silently fall back to synthetic data.
+- Yahoo is unofficial/non-contractual and is not described as exchange-grade real time.
 
 ### EODHD
 
-- Server-side key; never exposed to client.
-- Secondary/non-blocking for ETF cross-validation; also fund NAV/history source.
-- `.DE` Yahoo listings map to `.XETRA` for ETF cross-check.
+- Server-side key, never exposed to client.
+- Secondary/non-blocking ETF cross-validation and fund NAV/history source.
+- Yahoo `.DE` maps to EODHD `.XETRA` for ETF checks.
 - ETF tolerance: 1%.
-- Cross-check cache TTL: 24 h.
-- Fund-history cache TTL: 6 h.
+- Cross-check cache TTL: 24 h; fund-history cache TTL: 6 h.
 
 ### Verified shortlist-wide EODHD result — 2026-08-28
 
-`npm run test:eodhd-shortlist` passed in the configured environment.
-
-Selected 8 assets:
-
-- `XEON.DE`
-- `ISPA.DE`
-- `EUN6.DE`
-- `ZPRV.DE`
-- `EXSA.DE`
-- `IE00B5456744`
-- `XDWH.DE`
-- `IE0032126645`
-
-Result:
+`npm run test:eodhd-shortlist` passed with 8 selected assets: `XEON.DE`, `ISPA.DE`, `EUN6.DE`, `ZPRV.DE`, `EXSA.DE`, `IE00B5456744`, `XDWH.DE`, `IE0032126645`.
 
 - listed ETFs: **6/6 checked, 6/6 matched**;
-- observed price difference: **0.00%** for all six checked ETFs;
-- mutual funds: **2/2** correctly routed through the fund NAV pipeline;
+- observed listed-ETF price difference: **0.00%**;
+- mutual funds: **2/2** routed through fund NAV pipeline;
 - first pass: 8 upstream requests, 0 cache hits;
 - immediate rerun: 0 upstream calls, 8 cache hits;
 - same-process cache reuse: **100%**;
 - `validationPassed: true`.
 
-The previous shortlist-wide EODHD blocker is closed.
+The shortlist-wide EODHD blocker is closed.
 
-## Asset universe / causal integrity
+## Causal integrity
 
-- Unified discovery catalog contains ETFs/ETCs plus supported mutual funds.
-- Runtime scanner rejects unavailable, non-EUR, stale or insufficient-history instruments.
-- Shortlist permits maximum one selected exposure per category and includes a defensive exposure when available.
-- Scanner score: momentum 20/60/120, annualised 60-return volatility, 252-bar max drawdown, defensive bonus.
-- No full correlation penalty or point-in-time delisted universe should be assumed.
-
-### 2026-08-28 causal-history hardening
-
-`CausalUniverseBacktestEngine` now defines `CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS = 252`.
-
-- Historical candidates cannot be scored before 252 bars exist.
-- The causal warm-up cannot be forced below 252 even if a caller supplies a smaller `warmupBars` value.
-- This aligns historical causal eligibility with the scanner's current 252-bar minimum.
-- Regression tests cover minimum history, forced-short warmup, lookahead mutation invariance and accounting.
-
-Residual limitation remains: causal reselection occurs inside the currently available/validated catalog, so delisted/no-longer-queryable historical instruments are absent.
-
-Because the universe now mixes listed ETFs and mutual-fund NAV series, the next full live validation must also confirm that common-date alignment remains sufficiently populated for the causal engine. Do not assume this until the current validation output is recorded.
+- Scanner minimum history: 252 bars.
+- `CausalUniverseBacktestEngine` now enforces the same 252-bar minimum before historical scoring/selection.
+- Causal warm-up cannot be forced below 252 bars.
+- Regression tests cover history threshold, warm-up, future-data mutation invariance and accounting.
+- Residual survivorship/catalog bias remains because delisted/no-longer-queryable historical instruments are absent.
+- Mixed ETF trading dates and mutual-fund NAV dates still need to remain healthy in the common-date causal path on the latest full validation.
 
 ## Decision engine
 
@@ -107,11 +65,10 @@ Because the universe now mixes listed ETFs and mutual-fund NAV series, the next 
 - MEDIUM → Risk Parity ERC.
 - HIGH → Relative Momentum.
 - Regime overlay may increase cash defensively.
-- Confidence means evidence/data quality, **not** probability of profit.
-- Current confidence cap remains 85 unless later evidence policy changes.
-- UI must describe daily data as latest available close/daily data, not real time.
+- Confidence means evidence/data quality, not probability of profit.
+- Current confidence cap remains 85 unless evidence policy changes.
 
-## Broker / MyInvestor execution
+## Broker / MyInvestor
 
 Current model:
 
@@ -121,46 +78,57 @@ Current model:
 - maximum 25 EUR/order;
 - exact selected ticker/ISIN availability still requires MyInvestor/Inversis verification.
 
-Theoretical allocation and executable portfolio are separate concepts.
+Theoretical allocation and executable portfolio remain separate concepts. For the 100 EUR MEDIUM case, whole-share execution can collapse to one position, so affordability alone is not sufficient diversification quality.
 
-For the previously reported 100 EUR MEDIUM case, whole-share execution collapses to one position; therefore affordability is not sufficient for MEDIUM diversification quality. The code estimates minimum capital satisfying explicit diversification/concentration/fee criteria.
+## Broker-aware backtest integrity
 
-## 2026-08-28 broker-aware backtest integrity
+Module: `src/investment/decision/brokerBacktestFeasibility.ts`.
 
-New module: `src/investment/decision/brokerBacktestFeasibility.ts`.
+It prevents percentage-only research backtests from being interpreted as broker-executable economics when a fixed minimum commission applies. It reports:
 
-Purpose: prevent percentage-only research backtests from being interpreted as executable MyInvestor economics when the broker charges a fixed minimum per order.
-
-The diagnostic reports:
-
-- mathematical minimum commission lower bound = `totalTrades × broker minimum commission`;
+- minimum commission lower bound = `totalTrades × broker minimum commission`;
 - lower-bound trading costs;
 - minimum commission drag as % of initial capital;
-- modeled commission understatement in EUR and factor;
-- whether the percentage-only commission result is compatible with the broker minimum;
-- minimum capital required to keep the lower-bound commission drag below an explicit target;
-- explicit warnings when broker minimum fees invalidate the simplified cost interpretation.
-
-Deterministic test: `tests/brokerBacktestFeasibility.unit.ts`.
+- commission understatement in EUR/factor;
+- compatibility of the research commission model with the broker minimum;
+- minimum capital required for a specified commission-drag ceiling;
+- explicit warnings when simplified research costs are economically incompatible with MyInvestor.
 
 Commands:
 
 - `npm run test:broker-backtest-feasibility`
 - `npm run test:broker-backtest-feasibility:live`
 
-New live script: `scripts/brokerBacktestFeasibilityLive.ts`.
+`validate:aistudio` runs both deterministic and live broker-cost diagnostics. Durable policy is recorded in `docs/DECISIONS.md` D20.
 
-The live script:
+## Automatic validation-result recording — 2026-08-28
 
-1. loads the current REAL unified universe;
-2. runs the current causal MEDIUM backtest at 100 EUR using the research commission/slippage model;
-3. applies the MyInvestor 1 EUR/order lower-bound diagnostic to the actual current causal trade count and modeled commission;
-4. emits `BROKER_BACKTEST_FEASIBILITY_RESULT`;
-5. explicitly reports `manualPilotBlocker` when the research commission is below the broker minimum-fee lower bound.
+The user must **not** be asked to copy/paste validation output into chat as the normal workflow.
 
-`validate:aistudio` now runs both the deterministic broker-cost test and the live broker-cost diagnostic after the existing validator.
+New infrastructure:
 
-Durable policy recorded in `docs/DECISIONS.md` D20: strategy backtest costs and broker-executable costs are separate evidence.
+- `scripts/validationResultStore.ts`
+- `scripts/runRecordedValidation.ts`
+- `validation-results/README.md`
+
+Recorded commands:
+
+- `npm run validate:aistudio`
+  - executes internal `validate:aistudio:raw`;
+  - captures `AI_STUDIO_VALIDATION_RESULT`;
+  - captures `BROKER_BACKTEST_FEASIBILITY_RESULT`;
+  - writes `validation-results/latest-aistudio.json`;
+  - writes `validation-results/latest-broker-backtest-feasibility.json`.
+- `npm run test:eodhd-shortlist`
+  - executes internal `test:eodhd-shortlist:raw`;
+  - captures `EODHD_SHORTLIST_VALIDATION_RESULT`;
+  - writes `validation-results/latest-eodhd-shortlist.json`.
+
+Each recorded result includes timestamp, Git HEAD/branch and structured payload. After writing, the wrapper attempts an isolated Git commit and push containing **only** the generated validation-result files. It does not use GitHub Actions and does not stage unrelated working-tree changes.
+
+If credentials/push are unavailable, the validation result remains written locally and the validation itself is not invalidated. `VALIDATION_AUTO_COMMIT=0` explicitly disables auto commit/push.
+
+**Future-chat rule:** after the user says a validation/check finished, first read the appropriate file under `validation-results/` from `main`. Do not ask the user to paste the terminal output unless automatic recording demonstrably failed.
 
 ## Important validation commands
 
@@ -185,68 +153,47 @@ Durable policy recorded in `docs/DECISIONS.md` D20: strategy backtest costs and 
 - `npm run test:eodhd-shortlist`
 - `npm run validate:aistudio`
 
+Internal raw commands exist only so the recording wrapper can run the original checks without recursion:
+
+- `npm run validate:aistudio:raw`
+- `npm run test:eodhd-shortlist:raw`
+
 ## Validation status
 
-Verified live/provider-dependent:
+Verified provider-dependent:
 
-- `test:eodhd-shortlist`: **PASS**;
+- `test:eodhd-shortlist`: PASS;
 - 6/6 listed ETFs matched EODHD;
 - 2/2 mutual funds routed correctly;
 - immediate rerun 0 upstream / 8 cache hits;
 - `validationPassed: true`.
 
-Previous deterministic suite before the newest broker-aware/history-hardening commits had reported:
+Previous deterministic suite before the newest broker-aware/history-hardening commits had reported lint/build/core tests PASS, `technicalBlockers: []`, `researchReady: true`, `readyForManualPilot: false`.
 
-- lint PASS;
-- decision tests PASS;
-- decision-backtest PASS;
-- causal-universe PASS;
-- broker-execution PASS;
-- multi-asset PASS;
-- portfolio analytics PASS;
-- regime analytics PASS;
-- build PASS;
-- `technicalBlockers: []`;
-- `researchReady: true`;
-- `readyForManualPilot: false`.
-
-**Important:** the complete deterministic/live suite has not yet been executed after the newest broker-aware, 252-bar causal-history and live broker-diagnostic commits. Do not claim the present HEAD fully validated until `npm run validate:aistudio` is rerun in the configured environment.
+The newest full validation result must now be taken from `validation-results/latest-aistudio.json` and `validation-results/latest-broker-backtest-feasibility.json` after the next `npm run validate:aistudio` execution.
 
 ## Known blockers / limitations
 
 - Exact MyInvestor/Inversis availability of the ultimately recommended ticker/ISIN set remains unverified.
-- 100 EUR is structurally too small to reproduce many diversified ETF allocations with whole shares and 1 EUR minimum commissions.
-- Percentage-only strategy backtests remain research evidence; broker-aware diagnostics must accompany execution-readiness interpretation.
-- Historical universe still has survivorship/catalog-availability bias.
-- Yahoo remains an unofficial primary source despite successful EODHD cross-validation of the current listed-ETF shortlist.
-- Catalog breadth remains modest.
-- Mixed ETF trading dates and mutual-fund NAV dates must be revalidated in the causal common-date path after the unified-universe expansion.
-- Cross-process cache persistence is not guaranteed by the current in-memory cache design.
+- 100 EUR is structurally too small for many diversified ETF allocations with whole shares and 1 EUR minimum commissions.
+- Percentage-only strategy backtests remain research evidence; broker-aware diagnostics accompany execution-readiness interpretation.
+- Historical universe retains survivorship/catalog-availability bias.
+- Yahoo remains unofficial despite successful EODHD validation of the current listed shortlist.
+- Mixed ETF/fund common-date alignment must remain verified on the latest causal run.
+- Cross-process cache persistence is not guaranteed by the in-memory EODHD cache.
 
 ## Immediate next step
 
-Run on the current HEAD:
+Run the current recorded validation once with:
 
 `npm run validate:aistudio`
 
-Expected additional output marker after the existing AI Studio result:
+After it finishes, do **not** request pasted output. Read from GitHub:
 
-`BROKER_BACKTEST_FEASIBILITY_RESULT`
+- `validation-results/latest-aistudio.json`
+- `validation-results/latest-broker-backtest-feasibility.json`
 
-Record especially:
-
-1. threshold research and walk-forward tests;
-2. fund portfolio and unified universe tests;
-3. portfolio decision tests;
-4. broker-backtest-feasibility deterministic test;
-5. causal-universe test with the new 252-bar policy;
-6. lint/build and AI Studio deterministic report;
-7. live causal broker-cost diagnostic;
-8. `technicalBlockers`;
-9. `researchReady`;
-10. `readyForManualPilot` plus all blockers;
-11. updated causal result and trade count;
-12. whether mixed ETF/fund common-date alignment remains healthy.
+If those files were automatically pushed, continue immediately from their contents. If the files do not appear in GitHub, first diagnose the automatic recording/push path; only then consider any manual fallback.
 
 If green, continue with the highest-impact remaining blocker: broker/manual-pilot viability and exact instrument availability, while keeping strategy research separate from execution economics.
 
@@ -254,6 +201,7 @@ If green, continue with the highest-impact remaining blocker: broker/manual-pilo
 
 1. Read this file from `fmaranis/Trading/main`.
 2. Read `docs/DECISIONS.md` when architecture/policy matters.
-3. Inspect current `main` HEAD and intervening commits before assuming this state is current.
-4. Continue from **Immediate next step** unless priority is explicitly changed.
-5. After meaningful work, update this file again.
+3. Inspect current `main` HEAD and intervening commits before assuming state is current.
+4. Read `validation-results/latest-*.json` before asking for any validation output.
+5. Continue from **Immediate next step** unless priority is explicitly changed.
+6. After meaningful work, update this file again.
