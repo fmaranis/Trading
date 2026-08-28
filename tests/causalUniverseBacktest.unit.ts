@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { AssetUniverseItem, CausalUniverseBacktestEngine } from '../src/investment/decision';
+import { AssetUniverseItem, CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS, CausalUniverseBacktestEngine } from '../src/investment/decision';
 import { MultiAssetDataset } from '../src/investment/portfolioBacktesting';
 
 function dateAt(i: number): string {
@@ -24,7 +24,7 @@ const catalog: AssetUniverseItem[] = [
   { assetId: 'F', ticker: 'F.DE', name: 'F', category: 'HEALTHCARE', currency: 'EUR' }
 ];
 
-function dataset(mutator?: (id: string, i: number, close: number) => number): MultiAssetDataset {
+function dataset(mutator?: (id: string, i: number, close: number) => number, n = 760): MultiAssetDataset {
   const defs = [
     ['A', 100, 0.00055, 0.0016], ['B', 80, 0.00075, 0.0022], ['C', 65, 0.00035, 0.0014],
     ['D', 100, 0.00010, 0.00035], ['E', 140, 0.00004, 0.00010], ['F', 50, 0.00045, 0.0018]
@@ -32,7 +32,7 @@ function dataset(mutator?: (id: string, i: number, close: number) => number): Mu
   return {
     timeframe: '1d',
     assets: defs.map(([id, start, drift, wobble], idx) => {
-      const raw = series(start, drift, wobble);
+      const raw = series(start, drift, wobble, n);
       return {
         assetId: id,
         ticker: `${id}.DE`,
@@ -51,13 +51,24 @@ function dataset(mutator?: (id: string, i: number, close: number) => number): Mu
 
 const config = { initialCapital: 1000, riskProfile: 'MEDIUM' as const, horizonYears: 3 as const, commissionPct: 0.05, slippagePct: 0.02, rebalanceFrequency: 'MONTHLY' as const };
 const base = CausalUniverseBacktestEngine.run(dataset(), catalog, config, 4);
+assert.equal(CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS, 252);
 assert.equal(base.scope, 'CAUSAL_SELECTION_WITHIN_CURRENTLY_VALIDATED_UNIVERSE');
 assert.ok(base.rebalanceCount > 3);
 assert.ok(base.selectionHistory.length === base.rebalanceCount);
 assert.ok(base.selectionHistory.every(x => x.informationEndDate < x.executionDate));
 assert.ok(base.selectionHistory.every(x => x.selectedTickers.length >= 2 && x.selectedTickers.length <= 4));
+assert.ok(base.selectionHistory[0].informationEndDate >= dateAt(CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS - 1));
+assert.ok(base.notes.some(note => note.includes('252 barras')));
 assert.ok(base.totalTrades > 0);
 assert.ok(base.finalEquity > 0);
+
+const forcedShortWarmup = CausalUniverseBacktestEngine.run(dataset(), catalog, { ...config, warmupBars: 121 }, 4);
+assert.equal(forcedShortWarmup.selectionHistory[0].informationEndDate, base.selectionHistory[0].informationEndDate);
+
+assert.throws(
+  () => CausalUniverseBacktestEngine.run(dataset(undefined, 250), catalog, config, 4),
+  /Histórico común insuficiente/
+);
 
 const mutated = CausalUniverseBacktestEngine.run(dataset((id, i, close) => i >= 620 ? close * (id === 'B' ? 3.0 : 0.45) : close), catalog, config, 4);
 const cutoff = dateAt(619);
@@ -70,4 +81,4 @@ assert.deepEqual(
   mutated.equityCurve.filter(x => x.timestamp <= cutoff).map(x => [x.timestamp, Number(x.equity.toFixed(8))])
 );
 
-console.log('Causal Universe Backtest: 8/8 selection/lookahead/accounting invariants passed.');
+console.log('Causal Universe Backtest: 13/13 selection/lookahead/history/accounting invariants passed.');
