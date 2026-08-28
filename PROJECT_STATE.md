@@ -11,8 +11,7 @@
 - Repository: `fmaranis/Trading`
 - Canonical branch: `main`
 - State updated: **2026-08-28**
-- Latest code HEAD before this state-file update: `e25a06f92bcc099f075cabfd7e1265a5c9987918`
-- Latest code HEAD message: `Expose shortlist-wide EODHD validation command`
+- Latest validated code block includes shortlist-wide EODHD validation support through commit `e25a06f92bcc099f075cabfd7e1265a5c9987918` and subsequent state updates.
 - This repository, not chat memory, is the source of truth.
 
 ## Current product shape
@@ -51,19 +50,43 @@ React + TypeScript + Vite research/decision-support application for investment a
 - Cross-check tolerance currently used by the route: **1%**.
 - Cross-check cache TTL: **24 h**.
 - Fund-history cache TTL: **6 h**.
-- The last observed runtime cache check before shortlist-wide validation showed reuse of cached cross-check data (`upstreamCalls: 0`, `cacheHits: 1`).
-- Existing one-symbol smoke command remains: `npm run test:eodhd`.
-- New shortlist-wide command is implemented: `npm run test:eodhd-shortlist`.
-- New script: `scripts/eodhdShortlistSmoke.ts`.
-- The shortlist-wide script obtains the live scanner-selected shortlist (up to 8 assets), posts all selected tickers to `/api/eodhd/cross-check` in one request, reports Yahoo/EODHD dates and closes, difference %, status and cache state, then immediately repeats the same request to prove 24 h cache reuse.
-- The shortlist-wide script also reports aggregate requested/checked/matched/divergent/coverage/upstreamCalls/cacheHits and preserves EODHD as secondary/non-blocking.
-- Runtime execution of `test:eodhd-shortlist` on the user's configured environment is **pending**; do not claim shortlist-wide EODHD validation has passed until its output is recorded here.
+- One-symbol smoke command remains: `npm run test:eodhd`.
+- Shortlist-wide command is implemented and verified: `npm run test:eodhd-shortlist`.
+- Script: `scripts/eodhdShortlistSmoke.ts`.
+
+### Verified shortlist-wide EODHD result — 2026-08-28
+
+`npm run test:eodhd-shortlist` executed successfully in the configured user environment.
+
+Selected shortlist (8 assets):
+
+- `XEON.DE`
+- `ISPA.DE`
+- `EUN6.DE`
+- `ZPRV.DE`
+- `EXSA.DE`
+- `IE00B5456744`
+- `XDWH.DE`
+- `IE0032126645`
+
+Cross-validation result:
+
+- Listed ETFs: **6/6 checked, 6/6 matched** against EODHD XETRA data.
+- Observed listed-ETF price difference: **0.00%** for all six checked ETFs.
+- Mutual funds: **2/2** correctly handled through the separate fund NAV pipeline rather than the listed-ETF XETRA comparison path.
+- First pass: **8 upstream requests, 0 cache hits**; summary state `PARTIAL`, with 75% listed-ETF cross-check coverage because two shortlist assets are mutual funds handled separately.
+- Immediate rerun: **0 upstream calls, 8 cache hits**.
+- Cache reuse: **100%** for unchanged inputs, consistent with the 24 h cross-check TTL.
+- `validationPassed: true`.
+- EODHD remains secondary/non-blocking; Yahoo remains the primary historical market-data path.
+
+This closes the previous blocker: shortlist-wide EODHD cross-validation and same-process cache reuse are now empirically demonstrated.
 
 ## Asset universe and selection
 
 - Discovery catalog currently contains 30 EUR candidates.
 - Runtime validation rejects unavailable/non-EUR/stale/insufficient-history instruments.
-- The last reported scan accepted 22/30 and rejected 8 as `MarketDataSymbolNotFoundError`.
+- The last reported broad scan accepted 22/30 and rejected 8 as `MarketDataSymbolNotFoundError`.
 - Current shortlist selection is diversified by category: maximum one selected exposure per category, with defensive inclusion when available.
 - Scanner score uses momentum 20/60/120, 60-return annualised volatility, 252-bar max drawdown and defensive bonus.
 - No correlation penalty or exposure/ISIN deduplication should be assumed unless explicitly added later.
@@ -134,11 +157,19 @@ Important local commands include:
 - `npm run test:eodhd-shortlist`
 - `npm run validate:aistudio`
 
-`validate:aistudio` currently chains threshold research, threshold walk-forward, fund portfolio, unified universe, portfolio decision, and the deterministic AI Studio validator. The live EODHD shortlist test remains a separate provider-dependent smoke test and is not added as a blocking dependency of deterministic validation.
+`validate:aistudio` currently chains threshold research, threshold walk-forward, fund portfolio, unified universe, portfolio decision, and the deterministic AI Studio validator. The live EODHD shortlist test remains a separate provider-dependent smoke test and is not a blocking dependency of deterministic validation.
 
 ## Last known validation status
 
-The last full validation output supplied by the user before the newest shortlist-test commits reported:
+Most recent provider-dependent validation:
+
+- `test:eodhd-shortlist`: **PASS**.
+- Listed ETFs: 6/6 matched.
+- Mutual funds: 2/2 routed through fund NAV handling.
+- Immediate second pass: 0 upstream calls / 8 cache hits.
+- `validationPassed: true`.
+
+The last full deterministic validation supplied before the shortlist-wide EODHD test reported:
 
 - TypeScript/lint PASS;
 - decision tests PASS;
@@ -153,41 +184,37 @@ The last full validation output supplied by the user before the newest shortlist
 - `researchReady: true`;
 - `readyForManualPilot: false`.
 
-Do **not** assume that this exact validation result covers the new `scripts/eodhdShortlistSmoke.ts` and package command. The current suite must be rerun after the live shortlist smoke is executed.
+The deterministic validation suite must now be rerun on the current HEAD before declaring the entire present repository state fully validated.
 
 ## Known blockers / limitations
 
 - Exact MyInvestor/Inversis availability of the ultimately recommended ticker/ISIN set is not yet verified.
 - 100 EUR is generally too small to reproduce diversified theoretical ETF portfolios with whole shares and 1 EUR minimum commissions.
 - Historical universe still has survivorship/catalog-availability bias because delisted historical instruments are absent.
-- Yahoo remains an unofficial primary provider.
-- EODHD shortlist-wide cross-validation code is implemented but its live runtime result has not yet been recorded.
+- Yahoo remains an unofficial primary provider, although the current listed-ETF shortlist has now been successfully cross-validated against EODHD.
 - The catalog is still modest (30 discovery candidates), with 8 last reported as unavailable through Yahoo.
-- Persistent cross-process market-data/cache behaviour should not be assumed beyond what each server implementation explicitly provides.
+- Cross-process/cache persistence should not be assumed beyond what the server implementation explicitly guarantees; the verified cache result is same-process immediate reuse.
 - Do not add or depend on GitHub Actions for this project.
 
 ## Immediate next step
 
-**Run the newly implemented shortlist-wide EODHD validation in the configured local environment:**
-
-`npm run test:eodhd-shortlist`
-
-Expected output marker: `EODHD_SHORTLIST_VALIDATION_RESULT`.
-
-Review and record:
-
-1. current selected tickers (up to 8);
-2. per ticker Yahoo date/close, EODHD symbol/date/close, difference %, status and cache hit;
-3. aggregate `checked`, `matched`, `divergent`, `coveragePct`, `upstreamCalls`, `cacheHits`;
-4. any quota/auth/network/no-data states;
-5. immediate rerun showing 24 h cache reuse, ideally `upstreamCalls: 0` and cache hits for every cacheable result;
-6. `validationPassed`.
-
-If the shortlist-wide test passes, rerun:
+Run the deterministic/current-state validation on the current repository:
 
 `npm run validate:aistudio`
 
-Then record whether all newer fund/unified-universe/portfolio-decision and core quant changes remain green, and update this file with both outputs.
+Record the complete result, especially:
+
+1. threshold research tests;
+2. threshold walk-forward tests;
+3. fund portfolio tests;
+4. unified investment universe tests;
+5. portfolio decision engine tests;
+6. AI Studio deterministic validator output;
+7. `technicalBlockers`;
+8. `researchReady`;
+9. `readyForManualPilot` and its blockers.
+
+If this passes, update this file with the exact current validation result and then continue with the highest-impact remaining blocker rather than reopening EODHD shortlist validation.
 
 ## Working protocol for future chats
 
