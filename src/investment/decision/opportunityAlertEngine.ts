@@ -45,7 +45,11 @@ function isEligible(score: number | null | undefined, momentum: number | null | 
 
 export class OpportunityAlertEngine {
   static evaluate(context: OpportunityAlertContext): OpportunityAlert[] {
-    const { scan, decision, previousDecision, previousSnapshot, evidence } = context;
+    const { scan, decision, previousDecision, evidence } = context;
+    const inferredPreviousSnapshot = context.previousSnapshot ?? (() => {
+      const shortlist = (previousDecision as (DecisionHistoryEntry & { shortlist?: PreviousOpportunitySnapshot['shortlist'] }) | null | undefined)?.shortlist;
+      return previousDecision && shortlist ? { asOfDate: previousDecision.asOfDate, shortlist } : null;
+    })();
     const alerts: OpportunityAlert[] = [];
     const asOf = decision.asOfDate;
 
@@ -86,9 +90,9 @@ export class OpportunityAlertEngine {
     }
 
     // A first snapshot establishes the baseline. It must not manufacture a "new opportunity".
-    if (previousSnapshot) {
+    if (inferredPreviousSnapshot) {
       const selected = [...scan.selected].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
-      const previousRanked = [...previousSnapshot.shortlist].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+      const previousRanked = [...inferredPreviousSnapshot.shortlist].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
       const evidenceConfirmed = evidence?.state === 'CROSS_PROVIDER_CONFIRMED';
 
       for (const candidate of selected.slice(0, 3)) {
