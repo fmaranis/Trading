@@ -2,6 +2,7 @@ export type AssetUniverseCategory =
   | 'GLOBAL_EQUITY'
   | 'US_EQUITY'
   | 'EUROPE_EQUITY'
+  | 'JAPAN_EQUITY'
   | 'EMERGING_EQUITY'
   | 'SMALL_CAP'
   | 'TECHNOLOGY'
@@ -34,10 +35,20 @@ export interface AssetUniverseItem {
  * Unified discovery universe. ETFs/ETCs use Yahoo/Xetra symbols while mutual
  * funds use EODHD NAV history by ISIN. Every instrument is scored with the
  * same return/volatility/drawdown rules after its REAL series is loaded.
+ *
+ * This is a discovery catalogue, not a recommendation cap. Runtime validation
+ * rejects unavailable/stale instruments and the UI can display every accepted
+ * candidate even when only a diversified subset enters the portfolio allocator.
  */
 export const EUR_ASSET_UNIVERSE: AssetUniverseItem[] = [
   { assetId: 'FUND_VANGUARD_GLOBAL', ticker: 'IE00B03HD191', isin: 'IE00B03HD191', name: 'Vanguard Global Stock Index Fund EUR Acc', category: 'GLOBAL_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
   { assetId: 'FUND_VANGUARD_EMERGING', ticker: 'IE0031786696', isin: 'IE0031786696', name: 'Vanguard Emerging Markets Stock Index Fund EUR Acc', category: 'EMERGING_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
+  { assetId: 'FUND_VANGUARD_US500', ticker: 'IE0032126645', isin: 'IE0032126645', name: 'Vanguard U.S. 500 Stock Index Fund EUR Acc', category: 'US_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
+  { assetId: 'FUND_VANGUARD_EUROPE', ticker: 'IE0007987708', isin: 'IE0007987708', name: 'Vanguard European Stock Index Fund EUR Acc', category: 'EUROPE_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
+  { assetId: 'FUND_VANGUARD_EUROZONE', ticker: 'IE0008248803', isin: 'IE0008248803', name: 'Vanguard Eurozone Stock Index Fund EUR Acc', category: 'EUROPE_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
+  { assetId: 'FUND_VANGUARD_JAPAN', ticker: 'IE0007286036', isin: 'IE0007286036', name: 'Vanguard Japan Stock Index Fund EUR Acc', category: 'JAPAN_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
+  { assetId: 'FUND_VANGUARD_ESG_DEVELOPED', ticker: 'IE00B5456744', isin: 'IE00B5456744', name: 'Vanguard ESG Developed World All Cap Equity Index Fund EUR Acc', category: 'GLOBAL_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
+  { assetId: 'FUND_VANGUARD_ESG_EMERGING', ticker: 'IE00BKV0W243', isin: 'IE00BKV0W243', name: 'Vanguard ESG Emerging Markets All Cap Equity Index Fund EUR Acc', category: 'EMERGING_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
   { assetId: 'VWCE', ticker: 'VWCE.DE', name: 'Vanguard FTSE All-World UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
   { assetId: 'EUNL', ticker: 'EUNL.DE', name: 'iShares Core MSCI World UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
   { assetId: 'SXR8', ticker: 'SXR8.DE', name: 'iShares Core S&P 500 UCITS ETF', category: 'US_EQUITY', currency: 'EUR' },
