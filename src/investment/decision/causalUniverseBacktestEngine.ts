@@ -5,6 +5,8 @@ import { AssetUniverseItem } from './assetUniverse';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
 import { DecisionBacktestConfig, DecisionBacktestPoint, InvestmentDecisionResult } from './types';
 
+export const CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS = 252;
+
 export interface CausalUniverseSelectionRecord {
   informationEndDate: string;
   executionDate: string;
@@ -82,7 +84,7 @@ function maxDrawdown(prices: number[], lookback = 252): number | null {
 }
 
 function scoreCandidate(prices: number[], defensive: boolean): number | null {
-  if (prices.length < 121) return null;
+  if (prices.length < CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS) return null;
   const m20 = pctReturn(prices, 20) ?? 0;
   const m60 = pctReturn(prices, 60) ?? 0;
   const m120 = pctReturn(prices, 120) ?? 0;
@@ -149,7 +151,7 @@ export class CausalUniverseBacktestEngine {
     if (provenance.portfolioEvidence !== 'REAL_ONLY') throw new Error('El backtest causal exige universo REAL_ONLY.');
 
     const dates = commonTradingDates(universeDataset);
-    const warmupBars = Math.max(config.warmupBars ?? 181, 181);
+    const warmupBars = Math.max(config.warmupBars ?? CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS, CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS);
     if (dates.length <= warmupBars + 2) throw new Error('Histórico común insuficiente para backtest causal de selección.');
     const bars = barByDate(universeDataset);
     const positions: Record<string, MutablePortfolioPosition> = Object.fromEntries(
@@ -249,6 +251,7 @@ export class CausalUniverseBacktestEngine {
       selectionHistory,
       universeDatasetFingerprint: provenance.portfolioDatasetFingerprint,
       notes: [
+        `Cada activo necesita al menos ${CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS} barras previas para ser puntuable, alineado con el mínimo del scanner.`,
         'En cada rebalanceo, ranking y shortlist usan solo datos hasta Close(t-1).',
         'La asignación se calcula solo sobre el shortlist causal y se ejecuta en Open(t).',
         'Los activos que salen del shortlist reciben peso objetivo 0 y se liquidan con costes.',
