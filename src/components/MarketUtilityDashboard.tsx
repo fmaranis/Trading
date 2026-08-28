@@ -56,15 +56,21 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdV
   const [history, setHistory] = useState<MarketSnapshotEntry[]>(() => MarketSnapshotHistoryService.load());
 
   const execution = useMemo(() => {
-    const prices = Object.fromEntries(scan.selected.map(c => [c.asset.assetId, Number(c.lastClose ?? 0)]));
-    const plan = buildWholeShareExecutionPlan(decision.capitalEur, decision.assets, prices, MYINVESTOR_BROKER_PROFILE);
+    const listedSelected = scan.selected.filter(c => c.asset.instrumentType !== 'MUTUAL_FUND');
+    const listedIds = new Set(listedSelected.map(c => c.asset.assetId));
+    const listedAssetsRaw = decision.assets.filter(a => listedIds.has(a.assetId) && a.amountEur > 0.01);
+    const listedBudgetEur = listedAssetsRaw.reduce((s, a) => s + a.amountEur, 0);
+    const listedAssets = listedAssetsRaw.map(a => ({ ...a, weight: listedBudgetEur > 0 ? a.amountEur / listedBudgetEur : 0 }));
+    const prices = Object.fromEntries(listedSelected.map(c => [c.asset.assetId, Number(c.lastClose ?? 0)]));
+    const plan = buildWholeShareExecutionPlan(listedBudgetEur, listedAssets, prices, MYINVESTOR_BROKER_PROFILE);
     const quality = assessBrokerExecutionQuality(plan, { minimumPositions: 2, maximumSinglePositionPct: 70, maximumFeeDragPct: 2 });
-    const fidelity = assessExecutionFidelity(decision.capitalEur, decision.assets, decision.cashWeight, plan);
-    const minimum = estimateMinimumDiversifiedCapital(decision.assets, prices, MYINVESTOR_BROKER_PROFILE, {
+    const fidelity = assessExecutionFidelity(listedBudgetEur, listedAssets, 0, plan);
+    const minimum = estimateMinimumDiversifiedCapital(listedAssets, prices, MYINVESTOR_BROKER_PROFILE, {
       minimumPositions: 2, maximumSinglePositionPct: 70, maximumFeeDragPct: 2,
-      startCapitalEur: Math.max(50, Math.floor(decision.capitalEur)), maxCapitalEur: 5000, stepEur: 5
+      startCapitalEur: Math.max(50, Math.floor(listedBudgetEur || 50)), maxCapitalEur: 5000, stepEur: 5
     });
-    return { plan, quality, fidelity, minimum };
+    const fundTargetEur = decision.assets.filter(a => !listedIds.has(a.assetId)).reduce((s, a) => s + a.amountEur, 0);
+    return { plan, quality, fidelity, minimum, listedBudgetEur, fundTargetEur };
   }, [scan, decision]);
 
   const historicalOpportunityValidation = useMemo(() => {
@@ -110,17 +116,17 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdV
     </div>}
 
     <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="flex items-center gap-2"><WalletCards className="h-4 w-4 text-fuchsia-300"/><div><h3 className="font-bold">Ejecutabilidad · MyInvestor</h3><p className="text-[11px] text-slate-400">Convierte los pesos teóricos en títulos enteros y separa calidad matemática de calidad de ejecución.</p></div></div><div className={`rounded-lg border px-3 py-1 text-xs font-bold ${execution.fidelity.level === 'HIGH' ? 'border-emerald-500/30 text-emerald-300' : execution.fidelity.level === 'MEDIUM' ? 'border-amber-500/30 text-amber-300' : 'border-rose-500/30 text-rose-300'}`}>Fidelidad {execution.fidelity.level} · {execution.fidelity.score.toFixed(0)}/100</div></div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="flex items-center gap-2"><WalletCards className="h-4 w-4 text-fuchsia-300"/><div><h3 className="font-bold">Ejecutabilidad ETF/ETC · MyInvestor</h3><p className="text-[11px] text-slate-400">Solo convierte la porción cotizada del objetivo en títulos enteros. Los fondos quedan fuera de este ejecutor y se gestionan por importe/participaciones y posible traspaso.</p></div></div><div className={`rounded-lg border px-3 py-1 text-xs font-bold ${execution.fidelity.level === 'HIGH' ? 'border-emerald-500/30 text-emerald-300' : execution.fidelity.level === 'MEDIUM' ? 'border-amber-500/30 text-amber-300' : 'border-rose-500/30 text-rose-300'}`}>Fidelidad ETF {execution.fidelity.level} · {execution.fidelity.score.toFixed(0)}/100</div></div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5 text-xs">
+        <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Presupuesto ETF objetivo</div><b>{execution.listedBudgetEur.toFixed(2)} €</b></div>
         <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Posiciones ejecutables</div><b>{execution.quality.executablePositions}</b></div>
-        <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Invertido</div><b>{execution.plan.investedEur.toFixed(2)} €</b></div>
+        <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Invertido ETF</div><b>{execution.plan.investedEur.toFixed(2)} €</b></div>
         <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Comisiones est.</div><b>{execution.plan.estimatedFeesEur.toFixed(2)} €</b></div>
-        <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Distancia vs objetivo</div><b>{execution.fidelity.allocationDistancePct.toFixed(1)}%</b></div>
-        <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Capital diversificado aprox.</div><b>{execution.minimum.minimumCapitalEur != null ? `${execution.minimum.minimumCapitalEur} €` : '>5.000 €'}</b></div>
+        <div className="rounded-lg bg-slate-950 p-3"><div className="text-slate-500">Objetivo fondos separado</div><b>{execution.fundTargetEur.toFixed(2)} €</b></div>
       </div>
       {executableOrders.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{executableOrders.map(o => <span key={o.assetId} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"><b>{o.ticker}</b> · {o.shares} título{o.shares === 1 ? '' : 's'} · {o.totalCostEur.toFixed(2)} €</span>)}</div>}
-      {!execution.quality.diversifiedEnough && <div className="mt-3 text-xs text-amber-200">La cartera teórica no es todavía una ejecución diversificada con este capital: {execution.quality.reasons.join(' · ')}. No se interpreta una oportunidad del scanner como orden lista para operar.</div>}
-      <div className="mt-2 text-[10px] text-slate-500">Modelo de ejecución con último cierre y comisiones configuradas. La disponibilidad exacta del ticker/ISIN en el broker y el precio real de ejecución siguen requiriendo confirmación.</div>
+      {!execution.quality.diversifiedEnough && <div className="mt-3 text-xs text-amber-200">La porción ETF teórica no es todavía una ejecución diversificada con este presupuesto: {execution.quality.reasons.join(' · ')}. Esto no afecta a la valoración ni a la elegibilidad de los fondos.</div>}
+      <div className="mt-2 text-[10px] text-slate-500">Este bloque es solo una comprobación de ejecutabilidad del objetivo ETF de referencia. Las operaciones reales deben seguir la decisión consolidada de “Mi cartera real”, que ya descuenta posiciones existentes.</div>
     </div>
 
     <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
