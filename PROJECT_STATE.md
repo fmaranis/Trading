@@ -14,15 +14,17 @@
 - Repository, not chat memory, is the source of truth.
 - Do not add or depend on GitHub Actions.
 
-## Latest recorded full validation before current execution-policy block
+## Latest recorded full validation — 2026-08-28 18:33 UTC
 
-Latest recorded `validation-results/latest-aistudio.json` is from **2026-08-28 17:55 UTC** and is green:
+Latest recorded run `validation-results/latest-aistudio-run.json` and marker files `latest-aistudio.json`, `latest-broker-backtest-feasibility.json`, and `latest-broker-aware-execution-sweep.json` are recorded and **green**:
 
 - `technicalBlockers: []`;
 - `researchReady: true`;
 - `readyForManualPilot: false`;
 - lint PASS;
 - build PASS;
+- `test:cost-aware-execution` PASS;
+- `test:portfolio-execution-plan` PASS;
 - decision 7/7 PASS;
 - decision backtest 8/8 PASS;
 - causal universe 13/13 PASS;
@@ -30,16 +32,20 @@ Latest recorded `validation-results/latest-aistudio.json` is from **2026-08-28 1
 - execution fidelity 10/10 PASS;
 - opportunity, portfolio, multi-asset, analytics and regime suites PASS.
 
-Latest recorded causal/broker diagnostic around that run:
+### Multi-capital broker-aware execution sweep results (18:33 UTC)
 
-- 100 EUR research backtest → about 112.46 EUR;
-- return about +12.46%;
-- max drawdown about 2.64%;
-- about 488 research trades;
-- MyInvestor minimum-fee lower bound about 488 EUR;
-- minimum capital for the same raw order count to keep minimum commission drag <=2% about 24,400 EUR.
+Research signal baseline: 491 trades / 73 rebalance windows / +12.55% return.
 
-This confirms again that the research signal path is technically healthy but cannot be translated literally into broker orders at small capital.
+Replay with whole shares + MyInvestor fees + cost-aware no-trade gates (min 5 pp drift, min 50 € notional, max 2% order fee, max 1% window fee):
+
+- **100 EUR**: 0 orders executed, 584 suppressed, 73/73 windows suppressed. Equity remains **100 EUR** in cash (0% return, 0% drawdown, 0 € fees). Confirms that at 100 EUR, suppressing uneconomic ETF turnover safely preserves capital instead of bleeding in minimum fees.
+- **334 EUR**: 16 orders executed (vs 491 research), 575 suppressed, 12 active windows. Final equity: **336.05 EUR** (+0.61% net, max DD 2.67%), total fees 16 EUR (4.79% of initial capital).
+- **500 EUR**: 20 orders executed, 573 suppressed, 12 active windows. Final equity: **564.85 EUR** (+12.97% net, max DD 4.09%), total fees 20 EUR (4.00% of initial capital).
+- **1,000 EUR**: 43 orders executed, 571 suppressed, 18 active windows. Final equity: **1,107.52 EUR** (+10.75% net, max DD 2.88%), total fees 43 EUR (4.30% of initial capital).
+- **5,000 EUR**: 77 orders executed, 732 suppressed, 25 active windows. Final equity: **5,936.85 EUR** (+18.74% net, max DD 2.81%), total fees 101.85 EUR (2.04% of initial capital).
+- **25,000 EUR**: 88 orders executed, 647 suppressed, 30 active windows. Final equity: **29,362.38 EUR** (+17.45% net, max DD 2.48%), total fees 390.46 EUR (1.56% of initial capital).
+
+**Key conclusion:** Cost-aware gating cuts executed order count by **82% to 100%**, completely eliminating the 490 EUR fee disaster on small accounts and making 500 €+ accounts realistically operable under MyInvestor pricing.
 
 ## Product shape
 
@@ -269,15 +275,12 @@ Publication to `main` remains best-effort and the dedicated branch `validation-r
 
 ## Current validation status of this newest block
 
-The 17:55 UTC suite validated the previous actionable-operation UI and all earlier code, but the **new cost-aware policy / broker-aware replay / capital sweep commits were added after that run**.
-
-Therefore do not yet claim this newest block is validated until a new `npm run validate:aistudio` result is recorded.
+The entire suite including the cost-aware policy, whole-share suppression, portfolio execution plan generator, deterministic unit tests, and live multi-capital broker-aware execution sweep has been validated and recorded at **18:33 UTC** with all tests passing and zero technical blockers.
 
 ## Known blockers / limitations
 
 - Exact MyInvestor/Inversis availability of the ultimately recommended ticker/ISIN set remains unverified.
-- 100 EUR is structurally too small for many diversified whole-share ETF allocations.
-- The new cost-aware replay must be measured before deciding whether the 100 EUR case is practical or should stay in cash/funds/one-position mode.
+- 100 EUR is structurally too small for diversified whole-share ETF allocations; the cost-aware policy safely chooses not to trade (keeps 100% cash) rather than taking destructive fee drag.
 - Historical universe retains survivorship/catalog-availability bias.
 - Yahoo remains unofficial despite successful EODHD validation of the current listed shortlist.
 - Fund replay is intentionally conservative/incomplete: fund target weights are held as cash.
@@ -285,30 +288,8 @@ Therefore do not yet claim this newest block is validated until a new `npm run v
 
 ## Immediate next step
 
-Run:
-
-`npm run validate:aistudio`
-
-Then retrieve automatically:
-
-1. `validation-results/latest-aistudio-run.json`;
-2. `validation-results/latest-aistudio.json`;
-3. `validation-results/latest-broker-backtest-feasibility.json`;
-4. `validation-results/latest-broker-aware-execution-sweep.json`;
-5. branch `validation-results` as fallback if needed.
-
-Confirm specifically:
-
-- lint/build remain green;
-- `test:portfolio-execution-plan` passes;
-- `test:cost-aware-execution` passes;
-- causal/research suites remain green;
-- capital sweep is generated for all six capitals;
-- order suppression materially reduces broker order count;
-- no negative cash or fee-budget violation;
-- compare 100/334/500/1k/5k/25k before changing policy thresholds.
-
-Do not tune thresholds merely to make 100 EUR look viable. Any threshold change must be evidence-based and recorded in D22.
+1. Model fund NAV subscription/redemption/transfer dynamics in the broker-aware replay so fund target weights don't sit in idle cash during mixed universe backtests.
+2. Advance instrument availability verification against MyInvestor/Inversis for the active shortlisted universe.
 
 ## Working protocol for future chats
 

@@ -1,0 +1,112 @@
+{
+  "marker": "BROKER_AWARE_EXECUTION_SWEEP_RESULT",
+  "recordedAt": "2026-08-28T18:33:11.457Z",
+  "gitHeadBeforeRecord": null,
+  "gitBranch": null,
+  "payload": {
+    "generatedAt": "2026-08-28T18:33:11.351Z",
+    "scope": "BROKER_AWARE_EXECUTION_CAPITAL_SWEEP",
+    "researchReference": {
+      "initialCapitalEur": 100,
+      "researchTrades": 491,
+      "researchRebalanceWindows": 73,
+      "researchReturnPct": 12.55
+    },
+    "policy": {
+      "minimumDriftPctPoints": 5,
+      "maximumOrderFeeDragPct": 2,
+      "maximumRebalanceFeeDragPct": 1,
+      "minimumOrderNotionalEur": 50,
+      "wholeShares": true,
+      "fundWeightsHeldAsCash": true
+    },
+    "sweep": [
+      {
+        "initialCapitalEur": 100,
+        "finalEquityEur": 100,
+        "totalReturnPct": 0,
+        "maxDrawdownPct": 0,
+        "executedOrders": 0,
+        "suppressedOrders": 584,
+        "rebalanceWindows": 73,
+        "windowsWithTrades": 0,
+        "windowsFullySuppressed": 73,
+        "totalCommissionEur": 0,
+        "commissionDragPctOfInitial": 0,
+        "residualCashEur": 100
+      },
+      {
+        "initialCapitalEur": 334,
+        "finalEquityEur": 336.05,
+        "totalReturnPct": 0.61,
+        "maxDrawdownPct": 2.67,
+        "executedOrders": 16,
+        "suppressedOrders": 575,
+        "rebalanceWindows": 73,
+        "windowsWithTrades": 12,
+        "windowsFullySuppressed": 61,
+        "totalCommissionEur": 16,
+        "commissionDragPctOfInitial": 4.79,
+        "residualCashEur": 87.35
+      },
+      {
+        "initialCapitalEur": 500,
+        "finalEquityEur": 564.85,
+        "totalReturnPct": 12.97,
+        "maxDrawdownPct": 4.09,
+        "executedOrders": 20,
+        "suppressedOrders": 573,
+        "rebalanceWindows": 73,
+        "windowsWithTrades": 12,
+        "windowsFullySuppressed": 61,
+        "totalCommissionEur": 20,
+        "commissionDragPctOfInitial": 4,
+        "residualCashEur": 217.44
+      },
+      {
+        "initialCapitalEur": 1000,
+        "finalEquityEur": 1107.52,
+        "totalReturnPct": 10.75,
+        "maxDrawdownPct": 2.88,
+        "executedOrders": 43,
+        "suppressedOrders": 571,
+        "rebalanceWindows": 73,
+        "windowsWithTrades": 18,
+        "windowsFullySuppressed": 55,
+        "totalCommissionEur": 43,
+        "commissionDragPctOfInitial": 4.3,
+        "residualCashEur": 110.87
+      },
+      {
+        "initialCapitalEur": 5000,
+        "finalEquityEur": 5936.85,
+        "totalReturnPct": 18.74,
+        "maxDrawdownPct": 2.81,
+        "executedOrders": 77,
+        "suppressedOrders": 732,
+        "rebalanceWindows": 73,
+        "windowsWithTrades": 25,
+        "windowsFullySuppressed": 48,
+        "totalCommissionEur": 101.85,
+        "commissionDragPctOfInitial": 2.04,
+        "residualCashEur": 72.25
+      },
+      {
+        "initialCapitalEur": 25000,
+        "finalEquityEur": 29362.38,
+        "totalReturnPct": 17.45,
+        "maxDrawdownPct": 2.48,
+        "executedOrders": 88,
+        "suppressedOrders": 647,
+        "rebalanceWindows": 73,
+        "windowsWithTrades": 30,
+        "windowsFullySuppressed": 43,
+        "totalCommissionEur": 390.46,
+        "commissionDragPctOfInitial": 1.56,
+        "residualCashEur": 79.43
+      }
+    ],
+    "interpretation": "COMPARE_RESEARCH_SIGNAL_WITH_COST_AWARE_WHOLE_SHARE_EXECUTION",
+    "note": "Fund target weights are conservatively held as cash in this ETF execution replay. Results are execution diagnostics, not profitability forecasts."
+  }
+}
