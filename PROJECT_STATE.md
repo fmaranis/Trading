@@ -26,7 +26,7 @@ The old simple decision backtest and duplicate ETF execution card are no longer 
 
 ## Broker / MyInvestor availability evidence
 
-Module: `src/investment/decision/brokerAvailability.ts`. Durable rule: `docs/DECISIONS.md` D25.
+Module: `src/investment/decision/brokerAvailability.ts`. Durable rules: `docs/DECISIONS.md` D25–D26.
 
 Availability is separate from REAL market-data validity. Public evidence and user confirmations are preserved as different evidence sources.
 
@@ -37,21 +37,7 @@ Effective states:
 - `USER_CONFIRMED_UNAVAILABLE`: user checked and did not find the instrument at that time;
 - `UNVERIFIED`: reserved fallback state.
 
-Evidence identifies whether confirmation came from `MYINVESTOR_OFFICIAL_CURRENT`, `MYINVESTOR_OFFICIAL_HISTORICAL`, `USER_CONFIRMED_MYINVESTOR`, or none.
-
-### Manual confirmation workflow — implemented, pending fresh validation
-
-`ManualMyInvestorAvailabilityService` persists confirmations in browser localStorage key `custodia_myinvestor_manual_availability_v1`, normalized by ISIN/ticker.
-
-In **Operaciones pendientes**, target BUY/SUBSCRIBE/TRANSFER lines now show broker availability and allow:
-
-- **Sí, está en MyInvestor** → persist `AVAILABLE` and render `Confirmado por ti en MyInvestor` on future recommendations;
-- **No lo encuentro** → persist `UNAVAILABLE` without pretending this is an official broker delisting;
-- **Borrar mi confirmación** → restore the underlying public/evidence state.
-
-Manual evidence takes precedence in the effective UI state but never mutates or overwrites the separate public evidence registry. This means a user can report that an officially documented instrument is currently unavailable, while the app still retains the original public evidence for auditability.
-
-New deterministic regression: `tests/brokerAvailability.unit.ts`; command `npm run test:broker-availability`; included in `validate:aistudio:raw`. It checks persistence, manual available/unavailable overrides, restoration after deletion, and separation between manual and official evidence.
+`ManualMyInvestorAvailabilityService` persists confirmations in browser localStorage key `custodia_myinvestor_manual_availability_v1`, normalized by ISIN/ticker. In **Operaciones pendientes** the user can mark a target as available, unavailable, or remove their confirmation. Manual evidence takes UI precedence but never mutates the separate public evidence registry.
 
 First public-evidence pass on 2026-08-28:
 
@@ -61,7 +47,26 @@ First public-evidence pass on 2026-08-28:
 - **IE00B5456744 — Vanguard ESG Developed World:** `REQUIRES_INVERSIS_LOOKUP`; historical evidence does not prove current standalone availability.
 - **Active shortlisted ETFs:** remain `REQUIRES_INVERSIS_LOOKUP` until confirmed manually or by first-party evidence.
 
-Important: absence from public MyInvestor pages is not encoded as broker unavailability because additional instruments may be available through Inversis. Manual `UNAVAILABLE` means only that the user did not find the instrument in their broker search at the recorded time.
+## NEW: cash benchmark / opportunity-cost hurdle — implemented, pending fresh validation
+
+Durable rule: `docs/DECISIONS.md` D27. New module: `src/investment/decision/cashBenchmark.ts`.
+
+The user's MyInvestor account currently provides a **2.5% annual cash-remuneration reference**. This is now the default configurable execution hurdle, not a research-ranking input.
+
+Execution semantics:
+
+- research scores/targets remain unchanged;
+- before a new ETF purchase or fund subscription becomes actionable, the plan compares it with the configured cash benchmark;
+- current proxy = REAL 120-session momentum annualized to 252 sessions;
+- ETF first-year proxy subtracts modeled entry commission drag;
+- if net proxy `<= 2.5%`, or cannot be calculated, the line becomes `REVIEW` with **“Mantener en cuenta / no invertir todavía”** wording;
+- actionable BUY/SUBSCRIBE lines expose proxy annual return, cash benchmark and excess return vs cash;
+- a proposed destination fund must also pass the benchmark before the UI suggests a transfer;
+- the proxy is explicitly historical/diagnostic, never a forecast or guarantee.
+
+The benchmark is editable in **Operaciones pendientes** and persisted in browser localStorage under `custodia_cash_benchmark_annual_pct_v1`, so future changes to the account rate do not require code changes.
+
+`tests/portfolioExecutionPlan.unit.ts` now includes positive benchmark cases and a weak-return case that must remain in cash. Fresh validation is required after this implementation.
 
 ## Data / causal integrity
 
@@ -78,7 +83,7 @@ Important: absence from public MyInvestor pages is not encoded as broker unavail
 - HIGH → Relative Momentum.
 - Confidence means evidence quality, not probability of profit.
 - MyInvestor ETF cost model: whole shares, 0.12%, min 1 EUR/order, max 25 EUR/order.
-- Broker availability evidence does not alter research scores.
+- Broker availability evidence and the 2.5% cash hurdle do not alter research scores; they alter only actionability/execution.
 
 ## Capital-adaptive execution
 
@@ -92,15 +97,17 @@ Important: absence from public MyInvestor pages is not encoded as broker unavail
 
 ## Known blockers / limitations
 
-- Manual broker confirmations are currently local to the browser/device; no authenticated cloud sync exists yet.
+- Manual broker confirmations and cash-benchmark setting are currently local to the browser/device; no authenticated cloud sync exists yet.
 - Exact Inversis lookup remains pending for active shortlisted ETFs and several funds until user/public evidence is captured.
 - Fund settlement/tax/transfer timing is not yet simulated.
+- Fund transaction costs remain zero in the hurdle until broker-specific fund fees are verified.
+- Historical 120-session annualized return is only an execution proxy, not expected-return forecasting.
 - Historical universe retains current-catalog survivorship bias.
 - Yahoo remains unofficial/non-contractual.
 
 ## Immediate next step
 
-1. Run `npm run validate:aistudio` and verify the new broker-availability persistence regression plus TypeScript/build.
-2. Use the new controls during real recommendations to confirm exact MyInvestor availability by ISIN/ticker.
-3. Once enough confirmations exist, optionally add authenticated/cloud persistence so confirmations follow the user across devices instead of remaining browser-local.
+1. Run `npm run validate:aistudio` and verify TypeScript/build plus broker-availability and updated execution-plan hurdle regressions.
+2. Inspect the current real recommendation after validation to see which proposed assets actually clear the 2.5% cash hurdle net of modeled ETF entry fees.
+3. Use the manual controls to confirm exact MyInvestor availability by ISIN/ticker for any remaining actionable targets.
 4. Continue fund settlement/transfer modeling only after broker-specific operational rules are verified.
