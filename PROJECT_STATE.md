@@ -82,7 +82,8 @@ The previous shortlist-wide EODHD blocker is closed.
 
 ## Asset universe / causal integrity
 
-- Discovery catalog remains modest; last broad scan reported 22/30 accepted and 8 unavailable through Yahoo.
+- Unified discovery catalog contains ETFs/ETCs plus supported mutual funds.
+- Runtime scanner rejects unavailable, non-EUR, stale or insufficient-history instruments.
 - Shortlist permits maximum one selected exposure per category and includes a defensive exposure when available.
 - Scanner score: momentum 20/60/120, annualised 60-return volatility, 252-bar max drawdown, defensive bonus.
 - No full correlation penalty or point-in-time delisted universe should be assumed.
@@ -97,6 +98,8 @@ The previous shortlist-wide EODHD blocker is closed.
 - Regression tests cover minimum history, forced-short warmup, lookahead mutation invariance and accounting.
 
 Residual limitation remains: causal reselection occurs inside the currently available/validated catalog, so delisted/no-longer-queryable historical instruments are absent.
+
+Because the universe now mixes listed ETFs and mutual-fund NAV series, the next full live validation must also confirm that common-date alignment remains sufficiently populated for the causal engine. Do not assume this until the current validation output is recorded.
 
 ## Decision engine
 
@@ -120,7 +123,7 @@ Current model:
 
 Theoretical allocation and executable portfolio are separate concepts.
 
-For the previously reported 100 EUR MEDIUM case, whole-share execution collapses to one position; therefore affordability is not sufficient for MEDIUM diversification quality. The code now estimates minimum capital satisfying explicit diversification/concentration/fee criteria.
+For the previously reported 100 EUR MEDIUM case, whole-share execution collapses to one position; therefore affordability is not sufficient for MEDIUM diversification quality. The code estimates minimum capital satisfying explicit diversification/concentration/fee criteria.
 
 ## 2026-08-28 broker-aware backtest integrity
 
@@ -140,9 +143,22 @@ The diagnostic reports:
 
 Deterministic test: `tests/brokerBacktestFeasibility.unit.ts`.
 
-Command: `npm run test:broker-backtest-feasibility`.
+Commands:
 
-`validate:aistudio` now includes this integrity test as a release gate.
+- `npm run test:broker-backtest-feasibility`
+- `npm run test:broker-backtest-feasibility:live`
+
+New live script: `scripts/brokerBacktestFeasibilityLive.ts`.
+
+The live script:
+
+1. loads the current REAL unified universe;
+2. runs the current causal MEDIUM backtest at 100 EUR using the research commission/slippage model;
+3. applies the MyInvestor 1 EUR/order lower-bound diagnostic to the actual current causal trade count and modeled commission;
+4. emits `BROKER_BACKTEST_FEASIBILITY_RESULT`;
+5. explicitly reports `manualPilotBlocker` when the research commission is below the broker minimum-fee lower bound.
+
+`validate:aistudio` now runs both the deterministic broker-cost test and the live broker-cost diagnostic after the existing validator.
 
 Durable policy recorded in `docs/DECISIONS.md` D20: strategy backtest costs and broker-executable costs are separate evidence.
 
@@ -155,6 +171,7 @@ Durable policy recorded in `docs/DECISIONS.md` D20: strategy backtest costs and 
 - `npm run test:causal-universe-backtest`
 - `npm run test:broker-execution`
 - `npm run test:broker-backtest-feasibility`
+- `npm run test:broker-backtest-feasibility:live`
 - `npm run test:execution-fidelity`
 - `npm run test:opportunity-alerts`
 - `npm run test:opportunity-outcomes`
@@ -193,7 +210,7 @@ Previous deterministic suite before the newest broker-aware/history-hardening co
 - `researchReady: true`;
 - `readyForManualPilot: false`.
 
-**Important:** the complete deterministic suite has not yet been executed after the newest broker-aware and 252-bar causal-history commits. Do not claim the present HEAD fully validated until `npm run validate:aistudio` is rerun in the configured environment.
+**Important:** the complete deterministic/live suite has not yet been executed after the newest broker-aware, 252-bar causal-history and live broker-diagnostic commits. Do not claim the present HEAD fully validated until `npm run validate:aistudio` is rerun in the configured environment.
 
 ## Known blockers / limitations
 
@@ -203,6 +220,7 @@ Previous deterministic suite before the newest broker-aware/history-hardening co
 - Historical universe still has survivorship/catalog-availability bias.
 - Yahoo remains an unofficial primary source despite successful EODHD cross-validation of the current listed-ETF shortlist.
 - Catalog breadth remains modest.
+- Mixed ETF trading dates and mutual-fund NAV dates must be revalidated in the causal common-date path after the unified-universe expansion.
 - Cross-process cache persistence is not guaranteed by the current in-memory cache design.
 
 ## Immediate next step
@@ -211,20 +229,24 @@ Run on the current HEAD:
 
 `npm run validate:aistudio`
 
-This now validates the newly added broker-backtest-feasibility regression in addition to the existing deterministic suite.
+Expected additional output marker after the existing AI Studio result:
+
+`BROKER_BACKTEST_FEASIBILITY_RESULT`
 
 Record especially:
 
 1. threshold research and walk-forward tests;
 2. fund portfolio and unified universe tests;
 3. portfolio decision tests;
-4. broker-backtest-feasibility test;
+4. broker-backtest-feasibility deterministic test;
 5. causal-universe test with the new 252-bar policy;
 6. lint/build and AI Studio deterministic report;
-7. `technicalBlockers`;
-8. `researchReady`;
-9. `readyForManualPilot` and all blockers;
-10. updated causal result because the 252-bar eligibility policy may change historical selection windows/performance.
+7. live causal broker-cost diagnostic;
+8. `technicalBlockers`;
+9. `researchReady`;
+10. `readyForManualPilot` plus all blockers;
+11. updated causal result and trade count;
+12. whether mixed ETF/fund common-date alignment remains healthy.
 
 If green, continue with the highest-impact remaining blocker: broker/manual-pilot viability and exact instrument availability, while keeping strategy research separate from execution economics.
 
