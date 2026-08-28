@@ -79,13 +79,14 @@ export class OpportunityAlertEngine {
       if (score < 2 || momentum <= 0 || vol > 30) continue;
       alerts.push({
         id: id('OPPORTUNITY', asOf, candidate.asset.ticker), asOfDate: asOf, type: 'OPPORTUNITY',
-        severity: score >= 5 && evidenceConfirmed ? 'MATERIAL' : 'REVIEW', ticker: candidate.asset.ticker,
-        title: `${candidate.asset.ticker} · candidato a revisión`,
+        severity: 'REVIEW', ticker: candidate.asset.ticker,
+        title: `${candidate.asset.ticker} · señal candidata a revisión`,
         message: `Top ${selected.indexOf(candidate) + 1} del scanner, score ${score.toFixed(2)}, momentum 120d ${momentum.toFixed(1)}%.`,
         reasons: [
           'Top 3 del ranking determinista',
           `Volatilidad anualizada ${vol.toFixed(1)}%`,
-          evidenceConfirmed ? 'Precio confirmado por Yahoo + EODHD' : 'Validación cruzada no confirmada completamente'
+          evidenceConfirmed ? 'Precio confirmado por Yahoo + EODHD' : 'Validación cruzada no confirmada completamente',
+          'La confirmación de proveedores valida el dato, no una ventaja de rentabilidad; la señal permanece REVIEW hasta validación walk-forward positiva'
         ],
         action: 'REVIEW'
       });
