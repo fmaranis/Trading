@@ -6,7 +6,7 @@
 
 React + TypeScript + Vite research/decision-support app. It ranks, backtests, alerts and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation: **2026-08-28 22:40 UTC**, green: global recorded run `exitCode: 0`, `ok: true`; lint/build PASS and recorded deterministic suites (including broker availability and cash-hurdle execution tests) green. Changes made after that validation add visible primary-UI guardrails and require one fresh validation.
+Latest fully recorded validation: **2026-08-28 22:58 UTC**, green: global recorded run `exitCode: 0`, `ok: true`; lint/build PASS and recorded deterministic suites (including broker availability, visible guardrails, and cash-hurdle execution tests) green. `researchReady: true`; `readyForManualPilot: false` remains intentionally separate.
 
 ## Primary user flow
 
@@ -88,7 +88,6 @@ Fund diagnosis remains conclusive for the current EODHD history: 8 funds accepte
 
 ## Known blockers / limitations
 
-- Fresh validation is pending after the visible primary-UI guardrail integration.
 - Manual broker confirmations and cash-benchmark setting remain browser/device-local.
 - Exact Inversis lookup remains pending for active shortlisted ETFs and several funds until user/public evidence is captured.
 - Fund settlement/tax/transfer timing is not yet simulated.
