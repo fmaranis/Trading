@@ -24,6 +24,7 @@
     "test:decision-backtest": "tsx tests/decisionBacktest.unit.ts",
     "test:causal-universe-backtest": "tsx tests/causalUniverseBacktest.unit.ts",
     "test:broker-execution": "tsx tests/brokerExecution.unit.ts",
+    "test:broker-backtest-feasibility": "tsx tests/brokerBacktestFeasibility.unit.ts",
     "test:execution-fidelity": "tsx tests/executionFidelity.unit.ts",
     "test:opportunity-alerts": "tsx tests/opportunityAlerts.unit.ts",
     "test:opportunity-outcomes": "tsx tests/opportunityOutcomeBacktest.unit.ts",
@@ -38,7 +39,7 @@
     "test:eodhd": "tsx scripts/eodhdSmoke.ts",
     "test:eodhd-shortlist": "tsx scripts/eodhdShortlistSmoke.ts",
     "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts",
-    "validate:aistudio": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx tests/unifiedInvestmentUniverse.unit.ts && tsx tests/portfolioDecisionEngine.unit.ts && tsx scripts/aiStudioValidate.ts"
+    "validate:aistudio": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx tests/unifiedInvestmentUniverse.unit.ts && tsx tests/portfolioDecisionEngine.unit.ts && tsx tests/brokerBacktestFeasibility.unit.ts && tsx scripts/aiStudioValidate.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
