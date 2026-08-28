@@ -38,12 +38,7 @@ This document records durable decisions that should survive chat changes. Operat
 
 **Reason:** Yahoo provides broad practical coverage without an API key; EODHD adds independent evidence and fund/NAV capabilities.
 
-**Constraints:**
-
-- Yahoo is unofficial/non-contractual and must be labelled accordingly.
-- EODHD failures/quota limits are non-blocking for the primary Yahoo path.
-- EODHD credentials remain server-side.
-- Do not call daily historical data “real time”.
+**Constraints:** Yahoo is unofficial/non-contractual and must be labelled accordingly; EODHD failures/quota limits are non-blocking for the primary Yahoo path; EODHD credentials remain server-side; do not call daily historical data “real time”.
 
 ## D6. Cross-provider discrepancies are evidence, not hidden corrections
 
@@ -51,15 +46,9 @@ This document records durable decisions that should survive chat changes. Operat
 
 **Current policy:** EODHD cross-check route uses a 1% tolerance for `MATCH` vs `PRICE_DIVERGENCE`.
 
-**Reason:** differences can arise from adjustment conventions, timing/listing mapping or genuine data issues and should remain auditable.
-
 ## D7. Cache secondary-provider checks
 
 **Decision:** EODHD cross-check results are cached for 24 h for unchanged ticker/date/close inputs; fund-history data currently uses a shorter cache.
-
-**Reason:** avoid unnecessary API usage and quota exhaustion while preserving sufficiently fresh daily-data validation.
-
-**Rule:** validation should report cache hits and upstream calls so cache behaviour is observable.
 
 ## D8. Causal backtests are mandatory for decision claims
 
@@ -67,23 +56,13 @@ This document records durable decisions that should survive chat changes. Operat
 
 **Execution convention:** information through `Close(t-1)`; execution at `Open(t)` where the engine models NEXT_OPEN.
 
-**Rule:** future-data mutation tests should remain part of causal test coverage.
-
 ## D9. Current-catalog causal reselection is not survivorship-bias-free
 
 **Decision:** causal universe backtesting across the currently queryable catalog may be used as research evidence but must retain a residual-bias warning.
 
-**Reason:** delisted/no-longer-queryable historical instruments are not represented.
-
-**Future improvement:** point-in-time universe/listing metadata if stronger institutional-grade historical universe claims are required.
-
 ## D10. Scanner diversification by exposure category
 
 **Decision:** shortlist selection currently permits at most one selected asset per category and tries to retain a defensive exposure when available.
-
-**Reason:** prevent multiple near-equivalent high-scoring listings from dominating the shortlist.
-
-**Known limitation:** this is not yet equivalent to full ISIN/exposure deduplication or correlation-aware selection.
 
 ## D11. Confidence is evidence quality, not probability of profit
 
@@ -91,82 +70,39 @@ This document records durable decisions that should survive chat changes. Operat
 
 **Current cap:** 85 while provider breadth and universe validation remain limited.
 
-**Rule:** UI/report wording must preserve this distinction.
-
 ## D12. Risk-profile methods
 
-Current default decision mapping:
-
-- LOW → Inverse Volatility;
-- MEDIUM → Risk Parity ERC;
-- HIGH → Relative Momentum.
-
-Regime logic may increase cash defensively. Changes to this mapping require explicit tests and an update to this document.
+Current default decision mapping: LOW → Inverse Volatility; MEDIUM → Risk Parity ERC; HIGH → Relative Momentum. Regime logic may increase cash defensively.
 
 ## D13. Broker constraints must alter the executable plan
 
 **Decision:** theoretical fractional allocations must not be shown as directly executable at a whole-share broker.
 
-**Current MyInvestor model:**
-
-- ETF fractions: not supported in the model;
-- commission: 0.12%;
-- minimum: 1 EUR/order;
-- maximum: 25 EUR/order;
-- exact instrument availability must be verified by ticker/ISIN before a manual pilot.
-
-**Important:** `executable` meaning “at least one order fits” is insufficient to call a portfolio valid for its requested risk profile.
+**Current MyInvestor model:** ETF fractions not supported; commission 0.12%; minimum 1 EUR/order; maximum 25 EUR/order; exact instrument availability must be verified by ticker/ISIN before a manual pilot.
 
 ## D14. Diversification quality is separate from affordability
 
-**Decision:** broker execution must distinguish:
-
-1. whether any whole-share order is affordable;
-2. whether the resulting portfolio retains enough diversification, concentration control and cost efficiency for the requested profile.
-
-**Reason:** a 100 EUR MEDIUM theoretical portfolio collapsing to one bond ETF is affordable but no longer represents the intended diversified MEDIUM strategy.
+**Decision:** broker execution must distinguish whether any whole-share order is affordable from whether the resulting portfolio retains enough diversification, concentration control and cost efficiency for the requested profile.
 
 ## D15. Small-capital experiments must expose structural limitations
 
 **Decision:** when capital is too low to reproduce a strategy, the app should calculate/report the limitation rather than fake precision with fractional shares.
 
-**Preferred future behaviour:** estimate minimum capital for a suitably diversified whole-share implementation under the selected broker rules.
-
 ## D16. Deterministic local validation is the release gate
 
-**Decision:** technical readiness is based on deterministic tests/build plus explicit live-data checks where required.
-
-**Rule:** keep separate concepts for:
-
-- technical/research readiness;
-- manual-pilot readiness;
-- broker/instrument verification.
-
-A green research suite must not automatically imply that real-money execution is ready.
+**Decision:** technical readiness is based on deterministic tests/build plus explicit live-data checks where required. Research readiness, manual-pilot readiness and broker/instrument verification remain separate concepts.
 
 ## D17. Unified fund + ETF evidence is allowed, but provenance must remain explicit
 
-**Decision:** the project may combine supported ETF and fund evidence in a unified investment universe / portfolio-decision layer.
-
-**Reason:** the current repository includes fund portfolio, unified universe and portfolio decision modules.
-
-**Rule:** never blur different providers, price/NAV conventions or data freshness; provenance and wording must state what evidence backs each asset type.
+**Decision:** the project may combine supported ETF and fund evidence in a unified investment universe / portfolio-decision layer, while keeping provider, price/NAV and freshness semantics explicit.
 
 ## D18. Opportunity-threshold research stays causal and diagnostic
 
 **Decision:** opportunity alert thresholds may be researched and walk-forward tested, but threshold tuning must remain chronological/causal and should not be marketed as guaranteed alpha.
 
-**Reason:** current repository contains alert outcome, threshold research and walk-forward validation modules.
-
 ## D19. Do not overclaim provider or broker verification
 
 **Decision:** code support for a provider/broker rule is not the same as successful live verification of every asset.
-
-Examples:
-
-- one-symbol EODHD smoke test does not validate the whole shortlist;
-- MyInvestor public fee/fraction rules do not prove a particular ticker/ISIN is available;
-- a successful Yahoo fetch does not prove a second-provider match.
 
 ## D20. Backtest costs must be separated from broker-executable costs
 
@@ -174,19 +110,36 @@ Examples:
 
 **Current implementation:** `brokerBacktestFeasibility.ts` computes a mathematical lower bound equal to `number of executed orders × broker minimum commission`, compares that lower bound with the modeled backtest commission, and reports the minimum capital required to keep that lower-bound commission drag under an explicit target.
 
-**Reason:** with small capital and high turnover, a model such as 0.05% per trade can materially understate the real economics of a broker charging at least 1 EUR per order.
-
-**Rule:** strategy performance and broker execution feasibility must be reported as separate evidence. A profitable research backtest is not sufficient for manual-pilot readiness if the broker minimum-fee lower bound invalidates the economics.
+**Rule:** strategy performance and broker execution feasibility must be reported as separate evidence.
 
 ## D21. Recommendations must become an explicit manual execution plan
 
-**Decision:** portfolio recommendations must not end at labels such as ADD, REDUCE or REVIEW_TRANSFER. The application should be able to convert them into a persistent manual checklist tied to the user's saved portfolio.
+**Decision:** portfolio recommendations must not end at labels such as ADD, REDUCE or REVIEW_TRANSFER. The application should convert them into a persistent manual checklist tied to the saved portfolio.
 
-**Current implementation:** `portfolioExecutionPlan.ts` and `PortfolioExecutionPlanPanel.tsx` create/store pending actions such as whole-share ETF buy/sell, fund subscription, fund transfer review and fund redemption review. Each line retains ticker/ISIN where available, an orientative amount/number of shares, rationale and completion status.
+**Current implementation:** `portfolioExecutionPlan.ts` and `PortfolioExecutionPlanPanel.tsx` create/store pending actions such as whole-share ETF buy/sell, fund subscription, fund transfer review and fund redemption review. Each line retains ticker/ISIN where available, orientative amount/number of shares, rationale and completion status.
 
-**Fund rule:** when a current fund is marked transferable and a supported fund destination exists, the plan prefers a transfer review over a reimbursement + new subscription. It must not claim that the transfer is fiscally or operationally eligible until the broker/entity confirms it. ETFs are not treated as destinations for a tax-deferred fund-to-fund transfer.
+**Fund rule:** when a current fund is marked transferable and a supported fund destination exists, the plan prefers a transfer review over reimbursement + new subscription. It must not claim tax or operational eligibility until the broker/entity confirms it.
 
-**Execution boundary:** this workflow remains manual guidance. It does not submit orders to MyInvestor/Inversis and must continue to require verification of instrument availability, minimums, commissions and transfer eligibility before real execution.
+## D22. Research targets and cost-aware executable actions are separate layers
+
+**Decision:** a change in theoretical target allocation is not sufficient reason to trade. The research signal must remain unchanged and auditable, while a separate execution policy may suppress, defer or batch broker orders when they are too small or too expensive.
+
+**Current default execution policy:**
+
+- minimum absolute allocation drift before considering an ETF trade: **5 percentage points**;
+- minimum ETF order notional: **50 EUR**;
+- maximum modeled commission drag per ETF order: **2% of order notional**;
+- maximum modeled commission budget per rebalance window: **1% of current equity**;
+- ETF orders use whole shares and MyInvestor modeled min/max commission;
+- sell orders are evaluated before buys and cash may never become negative.
+
+**Architecture:** `costAwareExecutionPolicy.ts` owns broker-aware no-trade gating. `brokerAwareCausalReplay.ts` replays the already-causal research selection dates under these execution constraints rather than changing historical signals to make them look better.
+
+**Fund boundary:** the broker-aware historical replay does not pretend mutual-fund NAV subscriptions/transfers are ETF orders. Fund target weights are conservatively held as cash in this replay until fund-specific settlement/NAV/transfer semantics are modeled. This is intentionally conservative and must be visible in results.
+
+**Validation:** compare multiple capital levels rather than optimizing a single 100 EUR case. Current sweep levels are 100, 334, 500, 1,000, 5,000 and 25,000 EUR. Report executed orders, suppressed orders, commission, windows with trades and cash; do not treat the replay as a profitability forecast.
+
+**UI rule:** `PortfolioExecutionPlan` may convert an ETF recommendation to `REVIEW / NO OPERAR` even when whole shares are affordable if the cost policy rejects the order. The theoretical recommendation remains visible as rationale.
 
 ## Change protocol
 
