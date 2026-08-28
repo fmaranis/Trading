@@ -10,3 +10,4 @@ export * from './executionFidelity';
 export * from './evidenceQuality';
 export * from './opportunityAlertEngine';
 export * from './marketSnapshotHistoryService';
+export * from './userPortfolio';
