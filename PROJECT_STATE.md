@@ -10,9 +10,9 @@
 
 - Repository: `fmaranis/Trading`
 - Canonical branch: `main`
-- State reconstructed: **2026-08-28**
-- HEAD at reconstruction: `8cd731a33d3cde58e7ba335db08312caf2bcc578`
-- HEAD message: `Align decision evidence wording with unified fund and ETF sources`
+- State updated: **2026-08-28**
+- Latest code HEAD before this state-file update: `e25a06f92bcc099f075cabfd7e1265a5c9987918`
+- Latest code HEAD message: `Expose shortlist-wide EODHD validation command`
 - This repository, not chat memory, is the source of truth.
 
 ## Current product shape
@@ -51,9 +51,13 @@ React + TypeScript + Vite research/decision-support application for investment a
 - Cross-check tolerance currently used by the route: **1%**.
 - Cross-check cache TTL: **24 h**.
 - Fund-history cache TTL: **6 h**.
-- The last observed runtime cache check showed reuse of cached cross-check data (`upstreamCalls: 0`, `cacheHits: 1` in the recorded check).
-- Existing smoke command: `npm run test:eodhd`.
-- Current `scripts/eodhdSmoke.ts` only cross-checks **EUN6.DE**. This is not sufficient coverage of the selected shortlist.
+- The last observed runtime cache check before shortlist-wide validation showed reuse of cached cross-check data (`upstreamCalls: 0`, `cacheHits: 1`).
+- Existing one-symbol smoke command remains: `npm run test:eodhd`.
+- New shortlist-wide command is implemented: `npm run test:eodhd-shortlist`.
+- New script: `scripts/eodhdShortlistSmoke.ts`.
+- The shortlist-wide script obtains the live scanner-selected shortlist (up to 8 assets), posts all selected tickers to `/api/eodhd/cross-check` in one request, reports Yahoo/EODHD dates and closes, difference %, status and cache state, then immediately repeats the same request to prove 24 h cache reuse.
+- The shortlist-wide script also reports aggregate requested/checked/matched/divergent/coverage/upstreamCalls/cacheHits and preserves EODHD as secondary/non-blocking.
+- Runtime execution of `test:eodhd-shortlist` on the user's configured environment is **pending**; do not claim shortlist-wide EODHD validation has passed until its output is recorded here.
 
 ## Asset universe and selection
 
@@ -127,13 +131,14 @@ Important local commands include:
 - `npm run test:unified-universe`
 - `npm run test:portfolio-decision`
 - `npm run test:eodhd`
+- `npm run test:eodhd-shortlist`
 - `npm run validate:aistudio`
 
-`validate:aistudio` currently chains threshold research, threshold walk-forward, fund portfolio, unified universe, portfolio decision, and the deterministic AI Studio validator.
+`validate:aistudio` currently chains threshold research, threshold walk-forward, fund portfolio, unified universe, portfolio decision, and the deterministic AI Studio validator. The live EODHD shortlist test remains a separate provider-dependent smoke test and is not added as a blocking dependency of deterministic validation.
 
 ## Last known validation status
 
-The last validation output supplied by the user before later repository changes reported:
+The last full validation output supplied by the user before the newest shortlist-test commits reported:
 
 - TypeScript/lint PASS;
 - decision tests PASS;
@@ -148,7 +153,7 @@ The last validation output supplied by the user before later repository changes 
 - `researchReady: true`;
 - `readyForManualPilot: false`.
 
-Do **not** assume that this exact validation result covers every commit now present at HEAD `8cd731a`; rerun the current suite before declaring the present HEAD fully validated.
+Do **not** assume that this exact validation result covers the new `scripts/eodhdShortlistSmoke.ts` and package command. The current suite must be rerun after the live shortlist smoke is executed.
 
 ## Known blockers / limitations
 
@@ -156,27 +161,33 @@ Do **not** assume that this exact validation result covers every commit now pres
 - 100 EUR is generally too small to reproduce diversified theoretical ETF portfolios with whole shares and 1 EUR minimum commissions.
 - Historical universe still has survivorship/catalog-availability bias because delisted historical instruments are absent.
 - Yahoo remains an unofficial primary provider.
-- EODHD shortlist-wide cross-validation has not yet been proven by the existing one-symbol smoke script.
+- EODHD shortlist-wide cross-validation code is implemented but its live runtime result has not yet been recorded.
 - The catalog is still modest (30 discovery candidates), with 8 last reported as unavailable through Yahoo.
 - Persistent cross-process market-data/cache behaviour should not be assumed beyond what each server implementation explicitly provides.
 - Do not add or depend on GitHub Actions for this project.
 
 ## Immediate next step
 
-**Create and run a shortlist-wide EODHD cross-validation test** instead of validating only `EUN6.DE`.
+**Run the newly implemented shortlist-wide EODHD validation in the configured local environment:**
 
-Target behaviour:
+`npm run test:eodhd-shortlist`
 
-1. obtain the current scanner-selected shortlist (up to 8 assets);
-2. send all selected tickers to `/api/eodhd/cross-check` in one request where possible;
-3. report per ticker: Yahoo date/close, EODHD symbol/date/close, difference %, status, and cache hit;
-4. report aggregate `checked`, `matched`, `divergent`, `upstreamCalls`, `cacheHits`, quota/auth/network states;
-5. rerun immediately and prove 24 h cache reuse (ideally zero new upstream calls for unchanged inputs);
-6. expose as a deterministic command such as `npm run test:eodhd-shortlist`;
-7. keep EODHD secondary/non-blocking;
-8. update this file with the result.
+Expected output marker: `EODHD_SHORTLIST_VALIDATION_RESULT`.
 
-After that, rerun `npm run validate:aistudio` on the current HEAD and record whether all newer fund/unified-universe/portfolio-decision changes remain green.
+Review and record:
+
+1. current selected tickers (up to 8);
+2. per ticker Yahoo date/close, EODHD symbol/date/close, difference %, status and cache hit;
+3. aggregate `checked`, `matched`, `divergent`, `coveragePct`, `upstreamCalls`, `cacheHits`;
+4. any quota/auth/network/no-data states;
+5. immediate rerun showing 24 h cache reuse, ideally `upstreamCalls: 0` and cache hits for every cacheable result;
+6. `validationPassed`.
+
+If the shortlist-wide test passes, rerun:
+
+`npm run validate:aistudio`
+
+Then record whether all newer fund/unified-universe/portfolio-decision and core quant changes remain green, and update this file with both outputs.
 
 ## Working protocol for future chats
 
