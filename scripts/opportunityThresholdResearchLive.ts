@@ -6,7 +6,8 @@ import {
   AssetUniverseScanner,
   EUR_ASSET_UNIVERSE,
   OpportunityOutcomeBacktestEngine,
-  OpportunityThresholdResearchEngine
+  OpportunityThresholdResearchEngine,
+  OpportunityThresholdWalkForward
 } from '../src/investment/decision';
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
@@ -45,7 +46,16 @@ async function main() {
       forceRefresh: false, concurrency: 3, maxSelected: 8, minimumBars: 252, maxDataAgeDays: 7
     });
     const outcomes = OpportunityOutcomeBacktestEngine.run(scan.acceptedDataset, EUR_ASSET_UNIVERSE, 8);
-    const research = OpportunityThresholdResearchEngine.run(outcomes, 0.70);
+    const holdout = OpportunityThresholdResearchEngine.run(outcomes, 0.70);
+    const walkForward = OpportunityThresholdWalkForward.run(outcomes, {
+      minimumTrainWindows: 24,
+      testWindows: 12,
+      stepWindows: 12,
+      minimumTrainEvents: 12
+    });
+
+    const promote = holdout.deploymentRecommendation === 'PROMOTE_FOR_REVIEW'
+      && walkForward.assessment === 'POSITIVE_RELATIVE_EVIDENCE';
 
     console.log('\nOPPORTUNITY_THRESHOLD_RESEARCH_RESULT');
     console.log(JSON.stringify({
@@ -53,18 +63,36 @@ async function main() {
       rejectedUniverse: scan.rejected,
       baselineEvents: outcomes.eventCount,
       baselineObservationWindows: outcomes.observationWindows,
-      methodology: research.methodology,
-      trainSharePct: research.trainSharePct,
-      trainEndDate: research.trainEndDate,
-      holdoutStartDate: research.holdoutStartDate,
-      candidateCount: research.candidateCount,
-      baseline: research.baseline,
-      selected: research.selected,
-      train: research.train,
-      holdout: research.holdout,
-      holdoutAssessment: research.holdoutAssessment,
-      deploymentRecommendation: research.deploymentRecommendation,
-      notes: research.notes
+      baselineMetrics: outcomes.metrics,
+      holdoutResearch: {
+        methodology: holdout.methodology,
+        trainSharePct: holdout.trainSharePct,
+        trainEndDate: holdout.trainEndDate,
+        holdoutStartDate: holdout.holdoutStartDate,
+        candidateCount: holdout.candidateCount,
+        baseline: holdout.baseline,
+        selected: holdout.selected,
+        train: holdout.train,
+        holdout: holdout.holdout,
+        holdoutAssessment: holdout.holdoutAssessment,
+        deploymentRecommendation: holdout.deploymentRecommendation
+      },
+      walkForwardResearch: {
+        scope: walkForward.scope,
+        folds: walkForward.folds,
+        testEventCount: walkForward.testEventCount,
+        aggregateMetrics: walkForward.aggregateMetrics,
+        assessment: walkForward.assessment
+      },
+      finalRecommendation: promote
+        ? 'CANDIDATE_THRESHOLDS_MAY_BE_PROMOTED_FOR_REVIEW_NOT_AUTOMATIC_DEPLOYMENT'
+        : 'KEEP_CURRENT_SIGNALS_REVIEW_ONLY_DO_NOT_PROMOTE_THRESHOLDS',
+      notes: [
+        'La validación de precios (Yahoo/EODHD) es independiente de la evidencia de rentabilidad relativa.',
+        'Los umbrales no se despliegan automáticamente aunque un estudio resulte positivo.',
+        'Se exige coherencia entre holdout temporal y walk-forward antes de considerar promoción.',
+        ...walkForward.notes
+      ]
     }, null, 2));
   } finally {
     if (ownsServer && server) server.kill('SIGTERM');
