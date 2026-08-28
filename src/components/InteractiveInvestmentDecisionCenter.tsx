@@ -22,6 +22,7 @@ import {
   EodhdStatus
 } from '../investment/data/marketData/eodhdCrossValidation';
 import { RecommendationEvidencePanel } from './RecommendationEvidencePanel';
+import { MarketUtilityDashboard } from './MarketUtilityDashboard';
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function sevenYearsAgo(): string {
@@ -99,9 +100,6 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
 
       const validation = await EodhdCrossValidationService.crossValidate(shortlistPayload(scanResult));
       setEodhdValidation(validation);
-
-      // Alpha is a reserve/third source. Only spend its quota if EODHD is incomplete
-      // or detects a material divergence that merits another opinion.
       const needsReserve = validation.summaryState !== 'AVAILABLE' || validation.divergent > 0;
       if (needsReserve) void runAlphaReserveValidation(scanResult);
       else {
@@ -187,6 +185,8 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
 
     {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200"><b>No puedo calcular la decisión.</b> {error}</div>}
     {marketLoading && !scan && <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center text-sm text-slate-400">Consultando Yahoo Finance automáticamente y validando el universo EUR…</div>}
+
+    {scan && result && <MarketUtilityDashboard scan={scan} decision={result} eodhdValidation={eodhdValidation} />}
 
     {scan && <section className="rounded-2xl border border-sky-500/20 bg-slate-900 p-5">
       <div className="flex items-center gap-2"><Search className="h-5 w-5 text-sky-400"/><h2 className="font-bold">Embudo de selección</h2></div>
