@@ -6,59 +6,56 @@
 
 React + TypeScript + Vite research/decision-support app. It ranks, backtests, alerts and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation: **2026-08-28 22:58 UTC**, green: global recorded run `exitCode: 0`, `ok: true`; lint/build PASS and recorded deterministic suites green. `researchReady: true`; `readyForManualPilot: false` remains intentionally separate.
+Latest fully recorded validation: **2026-08-28 23:10 UTC**, green: global recorded run `exitCode: 0`, `ok: true`; lint/build PASS and recorded deterministic suites (including broker availability, visible guardrails, startup responsiveness, and cash-hurdle execution tests) green. `researchReady: true`; `readyForManualPilot: false` remains intentionally separate.
 
 ## Primary user flow
 
-1. app shell and controls render with **zero automatic market/network workload**;
-2. user explicitly presses **Cargar datos REAL**;
-3. current market decision;
-4. visible execution guardrails: cash benchmark + current shortlist + MyInvestor state;
-5. optional portfolio/operations/alerts launcher;
-6. optional historical/ranking launcher;
-7. optional secondary-provider validation;
-8. collapsed technical detail.
+1. current market decision;
+2. **visible execution guardrails: cash benchmark + current shortlist + MyInvestor state**;
+3. lightweight research launcher;
+4. Mi cartera real;
+5. Operaciones pendientes;
+6. alerts/changes;
+7. collapsed technical/history detail.
 
-The main page must not hide important execution rules only inside the calculation engine, but usability takes precedence over automatically doing all expensive work at startup.
-
-## Startup responsiveness — current hardening
-
-User reported the app still freezing after the previous `requestIdleCallback`/lazy-chart change. Therefore the startup policy has been hardened further in commit `c6705815c2f3675b4bc2fcd45ff31f0e9d27eacc`.
-
-`InteractiveInvestmentDecisionCenter.tsx` now performs **no heavy automatic work on mount**:
-
-- no automatic REAL universe scan;
-- no automatic EODHD / Alpha Vantage cross-validation;
-- no 1-second portfolio polling interval;
-- no automatic `MarketUtilityDashboard` mount, so fund NAV requests do not start until the user opens the portfolio/actionable flow;
-- no automatic `RecommendationEvidencePanel` mount, so the Recharts multi-asset history remains fully on demand.
-
-The initial screen should therefore render only local React/UI state. Market loading starts exclusively after **Cargar datos REAL**. After the primary scan, the user can independently choose:
-
-- **Ver cartera, operaciones y alertas** — mounts portfolio/actionable flow and may load fund valuations;
-- **Ver histórico y ranking completo** — mounts heavy historical chart;
-- **Validar proveedores secundarios** — explicitly runs EODHD / Alpha Vantage checks.
-
-This separation is diagnostic as well as performance-oriented: if the initial shell still freezes, the cause is outside the market scan/UI modules; if it freezes only after one explicit launcher, the failing workload is isolated.
-
-A fresh deterministic validation is required after this commit, but browser responsiveness is a separate acceptance criterion and cannot be inferred from compile/build success alone.
+The main page must not hide important execution rules only inside the calculation engine.
 
 ## Visible execution guardrails
 
-Component: `src/components/DecisionGuardrailsPanel.tsx`.
+Component: `src/components/DecisionGuardrailsPanel.tsx`, rendered directly below the current market-decision summary.
 
-After REAL data is loaded, the primary screen shows for every current shortlisted instrument:
+The primary screen visibly shows, for every current shortlisted instrument:
 
 - ticker/product type/category;
 - REAL 120-session momentum;
 - annualized historical proxy used by the cash hurdle;
-- excess/deficit in percentage points versus configured cash remuneration;
+- excess/deficit in percentage points versus the configured cash remuneration;
 - explicit `SUPERA EFECTIVO` versus `MANTENER EN CUENTA` state;
-- effective MyInvestor availability state.
+- effective MyInvestor availability state (`confirmed`, user-confirmed, unavailable by user check, or pending lookup).
 
-The MyInvestor cash reference is editable on this panel, defaults to **2.5% annually**, and persists through `CashBenchmarkService` in browser localStorage.
+The MyInvestor cash reference is editable on this primary panel, defaults to 2.5% annually, and persists through `CashBenchmarkService` in browser localStorage.
 
-`PortfolioExecutionPlanPanel` reloads the same persisted benchmark whenever the user prepares/updates the plan. The final execution gate additionally applies actual proposed notional and modeled ETF entry commission.
+`PortfolioExecutionPlanPanel` does not keep an independent benchmark setting. Every time the user presses **Preparar/Actualizar plan**, it reloads the single persisted benchmark. This prevents the visible value and the execution value from diverging.
+
+Important: the primary guardrail table compares the annualized 120-session proxy before order-specific ETF commission because no exact order exists yet. `Operaciones pendientes` applies the stronger final gate using the actual proposed notional and modeled entry commission. Passing the upper table therefore does not guarantee an executable buy.
+
+## Startup responsiveness / heavy research rendering
+
+A green deterministic validation is not sufficient if the browser UI becomes unresponsive.
+
+`InteractiveInvestmentDecisionCenter.tsx` now:
+
+- lets the first UI paint occur before starting the REAL universe scan by scheduling initial refresh through `requestIdleCallback` (fallback short timer);
+- shows a lightweight loading message while REAL data is fetched;
+- does **not** mount `RecommendationEvidencePanel` at startup;
+- exposes **Ver histórico y ranking completo** to mount the heavy Recharts multi-asset history only on demand;
+- keeps the visible cash-vs-investment guardrails and actionable portfolio flow outside that heavy research panel.
+
+Reason: the previous page simultaneously scanned 38 instruments with multi-year history and immediately constructed the full multi-asset chart. This was valid computationally but could make the development/browser environment appear hung, especially while validation was also consuming resources.
+
+Commit implementing this startup hardening: `271bbee6856eb72d90acabbb862050204c519006`.
+
+A fresh validation is required after this performance change. In addition, the app must be manually opened with no test running to verify perceived responsiveness; compile/build success alone is not considered sufficient evidence of UI usability.
 
 ## Broker / MyInvestor availability evidence
 
@@ -78,9 +75,9 @@ The proxy is historical/diagnostic, never a forecast or guarantee.
 
 ## Latest execution/fund findings
 
-Adaptive execution remains capital-dependent. At 100 EUR the policy correctly executes no ETF orders instead of paying destructive minimum fees. The latest recorded REAL sweep has 73 causal rebalance windows.
+Adaptive execution remains capital-dependent. At 100 EUR the policy correctly executes no ETF orders instead of paying destructive minimum fees. The latest REAL sweep has 73 causal rebalance windows.
 
-Fund diagnosis remains conclusive for current EODHD history: 8 funds accepted, 2 currently shortlisted, but all 8 first reached the mandatory 252-bar causal-history threshold on **2026-08-19**, after the last monthly research information date **2026-07-31**. Zero historical fund operations remains a history-window limitation, not an engine failure.
+Fund diagnosis remains conclusive for the current EODHD history: 8 funds accepted, 2 currently shortlisted, but all 8 first reached the mandatory 252-bar causal-history threshold on **2026-08-19**, after the last monthly research information date **2026-07-31**. Therefore zero historical fund operations is a history-window limitation, not an engine failure.
 
 ## Data / causal integrity
 
@@ -119,8 +116,7 @@ Fund diagnosis remains conclusive for current EODHD history: 8 funds accepted, 2
 
 ## Immediate next step
 
-1. Open the app **without running validation**. It should remain responsive indefinitely before pressing any data button.
-2. If the shell is responsive, press **Cargar datos REAL** and observe whether the freeze begins during that explicit scan.
-3. If scan completes, open portfolio flow, research chart and provider validation one at a time to isolate any remaining heavy/failing area.
-4. Run `npm run validate:aistudio` after responsiveness is established and inspect the recorded result from GitHub.
-5. Only after UI stability is confirmed, extend historical replay/backtest reporting with an explicit remunerated-cash benchmark.
+1. Run `npm run validate:aistudio` after commit `271bbee...` and inspect the recorded result from GitHub.
+2. Open the primary app **with validation stopped** and verify that the header/controls render immediately, then REAL data fills in without freezing the page.
+3. Confirm the green **¿Compensa invertir frente a dejar el dinero en MyInvestor?** panel is visible after data load and the heavy history chart appears only after pressing **Ver histórico y ranking completo**.
+4. Once startup responsiveness is confirmed, extend historical replay/backtest reporting with an explicit remunerated-cash benchmark so strategy value-add versus doing nothing is visible historically as well.

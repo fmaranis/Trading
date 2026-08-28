@@ -1,16 +1,16 @@
 {
   "marker": "BROKER_AWARE_EXECUTION_SWEEP_RESULT",
-  "recordedAt": "2026-08-28T22:58:07.420Z",
+  "recordedAt": "2026-08-28T23:10:27.882Z",
   "gitHeadBeforeRecord": null,
   "gitBranch": null,
   "payload": {
-    "generatedAt": "2026-08-28T22:58:07.316Z",
+    "generatedAt": "2026-08-28T23:10:27.801Z",
     "scope": "ADAPTIVE_AND_MIXED_EXECUTION_CAPITAL_SWEEP",
     "researchReference": {
       "initialCapitalEur": 100,
-      "researchTrades": 495,
+      "researchTrades": 494,
       "researchRebalanceWindows": 73,
-      "researchReturnPct": 12.46
+      "researchReturnPct": 12.48
     },
     "fundEligibility": [
       {
@@ -235,16 +235,16 @@
           "maximumOrderFeeDragPct": 1,
           "maximumRebalanceFeeDragPct": 0.5
         },
-        "finalEquityEur": 28900.48,
+        "finalEquityEur": 28900.71,
         "totalReturnPct": 15.6,
         "maxDrawdownPct": 2.48,
         "executedOrders": 141,
         "suppressedOrders": 702,
         "rebalanceWindows": 73,
         "windowsWithTrades": 40,
-        "totalCommissionEur": 465.33,
+        "totalCommissionEur": 465.48,
         "commissionDragPctOfInitial": 1.86,
-        "residualCashEur": 2127.49
+        "residualCashEur": 2127.72
       }
     ],
     "mixedSweep": [
@@ -326,11 +326,11 @@
         "commissionDragPctOfInitial": 2.47,
         "rebalanceWindows": 73,
         "windowsWithAnyOperation": 32,
-        "residualCashEur": 462.38
+        "residualCashEur": 462.37
       },
       {
         "initialCapitalEur": 25000,
-        "finalEquityEur": 28910.69,
+        "finalEquityEur": 28910.51,
         "totalReturnPct": 15.64,
         "maxDrawdownPct": 2.48,
         "etfOrders": 139,
@@ -338,11 +338,11 @@
         "transferReviewCandidates": 0,
         "suppressedEtfOrders": 689,
         "suppressedFundOperations": 0,
-        "totalEtfCommissionEur": 463.91,
+        "totalEtfCommissionEur": 464.43,
         "commissionDragPctOfInitial": 1.86,
         "rebalanceWindows": 73,
         "windowsWithAnyOperation": 38,
-        "residualCashEur": 2137.7
+        "residualCashEur": 2137.52
       }
     ],
     "interpretation": "COMPARE_RESEARCH_SIGNAL_WITH_CAPITAL_ADAPTIVE_ETF_EXECUTION_AND_MIXED_ETF_FUND_REPLAY",

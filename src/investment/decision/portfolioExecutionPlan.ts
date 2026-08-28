@@ -4,7 +4,7 @@ import type { PortfolioDecisionResult } from './portfolioDecisionEngine';
 import type { UserPortfolioState } from './userPortfolio';
 import { brokerCommission } from './costAwareExecutionPolicy';
 import { executionPolicyForCapital } from './adaptiveExecutionPolicy';
-import { assessAgainstCashBenchmark, DEFAULT_CASH_BENCHMARK_ANNUAL_PCT } from './cashBenchmark';
+import { assessAgainstCashBenchmark, CashBenchmarkService, DEFAULT_CASH_BENCHMARK_ANNUAL_PCT } from './cashBenchmark';
 
 const STORAGE_KEY = 'custodia_pending_execution_plan_v1';
 export type PortfolioExecutionAction = 'BUY_ETF' | 'SELL_ETF' | 'SUBSCRIBE_FUND' | 'TRANSFER_FUND' | 'REDEEM_FUND' | 'REVIEW';
@@ -130,7 +130,32 @@ export function buildPortfolioExecutionPlan(input: { portfolio: UserPortfolioSta
 }
 
 export class PortfolioExecutionPlanService {
-  static load(): PortfolioExecutionPlan | null { if (typeof window === 'undefined') return null; try { const raw = window.localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) as PortfolioExecutionPlan : null; } catch { return null; } }
+  static load(): PortfolioExecutionPlan | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as PortfolioExecutionPlan;
+      if (!parsed || typeof parsed !== 'object') return null;
+      const benchmark = typeof parsed.cashBenchmarkAnnualPct === 'number' && Number.isFinite(parsed.cashBenchmarkAnnualPct)
+        ? parsed.cashBenchmarkAnnualPct
+        : CashBenchmarkService.load();
+      return {
+        ...parsed,
+        cashBenchmarkAnnualPct: benchmark,
+        lines: Array.isArray(parsed.lines)
+          ? parsed.lines.map(line => ({
+              ...line,
+              cashBenchmarkAnnualPct: typeof line.cashBenchmarkAnnualPct === 'number' && Number.isFinite(line.cashBenchmarkAnnualPct)
+                ? line.cashBenchmarkAnnualPct
+                : benchmark
+            }))
+          : []
+      };
+    } catch {
+      return null;
+    }
+  }
   static save(plan: PortfolioExecutionPlan): PortfolioExecutionPlan { if (typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, JSON.stringify(plan)); return plan; }
   static updateStatus(lineId: string, status: PortfolioExecutionStatus): PortfolioExecutionPlan | null { const plan = this.load(); if (!plan) return null; return this.save({ ...plan, lines: plan.lines.map(line => line.id === lineId ? { ...line, status } : line) }); }
   static clear(): void { if (typeof window !== 'undefined') window.localStorage.removeItem(STORAGE_KEY); }
