@@ -18,6 +18,7 @@ import {
 } from '../investment/decision';
 import { AlertAutomationStatusPanel } from './AlertAutomationStatusPanel';
 import { UserPortfolioPanel } from './UserPortfolioPanel';
+import { PortfolioExecutionPlanPanel } from './PortfolioExecutionPlanPanel';
 
 interface Props {
   scan: AssetUniverseScanResult;
@@ -100,6 +101,7 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdV
 
   return <section className="space-y-4">
     <UserPortfolioPanel scan={scan} decision={decision} />
+    <PortfolioExecutionPlanPanel scan={scan} decision={decision} />
 
     <section className="rounded-2xl border border-violet-500/20 bg-slate-900 p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
