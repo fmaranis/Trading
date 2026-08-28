@@ -39,6 +39,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastMarketRefresh, setLastMarketRefresh] = useState<string | null>(null);
   const [localRevision, setLocalRevision] = useState(0);
+  const [showResearchDetails, setShowResearchDetails] = useState(false);
   const [eodhdStatus, setEodhdStatus] = useState<EodhdStatus | null>(null);
   const [eodhdValidation, setEodhdValidation] = useState<EodhdCrossValidationResult | null>(null);
   const [eodhdLoading, setEodhdLoading] = useState(false);
@@ -99,7 +100,16 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
     finally { setMarketLoading(false); }
   };
 
-  useEffect(() => { void refreshMarket(false); }, []);
+  useEffect(() => {
+    const start = () => { void refreshMarket(false); };
+    const idle = (window as any).requestIdleCallback as ((cb: () => void, options?: { timeout: number }) => number) | undefined;
+    if (idle) {
+      const id = idle(start, { timeout: 800 });
+      return () => (window as any).cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(start, 120);
+    return () => window.clearTimeout(id);
+  }, []);
   useEffect(() => {
     const sync = () => setCapital(prev => { const next = portfolioDeployableCapital(); return Math.abs(prev - next) > 0.01 ? next : prev; });
     const id = window.setInterval(sync, 1000);
@@ -126,11 +136,11 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
         <label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Horizonte</span><select value={horizon} onChange={e=>setHorizon(Number(e.target.value) as InvestmentHorizonYears)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value={1}>1 año</option><option className="bg-slate-900" value={3}>3 años</option><option className="bg-slate-900" value={5}>5 años</option></select></label>
       </div>
       <button onClick={()=>void refreshMarket(true)} disabled={marketLoading} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 font-bold text-white hover:bg-indigo-500 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${marketLoading?'animate-spin':''}`}/>{marketLoading?'Actualizando universo…':'Actualizar datos REAL'}</button>
-      <div className="mt-3 flex flex-wrap gap-2 text-[10px]"><span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-400">Mercado: {lastMarketRefresh??'cargando…'}</span><span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-emerald-300">Recalculo local #{localRevision}</span></div>
+      <div className="mt-3 flex flex-wrap gap-2 text-[10px]"><span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-400">Mercado: {lastMarketRefresh??(marketLoading?'actualizando…':'pendiente de carga')}</span><span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-emerald-300">Recalculo local #{localRevision}</span></div>
     </section>
 
     {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200"><b>No puedo calcular la decisión.</b> {error}</div>}
-    {marketLoading && !scan && <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center text-sm text-slate-400">Consultando el universo unificado de fondos y ETFs…</div>}
+    {marketLoading && !scan && <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">La interfaz ya está disponible. Los datos REAL se están cargando en segundo plano…</div>}
 
     {result && <section className="grid gap-3 md:grid-cols-4">
       <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><div className="text-[10px] uppercase text-slate-500">Datos hasta</div><div className="mt-1 font-mono font-bold">{result.asOfDate}</div></div>
@@ -140,7 +150,13 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
     </section>}
 
     {scan && <DecisionGuardrailsPanel scan={scan}/>} 
-    {scan && <RecommendationEvidencePanel scan={scan}/>} 
+    {scan && <section className="rounded-2xl border border-violet-500/20 bg-slate-900 p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div><h2 className="font-bold text-white">Histórico, ranking y detalle de investigación</h2><p className="mt-1 text-xs text-slate-400">El gráfico multiactivo es la parte más pesada de la interfaz. Se carga solo cuando lo necesitas.</p></div>
+        <button onClick={() => setShowResearchDetails(v => !v)} className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-xs font-bold text-violet-200">{showResearchDetails ? 'Ocultar detalle' : 'Ver histórico y ranking completo'}</button>
+      </div>
+    </section>}
+    {scan && showResearchDetails && <RecommendationEvidencePanel scan={scan}/>} 
     {scan && result && <MarketUtilityDashboard scan={scan} decision={result} eodhdValidation={eodhdValidation}/>} 
 
     {scan && <details className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
