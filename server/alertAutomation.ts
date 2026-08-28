@@ -13,11 +13,14 @@ import {
   OpportunityAlertEngine,
   type DecisionHistoryEntry,
   type InvestmentDecisionResult,
-  type OpportunityAlert
+  type OpportunityAlert,
+  type PreviousOpportunitySnapshot
 } from '../src/investment/decision';
 
 const STATE_DIR = path.join(process.cwd(), '.runtime');
 const STATE_FILE = path.join(STATE_DIR, 'alertAutomationState.json');
+
+type DecisionWithShortlist = DecisionHistoryEntry & { shortlist?: PreviousOpportunitySnapshot['shortlist'] };
 
 export interface AlertAutomationState {
   lastAttemptAt: string | null;
@@ -26,7 +29,7 @@ export interface AlertAutomationState {
   lastMarketDate: string | null;
   lastError: string | null;
   lastAlerts: OpportunityAlert[];
-  lastDecision: DecisionHistoryEntry | null;
+  lastDecision: DecisionWithShortlist | null;
   lastEvidenceState: string | null;
   lastNotificationAt: string | null;
 }
@@ -48,14 +51,20 @@ function saveState(state: AlertAutomationState): void {
 }
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function sevenYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 7); return isoDate(d); }
-function toHistoryEntry(result: InvestmentDecisionResult): DecisionHistoryEntry {
+function toHistoryEntry(result: InvestmentDecisionResult, scan: Awaited<ReturnType<typeof AssetUniverseScanner.scan>>): DecisionWithShortlist {
   return {
     id: `automation_${result.asOfDate}_${result.riskProfile}_${result.horizonYears}`,
     savedAt: new Date().toISOString(), asOfDate: result.asOfDate, capitalEur: result.capitalEur,
     riskProfile: result.riskProfile, horizonYears: result.horizonYears, marketRegime: result.marketRegime,
     confidence: result.confidence, confidenceScore: result.confidenceScore, cashWeight: result.cashWeight,
     portfolioDatasetFingerprint: result.portfolioDatasetFingerprint, recommendedMethod: result.recommendedMethod,
-    allocations: result.assets.map(a => ({ assetId: a.assetId, ticker: a.ticker, weight: a.weight, amountEur: a.amountEur }))
+    allocations: result.assets.map(a => ({ assetId: a.assetId, ticker: a.ticker, weight: a.weight, amountEur: a.amountEur })),
+    shortlist: scan.selected.map(c => ({
+      ticker: c.asset.ticker,
+      score: c.score,
+      momentum120Pct: c.momentum120Pct,
+      annualizedVolatilityPct: c.annualizedVolatilityPct
+    }))
   };
 }
 function baseUrl(): string {
@@ -145,7 +154,7 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
 
     const next: AlertAutomationState = {
       lastAttemptAt: state.lastAttemptAt, lastSuccessAt: new Date().toISOString(), lastRunLocalDate: localRunDate,
-      lastMarketDate: decision.asOfDate, lastError: null, lastAlerts: alerts, lastDecision: toHistoryEntry(decision),
+      lastMarketDate: decision.asOfDate, lastError: null, lastAlerts: alerts, lastDecision: toHistoryEntry(decision, scan),
       lastEvidenceState: evidence?.state ?? 'PRIMARY_ONLY',
       lastNotificationAt: notificationSent ? new Date().toISOString() : state.lastNotificationAt
     };
