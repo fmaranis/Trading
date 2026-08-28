@@ -21,6 +21,7 @@ export const FundMarketDataCard: React.FC<Props> = ({ fund, onChange, onRemove, 
   const [market, setMarket] = useState<FundMarketDataResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const load = async () => {
     if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(fund.isin)) {
       setMarket(null); setError(fund.isin ? 'ISIN no válido' : null); onMarketValue(null); return;
@@ -48,6 +49,12 @@ export const FundMarketDataCard: React.FC<Props> = ({ fund, onChange, onRemove, 
       <label className="text-[9px] text-slate-500">Fecha entrada<input type="date" value={fund.acquisitionDate} onChange={e=>onChange({acquisitionDate:e.target.value})} className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-1 text-xs"/></label>
       <label className="text-[9px] text-slate-500">Participaciones <span className="text-slate-700">(opcional)</span><input type="number" min="0" step="0.000001" placeholder="para valor exacto" value={fund.units ?? ''} onChange={e=>onChange({units:e.target.value===''?null:Math.max(0,Number(e.target.value)||0)})} className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-1 text-right text-xs"/></label>
       <button onClick={onRemove} className="rounded border border-slate-700 text-slate-500 hover:text-rose-300"><Trash2 className="mx-auto h-3.5 w-3.5"/></button>
+    </div>
+
+    <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px]">
+      <select value={fund.category} onChange={e=>onChange({category:e.target.value as FundPosition['category']})} className="rounded border border-slate-700 bg-slate-900 p-1"><option value="GLOBAL_EQUITY">Global</option><option value="EMERGING_EQUITY">Emergentes</option><option value="OTHER">Otro</option></select>
+      <label className="flex items-center gap-1 text-slate-400"><input type="checkbox" checked={fund.transferable} onChange={e=>onChange({transferable:e.target.checked})}/>Traspasable</label>
+      <span className="text-slate-500">Broker: {fund.broker ?? 'N/D'}</span>
     </div>
 
     <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5 text-xs">
