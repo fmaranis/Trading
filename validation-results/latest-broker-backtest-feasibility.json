@@ -1,10 +1,10 @@
 {
   "marker": "BROKER_BACKTEST_FEASIBILITY_RESULT",
-  "recordedAt": "2026-08-28T18:33:11.443Z",
+  "recordedAt": "2026-08-28T19:04:41.081Z",
   "gitHeadBeforeRecord": null,
   "gitBranch": null,
   "payload": {
-    "generatedAt": "2026-08-28T18:32:09.778Z",
+    "generatedAt": "2026-08-28T19:02:49.459Z",
     "scope": "CURRENT_CAUSAL_BACKTEST_BROKER_COST_DIAGNOSTIC",
     "researchBacktest": {
       "initialCapitalEur": 100,
@@ -24,7 +24,7 @@
       "minimumTradingCostLowerBoundEur": 490.38,
       "minimumCommissionDragPct": 490,
       "modeledCommissionUnderstatementEur": 489.04,
-      "modeledCommissionUnderstatementFactor": 510.37,
+      "modeledCommissionUnderstatementFactor": 510.38,
       "brokerCommissionModelCompatible": false,
       "commissionDragTargetPct": 2,
       "minimumCapitalForCommissionDragTargetEur": 24500,

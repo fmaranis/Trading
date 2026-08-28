@@ -6,7 +6,27 @@
 
 The application is a React + TypeScript + Vite research/decision-support tool. It analyses, ranks, backtests, alerts and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation before the newest adaptive/mixed block: **2026-08-28 18:33 UTC**, green with `technicalBlockers: []`, `researchReady: true`, `readyForManualPilot: false`, lint/build PASS and all decision/causal/broker/portfolio/analytics suites green.
+Latest fully recorded validation: **2026-08-28 19:04 UTC**, green with `technicalBlockers: []`, `researchReady: true`, `readyForManualPilot: false`, lint/build PASS, all unit and causal suites green, and the adaptive ETF + mixed ETF/fund capital sweep recorded.
+
+### Multi-capital adaptive & mixed execution sweep results (19:04 UTC)
+
+Research signal baseline: 488 trades / 73 rebalance windows / +12.55% return.
+
+#### Adaptive ETF sweep (by capital band)
+- **100 EUR (MICRO)**: 0 orders executed, 584 suppressed, 73 windows suppressed. Equity remains **100.00 EUR** (+0.00%, max DD 0.00%, 0.00 EUR fees). Safely preserves capital without paying minimum fees.
+- **334 EUR (SMALL)**: 16 orders executed, 575 suppressed, 12 active windows. Equity: **336.05 EUR** (+0.61% net, max DD 2.67%), total fees 16.00 EUR (4.79% drag).
+- **500 EUR (SMALL)**: 18 orders executed, 574 suppressed, 12 active windows. Equity: **526.88 EUR** (+5.38% net, max DD 4.37%), total fees 18.00 EUR (3.60% drag).
+- **1,000 EUR (MEDIUM)**: 31 orders executed, 568 suppressed, 15 active windows. Equity: **1,128.79 EUR** (+12.88% net, max DD 2.32%), total fees 31.00 EUR (3.10% drag).
+- **5,000 EUR (LARGE)**: 114 orders executed, 698 suppressed, 39 active windows. Equity: **5,928.68 EUR** (+18.57% net, max DD 2.47%), total fees 140.83 EUR (2.82% drag).
+- **25,000 EUR (INSTITUTIONAL)**: 141 orders executed, 701 suppressed, 40 active windows. Equity: **28,904.28 EUR** (+15.62% net, max DD 2.48%), total fees 460.27 EUR (1.84% drag).
+
+#### Mixed ETF + mutual-fund sweep
+- **100 EUR**: 0 ETF orders, 0 fund operations, 584 suppressed ETF orders, final equity **100.00 EUR**.
+- **334 EUR**: 16 ETF orders, final equity **336.05 EUR** (+0.61% net).
+- **500 EUR**: 18 ETF orders, final equity **526.88 EUR** (+5.38% net).
+- **1,000 EUR**: 31 ETF orders, final equity **1,128.79 EUR** (+12.88% net).
+- **5,000 EUR**: 95 ETF orders, final equity **5,914.14 EUR** (+18.28% net, 121.65 EUR fees / 2.43% drag).
+- **25,000 EUR**: 139 ETF orders, final equity **28,913.53 EUR** (+15.65% net, 458.95 EUR fees / 1.84% drag).
 
 ## Data and causal integrity
 
