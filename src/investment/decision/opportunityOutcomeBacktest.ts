@@ -85,7 +85,7 @@ function round(v: number): number { return Number(v.toFixed(6)); }
 export class OpportunityOutcomeBacktestEngine {
   static run(dataset: MultiAssetDataset, catalog: AssetUniverseItem[], maxSelected = 8): OpportunityOutcomeBacktestResult {
     if (dataset.assets.length < 2) throw new Error('Se requieren al menos 2 activos para validar oportunidades.');
-    if (dataset.assets.some(a => a.provenance?.evidence !== 'REAL')) throw new Error('La validación de oportunidades exige datos REAL.');
+    if (dataset.assets.some(a => a.provenance.sourceType !== 'REAL')) throw new Error('La validación de oportunidades exige datos REAL.');
     const dates = commonTradingDates(dataset);
     if (dates.length < 250) throw new Error('Histórico común insuficiente para validar oportunidades.');
     const catalogById = new Map(catalog.map(x => [x.assetId,x]));
@@ -96,7 +96,7 @@ export class OpportunityOutcomeBacktestEngine {
     for (let i = 181; i < dates.length - 5; i++) {
       const d = dates[i];
       const next = dates[i+1];
-      if (d.slice(0,7) === next.slice(0,7)) continue; // month-end information window
+      if (d.slice(0,7) === next.slice(0,7)) continue;
       observationWindows++;
       const ranked = dataset.assets.map(asset => {
         const item = catalogById.get(asset.assetId);
@@ -113,13 +113,13 @@ export class OpportunityOutcomeBacktestEngine {
         if (diversified.some(y => y.asset.assetId === x.asset.assetId) || used.has(x.item.category)) continue;
         diversified.push(x); used.add(x.item.category);
       }
-      const opportunityCandidates = [...diversified].sort((a,b)=>b.score-a.score).slice(0,3)
-        .filter(x => x.score >= 2 && x.m120 > 0 && x.vol <= 30);
+      const sortedDiversified = [...diversified].sort((a,b)=>b.score-a.score);
+      const opportunityCandidates = sortedDiversified.slice(0,3).filter(x => x.score >= 2 && x.m120 > 0 && x.vol <= 30);
 
       for (const x of opportunityCandidates) {
         const event: OpportunityOutcomeEvent = {
           informationDate: d, ticker: x.asset.ticker, assetId: x.asset.assetId,
-          rank: diversified.sort((a,b)=>b.score-a.score).findIndex(y=>y.asset.assetId===x.asset.assetId)+1,
+          rank: sortedDiversified.findIndex(y=>y.asset.assetId===x.asset.assetId)+1,
           score: round(x.score), momentum120Pct: round(x.m120), annualizedVolatilityPct: round(x.vol),
           forwardReturnsPct: {}, benchmarkForwardReturnsPct: {}, excessReturnsPct: {}
         };
@@ -147,11 +147,12 @@ export class OpportunityOutcomeBacktestEngine {
       const rows = events.filter(e => e.forwardReturnsPct[h] != null && e.excessReturnsPct[h] != null);
       const returns = rows.map(e => e.forwardReturnsPct[h]!);
       const excess = rows.map(e => e.excessReturnsPct[h]!);
+      const med = median(returns);
       return {
         horizonSessions: h,
         evaluated: rows.length,
         averageReturnPct: returns.length ? round(returns.reduce((s,v)=>s+v,0)/returns.length) : null,
-        medianReturnPct: median(returns) == null ? null : round(median(returns)!),
+        medianReturnPct: med == null ? null : round(med),
         positiveHitRatePct: returns.length ? round(returns.filter(v=>v>0).length/returns.length*100) : null,
         averageExcessReturnPct: excess.length ? round(excess.reduce((s,v)=>s+v,0)/excess.length) : null,
         outperformRatePct: excess.length ? round(excess.filter(v=>v>0).length/excess.length*100) : null
