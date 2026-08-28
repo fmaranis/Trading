@@ -12,7 +12,8 @@ import {
   EUR_ASSET_UNIVERSE,
   InvestmentDecisionEngine,
   InvestorRiskProfile,
-  MYINVESTOR_BROKER_PROFILE
+  MYINVESTOR_BROKER_PROFILE,
+  OpportunityOutcomeBacktestEngine
 } from '../src/investment/decision';
 
 function runCommand(label: string, command: string, args: string[]): Promise<{ ok: boolean; exitCode: number | null; ms: number; tail: string }> {
@@ -49,6 +50,7 @@ async function main() {
     decisions: {},
     backtest: null,
     causalUniverseBacktest: null,
+    opportunityOutcomeBacktest: null,
     brokerExecution: null,
     technicalBlockers: [] as string[],
     manualPilotBlockers: [] as string[]
@@ -62,6 +64,7 @@ async function main() {
     ['brokerExecutionTests', 'test:broker-execution'],
     ['executionFidelityTests', 'test:execution-fidelity'],
     ['opportunityAlertTests', 'test:opportunity-alerts'],
+    ['opportunityOutcomeTests', 'test:opportunity-outcomes'],
     ['userPortfolioTests', 'test:user-portfolio'],
     ['multiAssetTests', 'test:multi-asset'],
     ['portfolioAnalyticsTests', 'test:portfolio-analytics'],
@@ -203,12 +206,35 @@ async function main() {
       residualBiasWarning: 'Selection is causal inside the currently validated/available universe, but historical delisted or no-longer-queryable instruments are not represented.'
     };
 
+    const outcomes = OpportunityOutcomeBacktestEngine.run(scan.acceptedDataset, EUR_ASSET_UNIVERSE, 8);
+    const evidenceMetrics = outcomes.metrics.map(m => ({
+      horizonSessions: m.horizonSessions,
+      evaluated: m.evaluated,
+      averageReturnPct: m.averageReturnPct,
+      positiveHitRatePct: m.positiveHitRatePct,
+      averageExcessReturnPct: m.averageExcessReturnPct,
+      outperformRatePct: m.outperformRatePct,
+      evidence: m.evaluated < 20 ? 'INSUFFICIENT_SAMPLE' : (m.averageExcessReturnPct ?? 0) > 0 && (m.outperformRatePct ?? 0) >= 50 ? 'POSITIVE_RELATIVE_EVIDENCE' : 'NO_POSITIVE_RELATIVE_EVIDENCE'
+    }));
+    report.opportunityOutcomeBacktest = {
+      scope: outcomes.scope,
+      eventCount: outcomes.eventCount,
+      observationWindows: outcomes.observationWindows,
+      metrics: evidenceMetrics,
+      thresholdAssessment: evidenceMetrics.every(m => m.evidence === 'POSITIVE_RELATIVE_EVIDENCE')
+        ? 'CURRENT_THRESHOLDS_HAVE_POSITIVE_RELATIVE_EVIDENCE_AT_ALL_TESTED_HORIZONS'
+        : evidenceMetrics.some(m => m.evidence === 'POSITIVE_RELATIVE_EVIDENCE')
+          ? 'MIXED_EVIDENCE_REVIEW_THRESHOLDS_BEFORE_EXPANDING_UNIVERSE'
+          : 'NO_POSITIVE_RELATIVE_EVIDENCE_REVIEW_THRESHOLDS',
+      notes: outcomes.notes
+    };
+
     report.manualPilotBlockers.push('BROKER_INSTRUMENT_AVAILABILITY_NOT_VERIFIED: MyInvestor whole-share and fee rules are modeled from official public documentation, but availability of the exact selected tickers/ISINs still requires confirmation in the MyInvestor/Inversis value finder.');
   } catch (err: any) {
     report.technicalBlockers.push(`live validation failed: ${err?.message || String(err)}`);
   } finally { if (ownsServer && server) server.kill('SIGTERM'); }
 
-  report.researchReady = report.technicalBlockers.length === 0 && report.commands.lint?.ok && report.commands.build?.ok && (report.universeScan?.selected?.length ?? 0) >= 2 && !!report.causalUniverseBacktest;
+  report.researchReady = report.technicalBlockers.length === 0 && report.commands.lint?.ok && report.commands.build?.ok && (report.universeScan?.selected?.length ?? 0) >= 2 && !!report.causalUniverseBacktest && !!report.opportunityOutcomeBacktest;
   report.readyForManualPilot = report.researchReady && report.manualPilotBlockers.length === 0;
   console.log('\nAI_STUDIO_VALIDATION_RESULT'); console.log(JSON.stringify(report, null, 2));
   if (!report.researchReady) process.exitCode = 1;
