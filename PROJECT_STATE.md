@@ -101,11 +101,11 @@ Commands:
 
 `validate:aistudio` runs both deterministic and live broker-cost diagnostics. Durable policy is recorded in `docs/DECISIONS.md` D20.
 
-## Automatic validation-result recording — 2026-08-28
+## Automatic validation-result recording — hardened 2026-08-28
 
 The user must **not** be asked to copy/paste validation output into chat as the normal workflow.
 
-New infrastructure:
+Infrastructure:
 
 - `scripts/validationResultStore.ts`
 - `scripts/runRecordedValidation.ts`
@@ -124,11 +124,28 @@ Recorded commands:
   - captures `EODHD_SHORTLIST_VALIDATION_RESULT`;
   - writes `validation-results/latest-eodhd-shortlist.json`.
 
-Each recorded result includes timestamp, Git HEAD/branch and structured payload. After writing, the wrapper attempts an isolated Git commit and push containing **only** the generated validation-result files. It does not use GitHub Actions and does not stage unrelated working-tree changes.
+Each recorded result includes timestamp, Git HEAD/branch and structured payload. The wrapper commits only generated validation-result files and does not stage unrelated local changes.
 
-If credentials/push are unavailable, the validation result remains written locally and the validation itself is not invalidated. `VALIDATION_AUTO_COMMIT=0` explicitly disables auto commit/push.
+### Remote publication policy
 
-**Future-chat rule:** after the user says a validation/check finished, first read the appropriate file under `validation-results/` from `main`. Do not ask the user to paste the terminal output unless automatic recording demonstrably failed.
+Publishing directly to `main` remains best-effort because the local validation checkout may lag behind remote `main` while ChatGPT is making direct repository commits.
+
+To prevent a non-fast-forward `main` push from hiding validation results, `scripts/runRecordedValidation.ts` now also publishes the validation-result commit to the dedicated remote branch:
+
+`validation-results`
+
+The wrapper attempts:
+
+1. normal push of the current branch;
+2. independent publication of the exact result commit to remote branch `validation-results` using force-with-lease, with a force fallback only for this dedicated result branch.
+
+This branch is only a transport/reference point for latest validation artifacts; `main` remains canonical for application code.
+
+**Future-chat retrieval rule:** after the user says a validation/check finished:
+
+1. first try `validation-results/latest-*.json` on `main`;
+2. if absent, read the same files from branch `validation-results`;
+3. do not ask the user to paste terminal output unless both automated remote paths demonstrably failed.
 
 ## Important validation commands
 
@@ -170,7 +187,7 @@ Verified provider-dependent:
 
 Previous deterministic suite before the newest broker-aware/history-hardening commits had reported lint/build/core tests PASS, `technicalBlockers: []`, `researchReady: true`, `readyForManualPilot: false`.
 
-The newest full validation result must now be taken from `validation-results/latest-aistudio.json` and `validation-results/latest-broker-backtest-feasibility.json` after the next `npm run validate:aistudio` execution.
+The first run after automatic-result recording was reported finished by the user, but its result did not reach remote `main`. Root cause: normal push may fail when the local validation checkout is behind remote `main`. The publishing workflow has now been hardened with the dedicated `validation-results` branch fallback.
 
 ## Known blockers / limitations
 
@@ -184,16 +201,15 @@ The newest full validation result must now be taken from `validation-results/lat
 
 ## Immediate next step
 
-Run the current recorded validation once with:
+Run once more on an updated checkout:
 
 `npm run validate:aistudio`
 
-After it finishes, do **not** request pasted output. Read from GitHub:
+After it finishes, do **not** request pasted output. Retrieve automatically in this order:
 
-- `validation-results/latest-aistudio.json`
-- `validation-results/latest-broker-backtest-feasibility.json`
-
-If those files were automatically pushed, continue immediately from their contents. If the files do not appear in GitHub, first diagnose the automatic recording/push path; only then consider any manual fallback.
+1. `validation-results/latest-aistudio.json` from `main`;
+2. `validation-results/latest-broker-backtest-feasibility.json` from `main`;
+3. if absent, the same paths from remote branch `validation-results`.
 
 If green, continue with the highest-impact remaining blocker: broker/manual-pilot viability and exact instrument availability, while keeping strategy research separate from execution economics.
 
@@ -202,6 +218,6 @@ If green, continue with the highest-impact remaining blocker: broker/manual-pilo
 1. Read this file from `fmaranis/Trading/main`.
 2. Read `docs/DECISIONS.md` when architecture/policy matters.
 3. Inspect current `main` HEAD and intervening commits before assuming state is current.
-4. Read `validation-results/latest-*.json` before asking for any validation output.
+4. Read `validation-results/latest-*.json` from `main`, then branch `validation-results`, before asking for any validation output.
 5. Continue from **Immediate next step** unless priority is explicitly changed.
 6. After meaningful work, update this file again.
