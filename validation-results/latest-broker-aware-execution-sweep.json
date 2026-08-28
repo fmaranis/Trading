@@ -1,16 +1,16 @@
 {
   "marker": "BROKER_AWARE_EXECUTION_SWEEP_RESULT",
-  "recordedAt": "2026-08-28T19:04:41.094Z",
+  "recordedAt": "2026-08-28T19:16:34.209Z",
   "gitHeadBeforeRecord": null,
   "gitBranch": null,
   "payload": {
-    "generatedAt": "2026-08-28T19:04:41.000Z",
+    "generatedAt": "2026-08-28T19:16:34.129Z",
     "scope": "ADAPTIVE_AND_MIXED_EXECUTION_CAPITAL_SWEEP",
     "researchReference": {
       "initialCapitalEur": 100,
-      "researchTrades": 488,
+      "researchTrades": 483,
       "researchRebalanceWindows": 73,
-      "researchReturnPct": 12.55
+      "researchReturnPct": 12.53
     },
     "adaptiveEtfSweep": [
       {
@@ -102,8 +102,8 @@
           "maximumOrderFeeDragPct": 1.25,
           "maximumRebalanceFeeDragPct": 0.6
         },
-        "finalEquityEur": 5928.68,
-        "totalReturnPct": 18.57,
+        "finalEquityEur": 5929,
+        "totalReturnPct": 18.58,
         "maxDrawdownPct": 2.47,
         "executedOrders": 114,
         "suppressedOrders": 698,
@@ -111,7 +111,7 @@
         "windowsWithTrades": 39,
         "totalCommissionEur": 140.83,
         "commissionDragPctOfInitial": 2.82,
-        "residualCashEur": 274.4
+        "residualCashEur": 274.72
       },
       {
         "initialCapitalEur": 25000,
@@ -122,16 +122,16 @@
           "maximumOrderFeeDragPct": 1,
           "maximumRebalanceFeeDragPct": 0.5
         },
-        "finalEquityEur": 28904.28,
+        "finalEquityEur": 28906.02,
         "totalReturnPct": 15.62,
         "maxDrawdownPct": 2.48,
         "executedOrders": 141,
         "suppressedOrders": 701,
         "rebalanceWindows": 73,
         "windowsWithTrades": 40,
-        "totalCommissionEur": 460.27,
+        "totalCommissionEur": 460.22,
         "commissionDragPctOfInitial": 1.84,
-        "residualCashEur": 2131.3
+        "residualCashEur": 2133.03
       }
     ],
     "mixedSweep": [
@@ -201,8 +201,8 @@
       },
       {
         "initialCapitalEur": 5000,
-        "finalEquityEur": 5914.14,
-        "totalReturnPct": 18.28,
+        "finalEquityEur": 5914.49,
+        "totalReturnPct": 18.29,
         "maxDrawdownPct": 2.46,
         "etfOrders": 95,
         "fundOperations": 0,
@@ -213,23 +213,23 @@
         "commissionDragPctOfInitial": 2.43,
         "rebalanceWindows": 73,
         "windowsWithAnyOperation": 32,
-        "residualCashEur": 466.65
+        "residualCashEur": 467.01
       },
       {
         "initialCapitalEur": 25000,
-        "finalEquityEur": 28913.53,
-        "totalReturnPct": 15.65,
+        "finalEquityEur": 28915.45,
+        "totalReturnPct": 15.66,
         "maxDrawdownPct": 2.48,
         "etfOrders": 139,
         "fundOperations": 0,
         "transferReviewCandidates": 0,
         "suppressedEtfOrders": 688,
         "suppressedFundOperations": 0,
-        "totalEtfCommissionEur": 458.95,
-        "commissionDragPctOfInitial": 1.84,
+        "totalEtfCommissionEur": 458.15,
+        "commissionDragPctOfInitial": 1.83,
         "rebalanceWindows": 73,
-        "windowsWithAnyOperation": 38,
-        "residualCashEur": 2140.54
+        "windowsWithAnyOperation": 39,
+        "residualCashEur": 2142.47
       }
     ],
     "interpretation": "COMPARE_RESEARCH_SIGNAL_WITH_CAPITAL_ADAPTIVE_ETF_EXECUTION_AND_MIXED_ETF_FUND_REPLAY",
