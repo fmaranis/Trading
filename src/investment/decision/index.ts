@@ -7,6 +7,8 @@ export * from './assetUniverseScanner';
 export * from './causalUniverseBacktestEngine';
 export * from './brokerExecution';
 export * from './brokerBacktestFeasibility';
+export * from './costAwareExecutionPolicy';
+export * from './brokerAwareCausalReplay';
 export * from './executionFidelity';
 export * from './evidenceQuality';
 export * from './opportunityAlertEngine';
