@@ -14,6 +14,7 @@ import { AlphaVantageCrossValidationResult, AlphaVantageCrossValidationService, 
 import { EodhdCrossValidationResult, EodhdCrossValidationService, EodhdStatus } from '../investment/data/marketData/eodhdCrossValidation';
 import { RecommendationEvidencePanel } from './RecommendationEvidencePanel';
 import { MarketUtilityDashboard } from './MarketUtilityDashboard';
+import { DecisionGuardrailsPanel } from './DecisionGuardrailsPanel';
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function sevenYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 7); return isoDate(d); }
@@ -116,7 +117,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   return <div className="space-y-5">
     <section className="rounded-2xl border border-indigo-500/25 bg-gradient-to-br from-indigo-950/70 via-slate-900 to-slate-950 p-5 sm:p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="max-w-3xl"><div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-indigo-300"/><h1 className="text-xl sm:text-2xl font-bold text-white">¿Dónde invertir ahora?</h1></div><p className="mt-2 text-sm text-slate-300">Fondos y ETFs/ETCs se analizan juntos. El ranking completo muestra los candidatos válidos; el shortlist es el subconjunto diversificado usado por el asignador.</p></div>
+        <div className="max-w-3xl"><div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-indigo-300"/><h1 className="text-xl sm:text-2xl font-bold text-white">¿Dónde invertir ahora?</h1></div><p className="mt-2 text-sm text-slate-300">Primero se calcula la señal de mercado y después se aplican los filtros reales de ejecución: cuenta remunerada, costes, tamaño de orden y disponibilidad en MyInvestor.</p></div>
         {result && <div className={`rounded-xl border px-3 py-2 text-xs font-bold ${confidenceClass(result.confidence)}`}>Calidad de evidencia {result.confidence} · {result.confidenceScore}/100</div>}
       </div>
       <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -138,6 +139,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><WalletCards className="h-4 w-4 text-amber-400"/><div className="mt-2 text-[10px] uppercase text-slate-500">Efectivo objetivo</div><div className="font-mono font-bold">{pct(result.cashWeight)}</div></div>
     </section>}
 
+    {scan && <DecisionGuardrailsPanel scan={scan}/>} 
     {scan && <RecommendationEvidencePanel scan={scan}/>} 
     {scan && result && <MarketUtilityDashboard scan={scan} decision={result} eodhdValidation={eodhdValidation}/>} 
 
