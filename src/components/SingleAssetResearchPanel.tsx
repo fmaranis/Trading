@@ -4,7 +4,10 @@ import { CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatte
 import { HistoricalMarketDataService } from '../investment/data/marketData/historicalMarketDataService';
 import { CashBenchmarkService, SingleAssetResearchEngine, type SingleAssetResearchFrequency, type SingleAssetResearchResult } from '../investment/decision';
 
-interface Props { requestedSymbol?: string | null; }
+interface Props {
+  requestedSymbol?: string | null;
+  suggestions?: Array<{ ticker: string; name: string }>;
+}
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function yearsAgo(years: number): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - years); return isoDate(d); }
@@ -14,14 +17,27 @@ function signed(value: number | null): string { return value == null ? 'N/D' : `
 function ResearchTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
-  return <div className="max-w-[280px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-[10px] shadow-xl">
+  return <div className="max-w-[290px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-[10px] shadow-xl">
     <div className="font-mono text-slate-400">{label}</div>
-    <div className="mt-1 font-bold text-white">Precio {Number(row?.price ?? 0).toFixed(2)}</div>
-    {row?.marker && <><div className={`mt-2 font-black ${row.marker === 'SELL' ? 'text-rose-300' : row.marker === 'ADD' ? 'text-cyan-300' : 'text-emerald-300'}`}>{row.marker === 'BUY' ? 'COMPRAR' : row.marker === 'SELL' ? 'SALIR / REDUCIR' : 'AÑADIR'}</div><div className="mt-1 text-slate-300">Consenso {row.consensus > 0 ? '+' : ''}{row.consensus} · {row.favorable} favorables / {row.unfavorable} adversas</div><div className="mt-1 text-slate-500">Señal {row.signalDate} → ejecución {row.date}</div><div className="mt-1 text-slate-400">{row.reason}</div></>}
+    <div className="mt-1 font-bold text-white">Cierre {Number(row?.price ?? 0).toFixed(2)}</div>
+    {row?.marker && <><div className={`mt-2 font-black ${row.marker === 'SELL' ? 'text-rose-300' : row.marker === 'ADD' ? 'text-cyan-300' : 'text-emerald-300'}`}>{row.marker === 'BUY' ? 'COMPRAR' : row.marker === 'SELL' ? 'SALIR / REDUCIR' : 'AÑADIR'}</div><div className="mt-1 font-mono text-white">Ejecución {Number(row.executionPrice).toFixed(2)}</div><div className="mt-1 text-slate-300">Consenso {row.consensus > 0 ? '+' : ''}{row.consensus} · {row.favorable} favorables / {row.unfavorable} adversas</div><div className="mt-1 text-slate-500">Señal {row.signalDate} → ejecución {row.date}</div><div className="mt-1 text-slate-400">{row.reason}</div></>}
   </div>;
 }
 
-export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol }) => {
+function BuyShape(props: any) {
+  const { cx = 0, cy = 0 } = props;
+  return <path d={`M ${cx} ${cy - 8} L ${cx - 7} ${cy + 6} L ${cx + 7} ${cy + 6} Z`} fill="#22c55e" stroke="#dcfce7" strokeWidth="1"/>;
+}
+function SellShape(props: any) {
+  const { cx = 0, cy = 0 } = props;
+  return <path d={`M ${cx} ${cy + 8} L ${cx - 7} ${cy - 6} L ${cx + 7} ${cy - 6} Z`} fill="#fb7185" stroke="#ffe4e6" strokeWidth="1"/>;
+}
+function AddShape(props: any) {
+  const { cx = 0, cy = 0 } = props;
+  return <path d={`M ${cx} ${cy - 7} L ${cx - 7} ${cy} L ${cx} ${cy + 7} L ${cx + 7} ${cy} Z`} fill="#22d3ee" stroke="#cffafe" strokeWidth="1"/>;
+}
+
+export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, suggestions = [] }) => {
   const [symbol, setSymbol] = useState(requestedSymbol || 'NVDA');
   const [startDate, setStartDate] = useState(yearsAgo(5));
   const [frequency, setFrequency] = useState<SingleAssetResearchFrequency>('MONTHLY');
@@ -30,12 +46,10 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol }) =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { if (requestedSymbol) setSymbol(requestedSymbol); }, [requestedSymbol]);
-
-  const analyze = async () => {
-    const clean = symbol.trim().toUpperCase();
-    if (!clean || loading) return;
-    setLoading(true); setError(null);
+  const analyzeSymbol = async (rawSymbol?: string) => {
+    const clean = (rawSymbol ?? symbol).trim().toUpperCase();
+    if (!clean) return;
+    setLoading(true); setError(null); setSymbol(clean);
     try {
       const endDate = isoDate(new Date());
       const response = await HistoricalMarketDataService.getHistoricalBars({ symbol: clean, startDate: warmupStart(startDate), endDate, timeframe: '1d', adjusted: true }, { forceRefresh: false, maxRetries: 1 });
@@ -48,7 +62,11 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol }) =
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { void analyze(); /* initial illustrative arbitrary ticker */ /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => {
+    if (requestedSymbol) void analyzeSymbol(requestedSymbol);
+    else void analyzeSymbol('NVDA');
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [requestedSymbol]);
 
   const chartData = useMemo(() => {
     if (!result) return [];
@@ -58,9 +76,10 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol }) =
       return {
         date: point.date,
         price: point.close,
-        buyPrice: signal?.action === 'BUY' ? point.close : null,
-        addPrice: signal?.action === 'ADD' ? point.close : null,
-        sellPrice: signal?.action === 'SELL' ? point.close : null,
+        buyPrice: signal?.action === 'BUY' ? signal.executionPrice : null,
+        addPrice: signal?.action === 'ADD' ? signal.executionPrice : null,
+        sellPrice: signal?.action === 'SELL' ? signal.executionPrice : null,
+        executionPrice: signal?.executionPrice,
         marker: signal?.action ?? null,
         signalDate: signal?.signalDate,
         consensus: signal?.consensusScore,
@@ -81,10 +100,10 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol }) =
     </div>
 
     <div className="mt-4 grid gap-2 md:grid-cols-[1.2fr_1fr_0.8fr_auto]">
-      <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Ticker</span><div className="mt-1 flex items-center gap-2"><Search className="h-4 w-4 text-slate-500"/><input value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === 'Enter') void analyze(); }} placeholder="AAPL / SAN.MC / SAP.DE…" className="w-full bg-transparent font-mono font-bold outline-none"/></div></label>
+      <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Ticker</span><div className="mt-1 flex items-center gap-2"><Search className="h-4 w-4 text-slate-500"/><input list="research-symbol-suggestions" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === 'Enter') void analyzeSymbol(); }} placeholder="AAPL / SAN.MC / SAP.DE…" className="w-full bg-transparent font-mono font-bold outline-none"/></div><datalist id="research-symbol-suggestions">{suggestions.map(item => <option key={item.ticker} value={item.ticker}>{item.name}</option>)}</datalist></label>
       <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Estudiar desde</span><input type="date" value={startDate} max={isoDate(new Date())} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full bg-transparent font-mono text-sm outline-none"/></label>
       <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Revisión</span><select value={frequency} onChange={e => setFrequency(e.target.value as SingleAssetResearchFrequency)} className="mt-1 w-full bg-transparent text-sm outline-none"><option className="bg-slate-900" value="MONTHLY">Mensual</option><option className="bg-slate-900" value="QUARTERLY">Trimestral</option></select></label>
-      <button onClick={() => void analyze()} disabled={loading} className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Analizando…' : 'Analizar'}</button>
+      <button onClick={() => void analyzeSymbol()} disabled={loading} className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Analizando…' : 'Analizar'}</button>
     </div>
 
     {error && <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">{error}</div>}
@@ -99,7 +118,7 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol }) =
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div><b className="text-sm text-white">Precio y decisiones del motor</b><div className="text-[9px] text-slate-500">▲ compra · ◆ añadir · ▼ salida/reducción. La señal se decide antes y se pinta en la siguiente apertura ejecutable.</div></div><div className="flex gap-3 text-[10px]"><span className="text-emerald-300"><TrendingUp className="mr-1 inline h-3.5 w-3.5"/>Comprar</span><span className="text-rose-300"><TrendingDown className="mr-1 inline h-3.5 w-3.5"/>Salir</span></div></div>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div><b className="text-sm text-white">Precio y decisiones del motor</b><div className="text-[9px] text-slate-500">▲ compra · ◆ añadir · ▼ salida/reducción. Cada marca está en el precio de apertura de la primera sesión posterior a la señal.</div></div><div className="flex gap-3 text-[10px]"><span className="text-emerald-300"><TrendingUp className="mr-1 inline h-3.5 w-3.5"/>Comprar</span><span className="text-rose-300"><TrendingDown className="mr-1 inline h-3.5 w-3.5"/>Salir</span></div></div>
         <div className="h-[430px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 15, right: 15, left: 5, bottom: 10 }}>
@@ -109,9 +128,9 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol }) =
               <Tooltip content={<ResearchTooltip/>}/>
               <Legend wrapperStyle={{ fontSize: 10 }}/>
               <Line type="monotone" dataKey="price" name="Precio" stroke="#94a3b8" strokeWidth={2} dot={false}/>
-              <Scatter dataKey="buyPrice" name="COMPRAR ▲" fill="#22c55e" shape="triangle"/>
-              <Scatter dataKey="addPrice" name="AÑADIR ◆" fill="#22d3ee" shape="diamond"/>
-              <Scatter dataKey="sellPrice" name="SALIR ▼" fill="#fb7185" shape="triangle"/>
+              <Scatter dataKey="buyPrice" name="COMPRAR ▲" shape={<BuyShape/>}/>
+              <Scatter dataKey="addPrice" name="AÑADIR ◆" shape={<AddShape/>}/>
+              <Scatter dataKey="sellPrice" name="SALIR ▼" shape={<SellShape/>}/>
             </ComposedChart>
           </ResponsiveContainer>
         </div>
