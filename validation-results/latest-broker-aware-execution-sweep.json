@@ -1,10 +1,10 @@
 {
   "marker": "BROKER_AWARE_EXECUTION_SWEEP_RESULT",
-  "recordedAt": "2026-08-29T20:30:26.370Z",
+  "recordedAt": "2026-08-29T20:46:58.679Z",
   "gitHeadBeforeRecord": null,
   "gitBranch": null,
   "payload": {
-    "generatedAt": "2026-08-29T20:30:26.246Z",
+    "generatedAt": "2026-08-29T20:46:58.576Z",
     "scope": "INTEGRATED_REAL_EXECUTION_HISTORICAL_HOLDOUT_AND_LOSS_EPISODE_VALIDATION",
     "provenance": [
       {
@@ -46,10 +46,10 @@
         "sourceType": "REAL",
         "provider": "Yahoo Finance",
         "symbol": "VUSA.DE",
-        "bars": 1777,
+        "bars": 1776,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_499ee185ea2ef7da"
+        "datasetFingerprint": "fp_32b68ac2d641a986"
       },
       {
         "assetId": "EQQQ",
@@ -60,7 +60,7 @@
         "bars": 1777,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_56a4f6ce6646f08e"
+        "datasetFingerprint": "fp_c9c10551a8433c8e"
       },
       {
         "assetId": "SXRV",
@@ -82,7 +82,7 @@
         "bars": 1777,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_02f022ef79559cdd"
+        "datasetFingerprint": "fp_70f82a5bf780b8ee"
       },
       {
         "assetId": "IS3N",
@@ -156,10 +156,10 @@
         "sourceType": "REAL",
         "provider": "Yahoo Finance",
         "symbol": "IQQH.DE",
-        "bars": 1777,
+        "bars": 1776,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_a6bbd018106a9f92"
+        "datasetFingerprint": "fp_1497a1f903232922"
       },
       {
         "assetId": "EXH1",
@@ -167,10 +167,10 @@
         "sourceType": "REAL",
         "provider": "Yahoo Finance",
         "symbol": "EXH1.DE",
-        "bars": 1772,
+        "bars": 1776,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_fc708de4b3f543af"
+        "datasetFingerprint": "fp_151beb499f00d31a"
       },
       {
         "assetId": "ISPA",
@@ -181,7 +181,7 @@
         "bars": 1779,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_85e9a0ed78a30eba"
+        "datasetFingerprint": "fp_9588cc387284b64f"
       },
       {
         "assetId": "VAGF",
@@ -225,7 +225,7 @@
         "bars": 1668,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_323b471435166061"
+        "datasetFingerprint": "fp_6b5895ac163bd6e4"
       },
       {
         "assetId": "XEON",
@@ -267,9 +267,9 @@
     },
     "researchReference": {
       "initialCapitalEur": 100,
-      "researchTrades": 489,
+      "researchTrades": 498,
       "researchRebalanceWindows": 73,
-      "researchReturnPct": 12.44
+      "researchReturnPct": 12.53
     },
     "cashBenchmarkAnnualPct": 2.5,
     "fundEligibility": [
@@ -475,16 +475,16 @@
           "maximumOrderFeeDragPct": 1.25,
           "maximumRebalanceFeeDragPct": 0.6
         },
-        "finalEquityEur": 5933.21,
-        "totalReturnPct": 18.66,
-        "maxDrawdownPct": 2.46,
-        "executedOrders": 101,
-        "suppressedOrders": 723,
+        "finalEquityEur": 5876.58,
+        "totalReturnPct": 17.53,
+        "maxDrawdownPct": 2.34,
+        "executedOrders": 111,
+        "suppressedOrders": 700,
         "rebalanceWindows": 73,
-        "windowsWithTrades": 32,
-        "totalCommissionEur": 127.71,
-        "commissionDragPctOfInitial": 2.55,
-        "residualCashEur": 89.38
+        "windowsWithTrades": 39,
+        "totalCommissionEur": 137.15,
+        "commissionDragPctOfInitial": 2.74,
+        "residualCashEur": 317.67
       },
       {
         "initialCapitalEur": 25000,
@@ -495,16 +495,16 @@
           "maximumOrderFeeDragPct": 1,
           "maximumRebalanceFeeDragPct": 0.5
         },
-        "finalEquityEur": 28908.02,
-        "totalReturnPct": 15.63,
+        "finalEquityEur": 28918.13,
+        "totalReturnPct": 15.67,
         "maxDrawdownPct": 2.48,
-        "executedOrders": 146,
-        "suppressedOrders": 697,
+        "executedOrders": 141,
+        "suppressedOrders": 704,
         "rebalanceWindows": 73,
-        "windowsWithTrades": 42,
-        "totalCommissionEur": 470.55,
-        "commissionDragPctOfInitial": 1.88,
-        "residualCashEur": 2124.42
+        "windowsWithTrades": 40,
+        "totalCommissionEur": 460.22,
+        "commissionDragPctOfInitial": 1.84,
+        "residualCashEur": 2134.53
       }
     ],
     "mixedSweep": [
@@ -602,48 +602,48 @@
       },
       {
         "initialCapitalEur": 5000,
-        "finalEquityEur": 6161.93,
-        "totalReturnPct": 23.24,
-        "maxDrawdownPct": 2.39,
-        "etfOrders": 99,
+        "finalEquityEur": 6130.31,
+        "totalReturnPct": 22.61,
+        "maxDrawdownPct": 2.41,
+        "etfOrders": 116,
         "fundOperations": 0,
         "transferReviewCandidates": 0,
-        "suppressedEtfOrders": 737,
+        "suppressedEtfOrders": 699,
         "suppressedFundOperations": 0,
-        "totalEtfCommissionEur": 125.97,
-        "commissionDragPctOfInitial": 2.52,
+        "totalEtfCommissionEur": 144.09,
+        "commissionDragPctOfInitial": 2.88,
         "rebalanceWindows": 73,
-        "windowsWithAnyOperation": 32,
-        "residualCashEur": 88.99,
+        "windowsWithAnyOperation": 38,
+        "residualCashEur": 272.44,
         "cashBenchmarkAnnualPct": 2.5,
-        "cashInterestEarnedEur": 217.84,
+        "cashInterestEarnedEur": 231.81,
         "allCashFinalEur": 5943.43,
         "allCashReturnPct": 18.87,
-        "excessFinalEurVsCash": 218.5,
-        "excessReturnVsCashPctPoints": 4.37,
+        "excessFinalEurVsCash": 186.89,
+        "excessReturnVsCashPctPoints": 3.74,
         "beatsAllCashBenchmark": true
       },
       {
         "initialCapitalEur": 25000,
-        "finalEquityEur": 29861.94,
-        "totalReturnPct": 19.45,
-        "maxDrawdownPct": 2.47,
-        "etfOrders": 154,
+        "finalEquityEur": 29871.7,
+        "totalReturnPct": 19.49,
+        "maxDrawdownPct": 2.46,
+        "etfOrders": 150,
         "fundOperations": 0,
         "transferReviewCandidates": 0,
-        "suppressedEtfOrders": 690,
+        "suppressedEtfOrders": 696,
         "suppressedFundOperations": 0,
-        "totalEtfCommissionEur": 498.26,
-        "commissionDragPctOfInitial": 1.99,
+        "totalEtfCommissionEur": 489.63,
+        "commissionDragPctOfInitial": 1.96,
         "rebalanceWindows": 73,
-        "windowsWithAnyOperation": 44,
-        "residualCashEur": 2383.45,
+        "windowsWithAnyOperation": 42,
+        "residualCashEur": 2393.2,
         "cashBenchmarkAnnualPct": 2.5,
-        "cashInterestEarnedEur": 1051.5,
+        "cashInterestEarnedEur": 1047.26,
         "allCashFinalEur": 29717.14,
         "allCashReturnPct": 18.87,
-        "excessFinalEurVsCash": 144.8,
-        "excessReturnVsCashPctPoints": 0.58,
+        "excessFinalEurVsCash": 154.55,
+        "excessReturnVsCashPctPoints": 0.62,
         "beatsAllCashBenchmark": true
       }
     ],
@@ -695,8 +695,8 @@
           "totalFeesEur": 8,
           "cashInterestEur": 43.5,
           "signalCounts": {
-            "AVOID": 211,
-            "BUY": 92,
+            "AVOID": 210,
+            "BUY": 93,
             "HOLD": 186,
             "ADD": 5
           },
@@ -845,11 +845,11 @@
           "endDate": "2026-08-27",
           "finalValueEur": 1231.11,
           "totalReturnPct": 23.11,
-          "staticBuyHoldFinalEur": 1090.44,
+          "staticBuyHoldFinalEur": 1090.37,
           "staticBuyHoldReturnPct": 9.04,
           "allCashFinalEur": 1094.59,
           "allCashReturnPct": 9.46,
-          "excessFinalEurVsStatic": 140.66,
+          "excessFinalEurVsStatic": 140.74,
           "excessReturnVsStaticPctPoints": 14.07,
           "excessFinalEurVsCash": 136.51,
           "excessReturnVsCashPctPoints": 13.65,
@@ -1010,7 +1010,7 @@
               "executionDate": "2025-08-04",
               "ticker": "VAGF.DE",
               "action": "BUY",
-              "targetWeightPct": 4.8,
+              "targetWeightPct": 4.9,
               "currentWeightPct": 0,
               "consensusScore": 2,
               "favorableVotes": 2,
@@ -1211,7 +1211,7 @@
               "executionDate": "2025-08-04",
               "ticker": "VAGF.DE",
               "action": "BUY",
-              "targetWeightPct": 4.8,
+              "targetWeightPct": 4.9,
               "currentWeightPct": 0,
               "consensusScore": 2,
               "favorableVotes": 2,
@@ -1344,7 +1344,7 @@
               "executionDate": "2025-08-04",
               "ticker": "VAGF.DE",
               "action": "BUY",
-              "targetWeightPct": 4.8,
+              "targetWeightPct": 4.9,
               "currentWeightPct": 0,
               "consensusScore": 2,
               "favorableVotes": 2,
@@ -1611,7 +1611,7 @@
             "scenariosBeatingStatic": 2,
             "scenariosBeatingCash": 3,
             "totalExecutedBuys": 23,
-            "totalExecutedAdds": 10,
+            "totalExecutedAdds": 11,
             "totalExecutedReductions": 0,
             "totalExecutedExits": 0
           },
@@ -1619,29 +1619,29 @@
             {
               "startDate": "2023-12-29",
               "endDate": "2026-08-27",
-              "finalValueEur": 1542.22,
-              "totalReturnPct": 54.22,
-              "staticBuyHoldFinalEur": 1397.12,
-              "staticBuyHoldReturnPct": 39.71,
+              "finalValueEur": 1541.36,
+              "totalReturnPct": 54.14,
+              "staticBuyHoldFinalEur": 1390.06,
+              "staticBuyHoldReturnPct": 39.01,
               "allCashFinalEur": 1067.97,
               "allCashReturnPct": 6.8,
-              "excessFinalEurVsStatic": 145.1,
-              "excessReturnVsStaticPctPoints": 14.51,
-              "excessFinalEurVsCash": 474.25,
-              "excessReturnVsCashPctPoints": 47.42,
-              "decisionPathMaxDrawdownPct": 8.42,
+              "excessFinalEurVsStatic": 151.31,
+              "excessReturnVsStaticPctPoints": 15.13,
+              "excessFinalEurVsCash": 473.4,
+              "excessReturnVsCashPctPoints": 47.34,
+              "decisionPathMaxDrawdownPct": 8.43,
               "decisions": 32,
               "executedBuys": 8,
-              "executedAdds": 3,
+              "executedAdds": 4,
               "executedReductions": 0,
               "executedExits": 0,
-              "totalFeesEur": 11,
-              "cashInterestEur": 8.33,
+              "totalFeesEur": 12,
+              "cashInterestEur": 8.38,
               "signalCounts": {
                 "BUY": 8,
                 "AVOID": 19,
-                "ADD": 54,
-                "HOLD": 168
+                "ADD": 55,
+                "HOLD": 167
               },
               "focusBehavior": [],
               "executedSignals": [
@@ -1650,7 +1650,7 @@
                   "executionDate": "2024-01-02",
                   "ticker": "EXI5.DE",
                   "action": "BUY",
-                  "targetWeightPct": 11,
+                  "targetWeightPct": 10.9,
                   "currentWeightPct": 0,
                   "consensusScore": 3,
                   "favorableVotes": 3,
@@ -1667,14 +1667,14 @@
                   "executionDate": "2024-01-02",
                   "ticker": "2B76.DE",
                   "action": "BUY",
-                  "targetWeightPct": 10.7,
+                  "targetWeightPct": 10.6,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
                   "unfavorableVotes": 0,
                   "structuralDowntrend": false,
                   "buyTheDipCandidate": false,
-                  "notionalEur": 106.92,
+                  "notionalEur": 95.04,
                   "feeEur": 1,
                   "executionPriceEur": 11.88,
                   "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
@@ -1684,7 +1684,7 @@
                   "executionDate": "2024-01-02",
                   "ticker": "IS3R.DE",
                   "action": "BUY",
-                  "targetWeightPct": 14.8,
+                  "targetWeightPct": 14.9,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -1701,7 +1701,7 @@
                   "executionDate": "2024-01-02",
                   "ticker": "QDVI.DE",
                   "action": "BUY",
-                  "targetWeightPct": 13.6,
+                  "targetWeightPct": 13.5,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -1718,7 +1718,7 @@
                   "executionDate": "2024-01-02",
                   "ticker": "ZPRX.DE",
                   "action": "BUY",
-                  "targetWeightPct": 13,
+                  "targetWeightPct": 12.8,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -1748,11 +1748,28 @@
                   "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +3; 3 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
                 },
                 {
+                  "signalDate": "2024-04-30",
+                  "executionDate": "2024-05-02",
+                  "ticker": "2B76.DE",
+                  "action": "ADD",
+                  "targetWeightPct": 10.6,
+                  "currentWeightPct": 9.2,
+                  "consensusScore": 5,
+                  "favorableVotes": 5,
+                  "unfavorableVotes": 0,
+                  "structuralDowntrend": false,
+                  "buyTheDipCandidate": true,
+                  "notionalEur": 11.78,
+                  "feeEur": 1,
+                  "executionPriceEur": 11.78,
+                  "reason": "La caída reciente ocurre sin tendencia larga estructuralmente rota: posible compra escalonada, condicionada al resto de gates. Consenso +5; 5 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
+                },
+                {
                   "signalDate": "2024-08-01",
                   "executionDate": "2024-08-02",
                   "ticker": "IS3S.DE",
                   "action": "BUY",
-                  "targetWeightPct": 16,
+                  "targetWeightPct": 15.8,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -1769,7 +1786,7 @@
                   "executionDate": "2024-12-02",
                   "ticker": "EXI5.DE",
                   "action": "ADD",
-                  "targetWeightPct": 11.4,
+                  "targetWeightPct": 11.3,
                   "currentWeightPct": 9.7,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -1786,7 +1803,7 @@
                   "executionDate": "2025-08-04",
                   "ticker": "G1CE.DE",
                   "action": "BUY",
-                  "targetWeightPct": 8.6,
+                  "targetWeightPct": 8.9,
                   "currentWeightPct": 0,
                   "consensusScore": 2,
                   "favorableVotes": 2,
@@ -1804,7 +1821,7 @@
                   "ticker": "EXI5.DE",
                   "action": "ADD",
                   "targetWeightPct": 12.1,
-                  "currentWeightPct": 10.5,
+                  "currentWeightPct": 10.6,
                   "consensusScore": 4,
                   "favorableVotes": 4,
                   "unfavorableVotes": 0,
@@ -1820,8 +1837,8 @@
                   "executionDate": "2026-03-02",
                   "ticker": "EXI5.DE",
                   "action": "ADD",
-                  "targetWeightPct": 12.4,
-                  "currentWeightPct": 11.2,
+                  "targetWeightPct": 12.3,
+                  "currentWeightPct": 11.3,
                   "consensusScore": 4,
                   "favorableVotes": 4,
                   "unfavorableVotes": 0,
@@ -1837,24 +1854,24 @@
             {
               "startDate": "2024-12-30",
               "endDate": "2026-08-27",
-              "finalValueEur": 1324.38,
-              "totalReturnPct": 32.44,
-              "staticBuyHoldFinalEur": 1258.24,
-              "staticBuyHoldReturnPct": 25.82,
+              "finalValueEur": 1324.54,
+              "totalReturnPct": 32.45,
+              "staticBuyHoldFinalEur": 1251.68,
+              "staticBuyHoldReturnPct": 25.17,
               "allCashFinalEur": 1041.78,
               "allCashReturnPct": 4.18,
-              "excessFinalEurVsStatic": 66.14,
-              "excessReturnVsStaticPctPoints": 6.61,
-              "excessFinalEurVsCash": 282.6,
-              "excessReturnVsCashPctPoints": 28.26,
-              "decisionPathMaxDrawdownPct": 5.66,
+              "excessFinalEurVsStatic": 72.86,
+              "excessReturnVsStaticPctPoints": 7.29,
+              "excessFinalEurVsCash": 282.76,
+              "excessReturnVsCashPctPoints": 28.28,
+              "decisionPathMaxDrawdownPct": 5.52,
               "decisions": 20,
               "executedBuys": 8,
               "executedAdds": 5,
               "executedReductions": 0,
               "executedExits": 0,
               "totalFeesEur": 13,
-              "cashInterestEur": 8.89,
+              "cashInterestEur": 9.13,
               "signalCounts": {
                 "BUY": 8,
                 "AVOID": 12,
@@ -1885,7 +1902,7 @@
                   "executionDate": "2025-01-02",
                   "ticker": "2B76.DE",
                   "action": "BUY",
-                  "targetWeightPct": 10.6,
+                  "targetWeightPct": 10.5,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -1902,7 +1919,7 @@
                   "executionDate": "2025-01-02",
                   "ticker": "IS3R.DE",
                   "action": "BUY",
-                  "targetWeightPct": 14.3,
+                  "targetWeightPct": 14.4,
                   "currentWeightPct": 0,
                   "consensusScore": 3,
                   "favorableVotes": 3,
@@ -1919,7 +1936,7 @@
                   "executionDate": "2025-01-02",
                   "ticker": "QDVI.DE",
                   "action": "BUY",
-                  "targetWeightPct": 13.5,
+                  "targetWeightPct": 13.4,
                   "currentWeightPct": 0,
                   "consensusScore": 5,
                   "favorableVotes": 5,
@@ -1936,7 +1953,7 @@
                   "executionDate": "2025-02-03",
                   "ticker": "ZPRX.DE",
                   "action": "BUY",
-                  "targetWeightPct": 13.1,
+                  "targetWeightPct": 13,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -1953,7 +1970,7 @@
                   "executionDate": "2025-03-03",
                   "ticker": "IS3S.DE",
                   "action": "BUY",
-                  "targetWeightPct": 15.7,
+                  "targetWeightPct": 15.5,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -1964,23 +1981,6 @@
                   "feeEur": 1,
                   "executionPriceEur": 44.44,
                   "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen SIDEWAYS_LOW_VOL."
-                },
-                {
-                  "signalDate": "2025-02-28",
-                  "executionDate": "2025-03-03",
-                  "ticker": "2B76.DE",
-                  "action": "ADD",
-                  "targetWeightPct": 10.7,
-                  "currentWeightPct": 9.2,
-                  "consensusScore": 4,
-                  "favorableVotes": 4,
-                  "unfavorableVotes": 0,
-                  "structuralDowntrend": false,
-                  "buyTheDipCandidate": true,
-                  "notionalEur": 13.55,
-                  "feeEur": 1,
-                  "executionPriceEur": 13.55,
-                  "reason": "La caída reciente ocurre sin tendencia larga estructuralmente rota: posible compra escalonada, condicionada al resto de gates. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen SIDEWAYS_LOW_VOL."
                 },
                 {
                   "signalDate": "2025-04-30",
@@ -1994,7 +1994,7 @@
                   "unfavorableVotes": 0,
                   "structuralDowntrend": false,
                   "buyTheDipCandidate": false,
-                  "notionalEur": 82.39,
+                  "notionalEur": 68.66,
                   "feeEur": 1,
                   "executionPriceEur": 13.73,
                   "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +2; 2 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BEAR_HIGH_VOL."
@@ -2005,13 +2005,13 @@
                   "ticker": "EXI5.DE",
                   "action": "ADD",
                   "targetWeightPct": 12,
-                  "currentWeightPct": 8.7,
+                  "currentWeightPct": 7.2,
                   "consensusScore": 3,
                   "favorableVotes": 3,
                   "unfavorableVotes": 0,
                   "structuralDowntrend": false,
                   "buyTheDipCandidate": false,
-                  "notionalEur": 28.69,
+                  "notionalEur": 43.03,
                   "feeEur": 1,
                   "executionPriceEur": 14.34,
                   "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +3; 3 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
@@ -2021,7 +2021,7 @@
                   "executionDate": "2025-08-04",
                   "ticker": "G1CE.DE",
                   "action": "BUY",
-                  "targetWeightPct": 8.6,
+                  "targetWeightPct": 8.9,
                   "currentWeightPct": 0,
                   "consensusScore": 2,
                   "favorableVotes": 2,
@@ -2049,6 +2049,23 @@
                   "feeEur": 1,
                   "executionPriceEur": 13.46,
                   "reason": "La caída reciente ocurre sin tendencia larga estructuralmente rota: posible compra escalonada, condicionada al resto de gates. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
+                },
+                {
+                  "signalDate": "2025-09-01",
+                  "executionDate": "2025-09-02",
+                  "ticker": "2B76.DE",
+                  "action": "ADD",
+                  "targetWeightPct": 10.5,
+                  "currentWeightPct": 9,
+                  "consensusScore": 4,
+                  "favorableVotes": 4,
+                  "unfavorableVotes": 0,
+                  "structuralDowntrend": false,
+                  "buyTheDipCandidate": false,
+                  "notionalEur": 13.01,
+                  "feeEur": 1,
+                  "executionPriceEur": 13.01,
+                  "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
                 },
                 {
                   "signalDate": "2026-04-30",
@@ -2091,12 +2108,12 @@
               "endDate": "2026-08-27",
               "finalValueEur": 1163.7,
               "totalReturnPct": 16.37,
-              "staticBuyHoldFinalEur": 1174.07,
-              "staticBuyHoldReturnPct": 17.41,
+              "staticBuyHoldFinalEur": 1173.78,
+              "staticBuyHoldReturnPct": 17.38,
               "allCashFinalEur": 1016.37,
               "allCashReturnPct": 1.64,
-              "excessFinalEurVsStatic": -10.37,
-              "excessReturnVsStaticPctPoints": -1.04,
+              "excessFinalEurVsStatic": -10.08,
+              "excessReturnVsStaticPctPoints": -1.01,
               "excessFinalEurVsCash": 147.33,
               "excessReturnVsCashPctPoints": 14.73,
               "decisionPathMaxDrawdownPct": 2.93,
@@ -2120,7 +2137,7 @@
                   "executionDate": "2026-01-02",
                   "ticker": "IS3S.DE",
                   "action": "BUY",
-                  "targetWeightPct": 15.2,
+                  "targetWeightPct": 15.1,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -2137,7 +2154,7 @@
                   "executionDate": "2026-01-02",
                   "ticker": "QDVI.DE",
                   "action": "BUY",
-                  "targetWeightPct": 12.8,
+                  "targetWeightPct": 12.7,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -2154,7 +2171,7 @@
                   "executionDate": "2026-01-02",
                   "ticker": "G1CE.DE",
                   "action": "BUY",
-                  "targetWeightPct": 8.5,
+                  "targetWeightPct": 8.8,
                   "currentWeightPct": 0,
                   "consensusScore": 3,
                   "favorableVotes": 3,
@@ -2171,7 +2188,7 @@
                   "executionDate": "2026-01-02",
                   "ticker": "ZPRX.DE",
                   "action": "BUY",
-                  "targetWeightPct": 13,
+                  "targetWeightPct": 12.9,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -2222,7 +2239,7 @@
                   "executionDate": "2026-03-02",
                   "ticker": "EXI5.DE",
                   "action": "BUY",
-                  "targetWeightPct": 12.4,
+                  "targetWeightPct": 12.3,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -2287,7 +2304,7 @@
             "annualizedVolatility1yPct": 16.4,
             "maxDrawdownFullPct": 48.08,
             "currentDrawdown1yPct": 6.66,
-            "bars": 1775
+            "bars": 1777
           },
           {
             "assetId": "HOLDOUT_XDEB",
@@ -2311,7 +2328,7 @@
             "annualizedVolatility1yPct": 12.53,
             "maxDrawdownFullPct": 41.75,
             "currentDrawdown1yPct": 5.9,
-            "bars": 1775
+            "bars": 1774
           }
         ],
         "deepDrawdownCases": [
@@ -2401,7 +2418,7 @@
             "annualizedVolatility1yPct": 16.4,
             "maxDrawdownFullPct": 48.08,
             "currentDrawdown1yPct": 6.66,
-            "bars": 1775
+            "bars": 1777
           },
           {
             "assetId": "HOLDOUT_XDEB",
@@ -2425,7 +2442,7 @@
             "annualizedVolatility1yPct": 12.53,
             "maxDrawdownFullPct": 41.75,
             "currentDrawdown1yPct": 5.9,
-            "bars": 1775
+            "bars": 1774
           }
         ],
         "stressTickers": [
@@ -2457,7 +2474,7 @@
             "scenariosBeatingStatic": 2,
             "scenariosBeatingCash": 3,
             "totalExecutedBuys": 19,
-            "totalExecutedAdds": 5,
+            "totalExecutedAdds": 6,
             "totalExecutedReductions": 1,
             "totalExecutedExits": 3
           },
@@ -2465,24 +2482,24 @@
             {
               "startDate": "2023-12-29",
               "endDate": "2026-08-27",
-              "finalValueEur": 1331.44,
-              "totalReturnPct": 33.14,
+              "finalValueEur": 1328.76,
+              "totalReturnPct": 32.88,
               "staticBuyHoldFinalEur": 1387.47,
               "staticBuyHoldReturnPct": 38.75,
               "allCashFinalEur": 1067.97,
               "allCashReturnPct": 6.8,
-              "excessFinalEurVsStatic": -56.03,
-              "excessReturnVsStaticPctPoints": -5.6,
-              "excessFinalEurVsCash": 263.47,
-              "excessReturnVsCashPctPoints": 26.35,
+              "excessFinalEurVsStatic": -58.71,
+              "excessReturnVsStaticPctPoints": -5.87,
+              "excessFinalEurVsCash": 260.79,
+              "excessReturnVsCashPctPoints": 26.08,
               "decisionPathMaxDrawdownPct": 9.3,
               "decisions": 32,
               "executedBuys": 8,
-              "executedAdds": 3,
+              "executedAdds": 4,
               "executedReductions": 0,
               "executedExits": 2,
-              "totalFeesEur": 13,
-              "cashInterestEur": 5.55,
+              "totalFeesEur": 14,
+              "cashInterestEur": 5.4,
               "signalCounts": {
                 "BUY": 18,
                 "AVOID": 11,
@@ -2526,10 +2543,10 @@
                   "signalCounts": {
                     "AVOID": 3,
                     "BUY": 1,
-                    "HOLD": 10,
-                    "ADD": 2
+                    "HOLD": 11,
+                    "ADD": 1
                   },
-                  "executed": 1
+                  "executed": 2
                 },
                 {
                   "assetId": "HOLDOUT_XUEN",
@@ -2558,8 +2575,8 @@
                   "ticker": "EXI5.DE",
                   "signalCounts": {
                     "BUY": 1,
-                    "HOLD": 28,
-                    "ADD": 3
+                    "HOLD": 27,
+                    "ADD": 4
                   },
                   "executed": 3
                 },
@@ -2631,7 +2648,7 @@
                   "executionDate": "2024-04-02",
                   "ticker": "EXI5.DE",
                   "action": "ADD",
-                  "targetWeightPct": 23.1,
+                  "targetWeightPct": 23,
                   "currentWeightPct": 19.8,
                   "consensusScore": 3,
                   "favorableVotes": 3,
@@ -2682,7 +2699,7 @@
                   "executionDate": "2024-07-02",
                   "ticker": "XUEN.DE",
                   "action": "BUY",
-                  "targetWeightPct": 17,
+                  "targetWeightPct": 16.9,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -2733,7 +2750,7 @@
                   "executionDate": "2025-08-04",
                   "ticker": "G1CE.DE",
                   "action": "BUY",
-                  "targetWeightPct": 13.3,
+                  "targetWeightPct": 13.6,
                   "currentWeightPct": 0,
                   "consensusScore": 2,
                   "favorableVotes": 2,
@@ -2746,21 +2763,38 @@
                   "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +2; 2 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen SIDEWAYS_LOW_VOL."
                 },
                 {
-                  "signalDate": "2025-09-01",
-                  "executionDate": "2025-09-02",
-                  "ticker": "EXI5.DE",
+                  "signalDate": "2025-10-01",
+                  "executionDate": "2025-10-02",
+                  "ticker": "G1CE.DE",
                   "action": "ADD",
-                  "targetWeightPct": 24,
-                  "currentWeightPct": 22.6,
+                  "targetWeightPct": 16.4,
+                  "currentWeightPct": 14.5,
                   "consensusScore": 4,
                   "favorableVotes": 4,
                   "unfavorableVotes": 0,
                   "structuralDowntrend": false,
-                  "buyTheDipCandidate": true,
-                  "notionalEur": 13.46,
+                  "buyTheDipCandidate": false,
+                  "notionalEur": 18.1,
                   "feeEur": 1,
-                  "executionPriceEur": 13.46,
-                  "reason": "La caída reciente ocurre sin tendencia larga estructuralmente rota: posible compra escalonada, condicionada al resto de gates. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen SIDEWAYS_LOW_VOL."
+                  "executionPriceEur": 18.1,
+                  "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
+                },
+                {
+                  "signalDate": "2025-10-01",
+                  "executionDate": "2025-10-02",
+                  "ticker": "EXI5.DE",
+                  "action": "ADD",
+                  "targetWeightPct": 23.7,
+                  "currentWeightPct": 21.8,
+                  "consensusScore": 3,
+                  "favorableVotes": 3,
+                  "unfavorableVotes": 0,
+                  "structuralDowntrend": false,
+                  "buyTheDipCandidate": false,
+                  "notionalEur": 13.5,
+                  "feeEur": 1,
+                  "executionPriceEur": 13.5,
+                  "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +3; 3 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
                 },
                 {
                   "signalDate": "2025-10-31",
@@ -2791,7 +2825,7 @@
                   "unfavorableVotes": 0,
                   "structuralDowntrend": false,
                   "buyTheDipCandidate": false,
-                  "notionalEur": 26.47,
+                  "notionalEur": 8.82,
                   "feeEur": 1,
                   "executionPriceEur": 8.82,
                   "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +2; 2 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
@@ -2932,7 +2966,7 @@
                   "executionDate": "2025-01-02",
                   "ticker": "2B76.DE",
                   "action": "BUY",
-                  "targetWeightPct": 18.9,
+                  "targetWeightPct": 19,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -2983,7 +3017,7 @@
                   "executionDate": "2025-02-03",
                   "ticker": "XUEN.DE",
                   "action": "BUY",
-                  "targetWeightPct": 17.2,
+                  "targetWeightPct": 17.1,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -3051,7 +3085,7 @@
                   "executionDate": "2025-07-02",
                   "ticker": "EXI5.DE",
                   "action": "ADD",
-                  "targetWeightPct": 18.1,
+                  "targetWeightPct": 17.9,
                   "currentWeightPct": 15.1,
                   "consensusScore": 3,
                   "favorableVotes": 3,
@@ -3068,7 +3102,7 @@
                   "executionDate": "2025-08-04",
                   "ticker": "G1CE.DE",
                   "action": "BUY",
-                  "targetWeightPct": 13.3,
+                  "targetWeightPct": 13.6,
                   "currentWeightPct": 0,
                   "consensusScore": 2,
                   "favorableVotes": 2,
@@ -3085,29 +3119,29 @@
             {
               "startDate": "2025-12-30",
               "endDate": "2026-08-27",
-              "finalValueEur": 1152.22,
-              "totalReturnPct": 15.22,
+              "finalValueEur": 1158.44,
+              "totalReturnPct": 15.84,
               "staticBuyHoldFinalEur": 1125.21,
               "staticBuyHoldReturnPct": 12.52,
               "allCashFinalEur": 1016.37,
               "allCashReturnPct": 1.64,
-              "excessFinalEurVsStatic": 27.01,
-              "excessReturnVsStaticPctPoints": 2.7,
-              "excessFinalEurVsCash": 135.85,
-              "excessReturnVsCashPctPoints": 13.59,
-              "decisionPathMaxDrawdownPct": 3.23,
+              "excessFinalEurVsStatic": 33.23,
+              "excessReturnVsStaticPctPoints": 3.32,
+              "excessFinalEurVsCash": 142.07,
+              "excessReturnVsCashPctPoints": 14.21,
+              "decisionPathMaxDrawdownPct": 3.02,
               "decisions": 8,
               "executedBuys": 5,
               "executedAdds": 0,
               "executedReductions": 0,
               "executedExits": 0,
               "totalFeesEur": 5,
-              "cashInterestEur": 1.46,
+              "cashInterestEur": 1.4,
               "signalCounts": {
                 "BUY": 9,
                 "AVOID": 3,
-                "HOLD": 29,
-                "ADD": 3
+                "HOLD": 30,
+                "ADD": 2
               },
               "focusBehavior": [
                 {
@@ -3177,8 +3211,8 @@
                   "ticker": "TRET.DE",
                   "signalCounts": {
                     "BUY": 1,
-                    "HOLD": 5,
-                    "ADD": 2
+                    "HOLD": 6,
+                    "ADD": 1
                   },
                   "executed": 1
                 }
@@ -3189,7 +3223,7 @@
                   "executionDate": "2026-01-02",
                   "ticker": "G1CE.DE",
                   "action": "BUY",
-                  "targetWeightPct": 15.9,
+                  "targetWeightPct": 16.2,
                   "currentWeightPct": 0,
                   "consensusScore": 3,
                   "favorableVotes": 3,
@@ -3213,7 +3247,7 @@
                   "unfavorableVotes": 0,
                   "structuralDowntrend": false,
                   "buyTheDipCandidate": true,
-                  "notionalEur": 258.77,
+                  "notionalEur": 295.74,
                   "feeEur": 1,
                   "executionPriceEur": 36.97,
                   "reason": "La caída reciente ocurre sin tendencia larga estructuralmente rota: posible compra escalonada, condicionada al resto de gates. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen SIDEWAYS_LOW_VOL."
@@ -3223,7 +3257,7 @@
                   "executionDate": "2026-01-02",
                   "ticker": "2B76.DE",
                   "action": "BUY",
-                  "targetWeightPct": 21.1,
+                  "targetWeightPct": 21,
                   "currentWeightPct": 0,
                   "consensusScore": 2,
                   "favorableVotes": 3,
@@ -3257,14 +3291,14 @@
                   "executionDate": "2026-03-02",
                   "ticker": "EXI5.DE",
                   "action": "BUY",
-                  "targetWeightPct": 21.4,
+                  "targetWeightPct": 21.2,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
                   "unfavorableVotes": 0,
                   "structuralDowntrend": false,
                   "buyTheDipCandidate": false,
-                  "notionalEur": 192.61,
+                  "notionalEur": 148.16,
                   "feeEur": 1,
                   "executionPriceEur": 14.82,
                   "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
@@ -3285,10 +3319,10 @@
             "instrumentType": "ETF_ETC",
             "window": "6M",
             "windowBars": 126,
-            "startDate": "2022-04-14",
-            "endDate": "2022-10-12",
-            "returnPct": -42.32,
-            "maxDrawdownPct": 42.32
+            "startDate": "2022-04-04",
+            "endDate": "2022-09-29",
+            "returnPct": -41.73,
+            "maxDrawdownPct": 42.93
           },
           {
             "assetId": "HOLDOUT_G1CE",
@@ -3339,9 +3373,9 @@
             "instrumentType": "ETF_ETC",
             "window": "12M",
             "windowBars": 252,
-            "startDate": "2021-10-18",
+            "startDate": "2021-10-19",
             "endDate": "2022-10-12",
-            "returnPct": -44.84,
+            "returnPct": -45.36,
             "maxDrawdownPct": 48.06
           },
           {
@@ -3398,9 +3432,9 @@
               "instrumentType": "ETF_ETC",
               "window": "12M",
               "windowBars": 252,
-              "startDate": "2021-10-18",
+              "startDate": "2021-10-19",
               "endDate": "2022-10-12",
-              "returnPct": -44.84,
+              "returnPct": -45.36,
               "maxDrawdownPct": 48.06
             },
             "evaluated": true,
@@ -3420,8 +3454,8 @@
               "firstDefensiveExecutionDate": "2022-07-04",
               "executedSignals": [
                 {
-                  "signalDate": "2021-10-18",
-                  "executionDate": "2021-10-19",
+                  "signalDate": "2021-10-19",
+                  "executionDate": "2021-10-20",
                   "action": "BUY",
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -3429,8 +3463,8 @@
                   "structuralDowntrend": false,
                   "buyTheDipCandidate": false,
                   "currentWeightPct": 0,
-                  "targetWeightPct": 14.6,
-                  "notionalEur": 145.22,
+                  "targetWeightPct": 14.7,
+                  "notionalEur": 145.55,
                   "feeEur": 1,
                   "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_HIGH_VOL."
                 },
@@ -3443,8 +3477,8 @@
                   "unfavorableVotes": 4,
                   "structuralDowntrend": true,
                   "buyTheDipCandidate": false,
-                  "currentWeightPct": 11.8,
-                  "targetWeightPct": 10.5,
+                  "currentWeightPct": 11.9,
+                  "targetWeightPct": 10.6,
                   "notionalEur": 13.14,
                   "feeEur": 1,
                   "reason": "Deterioro estructural confirmado por varias señales; revisar reducción, no vender por una única ventana débil. Consenso -4; 0 favorables / 4 adversas. Método RISK_PARITY_ERC; régimen BEAR_HIGH_VOL."
@@ -3452,13 +3486,13 @@
               ]
             },
             "portfolioOutcomeFromEpisodeStart": {
-              "finalValueEur": 1521.79,
-              "totalReturnPct": 52.18,
-              "staticBuyHoldReturnPct": 38.2,
-              "allCashReturnPct": 12.75,
-              "excessReturnVsStaticPctPoints": 13.98,
-              "excessReturnVsCashPctPoints": 39.43,
-              "decisionPathMaxDrawdownPct": 15.1
+              "finalValueEur": 1505.93,
+              "totalReturnPct": 50.59,
+              "staticBuyHoldReturnPct": 37.32,
+              "allCashReturnPct": 12.74,
+              "excessReturnVsStaticPctPoints": 13.27,
+              "excessReturnVsCashPctPoints": 37.85,
+              "decisionPathMaxDrawdownPct": 15.25
             }
           },
           {
@@ -3470,16 +3504,16 @@
               "instrumentType": "ETF_ETC",
               "window": "6M",
               "windowBars": 126,
-              "startDate": "2022-04-14",
-              "endDate": "2022-10-12",
-              "returnPct": -42.32,
-              "maxDrawdownPct": 42.32
+              "startDate": "2022-04-04",
+              "endDate": "2022-09-29",
+              "returnPct": -41.73,
+              "maxDrawdownPct": 42.93
             },
             "evaluated": true,
             "responseDuringLossWindow": {
-              "observedSignals": 7,
+              "observedSignals": 6,
               "signalCounts": {
-                "AVOID": 7
+                "AVOID": 6
               },
               "everBoughtOrAdded": false,
               "executedBuyOrAdd": false,
@@ -3490,13 +3524,13 @@
               "executedSignals": []
             },
             "portfolioOutcomeFromEpisodeStart": {
-              "finalValueEur": 1586.58,
-              "totalReturnPct": 58.66,
-              "staticBuyHoldReturnPct": 35.53,
-              "allCashReturnPct": 11.4,
-              "excessReturnVsStaticPctPoints": 23.12,
-              "excessReturnVsCashPctPoints": 47.26,
-              "decisionPathMaxDrawdownPct": 8.84
+              "finalValueEur": 1612.07,
+              "totalReturnPct": 61.21,
+              "staticBuyHoldReturnPct": 34.77,
+              "allCashReturnPct": 11.48,
+              "excessReturnVsStaticPctPoints": 26.44,
+              "excessReturnVsCashPctPoints": 49.73,
+              "decisionPathMaxDrawdownPct": 8.89
             }
           },
           {
@@ -3528,13 +3562,13 @@
               "executedSignals": []
             },
             "portfolioOutcomeFromEpisodeStart": {
-              "finalValueEur": 1611.55,
-              "totalReturnPct": 61.16,
+              "finalValueEur": 1607.62,
+              "totalReturnPct": 60.76,
               "staticBuyHoldReturnPct": 38.93,
               "allCashReturnPct": 9.79,
-              "excessReturnVsStaticPctPoints": 22.22,
-              "excessReturnVsCashPctPoints": 51.36,
-              "decisionPathMaxDrawdownPct": 8.61
+              "excessReturnVsStaticPctPoints": 21.83,
+              "excessReturnVsCashPctPoints": 50.97,
+              "decisionPathMaxDrawdownPct": 8.68
             }
           },
           {
@@ -3568,9 +3602,9 @@
             "portfolioOutcomeFromEpisodeStart": {
               "finalValueEur": 1283.86,
               "totalReturnPct": 28.39,
-              "staticBuyHoldReturnPct": 21.16,
+              "staticBuyHoldReturnPct": 21.58,
               "allCashReturnPct": 4.76,
-              "excessReturnVsStaticPctPoints": 7.22,
+              "excessReturnVsStaticPctPoints": 6.8,
               "excessReturnVsCashPctPoints": 23.62,
               "decisionPathMaxDrawdownPct": 9.42
             }
