@@ -2,8 +2,6 @@ import { spawn } from 'node:child_process';
 import { recordValidationResult } from './validationResultStore';
 
 type ValidationMode = 'aistudio' | 'eodhd-shortlist';
-
-const mode = process.argv[2] as ValidationMode | undefined;
 const RESULT_BRANCH = 'validation-results';
 
 const config: Record<ValidationMode, { script: string; runFileName: string; markers: Array<{ marker: string; fileName: string }> }> = {
@@ -13,8 +11,7 @@ const config: Record<ValidationMode, { script: string; runFileName: string; mark
     markers: [
       { marker: 'AI_STUDIO_VALIDATION_RESULT', fileName: 'latest-aistudio.json' },
       { marker: 'BROKER_BACKTEST_FEASIBILITY_RESULT', fileName: 'latest-broker-backtest-feasibility.json' },
-      { marker: 'BROKER_AWARE_EXECUTION_SWEEP_RESULT', fileName: 'latest-broker-aware-execution-sweep.json' },
-      { marker: 'DYNAMIC_HISTORICAL_REPLAY_LIVE_RESULT', fileName: 'latest-dynamic-historical-replay-live.json' }
+      { marker: 'BROKER_AWARE_EXECUTION_SWEEP_RESULT', fileName: 'latest-broker-aware-execution-sweep.json' }
     ]
   },
   'eodhd-shortlist': {
