@@ -16,6 +16,7 @@ import { UserPortfolioPanel } from './UserPortfolioPanel';
 import { RecommendationSimulationPanel } from './RecommendationSimulationPanel';
 import { PortfolioExecutionPlanPanel } from './PortfolioExecutionPlanPanel';
 import { HistoricalDecisionReplayPanel } from './HistoricalDecisionReplayPanel';
+import { DynamicHistoricalReplayPanel } from './DynamicHistoricalReplayPanel';
 import { StrategyConsensusPanel } from './StrategyConsensusPanel';
 
 interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; eodhdValidation: EodhdCrossValidationResult | null; }
@@ -50,6 +51,7 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdV
     <PortfolioExecutionPlanPanel scan={scan} decision={decision} />
     <UserPortfolioPanel scan={scan} decision={decision} />
     <HistoricalDecisionReplayPanel scan={scan} capitalEur={decision.capitalEur} riskProfile={decision.riskProfile} horizonYears={decision.horizonYears} />
+    <DynamicHistoricalReplayPanel scan={scan} capitalEur={decision.capitalEur} riskProfile={decision.riskProfile} horizonYears={decision.horizonYears} />
     <RecommendationSimulationPanel scan={scan} snapshots={history} />
 
     <section className="rounded-2xl border border-violet-500/20 bg-slate-900 p-5">
