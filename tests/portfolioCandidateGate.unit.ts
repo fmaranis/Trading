@@ -1,6 +1,7 @@
 import {
   EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   EUR_VALIDATION_HOLDOUT_UNIVERSE,
+  isValidIsin,
   PortfolioCandidateGate
 } from '../src/investment/decision';
 
@@ -66,5 +67,6 @@ const productionTickers = new Set(EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(x => x.ti
 const holdoutTickers = EUR_VALIDATION_HOLDOUT_UNIVERSE.map(x => x.ticker.toUpperCase());
 check('707 validation holdout remains isolated from production discovery universe', holdoutTickers.every(ticker => !productionTickers.has(ticker)));
 check('708 production discovery universe is broader than the original small allocator shortlist', EUR_PORTFOLIO_DISCOVERY_UNIVERSE.length > 50);
+check('709 every production discovery candidate exposes a checksum-valid operational ISIN', EUR_PORTFOLIO_DISCOVERY_UNIVERSE.every(item => isValidIsin(item.isin)));
 
-console.log(`Portfolio candidate gate: ${passed}/8 invariants passed.`);
+console.log(`Portfolio candidate gate: ${passed}/9 invariants passed.`);
