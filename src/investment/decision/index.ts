@@ -35,3 +35,4 @@ export * from './portfolioDecisionEngine';
 export * from './portfolioExecutionPlan';
 export * from './portfolioStateExecution';
 export * from './spanishTaxModel';
+export * from './taxAwareExecutionOverlay';
