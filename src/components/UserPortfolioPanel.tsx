@@ -40,6 +40,7 @@ function healthLabel(action: string | undefined): string {
   if (action === 'DATA_MISSING') return 'DATOS PENDIENTES';
   return 'MANTENER';
 }
+function money(value: number | null): string { return value == null ? 'N/D' : `${value.toFixed(2)} €`; }
 
 export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
   const initial = useMemo(() => UserPortfolioService.load(), []);
@@ -64,11 +65,24 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
   const listedCandidates = useMemo(() => scan.candidates.filter(c => c.asset.instrumentType !== 'MUTUAL_FUND'), [scan]);
   const knownTickers = useMemo(() => listedCandidates.filter(c => c.status === 'ACCEPTED' && c.lastClose).map(c => c.asset.ticker), [listedCandidates]);
   const priceByTicker = useMemo(() => new Map(listedCandidates.filter(c => c.lastClose && c.lastClose > 0).map(c => [c.asset.ticker.toUpperCase(), Number(c.lastClose)])), [listedCandidates]);
-  const listedHoldingsValue = useMemo(() => holdings.reduce((sum, h) => {
+
+  const listedValuations = useMemo(() => holdings.map(h => {
     const healthValue = positionHealth?.byKey[h.ticker.toUpperCase()]?.currentValueEur;
-    return sum + (healthValue ?? h.shares * (priceByTicker.get(h.ticker.toUpperCase()) ?? 0));
-  }, 0), [holdings, priceByTicker, positionHealth]);
-  const fundRegisteredValue = useMemo(() => funds.reduce((sum, f) => sum + (fundMarketValues[f.id] ?? positionHealth?.byKey[f.id]?.currentValueEur ?? f.currentValueEur ?? f.investedEur), 0), [funds, fundMarketValues, positionHealth]);
+    const price = priceByTicker.get(h.ticker.toUpperCase());
+    const value = healthValue != null ? healthValue : price != null ? h.shares * price : null;
+    return { ticker: h.ticker.toUpperCase(), value };
+  }), [holdings, priceByTicker, positionHealth]);
+  const listedHoldingsValue = listedValuations.reduce((sum, row) => sum + (row.value ?? 0), 0);
+  const missingListedValuations = listedValuations.filter(row => row.value == null).length;
+
+  const fundValuations = useMemo(() => funds.map(f => ({
+    id: f.id,
+    value: fundMarketValues[f.id] ?? positionHealth?.byKey[f.id]?.currentValueEur ?? positionHealth?.byKey[f.isin.toUpperCase()]?.currentValueEur ?? f.currentValueEur ?? null
+  })), [funds, fundMarketValues, positionHealth]);
+  const fundRegisteredValue = fundValuations.reduce((sum, row) => sum + (row.value ?? 0), 0);
+  const missingFundValuations = fundValuations.filter(row => row.value == null).length;
+  const missingValuations = missingListedValuations + missingFundValuations;
+
   const investedEur = listedHoldingsValue + fundRegisteredValue;
   const liquidityEur = Math.max(0, cash) + Math.max(0, plan.availableEur);
   const totalEur = investedEur + liquidityEur;
@@ -89,28 +103,31 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-emerald-300"/><h2 className="font-bold">Mi cartera real</h2></div>
-        <p className="mt-1 text-[11px] text-slate-400">Cada posición se vigila por su propia tendencia y consenso. Toca una posición para abrir su gráfica, señales y código de búsqueda.</p>
+        <p className="mt-1 text-[11px] text-slate-400">Cada posición se valora a mercado y se vigila por su propia tendencia y consenso. El importe aportado se conserva como coste de compra, nunca como sustituto silencioso del valor actual.</p>
       </div>
       <span className="rounded-full border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-[10px] font-bold text-emerald-200">ESTADO REAL · {portfolio.updatedAt.slice(0, 10)}</span>
     </div>
 
     <div className="mt-4 grid gap-3 sm:grid-cols-3">
-      <div className="rounded-xl border border-slate-800 bg-slate-950 p-4"><div className="text-[10px] uppercase text-slate-500">Invertido ahora</div><div className="mt-1 font-mono text-xl font-black text-white">{investedEur.toFixed(2)} €</div><div className="mt-1 text-[10px] text-slate-500">Fondos {fundRegisteredValue.toFixed(2)} € · cotizados {listedHoldingsValue.toFixed(2)} €</div></div>
+      <div className="rounded-xl border border-slate-800 bg-slate-950 p-4"><div className="text-[10px] uppercase text-slate-500">Valor de mercado invertido</div><div className="mt-1 font-mono text-xl font-black text-white">{missingValuations > 0 ? `≥ ${investedEur.toFixed(2)} €` : `${investedEur.toFixed(2)} €`}</div><div className="mt-1 text-[10px] text-slate-500">Fondos {fundRegisteredValue.toFixed(2)} € · cotizados {listedHoldingsValue.toFixed(2)} €{missingValuations > 0 ? ` · ${missingValuations} sin valoración` : ''}</div></div>
       <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4"><div className="text-[10px] uppercase text-cyan-300">Liquidez disponible</div><div className="mt-1 font-mono text-xl font-black text-cyan-100">{liquidityEur.toFixed(2)} €</div><div className="mt-1 text-[10px] text-slate-500">Efectivo {cash.toFixed(2)} € + capital pendiente {plan.availableEur.toFixed(2)} €</div></div>
-      <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4"><div className="text-[10px] uppercase text-violet-300">Capital total controlado</div><div className="mt-1 font-mono text-xl font-black text-violet-100">{totalEur.toFixed(2)} €</div><div className="mt-1 text-[10px] text-slate-500">Invertido + liquidez.</div></div>
+      <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4"><div className="text-[10px] uppercase text-violet-300">Capital total controlado</div><div className="mt-1 font-mono text-xl font-black text-violet-100">{missingValuations > 0 ? `≥ ${totalEur.toFixed(2)} €` : `${totalEur.toFixed(2)} €`}</div><div className="mt-1 text-[10px] text-slate-500">Valor de mercado conocido + liquidez. No usa coste inicial para rellenar huecos.</div></div>
     </div>
 
+    {missingValuations > 0 && <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[10px] text-amber-100">Hay {missingValuations} posición(es) sin valoración REAL actual. Hasta resolverlas, el total se muestra como mínimo conocido y el motor no debe fingir que su valor coincide con lo invertido originalmente.</div>}
+
     <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-      <div className="flex items-center justify-between gap-3"><div><b className="text-sm">Posiciones actuales</b><div className="text-[10px] text-slate-500">Salud independiente: añadir, mantener, vigilar, reducir o salir.</div></div><span className="text-[10px] text-slate-500">{funds.length + holdings.length} posiciones</span></div>
+      <div className="flex items-center justify-between gap-3"><div><b className="text-sm">Posiciones actuales</b><div className="text-[10px] text-slate-500">Valor actual, coste de entrada y salud son conceptos separados.</div></div><span className="text-[10px] text-slate-500">{funds.length + holdings.length} posiciones</span></div>
       <div className="mt-3 grid gap-2 md:grid-cols-2">
         {funds.map(fund => {
           const health = positionHealth?.byKey[fund.id] ?? positionHealth?.byKey[fund.isin.toUpperCase()];
-          const value = fundMarketValues[fund.id] ?? health?.currentValueEur ?? fund.currentValueEur ?? fund.investedEur;
+          const value = fundMarketValues[fund.id] ?? health?.currentValueEur ?? fund.currentValueEur ?? null;
+          const gain = value == null ? null : value - fund.investedEur;
           const inspectKey = fund.isin.trim().toUpperCase();
           return <button type="button" key={fund.id} disabled={!onInspectAsset || !inspectKey} onClick={() => inspectKey && onInspectAsset?.(inspectKey)} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-left text-xs transition hover:border-cyan-500/40 hover:bg-slate-900 disabled:cursor-default disabled:hover:border-slate-800">
-            <div className="flex items-start justify-between gap-2"><div className="min-w-0"><b className="block truncate">{fund.name}</b><div className="font-mono text-[9px] text-cyan-300">ISIN {fund.isin || fund.id}</div></div><b className="font-mono">{value.toFixed(2)} €</b></div>
+            <div className="flex items-start justify-between gap-2"><div className="min-w-0"><b className="block truncate">{fund.name}</b><div className="font-mono text-[9px] text-cyan-300">ISIN {fund.isin || fund.id}</div></div><div className="text-right"><b className="font-mono">{money(value)}</b><div className={`text-[9px] ${gain == null ? 'text-slate-600' : gain >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{gain == null ? 'variación N/D' : `${gain >= 0 ? '+' : ''}${gain.toFixed(2)} € desde compra`}</div></div></div>
             <div className="mt-2 flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-1 text-[9px] font-black ${healthClass(health?.action)}`}>{healthLabel(health?.action)}</span>{health?.consensusScore != null && <span className="text-[9px] text-slate-500">consenso {health.consensusScore >= 0 ? '+' : ''}{health.consensusScore}</span>}</div>
-            <div className="mt-2 text-[9px] text-slate-500">Invertido {fund.investedEur.toFixed(2)} € · compra {fund.acquisitionDate}</div>
+            <div className="mt-2 text-[9px] text-slate-500">Coste aportado {fund.investedEur.toFixed(2)} € · compra {fund.acquisitionDate}</div>
             <div className="mt-1 text-[9px] text-slate-400">{fund.units != null ? `${fund.units} participaciones registradas` : 'Participaciones no registradas'} · {fund.broker ?? 'broker N/D'}</div>
             {health?.reason && <div className="mt-1 text-[9px] text-slate-400">{health.reason}</div>}
             {onInspectAsset && inspectKey && <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-cyan-300"><BarChart3 className="h-3.5 w-3.5"/>Abrir gráfica, señales y ficha</div>}
@@ -118,10 +135,11 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
         })}
         {holdings.map(holding => {
           const health = positionHealth?.byKey[holding.ticker.toUpperCase()];
-          const value = health?.currentValueEur ?? holding.shares * (priceByTicker.get(holding.ticker.toUpperCase()) ?? 0);
+          const price = priceByTicker.get(holding.ticker.toUpperCase());
+          const value = health?.currentValueEur ?? (price != null ? holding.shares * price : null);
           const candidate = listedCandidates.find(c => c.asset.ticker.toUpperCase() === holding.ticker.toUpperCase());
           return <button type="button" key={holding.ticker} disabled={!onInspectAsset} onClick={() => onInspectAsset?.(holding.ticker)} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-left text-xs transition hover:border-cyan-500/40 hover:bg-slate-900 disabled:cursor-default disabled:hover:border-slate-800">
-            <div className="flex items-start justify-between gap-2"><div><b className="font-mono text-white">{holding.ticker}</b><div className="text-[9px] text-slate-500">{holding.shares} títulos</div>{candidate?.asset.isin && <div className="font-mono text-[9px] text-cyan-300">ISIN {candidate.asset.isin}</div>}</div><b className="font-mono">{value.toFixed(2)} €</b></div>
+            <div className="flex items-start justify-between gap-2"><div><b className="font-mono text-white">{holding.ticker}</b><div className="text-[9px] text-slate-500">{holding.shares} títulos</div>{candidate?.asset.isin && <div className="font-mono text-[9px] text-cyan-300">ISIN {candidate.asset.isin}</div>}</div><b className="font-mono">{money(value)}</b></div>
             <div className="mt-2 flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-1 text-[9px] font-black ${healthClass(health?.action)}`}>{healthLabel(health?.action)}</span>{health?.consensusScore != null && <span className="text-[9px] text-slate-500">consenso {health.consensusScore >= 0 ? '+' : ''}{health.consensusScore}</span>}</div>
             {health?.reason && <div className="mt-1 text-[9px] text-slate-400">{health.reason}</div>}
             {onInspectAsset && <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-cyan-300"><BarChart3 className="h-3.5 w-3.5"/>Abrir gráfica, señales y ficha</div>}
@@ -150,10 +168,10 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
     </details>
 
     <details className="mt-3 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3"><div><b>Ver diagnóstico teórico</b><div className="mt-1 text-[10px] text-slate-500">Pesos y desviaciones. La salud individual tiene prioridad para REDUCIR/SALIR.</div></div><ChevronDown className="h-4 w-4 text-slate-500"/></summary>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3"><div><b>Distribución teórica de riesgo · no es una orden</b><div className="mt-1 text-[10px] text-slate-500">Sirve para entender concentración y pesos. Las compras reales de “Qué haría hoy” se asignan entre las oportunidades actuales válidas y con el capital realmente disponible.</div></div><ChevronDown className="h-4 w-4 text-slate-500"/></summary>
       <div className="mt-4 border-t border-violet-500/15 pt-4">
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4 text-xs">{portfolioDecision.exposures.map(x => <div key={x.category} className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">{x.category}</div><div className="mt-1 flex justify-between"><span>Actual</span><b>{x.currentValueEur.toFixed(2)} €</b></div><div className="flex justify-between text-slate-400"><span>Objetivo</span><span>{x.targetValueEur.toFixed(2)} €</span></div><div className={`mt-1 text-right font-mono ${x.gapEur > 0 ? 'text-emerald-300' : x.gapEur < 0 ? 'text-amber-300' : 'text-slate-500'}`}>{x.gapEur >= 0 ? '+' : ''}{x.gapEur.toFixed(2)} €</div></div>)}</div>
-        <div className="mt-3 text-[10px] text-slate-500">Capital teóricamente asignable: {portfolioDecision.recommendedNewInvestmentEur.toFixed(2)} € · objetivo/residual de cash: {portfolioDecision.residualPlannedCashEur.toFixed(2)} €.</div>
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4 text-xs">{portfolioDecision.exposures.map(x => <div key={x.category} className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[10px] uppercase text-slate-500">{x.category}</div><div className="mt-1 flex justify-between"><span>Actual</span><b>{x.currentValueEur.toFixed(2)} €</b></div><div className="flex justify-between text-slate-400"><span>Referencia teórica</span><span>{x.targetValueEur.toFixed(2)} €</span></div><div className={`mt-1 text-right font-mono ${x.gapEur > 0 ? 'text-emerald-300' : x.gapEur < 0 ? 'text-amber-300' : 'text-slate-500'}`}>{x.gapEur >= 0 ? '+' : ''}{x.gapEur.toFixed(2)} €</div></div>)}</div>
+        <div className="mt-3 text-[10px] text-slate-500">Asignación operativa actual a oportunidades: {portfolioDecision.recommendedNewInvestmentEur.toFixed(2)} € · liquidez que quedaría sin asignar: {portfolioDecision.residualPlannedCashEur.toFixed(2)} €.</div>
         {portfolioDecision.warnings.length > 0 && <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[10px] text-amber-100">{portfolioDecision.warnings.join(' · ')}</div>}
       </div>
     </details>
