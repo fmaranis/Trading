@@ -46,17 +46,17 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdV
   const materialCount = alerts.filter(a => a.severity === 'MATERIAL').length;
 
   return <section className="space-y-4">
+    <UserPortfolioPanel scan={scan} decision={decision} />
+
     <PortfolioExecutionPlanPanel scan={scan} decision={decision} />
 
     <details className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-        <div><div className="font-bold text-white">Por qué llega a esa conclusión</div><div className="mt-1 text-[10px] text-slate-500">Tendencia, momentum, buy-the-dip, riesgo y comparación con efectivo. Es explicación de la recomendación anterior, no otro módulo de decisión.</div></div>
+        <div><div className="font-bold text-white">Por qué recomienda eso</div><div className="mt-1 text-[10px] text-slate-500">Explicación del paso operativo anterior: tendencia, momentum, buy-the-dip, riesgo y comparación con efectivo. No es otra recomendación.</div></div>
         <ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/>
       </summary>
       <div className="mt-4"><StrategyConsensusPanel scan={scan} /></div>
     </details>
-
-    <UserPortfolioPanel scan={scan} decision={decision} />
 
     <HistoricalDecisionReplayPanel
       scan={scan}
@@ -68,8 +68,8 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdV
     <details className="rounded-2xl border border-violet-500/20 bg-slate-900 p-5">
       <summary className="cursor-pointer list-none">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div><div className="flex items-center gap-2"><Radar className="h-5 w-5 text-violet-300"/><h2 className="text-lg font-bold">Seguimiento y memoria de recomendaciones</h2></div><p className="mt-1 text-xs text-slate-400">Alertas actuales, recomendaciones guardadas y simulación de snapshots. Se mantiene como trazabilidad, no como un segundo flujo de inversión.</p></div>
-          <div className="flex flex-wrap gap-2 text-[10px]"><span className="rounded-full border border-amber-500/25 bg-amber-500/5 px-3 py-1 text-amber-200">{materialCount} alertas materiales</span><span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-300"><History className="mr-1 inline h-3.5 w-3.5"/>{history.length} recomendaciones guardadas</span></div>
+          <div><div className="flex items-center gap-2"><Radar className="h-5 w-5 text-violet-300"/><h2 className="text-lg font-bold">Seguimiento y memoria</h2></div><p className="mt-1 text-xs text-slate-400">Trazabilidad, alertas y snapshots. Información secundaria: no compite con cartera ni con la acción actual.</p></div>
+          <div className="flex flex-wrap gap-2 text-[10px]"><span className="rounded-full border border-amber-500/25 bg-amber-500/5 px-3 py-1 text-amber-200">{materialCount} alertas materiales</span><span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-300"><History className="mr-1 inline h-3.5 w-3.5"/>{history.length} snapshots</span></div>
         </div>
       </summary>
 
