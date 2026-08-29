@@ -114,7 +114,12 @@ export class AssetUniverseScanner {
         if(daysBetween(asOfDate,endDate)>maxDataAgeDays)return{asset,status:'REJECTED' as const,reason:'STALE_DATA',bars:response.bars.length,asOfDate,lastClose:response.bars.at(-1)!.close,momentum20Pct:null,momentum60Pct:null,momentum120Pct:null,annualizedVolatilityPct:null,maxDrawdownPct:null,score:null};
         const prices=response.bars.map(b=>b.close); const m20=pctReturn(prices,20),m60=pctReturn(prices,60),m120=pctReturn(prices,120),vol=annualizedVolatility(prices,60),dd=maxDrawdown(prices,252);
         return {asset,status:'ACCEPTED' as const,bars:response.bars.length,asOfDate,lastClose:prices.at(-1)??null,momentum20Pct:m20,momentum60Pct:m60,momentum120Pct:m120,annualizedVolatilityPct:vol,maxDrawdownPct:dd,score:scoreCandidate(m20,m60,m120,vol,dd,Boolean(asset.defensive)),response};
-      } catch(error:any){return{asset,status:'REJECTED' as const,reason:error?.name||error?.message||'LOAD_ERROR',bars:0,asOfDate:null,lastClose:null,momentum20Pct:null,momentum60Pct:null,momentum120Pct:null,annualizedVolatilityPct:null,maxDrawdownPct:null,score:null};}
+      } catch(error:any){
+        const message = typeof error?.message === 'string' && error.message.trim() ? error.message.trim() : null;
+        const name = typeof error?.name === 'string' && error.name.trim() && error.name !== 'Error' ? error.name.trim() : null;
+        const reason = message ?? name ?? 'LOAD_ERROR';
+        return{asset,status:'REJECTED' as const,reason,bars:0,asOfDate:null,lastClose:null,momentum20Pct:null,momentum60Pct:null,momentum120Pct:null,annualizedVolatilityPct:null,maxDrawdownPct:null,score:null};
+      }
     });
     const acceptedCandidates=candidates.filter(c=>c.status==='ACCEPTED');
     const selected=chooseDiversified(candidates,Math.min(options.maxSelected??8,10));
