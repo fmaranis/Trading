@@ -134,7 +134,7 @@ As of 2026-08-28, first-party MyInvestor content supports current MyInvestor pre
 
 A recommendation may remain research-valid while broker availability is pending, but it must not be represented as broker-confirmed/executable solely from exchange listing or third-party broker evidence.
 
-## D26. User broker confirmations are persistent evidence and must remain distinguishable from official evidence
+## D26. User broker confirmations are persistent evidence and must remain distinguishishable from official evidence
 
 **Decision:** the user may manually confirm whether an exact ISIN/ticker is available in their MyInvestor account. `ManualMyInvestorAvailabilityService` persists that result by normalized ISIN/ticker in browser localStorage.
 
@@ -181,6 +181,30 @@ The normal entry flow is now: automatic REAL market refresh after first paint �
 Saved `MarketSnapshotHistoryService` recommendations are not merely audit rows: they are product data. `RecommendationSimulationPanel` must let the user select a saved recommendation, apply a simulated capital amount, use the first executable post-decision market bar, respect ETF whole-share commissions and fund fractional units, remunerate uninvested cash, and show what the recommendation would be worth at the latest REAL price versus leaving the same capital in cash.
 
 The app may preserve rich analytics, but new analytical widgets should not be added to the primary page unless they change or explain the actionable decision. Research-only tools belong behind a secondary detail surface.
+
+## D30. Core usefulness must not require paid external data subscriptions
+
+**Decision:** the primary decision, historical replay, strategy comparison and portfolio simulation must remain usable with the free/zero-incremental-cost data paths already available to the application. No new strategy may make a paid market-data/news/fundamental subscription a runtime requirement.
+
+A free source may be replaced if it becomes unreliable, but the architecture must degrade explicitly rather than silently fabricating data or forcing a paid plan. Premium fundamentals/news may only be optional future evidence layers; they cannot be required for the core engine.
+
+## D31. Allocation drift is not a sell signal; existing holdings have a higher action threshold
+
+**Decision:** a position being above its theoretical target weight is diagnostic information, not sufficient evidence to sell. `PortfolioDecisionEngine` must not emit `REDUCE`/`REVIEW_TRANSFER` solely because a category exceeds the allocation target by the drift threshold.
+
+Existing positions require stronger evidence than new-money decisions. `StrategyConsensusEngine` currently evaluates five explainable signals from existing price data: long trend, 120-session momentum, mean-reversion/buy-the-dip context, risk, and the remunerated-cash hurdle. A weak recent window or an overweight category alone cannot authorise a sell. Reduction review requires structural deterioration plus several adverse signals.
+
+The portfolio UI must label target gaps as **distribución teórica**, not “qué hacer”. Executable orders remain a separate downstream layer.
+
+## D32. Historical dated-decision replay is a mandatory sanity check before promoting new strategy logic
+
+**Decision:** `HistoricalDecisionReplayEngine` must be able to answer “what would the app have recommended at this historical date, using only information available then, and what would that recommendation be worth at the latest REAL date?”
+
+For each requested annual/quarterly start date it causally rebuilds the scanner shortlist using the same momentum/risk/category-diversification formula, runs the decision engine, executes on the next available bar, applies ETF whole-share commissions / fund fractional units, remunerates residual and target cash, and compares the result with all-cash over the same dates.
+
+The batch result must report hit-rate versus cash, median return, median excess versus cash, best/worst start dates, and drill-down allocations. Future prices may alter the eventual outcome but must never alter the reconstructed historical regime, method or target weights.
+
+The current replay still retains present-catalog survivorship bias and must say so. It is a strong causal sanity check, not yet survivorship-bias-free proof. The next strategy-validation layer should compare Inverse Volatility, Risk Parity ERC, Relative Momentum, Mean Reversion and an explainable ensemble over repeated historical/OOS windows before any new motor is allowed to control production actions.
 
 ## Change protocol
 
