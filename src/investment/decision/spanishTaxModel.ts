@@ -1,5 +1,3 @@
-import type { UserHolding } from './userPortfolio';
-
 export interface SpanishTaxSettings {
   priorSavingsTaxableBaseEur: number;
   contextConfirmed: boolean;
@@ -26,6 +24,12 @@ export interface TaxAwareRotationAssessment {
   reason: string;
 }
 
+export interface TrackedTaxLot {
+  shares: number;
+  acquisitionDate: string;
+  acquisitionCostEur: number;
+}
+
 export const SPANISH_SAVINGS_TAX_SCALE = [
   { upToEur: 6_000, rate: 0.19 },
   { upToEur: 50_000, rate: 0.21 },
@@ -36,6 +40,7 @@ export const SPANISH_SAVINGS_TAX_SCALE = [
 
 export const SPANISH_TAX_SETTINGS_UPDATED_EVENT = 'custodia:spanish-tax-settings-updated';
 const STORAGE_KEY = 'custodia_spanish_tax_settings_v1';
+const TAX_LOTS_STORAGE_KEY = 'custodia_spanish_tax_lots_v1';
 const DEFAULT_SETTINGS: SpanishTaxSettings = { priorSavingsTaxableBaseEur: 0, contextConfirmed: false };
 
 export function taxOnSpanishSavingsBase(baseEur: number): number {
@@ -90,24 +95,70 @@ export function estimateSpanishTaxOnRealizedGain(realizedGainEur: number, settin
   };
 }
 
-export function fifoCostBasisForSale(holding: UserHolding, sharesToSell: number): { costBasisEur: number | null; precision: 'FIFO_TRACKED' | 'UNKNOWN' } {
-  const shares = Math.max(0, sharesToSell);
-  if (shares <= 0) return { costBasisEur: 0, precision: 'FIFO_TRACKED' };
-  const lots = [...(holding.lots ?? [])].filter(l => l.shares > 0 && l.acquisitionCostEur >= 0).sort((a, b) => a.acquisitionDate.localeCompare(b.acquisitionDate));
-  const trackedShares = lots.reduce((sum, lot) => sum + lot.shares, 0);
-  const untrackedShares = Math.max(0, holding.shares - trackedShares);
-  if (untrackedShares > 1e-8) return { costBasisEur: null, precision: 'UNKNOWN' };
-  if (trackedShares + 1e-8 < shares) return { costBasisEur: null, precision: 'UNKNOWN' };
+function normalizeTicker(ticker: string): string { return ticker.trim().toUpperCase(); }
 
-  let remaining = shares;
-  let cost = 0;
-  for (const lot of lots) {
-    if (remaining <= 1e-9) break;
-    const used = Math.min(remaining, lot.shares);
-    cost += lot.acquisitionCostEur * (used / lot.shares);
-    remaining -= used;
+export class TaxLotLedgerService {
+  static loadAll(): Record<string, TrackedTaxLot[]> {
+    if (typeof window === 'undefined') return {};
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(TAX_LOTS_STORAGE_KEY) ?? '{}');
+      if (!parsed || typeof parsed !== 'object') return {};
+      return Object.fromEntries(Object.entries(parsed as Record<string, any[]>).map(([ticker, rawLots]) => [normalizeTicker(ticker), (Array.isArray(rawLots) ? rawLots : [])
+        .map(lot => ({ shares: Math.max(0, Number(lot.shares) || 0), acquisitionDate: String(lot.acquisitionDate || ''), acquisitionCostEur: Math.max(0, Number(lot.acquisitionCostEur) || 0) }))
+        .filter(lot => lot.shares > 0 && /^\d{4}-\d{2}-\d{2}$/.test(lot.acquisitionDate))])) as Record<string, TrackedTaxLot[]>;
+    } catch { return {}; }
   }
-  return remaining <= 1e-8 ? { costBasisEur: cost, precision: 'FIFO_TRACKED' } : { costBasisEur: null, precision: 'UNKNOWN' };
+
+  static lots(ticker: string): TrackedTaxLot[] { return this.loadAll()[normalizeTicker(ticker)] ?? []; }
+
+  static recordBuy(ticker: string, shares: number, acquisitionCostEur: number, acquisitionDate = new Date().toISOString().slice(0, 10)): void {
+    if (typeof window === 'undefined' || shares <= 0 || acquisitionCostEur < 0) return;
+    const all = this.loadAll();
+    const key = normalizeTicker(ticker);
+    all[key] = [...(all[key] ?? []), { shares, acquisitionDate, acquisitionCostEur }].sort((a, b) => a.acquisitionDate.localeCompare(b.acquisitionDate));
+    window.localStorage.setItem(TAX_LOTS_STORAGE_KEY, JSON.stringify(all));
+  }
+
+  static fifoCostBasis(ticker: string, totalCurrentShares: number, sharesToSell: number): { costBasisEur: number | null; precision: 'FIFO_TRACKED' | 'UNKNOWN' } {
+    const shares = Math.max(0, sharesToSell);
+    if (shares <= 0) return { costBasisEur: 0, precision: 'FIFO_TRACKED' };
+    const lots = this.lots(ticker).filter(l => l.shares > 0).sort((a, b) => a.acquisitionDate.localeCompare(b.acquisitionDate));
+    const trackedShares = lots.reduce((sum, lot) => sum + lot.shares, 0);
+    const untrackedShares = Math.max(0, totalCurrentShares - trackedShares);
+    if (untrackedShares > 1e-8 || trackedShares + 1e-8 < shares) return { costBasisEur: null, precision: 'UNKNOWN' };
+
+    let remaining = shares;
+    let cost = 0;
+    for (const lot of lots) {
+      if (remaining <= 1e-9) break;
+      const used = Math.min(remaining, lot.shares);
+      cost += lot.acquisitionCostEur * (used / lot.shares);
+      remaining -= used;
+    }
+    return remaining <= 1e-8 ? { costBasisEur: cost, precision: 'FIFO_TRACKED' } : { costBasisEur: null, precision: 'UNKNOWN' };
+  }
+
+  static recordSell(ticker: string, totalSharesBefore: number, sharesSold: number): void {
+    if (typeof window === 'undefined' || sharesSold <= 0) return;
+    const all = this.loadAll();
+    const key = normalizeTicker(ticker);
+    const lots = [...(all[key] ?? [])].sort((a, b) => a.acquisitionDate.localeCompare(b.acquisitionDate));
+    const trackedShares = lots.reduce((sum, lot) => sum + lot.shares, 0);
+    let remaining = Math.max(0, sharesSold - Math.max(0, totalSharesBefore - trackedShares));
+    const next: TrackedTaxLot[] = [];
+    for (const lot of lots) {
+      if (remaining <= 1e-9) { next.push(lot); continue; }
+      const used = Math.min(remaining, lot.shares);
+      const sharesLeft = lot.shares - used;
+      const costLeft = lot.shares > 0 ? lot.acquisitionCostEur * (sharesLeft / lot.shares) : 0;
+      if (sharesLeft > 1e-9) next.push({ ...lot, shares: sharesLeft, acquisitionCostEur: costLeft });
+      remaining -= used;
+    }
+    if (next.length) all[key] = next; else delete all[key];
+    window.localStorage.setItem(TAX_LOTS_STORAGE_KEY, JSON.stringify(all));
+  }
+
+  static clear(): void { if (typeof window !== 'undefined') window.localStorage.removeItem(TAX_LOTS_STORAGE_KEY); }
 }
 
 export function estimateFundRealizedGain(currentValueEur: number | null, investedEur: number, redemptionAmountEur: number): number | null {
