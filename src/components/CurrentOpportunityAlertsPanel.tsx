@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
-import { BellRing, BarChart3, ShieldAlert, Sparkles } from 'lucide-react';
+import { BellRing, BarChart3, Repeat2, ShieldAlert, Sparkles } from 'lucide-react';
 import {
   CashBenchmarkService,
   CurrentOpportunityAlertEngine,
   PortfolioDecisionEngine,
+  PortfolioRotationReviewEngine,
   UserPortfolioService,
   type AssetUniverseScanResult,
   type CurrentOpportunityAlert,
@@ -31,14 +32,23 @@ function levelClass(level: CurrentOpportunityAlert['level']): string {
 }
 
 export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
-  const alerts = useMemo(() => CurrentOpportunityAlertEngine.evaluate(scan, CashBenchmarkService.load()), [scan, decision.asOfDate]);
+  const cashBenchmark = CashBenchmarkService.load();
+  const portfolio = UserPortfolioService.load();
+  const alerts = useMemo(() => CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmark), [scan, decision.asOfDate, cashBenchmark]);
   const portfolioDecision = useMemo(() => PortfolioDecisionEngine.evaluate({
-    portfolio: UserPortfolioService.load(),
+    portfolio,
     scan,
     decision,
     positionHealth: positionHealth?.byKey,
-    cashBenchmarkAnnualPct: CashBenchmarkService.load()
-  }), [scan, decision, positionHealth]);
+    cashBenchmarkAnnualPct: cashBenchmark
+  }), [scan, decision, positionHealth, cashBenchmark, portfolio.updatedAt]);
+  const rotation = useMemo(() => PortfolioRotationReviewEngine.evaluate({
+    portfolio,
+    scan,
+    positionHealth,
+    cashBenchmarkAnnualPct: cashBenchmark,
+    horizonYears: decision.horizonYears
+  }), [scan, positionHealth, cashBenchmark, decision.horizonYears, portfolio.updatedAt]);
   const contributionByAsset = useMemo(() => new Map(portfolioDecision.contributions.map(row => [row.assetId, row])), [portfolioDecision]);
   const high = alerts.filter(alert => alert.level === 'HIGH_CONVICTION');
   const visible = alerts.slice(0, 6);
@@ -63,6 +73,13 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
         {onInspectAsset && <button type="button" onClick={() => onInspectAsset(alert.ticker)} className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-cyan-400/30 bg-slate-950/40 px-3 py-2 text-[10px] font-bold text-cyan-100"><BarChart3 className="h-3.5 w-3.5"/>Abrir gráfica y señales</button>}
       </article>;
     })}</div> : <div className="mt-4 rounded-xl border border-dashed border-slate-700 bg-slate-950/50 p-4 text-sm text-slate-400">No hay ninguna entrada que supere hoy todos los filtros mínimos. La ausencia de alerta es una señal válida: no se fuerza una compra.</div>}
+
+    <div className={`mt-4 rounded-xl border p-4 ${rotation.status === 'ROTATE_NOW' ? 'border-violet-400/35 bg-violet-500/10' : 'border-slate-800 bg-slate-950/50'}`}>
+      <div className="flex items-center gap-2"><Repeat2 className="h-4 w-4 text-violet-300"/><b className="text-sm text-white">¿Conviene vender algo para entrar en algo mejor?</b></div>
+      <div className="mt-2 text-xs text-slate-300">{rotation.reason}</div>
+      {rotation.status === 'ROTATE_NOW' && <div className="mt-2 font-mono text-sm font-bold text-violet-200">ROTACIÓN CANDIDATA · {rotation.amountEur?.toFixed(2) ?? 'N/D'} € · {rotation.sourceLabel} → {rotation.targetTicker}</div>}
+      {rotation.assessment && <div className="mt-2 text-[10px] text-slate-500">Ventaja estimada {rotation.assessment.expectedAdvantagePctPoints?.toFixed(1) ?? 'N/D'} pp/año · fricción inmediata {rotation.assessment.immediateFrictionEur.toFixed(2)} € · break-even {rotation.assessment.breakEvenYears == null ? 'N/D' : `${rotation.assessment.breakEvenYears.toFixed(2)} años`}.</div>}
+    </div>
 
     {alerts.length > visible.length && <div className="mt-3 text-[10px] text-slate-500">Se muestran las 6 mejores entradas actuales de {alerts.length} válidas. “Qué haría hoy” usa exactamente la misma priorización y el mismo capital disponible.</div>}
 
