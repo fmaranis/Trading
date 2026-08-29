@@ -61,16 +61,15 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision }) => {
   const removeHolding = (index: number) => setHoldings(prev => prev.filter((_, i) => i !== index));
   const removeFund = (id: string) => setFunds(prev => prev.filter(f => f.id !== id));
   const save = () => applyState(UserPortfolioService.save({ cashEur: cash, holdings, funds, stagedCapitalPlan: plan }));
-  const clear = () => { UserPortfolioService.clear(); applyState(UserPortfolioService.load()); };
-  const restoreExample = () => applyState(UserPortfolioService.restoreExample());
+  const restoreRealBaseline = () => applyState(UserPortfolioService.restoreRealBaseline());
 
   return <section className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-emerald-300"/><h2 className="font-bold">Mi cartera</h2></div>
-        <p className="mt-1 text-[11px] text-slate-400">Estado único que usa “Qué haría hoy”. Cuando aplicas una operación arriba, esta cartera y la liquidez cambian automáticamente.</p>
+        <div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-emerald-300"/><h2 className="font-bold">Mi cartera real</h2></div>
+        <p className="mt-1 text-[11px] text-slate-400">Estas son las posiciones reales registradas que usa “Qué haría hoy” y el estudio de cartera. Una operación aplicada actualiza este estado; una actualización de interfaz no debe sustituirlo por datos de demostración.</p>
       </div>
-      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-[10px] font-bold text-emerald-200">ACTUALIZADA {portfolio.updatedAt.slice(0, 10)}</span>
+      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-[10px] font-bold text-emerald-200">ESTADO REAL · {portfolio.updatedAt.slice(0, 10)}</span>
     </div>
 
     <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -94,7 +93,7 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision }) => {
     <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
       <div className="flex items-center justify-between gap-3"><div><b className="text-sm">Posiciones actuales</b><div className="text-[10px] text-slate-500">Lo que la app considera realmente poseído ahora.</div></div><span className="text-[10px] text-slate-500">{funds.length + holdings.length} posiciones</span></div>
       <div className="mt-3 grid gap-2 md:grid-cols-2">
-        {funds.map(fund => <div key={fund.id} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs"><div className="flex items-start justify-between gap-2"><div><b>{fund.name}</b><div className="font-mono text-[9px] text-slate-500">{fund.isin || fund.id}</div></div><b className="font-mono">{(fundMarketValues[fund.id] ?? fund.currentValueEur ?? fund.investedEur).toFixed(2)} €</b></div></div>)}
+        {funds.map(fund => <div key={fund.id} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs"><div className="flex items-start justify-between gap-2"><div><b>{fund.name}</b><div className="font-mono text-[9px] text-slate-500">{fund.isin || fund.id}</div></div><b className="font-mono">{(fundMarketValues[fund.id] ?? fund.currentValueEur ?? fund.investedEur).toFixed(2)} €</b></div><div className="mt-1 text-[9px] text-slate-500">Invertido {fund.investedEur.toFixed(2)} € · adquisición {fund.acquisitionDate}</div></div>)}
         {holdings.map(holding => <div key={holding.ticker} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs"><div className="flex items-start justify-between gap-2"><div><b>{holding.ticker}</b><div className="text-[9px] text-slate-500">{holding.shares} títulos</div></div><b className="font-mono">{(holding.shares * (priceByTicker.get(holding.ticker.toUpperCase()) ?? 0)).toFixed(2)} €</b></div></div>)}
         {funds.length + holdings.length === 0 && <div className="col-span-full rounded-lg border border-dashed border-slate-800 p-4 text-xs text-slate-500">No hay posiciones registradas.</div>}
       </div>
@@ -107,8 +106,8 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision }) => {
           <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
             <label className="block text-[10px] uppercase text-slate-500">Efectivo ya disponible en cuenta<input type="number" min="0" step="10" value={cash} onChange={e => setCash(Math.max(0, Number(e.target.value) || 0))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm"/></label>
             <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3"><div className="text-[10px] uppercase text-violet-300">Capital nuevo pendiente</div><div className="mt-2 grid grid-cols-2 gap-2"><label className="text-[10px] text-slate-500">Disponible €<input type="number" min="0" value={plan.availableEur} onChange={e => setPlan({ ...plan, availableEur: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"/></label><label className="text-[10px] text-slate-500">Plazo meses<input type="number" min="1" max="120" value={plan.horizonMonths} onChange={e => setPlan({ ...plan, horizonMonths: Math.max(1, Number(e.target.value) || 1) })} className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"/></label></div><div className="mt-2 text-[10px] text-slate-500">Referencia: {monthly.toFixed(2)} €/mes. La pantalla principal suma este importe y el efectivo como una sola liquidez disponible.</div></div>
-            <div className="grid grid-cols-2 gap-2"><button onClick={save} className="flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"><Save className="h-3.5 w-3.5"/>Guardar</button><button onClick={clear} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400">Vaciar todo</button></div>
-            <button onClick={restoreExample} className="flex w-full items-center justify-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400"><RotateCcw className="h-3.5 w-3.5"/>Restaurar ejemplo</button>
+            <button onClick={save} className="flex w-full items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"><Save className="h-3.5 w-3.5"/>Guardar reconciliación</button>
+            <button onClick={restoreRealBaseline} className="flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-500/25 px-3 py-2 text-xs text-emerald-200"><RotateCcw className="h-3.5 w-3.5"/>Restaurar cartera real registrada</button>
           </div>
           <div className="space-y-3">
             <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><div className="flex items-center justify-between"><div><b className="text-sm">Fondos</b><div className="text-[10px] text-slate-500">Editar solo si tu cuenta real no coincide.</div></div><button onClick={addFund} className="flex items-center gap-1 rounded-lg border border-dashed border-slate-700 px-2 py-1 text-[10px] text-slate-400"><Plus className="h-3 w-3"/>Fondo</button></div><div className="mt-2 space-y-3">{funds.length === 0 && <div className="rounded-lg border border-dashed border-slate-800 p-3 text-xs text-slate-600">Sin fondos registrados.</div>}{funds.map(f => <FundMarketDataCard key={f.id} fund={f} onChange={patch=>updateFund(f.id,patch)} onRemove={()=>removeFund(f.id)} onMarketValue={value=>setFundMarketValues(prev=>prev[f.id]===value?prev:{...prev,[f.id]:value})}/>)}</div></div>
