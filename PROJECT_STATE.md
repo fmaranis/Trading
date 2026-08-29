@@ -6,7 +6,9 @@
 
 React + TypeScript + Vite research/decision-support app. It ranks, backtests, explains signals, simulates historical recommendations and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation: **2026-08-29 09:23:56 UTC**, green (`exitCode: 0`, `ok: true`, `spawnError: null`). The full validation includes Strategy Consensus, buy-the-dip vs structural fall, sell-protection on overweight, consensus veto on execution proposals, causal static historical decision replay, the new dynamic historical signal replay, mixed-instrument remunerated-cash replay, broker availability/execution sweeps and the remaining `validate:aistudio:raw` gates.
+Latest fully recorded validation: **2026-08-29 09:23:56 UTC**, green (`exitCode: 0`, `ok: true`, `spawnError: null`). The full validation includes Strategy Consensus, buy-the-dip vs structural fall, sell-protection on overweight, consensus veto on execution proposals, causal static historical decision replay, the dynamic historical signal replay, mixed-instrument remunerated-cash replay, broker availability/execution sweeps and the remaining `validate:aistudio:raw` gates.
+
+A new REAL-market diagnostic has now been added after that green run: `scripts/dynamicHistoricalReplayLive.ts`. It is wired into `validate:aistudio:raw` and records `DYNAMIC_HISTORICAL_REPLAY_LIVE_RESULT` into `validation-results/latest-dynamic-historical-replay-live.json`. This diagnostic is implemented but **not yet executed/recorded**, so its real-market findings must not be claimed until the next AI Studio validation run is inspected.
 
 ## Product direction
 
@@ -70,7 +72,7 @@ Causal invariant: changing only prices after the historical decision date may al
 
 This remains a current-catalog replay and therefore retains explicit survivorship/catalog bias.
 
-## Dynamic historical signal replay — validated
+## Dynamic historical signal replay — validated core + REAL live diagnostic pending
 
 Files:
 
@@ -78,6 +80,7 @@ Files:
 - `src/components/DynamicHistoricalReplayPanel.tsx`
 - `tests/dynamicHistoricalReplay.unit.ts`
 - `docs/DYNAMIC_HISTORICAL_REPLAY.md`
+- `scripts/dynamicHistoricalReplayLive.ts`
 
 The dynamic replay follows successive monthly or quarterly historical decisions rather than freezing the initial recommendation until the end.
 
@@ -108,7 +111,9 @@ The UI compares three outcomes over the same historical evidence:
 
 It exposes a chronological signal timeline with consensus votes, structural-downtrend / buy-the-dip context, execution date, units, notional and fees. HOLD / AVOID are available for audit but hidden by default.
 
-`tests/dynamicHistoricalReplay.unit.ts` validates repeated chronological decisions, executable buy/add and reduce/exit paths, structural sell gating, next-bar execution and future-price isolation of earlier signals. This gate passed in the 2026-08-29 09:23:56 UTC full validation.
+`tests/dynamicHistoricalReplay.unit.ts` validates repeated chronological decisions, executable buy/add and reduce/exit paths, structural sell gating, next-bar execution and future-price isolation of earlier signals. This deterministic core gate passed in the 2026-08-29 09:23:56 UTC full validation.
+
+The new live diagnostic loads the same seven-year REAL universe through the market-data proxy, explicitly fails if any accepted series is not `REAL`, and runs five recent annual start dates using monthly decisions, MEDIUM risk, 3-year horizon and 1,000 EUR. It records provider provenance, dates/fingerprints, executed BUY/ADD/REDUCE/EXIT events, material non-executed signals, dynamic vs static buy-and-hold, dynamic vs remunerated cash, fees and drawdown. Its findings are pending the next AI Studio run.
 
 ## Existing saved-recommendation simulator
 
@@ -141,8 +146,9 @@ Relevant package scripts include:
 - `npm run test:strategy-consensus`
 - `npm run test:historical-decision-replay`
 - `npm run test:dynamic-historical-replay`
+- `npm run test:dynamic-historical-replay:live`
 
-All are included in `validate:aistudio:raw`. Latest recorded full validation is green at **2026-08-29 09:23:56 UTC**.
+All are included in `validate:aistudio:raw`. The deterministic core was green at **2026-08-29 09:23:56 UTC**; the new live REAL diagnostic was added afterward and needs one fresh recorded validation.
 
 ## Known limitations / research cautions
 
@@ -157,8 +163,10 @@ All are included in `validate:aistudio:raw`. Latest recorded full validation is 
 
 ## Immediate next step
 
-1. Treat static and dynamic historical replay as implemented and validated; do not rebuild them.
-2. Manually inspect the primary UI when convenient: automatic refresh, consensus panel, no sell-from-overweight contradiction, static replay, dynamic signal timeline and the dynamic-vs-static-vs-cash comparison.
-3. Next implementation block: build a **comparative causal strategy lab** for **Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble**.
-4. Reuse the dynamic replay as an evaluation surface so each strategy is judged not only by CAGR/Sharpe but by whether its successive BUY/ADD/REDUCE/EXIT actions add or destroy value versus its own static buy-and-hold baseline and remunerated cash.
-5. Do not promote Mean Reversion or Ensemble into the production allocator until comparative causal/OOS evidence supports it.
+1. In AI Studio, sync `fmaranis/Trading/main` and run only `npm run validate:aistudio`; AI Studio must not edit code.
+2. Read `validation-results/latest-dynamic-historical-replay-live.json` directly from GitHub and inspect the REAL-market provider provenance and actual historical BUY/ADD/REDUCE/EXIT timeline.
+3. If the live diagnostic or any other gate fails, fix it directly on GitHub and rerun validation.
+4. Once the REAL dynamic replay findings are satisfactory, manually inspect the corresponding primary UI timeline/comparisons when convenient.
+5. Next implementation block: build a **comparative causal strategy lab** for **Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble**.
+6. Reuse the dynamic replay as an evaluation surface so each strategy is judged not only by CAGR/Sharpe but by whether its successive BUY/ADD/REDUCE/EXIT actions add or destroy value versus its own static buy-and-hold baseline and remunerated cash.
+7. Do not promote Mean Reversion or Ensemble into the production allocator until comparative causal/OOS evidence supports it.
