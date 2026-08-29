@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { buildPortfolioExecutionPlan } from '../src/investment/decision/portfolioExecutionPlan';
+import { applyPortfolioExecutionLine } from '../src/investment/decision/portfolioStateExecution';
 
 let passed = 0;
 function ok(condition: unknown, message: string) { assert.ok(condition, message); passed++; }
@@ -7,7 +8,7 @@ function ok(condition: unknown, message: string) { assert.ok(condition, message)
 const portfolio: any = {
   cashEur: 300,
   holdings: [{ ticker: 'ETF1.DE', shares: 5 }],
-  funds: [{ id: 'fund_old', isin: 'OLD123', name: 'Fondo antiguo', category: 'GLOBAL_EQUITY', investedEur: 500, currentValueEur: 520, transferable: true }],
+  funds: [{ id: 'fund_old', isin: 'OLD123', name: 'Fondo antiguo', category: 'GLOBAL_EQUITY', investedEur: 500, currentValueEur: 520, units: null, transferable: true }],
   stagedCapitalPlan: { availableEur: 200, horizonMonths: 12, preferredMode: 'MONTHLY' },
   updatedAt: new Date().toISOString()
 };
@@ -63,4 +64,45 @@ ok(weakPlan.lines[0]?.action === 'REVIEW', 'investment that does not beat the ca
 ok(weakPlan.lines[0]?.instruction.includes('Mantener en cuenta') === true, 'cash benchmark failure explicitly recommends keeping money in account');
 ok(weakPlan.warnings.some(x => x.startsWith('CASH_BENCHMARK_HURDLE_NOT_PASSED:WEAK.DE')), 'cash benchmark suppression is explicit in warnings');
 
-console.log(`Portfolio Execution Plan: ${passed}/${passed} execution/transfer/whole-share/adaptive-cost/cash-hurdle invariants passed.`);
+// Transactional state application: DONE is no longer a cosmetic status.
+const baseState: any = {
+  cashEur: 100,
+  holdings: [{ ticker: 'OLD.DE', shares: 5 }],
+  funds: [{ id: 'fund_source', isin: 'SRC123', name: 'Origen', category: 'GLOBAL_EQUITY', investedEur: 300, currentValueEur: 300, units: 30, transferable: true }],
+  stagedCapitalPlan: { availableEur: 500, horizonMonths: 12, preferredMode: 'MONTHLY' },
+  updatedAt: '2026-08-29T00:00:00Z'
+};
+const buyLine: any = { id: 'buy1', action: 'BUY_ETF', status: 'PENDING', instrumentType: 'ETF_ETC', targetTicker: 'NEW.DE', category: 'GLOBAL_EQUITY', amountEur: 200, shares: 2, estimatedPriceEur: 100, estimatedFeeEur: 1, instruction: '', rationale: '' };
+const bought = applyPortfolioExecutionLine(baseState, buyLine);
+ok(bought.portfolio.holdings.some((h: any) => h.ticker === 'NEW.DE' && h.shares === 2), 'executed ETF buy adds shares to the real portfolio state');
+ok(bought.portfolio.stagedCapitalPlan?.availableEur === 299 && bought.portfolio.cashEur === 100, 'executed ETF buy consumes pending liquidity including fee before cash');
+ok(bought.liquidityBeforeEur === 600 && bought.liquidityAfterEur === 399, 'execution receipt exposes liquidity before and after buy');
+
+const secondBuy: any = { ...buyLine, id: 'buy2', amountEur: 350, shares: 3, estimatedFeeEur: 1 };
+const mixedFunding = applyPortfolioExecutionLine(baseState, secondBuy);
+ok(mixedFunding.portfolio.stagedCapitalPlan?.availableEur === 149 && mixedFunding.portfolio.cashEur === 100, 'buy consumes a deterministic total amount from unified liquidity');
+
+let insufficientRejected = false;
+try { applyPortfolioExecutionLine({ ...baseState, cashEur: 0, stagedCapitalPlan: { ...baseState.stagedCapitalPlan, availableEur: 50 } }, buyLine); } catch { insufficientRejected = true; }
+ok(insufficientRejected, 'buy with insufficient unified liquidity is rejected instead of being marked done');
+
+const sellLine: any = { id: 'sell1', action: 'SELL_ETF', status: 'PENDING', instrumentType: 'ETF_ETC', targetTicker: 'OLD.DE', category: 'GLOBAL_EQUITY', amountEur: 200, shares: 2, estimatedPriceEur: 100, estimatedFeeEur: 1, instruction: '', rationale: '' };
+const sold = applyPortfolioExecutionLine(baseState, sellLine);
+ok(sold.portfolio.holdings.find((h: any) => h.ticker === 'OLD.DE')?.shares === 3, 'executed ETF sale reduces real shares');
+ok(sold.portfolio.cashEur === 299, 'executed ETF sale credits net proceeds to cash');
+
+const subscribeLine: any = { id: 'sub1', action: 'SUBSCRIBE_FUND', status: 'PENDING', instrumentType: 'MUTUAL_FUND', targetAssetId: 'FUND_NEW', targetIsin: 'NEWFUND123', targetName: 'Fondo nuevo', category: 'US_EQUITY', amountEur: 150, shares: null, estimatedPriceEur: null, estimatedFeeEur: null, instruction: '', rationale: '' };
+const subscribed = applyPortfolioExecutionLine(baseState, subscribeLine);
+ok(subscribed.portfolio.funds?.some((f: any) => f.isin === 'NEWFUND123' && f.currentValueEur === 150) === true, 'executed fund subscription becomes a real fund position');
+ok(subscribed.liquidityAfterEur === 450, 'fund subscription reduces unified liquidity');
+
+const transferLine: any = { id: 'tr1', action: 'TRANSFER_FUND', status: 'PENDING', instrumentType: 'MUTUAL_FUND', sourceId: 'fund_source', sourceIsin: 'SRC123', sourceLabel: 'Origen', targetAssetId: 'FUND_DEST', targetIsin: 'DST456', targetName: 'Destino', category: 'GLOBAL_EQUITY', amountEur: 120, shares: null, estimatedPriceEur: null, estimatedFeeEur: null, instruction: '', rationale: '' };
+const transferred = applyPortfolioExecutionLine(baseState, transferLine);
+ok(transferred.liquidityAfterEur === transferred.liquidityBeforeEur, 'fund transfer changes holdings without fabricating cash');
+ok(transferred.portfolio.funds?.some((f: any) => f.isin === 'DST456' && f.currentValueEur === 120) === true, 'fund transfer creates/increments the destination fund');
+
+let reviewRejected = false;
+try { applyPortfolioExecutionLine(baseState, { ...buyLine, id: 'review', action: 'REVIEW' }); } catch { reviewRejected = true; }
+ok(reviewRejected, 'review-only line cannot be applied as an executed portfolio operation');
+
+console.log(`Portfolio Execution Plan + state transactions: ${passed}/${passed} invariants passed.`);
