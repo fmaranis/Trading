@@ -6,11 +6,11 @@
 
 React + TypeScript + Vite research/decision-support app. It ranks REAL instruments, explains decisions, reconstructs causal historical recommendations and proposes manual execution plans; it does not submit broker trades.
 
-Last fully recorded validation before the newest loss-window changes: **2026-08-29 15:59:41 UTC**, green (`exitCode: 0`, `ok: true`, all 3 expected markers detected). That run validated the integrated production + external holdout flow. The current HEAD contains additional fund-diagnostic and historical-loss-window stress logic added afterward, so it needs one fresh `npm run validate:aistudio` before being called fully validated.
+Latest fully recorded validation: **2026-08-29 17:51:02 UTC**, green (`exitCode: 0`, `ok: true`, all 3 expected markers detected). That run validated the integrated production + random holdout + adverse paths + historical negative-window stress. The current HEAD contains a subsequent UI visualization change and a read-only validation-result endpoint, so one fresh `npm run validate:aistudio` is required before the newest HEAD is called fully validated.
 
 ## Product architecture rule
 
-**One user question = one visible surface.** Internal calculation engines may remain modular for correctness/testability, but a new engine or diagnostic must be integrated into an existing user-facing flow/result whenever it answers the same question. Do not create another top-level panel, command or JSON just because another calculation exists.
+**One user question = one visible surface.** Internal engines may remain modular for correctness/testability, but a new engine, test or diagnostic must be integrated into an existing user-facing flow/result whenever it answers the same question. Do not create another top-level panel, command or JSON merely because another calculation exists.
 
 Current visible flow:
 
@@ -18,7 +18,7 @@ Current visible flow:
 2. **Qué haría hoy** — single actionable recommendation;
 3. optional **Por qué** — consensus/evidence explanation;
 4. **Tu cartera**;
-5. **Cómo habría funcionado esta decisión en el pasado** — one integrated historical surface;
+5. **Cómo habría funcionado esta decisión en el pasado** — one integrated historical/robustness surface;
 6. optional **Seguimiento y memoria** — alerts/snapshots/audit.
 
 ## Core decision protections
@@ -32,14 +32,9 @@ Current visible flow:
 - funds use fractional units;
 - residual cash earns the configured benchmark (default 2.5%).
 
-Production allocators remain:
-- LOW = Inverse Volatility
-- MEDIUM = Risk Parity ERC
-- HIGH = Relative Momentum
+Production allocators remain LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum. Mean Reversion remains an explainable signal/veto, not a promoted allocator.
 
-Mean Reversion remains an explainable signal/veto, not a promoted allocator.
-
-## Integrated historical analysis
+## Integrated historical analysis and visible charts
 
 User-facing component: `src/components/HistoricalDecisionReplayPanel.tsx`.
 
@@ -49,6 +44,14 @@ One button/surface runs:
 - comparison with remunerated cash;
 - robustness across historical start dates.
 
+The same surface now also visualizes results instead of leaving them only in cards/JSON:
+- equity-path line chart for the selected historical replay;
+- inside the existing collapsed robustness section, a grouped bar chart for the seeded external random sample (`seguir avisos` vs `comprar y mantener` vs `cash`);
+- a horizontal bar chart for the worst REAL 6M/12M loss episodes, showing realized window loss and max drawdown;
+- per-episode behavioral summaries showing whether the engine avoided, bought/added, reduced or exited during the losing window.
+
+The external charts read the latest existing `validation-results/latest-broker-aware-execution-sweep.json` through read-only endpoint `/api/validation/latest-broker-aware`. This does not create another validation artifact and does not rerun Yahoo/EODHD from the browser.
+
 Internal engines remain separate only for calculation quality:
 - `historicalDecisionReplay.ts`
 - `dynamicHistoricalReplay.ts`
@@ -57,9 +60,7 @@ Internal engines remain separate only for calculation quality:
 
 Primary script: `scripts/brokerAwareExecutionSweepLive.ts`.
 
-It emits the existing `BROKER_AWARE_EXECUTION_SWEEP_RESULT`; no separate holdout/live-loss artifact exists.
-
-The integrated result covers:
+It emits the existing `BROKER_AWARE_EXECUTION_SWEEP_RESULT`; no separate holdout/live-loss artifact exists. The integrated result covers:
 - REAL provider provenance/fingerprints;
 - production research reference;
 - adaptive ETF execution sweep;
@@ -72,58 +73,51 @@ The integrated result covers:
 
 Synthetic fallback is forbidden for accepted REAL validation series.
 
-## External holdout robustness
+## External holdout robustness — validated 17:51 UTC
 
 `EUR_VALIDATION_HOLDOUT_UNIVERSE` is separate from `EUR_ASSET_UNIVERSE`; deterministic tests assert no ticker/asset-id overlap. It cannot influence production recommendations.
 
-### Last validated holdout findings — 15:59 UTC run
-
+Latest effective holdout:
 - requested: 19 external instruments;
-- accepted: 16;
-- rejected: 3;
-- effective accepted set was ETFs/ETCs only because the 3 external mutual funds failed to load in that run;
-- seeded random sample used 8 external tickers;
-- random sample replay: 3 scenarios, beat static in 2/3 and cash in 3/3; 23 buys, 10 adds, 0 reductions, 0 exits;
-- adverse-path replay: 3 scenarios, beat static in 2/3 and cash in 3/3; 19 buys, 5 adds, 1 reduction, 3 exits;
-- observed exits such as `XUEN.DE` and `QDVF.DE` passed the intended defensive gates (structural downtrend, consensus -5, 5 adverse votes), not simple overweight logic;
-- holdout contained severe historical drawdowns (e.g. `G1CE.DE` ~74.9%, `QDVF.DE` ~58.8%, `XUEN.DE` ~58.7%, `EXI5.DE` ~48.1%).
+- accepted: 16 ETFs/ETCs;
+- rejected: 3 external mutual funds;
+- seeded random sample: 8 external tickers;
+- random sample replay previously showed generalization outside the production catalogue;
+- adverse-path replay produced genuine REDUCE/EXIT behavior only when structural sell gates were satisfied.
 
-Important limitation discovered: there were **0 currently negative trailing-1y assets** in that accepted holdout. Therefore the existing `losingCases` were only the lowest positive trailing-1y returns, not true current losers.
+## Historical negative-window stress — validated 17:51 UTC
 
-## New historical negative-window stress — pending fresh validation
+The integrated live script searches each accepted holdout series for its worst REAL:
+- 6-month (~126-session) negative window;
+- 12-month (~252-session) negative window.
 
-The same integrated live script now searches each accepted holdout series for its worst REAL:
-- 6-month (~126-session) loss window;
-- 12-month (~252-session) loss window.
+A candidate episode is eligible only when at least **252 prior observations already exist at the episode start**, so the engine starts without seeing the subsequent loss.
 
-A candidate episode is only eligible when at least **252 prior observations already exist at the episode start**. The dynamic engine therefore starts at the beginning of the losing window without seeing the later loss.
+Latest run evaluated 4/4 selected episodes. Examples found:
+- `EXI5.DE`: 12M return -45.36%, max DD 48.06%; engine initially bought/added while evidence was favorable, later issued `REDUCE` on 2022-07-01 with structural downtrend and consensus -4 / 4 adverse votes;
+- `EXI5.DE`: worst 6M window -41.73%; engine emitted `AVOID` in all 6 observed reviews and never bought/added during the loss window;
+- `G1CE.DE`: worst 12M window -35.36%; engine emitted `AVOID` during the observed loss-window reviews and did not buy/add.
 
-The result records:
-- worst 6M and 12M negative episodes;
-- episode start/end and realized loss;
-- drawdown inside the episode;
-- signals for the focus asset during that loss window;
-- whether the engine bought/added, avoided, reduced or exited;
-- dates/gates of executed operations;
-- portfolio result from that episode start versus static and cash.
+These episodes are ex-post **behavioral stress tests**, not unbiased OOS evidence. They must never be used to tune thresholds and then claimed as independent validation.
 
-These episodes are selected ex-post **only as behavioral stress tests**. They are not unbiased OOS evidence and must never be used to tune thresholds and then claimed as independent validation.
+## Fund-data diagnostics — resolved cause in 17:51 run
 
-## Fund-data diagnostics — pending fresh validation
+The diagnostic bug that collapsed provider failures to generic `Error` is fixed. `assetUniverseScanner.ts` preserves the actual provider message.
 
-The 15:59 run exposed a diagnostic bug: provider failures were collapsed to generic `Error`, so all production mutual funds and the 3 external mutual funds appeared rejected without an actionable reason.
+The latest run showed:
+- EODHD endpoint configured successfully (`configured: true`);
+- production mutual funds rejected with `QUOTA_EXHAUSTED`;
+- the 3 external mutual funds also rejected with `QUOTA_EXHAUSTED`.
 
-`assetUniverseScanner.ts` now preserves the real error message first (for example `EODHD_API_KEY_NOT_CONFIGURED`, `FUND_NOT_FOUND`, `TIMEOUT`, etc.) rather than generic `Error`.
-
-The integrated live result also records `/api/eodhd/status` as `fundProviderStatus` plus per-instrument rejected reasons. The next run must determine whether the failure is configuration/quota/provider-symbol/history rather than guessing.
+Therefore the current inability to include mutual-fund NAV series in the live validation is a provider quota limitation, not a calculation-engine or ISIN failure. Primary ETF/Yahoo functionality remains available and non-blocking.
 
 ## Research discipline
 
 - random holdout = relevant out-of-production-catalog generalization check;
-- current adverse cohorts and historical loss windows = ex-post behavioral stress only;
+- adverse cohorts and historical loss windows = ex-post behavioral stress only;
 - no threshold/allocator/execution-rule tuning from stress cohorts without defining a new untouched validation split;
 - current-catalog survivorship bias remains;
-- dynamic replay drawdown is still measured on decision/execution path points and can understate intraperiod drawdown;
+- dynamic replay drawdown is measured on decision/execution path points and can understate intraperiod drawdown;
 - Yahoo remains unofficial/non-contractual;
 - primary functionality must not require a new paid external subscription.
 
@@ -131,12 +125,7 @@ The integrated live result also records `/api/eodhd/status` as `fundProviderStat
 
 1. Sync current `fmaranis/Trading/main` into AI Studio.
 2. Run **one** local `npm run validate:aistudio`; AI Studio must not modify code.
-3. Inspect existing `validation-results/latest-aistudio-run.json` and `latest-broker-aware-execution-sweep.json` directly from GitHub.
-4. Verify:
-   - green validation;
-   - `fundProviderStatus` and exact mutual-fund rejection reasons;
-   - accepted external mutual funds if provider/config permits;
-   - `historicalNegativeWindowStress` has evaluated real negative 6M/12M episodes;
-   - behavior during those loss windows respects causal buy/sell gates.
-5. Fix failures directly in GitHub and rerun the same single validation.
-6. Only after this is satisfactory proceed to the comparative causal strategy lab (Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble), integrated into the same evidence/historical flow rather than another top-level module.
+3. Confirm TypeScript/build/runtime remain green after adding Recharts visualization and `/api/validation/latest-broker-aware`.
+4. Open the normal app, run **Analizar histórico**, expand **¿Depende demasiado de la fecha o de los activos elegidos?**, and verify the three integrated visual areas render: equity path, external random comparison, and negative-window stress chart/cards.
+5. Fix any failure directly in GitHub and rerun the same single validation.
+6. Only after this is green proceed to the comparative causal strategy lab (Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble), integrated into the same evidence/historical flow rather than another top-level module.
