@@ -4,7 +4,7 @@ import { CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatte
 import type { PriceBar } from '../investment/backtesting/types';
 import { HistoricalMarketDataService } from '../investment/data/marketData/historicalMarketDataService';
 import { FundMarketDataService } from '../investment/data/marketData/fundMarketData';
-import { CashBenchmarkService, SingleAssetResearchEngine, type SingleAssetResearchFrequency, type SingleAssetResearchResult } from '../investment/decision';
+import { CashBenchmarkService, SingleAssetResearchEngine, type SingleAssetResearchFrequency, type SingleAssetResearchResult, type SingleAssetResearchSignal } from '../investment/decision';
 
 interface Props {
   requestedSymbol?: string | null;
@@ -74,7 +74,10 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, sug
 
   const chartData = useMemo(() => {
     if (!result) return [];
-    const markerByDate = new Map(result.signals.map(signal => [signal.executionDate, signal]));
+    const markerByDate = new Map<string, SingleAssetResearchSignal>();
+    for (const signal of result.signals) {
+      markerByDate.set(signal.executionDate, signal);
+    }
     return result.chart.map(point => {
       const signal = markerByDate.get(point.date);
       return {
