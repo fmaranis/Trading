@@ -1,7 +1,7 @@
 import type { AssetUniverseItem } from './assetUniverse';
 
-export type BrokerAvailabilityStatus = 'CONFIRMED_MYINVESTOR' | 'REQUIRES_INVERSIS_LOOKUP' | 'UNVERIFIED' | 'USER_CONFIRMED_UNAVAILABLE';
-export type BrokerAvailabilityEvidence = 'MYINVESTOR_OFFICIAL_CURRENT' | 'MYINVESTOR_OFFICIAL_HISTORICAL' | 'USER_CONFIRMED_MYINVESTOR' | 'NONE';
+export type BrokerAvailabilityStatus = 'CONFIRMED_MYINVESTOR' | 'ASSUMED_MYINVESTOR_AVAILABLE' | 'REQUIRES_INVERSIS_LOOKUP' | 'UNVERIFIED' | 'USER_CONFIRMED_UNAVAILABLE';
+export type BrokerAvailabilityEvidence = 'MYINVESTOR_OFFICIAL_CURRENT' | 'MYINVESTOR_OFFICIAL_HISTORICAL' | 'USER_CONFIRMED_MYINVESTOR' | 'USER_POLICY_DEFAULT' | 'NONE';
 export type ManualBrokerAvailabilityValue = 'AVAILABLE' | 'UNAVAILABLE';
 
 export interface BrokerAvailabilityRecord {
@@ -24,8 +24,9 @@ const MANUAL_STORAGE_KEY = 'custodia_myinvestor_manual_availability_v1';
 /**
  * Broker availability is deliberately separate from market-data validity.
  * Public/first-party evidence and user confirmations remain distinguishable.
- * A manual confirmation may determine the effective UI state, but never gets
- * mislabeled as automatic/official broker verification.
+ * The user's operating policy is permissive: if there is no explicit evidence
+ * of unavailability, the app may assume the instrument can be searched/bought
+ * in MyInvestor. This assumption is NEVER labelled as official confirmation.
  */
 export const MYINVESTOR_AVAILABILITY: Record<string, BrokerAvailabilityRecord> = {
   IE0032126645: {
@@ -103,7 +104,7 @@ export function getPublicMyInvestorAvailability(asset: AssetUniverseItem): Broke
     status: 'REQUIRES_INVERSIS_LOOKUP',
     evidence: 'NONE',
     checkedAt: '2026-08-28',
-    note: 'No first-party evidence captured yet. Availability should be checked in MyInvestor/Inversis by ISIN/ticker.'
+    note: 'No first-party evidence captured yet. Official availability has not been independently verified.'
   };
 }
 
@@ -124,7 +125,17 @@ export function getMyInvestorAvailability(asset: AssetUniverseItem): BrokerAvail
     checkedAt: manual.confirmedAt,
     note: manual.note ? `Marcado manualmente como no disponible. ${manual.note}` : 'El usuario no encontró el instrumento disponible en MyInvestor en la fecha indicada.'
   };
-  return getPublicMyInvestorAvailability(asset);
+
+  const publicEvidence = getPublicMyInvestorAvailability(asset);
+  if (publicEvidence.status === 'CONFIRMED_MYINVESTOR') return publicEvidence;
+
+  return {
+    isinOrTicker: key,
+    status: 'ASSUMED_MYINVESTOR_AVAILABLE',
+    evidence: 'USER_POLICY_DEFAULT',
+    checkedAt: new Date().toISOString(),
+    note: 'Asunción operativa del usuario: tratar el instrumento como disponible en MyInvestor salvo que él indique expresamente que no puede comprarlo. No equivale a verificación oficial del broker.'
+  };
 }
 
 export function summarizeMyInvestorAvailability(assets: AssetUniverseItem[]) {
@@ -132,6 +143,7 @@ export function summarizeMyInvestorAvailability(assets: AssetUniverseItem[]) {
   return {
     rows,
     confirmed: rows.filter(row => row.availability.status === 'CONFIRMED_MYINVESTOR').length,
+    assumedAvailable: rows.filter(row => row.availability.status === 'ASSUMED_MYINVESTOR_AVAILABLE').length,
     userConfirmedUnavailable: rows.filter(row => row.availability.status === 'USER_CONFIRMED_UNAVAILABLE').length,
     requiresInversisLookup: rows.filter(row => row.availability.status === 'REQUIRES_INVERSIS_LOOKUP').length,
     unverified: rows.filter(row => row.availability.status === 'UNVERIFIED').length
