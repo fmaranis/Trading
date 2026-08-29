@@ -186,6 +186,24 @@ test('135 — Incomplete/Mixed REAL dataset does not execute', () => {
   assert.throws(() => PortfolioBacktestEngine.run(mixed, baseConfig), MultiAssetDataError);
 });
 
+// Regression: the historical Phase 9A development cap must never block the
+// current portfolio decision path, which can legitimately send >10 gated
+// candidates to the generic multi-asset analytics layer.
+test('136 — Portfolio-sized universe above ten assets aligns', () => {
+  const assets = Array.from({ length: 12 }, (_, i) => ({
+    assetId: `ASSET_${i + 1}`,
+    ticker: `A${i + 1}.DE`,
+    name: `Asset ${i + 1}`,
+    currency: 'EUR',
+    bars: [bar(d1, 100 + i), bar(d2, 101 + i)],
+    provenance: { sourceType: 'REAL' as const, provider: 'fixture', isReproducible: true }
+  }));
+  const aligned = MultiAssetDataAligner.align({ timeframe: '1d', assets });
+  assert.equal(aligned.assetIds.length, 12);
+  assert.equal(aligned.rows.length, 2);
+  assert.equal(Object.keys(aligned.rows[0].assets).length, 12);
+});
+
 // Additional single-currency invariant
  test('9A — Multi-currency portfolio rejected', () => {
   const ds = dataset([bar(d1,100),bar(d2,101)],[bar(d1,50),bar(d2,51)],{aCurrency:'USD',bCurrency:'EUR'});
