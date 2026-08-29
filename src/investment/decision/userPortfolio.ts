@@ -1,8 +1,8 @@
 import type { BrokerExecutionProfile } from './brokerExecution';
 import { MYINVESTOR_BROKER_PROFILE } from './brokerExecution';
 import {
-  EXAMPLE_FUND_POSITIONS,
-  EXAMPLE_STAGED_CAPITAL_PLAN,
+  USER_REAL_FUND_POSITIONS,
+  USER_REAL_STAGED_CAPITAL_PLAN,
   type FundPosition,
   type StagedCapitalPlan
 } from './fundPortfolio';
@@ -10,6 +10,7 @@ import {
 const STORAGE_KEY = 'custodia_user_portfolio_v1';
 const LEGACY_FUNDS_KEY = 'custodia_fund_positions_v1';
 const LEGACY_PLAN_KEY = 'custodia_staged_capital_plan_v1';
+const CURRENT_PORTFOLIO_DATA_VERSION = 2;
 export const USER_PORTFOLIO_UPDATED_EVENT = 'custodia:user-portfolio-updated';
 
 export interface UserHolding {
@@ -22,6 +23,8 @@ export interface UserPortfolioState {
   holdings: UserHolding[];
   funds?: FundPosition[];
   stagedCapitalPlan?: StagedCapitalPlan;
+  portfolioDataVersion?: number;
+  /** Legacy flag retained only so old localStorage can be migrated safely. */
   exampleInitialized?: boolean;
   updatedAt: string;
 }
@@ -96,14 +99,56 @@ function normalizePlan(p: any): StagedCapitalPlan {
   };
 }
 
-function exampleState(): UserPortfolioState {
+function realBaselineState(): UserPortfolioState {
   return {
     cashEur: 0,
     holdings: [],
-    funds: EXAMPLE_FUND_POSITIONS.map(f => ({ ...f })),
-    stagedCapitalPlan: { ...EXAMPLE_STAGED_CAPITAL_PLAN },
-    exampleInitialized: true,
+    funds: USER_REAL_FUND_POSITIONS.map(f => ({ ...f })),
+    stagedCapitalPlan: { ...USER_REAL_STAGED_CAPITAL_PLAN },
+    portfolioDataVersion: CURRENT_PORTFOLIO_DATA_VERSION,
     updatedAt: new Date().toISOString()
+  };
+}
+
+function mergeMissingRealFunds(funds: FundPosition[]): FundPosition[] {
+  const existingIsins = new Set(funds.map(f => f.isin.toUpperCase()).filter(Boolean));
+  const missing = USER_REAL_FUND_POSITIONS.filter(f => !existingIsins.has(f.isin.toUpperCase())).map(f => ({ ...f }));
+  return [...funds, ...missing];
+}
+
+/**
+ * One-time migration from the old portfolio model where the user's real funds
+ * were mislabeled as examples. Version >= 2 means the state has already been
+ * migrated; afterwards an intentional sale/transfer/clear is respected and the
+ * baseline funds are never silently reinserted.
+ */
+export function migrateUserPortfolioState(rawInput: any, legacyFundsInput?: any, legacyPlanInput?: any): UserPortfolioState {
+  const raw = rawInput && typeof rawInput === 'object' ? rawInput : {};
+  const alreadyMigrated = Number(raw.portfolioDataVersion) >= CURRENT_PORTFOLIO_DATA_VERSION;
+  const hasUnifiedFundFields = Array.isArray(raw.funds) || raw.stagedCapitalPlan != null || raw.exampleInitialized === true || alreadyMigrated;
+  const fundsSource = hasUnifiedFundFields
+    ? (Array.isArray(raw.funds) ? raw.funds : [])
+    : (Array.isArray(legacyFundsInput) ? legacyFundsInput : USER_REAL_FUND_POSITIONS);
+  const planSource = hasUnifiedFundFields
+    ? (raw.stagedCapitalPlan ?? { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' })
+    : (legacyPlanInput ?? USER_REAL_STAGED_CAPITAL_PLAN);
+
+  let funds = fundsSource.map(normalizeFund).filter(Boolean) as FundPosition[];
+  let stagedCapitalPlan = normalizePlan(planSource);
+
+  if (!alreadyMigrated) {
+    funds = mergeMissingRealFunds(funds);
+    const explicitPendingCapital = Number(raw?.stagedCapitalPlan?.availableEur ?? legacyPlanInput?.availableEur ?? 0);
+    if (!(explicitPendingCapital > 0)) stagedCapitalPlan = { ...USER_REAL_STAGED_CAPITAL_PLAN };
+  }
+
+  return {
+    cashEur: Math.max(0, Number(raw.cashEur) || 0),
+    holdings: Array.isArray(raw.holdings) ? raw.holdings.map(normalizeHolding).filter(Boolean) as UserHolding[] : [],
+    funds,
+    stagedCapitalPlan,
+    portfolioDataVersion: CURRENT_PORTFOLIO_DATA_VERSION,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date().toISOString()
   };
 }
 
@@ -114,33 +159,31 @@ function emitPortfolioUpdated(state: UserPortfolioState): void {
 
 export class UserPortfolioService {
   static load(): UserPortfolioState {
-    if (typeof window === 'undefined') return exampleState();
+    if (typeof window === 'undefined') return realBaselineState();
     try {
       const rawText = window.localStorage.getItem(STORAGE_KEY);
-      const raw = rawText ? JSON.parse(rawText) : {};
+      if (!rawText) {
+        const baseline = realBaselineState();
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(baseline));
+        return baseline;
+      }
+      const raw = JSON.parse(rawText);
       const legacyFundsText = window.localStorage.getItem(LEGACY_FUNDS_KEY);
       const legacyPlanText = window.localStorage.getItem(LEGACY_PLAN_KEY);
       const legacyFunds = legacyFundsText ? JSON.parse(legacyFundsText) : null;
       const legacyPlan = legacyPlanText ? JSON.parse(legacyPlanText) : null;
+      const state = migrateUserPortfolioState(raw, legacyFunds, legacyPlan);
 
-      const hasUnifiedFundFields = Array.isArray(raw.funds) || raw.stagedCapitalPlan != null || raw.exampleInitialized === true;
-      const fundsSource = hasUnifiedFundFields
-        ? (Array.isArray(raw.funds) ? raw.funds : [])
-        : (Array.isArray(legacyFunds) ? legacyFunds : EXAMPLE_FUND_POSITIONS);
-      const planSource = hasUnifiedFundFields
-        ? (raw.stagedCapitalPlan ?? { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' })
-        : (legacyPlan ?? EXAMPLE_STAGED_CAPITAL_PLAN);
-
-      return {
-        cashEur: Math.max(0, Number(raw.cashEur) || 0),
-        holdings: Array.isArray(raw.holdings) ? raw.holdings.map(normalizeHolding).filter(Boolean) as UserHolding[] : [],
-        funds: fundsSource.map(normalizeFund).filter(Boolean) as FundPosition[],
-        stagedCapitalPlan: normalizePlan(planSource),
-        exampleInitialized: true,
-        updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date(0).toISOString()
-      };
+      if (Number(raw?.portfolioDataVersion) < CURRENT_PORTFOLIO_DATA_VERSION || raw?.portfolioDataVersion == null) {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        window.localStorage.removeItem(LEGACY_FUNDS_KEY);
+        window.localStorage.removeItem(LEGACY_PLAN_KEY);
+      }
+      return state;
     } catch {
-      return exampleState();
+      const baseline = realBaselineState();
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(baseline));
+      return baseline;
     }
   }
 
@@ -150,7 +193,7 @@ export class UserPortfolioService {
       holdings: input.holdings.map(normalizeHolding).filter(Boolean) as UserHolding[],
       funds: (input.funds ?? []).map(normalizeFund).filter(Boolean) as FundPosition[],
       stagedCapitalPlan: normalizePlan(input.stagedCapitalPlan ?? { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' }),
-      exampleInitialized: true,
+      portfolioDataVersion: CURRENT_PORTFOLIO_DATA_VERSION,
       updatedAt: new Date().toISOString()
     };
     if (typeof window !== 'undefined') {
@@ -162,8 +205,8 @@ export class UserPortfolioService {
     return state;
   }
 
-  static restoreExample(): UserPortfolioState {
-    const state = exampleState();
+  static restoreRealBaseline(): UserPortfolioState {
+    const state = realBaselineState();
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       window.localStorage.removeItem(LEGACY_FUNDS_KEY);
@@ -173,12 +216,20 @@ export class UserPortfolioService {
     return state;
   }
 
+  /** Backward-compatible alias. The restored data is the user's real baseline, not demo data. */
+  static restoreExample(): UserPortfolioState {
+    return this.restoreRealBaseline();
+  }
+
   static clear(): void {
     if (typeof window !== 'undefined') {
       const empty: UserPortfolioState = {
-        cashEur: 0, holdings: [], funds: [],
+        cashEur: 0,
+        holdings: [],
+        funds: [],
         stagedCapitalPlan: { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' },
-        exampleInitialized: true, updatedAt: new Date().toISOString()
+        portfolioDataVersion: CURRENT_PORTFOLIO_DATA_VERSION,
+        updatedAt: new Date().toISOString()
       };
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(empty));
       window.localStorage.removeItem(LEGACY_FUNDS_KEY);
