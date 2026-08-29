@@ -56,7 +56,9 @@ Important asymmetry:
 
 `StrategyConsensusPanel` is in the primary flow and shows, for each shortlisted or already-owned instrument, the votes, whether a decline looks like a possible buy-the-dip or a structural fall, the new-money action and the existing-position action.
 
-The consensus is currently explanatory/veto logic. It does **not yet replace** LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum as production allocators. Promotion requires comparative causal/OOS evidence.
+The consensus now also acts as a **veto on executable new-money actions** in `PortfolioExecutionPlanPanel`: BUY / SUBSCRIBE / TRANSFER proposals are converted to `REVIEW / NO OPERAR` when the target is not `BUY` under the consensus. This closes the prior possibility of the top-level message saying maintain while a lower plan still proposed buying due to allocation/cash logic alone.
+
+The consensus does **not yet replace** LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum as production allocators. Promotion requires comparative causal/OOS evidence.
 
 ## Historical dated-decision replay
 
