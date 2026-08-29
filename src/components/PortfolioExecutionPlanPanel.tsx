@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Check, ClipboardList, RefreshCw, Trash2 } from 'lucide-react';
+import { BarChart3, Check, ClipboardList, RefreshCw, Save, Trash2 } from 'lucide-react';
 import {
+  applyTaxAwareExecutionOverlay,
   AssetUniverseScanResult,
   buildPortfolioExecutionPlan,
   CashBenchmarkService,
@@ -13,8 +14,10 @@ import {
   PortfolioExecutionPlan,
   PortfolioExecutionPlanService,
   PortfolioStateExecutionService,
+  SpanishTaxSettingsService,
   type PortfolioPositionHealthResult,
   type PortfolioStateExecutionReceipt,
+  type SpanishTaxSettings,
   StrategyConsensusEngine,
   UserPortfolioService
 } from '../investment/decision';
@@ -68,6 +71,7 @@ function gateReasonLabel(reason: string): string {
 export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
   const [plan, setPlan] = useState<PortfolioExecutionPlan | null>(() => PortfolioExecutionPlanService.load());
   const [availabilityRevision, setAvailabilityRevision] = useState(0);
+  const [taxSettings, setTaxSettings] = useState<SpanishTaxSettings>(() => SpanishTaxSettingsService.load());
   const [lastExecution, setLastExecution] = useState<PortfolioStateExecutionReceipt | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
   const pending = useMemo(() => plan?.lines.filter(line => line.status === 'PENDING').length ?? 0, [plan]);
@@ -75,8 +79,8 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision, p
   const opportunityRows = useMemo(() => opportunityGate.entries
     .filter(entry => entry.status === 'ELIGIBLE')
     .sort((a, b) => (b.rankingScore ?? -Infinity) - (a.rankingScore ?? -Infinity))
-    .map(entry => ({ entry, candidate: scan.candidates.find(c => c.asset.assetId === entry.assetId)! }))
-    .filter(row => Boolean(row.candidate)), [opportunityGate, scan]);
+    .map(entry => ({ entry, candidate: scan.candidates.find(c => c.asset.assetId === entry.assetId) }))
+    .filter((row): row is { entry: typeof opportunityGate.entries[number]; candidate: NonNullable<typeof row.candidate> } => Boolean(row.candidate)), [opportunityGate, scan]);
   const strongRejectedRows = useMemo(() => opportunityGate.entries
     .filter(entry => entry.status === 'REJECTED')
     .map(entry => ({ entry, candidate: scan.candidates.find(c => c.asset.assetId === entry.assetId) }))
@@ -84,12 +88,12 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision, p
     .sort((a, b) => (b.candidate.score ?? -Infinity) - (a.candidate.score ?? -Infinity))
     .slice(0, 6), [opportunityGate, scan]);
 
-  const generate = () => {
+  const generate = (settings: SpanishTaxSettings = taxSettings) => {
     const portfolio = UserPortfolioService.load();
     const portfolioDecision = PortfolioDecisionEngine.evaluate({ portfolio, scan, decision, positionHealth: positionHealth?.byKey });
     const cashBenchmarkAnnualPct = CashBenchmarkService.load();
     const raw = buildPortfolioExecutionPlan({ portfolio, scan, decisionAsOf: decision.asOfDate, portfolioDecision, cashBenchmarkAnnualPct });
-    const lines = raw.lines.map(line => {
+    const consensusLines = raw.lines.map(line => {
       if (!['BUY_ETF', 'SUBSCRIBE_FUND', 'TRANSFER_FUND'].includes(line.action) || !line.targetAssetId) return line;
       const consensus = StrategyConsensusEngine.assess(scan, line.targetAssetId, cashBenchmarkAnnualPct);
       if (!consensus || consensus.newMoneyAction === 'BUY') return line;
@@ -101,9 +105,11 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision, p
         rationale: `${line.rationale} Consenso: ${consensus.favorableVotes} favorables, ${consensus.unfavorableVotes} desfavorables y ${consensus.neutralVotes} neutras. ${consensus.explanation}`
       };
     });
-    const vetoed = lines.filter((line, i) => line.action === 'REVIEW' && raw.lines[i]?.action !== 'REVIEW').length;
-    const next: PortfolioExecutionPlan = { ...raw, lines, warnings: vetoed > 0 ? [...raw.warnings, `STRATEGY_CONSENSUS_VETO:${vetoed}`] : raw.warnings };
-    setPlan(PortfolioExecutionPlanService.save(next));
+    const vetoed = consensusLines.filter((line, i) => line.action === 'REVIEW' && raw.lines[i]?.action !== 'REVIEW').length;
+    const consensusPlan: PortfolioExecutionPlan = { ...raw, lines: consensusLines, warnings: vetoed > 0 ? [...raw.warnings, `STRATEGY_CONSENSUS_VETO:${vetoed}`] : raw.warnings };
+    const currentValueByKey = Object.fromEntries(Object.entries(positionHealth?.byKey ?? {}).map(([key, health]) => [key, health?.currentValueEur ?? null]));
+    const taxAware = applyTaxAwareExecutionOverlay({ plan: consensusPlan, portfolio, portfolioDecision, scan, horizonYears: decision.horizonYears, taxSettings: settings, currentValueByKey });
+    setPlan(PortfolioExecutionPlanService.save(taxAware));
   };
 
   useEffect(() => {
@@ -111,6 +117,11 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision, p
     return UserPortfolioService.subscribe(() => generate());
   }, [scan, decision, positionHealth]);
 
+  const saveTaxSettings = () => {
+    const saved = SpanishTaxSettingsService.save(taxSettings);
+    setTaxSettings(saved);
+    generate(saved);
+  };
   const applyLine = (line: PortfolioExecutionPlan['lines'][number]) => {
     setExecutionError(null);
     try {
@@ -132,60 +143,24 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision, p
 
   return <section id="pending-portfolio-operations" className="rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div><div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-cyan-300"/><h2 className="font-bold">Qué haría hoy</h2></div><p className="mt-1 max-w-3xl text-[11px] text-slate-400">La operación final aplica cash + consenso + diversificación + costes. Debajo también puedes ver todos los candidatos que sí superan cash + consenso aunque no entren finalmente en la cartera objetivo.</p></div>
-      <div className="flex gap-2">{plan && <button onClick={clear} className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400"><Trash2 className="h-3.5 w-3.5"/>Vaciar plan</button>}<button onClick={generate} className="flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-bold text-white hover:bg-cyan-500"><RefreshCw className="h-3.5 w-3.5"/>Recalcular</button></div>
+      <div><div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-cyan-300"/><h2 className="font-bold">Qué haría hoy</h2></div><p className="mt-1 max-w-3xl text-[11px] text-slate-400">La operación final aplica cash + consenso + diversificación + costes + fiscalidad española. Una rotación parcial con plusvalía debe demostrar que su ventaja compensa impuestos y comisiones; una salida estructural grave no queda atrapada por el impuesto.</p></div>
+      <div className="flex gap-2">{plan && <button onClick={clear} className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400"><Trash2 className="h-3.5 w-3.5"/>Vaciar plan</button>}<button onClick={() => generate()} className="flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-bold text-white hover:bg-cyan-500"><RefreshCw className="h-3.5 w-3.5"/>Recalcular</button></div>
     </div>
+
+    <details className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+      <summary className="cursor-pointer text-xs font-bold text-amber-100">Fiscalidad España aplicada a las rotaciones</summary>
+      <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end"><label className="text-[10px] text-slate-400">Base del ahorro positiva ya acumulada este año antes de estas ventas (€)<input type="number" min="0" step="100" value={taxSettings.priorSavingsTaxableBaseEur} onChange={e => setTaxSettings(prev => ({ ...prev, priorSavingsTaxableBaseEur: Math.max(0, Number(e.target.value) || 0) }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-white"/></label><button onClick={saveTaxSettings} className="flex items-center justify-center gap-1 rounded-lg border border-amber-500/30 px-3 py-2 text-xs font-bold text-amber-100"><Save className="h-3.5 w-3.5"/>Guardar contexto fiscal</button></div>
+      <label className="mt-3 flex items-start gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={taxSettings.contextConfirmed} onChange={e => setTaxSettings(prev => ({ ...prev, contextConfirmed: e.target.checked }))}/><span>Confirmo que esta cifra es una aproximación útil de mi base positiva del ahorro acumulada. Si no se marca, el motor reserva de forma conservadora el 30% de la plusvalía.</span></label>
+      <div className="mt-2 text-[9px] text-slate-500">Escala implementada: 19% / 21% / 23% / 27% / 30%. No sustituye la declaración fiscal real ni modela automáticamente pérdidas compensables no registradas.</div>
+    </details>
 
     {lastExecution && <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100"><div className="font-bold">Cartera actualizada</div><div className="mt-1">{lastExecution.description}</div><div className="mt-1 font-mono text-[10px] text-emerald-200">Liquidez: {lastExecution.liquidityBeforeEur.toFixed(2)} € → {lastExecution.liquidityAfterEur.toFixed(2)} €</div></div>}
     {executionError && <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100"><b>No se ha aplicado la operación.</b> {executionError}</div>}
 
-    <div className={`mt-4 rounded-xl border p-4 ${actionable.length > 0 ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-amber-500/25 bg-amber-500/5'}`}>
-      <div className="text-[10px] uppercase text-slate-500">Ahora</div><div className={`mt-1 text-lg font-black ${actionable.length > 0 ? 'text-emerald-200' : 'text-amber-200'}`}>{headline}</div>
-      {actionable.length > 0 && <div className="mt-2 text-xs text-slate-300">{actionable.map(line => `${actionLabel(line.action, line.targetTicker)} ${line.targetTicker ?? line.targetIsin ?? line.sourceLabel ?? ''}${line.amountEur != null ? ` · ${line.amountEur.toFixed(2)} €` : ''}`).join('  |  ')}</div>}
-      {actionable.length === 0 && plan && <div className="mt-2 text-xs text-slate-400">No hay una compra/venta que supere simultáneamente todos los gates de ejecución. {reviews.length > 0 ? `${reviews.length} punto${reviews.length === 1 ? '' : 's'} quedan como explicación/revisión.` : 'El efectivo sigue siendo una alternativa válida.'}</div>}
-    </div>
+    <div className={`mt-4 rounded-xl border p-4 ${actionable.length > 0 ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-amber-500/25 bg-amber-500/5'}`}><div className="text-[10px] uppercase text-slate-500">Ahora</div><div className={`mt-1 text-lg font-black ${actionable.length > 0 ? 'text-emerald-200' : 'text-amber-200'}`}>{headline}</div>{actionable.length > 0 && <div className="mt-2 text-xs text-slate-300">{actionable.map(line => `${actionLabel(line.action, line.targetTicker)} ${line.targetTicker ?? line.targetIsin ?? line.sourceLabel ?? ''}${line.amountEur != null ? ` · ${line.amountEur.toFixed(2)} €` : ''}`).join('  |  ')}</div>}{actionable.length === 0 && plan && <div className="mt-2 text-xs text-slate-400">No hay una compra/venta que supere simultáneamente todos los gates. {reviews.length > 0 ? `${reviews.length} punto${reviews.length === 1 ? '' : 's'} quedan como explicación/revisión.` : 'El efectivo sigue siendo una alternativa válida.'}</div>}</div>
 
-    <div className="mt-4 rounded-xl border border-emerald-500/20 bg-slate-950/60 p-4">
-      <div className="flex flex-wrap items-end justify-between gap-2"><div><div className="text-sm font-bold text-white">Oportunidades actuales del motor</div><div className="mt-1 text-[10px] text-slate-500">Superan el 2,5% de referencia y el consenso BUY. Que aparezcan aquí no obliga a incluirlas todas en la cartera: el asignador todavía controla diversificación y riesgo.</div></div><span className="text-[10px] text-emerald-300">{opportunityRows.length} elegibles</span></div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{opportunityRows.slice(0, 9).map(({ entry, candidate }, index) => {
-        const inAllocator = scan.selected.some(selected => selected.asset.assetId === entry.assetId);
-        const inspectKey = candidate.asset.instrumentType === 'MUTUAL_FUND' ? (candidate.asset.isin ?? candidate.asset.ticker) : candidate.asset.ticker;
-        return <button type="button" key={entry.assetId} onClick={() => onInspectAsset?.(inspectKey)} disabled={!onInspectAsset} className="rounded-lg border border-slate-800 bg-slate-900/80 p-3 text-left transition hover:border-cyan-500/40 disabled:cursor-default">
-          <div className="flex items-start justify-between gap-2"><div><span className="mr-2 text-[9px] text-slate-600">#{index + 1}</span><b className="font-mono text-white">{candidate.asset.ticker}</b><div className="mt-1 max-w-[220px] truncate text-[9px] text-slate-500">{candidate.asset.name}</div></div><span className={`rounded-full border px-2 py-1 text-[8px] font-black ${inAllocator ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-violet-500/30 bg-violet-500/10 text-violet-200'}`}>{inAllocator ? 'ASIGNADOR' : 'OPORTUNIDAD'}</span></div>
-          <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] text-slate-400"><span>Score <b className="font-mono text-white">{candidate.score?.toFixed(2) ?? 'N/D'}</b></span><span>120d <b className="font-mono text-emerald-300">{candidate.momentum120Pct?.toFixed(1) ?? 'N/D'}%</b></span><span>Consenso <b className="font-mono text-white">{entry.consensusScore != null && entry.consensusScore >= 0 ? '+' : ''}{entry.consensusScore ?? 'N/D'}</b></span><span>vs cash <b className="font-mono text-cyan-300">{entry.excessVsCashPctPoints != null ? `${entry.excessVsCashPctPoints >= 0 ? '+' : ''}${entry.excessVsCashPctPoints.toFixed(1)} pp` : 'N/D'}</b></span></div>
-          {onInspectAsset && <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-cyan-300"><BarChart3 className="h-3.5 w-3.5"/>Ver gráfica y señales</div>}
-        </button>;
-      })}{opportunityRows.length === 0 && <div className="col-span-full rounded-lg border border-dashed border-slate-800 p-3 text-xs text-slate-500">Hoy ningún candidato supera simultáneamente cash + consenso BUY.</div>}</div>
-      {opportunityRows.length > 9 && <div className="mt-2 text-[9px] text-slate-500">Se muestran las 9 primeras de {opportunityRows.length}; el radar completo permanece en Estudio y señales.</div>}
+    <div className="mt-4 rounded-xl border border-emerald-500/20 bg-slate-950/60 p-4"><div className="flex flex-wrap items-end justify-between gap-2"><div><div className="text-sm font-bold text-white">Oportunidades actuales del motor</div><div className="mt-1 text-[10px] text-slate-500">Superan cash + consenso BUY. El asignador todavía controla diversificación y riesgo.</div></div><span className="text-[10px] text-emerald-300">{opportunityRows.length} elegibles</span></div><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{opportunityRows.slice(0, 9).map(({ entry, candidate }, index) => { const inAllocator = scan.selected.some(selected => selected.asset.assetId === entry.assetId); const inspectKey = candidate.asset.instrumentType === 'MUTUAL_FUND' ? (candidate.asset.isin ?? candidate.asset.ticker) : candidate.asset.ticker; return <button type="button" key={entry.assetId} onClick={() => onInspectAsset?.(inspectKey)} disabled={!onInspectAsset} className="rounded-lg border border-slate-800 bg-slate-900/80 p-3 text-left transition hover:border-cyan-500/40 disabled:cursor-default"><div className="flex items-start justify-between gap-2"><div><span className="mr-2 text-[9px] text-slate-600">#{index + 1}</span><b className="font-mono text-white">{candidate.asset.ticker}</b><div className="mt-1 max-w-[220px] truncate text-[9px] text-slate-500">{candidate.asset.name}</div></div><span className={`rounded-full border px-2 py-1 text-[8px] font-black ${inAllocator ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-violet-500/30 bg-violet-500/10 text-violet-200'}`}>{inAllocator ? 'ASIGNADOR' : 'OPORTUNIDAD'}</span></div><div className="mt-2 grid grid-cols-2 gap-1 text-[9px] text-slate-400"><span>Score <b className="font-mono text-white">{candidate.score?.toFixed(2) ?? 'N/D'}</b></span><span>120d <b className="font-mono text-emerald-300">{candidate.momentum120Pct?.toFixed(1) ?? 'N/D'}%</b></span><span>Consenso <b className="font-mono text-white">{entry.consensusScore != null && entry.consensusScore >= 0 ? '+' : ''}{entry.consensusScore ?? 'N/D'}</b></span><span>vs cash <b className="font-mono text-cyan-300">{entry.excessVsCashPctPoints != null ? `${entry.excessVsCashPctPoints >= 0 ? '+' : ''}${entry.excessVsCashPctPoints.toFixed(1)} pp` : 'N/D'}</b></span></div>{onInspectAsset && <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-cyan-300"><BarChart3 className="h-3.5 w-3.5"/>Ver gráfica y señales</div>}</button>; })}{opportunityRows.length === 0 && <div className="col-span-full rounded-lg border border-dashed border-slate-800 p-3 text-xs text-slate-500">Hoy ningún candidato supera simultáneamente cash + consenso BUY.</div>}</div>{strongRejectedRows.length > 0 && <details className="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3"><summary className="cursor-pointer text-[10px] font-bold text-amber-200">Valores con métricas altas que el motor no compra ahora</summary><div className="mt-3 grid gap-2 sm:grid-cols-2">{strongRejectedRows.map(({ entry, candidate }) => { const inspectKey = candidate.asset.instrumentType === 'MUTUAL_FUND' ? (candidate.asset.isin ?? candidate.asset.ticker) : candidate.asset.ticker; return <button type="button" key={entry.assetId} onClick={() => onInspectAsset?.(inspectKey)} className="rounded-lg border border-slate-800 bg-slate-900/70 p-3 text-left hover:border-amber-500/30"><div className="flex items-center justify-between gap-2"><b className="font-mono text-white">{candidate.asset.ticker}</b><span className="font-mono text-[9px] text-slate-400">score {candidate.score?.toFixed(2) ?? 'N/D'}</span></div><div className="mt-1 text-[9px] text-amber-200">{gateReasonLabel(entry.reason)}</div></button>; })}</div></details>}</div>
 
-      {strongRejectedRows.length > 0 && <details className="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3"><summary className="cursor-pointer text-[10px] font-bold text-amber-200">Valores con métricas altas que el motor no compra ahora</summary><div className="mt-3 grid gap-2 sm:grid-cols-2">{strongRejectedRows.map(({ entry, candidate }) => {
-        const inspectKey = candidate.asset.instrumentType === 'MUTUAL_FUND' ? (candidate.asset.isin ?? candidate.asset.ticker) : candidate.asset.ticker;
-        return <button type="button" key={entry.assetId} onClick={() => onInspectAsset?.(inspectKey)} disabled={!onInspectAsset} className="rounded-lg border border-slate-800 bg-slate-900/70 p-3 text-left hover:border-amber-500/30"><div className="flex items-center justify-between gap-2"><b className="font-mono text-white">{candidate.asset.ticker}</b><span className="font-mono text-[9px] text-slate-400">score {candidate.score?.toFixed(2) ?? 'N/D'}</span></div><div className="mt-1 text-[9px] text-amber-200">{gateReasonLabel(entry.reason)}</div><div className="mt-1 text-[9px] text-slate-500">120d {candidate.momentum120Pct?.toFixed(1) ?? 'N/D'}% · consenso {entry.consensusScore ?? 'N/D'}</div></button>;
-      })}</div></details>}
-    </div>
-
-    {plan && <>
-      <div className="mt-4 flex flex-wrap gap-2 text-[10px] text-slate-400"><span className="rounded-full border border-slate-700 px-3 py-1">Datos: {plan.decisionAsOf}</span><span className="rounded-full border border-cyan-500/25 px-3 py-1 text-cyan-300">{pending} pendientes</span><span className="rounded-full border border-emerald-500/25 px-3 py-1 text-emerald-200">Cash ref.: {(plan.cashBenchmarkAnnualPct ?? 2.5).toFixed(2)}%</span></div>
-      <div className="mt-4 space-y-3">
-        {plan.lines.length === 0 && <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs text-slate-500">No hay operaciones accionables con la cartera y la decisión actuales.</div>}
-        {plan.lines.map((line, index) => {
-          const targetAsset = assetForLine(line);
-          const availability = targetAsset ? getMyInvestorAvailability(targetAsset) : null;
-          const availabilityKey = targetAsset ? (targetAsset.isin ?? targetAsset.ticker) : (line.targetIsin ?? line.targetTicker ?? null);
-          const needsTargetAvailability = ['BUY_ETF', 'SUBSCRIBE_FUND', 'TRANSFER_FUND'].includes(line.action) && Boolean(availabilityKey);
-          const unavailable = needsTargetAvailability && availability?.status === 'USER_CONFIRMED_UNAVAILABLE';
-          const canApply = ['BUY_ETF','SELL_ETF','SUBSCRIBE_FUND','TRANSFER_FUND','REDEEM_FUND'].includes(line.action) && !unavailable;
-          const displayTicker = line.targetTicker ?? targetAsset?.ticker ?? null;
-          const inspectKey = line.instrumentType === 'MUTUAL_FUND' ? (line.targetIsin ?? line.sourceIsin ?? line.targetTicker ?? null) : (line.targetTicker ?? line.targetIsin ?? null);
-          return <article key={line.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs text-slate-500">{index + 1}</span><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${actionClass(line.action)}`}>{actionLabel(line.action, displayTicker)}</span></div><div className="mt-2 text-sm font-semibold text-white">{line.instruction}</div><details className="mt-2"><summary className="cursor-pointer text-[10px] text-slate-500">Por qué</summary><div className="mt-1 text-[10px] text-slate-500">{line.rationale}</div></details></div>{line.status === 'PENDING' && <div className="flex shrink-0 flex-wrap gap-2">{inspectKey && onInspectAsset && <button type="button" onClick={() => onInspectAsset(inspectKey)} className="flex items-center gap-1 rounded-lg border border-cyan-500/30 px-3 py-2 text-[10px] font-bold text-cyan-200"><BarChart3 className="h-3 w-3"/>Ver gráfica</button>}{canApply && <button onClick={() => applyLine(line)} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white"><Check className="h-3 w-3"/>Aplicar a mi cartera</button>}<button onClick={() => dismiss(line.id)} className="rounded-lg border border-slate-700 px-3 py-2 text-[10px] text-slate-500">Descartar</button></div>}</div>
-            <div className="mt-3 flex flex-wrap gap-2 text-[10px]">{line.targetTicker && <span className="rounded-lg bg-slate-900 px-2 py-1 font-mono">Ticker {line.targetTicker}</span>}{line.targetIsin && <span className="rounded-lg bg-slate-900 px-2 py-1 font-mono text-cyan-200">ISIN {line.targetIsin}</span>}{line.amountEur != null && <span className="rounded-lg bg-slate-900 px-2 py-1">{line.amountEur.toFixed(2)} €</span>}{line.shares != null && <span className="rounded-lg bg-slate-900 px-2 py-1">{line.shares} títulos</span>}{line.estimatedFeeEur != null && <span className="rounded-lg bg-slate-900 px-2 py-1">comisión {line.estimatedFeeEur.toFixed(2)} €</span>}</div>
-            {needsTargetAvailability && availability && availabilityKey && <div className={`mt-3 rounded-lg border p-3 text-[10px] ${availabilityClass(availability.status)}`}><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><b>MyInvestor:</b> {availabilityLabel(availability.status, availability.evidence)}<div className="mt-1 opacity-75">Código de búsqueda: <span className="font-mono">{availabilityKey}</span>{availability.evidence === 'USER_POLICY_DEFAULT' && <span> · asunción operativa, no verificación oficial</span>}</div></div><div className="flex flex-wrap gap-2">{availability.status === 'USER_CONFIRMED_UNAVAILABLE' ? <button onClick={() => resetAvailability(availabilityKey)} className="rounded-md border border-cyan-500/40 px-2 py-1 font-bold text-cyan-200">Volver a asumir disponible</button> : <button onClick={() => markUnavailable(availabilityKey)} className="rounded-md border border-rose-500/40 px-2 py-1 text-rose-200">No está disponible</button>}</div></div></div>}
-            {unavailable && <div className="mt-2 text-[10px] font-bold text-rose-300">Operación bloqueada porque marcaste este instrumento como no disponible en MyInvestor.</div>}
-            {line.taxNote && <details className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-2 text-[10px] text-cyan-100"><summary className="cursor-pointer font-bold">Fondos / fiscalidad</summary><div className="mt-1">{line.taxNote}</div></details>}
-          </article>;
-        })}
-      </div>
-    </>}
+    {plan && <><div className="mt-4 flex flex-wrap gap-2 text-[10px] text-slate-400"><span className="rounded-full border border-slate-700 px-3 py-1">Datos: {plan.decisionAsOf}</span><span className="rounded-full border border-cyan-500/25 px-3 py-1 text-cyan-300">{pending} pendientes</span><span className="rounded-full border border-emerald-500/25 px-3 py-1 text-emerald-200">Cash ref.: {plan.cashBenchmarkAnnualPct.toFixed(2)}%</span></div><div className="mt-4 space-y-3">{plan.lines.length === 0 && <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs text-slate-500">No hay operaciones accionables con la cartera y la decisión actuales.</div>}{plan.lines.map((line, index) => { const targetAsset = assetForLine(line); const availability = targetAsset ? getMyInvestorAvailability(targetAsset) : null; const availabilityKey = targetAsset ? (targetAsset.isin ?? targetAsset.ticker) : (line.targetIsin ?? line.targetTicker ?? null); const needsTargetAvailability = ['BUY_ETF', 'SUBSCRIBE_FUND', 'TRANSFER_FUND'].includes(line.action) && Boolean(availabilityKey); const unavailable = needsTargetAvailability && availability?.status === 'USER_CONFIRMED_UNAVAILABLE'; const canApply = ['BUY_ETF','SELL_ETF','SUBSCRIBE_FUND','TRANSFER_FUND','REDEEM_FUND'].includes(line.action) && !unavailable; const displayTicker = line.targetTicker ?? targetAsset?.ticker ?? null; const inspectKey = line.instrumentType === 'MUTUAL_FUND' ? (line.targetIsin ?? line.sourceIsin ?? line.targetTicker ?? null) : (line.targetTicker ?? line.targetIsin ?? null); return <article key={line.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4"><div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs text-slate-500">{index + 1}</span><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${actionClass(line.action)}`}>{actionLabel(line.action, displayTicker)}</span></div><div className="mt-2 text-sm font-semibold text-white">{line.instruction}</div><details className="mt-2"><summary className="cursor-pointer text-[10px] text-slate-500">Por qué</summary><div className="mt-1 text-[10px] text-slate-500">{line.rationale}</div></details></div>{line.status === 'PENDING' && <div className="flex shrink-0 flex-wrap gap-2">{inspectKey && onInspectAsset && <button type="button" onClick={() => onInspectAsset(inspectKey)} className="flex items-center gap-1 rounded-lg border border-cyan-500/30 px-3 py-2 text-[10px] font-bold text-cyan-200"><BarChart3 className="h-3 w-3"/>Ver gráfica</button>}{canApply && <button onClick={() => applyLine(line)} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white"><Check className="h-3 w-3"/>Aplicar a mi cartera</button>}<button onClick={() => dismiss(line.id)} className="rounded-lg border border-slate-700 px-3 py-2 text-[10px] text-slate-500">Descartar</button></div>}</div><div className="mt-3 flex flex-wrap gap-2 text-[10px]">{line.targetTicker && <span className="rounded-lg bg-slate-900 px-2 py-1 font-mono">Ticker {line.targetTicker}</span>}{line.targetIsin && <span className="rounded-lg bg-slate-900 px-2 py-1 font-mono text-cyan-200">ISIN {line.targetIsin}</span>}{line.amountEur != null && <span className="rounded-lg bg-slate-900 px-2 py-1">{line.amountEur.toFixed(2)} €</span>}{line.shares != null && <span className="rounded-lg bg-slate-900 px-2 py-1">{line.shares} títulos</span>}{line.estimatedFeeEur != null && <span className="rounded-lg bg-slate-900 px-2 py-1">comisión {line.estimatedFeeEur.toFixed(2)} €</span>}</div>{needsTargetAvailability && availability && availabilityKey && <div className={`mt-3 rounded-lg border p-3 text-[10px] ${availabilityClass(availability.status)}`}><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><b>MyInvestor:</b> {availabilityLabel(availability.status, availability.evidence)}<div className="mt-1 opacity-75">Código de búsqueda: <span className="font-mono">{availabilityKey}</span></div></div><div>{availability.status === 'USER_CONFIRMED_UNAVAILABLE' ? <button onClick={() => resetAvailability(availabilityKey)} className="rounded-md border border-cyan-500/40 px-2 py-1 font-bold text-cyan-200">Volver a asumir disponible</button> : <button onClick={() => markUnavailable(availabilityKey)} className="rounded-md border border-rose-500/40 px-2 py-1 text-rose-200">No está disponible</button>}</div></div></div>}{line.taxNote && <details className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 text-[10px] text-amber-100"><summary className="cursor-pointer font-bold">Fiscalidad / fricción de salida</summary><div className="mt-1">{line.taxNote}</div></details>}</article>; })}</div></>}
   </section>;
 };
