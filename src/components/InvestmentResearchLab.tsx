@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BarChart3, ChevronDown, Radar, Search } from 'lucide-react';
 import {
   AssetUniverseScanner,
-  EUR_ASSET_UNIVERSE,
+  EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   EUR_VALIDATION_HOLDOUT_UNIVERSE,
   type AssetScanCandidate,
   type AssetUniverseScanResult,
@@ -40,7 +40,7 @@ export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision }) => {
 
   const researchCatalog = useMemo(() => {
     const map = new Map<string, { ticker: string; name: string }>();
-    for (const item of [...EUR_ASSET_UNIVERSE, ...EUR_VALIDATION_HOLDOUT_UNIVERSE]) map.set(item.ticker.toUpperCase(), { ticker: item.ticker, name: item.name });
+    for (const item of [...EUR_PORTFOLIO_DISCOVERY_UNIVERSE, ...EUR_VALIDATION_HOLDOUT_UNIVERSE]) map.set(item.ticker.toUpperCase(), { ticker: item.ticker, name: item.name });
     return [...map.values()].sort((a, b) => a.ticker.localeCompare(b.ticker));
   }, []);
 
@@ -86,9 +86,9 @@ export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision }) => {
     </section>
 
     <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-indigo-300"/><h2 className="font-bold text-white">Radar actual ampliado</h2></div><p className="mt-1 text-xs text-slate-400">Combina los instrumentos válidos del universo de cartera con el universo externo de robustez. No usa el shortlist de 8 como límite de investigación.</p></div><div className="flex flex-wrap gap-2">{(['OPPORTUNITY','MOMENTUM','SAFETY','PUNISHED'] as RankingMode[]).map(mode => <button key={mode} onClick={() => setRankingMode(mode)} className={`rounded-lg border px-3 py-2 text-[10px] font-bold ${rankingMode === mode ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-200' : 'border-slate-700 bg-slate-950 text-slate-400'}`}>{modeLabel(mode)}</button>)}</div></div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-indigo-300"/><h2 className="font-bold text-white">Radar actual ampliado</h2></div><p className="mt-1 text-xs text-slate-400">Combina los instrumentos válidos del universo de cartera con el universo externo de robustez. No usa el shortlist del asignador como límite de investigación.</p></div><div className="flex flex-wrap gap-2">{(['OPPORTUNITY','MOMENTUM','SAFETY','PUNISHED'] as RankingMode[]).map(mode => <button key={mode} onClick={() => setRankingMode(mode)} className={`rounded-lg border px-3 py-2 text-[10px] font-bold ${rankingMode === mode ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-200' : 'border-slate-700 bg-slate-950 text-slate-400'}`}>{modeLabel(mode)}</button>)}</div></div>
 
-      <div className="mt-3 flex flex-wrap gap-2 text-[10px]"><span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1 text-emerald-200">Cartera: {scan.accepted} válidos</span><span className="rounded-full border border-cyan-500/20 bg-cyan-500/5 px-3 py-1 text-cyan-200">Externos: {externalLoading ? 'cargando…' : `${externalAccepted} válidos`}</span><span className="rounded-full border border-violet-500/20 bg-violet-500/5 px-3 py-1 text-violet-200">Radar combinado: {ranking.length}</span></div>
+      <div className="mt-3 flex flex-wrap gap-2 text-[10px]"><span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1 text-emerald-200">Producción: {scan.accepted} válidos</span><span className="rounded-full border border-cyan-500/20 bg-cyan-500/5 px-3 py-1 text-cyan-200">Externos: {externalLoading ? 'cargando…' : `${externalAccepted} válidos`}</span><span className="rounded-full border border-violet-500/20 bg-violet-500/5 px-3 py-1 text-violet-200">Radar combinado: {ranking.length}</span></div>
       {externalError && <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 text-[10px] text-amber-100">El universo externo no pudo cargarse completo: {externalError}. El analizador individual sigue disponible.</div>}
 
       <div className="mt-4 flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2"><Search className="h-4 w-4 text-slate-500"/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Filtrar ticker, nombre o categoría…" className="w-full bg-transparent text-sm outline-none"/><span className="text-[10px] text-slate-500">{ranking.length} válidos</span></div>
