@@ -16,6 +16,7 @@ import { UserPortfolioPanel } from './UserPortfolioPanel';
 import { RecommendationSimulationPanel } from './RecommendationSimulationPanel';
 import { PortfolioExecutionPlanPanel } from './PortfolioExecutionPlanPanel';
 import { HistoricalDecisionReplayPanel } from './HistoricalDecisionReplayPanel';
+import { StrategyConsensusPanel } from './StrategyConsensusPanel';
 
 interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; eodhdValidation: EodhdCrossValidationResult | null; }
 
@@ -45,6 +46,7 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdV
   const materialCount = alerts.filter(a => a.severity === 'MATERIAL').length;
 
   return <section className="space-y-4">
+    <StrategyConsensusPanel scan={scan} />
     <PortfolioExecutionPlanPanel scan={scan} decision={decision} />
     <UserPortfolioPanel scan={scan} decision={decision} />
     <HistoricalDecisionReplayPanel scan={scan} capitalEur={decision.capitalEur} riskProfile={decision.riskProfile} horizonYears={decision.horizonYears} />
