@@ -8,6 +8,7 @@ export * from './portfolioDiscoveryUniverse';
 export * from './portfolioCandidateGate';
 export * from './portfolioPositionHealth';
 export * from './portfolioRotationReview';
+export * from './securityIdentifiers';
 export * from './brokerAvailability';
 export * from './cashBenchmark';
 export * from './remuneratedCash';
