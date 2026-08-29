@@ -5,7 +5,7 @@ import {
   AssetUniverseScanResult,
   CashBenchmarkService,
   CausalUniverseBacktestEngine,
-  EUR_ASSET_UNIVERSE,
+  EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   getMyInvestorAvailability,
   InvestmentHorizonYears,
   InvestorRiskProfile,
@@ -44,8 +44,8 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
     window.setTimeout(() => {
       try {
         const config = { initialCapital: Math.max(1, capitalEur), commissionPct: 0.05, slippagePct: 0.02, riskProfile, horizonYears, rebalanceFrequency: 'MONTHLY' as const };
-        const research = CausalUniverseBacktestEngine.run(scan.acceptedDataset, EUR_ASSET_UNIVERSE, config, 8);
-        setHistorical(MixedInstrumentCausalReplayEngine.run({ universeDataset: scan.acceptedDataset, catalog: EUR_ASSET_UNIVERSE, researchResult: research, config, cashBenchmarkAnnualPct: benchmark }));
+        const research = CausalUniverseBacktestEngine.run(scan.acceptedDataset, EUR_PORTFOLIO_DISCOVERY_UNIVERSE, config, 8);
+        setHistorical(MixedInstrumentCausalReplayEngine.run({ universeDataset: scan.acceptedDataset, catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE, researchResult: research, config, cashBenchmarkAnnualPct: benchmark }));
       } catch (e: any) { setHistoricalError(e?.message || String(e)); }
       finally { setHistoricalLoading(false); }
     }, 0);
@@ -55,12 +55,12 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div className="max-w-3xl">
         <div className="flex items-center gap-2"><CircleDollarSign className="h-5 w-5 text-emerald-300"/><h2 className="text-lg font-bold text-white">¿Compensa invertir frente a dejar el dinero en MyInvestor?</h2></div>
-        <p className="mt-1 text-xs text-slate-400">El filtro actual y el replay histórico usan la misma referencia de efectivo. Una compra solo pasa a ejecución si supera esa referencia y después los filtros de costes, títulos enteros y disponibilidad broker.</p>
+        <p className="mt-1 text-xs text-slate-400">El filtro se aplica antes de construir la cartera: un candidato que no supera la cuenta o no logra consenso BUY no llega al asignador. Costes, títulos enteros y broker se comprueban después.</p>
       </div>
       <label className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3 text-xs text-emerald-100">
         <div className="font-bold">Cuenta remunerada</div>
         <div className="mt-2 flex items-center gap-2"><input type="number" min="0" max="50" step="0.1" value={benchmark} onChange={e => updateBenchmark(Number(e.target.value))} className="w-24 rounded-lg border border-emerald-500/30 bg-slate-950 px-2 py-1.5 text-right font-mono text-white"/><span>% anual</span></div>
-        <div className="mt-1 text-[9px] text-emerald-200/70">Guardado en este navegador.</div>
+        <div className="mt-1 text-[9px] text-emerald-200/70">Cambiarlo recalcula los candidatos de cartera.</div>
       </label>
     </div>
 
@@ -74,7 +74,7 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
       <table className="w-full min-w-[760px] text-xs">
         <thead className="bg-slate-950 text-[10px] uppercase text-slate-500"><tr><th className="p-3 text-left">Producto</th><th className="p-3 text-right">Mom. 120d</th><th className="p-3 text-right">Proxy anual</th><th className="p-3 text-right">vs cuenta</th><th className="p-3 text-left">Decisión económica</th><th className="p-3 text-left">MyInvestor</th></tr></thead>
         <tbody>{rows.map(({ candidate, assessment, broker }) => <tr key={candidate.asset.assetId} className="border-t border-slate-800 bg-slate-950/40">
-          <td className="p-3"><div className="font-mono font-bold text-white">{candidate.asset.ticker}</div><div className="text-[9px] text-slate-500">{candidate.asset.category} · {candidate.asset.instrumentType === 'MUTUAL_FUND' ? 'FONDO' : 'ETF/ETC'}</div></td>
+          <td className="p-3"><div className="font-mono font-bold text-white">{candidate.asset.ticker}</div><div className="text-[9px] text-slate-500">{candidate.asset.category} · {candidate.asset.instrumentType === 'MUTUAL_FUND' ? 'FONDO' : 'ETF/ETC/ACCIÓN'}</div></td>
           <td className="p-3 text-right font-mono">{candidate.momentum120Pct == null ? 'N/D' : `${candidate.momentum120Pct.toFixed(2)}%`}</td>
           <td className="p-3 text-right font-mono">{assessment.netAnnualizedProxyPct == null ? 'N/D' : `${assessment.netAnnualizedProxyPct.toFixed(2)}%`}</td>
           <td className={`p-3 text-right font-mono ${(assessment.excessVsCashPctPoints ?? -Infinity) > 0 ? 'text-emerald-300' : 'text-amber-300'}`}>{assessment.excessVsCashPctPoints == null ? 'N/D' : `${assessment.excessVsCashPctPoints >= 0 ? '+' : ''}${assessment.excessVsCashPctPoints.toFixed(2)} pp`}</td>
