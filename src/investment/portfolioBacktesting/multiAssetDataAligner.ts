@@ -70,8 +70,13 @@ export function buildPortfolioProvenance(dataset: MultiAssetDataset): PortfolioD
 export class MultiAssetDataAligner {
   public static align(dataset: MultiAssetDataset, policy: CalendarAlignmentPolicy = 'INTERSECTION'): AlignedMultiAssetDataset {
     if (dataset.assets.length < 2) throw new MultiAssetDataError('Se requieren al menos 2 activos para un backtest multi-activo.');
-    if (dataset.assets.length > 10) throw new MultiAssetDataError('La fase 9A admite un máximo de 10 activos.');
 
+    // Phase 9A originally imposed a temporary 10-asset development guard. The
+    // production discovery/gating path can now legitimately feed a larger set
+    // into portfolio analytics, so keeping that historical cap would make the
+    // live application fail even though the calculations themselves support N
+    // assets. Universe-size control belongs upstream (scanner/gate/batching),
+    // not in the generic alignment primitive.
     const maps = new Map<string, Map<string, PriceBar>>();
     for (const asset of dataset.assets) {
       if (!asset.bars.length) throw new MultiAssetDataError(`Dataset vacío para ${asset.ticker}.`);
