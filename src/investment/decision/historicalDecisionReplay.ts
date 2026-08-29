@@ -5,6 +5,7 @@ import type { InvestmentHorizonYears, InvestorRiskProfile } from './types';
 import { allCashBenchmark } from './remuneratedCash';
 import { brokerCommission } from './costAwareExecutionPolicy';
 import { DEFAULT_CASH_BENCHMARK_ANNUAL_PCT } from './cashBenchmark';
+import { buildHistoricalShortlist } from './historicalShortlist';
 
 export type HistoricalReplayFrequency = 'ANNUAL' | 'QUARTERLY';
 
@@ -44,6 +45,7 @@ export interface HistoricalDecisionReplayCase {
   cashBenchmarkAnnualPct: number;
   cashTargetWeight: number;
   eligibleAssets: number;
+  selectedAssets: number;
   allocations: HistoricalDecisionReplayLine[];
   summary: string;
 }
@@ -67,14 +69,6 @@ function median(values: number[]): number | null {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
-
-function sliceForDecision(dataset: MultiAssetDataset, requestedDate: string, minimumBars = 252): MultiAssetDataset {
-  const assets = dataset.assets.map(asset => ({
-    ...asset,
-    bars: asset.bars.filter(bar => isoDate(bar.timestamp) <= requestedDate)
-  })).filter(asset => asset.bars.length >= minimumBars);
-  return { ...dataset, assets };
 }
 
 function latestDatasetDate(dataset: MultiAssetDataset): string {
@@ -101,7 +95,8 @@ function replayOne(input: {
   cashBenchmarkAnnualPct: number;
   minimumBars: number;
 }): HistoricalDecisionReplayCase | null {
-  const historical = sliceForDecision(input.dataset, input.requestedDate, input.minimumBars);
+  const shortlist = buildHistoricalShortlist({ dataset: input.dataset, catalog: input.catalog, requestedDate: input.requestedDate, minimumBars: input.minimumBars, maxSelected: 8 });
+  const historical = shortlist.dataset;
   if (historical.assets.length < 2) return null;
 
   const decision = InvestmentDecisionEngine.decide(
@@ -186,7 +181,8 @@ function replayOne(input: {
     beatsCash: excessFinalEurVsCash > 0,
     cashBenchmarkAnnualPct: input.cashBenchmarkAnnualPct,
     cashTargetWeight: decision.cashWeight,
-    eligibleAssets: historical.assets.length,
+    eligibleAssets: shortlist.eligibleAssetIds.length,
+    selectedAssets: shortlist.selectedAssetIds.length,
     allocations,
     summary: `${decision.asOfDate}: ${top || 'sin activos de riesgo'} · efectivo ${(decision.cashWeight * 100).toFixed(0)}% · ${decision.recommendedMethod}.`
   };
@@ -236,10 +232,11 @@ export class HistoricalDecisionReplayEngine {
       bestCase,
       worstCase,
       notes: [
-        'Cada decisión usa exclusivamente datos disponibles hasta la fecha solicitada; la ejecución empieza en la siguiente barra disponible.',
+        'Cada fecha reconstruye causalmente el shortlist con la misma fórmula de momentum/riesgo/diversificación del escáner y después ejecuta el motor de decisión.',
         'Los activos sin el mínimo de historia causal quedan excluidos de esa fecha.',
         'ETFs usan títulos enteros y comisión MyInvestor modelada; fondos usan unidades fraccionarias.',
         'El efectivo objetivo y el residual se comparan con la referencia remunerada sobre las mismas fechas.',
+        'Permanece el sesgo de supervivencia del catálogo actual: todavía no reconstruimos qué productos existían/comercializaban históricamente fuera del catálogo presente.',
         'Este replay mantiene la recomendación inicial hasta el final; no simula todavía seguir todas las recomendaciones posteriores.'
       ]
     };
