@@ -82,43 +82,59 @@ export function buildPortfolioExecutionPlan(input: { portfolio: UserPortfolioSta
   }
 
   for (const position of portfolioDecision.existingPositions) {
-    if (position.action !== 'REDUCE' && position.action !== 'REVIEW_TRANSFER') continue;
+    if (!['REDUCE', 'EXIT', 'REVIEW_TRANSFER'].includes(position.action)) continue;
     const exposure = position.category === 'UNKNOWN' ? undefined : exposureByCategory.get(position.category);
     const excess = exposure ? Math.max(0, -exposure.gapEur) : 0;
-    const amount = position.currentValueEur == null ? null : Math.min(position.currentValueEur, excess || position.currentValueEur);
+    const healthFraction = position.suggestedReductionPct != null ? Math.max(0, Math.min(100, position.suggestedReductionPct)) / 100 : null;
+    const amount = position.currentValueEur == null
+      ? null
+      : position.action === 'EXIT'
+        ? position.currentValueEur
+        : healthFraction != null
+          ? position.currentValueEur * healthFraction
+          : Math.min(position.currentValueEur, excess || position.currentValueEur);
+
     if (position.instrumentType === 'MUTUAL_FUND') {
       const fund = (portfolio.funds ?? []).find(f => f.id === position.id);
       const possibleFundTarget = portfolioDecision.contributions.filter(c => c.instrumentType === 'MUTUAL_FUND').sort((a, b) => b.amountEur - a.amountEur)[0];
       const targetCandidate = possibleFundTarget ? findCandidate(scan, possibleFundTarget.assetId) : undefined;
       const targetAsset = targetCandidate?.asset;
-      if (position.action === 'REVIEW_TRANSFER' && fund?.transferable && possibleFundTarget) {
+      const canPreferTransfer = Boolean(fund?.transferable && possibleFundTarget && position.action !== 'REVIEW_TRANSFER' ? true : position.action === 'REVIEW_TRANSFER' && possibleFundTarget);
+
+      if (canPreferTransfer && fund && possibleFundTarget) {
         const hurdle = assessAgainstCashBenchmark({ momentum120Pct: targetCandidate?.momentum120Pct, benchmarkAnnualPct: cashBenchmarkAnnualPct, notionalEur: amount ?? possibleFundTarget.amountEur, estimatedFeeEur: 0 });
-        if (hurdle.passes !== true) {
-          warnings.push(`CASH_BENCHMARK_HURDLE_NOT_PASSED:${possibleFundTarget.ticker}`);
-          lines.push({ id: uid('transfer_hurdle_review', lines.length), action: 'REVIEW', status: 'PENDING', instrumentType: 'MUTUAL_FUND', sourceId: fund.id, sourceLabel: fund.name, sourceIsin: fund.isin, targetAssetId: possibleFundTarget.assetId, targetTicker: possibleFundTarget.ticker, targetName: possibleFundTarget.name, targetIsin: targetAsset?.isin, category: position.category, amountEur: amount, shares: null, estimatedPriceEur: null, estimatedFeeEur: null, estimatedAnnualReturnProxyPct: hurdle.netAnnualizedProxyPct, cashBenchmarkAnnualPct, excessReturnVsCashPctPoints: hurdle.excessVsCashPctPoints, instruction: `No proponer todavía el traspaso hacia ${possibleFundTarget.name}: el destino no demuestra superar el ${cashBenchmarkAnnualPct.toFixed(2)}% anual de referencia en efectivo.`, rationale: `${position.reason} Se conserva para revisión; el proxy es histórico, no predictivo.`, taxNote: 'Debe confirmarse elegibilidad fiscal y operativa antes de cualquier traspaso.' });
-        } else {
+        if (hurdle.passes === true) {
           lines.push({ id: uid('transfer', lines.length), action: 'TRANSFER_FUND', status: 'PENDING', instrumentType: 'MUTUAL_FUND', sourceId: fund.id, sourceLabel: fund.name, sourceIsin: fund.isin, targetAssetId: possibleFundTarget.assetId, targetTicker: possibleFundTarget.ticker, targetName: possibleFundTarget.name, targetIsin: targetAsset?.isin, category: position.category, amountEur: amount, shares: null, estimatedPriceEur: null, estimatedFeeEur: null, estimatedAnnualReturnProxyPct: hurdle.netAnnualizedProxyPct, cashBenchmarkAnnualPct, excessReturnVsCashPctPoints: hurdle.excessVsCashPctPoints, instruction: `Revisar un traspaso${amount != null ? ` por aproximadamente ${amount.toFixed(2)} €` : ''} desde ${fund.name}${fund.isin ? ` (${fund.isin})` : ''} hacia ${possibleFundTarget.name}${targetAsset?.isin ? ` (${targetAsset.isin})` : ''}.`, rationale: `${position.reason} El destino supera el benchmark de efectivo según el proxy histórico actual.`, taxNote: 'Debe confirmarse elegibilidad fiscal y operativa en la entidad antes de cursarlo.' });
+          continue;
         }
-      } else {
-        lines.push({ id: uid('redeem', lines.length), action: position.action === 'REVIEW_TRANSFER' ? 'REVIEW' : 'REDEEM_FUND', status: 'PENDING', instrumentType: 'MUTUAL_FUND', sourceId: fund?.id ?? position.id, sourceLabel: fund?.name ?? position.label, sourceIsin: fund?.isin, category: position.category, amountEur: amount, shares: null, estimatedPriceEur: null, estimatedFeeEur: null, cashBenchmarkAnnualPct, instruction: position.action === 'REVIEW_TRANSFER' ? `Revisar cómo reducir ${position.label}; no se ha encontrado automáticamente un fondo destino elegible para traspaso.` : `Revisar un reembolso parcial${amount != null ? ` de aproximadamente ${amount.toFixed(2)} €` : ''} de ${position.label}.`, rationale: position.reason, taxNote: 'Antes de reembolsar, comprobar si un traspaso entre fondos elegibles es preferible.' });
       }
+
+      const fullExit = position.action === 'EXIT';
+      lines.push({ id: uid('redeem', lines.length), action: position.action === 'REVIEW_TRANSFER' ? 'REVIEW' : 'REDEEM_FUND', status: 'PENDING', instrumentType: 'MUTUAL_FUND', sourceId: fund?.id ?? position.id, sourceLabel: fund?.name ?? position.label, sourceIsin: fund?.isin, category: position.category, amountEur: amount, shares: null, estimatedPriceEur: null, estimatedFeeEur: null, cashBenchmarkAnnualPct, instruction: position.action === 'REVIEW_TRANSFER' ? `Revisar cómo reducir ${position.label}; no se ha encontrado automáticamente un fondo destino elegible para traspaso.` : fullExit ? `Revisar la salida completa de ${position.label}${amount != null ? ` (aprox. ${amount.toFixed(2)} €)` : ''}.` : `Revisar un reembolso parcial${amount != null ? ` de aproximadamente ${amount.toFixed(2)} €` : ''} de ${position.label}.`, rationale: position.reason, taxNote: 'Antes de reembolsar, comprobar si un traspaso entre fondos elegibles es fiscal y operativamente preferible.' });
       continue;
     }
 
     const holding = portfolio.holdings.find(h => h.ticker.toUpperCase() === position.id.toUpperCase());
-    const price = candidatePrice(scan, holding?.ticker ?? position.id);
+    const derivedPrice = holding && position.currentValueEur != null && holding.shares > 0 ? position.currentValueEur / holding.shares : null;
+    const price = candidatePrice(scan, holding?.ticker ?? position.id) ?? derivedPrice;
     let shares: number | null = null, notional = amount;
-    if (holding && price && amount != null) { shares = Math.min(holding.shares, Math.max(1, Math.floor(amount / price + 1e-9))); notional = shares * price; }
+    if (holding && price && amount != null) {
+      shares = position.action === 'EXIT'
+        ? holding.shares
+        : Math.min(holding.shares, Math.max(1, Math.floor(amount / price + 1e-9)));
+      notional = shares * price;
+    }
     if (shares != null && notional != null) {
       const gate = etfCostGate(notional, portfolioCapital);
       if (!gate.ok) {
         warnings.push(`ETF_SELL_SUPPRESSED_BY_ADAPTIVE_COST_POLICY:${holding?.ticker ?? position.id}`);
-        lines.push({ id: uid('review_cost_sell', lines.length), action: 'REVIEW', status: 'PENDING', instrumentType: 'ETF_ETC', sourceId: position.id, sourceLabel: position.label, targetTicker: holding?.ticker ?? position.id, targetIsin: findAsset(scan, holding?.ticker ?? position.id)?.isin, category: position.category, amountEur: notional, shares, estimatedPriceEur: price, estimatedFeeEur: gate.fee, cashBenchmarkAnnualPct, instruction: `No vender todavía ${holding?.ticker ?? position.id}: ${gate.reason}`, rationale: `${position.reason} La reducción teórica queda pendiente por coste.` });
+        lines.push({ id: uid('review_cost_sell', lines.length), action: 'REVIEW', status: 'PENDING', instrumentType: 'ETF_ETC', sourceId: position.id, sourceLabel: position.label, targetTicker: holding?.ticker ?? position.id, targetIsin: findAsset(scan, holding?.ticker ?? position.id)?.isin, category: position.category, amountEur: notional, shares, estimatedPriceEur: price, estimatedFeeEur: gate.fee, cashBenchmarkAnnualPct, instruction: `No vender todavía ${holding?.ticker ?? position.id}: ${gate.reason}`, rationale: `${position.reason} La señal de reducción/salida queda pendiente por coste.` });
         continue;
       }
-      lines.push({ id: uid('sell', lines.length), action: 'SELL_ETF', status: 'PENDING', instrumentType: 'ETF_ETC', sourceId: position.id, sourceLabel: position.label, targetTicker: holding?.ticker ?? position.id, targetIsin: findAsset(scan, holding?.ticker ?? position.id)?.isin, category: position.category, amountEur: notional, shares, estimatedPriceEur: price, estimatedFeeEur: gate.fee, cashBenchmarkAnnualPct, instruction: `Vender ${shares} participación${shares === 1 ? '' : 'es'} de ${holding?.ticker ?? position.id}. Comisión estimada: ${gate.fee.toFixed(2)} €.`, rationale: position.reason });
+      const fullExit = position.action === 'EXIT' && holding && shares === holding.shares;
+      lines.push({ id: uid('sell', lines.length), action: 'SELL_ETF', status: 'PENDING', instrumentType: 'ETF_ETC', sourceId: position.id, sourceLabel: position.label, targetTicker: holding?.ticker ?? position.id, targetIsin: findAsset(scan, holding?.ticker ?? position.id)?.isin, category: position.category, amountEur: notional, shares, estimatedPriceEur: price, estimatedFeeEur: gate.fee, cashBenchmarkAnnualPct, instruction: `${fullExit ? 'Vender toda la posición' : `Vender ${shares} participación${shares === 1 ? '' : 'es'}`} de ${holding?.ticker ?? position.id}. Comisión estimada: ${gate.fee.toFixed(2)} €.`, rationale: position.reason });
     } else {
-      lines.push({ id: uid('sell_review', lines.length), action: 'REVIEW', status: 'PENDING', instrumentType: 'ETF_ETC', sourceId: position.id, sourceLabel: position.label, targetTicker: holding?.ticker ?? position.id, targetIsin: findAsset(scan, holding?.ticker ?? position.id)?.isin, category: position.category, amountEur: notional, shares, estimatedPriceEur: price, estimatedFeeEur: null, cashBenchmarkAnnualPct, instruction: `Revisar una venta parcial de ${position.label}; falta precio o cantidad para concretar títulos.`, rationale: position.reason });
+      lines.push({ id: uid('sell_review', lines.length), action: 'REVIEW', status: 'PENDING', instrumentType: 'ETF_ETC', sourceId: position.id, sourceLabel: position.label, targetTicker: holding?.ticker ?? position.id, targetIsin: findAsset(scan, holding?.ticker ?? position.id)?.isin, category: position.category, amountEur: notional, shares, estimatedPriceEur: price, estimatedFeeEur: null, cashBenchmarkAnnualPct, instruction: `Revisar ${position.action === 'EXIT' ? 'la salida' : 'una venta parcial'} de ${position.label}; falta precio o cantidad para concretar títulos.`, rationale: position.reason });
     }
   }
 
