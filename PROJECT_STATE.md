@@ -20,9 +20,10 @@ Normal flow:
 4. explicit actionable plan or **HOY: MANTENER / NO FORZAR OPERACIONES**;
 5. real portfolio;
 6. historical dated-decision replay;
-7. saved-recommendation simulation;
-8. alerts;
-9. research/provider detail secondary/lazy.
+7. dynamic historical signal replay;
+8. saved-recommendation simulation;
+9. alerts;
+10. research/provider detail secondary/lazy.
 
 Core usefulness must not require a new paid external subscription. See `docs/DECISIONS.md` D30.
 
@@ -96,14 +97,49 @@ Causal invariant: changing only prices **after** the historical decision date ma
 
 Remaining limitation: this still uses the present queryable catalog, so survivorship/catalog bias remains explicit. It reconstructs historical shortlist decisions within that catalog but does not reconstruct delisted/unavailable historical constituents.
 
+## Dynamic historical signal replay — implemented, validation pending
+
+New files:
+
+- `src/investment/decision/dynamicHistoricalReplay.ts`
+- `src/components/DynamicHistoricalReplayPanel.tsx`
+- `tests/dynamicHistoricalReplay.unit.ts`
+- `docs/DYNAMIC_HISTORICAL_REPLAY.md`
+
+The new replay follows successive monthly or quarterly historical decisions instead of freezing the first recommendation until today.
+
+At each chronological checkpoint it rebuilds the causal shortlist, reruns `InvestmentDecisionEngine`, rebuilds `StrategyConsensusEngine` for selected and already-held assets, and records BUY / ADD / HOLD / AVOID / REDUCE / EXIT signals.
+
+Execution protections:
+
+- new positions require consensus `BUY`;
+- increases require `ADD`;
+- allocation drift alone never authorises a sale;
+- REDUCE / EXIT requires historical `REDUCE_REVIEW` plus a materially lower allocator target on that same date;
+- execution occurs strictly after the information date on a common post-signal market date;
+- sells execute before buys;
+- ETFs use whole shares and modeled MyInvestor commission; funds use fractional units;
+- residual cash is remunerated at the configured benchmark.
+
+The panel compares three outcomes over the same historical evidence:
+
+1. following successive dynamic signals;
+2. initial recommendation + hold via `HistoricalDecisionReplayEngine`;
+3. all-cash remunerated benchmark.
+
+It also exposes a chronological signal timeline with consensus votes, structural-downtrend / buy-the-dip context, execution date, units, notional and fees. HOLD / AVOID can be shown for audit but are hidden by default.
+
+Important: this block is **implemented in `main` but not yet validated**. Do not call it green until AI Studio has run the full local `npm run validate:aistudio` and the recorded JSON has been inspected.
+
 ## Existing saved-recommendation simulator
 
-`RecommendationSimulationPanel` remains separate from the new dated replay:
+`RecommendationSimulationPanel` remains separate from the historical replay engines:
 
 - saved-snapshot simulator asks what a recommendation actually stored by the app would be worth today;
-- dated-decision replay reconstructs what the current engine would have recommended on chosen historical dates even if no snapshot was saved then.
+- dated-decision replay reconstructs what the current engine would have recommended on chosen historical dates even if no snapshot was saved then;
+- dynamic replay measures whether following later historical signals would have improved or worsened that initial decision.
 
-Both compare against remunerated cash and remain historical diagnostics, not forecasts.
+All compare against remunerated cash where applicable and remain historical diagnostics, not forecasts.
 
 ## Cash benchmark / execution economics
 
@@ -121,30 +157,35 @@ No strategy or primary feature may require a new paid market-data, news or funda
 
 ## Validation gates added in this block
 
-New package scripts:
+Package scripts now include:
 
 - `npm run test:strategy-consensus`
 - `npm run test:historical-decision-replay`
+- `npm run test:dynamic-historical-replay`
 
-Both are now part of `validate:aistudio:raw`.
+All are part of `validate:aistudio:raw`.
 
 `tests/strategyConsensus.unit.ts` checks that a healthy long-term trend with a controlled oversold drawdown can be identified as buy-the-dip and that one weak recent window does not trigger a sell; a true structural fall with several adverse signals can trigger `REDUCE_REVIEW`.
 
 `tests/historicalDecisionReplay.unit.ts` checks historical-date causality, next-bar execution and future-price isolation of historical decisions.
+
+`tests/dynamicHistoricalReplay.unit.ts` adds repeated chronological decisions, executable buy/add and reduce/exit paths, structural sell gating, post-signal execution and future-price isolation of earlier dynamic signals.
 
 ## Known limitations / next research block
 
 - Present-catalog survivorship bias remains in historical replays.
 - Exact MyInvestor/Inversis availability remains pending for several active targets.
 - Fund settlement/tax timing is not simulated.
+- Historical broker availability changes are not reconstructed.
+- Dynamic replay drawdown is currently measured on decision/execution path points rather than every daily session and can understate intraperiod drawdown.
 - Yahoo remains unofficial/non-contractual.
 - The consensus signal thresholds are deterministic first-pass thresholds; they must not be optimized on the full sample and then claimed as predictive.
 - Mean reversion is implemented as an explainable signal/veto, not yet as a production allocator.
 
 ## Immediate next step
 
-1. Run **one** `npm run validate:aistudio` for the complete post-06:33 block.
+1. In AI Studio, sync `fmaranis/Trading/main` and run **only** the local deterministic validation: `npm run validate:aistudio`.
 2. Read `validation-results/latest-aistudio-run.json` and related result files directly from GitHub; do not ask the user to paste output.
-3. Fix any TypeScript/test/runtime failure directly on `main`.
-4. After green validation, manually verify primary UI: automatic refresh, consensus panel, no sell-from-overweight contradiction, historical replay annual/quarterly drilldown.
-5. Next implementation block: comparative causal strategy lab for **Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble**, then dynamic replay that follows every successive recommendation to measure whether rebalancing adds or destroys value versus buy-and-hold and cash.
+3. If TypeScript/test/runtime failures appear, fix them directly on `main`; AI Studio remains test-only and must not develop the feature.
+4. After green validation, manually verify primary UI: automatic refresh, consensus panel, no sell-from-overweight contradiction, static historical replay and dynamic signal timeline/comparisons.
+5. Next implementation block after dynamic replay is validated: comparative causal strategy lab for **Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble**. Dynamic replay should then be reused as an evaluation surface to test whether each strategy's successive actions add or destroy value versus its own buy-and-hold baseline and cash.
