@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, Plus, RotateCcw, Save, Trash2, WalletCards } from 'lucide-react';
+import { BarChart3, ChevronDown, Plus, RotateCcw, Save, Trash2, WalletCards } from 'lucide-react';
 import {
   AssetUniverseScanResult,
   FundPosition,
@@ -18,6 +18,7 @@ interface Props {
   scan: AssetUniverseScanResult;
   decision: InvestmentDecisionResult;
   positionHealth: PortfolioPositionHealthResult | null;
+  onInspectAsset?: (symbolOrIsin: string) => void;
 }
 
 function blankPlan(): StagedCapitalPlan {
@@ -40,7 +41,7 @@ function healthLabel(action: string | undefined): string {
   return 'MANTENER';
 }
 
-export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHealth }) => {
+export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
   const initial = useMemo(() => UserPortfolioService.load(), []);
   const [cash, setCash] = useState(initial.cashEur);
   const [holdings, setHoldings] = useState<UserHolding[]>(initial.holdings);
@@ -88,7 +89,7 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-emerald-300"/><h2 className="font-bold">Mi cartera real</h2></div>
-        <p className="mt-1 text-[11px] text-slate-400">Cada posición se vigila por su propia tendencia y consenso. Estar ya en cartera no la convierte automáticamente en “mantener”.</p>
+        <p className="mt-1 text-[11px] text-slate-400">Cada posición se vigila por su propia tendencia y consenso. Toca una posición para abrir su gráfica, señales y código de búsqueda.</p>
       </div>
       <span className="rounded-full border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-[10px] font-bold text-emerald-200">ESTADO REAL · {portfolio.updatedAt.slice(0, 10)}</span>
     </div>
@@ -102,8 +103,30 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
     <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
       <div className="flex items-center justify-between gap-3"><div><b className="text-sm">Posiciones actuales</b><div className="text-[10px] text-slate-500">Salud independiente: añadir, mantener, vigilar, reducir o salir.</div></div><span className="text-[10px] text-slate-500">{funds.length + holdings.length} posiciones</span></div>
       <div className="mt-3 grid gap-2 md:grid-cols-2">
-        {funds.map(fund => { const health = positionHealth?.byKey[fund.id] ?? positionHealth?.byKey[fund.isin.toUpperCase()]; const value = fundMarketValues[fund.id] ?? health?.currentValueEur ?? fund.currentValueEur ?? fund.investedEur; return <div key={fund.id} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><b className="block truncate">{fund.name}</b><div className="font-mono text-[9px] text-slate-500">{fund.isin || fund.id}</div></div><b className="font-mono">{value.toFixed(2)} €</b></div><div className="mt-2 flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-1 text-[9px] font-black ${healthClass(health?.action)}`}>{healthLabel(health?.action)}</span>{health?.consensusScore != null && <span className="text-[9px] text-slate-500">consenso {health.consensusScore >= 0 ? '+' : ''}{health.consensusScore}</span>}</div><div className="mt-1 text-[9px] text-slate-500">Invertido {fund.investedEur.toFixed(2)} € · adquisición {fund.acquisitionDate}</div>{health?.reason && <div className="mt-1 text-[9px] text-slate-400">{health.reason}</div>}</div>})}
-        {holdings.map(holding => { const health = positionHealth?.byKey[holding.ticker.toUpperCase()]; const value = health?.currentValueEur ?? holding.shares * (priceByTicker.get(holding.ticker.toUpperCase()) ?? 0); return <div key={holding.ticker} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs"><div className="flex items-start justify-between gap-2"><div><b>{holding.ticker}</b><div className="text-[9px] text-slate-500">{holding.shares} títulos</div></div><b className="font-mono">{value.toFixed(2)} €</b></div><div className="mt-2 flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-1 text-[9px] font-black ${healthClass(health?.action)}`}>{healthLabel(health?.action)}</span>{health?.consensusScore != null && <span className="text-[9px] text-slate-500">consenso {health.consensusScore >= 0 ? '+' : ''}{health.consensusScore}</span>}</div>{health?.reason && <div className="mt-1 text-[9px] text-slate-400">{health.reason}</div>}</div>})}
+        {funds.map(fund => {
+          const health = positionHealth?.byKey[fund.id] ?? positionHealth?.byKey[fund.isin.toUpperCase()];
+          const value = fundMarketValues[fund.id] ?? health?.currentValueEur ?? fund.currentValueEur ?? fund.investedEur;
+          const inspectKey = fund.isin.trim().toUpperCase();
+          return <button type="button" key={fund.id} disabled={!onInspectAsset || !inspectKey} onClick={() => inspectKey && onInspectAsset?.(inspectKey)} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-left text-xs transition hover:border-cyan-500/40 hover:bg-slate-900 disabled:cursor-default disabled:hover:border-slate-800">
+            <div className="flex items-start justify-between gap-2"><div className="min-w-0"><b className="block truncate">{fund.name}</b><div className="font-mono text-[9px] text-cyan-300">ISIN {fund.isin || fund.id}</div></div><b className="font-mono">{value.toFixed(2)} €</b></div>
+            <div className="mt-2 flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-1 text-[9px] font-black ${healthClass(health?.action)}`}>{healthLabel(health?.action)}</span>{health?.consensusScore != null && <span className="text-[9px] text-slate-500">consenso {health.consensusScore >= 0 ? '+' : ''}{health.consensusScore}</span>}</div>
+            <div className="mt-2 text-[9px] text-slate-500">Invertido {fund.investedEur.toFixed(2)} € · compra {fund.acquisitionDate}</div>
+            <div className="mt-1 text-[9px] text-slate-400">{fund.units != null ? `${fund.units} participaciones registradas` : 'Participaciones no registradas'} · {fund.broker ?? 'broker N/D'}</div>
+            {health?.reason && <div className="mt-1 text-[9px] text-slate-400">{health.reason}</div>}
+            {onInspectAsset && inspectKey && <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-cyan-300"><BarChart3 className="h-3.5 w-3.5"/>Abrir gráfica, señales y ficha</div>}
+          </button>;
+        })}
+        {holdings.map(holding => {
+          const health = positionHealth?.byKey[holding.ticker.toUpperCase()];
+          const value = health?.currentValueEur ?? holding.shares * (priceByTicker.get(holding.ticker.toUpperCase()) ?? 0);
+          const candidate = listedCandidates.find(c => c.asset.ticker.toUpperCase() === holding.ticker.toUpperCase());
+          return <button type="button" key={holding.ticker} disabled={!onInspectAsset} onClick={() => onInspectAsset?.(holding.ticker)} className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-left text-xs transition hover:border-cyan-500/40 hover:bg-slate-900 disabled:cursor-default disabled:hover:border-slate-800">
+            <div className="flex items-start justify-between gap-2"><div><b className="font-mono text-white">{holding.ticker}</b><div className="text-[9px] text-slate-500">{holding.shares} títulos</div>{candidate?.asset.isin && <div className="font-mono text-[9px] text-cyan-300">ISIN {candidate.asset.isin}</div>}</div><b className="font-mono">{value.toFixed(2)} €</b></div>
+            <div className="mt-2 flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-1 text-[9px] font-black ${healthClass(health?.action)}`}>{healthLabel(health?.action)}</span>{health?.consensusScore != null && <span className="text-[9px] text-slate-500">consenso {health.consensusScore >= 0 ? '+' : ''}{health.consensusScore}</span>}</div>
+            {health?.reason && <div className="mt-1 text-[9px] text-slate-400">{health.reason}</div>}
+            {onInspectAsset && <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-cyan-300"><BarChart3 className="h-3.5 w-3.5"/>Abrir gráfica, señales y ficha</div>}
+          </button>;
+        })}
         {funds.length + holdings.length === 0 && <div className="col-span-full rounded-lg border border-dashed border-slate-800 p-4 text-xs text-slate-500">No hay posiciones registradas.</div>}
       </div>
     </div>
