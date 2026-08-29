@@ -5,8 +5,12 @@ import { EUR_ASSET_UNIVERSE, type AssetUniverseItem } from './assetUniverse';
  *
  * This list is deliberately separate from EUR_VALIDATION_HOLDOUT_UNIVERSE so
  * the external robustness set remains genuinely outside production decisions.
- * All symbols below are EUR-quoted listed instruments so the current
+ * All symbols below are EUR-quoted listed equities so the current
  * single-currency portfolio engine can compare them without inventing FX data.
+ *
+ * The legacy execution type still groups listed whole-share instruments under
+ * ETF_ETC. `isPortfolioEquityTicker` preserves the correct user-facing asset
+ * class without a risky cross-cutting type migration.
  */
 export const EUR_PORTFOLIO_EXPANSION_UNIVERSE: AssetUniverseItem[] = [
   { assetId: 'EQ_ASML', ticker: 'ASML.AS', name: 'ASML Holding', category: 'SEMICONDUCTORS', currency: 'EUR' },
@@ -36,6 +40,11 @@ export const EUR_PORTFOLIO_EXPANSION_UNIVERSE: AssetUniverseItem[] = [
   { assetId: 'EQ_UNICREDIT', ticker: 'UCG.MI', name: 'UniCredit', category: 'EUROPE_EQUITY', currency: 'EUR' },
   { assetId: 'EQ_ENI', ticker: 'ENI.MI', name: 'Eni', category: 'ENERGY', currency: 'EUR' }
 ];
+
+const EQUITY_TICKERS = new Set(EUR_PORTFOLIO_EXPANSION_UNIVERSE.map(item => item.ticker.toUpperCase()));
+export function isPortfolioEquityTicker(ticker: string | null | undefined): boolean {
+  return Boolean(ticker && EQUITY_TICKERS.has(ticker.toUpperCase()));
+}
 
 function dedupe(items: AssetUniverseItem[]): AssetUniverseItem[] {
   const seen = new Set<string>();
