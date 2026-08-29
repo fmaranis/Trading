@@ -1,5 +1,6 @@
 import type { FundPosition } from './fundPortfolio';
 import type { PortfolioExecutionLine } from './portfolioExecutionPlan';
+import { TaxLotLedgerService } from './spanishTaxModel';
 import { UserPortfolioService, type UserHolding, type UserPortfolioState } from './userPortfolio';
 
 export interface PortfolioStateExecutionReceipt {
@@ -135,7 +136,7 @@ export function applyPortfolioExecutionLine(portfolio: UserPortfolioState, line:
     if (!ticker || shares <= 0 || notional <= 0) throw new Error('La venta ETF no tiene ticker, títulos o importe válidos.');
     next.holdings = reduceHolding(next.holdings, ticker, shares);
     next.cashEur += Math.max(0, notional - fee);
-    description = `Venta aplicada: -${shares} ${ticker}; efectivo +${Math.max(0, notional - fee).toFixed(2)} € netos.`;
+    description = `Venta aplicada: -${shares} ${ticker}; efectivo +${Math.max(0, notional - fee).toFixed(2)} € netos de comisión. La reserva fiscal estimada se muestra en el plan y no se descuenta del saldo real del broker.`;
   } else if (line.action === 'SUBSCRIBE_FUND') {
     const amount = Number(line.amountEur ?? 0);
     if (amount <= 0) throw new Error('La suscripción no tiene un importe válido.');
@@ -148,7 +149,7 @@ export function applyPortfolioExecutionLine(portfolio: UserPortfolioState, line:
     const reduced = reduceFundPosition(next.funds ?? [], line, requested);
     next.funds = reduced.funds;
     next.cashEur += reduced.amountEur;
-    description = `Reembolso aplicado: ${line.sourceLabel ?? line.sourceIsin ?? 'fondo'} -${reduced.amountEur.toFixed(2)} €; efectivo actualizado.`;
+    description = `Reembolso aplicado: ${line.sourceLabel ?? line.sourceIsin ?? 'fondo'} -${reduced.amountEur.toFixed(2)} €; efectivo bruto actualizado. La estimación fiscal queda separada del saldo real.`;
   } else if (line.action === 'TRANSFER_FUND') {
     const requested = Number(line.amountEur ?? 0);
     if (requested <= 0) throw new Error('El traspaso no tiene un importe válido.');
@@ -171,13 +172,29 @@ export function applyPortfolioExecutionLine(portfolio: UserPortfolioState, line:
 
 export class PortfolioStateExecutionService {
   static execute(line: PortfolioExecutionLine): PortfolioStateExecutionReceipt {
-    const receipt = applyPortfolioExecutionLine(UserPortfolioService.load(), line);
+    const before = UserPortfolioService.load();
+    const receipt = applyPortfolioExecutionLine(before, line);
     const saved = UserPortfolioService.save({
       cashEur: receipt.portfolio.cashEur,
       holdings: receipt.portfolio.holdings,
       funds: receipt.portfolio.funds,
       stagedCapitalPlan: receipt.portfolio.stagedCapitalPlan
     });
+
+    if (line.action === 'BUY_ETF' && line.targetTicker && (line.shares ?? 0) > 0) {
+      TaxLotLedgerService.recordBuy(
+        line.targetTicker,
+        Number(line.shares),
+        Math.max(0, Number(line.amountEur ?? 0)) + Math.max(0, Number(line.estimatedFeeEur ?? 0)),
+        receipt.appliedAt.slice(0, 10)
+      );
+    } else if (line.action === 'SELL_ETF') {
+      const ticker = line.targetTicker ?? line.sourceId;
+      const sold = Math.max(0, Number(line.shares ?? 0));
+      const beforeShares = before.holdings.find(h => h.ticker.toUpperCase() === String(ticker ?? '').toUpperCase())?.shares ?? 0;
+      if (ticker && sold > 0) TaxLotLedgerService.recordSell(ticker, beforeShares, sold);
+    }
+
     return { ...receipt, portfolio: saved, liquidityAfterEur: liquidity(saved) };
   }
 }
