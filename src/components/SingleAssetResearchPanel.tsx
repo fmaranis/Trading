@@ -34,7 +34,7 @@ function AddShape(props: any) { const { cx = 0, cy = 0 } = props; return <path d
 export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, suggestions = [] }) => {
   const [symbol, setSymbol] = useState(requestedSymbol || 'NVDA');
   const [startDate, setStartDate] = useState(yearsAgo(5));
-  const [frequency, setFrequency] = useState<SingleAssetResearchFrequency>('MONTHLY');
+  const [frequency, setFrequency] = useState<SingleAssetResearchFrequency>('WEEKLY');
   const [result, setResult] = useState<SingleAssetResearchResult | null>(null);
   const [metadata, setMetadata] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -109,7 +109,7 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, sug
     <div className="mt-4 grid gap-2 md:grid-cols-[1.2fr_1fr_0.8fr_auto]">
       <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Ticker / ISIN</span><div className="mt-1 flex items-center gap-2"><Search className="h-4 w-4 text-slate-500"/><input list="research-symbol-suggestions" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === 'Enter') void analyzeSymbol(); }} placeholder="AAPL / SAN.MC / IE00B03HD191…" className="w-full bg-transparent font-mono font-bold outline-none"/></div><datalist id="research-symbol-suggestions">{suggestions.map(item => <option key={item.ticker} value={item.ticker}>{item.name}</option>)}</datalist></label>
       <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Estudiar desde</span><input type="date" value={startDate} max={isoDate(new Date())} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full bg-transparent font-mono text-sm outline-none"/></label>
-      <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Revisión</span><select value={frequency} onChange={e => setFrequency(e.target.value as SingleAssetResearchFrequency)} className="mt-1 w-full bg-transparent text-sm outline-none"><option className="bg-slate-900" value="MONTHLY">Mensual</option><option className="bg-slate-900" value="QUARTERLY">Trimestral</option></select></label>
+      <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Revisión</span><select value={frequency} onChange={e => setFrequency(e.target.value as SingleAssetResearchFrequency)} className="mt-1 w-full bg-transparent text-sm outline-none"><option className="bg-slate-900" value="WEEKLY">Semanal</option><option className="bg-slate-900" value="MONTHLY">Mensual</option><option className="bg-slate-900" value="QUARTERLY">Trimestral</option></select><span className="mt-1 block text-[9px] text-slate-500">Semanal revisa una vez por semana usando la misma serie diaria y ejecuta en la siguiente observación.</span></label>
       <button onClick={() => void analyzeSymbol()} disabled={loading} className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Analizando…' : 'Analizar'}</button>
     </div>
 
