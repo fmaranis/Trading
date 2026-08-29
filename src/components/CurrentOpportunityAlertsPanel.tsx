@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { BellRing, BarChart3, Repeat2, ShieldAlert, Sparkles } from 'lucide-react';
+import { BellRing, BarChart3, CheckCircle2, Repeat2, ShieldAlert, Sparkles } from 'lucide-react';
 import {
   CashBenchmarkService,
   CurrentOpportunityAlertEngine,
   PortfolioDecisionEngine,
   PortfolioRotationReviewEngine,
+  resolveSecurityIsin,
   UserPortfolioService,
   type AssetUniverseScanResult,
   type CurrentOpportunityAlert,
@@ -65,12 +66,15 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
 
     {visible.length > 0 ? <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{visible.map((alert, index) => {
       const contribution = contributionByAsset.get(alert.assetId);
+      const candidate = scan.candidates.find(row => row.asset.assetId === alert.assetId);
+      const isin = resolveSecurityIsin(alert.ticker, candidate?.asset.isin);
+      const inspectKey = candidate?.asset.instrumentType === 'MUTUAL_FUND' ? (isin ?? alert.ticker) : alert.ticker;
       return <article key={alert.assetId} className={`rounded-xl border p-4 ${levelClass(alert.level)}`}>
-        <div className="flex items-start justify-between gap-2"><div><div className="text-[9px] uppercase opacity-70">#{index + 1} · {levelLabel(alert.level)}</div><div className="mt-1 font-mono text-lg font-black">{alert.ticker}</div><div className="max-w-[250px] truncate text-[10px] opacity-70">{alert.name}</div></div>{alert.level === 'HIGH_CONVICTION' && <ShieldAlert className="h-5 w-5 shrink-0"/>}</div>
-        <div className={`mt-3 rounded-lg border p-3 ${contribution ? 'border-emerald-400/30 bg-slate-950/35' : 'border-slate-600/40 bg-slate-950/30'}`}><div className="text-[9px] uppercase opacity-60">Capital sugerido ahora</div><div className="mt-1 font-mono text-xl font-black">{contribution ? `${contribution.amountEur.toFixed(2)} €` : '0 €'}</div><div className="mt-1 text-[9px] opacity-65">{contribution ? 'Incluido en el plan operativo actual.' : availableCapital <= 0.01 ? 'No hay liquidez libre disponible.' : 'Oportunidad válida, pero no recibe capital por límites de concentración/riesgo o prioridad relativa.'}</div></div>
+        <div className="flex items-start justify-between gap-2"><div><div className="text-[9px] uppercase opacity-70">#{index + 1} · {levelLabel(alert.level)}</div><div className="mt-1 font-mono text-lg font-black">{alert.ticker}</div><div className="max-w-[250px] truncate text-[10px] opacity-70">{alert.name}</div>{isin ? <div className="mt-1 font-mono text-[10px] font-bold text-cyan-200">ISIN {isin}</div> : <div className="mt-1 text-[9px] text-amber-200">ISIN aún no catalogado · usar ticker {alert.ticker}</div>}</div>{alert.level === 'HIGH_CONVICTION' && <ShieldAlert className="h-5 w-5 shrink-0"/>}</div>
+        <div className={`mt-3 rounded-lg border p-3 ${contribution ? 'border-emerald-400/30 bg-slate-950/35' : 'border-slate-600/40 bg-slate-950/30'}`}><div className="text-[9px] uppercase opacity-60">Capital sugerido ahora</div><div className="mt-1 font-mono text-xl font-black">{contribution ? `${contribution.amountEur.toFixed(2)} €` : '0 €'}</div><div className="mt-1 text-[9px] opacity-65">{contribution ? 'Incluido en el plan operativo actual. Puedes registrar abajo el importe que realmente ejecutes.' : availableCapital <= 0.01 ? 'No hay liquidez libre disponible.' : 'Oportunidad válida, pero no recibe capital por límites de concentración/riesgo o prioridad relativa.'}</div></div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]"><span>Consenso <b>{alert.consensusScore >= 0 ? '+' : ''}{alert.consensusScore}</b></span><span>Favorables <b>{alert.favorableVotes}/5</b></span><span>Momentum 120d <b>{alert.momentum120Pct?.toFixed(1) ?? 'N/D'}%</b></span><span>vs cash <b>{alert.excessVsCashPctPoints != null ? `${alert.excessVsCashPctPoints >= 0 ? '+' : ''}${alert.excessVsCashPctPoints.toFixed(1)} pp` : 'N/D'}</b></span></div>
         <details className="mt-3 text-[10px]"><summary className="cursor-pointer font-bold opacity-80">Por qué</summary><div className="mt-2 space-y-1 opacity-70">{alert.reasons.map(reason => <div key={reason}>• {reason}</div>)}{contribution && <div>• {contribution.reason}</div>}</div></details>
-        {onInspectAsset && <button type="button" onClick={() => onInspectAsset(alert.ticker)} className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-cyan-400/30 bg-slate-950/40 px-3 py-2 text-[10px] font-bold text-cyan-100"><BarChart3 className="h-3.5 w-3.5"/>Abrir gráfica y señales</button>}
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">{onInspectAsset && <button type="button" onClick={() => onInspectAsset(inspectKey)} className="flex w-full items-center justify-center gap-1 rounded-lg border border-cyan-400/30 bg-slate-950/40 px-3 py-2 text-[10px] font-bold text-cyan-100"><BarChart3 className="h-3.5 w-3.5"/>Gráfica y señales</button>}{contribution && <a href="#register-real-purchase" className="flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100"><CheckCircle2 className="h-3.5 w-3.5"/>Registrar compra real</a>}</div>
       </article>;
     })}</div> : <div className="mt-4 rounded-xl border border-dashed border-slate-700 bg-slate-950/50 p-4 text-sm text-slate-400">No hay ninguna entrada que supere hoy todos los filtros mínimos. La ausencia de alerta es una señal válida: no se fuerza una compra.</div>}
 
