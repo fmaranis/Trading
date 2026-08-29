@@ -1,37 +1,37 @@
 {
   "marker": "BROKER_BACKTEST_FEASIBILITY_RESULT",
-  "recordedAt": "2026-08-29T15:59:41.411Z",
+  "recordedAt": "2026-08-29T17:51:02.188Z",
   "gitHeadBeforeRecord": null,
   "gitBranch": null,
   "payload": {
-    "generatedAt": "2026-08-29T15:56:38.996Z",
+    "generatedAt": "2026-08-29T17:47:16.714Z",
     "scope": "CURRENT_CAUSAL_BACKTEST_BROKER_COST_DIAGNOSTIC",
     "researchBacktest": {
       "initialCapitalEur": 100,
-      "finalEquityEur": 112.53,
-      "totalReturnPct": 12.53,
+      "finalEquityEur": 112.51,
+      "totalReturnPct": 12.51,
       "maxDrawdownPct": 2.68,
-      "totalTrades": 492,
+      "totalTrades": 488,
       "rebalanceCount": 73,
-      "modeledCommissionEur": 0.9592,
-      "modeledSlippageEur": 0.3837,
-      "modeledTradingCostsEur": 1.3428,
+      "modeledCommissionEur": 0.9615,
+      "modeledSlippageEur": 0.3846,
+      "modeledTradingCostsEur": 1.3462,
       "selectionWindows": 73
     },
     "brokerDiagnostic": {
       "broker": "MyInvestor",
-      "minimumCommissionLowerBoundEur": 492,
-      "minimumTradingCostLowerBoundEur": 492.38,
-      "minimumCommissionDragPct": 492,
-      "modeledCommissionUnderstatementEur": 491.04,
-      "modeledCommissionUnderstatementFactor": 512.95,
+      "minimumCommissionLowerBoundEur": 488,
+      "minimumTradingCostLowerBoundEur": 488.38,
+      "minimumCommissionDragPct": 488,
+      "modeledCommissionUnderstatementEur": 487.04,
+      "modeledCommissionUnderstatementFactor": 507.52,
       "brokerCommissionModelCompatible": false,
       "commissionDragTargetPct": 2,
-      "minimumCapitalForCommissionDragTargetEur": 24600,
+      "minimumCapitalForCommissionDragTargetEur": 24400,
       "warnings": [
         "PERCENTAGE_ONLY_COMMISSION_MODEL_UNDERESTIMATES_BROKER_MINIMUM_FEES",
         "BROKER_MINIMUM_COMMISSIONS_EXCEED_INITIAL_CAPITAL",
-        "MINIMUM_COMMISSION_DRAG_ABOVE_TARGET:492.00%>2.00%"
+        "MINIMUM_COMMISSION_DRAG_ABOVE_TARGET:488.00%>2.00%"
       ]
     },
     "interpretation": "RESEARCH_BACKTEST_NOT_DIRECTLY_EXECUTABLE_UNDER_MODELED_MYINVESTOR_MINIMUM_FEES",

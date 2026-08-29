@@ -1,11 +1,11 @@
 {
   "marker": "BROKER_AWARE_EXECUTION_SWEEP_RESULT",
-  "recordedAt": "2026-08-29T15:59:41.431Z",
+  "recordedAt": "2026-08-29T17:51:02.206Z",
   "gitHeadBeforeRecord": null,
   "gitBranch": null,
   "payload": {
-    "generatedAt": "2026-08-29T15:59:41.318Z",
-    "scope": "INTEGRATED_REAL_EXECUTION_HISTORICAL_AND_HOLDOUT_ROBUSTNESS_VALIDATION",
+    "generatedAt": "2026-08-29T17:51:02.117Z",
+    "scope": "INTEGRATED_REAL_EXECUTION_HISTORICAL_HOLDOUT_AND_LOSS_EPISODE_VALIDATION",
     "provenance": [
       {
         "assetId": "VWCE",
@@ -49,7 +49,7 @@
         "bars": 1777,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_6515691e113cee3e"
+        "datasetFingerprint": "fp_077972cc1486b15d"
       },
       {
         "assetId": "EQQQ",
@@ -60,7 +60,7 @@
         "bars": 1777,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_97458456bf820fde"
+        "datasetFingerprint": "fp_b9cf018a9dd9c546"
       },
       {
         "assetId": "SXRV",
@@ -82,7 +82,7 @@
         "bars": 1778,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_a7ede1868d026866"
+        "datasetFingerprint": "fp_ccaebdd192673f29"
       },
       {
         "assetId": "IS3N",
@@ -156,10 +156,10 @@
         "sourceType": "REAL",
         "provider": "Yahoo Finance",
         "symbol": "IQQH.DE",
-        "bars": 1776,
+        "bars": 1777,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_7cb00e03b78864d5"
+        "datasetFingerprint": "fp_b0e05c59129524a4"
       },
       {
         "assetId": "EXH1",
@@ -167,10 +167,10 @@
         "sourceType": "REAL",
         "provider": "Yahoo Finance",
         "symbol": "EXH1.DE",
-        "bars": 1774,
+        "bars": 1776,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_c71456c3152948f6"
+        "datasetFingerprint": "fp_2d70d0b649375757"
       },
       {
         "assetId": "ISPA",
@@ -181,7 +181,7 @@
         "bars": 1779,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_3ab751125d497d53"
+        "datasetFingerprint": "fp_626dfc0e4d9161e5"
       },
       {
         "assetId": "VAGF",
@@ -225,7 +225,7 @@
         "bars": 1668,
         "firstDate": "2019-08-29",
         "lastDate": "2026-08-27",
-        "datasetFingerprint": "fp_1eade4eb9c503f52"
+        "datasetFingerprint": "fp_9e92fec7658269c2"
       },
       {
         "assetId": "XEON",
@@ -250,11 +250,26 @@
         "datasetFingerprint": "fp_acf20394ea1e21c4"
       }
     ],
+    "fundProviderStatus": {
+      "ok": true,
+      "status": 200,
+      "payload": {
+        "provider": "eodhd",
+        "configured": true,
+        "role": "SECONDARY_CROSS_VALIDATION_AND_FUND_NAV",
+        "primaryProvider": "yahoo_finance",
+        "keyExposedToClient": false,
+        "nonBlocking": true,
+        "cacheTtlHours": 24,
+        "cachedEntries": 0,
+        "fundHistoryCachedEntries": 0
+      }
+    },
     "researchReference": {
       "initialCapitalEur": 100,
-      "researchTrades": 492,
+      "researchTrades": 496,
       "researchRebalanceWindows": 73,
-      "researchReturnPct": 12.53
+      "researchReturnPct": 12.44
     },
     "cashBenchmarkAnnualPct": 2.5,
     "fundEligibility": [
@@ -269,7 +284,7 @@
         "lastResearchInformationDate": "2026-07-31",
         "eligibleBeforeLastMonthlyDecision": false,
         "causalSelectionAppearances": 0,
-        "diagnosis": "NOT_ACCEPTED:Error"
+        "diagnosis": "NOT_ACCEPTED:QUOTA_EXHAUSTED"
       },
       {
         "assetId": "FUND_VANGUARD_EMERGING",
@@ -282,7 +297,7 @@
         "lastResearchInformationDate": "2026-07-31",
         "eligibleBeforeLastMonthlyDecision": false,
         "causalSelectionAppearances": 0,
-        "diagnosis": "NOT_ACCEPTED:Error"
+        "diagnosis": "NOT_ACCEPTED:QUOTA_EXHAUSTED"
       },
       {
         "assetId": "FUND_VANGUARD_US500",
@@ -295,7 +310,7 @@
         "lastResearchInformationDate": "2026-07-31",
         "eligibleBeforeLastMonthlyDecision": false,
         "causalSelectionAppearances": 0,
-        "diagnosis": "NOT_ACCEPTED:Error"
+        "diagnosis": "NOT_ACCEPTED:QUOTA_EXHAUSTED"
       },
       {
         "assetId": "FUND_VANGUARD_EUROPE",
@@ -308,7 +323,7 @@
         "lastResearchInformationDate": "2026-07-31",
         "eligibleBeforeLastMonthlyDecision": false,
         "causalSelectionAppearances": 0,
-        "diagnosis": "NOT_ACCEPTED:Error"
+        "diagnosis": "NOT_ACCEPTED:QUOTA_EXHAUSTED"
       },
       {
         "assetId": "FUND_VANGUARD_EUROZONE",
@@ -321,7 +336,7 @@
         "lastResearchInformationDate": "2026-07-31",
         "eligibleBeforeLastMonthlyDecision": false,
         "causalSelectionAppearances": 0,
-        "diagnosis": "NOT_ACCEPTED:Error"
+        "diagnosis": "NOT_ACCEPTED:QUOTA_EXHAUSTED"
       },
       {
         "assetId": "FUND_VANGUARD_JAPAN",
@@ -334,7 +349,7 @@
         "lastResearchInformationDate": "2026-07-31",
         "eligibleBeforeLastMonthlyDecision": false,
         "causalSelectionAppearances": 0,
-        "diagnosis": "NOT_ACCEPTED:Error"
+        "diagnosis": "NOT_ACCEPTED:QUOTA_EXHAUSTED"
       },
       {
         "assetId": "FUND_VANGUARD_ESG_DEVELOPED",
@@ -347,7 +362,7 @@
         "lastResearchInformationDate": "2026-07-31",
         "eligibleBeforeLastMonthlyDecision": false,
         "causalSelectionAppearances": 0,
-        "diagnosis": "NOT_ACCEPTED:Error"
+        "diagnosis": "NOT_ACCEPTED:QUOTA_EXHAUSTED"
       },
       {
         "assetId": "FUND_VANGUARD_ESG_EMERGING",
@@ -360,7 +375,7 @@
         "lastResearchInformationDate": "2026-07-31",
         "eligibleBeforeLastMonthlyDecision": false,
         "causalSelectionAppearances": 0,
-        "diagnosis": "NOT_ACCEPTED:Error"
+        "diagnosis": "NOT_ACCEPTED:QUOTA_EXHAUSTED"
       }
     ],
     "fundEligibilitySummary": {
@@ -440,16 +455,16 @@
           "maximumOrderFeeDragPct": 1.5,
           "maximumRebalanceFeeDragPct": 0.75
         },
-        "finalEquityEur": 1128.27,
-        "totalReturnPct": 12.83,
-        "maxDrawdownPct": 2.32,
-        "executedOrders": 31,
-        "suppressedOrders": 568,
+        "finalEquityEur": 1126.37,
+        "totalReturnPct": 12.64,
+        "maxDrawdownPct": 2.34,
+        "executedOrders": 33,
+        "suppressedOrders": 566,
         "rebalanceWindows": 73,
-        "windowsWithTrades": 15,
-        "totalCommissionEur": 31,
-        "commissionDragPctOfInitial": 3.1,
-        "residualCashEur": 235.81
+        "windowsWithTrades": 17,
+        "totalCommissionEur": 33,
+        "commissionDragPctOfInitial": 3.3,
+        "residualCashEur": 233.91
       },
       {
         "initialCapitalEur": 5000,
@@ -460,16 +475,16 @@
           "maximumOrderFeeDragPct": 1.25,
           "maximumRebalanceFeeDragPct": 0.6
         },
-        "finalEquityEur": 5929.98,
-        "totalReturnPct": 18.6,
-        "maxDrawdownPct": 2.46,
-        "executedOrders": 103,
-        "suppressedOrders": 721,
+        "finalEquityEur": 5918.25,
+        "totalReturnPct": 18.36,
+        "maxDrawdownPct": 2.47,
+        "executedOrders": 115,
+        "suppressedOrders": 696,
         "rebalanceWindows": 73,
-        "windowsWithTrades": 33,
-        "totalCommissionEur": 129.71,
-        "commissionDragPctOfInitial": 2.59,
-        "residualCashEur": 81.25
+        "windowsWithTrades": 39,
+        "totalCommissionEur": 141.71,
+        "commissionDragPctOfInitial": 2.83,
+        "residualCashEur": 359.33
       },
       {
         "initialCapitalEur": 25000,
@@ -480,16 +495,16 @@
           "maximumOrderFeeDragPct": 1,
           "maximumRebalanceFeeDragPct": 0.5
         },
-        "finalEquityEur": 28921.34,
-        "totalReturnPct": 15.69,
+        "finalEquityEur": 28791.12,
+        "totalReturnPct": 15.16,
         "maxDrawdownPct": 2.48,
-        "executedOrders": 141,
-        "suppressedOrders": 702,
+        "executedOrders": 143,
+        "suppressedOrders": 700,
         "rebalanceWindows": 73,
         "windowsWithTrades": 40,
-        "totalCommissionEur": 460.04,
-        "commissionDragPctOfInitial": 1.84,
-        "residualCashEur": 2039.02
+        "totalCommissionEur": 468.58,
+        "commissionDragPctOfInitial": 1.87,
+        "residualCashEur": 2007.52
       }
     ],
     "mixedSweep": [
@@ -587,48 +602,48 @@
       },
       {
         "initialCapitalEur": 5000,
-        "finalEquityEur": 6159.86,
-        "totalReturnPct": 23.2,
-        "maxDrawdownPct": 2.39,
-        "etfOrders": 100,
+        "finalEquityEur": 6153.14,
+        "totalReturnPct": 23.06,
+        "maxDrawdownPct": 2.4,
+        "etfOrders": 115,
         "fundOperations": 0,
         "transferReviewCandidates": 0,
-        "suppressedEtfOrders": 736,
+        "suppressedEtfOrders": 708,
         "suppressedFundOperations": 0,
-        "totalEtfCommissionEur": 126.97,
-        "commissionDragPctOfInitial": 2.54,
+        "totalEtfCommissionEur": 142.5,
+        "commissionDragPctOfInitial": 2.85,
         "rebalanceWindows": 73,
-        "windowsWithAnyOperation": 32,
-        "residualCashEur": 82.02,
+        "windowsWithAnyOperation": 38,
+        "residualCashEur": 78.76,
         "cashBenchmarkAnnualPct": 2.5,
-        "cashInterestEarnedEur": 217.07,
+        "cashInterestEarnedEur": 224.64,
         "allCashFinalEur": 5943.43,
         "allCashReturnPct": 18.87,
-        "excessFinalEurVsCash": 216.43,
-        "excessReturnVsCashPctPoints": 4.33,
+        "excessFinalEurVsCash": 209.71,
+        "excessReturnVsCashPctPoints": 4.19,
         "beatsAllCashBenchmark": true
       },
       {
         "initialCapitalEur": 25000,
-        "finalEquityEur": 29876.18,
-        "totalReturnPct": 19.5,
+        "finalEquityEur": 29852.38,
+        "totalReturnPct": 19.41,
         "maxDrawdownPct": 2.46,
         "etfOrders": 150,
         "fundOperations": 0,
         "transferReviewCandidates": 0,
         "suppressedEtfOrders": 694,
         "suppressedFundOperations": 0,
-        "totalEtfCommissionEur": 488.55,
-        "commissionDragPctOfInitial": 1.95,
+        "totalEtfCommissionEur": 495.08,
+        "commissionDragPctOfInitial": 1.98,
         "rebalanceWindows": 73,
         "windowsWithAnyOperation": 42,
-        "residualCashEur": 2397.68,
+        "residualCashEur": 2373.88,
         "cashBenchmarkAnnualPct": 2.5,
-        "cashInterestEarnedEur": 1047.02,
+        "cashInterestEarnedEur": 1052.49,
         "allCashFinalEur": 29717.14,
         "allCashReturnPct": 18.87,
-        "excessFinalEurVsCash": 159.03,
-        "excessReturnVsCashPctPoints": 0.64,
+        "excessFinalEurVsCash": 135.23,
+        "excessReturnVsCashPctPoints": 0.54,
         "beatsAllCashBenchmark": true
       }
     ],
@@ -826,16 +841,16 @@
           ]
         },
         {
-          "startDate": "2022-12-29",
+          "startDate": "2022-12-30",
           "endDate": "2026-08-27",
-          "finalValueEur": 1231.18,
-          "totalReturnPct": 23.12,
-          "staticBuyHoldFinalEur": 1090.89,
-          "staticBuyHoldReturnPct": 9.09,
-          "allCashFinalEur": 1094.67,
-          "allCashReturnPct": 9.47,
-          "excessFinalEurVsStatic": 140.29,
-          "excessReturnVsStaticPctPoints": 14.03,
+          "finalValueEur": 1231.11,
+          "totalReturnPct": 23.11,
+          "staticBuyHoldFinalEur": 1090.44,
+          "staticBuyHoldReturnPct": 9.04,
+          "allCashFinalEur": 1094.59,
+          "allCashReturnPct": 9.46,
+          "excessFinalEurVsStatic": 140.66,
+          "excessReturnVsStaticPctPoints": 14.07,
           "excessFinalEurVsCash": 136.51,
           "excessReturnVsCashPctPoints": 13.65,
           "decisionPathMaxDrawdownPct": 3.88,
@@ -845,7 +860,7 @@
           "executedReductions": 0,
           "executedExits": 0,
           "totalFeesEur": 10,
-          "cashInterestEur": 21.47,
+          "cashInterestEur": 21.4,
           "signalCounts": {
             "AVOID": 126,
             "BUY": 79,
@@ -1520,8 +1535,31 @@
         "accepted": 16,
         "rejected": 3,
         "rejectionCounts": {
-          "Error": 3
+          "QUOTA_EXHAUSTED": 3
         },
+        "rejectedInstruments": [
+          {
+            "ticker": "LU0996182563",
+            "name": "Amundi Index MSCI World AE",
+            "instrumentType": "MUTUAL_FUND",
+            "provider": "EODHD_FUND",
+            "reason": "QUOTA_EXHAUSTED"
+          },
+          {
+            "ticker": "LU0996179007",
+            "name": "Amundi S&P 500 Screened Index AE",
+            "instrumentType": "MUTUAL_FUND",
+            "provider": "EODHD_FUND",
+            "reason": "QUOTA_EXHAUSTED"
+          },
+          {
+            "ticker": "LU0099574567",
+            "name": "Fidelity Funds Global Technology A EUR",
+            "instrumentType": "MUTUAL_FUND",
+            "provider": "EODHD_FUND",
+            "reason": "QUOTA_EXHAUSTED"
+          }
+        ],
         "acceptedMutualFunds": [],
         "acceptedEtfs": [
           "XDEM.DE",
@@ -1602,8 +1640,8 @@
               "signalCounts": {
                 "BUY": 8,
                 "AVOID": 19,
-                "ADD": 53,
-                "HOLD": 169
+                "ADD": 54,
+                "HOLD": 168
               },
               "focusBehavior": [],
               "executedSignals": [
@@ -1663,7 +1701,7 @@
                   "executionDate": "2024-01-02",
                   "ticker": "QDVI.DE",
                   "action": "BUY",
-                  "targetWeightPct": 13.6,
+                  "targetWeightPct": 13.5,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -2116,7 +2154,7 @@
                   "executionDate": "2026-01-02",
                   "ticker": "G1CE.DE",
                   "action": "BUY",
-                  "targetWeightPct": 8.5,
+                  "targetWeightPct": 8.6,
                   "currentWeightPct": 0,
                   "consensusScore": 3,
                   "favorableVotes": 3,
@@ -2249,7 +2287,7 @@
             "annualizedVolatility1yPct": 16.4,
             "maxDrawdownFullPct": 48.08,
             "currentDrawdown1yPct": 6.66,
-            "bars": 1776
+            "bars": 1775
           },
           {
             "assetId": "HOLDOUT_XDEB",
@@ -2311,7 +2349,7 @@
             "annualizedVolatility1yPct": 32.36,
             "maxDrawdownFullPct": 58.73,
             "currentDrawdown1yPct": 4.06,
-            "bars": 1774
+            "bars": 1775
           }
         ],
         "highVolatilityCases": [
@@ -2337,7 +2375,7 @@
             "annualizedVolatility1yPct": 32.36,
             "maxDrawdownFullPct": 58.73,
             "currentDrawdown1yPct": 4.06,
-            "bars": 1774
+            "bars": 1775
           },
           {
             "assetId": "HOLDOUT_XDEM",
@@ -2363,7 +2401,7 @@
             "annualizedVolatility1yPct": 16.4,
             "maxDrawdownFullPct": 48.08,
             "currentDrawdown1yPct": 6.66,
-            "bars": 1776
+            "bars": 1775
           },
           {
             "assetId": "HOLDOUT_XDEB",
@@ -2576,7 +2614,7 @@
                   "executionDate": "2024-01-02",
                   "ticker": "XDEM.DE",
                   "action": "BUY",
-                  "targetWeightPct": 27.3,
+                  "targetWeightPct": 27.4,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -2746,7 +2784,7 @@
                   "executionDate": "2026-02-02",
                   "ticker": "QDVF.DE",
                   "action": "BUY",
-                  "targetWeightPct": 17.5,
+                  "targetWeightPct": 17.6,
                   "currentWeightPct": 0,
                   "consensusScore": 2,
                   "favorableVotes": 2,
@@ -2877,7 +2915,7 @@
                   "executionDate": "2025-01-02",
                   "ticker": "XDEB.DE",
                   "action": "BUY",
-                  "targetWeightPct": 34,
+                  "targetWeightPct": 33.9,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -3168,7 +3206,7 @@
                   "executionDate": "2026-01-02",
                   "ticker": "TRET.DE",
                   "action": "BUY",
-                  "targetWeightPct": 29.5,
+                  "targetWeightPct": 29.6,
                   "currentWeightPct": 0,
                   "consensusScore": 4,
                   "favorableVotes": 4,
@@ -3202,7 +3240,7 @@
                   "executionDate": "2026-02-02",
                   "ticker": "QDVF.DE",
                   "action": "BUY",
-                  "targetWeightPct": 17.5,
+                  "targetWeightPct": 17.6,
                   "currentWeightPct": 0,
                   "consensusScore": 2,
                   "favorableVotes": 2,
@@ -3235,14 +3273,334 @@
             }
           ]
         }
+      },
+      "historicalNegativeWindowStress": {
+        "warning": "Worst historical 6M/12M loss windows are selected ex-post only to inspect behavior from the start of a real losing episode. They are stress diagnostics, not OOS performance evidence.",
+        "worst6mEpisodes": [
+          {
+            "assetId": "HOLDOUT_EXI5",
+            "ticker": "EXI5.DE",
+            "name": "iShares STOXX Europe 600 Real Estate UCITS ETF",
+            "category": "EUROPE_EQUITY",
+            "instrumentType": "ETF_ETC",
+            "window": "6M",
+            "windowBars": 126,
+            "startDate": "2022-04-04",
+            "endDate": "2022-09-29",
+            "returnPct": -41.73,
+            "maxDrawdownPct": 42.93
+          },
+          {
+            "assetId": "HOLDOUT_G1CE",
+            "ticker": "G1CE.DE",
+            "name": "Invesco Global Clean Energy UCITS ETF",
+            "category": "ENERGY",
+            "instrumentType": "ETF_ETC",
+            "window": "6M",
+            "windowBars": 126,
+            "startDate": "2024-10-08",
+            "endDate": "2025-04-09",
+            "returnPct": -32.5,
+            "maxDrawdownPct": 32.56
+          },
+          {
+            "assetId": "HOLDOUT_2B76",
+            "ticker": "2B76.DE",
+            "name": "iShares Automation & Robotics UCITS ETF",
+            "category": "TECHNOLOGY",
+            "instrumentType": "ETF_ETC",
+            "window": "6M",
+            "windowBars": 126,
+            "startDate": "2022-01-03",
+            "endDate": "2022-06-30",
+            "returnPct": -31.74,
+            "maxDrawdownPct": 32.84
+          },
+          {
+            "assetId": "HOLDOUT_TRET",
+            "ticker": "TRET.DE",
+            "name": "VanEck Global Real Estate UCITS ETF",
+            "category": "GLOBAL_EQUITY",
+            "instrumentType": "ETF_ETC",
+            "window": "6M",
+            "windowBars": 126,
+            "startDate": "2022-04-20",
+            "endDate": "2022-10-13",
+            "returnPct": -23.53,
+            "maxDrawdownPct": 23.93
+          }
+        ],
+        "worst12mEpisodes": [
+          {
+            "assetId": "HOLDOUT_EXI5",
+            "ticker": "EXI5.DE",
+            "name": "iShares STOXX Europe 600 Real Estate UCITS ETF",
+            "category": "EUROPE_EQUITY",
+            "instrumentType": "ETF_ETC",
+            "window": "12M",
+            "windowBars": 252,
+            "startDate": "2021-10-19",
+            "endDate": "2022-10-12",
+            "returnPct": -45.36,
+            "maxDrawdownPct": 48.06
+          },
+          {
+            "assetId": "HOLDOUT_G1CE",
+            "ticker": "G1CE.DE",
+            "name": "Invesco Global Clean Energy UCITS ETF",
+            "category": "ENERGY",
+            "instrumentType": "ETF_ETC",
+            "window": "12M",
+            "windowBars": 252,
+            "startDate": "2022-11-15",
+            "endDate": "2023-11-08",
+            "returnPct": -35.36,
+            "maxDrawdownPct": 38.04
+          },
+          {
+            "assetId": "HOLDOUT_2B76",
+            "ticker": "2B76.DE",
+            "name": "iShares Automation & Robotics UCITS ETF",
+            "category": "TECHNOLOGY",
+            "instrumentType": "ETF_ETC",
+            "window": "12M",
+            "windowBars": 252,
+            "startDate": "2021-11-16",
+            "endDate": "2022-11-09",
+            "returnPct": -31.42,
+            "maxDrawdownPct": 35.52
+          },
+          {
+            "assetId": "HOLDOUT_TRET",
+            "ticker": "TRET.DE",
+            "name": "VanEck Global Real Estate UCITS ETF",
+            "category": "GLOBAL_EQUITY",
+            "instrumentType": "ETF_ETC",
+            "window": "12M",
+            "windowBars": 252,
+            "startDate": "2022-04-04",
+            "endDate": "2023-03-28",
+            "returnPct": -25.75,
+            "maxDrawdownPct": 27.81
+          }
+        ],
+        "evaluatedEpisodes": 4,
+        "requestedEpisodes": 4,
+        "episodesWithDefensiveSignal": 1,
+        "episodesWithExecutedBuyOrAdd": 1,
+        "responses": [
+          {
+            "episode": {
+              "assetId": "HOLDOUT_EXI5",
+              "ticker": "EXI5.DE",
+              "name": "iShares STOXX Europe 600 Real Estate UCITS ETF",
+              "category": "EUROPE_EQUITY",
+              "instrumentType": "ETF_ETC",
+              "window": "12M",
+              "windowBars": 252,
+              "startDate": "2021-10-19",
+              "endDate": "2022-10-12",
+              "returnPct": -45.36,
+              "maxDrawdownPct": 48.06
+            },
+            "evaluated": true,
+            "responseDuringLossWindow": {
+              "observedSignals": 13,
+              "signalCounts": {
+                "BUY": 1,
+                "ADD": 1,
+                "HOLD": 10,
+                "REDUCE": 1
+              },
+              "everBoughtOrAdded": true,
+              "executedBuyOrAdd": true,
+              "everAvoided": false,
+              "reducedOrExited": true,
+              "firstDefensiveSignalDate": "2022-07-01",
+              "firstDefensiveExecutionDate": "2022-07-04",
+              "executedSignals": [
+                {
+                  "signalDate": "2021-10-19",
+                  "executionDate": "2021-10-20",
+                  "action": "BUY",
+                  "consensusScore": 4,
+                  "favorableVotes": 4,
+                  "unfavorableVotes": 0,
+                  "structuralDowntrend": false,
+                  "buyTheDipCandidate": false,
+                  "currentWeightPct": 0,
+                  "targetWeightPct": 14.5,
+                  "notionalEur": 127.35,
+                  "feeEur": 1,
+                  "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_HIGH_VOL."
+                },
+                {
+                  "signalDate": "2021-11-01",
+                  "executionDate": "2021-11-02",
+                  "action": "ADD",
+                  "consensusScore": 4,
+                  "favorableVotes": 4,
+                  "unfavorableVotes": 0,
+                  "structuralDowntrend": false,
+                  "buyTheDipCandidate": false,
+                  "currentWeightPct": 12.6,
+                  "targetWeightPct": 14.8,
+                  "notionalEur": 18.04,
+                  "feeEur": 1,
+                  "reason": "No hay evidencia suficiente para vender una posición existente; mantener salvo que otros gates de cartera indiquen un riesgo material. Consenso +4; 4 favorables / 0 adversas. Método RISK_PARITY_ERC; régimen BULL_LOW_VOL."
+                },
+                {
+                  "signalDate": "2022-07-01",
+                  "executionDate": "2022-07-04",
+                  "action": "REDUCE",
+                  "consensusScore": -4,
+                  "favorableVotes": 0,
+                  "unfavorableVotes": 4,
+                  "structuralDowntrend": true,
+                  "buyTheDipCandidate": false,
+                  "currentWeightPct": 11.9,
+                  "targetWeightPct": 10.5,
+                  "notionalEur": 13.14,
+                  "feeEur": 1,
+                  "reason": "Deterioro estructural confirmado por varias señales; revisar reducción, no vender por una única ventana débil. Consenso -4; 0 favorables / 4 adversas. Método RISK_PARITY_ERC; régimen BEAR_HIGH_VOL."
+                }
+              ]
+            },
+            "portfolioOutcomeFromEpisodeStart": {
+              "finalValueEur": 1511.25,
+              "totalReturnPct": 51.12,
+              "staticBuyHoldReturnPct": 37.97,
+              "allCashReturnPct": 12.74,
+              "excessReturnVsStaticPctPoints": 13.16,
+              "excessReturnVsCashPctPoints": 38.38,
+              "decisionPathMaxDrawdownPct": 15.41
+            }
+          },
+          {
+            "episode": {
+              "assetId": "HOLDOUT_EXI5",
+              "ticker": "EXI5.DE",
+              "name": "iShares STOXX Europe 600 Real Estate UCITS ETF",
+              "category": "EUROPE_EQUITY",
+              "instrumentType": "ETF_ETC",
+              "window": "6M",
+              "windowBars": 126,
+              "startDate": "2022-04-04",
+              "endDate": "2022-09-29",
+              "returnPct": -41.73,
+              "maxDrawdownPct": 42.93
+            },
+            "evaluated": true,
+            "responseDuringLossWindow": {
+              "observedSignals": 6,
+              "signalCounts": {
+                "AVOID": 6
+              },
+              "everBoughtOrAdded": false,
+              "executedBuyOrAdd": false,
+              "everAvoided": true,
+              "reducedOrExited": false,
+              "firstDefensiveSignalDate": null,
+              "firstDefensiveExecutionDate": null,
+              "executedSignals": []
+            },
+            "portfolioOutcomeFromEpisodeStart": {
+              "finalValueEur": 1612.07,
+              "totalReturnPct": 61.21,
+              "staticBuyHoldReturnPct": 34.77,
+              "allCashReturnPct": 11.48,
+              "excessReturnVsStaticPctPoints": 26.44,
+              "excessReturnVsCashPctPoints": 49.73,
+              "decisionPathMaxDrawdownPct": 8.89
+            }
+          },
+          {
+            "episode": {
+              "assetId": "HOLDOUT_G1CE",
+              "ticker": "G1CE.DE",
+              "name": "Invesco Global Clean Energy UCITS ETF",
+              "category": "ENERGY",
+              "instrumentType": "ETF_ETC",
+              "window": "12M",
+              "windowBars": 252,
+              "startDate": "2022-11-15",
+              "endDate": "2023-11-08",
+              "returnPct": -35.36,
+              "maxDrawdownPct": 38.04
+            },
+            "evaluated": true,
+            "responseDuringLossWindow": {
+              "observedSignals": 2,
+              "signalCounts": {
+                "AVOID": 2
+              },
+              "everBoughtOrAdded": false,
+              "executedBuyOrAdd": false,
+              "everAvoided": true,
+              "reducedOrExited": false,
+              "firstDefensiveSignalDate": null,
+              "firstDefensiveExecutionDate": null,
+              "executedSignals": []
+            },
+            "portfolioOutcomeFromEpisodeStart": {
+              "finalValueEur": 1600.26,
+              "totalReturnPct": 60.03,
+              "staticBuyHoldReturnPct": 38.93,
+              "allCashReturnPct": 9.79,
+              "excessReturnVsStaticPctPoints": 21.09,
+              "excessReturnVsCashPctPoints": 50.23,
+              "decisionPathMaxDrawdownPct": 8.64
+            }
+          },
+          {
+            "episode": {
+              "assetId": "HOLDOUT_G1CE",
+              "ticker": "G1CE.DE",
+              "name": "Invesco Global Clean Energy UCITS ETF",
+              "category": "ENERGY",
+              "instrumentType": "ETF_ETC",
+              "window": "6M",
+              "windowBars": 126,
+              "startDate": "2024-10-08",
+              "endDate": "2025-04-09",
+              "returnPct": -32.5,
+              "maxDrawdownPct": 32.56
+            },
+            "evaluated": true,
+            "responseDuringLossWindow": {
+              "observedSignals": 1,
+              "signalCounts": {
+                "AVOID": 1
+              },
+              "everBoughtOrAdded": false,
+              "executedBuyOrAdd": false,
+              "everAvoided": true,
+              "reducedOrExited": false,
+              "firstDefensiveSignalDate": null,
+              "firstDefensiveExecutionDate": null,
+              "executedSignals": []
+            },
+            "portfolioOutcomeFromEpisodeStart": {
+              "finalValueEur": 1283.86,
+              "totalReturnPct": 28.39,
+              "staticBuyHoldReturnPct": 21.16,
+              "allCashReturnPct": 4.76,
+              "excessReturnVsStaticPctPoints": 7.22,
+              "excessReturnVsCashPctPoints": 23.62,
+              "decisionPathMaxDrawdownPct": 9.42
+            }
+          }
+        ]
       }
     },
-    "interpretation": "ONE_INTEGRATED_REAL_VALIDATION_FOR_PRODUCTION_UNIVERSE_PLUS_OUT_OF_UNIVERSE_RANDOM_AND_ADVERSE_PATH_CHALLENGES",
+    "interpretation": "ONE_INTEGRATED_REAL_VALIDATION_FOR_PRODUCTION_UNIVERSE_RANDOM_HOLDOUT_ADVERSE_PATHS_AND_REAL_HISTORICAL_LOSS_WINDOWS",
     "notes": [
       "One REAL production scan feeds research, execution diagnostics and dynamic historical signal replay; synthetic fallback is forbidden.",
       "The holdout catalogue is excluded from production recommendations and is sampled with a recorded pseudo-random seed.",
       "The random holdout sample is selected independently of subsequent performance and is the relevant generalization check.",
-      "Loss/drawdown/volatility/sideways cohorts are selected after observing REAL paths only as behavioral stress tests; they are not OOS return evidence.",
+      "Current losing/drawdown/volatility/sideways cohorts and historical 6M/12M worst-loss windows are ex-post behavioral stress diagnostics, not OOS return evidence.",
+      "Historical loss-episode replay starts at the beginning of each losing window, after at least 252 prior bars exist, so the engine cannot know the subsequent loss when making the first decision.",
+      "Fund-provider status and exact rejected-instrument reasons are recorded so provider/configuration failures are distinguishable from insufficient history or ranking exclusion.",
       "Dynamic historical decisions remain causal and execute after their information date.",
       "No holdout result may be used to retune consensus thresholds without a separately defined training/validation protocol.",
       "Current-catalog survivorship bias remains and results are historical diagnostics, not forecasts."

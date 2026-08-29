@@ -1,89 +1,89 @@
 {
   "marker": "AI_STUDIO_VALIDATION_RESULT",
-  "recordedAt": "2026-08-29T15:59:41.378Z",
+  "recordedAt": "2026-08-29T17:51:02.176Z",
   "gitHeadBeforeRecord": null,
   "gitBranch": null,
   "payload": {
-    "generatedAt": "2026-08-29T15:55:34.173Z",
+    "generatedAt": "2026-08-29T17:46:11.946Z",
     "mode": "ZERO_LLM_DETERMINISTIC_VALIDATION",
     "commands": {
       "lint": {
         "ok": true,
         "exitCode": 0,
-        "ms": 12216,
+        "ms": 12461,
         "tail": "> react-example@0.0.0 lint\n> tsc --noEmit"
       },
       "decisionTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 858,
+        "ms": 853,
         "tail": "> react-example@0.0.0 test:decision\n> tsx tests/investmentDecision.unit.ts\nInvestment Decision: 7/7 invariants passed."
       },
       "decisionBacktestTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 1710,
+        "ms": 1711,
         "tail": "> react-example@0.0.0 test:decision-backtest\n> tsx tests/decisionBacktest.unit.ts\nDecision Backtest: 8/8 causal/accounting invariants passed."
       },
       "causalUniverseBacktestTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 2548,
+        "ms": 2407,
         "tail": "> react-example@0.0.0 test:causal-universe-backtest\n> tsx tests/causalUniverseBacktest.unit.ts\nCausal Universe Backtest: 13/13 selection/lookahead/history/accounting invariants passed."
       },
       "brokerExecutionTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 648,
+        "ms": 618,
         "tail": "> react-example@0.0.0 test:broker-execution\n> tsx tests/brokerExecution.unit.ts\nBroker Execution: 14/14 whole-share/fee/diversification invariants passed."
       },
       "executionFidelityTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 647,
+        "ms": 610,
         "tail": "> tsx tests/executionFidelity.unit.ts\n✓ 301 small capital fidelity is not high\n✓ 302 small capital cannot cover all targets\n✓ 303 allocation distance is explicit\n✓ 304 fidelity score is bounded\n✓ 305 larger capital improves target coverage\n✓ 306 larger capital improves or preserves fidelity score\n✓ 307 executed target count is deterministic\n✓ 308 exact allocation has zero distance\n✓ 309 exact allocation has full target coverage\n✓ 310 exact allocation has high fidelity\nExecution fidelity: 10/10 invariants passed."
       },
       "opportunityAlertTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 647,
+        "ms": 591,
         "tail": "✓ 204 any material provider divergence is explicit\n✓ 205 first snapshot does not manufacture opportunity alerts\n✓ 206 unchanged top-three snapshot does not repeat opportunity alerts\n✓ 207 entry into top three creates opportunity review\n✓ 208 regime change creates material alert\n✓ 209 material allocation change creates rebalance review\n✓ 210 opportunities remain review-only with confirmed market data\n✓ 211 score improvement of at least one point creates review\n✓ 212 eligibility transition creates review\n✓ 213 provider divergence creates data warning\n✓ 214 alerts are review signals, never automatic buy orders\nOpportunity/Evidence: 14/14 invariants passed."
       },
       "opportunityOutcomeTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 633,
+        "ms": 607,
         "tail": "> tsx tests/opportunityOutcomeBacktest.unit.ts\n✓ 301 scope is explicitly causal\n✓ 302 monthly observation windows are generated\n✓ 303 qualifying opportunity events are generated\n✓ 304 metrics cover 5 20 and 60 sessions\n✓ 305 every event was top three at information date\n✓ 306 every event satisfied score threshold\n✓ 307 every event had positive 120d momentum\n✓ 308 every event stayed below volatility gate\n✓ 309 longer horizons cannot have more evaluated events\n✓ 310 synthetic data is rejected\nOpportunity outcome backtest: 10/10 invariants passed."
       },
       "userPortfolioTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 609,
+        "ms": 611,
         "tail": "✓ 305 underweight target creates whole-share buy\n✓ 306 projected cash never goes negative\n✓ 307 fees are estimated for executable orders\n✓ 308 over-weight position can create sell review\n✓ 309 missing market price is explicit\n✓ 310 unknown holding adds warning instead of fabricated price\n✓ 311 default real portfolio contains the two example mutual funds\n✓ 312 global fund is inside real portfolio state\n✓ 313 emerging fund is inside real portfolio state\n✓ 314 staged capital is inside the same real portfolio state\n✓ 315 unified portfolio keeps ETF holdings and mutual funds as different product fields in one state\nUser portfolio rebalance/unified state: 15/15 invariants passed."
       },
       "multiAssetTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 605,
+        "ms": 606,
         "tail": "✓ 127 — Quarterly Rebalance boundaries\n✓ 128 — Sell before buy during rebalance\n✓ 129 — Rebalance tolerance suppresses tiny drift trades\n✓ 130 — Equity accounting identity\n✓ 131 — Cash never negative\n✓ 132 — Trading costs sum exactly\n✓ 133 — Benchmark is buy-and-hold with no rebalance trades\n✓ 134 — Portfolio fingerprint deterministic and order-independent\n✓ 135 — Incomplete/Mixed REAL dataset does not execute\n✓ 9A — Multi-currency portfolio rejected\n✓ 9A — Equal weights helper\n19 multi-asset tests passed."
       },
       "portfolioAnalyticsTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 561,
+        "ms": 578,
         "tail": "✓ 146 inverse volatility favors lower volatility asset\n✓ 147 risk parity weights are positive and normalized\n✓ 148 relative momentum selects strongest positive asset\n✓ 149 relative momentum goes to cash when all below threshold\n✓ 150 pairwise correlation summary bounded\n✓ 151 momentum uses requested trailing lookback\n✓ 152 insufficient observations rejected\n✓ 161 risk contributions sum to 100 percent\n✓ 162 diversification ratio is positive for invested portfolio\n✓ 163 effective number of equally weighted assets equals two\n✓ 164 cash-only portfolio reports zero volatility\nPortfolio Analytics: 16/16 tests passed."
       },
       "regimeTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 1065,
+        "ms": 1033,
         "tail": "✓ 175 informationEndDate equals observation date\n✓ 176 classified plus unknown equals total rows\n✓ 177 policy comparison preserves one portfolio fingerprint\n✓ 178 regime policy comparator returns six leaderboards\n✓ 179 attribution has classified observations\n✓ 180 regime ranking does not mutate strategy results\n✓ 181 stability analysis uses fixed chronological blocks\n✓ 182 stability preserves portfolio fingerprint\n✓ 183 winner counts equal windows with evidence\n✓ 184 dominance is bounded 0 to 100\n✓ 185 stability analysis explicitly remains diagnostic\nRegime Analytics: 15/15 tests passed."
       },
       "build": {
         "ok": true,
         "exitCode": 0,
-        "ms": 9792,
-        "tail": "dist/assets/portfolio-CAaBNBQx.js              34.58 kB │ gzip:   7.72 kB\ndist/assets/main-AzvZCdc9.js                  294.13 kB │ gzip:  60.08 kB\ndist/assets/legacy-CLfjqRdU.js                638.60 kB │ gzip: 124.12 kB\ndist/assets/index-hJtNzlRU.js                 805.00 kB │ gzip: 241.13 kB\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n✓ built in 8.58s\n  dist/server.cjs      134.6kb\n  dist/server.cjs.map  259.2kb\n⚡ Done in 114ms"
+        "ms": 9344,
+        "tail": "dist/assets/portfolio-CX92PHGW.js              34.58 kB │ gzip:   7.72 kB\ndist/assets/main-tuGFe3Ms.js                  294.26 kB │ gzip:  60.12 kB\ndist/assets/legacy-DJglKZwu.js                638.60 kB │ gzip: 124.11 kB\ndist/assets/index-5dB2IJki.js                 805.00 kB │ gzip: 241.13 kB\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n✓ built in 8.63s\n  dist/server.cjs      134.9kb\n  dist/server.cjs.map  259.6kb\n⚡ Done in 85ms"
       }
     },
     "universeScan": {
@@ -92,8 +92,15 @@
       "accepted": 22,
       "rejected": 16,
       "rejectionCounts": {
-        "Error": 8,
-        "MarketDataSymbolNotFoundError": 8
+        "QUOTA_EXHAUSTED": 8,
+        "Símbolo no encontrado: MEUD.DE": 1,
+        "Símbolo no encontrado: EIMI.DE": 1,
+        "Símbolo no encontrado: SEMI.DE": 1,
+        "Símbolo no encontrado: VHYD.DE": 1,
+        "Símbolo no encontrado: DBX0AN.DE": 1,
+        "Símbolo no encontrado: SGLD.DE": 1,
+        "Símbolo no encontrado: AIGC.DE": 1,
+        "Símbolo no encontrado: WCOA.DE": 1
       },
       "selected": [
         {
@@ -112,13 +119,13 @@
           "ticker": "ISPA.DE",
           "category": "DIVIDEND",
           "score": 6.288,
-          "bars": 1778,
+          "bars": 1777,
           "asOf": "2026-08-27",
           "lastClose": 40.025001525878906,
           "momentum120Pct": 15.01,
           "annualizedVolatilityPct": 7.15,
           "maxDrawdownPct": 3.63,
-          "fingerprint": "fp_58f9be649f395ba9"
+          "fingerprint": "fp_5eb2f95e3fef92bb"
         },
         {
           "ticker": "ZPRV.DE",
@@ -154,7 +161,7 @@
           "momentum120Pct": 0.98,
           "annualizedVolatilityPct": 0.36,
           "maxDrawdownPct": 0.32,
-          "fingerprint": "fp_b2be2a8b6dac1dad"
+          "fingerprint": "fp_4048df4bb738a3d1"
         },
         {
           "ticker": "SXR8.DE",
@@ -184,13 +191,13 @@
           "ticker": "EXSA.DE",
           "category": "EUROPE_EQUITY",
           "score": 2.037,
-          "bars": 1777,
+          "bars": 1778,
           "asOf": "2026-08-27",
           "lastClose": 65.20999908447266,
           "momentum120Pct": 12.05,
           "annualizedVolatilityPct": 9.31,
           "maxDrawdownPct": 9.64,
-          "fingerprint": "fp_d20855acdd5cc36a"
+          "fingerprint": "fp_83ab6e03f28c71b4"
         }
       ],
       "top15": [
@@ -292,18 +299,18 @@
           },
           {
             "ticker": "EUN6.DE",
-            "amountEur": 23.3,
-            "weightPct": 23.3,
+            "amountEur": 23.28,
+            "weightPct": 23.28,
             "lastClose": 98.716,
-            "estimatedShares": 0.236037,
+            "estimatedShares": 0.235852,
             "requiresFractionalShares": true
           },
           {
             "ticker": "ISPA.DE",
-            "amountEur": 1.27,
-            "weightPct": 1.27,
+            "amountEur": 1.28,
+            "weightPct": 1.28,
             "lastClose": 40.025,
-            "estimatedShares": 0.031815,
+            "estimatedShares": 0.032066,
             "requiresFractionalShares": true
           },
           {
@@ -311,7 +318,7 @@
             "amountEur": 1.27,
             "weightPct": 1.27,
             "lastClose": 127.13,
-            "estimatedShares": 0.009955,
+            "estimatedShares": 0.009968,
             "requiresFractionalShares": true
           },
           {
@@ -319,7 +326,7 @@
             "amountEur": 1.24,
             "weightPct": 1.24,
             "lastClose": 65.21,
-            "estimatedShares": 0.019028,
+            "estimatedShares": 0.019076,
             "requiresFractionalShares": true
           },
           {
@@ -327,7 +334,7 @@
             "amountEur": 1.19,
             "weightPct": 1.19,
             "lastClose": 714.26,
-            "estimatedShares": 0.001668,
+            "estimatedShares": 0.00167,
             "requiresFractionalShares": true
           },
           {
@@ -335,19 +342,19 @@
             "amountEur": 0.88,
             "weightPct": 0.88,
             "lastClose": 44.145,
-            "estimatedShares": 0.020013,
+            "estimatedShares": 0.019995,
             "requiresFractionalShares": true
           },
           {
             "ticker": "ZPRV.DE",
-            "amountEur": 0.84,
-            "weightPct": 0.84,
+            "amountEur": 0.85,
+            "weightPct": 0.85,
             "lastClose": 81.74,
-            "estimatedShares": 0.010332,
+            "estimatedShares": 0.01037,
             "requiresFractionalShares": true
           }
         ],
-        "fingerprint": "pfp_9ee07323c99cbcc0",
+        "fingerprint": "pfp_81068c6c5f44926d",
         "warnings": [
           "La confianza mostrada mide calidad de evidencia/datos; no es una probabilidad de rentabilidad.",
           "La puntuación base usa la serie REAL primaria de cada instrumento: Yahoo para cotizados y EODHD NAV para fondos. La validación cruzada adicional se informa por separado y no modifica silenciosamente los pesos."
@@ -368,7 +375,7 @@
             "amountEur": 42.52,
             "weightPct": 42.52,
             "lastClose": 150.015,
-            "estimatedShares": 0.283413,
+            "estimatedShares": 0.283419,
             "requiresFractionalShares": true
           },
           {
@@ -381,10 +388,10 @@
           },
           {
             "ticker": "EXSA.DE",
-            "amountEur": 1.12,
-            "weightPct": 1.12,
+            "amountEur": 1.13,
+            "weightPct": 1.13,
             "lastClose": 65.21,
-            "estimatedShares": 0.017249,
+            "estimatedShares": 0.017262,
             "requiresFractionalShares": true
           },
           {
@@ -392,7 +399,7 @@
             "amountEur": 1.06,
             "weightPct": 1.06,
             "lastClose": 40.025,
-            "estimatedShares": 0.026387,
+            "estimatedShares": 0.026449,
             "requiresFractionalShares": true
           },
           {
@@ -400,7 +407,7 @@
             "amountEur": 0.95,
             "weightPct": 0.95,
             "lastClose": 127.13,
-            "estimatedShares": 0.007453,
+            "estimatedShares": 0.007443,
             "requiresFractionalShares": true
           },
           {
@@ -408,7 +415,7 @@
             "amountEur": 0.9,
             "weightPct": 0.9,
             "lastClose": 714.26,
-            "estimatedShares": 0.001266,
+            "estimatedShares": 0.001264,
             "requiresFractionalShares": true
           },
           {
@@ -416,7 +423,7 @@
             "amountEur": 0.76,
             "weightPct": 0.76,
             "lastClose": 44.145,
-            "estimatedShares": 0.017218,
+            "estimatedShares": 0.01717,
             "requiresFractionalShares": true
           },
           {
@@ -424,11 +431,11 @@
             "amountEur": 0.69,
             "weightPct": 0.69,
             "lastClose": 81.74,
-            "estimatedShares": 0.008457,
+            "estimatedShares": 0.008461,
             "requiresFractionalShares": true
           }
         ],
-        "fingerprint": "pfp_9ee07323c99cbcc0",
+        "fingerprint": "pfp_81068c6c5f44926d",
         "warnings": [
           "La confianza mostrada mide calidad de evidencia/datos; no es una probabilidad de rentabilidad.",
           "La puntuación base usa la serie REAL primaria de cada instrumento: Yahoo para cotizados y EODHD NAV para fondos. La validación cruzada adicional se informa por separado y no modifica silenciosamente los pesos."
@@ -469,7 +476,7 @@
             "requiresFractionalShares": true
           }
         ],
-        "fingerprint": "pfp_9ee07323c99cbcc0",
+        "fingerprint": "pfp_81068c6c5f44926d",
         "warnings": [
           "La confianza mostrada mide calidad de evidencia/datos; no es una probabilidad de rentabilidad.",
           "La puntuación base usa la serie REAL primaria de cada instrumento: Yahoo para cotizados y EODHD NAV para fondos. La validación cruzada adicional se informa por separado y no modifica silenciosamente los pesos."
@@ -480,56 +487,56 @@
       "scope": "CURRENT_SHORTLIST_CONDITIONAL_BACKTEST",
       "selectionBiasWarning": "The 8 assets were selected using current full-history scanner scores, then backtested historically. This is NOT a causal validation of the universe-selection step.",
       "initialCapital": 100,
-      "finalEquity": 111.55,
-      "totalReturnPct": 11.55,
-      "maxDrawdownPct": 1.23,
-      "totalTrades": 81,
+      "finalEquity": 111.42,
+      "totalReturnPct": 11.42,
+      "maxDrawdownPct": 1.19,
+      "totalTrades": 78,
       "rebalanceCount": 72,
-      "totalTradingCostsEur": 0.1861,
-      "fingerprint": "pfp_9ee07323c99cbcc0"
+      "totalTradingCostsEur": 0.1858,
+      "fingerprint": "pfp_81068c6c5f44926d"
     },
     "causalUniverseBacktest": {
       "scope": "CAUSAL_SELECTION_WITHIN_CURRENTLY_VALIDATED_UNIVERSE",
       "initialCapital": 100,
-      "finalEquity": 112.42,
-      "totalReturnPct": 12.42,
-      "maxDrawdownPct": 2.72,
-      "totalTrades": 495,
+      "finalEquity": 112.48,
+      "totalReturnPct": 12.48,
+      "maxDrawdownPct": 2.68,
+      "totalTrades": 491,
       "rebalanceCount": 73,
-      "totalTradingCostsEur": 1.3564,
+      "totalTradingCostsEur": 1.3441,
       "selectionWindows": 73,
       "firstSelection": {
         "informationEndDate": "2020-08-28",
         "executionDate": "2020-08-31",
         "selectedAssetIds": [
           "4GLD",
+          "IQQH",
           "EQQQ",
           "XEON",
           "EUN6",
           "IBCI",
           "VAGF",
-          "SXR8",
-          "IS3N"
+          "SXR8"
         ],
         "selectedTickers": [
           "4GLD.DE",
+          "IQQH.DE",
           "EQQQ.DE",
           "XEON.DE",
           "EUN6.DE",
           "IBCI.DE",
           "VAGF.DE",
-          "SXR8.DE",
-          "IS3N.DE"
+          "SXR8.DE"
         ],
         "scores": {
           "4GLD.DE": 4.861043,
-          "EQQQ.DE": 13.124491,
+          "IQQH.DE": 14.885096,
+          "EQQQ.DE": 13.124482,
           "XEON.DE": 2.037623,
-          "EUN6.DE": 1.982154,
+          "EUN6.DE": 1.982152,
           "IBCI.DE": 0.39209,
           "VAGF.DE": -0.06637,
-          "SXR8.DE": -1.557591,
-          "IS3N.DE": -2.825044
+          "SXR8.DE": -1.557591
         },
         "regime": "BULL_LOW_VOL",
         "method": "RISK_PARITY_ERC"
@@ -570,7 +577,7 @@
         "regime": "BULL_LOW_VOL",
         "method": "RISK_PARITY_ERC"
       },
-      "fingerprint": "pfp_69fed0dec3661eb7",
+      "fingerprint": "pfp_215b739870fa812e",
       "residualBiasWarning": "Selection is causal inside the currently validated/available universe, but historical delisted or no-longer-queryable instruments are not represented."
     },
     "opportunityOutcomeBacktest": {
@@ -581,9 +588,9 @@
         {
           "horizonSessions": 5,
           "evaluated": 161,
-          "averageReturnPct": 0.410594,
+          "averageReturnPct": 0.410595,
           "positiveHitRatePct": 67.080745,
-          "averageExcessReturnPct": 0.116078,
+          "averageExcessReturnPct": 0.115804,
           "outperformRatePct": 44.720497,
           "evidence": "NO_POSITIVE_RELATIVE_EVIDENCE"
         },
@@ -592,7 +599,7 @@
           "evaluated": 158,
           "averageReturnPct": 0.659482,
           "positiveHitRatePct": 71.518987,
-          "averageExcessReturnPct": -0.310868,
+          "averageExcessReturnPct": -0.31115,
           "outperformRatePct": 43.037975,
           "evidence": "NO_POSITIVE_RELATIVE_EVIDENCE"
         },
@@ -601,7 +608,7 @@
           "evaluated": 156,
           "averageReturnPct": 2.371864,
           "positiveHitRatePct": 71.794872,
-          "averageExcessReturnPct": -0.784153,
+          "averageExcessReturnPct": -0.784418,
           "outperformRatePct": 37.820513,
           "evidence": "NO_POSITIVE_RELATIVE_EVIDENCE"
         }
@@ -679,7 +686,7 @@
         },
         {
           "ticker": "EXSA.DE",
-          "targetAmountEur": 1.12,
+          "targetAmountEur": 1.13,
           "reason": "TARGET_BELOW_ONE_WHOLE_SHARE"
         },
         {
