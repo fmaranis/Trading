@@ -6,6 +6,7 @@ import {
   CashBenchmarkService,
   getMyInvestorAvailability,
   InvestmentDecisionResult,
+  isPortfolioEquityTicker,
   ManualMyInvestorAvailabilityService,
   PortfolioDecisionEngine,
   PortfolioExecutionPlan,
@@ -18,10 +19,11 @@ import {
 } from '../investment/decision';
 
 interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; positionHealth: PortfolioPositionHealthResult | null; }
-function actionLabel(action: string): string {
+function actionLabel(action: string, ticker?: string | null): string {
+  const equity = isPortfolioEquityTicker(ticker);
   switch (action) {
-    case 'BUY_ETF': return 'COMPRAR ETF/ETC';
-    case 'SELL_ETF': return 'VENDER ETF/ETC';
+    case 'BUY_ETF': return equity ? 'COMPRAR ACCIÓN' : 'COMPRAR ETF/ETC';
+    case 'SELL_ETF': return equity ? 'VENDER ACCIÓN' : 'VENDER ETF/ETC';
     case 'SUBSCRIBE_FUND': return 'SUSCRIBIR FONDO';
     case 'TRANSFER_FUND': return 'TRASPASAR FONDO';
     case 'REDEEM_FUND': return 'REEMBOLSAR FONDO';
@@ -110,7 +112,7 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision, p
 
     <div className={`mt-4 rounded-xl border p-4 ${actionable.length > 0 ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-amber-500/25 bg-amber-500/5'}`}>
       <div className="text-[10px] uppercase text-slate-500">Ahora</div><div className={`mt-1 text-lg font-black ${actionable.length > 0 ? 'text-emerald-200' : 'text-amber-200'}`}>{headline}</div>
-      {actionable.length > 0 && <div className="mt-2 text-xs text-slate-300">{actionable.map(line => `${actionLabel(line.action)} ${line.targetTicker ?? line.targetIsin ?? line.sourceLabel ?? ''}${line.amountEur != null ? ` · ${line.amountEur.toFixed(2)} €` : ''}`).join('  |  ')}</div>}
+      {actionable.length > 0 && <div className="mt-2 text-xs text-slate-300">{actionable.map(line => `${actionLabel(line.action, line.targetTicker)} ${line.targetTicker ?? line.targetIsin ?? line.sourceLabel ?? ''}${line.amountEur != null ? ` · ${line.amountEur.toFixed(2)} €` : ''}`).join('  |  ')}</div>}
       {actionable.length === 0 && plan && <div className="mt-2 text-xs text-slate-400">No hay una compra/venta que supere simultáneamente los gates actuales. {reviews.length > 0 ? `${reviews.length} punto${reviews.length === 1 ? '' : 's'} quedan como explicación/revisión.` : 'El efectivo sigue siendo una alternativa válida.'}</div>}
     </div>
 
@@ -124,8 +126,9 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision, p
           const availabilityKey = targetAsset ? (targetAsset.isin ?? targetAsset.ticker) : (line.targetIsin ?? line.targetTicker ?? null);
           const needsTargetAvailability = ['BUY_ETF', 'SUBSCRIBE_FUND', 'TRANSFER_FUND'].includes(line.action) && Boolean(availabilityKey);
           const canApply = ['BUY_ETF','SELL_ETF','SUBSCRIBE_FUND','TRANSFER_FUND','REDEEM_FUND'].includes(line.action);
+          const displayTicker = line.targetTicker ?? targetAsset?.ticker ?? null;
           return <article key={line.id} className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs text-slate-500">{index + 1}</span><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${actionClass(line.action)}`}>{actionLabel(line.action)}</span></div><div className="mt-2 text-sm font-semibold text-white">{line.instruction}</div><details className="mt-2"><summary className="cursor-pointer text-[10px] text-slate-500">Por qué</summary><div className="mt-1 text-[10px] text-slate-500">{line.rationale}</div></details></div>{line.status === 'PENDING' && <div className="flex shrink-0 gap-2">{canApply && <button onClick={() => applyLine(line)} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white"><Check className="h-3 w-3"/>Aplicar a mi cartera</button>}<button onClick={() => dismiss(line.id)} className="rounded-lg border border-slate-700 px-3 py-2 text-[10px] text-slate-500">Descartar</button></div>}</div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs text-slate-500">{index + 1}</span><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${actionClass(line.action)}`}>{actionLabel(line.action, displayTicker)}</span></div><div className="mt-2 text-sm font-semibold text-white">{line.instruction}</div><details className="mt-2"><summary className="cursor-pointer text-[10px] text-slate-500">Por qué</summary><div className="mt-1 text-[10px] text-slate-500">{line.rationale}</div></details></div>{line.status === 'PENDING' && <div className="flex shrink-0 gap-2">{canApply && <button onClick={() => applyLine(line)} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white"><Check className="h-3 w-3"/>Aplicar a mi cartera</button>}<button onClick={() => dismiss(line.id)} className="rounded-lg border border-slate-700 px-3 py-2 text-[10px] text-slate-500">Descartar</button></div>}</div>
             <div className="mt-3 flex flex-wrap gap-2 text-[10px]">{line.targetTicker && <span className="rounded-lg bg-slate-900 px-2 py-1 font-mono">{line.targetTicker}</span>}{line.amountEur != null && <span className="rounded-lg bg-slate-900 px-2 py-1">{line.amountEur.toFixed(2)} €</span>}{line.shares != null && <span className="rounded-lg bg-slate-900 px-2 py-1">{line.shares} títulos</span>}{line.estimatedFeeEur != null && <span className="rounded-lg bg-slate-900 px-2 py-1">comisión {line.estimatedFeeEur.toFixed(2)} €</span>}</div>
             {needsTargetAvailability && availability && availabilityKey && <div className={`mt-3 rounded-lg border p-3 text-[10px] ${availabilityClass(availability.status)}`}><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><b>Disponibilidad:</b> {availabilityLabel(availability.status, availability.evidence)}<div className="mt-1 opacity-75">Referencia: <span className="font-mono">{availabilityKey}</span></div></div><div className="flex flex-wrap gap-2"><button onClick={() => confirmAvailability(availabilityKey, 'AVAILABLE')} className="rounded-md border border-emerald-500/40 px-2 py-1 font-bold text-emerald-200">Sí, está en MyInvestor</button><button onClick={() => confirmAvailability(availabilityKey, 'UNAVAILABLE')} className="rounded-md border border-rose-500/40 px-2 py-1 text-rose-200">No lo encuentro</button>{availability.evidence === 'USER_CONFIRMED_MYINVESTOR' && <button onClick={() => resetAvailability(availabilityKey)} className="rounded-md border border-slate-600 px-2 py-1 text-slate-300">Borrar confirmación</button>}</div></div></div>}
             {line.taxNote && <details className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-2 text-[10px] text-cyan-100"><summary className="cursor-pointer font-bold">Fondos / fiscalidad</summary><div className="mt-1">{line.taxNote}</div></details>}
