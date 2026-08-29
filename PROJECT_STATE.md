@@ -4,169 +4,163 @@
 
 ## Current status — 2026-08-29
 
-React + TypeScript + Vite research/decision-support app. It ranks, backtests, explains signals, simulates historical recommendations and proposes manual execution plans; it does not submit broker trades.
+React + TypeScript + Vite research/decision-support app. It ranks, backtests, explains signals, reconstructs historical recommendations and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation: **2026-08-29 09:23:56 UTC**, green (`exitCode: 0`, `ok: true`, `spawnError: null`). The full validation includes Strategy Consensus, buy-the-dip vs structural fall, sell-protection on overweight, consensus veto on execution proposals, causal static historical decision replay, the dynamic historical signal replay, mixed-instrument remunerated-cash replay, broker availability/execution sweeps and the remaining `validate:aistudio:raw` gates.
+Latest fully recorded validation remains **2026-08-29 09:23:56 UTC**, green (`exitCode: 0`, `ok: true`, `spawnError: null`). A UI/validation integration refactor was made after that run and therefore needs one fresh local `npm run validate:aistudio` before the current HEAD is called fully validated.
 
-A new REAL-market diagnostic has now been added after that green run: `scripts/dynamicHistoricalReplayLive.ts`. It is wired into `validate:aistudio:raw` and records `DYNAMIC_HISTORICAL_REPLAY_LIVE_RESULT` into `validation-results/latest-dynamic-historical-replay-live.json`. This diagnostic is implemented but **not yet executed/recorded**, so its real-market findings must not be claimed until the next AI Studio validation run is inspected.
+## Non-negotiable product architecture
 
-## Product direction
+The app must answer user questions, not expose the internal engine graph.
 
-The app must answer investment questions, not behave like a static analytics dashboard.
+**Durable UX rule:** one user question = one visible surface. Internal engines may remain modular for correctness/testability, but a new engine or diagnostic must be integrated into an existing user-facing flow whenever it answers the same question. Do not create a new primary card, page, command or result artifact merely because a new calculation module exists.
 
-Normal flow:
+Current primary flow:
 
-1. automatic REAL market refresh after first paint;
-2. current market/risk context and cash benchmark;
-3. explainable multi-signal consensus;
-4. explicit actionable plan or **HOY: MANTENER / NO FORZAR OPERACIONES**;
-5. real portfolio;
-6. historical dated-decision replay;
-7. dynamic historical signal replay;
-8. saved-recommendation simulation;
-9. alerts;
-10. research/provider detail secondary/lazy.
+1. automatic REAL market refresh;
+2. **Qué haría hoy** — one actionable recommendation;
+3. optional **Por qué** — consensus/evidence explaining that recommendation, not a second decision surface;
+4. **Tu cartera** — current holdings and theoretical distribution;
+5. **Cómo habría funcionado esta decisión en el pasado** — one integrated historical analysis;
+6. optional **Seguimiento y memoria** — alerts, saved snapshots and audit trail;
+7. research/provider detail remains secondary/lazy.
 
-Core usefulness must not require a new paid external subscription. See `docs/DECISIONS.md` D30.
+Core usefulness must not require a new paid external subscription.
 
-## Sell-protection / theoretical allocation separation
+## Actionable decision and sell protection
 
-Current rule (D31): **allocation drift alone is not a sell signal**.
+Allocation drift alone is not a sell signal.
 
-`PortfolioDecisionEngine` keeps an overweight existing position as `HOLD` unless independent deterioration evidence authorises a reduction. `UserPortfolioPanel` describes target gaps as theoretical distribution, not executable orders.
+`PortfolioExecutionPlanPanel` is the single primary actionable surface. It combines the portfolio decision, cash benchmark, costs, broker constraints and strategy consensus. BUY/SUBSCRIBE/TRANSFER proposals are vetoed when consensus does not authorise new money. Existing holdings require stronger evidence: `REDUCE_REVIEW` needs structural downtrend plus several adverse votes; an overweight category alone never authorises a sale.
+
+The separate `StrategyConsensusPanel` remains available only inside the collapsed **Por qué llega a esa conclusión** explanation. It is not rendered as another top-level decision module.
 
 ## Explainable strategy consensus
 
 Engine: `src/investment/decision/strategyConsensusEngine.ts`.
 
-Five current votes using already-loaded data:
+Five votes from already-loaded data:
 
 - long trend: ~12-month return + distance to SMA200;
-- 120-session momentum, with 60/20-session context;
-- mean reversion / buy-the-dip: RSI14 + current 252-session drawdown + long-trend integrity;
+- 120-session momentum, with 60/20 context;
+- mean reversion / buy-the-dip: RSI14 + current drawdown + long-trend integrity;
 - risk: annualized volatility + drawdown;
-- cash hurdle: annualized 120-session proxy versus configured remunerated-cash benchmark.
+- cash hurdle: annualized 120-session proxy vs configured remunerated cash.
 
-Important asymmetry:
+Asymmetry is intentional:
 
 - weak/negative consensus can reject new money;
-- an existing position is not reduced because of one weak window or overweight alone;
-- `REDUCE_REVIEW` requires structural downtrend plus at least three adverse votes.
+- one weak window does not sell an existing holding;
+- `REDUCE_REVIEW` requires structural deterioration plus multiple adverse votes.
 
-The consensus also vetoes executable BUY / SUBSCRIBE / TRANSFER proposals when the target is not `BUY` under the consensus.
+Consensus does not yet replace the production allocators: LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum.
 
-The consensus does **not** yet replace LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum as production allocators. Promotion requires comparative causal/OOS evidence.
+## Integrated historical analysis
 
-## Historical dated-decision replay — validated
+User-facing component: `src/components/HistoricalDecisionReplayPanel.tsx`.
 
-Files:
+There is now **one** historical surface. The former standalone `DynamicHistoricalReplayPanel.tsx` was removed.
 
-- `src/investment/decision/historicalShortlist.ts`
-- `src/investment/decision/historicalDecisionReplay.ts`
-- `src/components/HistoricalDecisionReplayPanel.tsx`
-- `tests/historicalDecisionReplay.unit.ts`
+Pressing **Analizar histórico** runs both layers needed to answer the user's real question:
 
-Annual or quarterly historical start-date tests reconstruct the causal shortlist, run `InvestmentDecisionEngine`, execute the initial recommendation on the first later bar, model whole ETF shares / MyInvestor commission and fractional fund units, remunerate target/residual cash, and compare the final result with all-cash.
+1. dynamic chronological replay from the chosen start date, revisiting the portfolio monthly or quarterly and following BUY / ADD / HOLD / AVOID / REDUCE / EXIT signals;
+2. robustness check across several historical annual start dates using the static dated-decision replay.
 
-Causal invariant: changing only prices after the historical decision date may alter the eventual outcome but must not alter the reconstructed historical regime, method or target weights.
+The primary result compares, on the same evidence:
 
-This remains a current-catalog replay and therefore retains explicit survivorship/catalog bias.
+- following successive historical signals;
+- buying the initial recommendation and holding it;
+- leaving the same capital in remunerated cash.
 
-## Dynamic historical signal replay — validated core + REAL live diagnostic pending
+The same surface shows the chronological alerts/operations, fees, cash interest, observed drawdown and a collapsed **¿Depende demasiado de la fecha de inicio?** robustness section.
 
-Files:
+The historical engines remain separate internally because they answer different calculation subproblems and have independent causal tests:
 
-- `src/investment/decision/dynamicHistoricalReplay.ts`
-- `src/components/DynamicHistoricalReplayPanel.tsx`
-- `tests/dynamicHistoricalReplay.unit.ts`
-- `docs/DYNAMIC_HISTORICAL_REPLAY.md`
-- `scripts/dynamicHistoricalReplayLive.ts`
+- `historicalDecisionReplay.ts` reconstructs the initial recommendation at historical dates;
+- `dynamicHistoricalReplay.ts` maintains evolving cash/holdings and follows later signals.
 
-The dynamic replay follows successive monthly or quarterly historical decisions rather than freezing the initial recommendation until the end.
+That internal modularity must not reappear as duplicated UI.
 
-At each chronological checkpoint it:
+### Dynamic replay execution protections
 
-1. rebuilds the causal historical shortlist using only data available then;
-2. reruns `InvestmentDecisionEngine`;
-3. rebuilds `StrategyConsensusEngine` assessments for selected and already-held assets;
-4. records `BUY`, `ADD`, `HOLD`, `AVOID`, `REDUCE` and `EXIT` signals;
-5. executes eligible trades strictly after the information date;
-6. values the evolving portfolio and remunerates residual cash.
-
-Execution protections:
+At each checkpoint the engine rebuilds the causal shortlist, reruns `InvestmentDecisionEngine`, builds historical `StrategyConsensusEngine` assessments and updates the simulated portfolio.
 
 - new positions require consensus `BUY`;
 - increases require `ADD`;
-- allocation drift alone never authorises a sale;
-- `REDUCE` / `EXIT` requires historical `REDUCE_REVIEW` plus a materially lower allocator target on that same date;
+- allocation drift alone never sells;
+- `REDUCE` / `EXIT` requires historical `REDUCE_REVIEW` plus a materially lower allocator target on the same date;
+- trades execute after the information date;
 - sells execute before buys;
 - ETFs use whole shares and modeled MyInvestor commission;
-- funds use fractional units.
+- funds use fractional units;
+- residual cash earns the configured cash rate.
 
-The UI compares three outcomes over the same historical evidence:
+`tests/historicalDecisionReplay.unit.ts` and `tests/dynamicHistoricalReplay.unit.ts` preserve causality, next-bar execution, structural sell gating and future-data isolation.
 
-1. following successive dynamic signals;
-2. initial recommendation + hold via `HistoricalDecisionReplayEngine`;
-3. all-cash remunerated benchmark.
+## REAL data and integrated live validation
 
-It exposes a chronological signal timeline with consensus votes, structural-downtrend / buy-the-dip context, execution date, units, notional and fees. HOLD / AVOID are available for audit but hidden by default.
+The production scanner uses REAL market series. REAL requests must never silently fall back to synthetic data.
 
-`tests/dynamicHistoricalReplay.unit.ts` validates repeated chronological decisions, executable buy/add and reduce/exit paths, structural sell gating, next-bar execution and future-price isolation of earlier signals. This deterministic core gate passed in the 2026-08-29 09:23:56 UTC full validation.
+The previous standalone `scripts/dynamicHistoricalReplayLive.ts`, standalone command and standalone `latest-dynamic-historical-replay-live.json` design were removed because they fragmented evidence.
 
-The new live diagnostic loads the same seven-year REAL universe through the market-data proxy, explicitly fails if any accepted series is not `REAL`, and runs five recent annual start dates using monthly decisions, MEDIUM risk, 3-year horizon and 1,000 EUR. It records provider provenance, dates/fingerprints, executed BUY/ADD/REDUCE/EXIT events, material non-executed signals, dynamic vs static buy-and-hold, dynamic vs remunerated cash, fees and drawdown. Its findings are pending the next AI Studio run.
+REAL dynamic historical evidence is now integrated into the existing `scripts/brokerAwareExecutionSweepLive.ts` and therefore into the existing `BROKER_AWARE_EXECUTION_SWEEP_RESULT` / `validation-results/latest-broker-aware-execution-sweep.json`.
 
-## Existing saved-recommendation simulator
+One REAL scan now feeds:
 
-`RecommendationSimulationPanel` remains separate:
+- research reference;
+- adaptive ETF execution sweep;
+- mixed ETF/fund execution sweep;
+- fund eligibility diagnostics;
+- provider provenance/fingerprints;
+- dynamic historical replay over several recent annual starts;
+- dynamic vs initial-buy-and-hold comparison;
+- dynamic vs remunerated-cash comparison;
+- executed historical BUY/ADD/REDUCE/EXIT timeline.
 
-- saved-snapshot simulator: what an actually stored recommendation would be worth today;
-- dated static replay: what the current engine would have recommended at a chosen historical date;
-- dynamic replay: whether following later historical signals would improve or worsen that initial decision.
+The integrated live script explicitly fails if any accepted series is not `REAL`.
 
-All are historical diagnostics, not forecasts.
+## Saved recommendations and alerts
 
-## Cash benchmark / execution economics
+`RecommendationSimulationPanel`, active alerts, automation status and snapshot table remain useful audit/history features, but they are now grouped under one collapsed **Seguimiento y memoria de recomendaciones** surface. They must not compete visually with the current actionable decision or integrated historical analysis.
 
-Default configurable reference: **2.5% annual**.
+## Cash / execution economics
+
+Default configurable cash reference: **2.5% annual**.
 
 - BUY/SUBSCRIBE/TRANSFER must beat the cash hurdle after modeled ETF entry fee where applicable;
-- ETFs use whole shares, MyInvestor 0.12%, min 1 EUR/order, max 25 EUR/order;
-- capital-adaptive execution suppresses uneconomic small orders;
+- ETFs: whole shares, MyInvestor 0.12%, min 1 EUR/order, max 25 EUR/order;
+- adaptive execution suppresses uneconomic small orders;
 - residual cash accrues over calendar days/365;
-- fund explicit subscription/redemption commission remains unmodeled until verified.
+- explicit fund subscription/redemption commission remains unmodeled pending verification.
 
-## Free-data rule
+## Validation
 
-No strategy or primary feature may require a new paid market-data, news or fundamentals subscription. Existing free/zero-incremental-cost sources may be used with explicit provenance and graceful failure. Paid evidence may only be optional in the future.
-
-## Validation gates
-
-Relevant package scripts include:
+Relevant deterministic gates include:
 
 - `npm run test:strategy-consensus`
 - `npm run test:historical-decision-replay`
 - `npm run test:dynamic-historical-replay`
-- `npm run test:dynamic-historical-replay:live`
+- portfolio/execution/cash/broker gates already present in `validate:aistudio:raw`.
 
-All are included in `validate:aistudio:raw`. The deterministic core was green at **2026-08-29 09:23:56 UTC**; the new live REAL diagnostic was added afterward and needs one fresh recorded validation.
+`validate:aistudio:raw` now runs the integrated `brokerAwareExecutionSweepLive.ts`; there is no separate dynamic-live command or fourth validation marker.
+
+Latest recorded green run predates this integration refactor. A fresh `npm run validate:aistudio` is required for current HEAD.
 
 ## Known limitations / research cautions
 
-- Present-catalog survivorship bias remains in historical replays.
-- Exact MyInvestor/Inversis availability remains pending for several active targets.
-- Fund settlement/tax timing is not simulated.
-- Historical broker availability changes are not reconstructed.
-- Dynamic replay drawdown is currently measured on decision/execution path points rather than every daily session and can understate intraperiod drawdown.
-- Yahoo remains unofficial/non-contractual.
-- Consensus thresholds are deterministic first-pass thresholds; do not optimize them on the full sample and then claim predictive power.
-- Mean reversion is currently an explainable signal/veto, not yet a production allocator.
+- historical replays use the current queryable catalog and therefore retain survivorship/catalog bias;
+- exact MyInvestor/Inversis availability remains pending for several targets;
+- fund settlement/tax timing is not simulated;
+- historical broker availability changes are not reconstructed;
+- dynamic drawdown currently uses decision/execution path points rather than every daily session and may understate intraperiod drawdown;
+- Yahoo remains unofficial/non-contractual;
+- consensus thresholds are deterministic first-pass rules and must not be optimized on the full sample then described as predictive;
+- Mean Reversion is an explainable signal/veto, not yet a production allocator.
 
 ## Immediate next step
 
-1. In AI Studio, sync `fmaranis/Trading/main` and run only `npm run validate:aistudio`; AI Studio must not edit code.
-2. Read `validation-results/latest-dynamic-historical-replay-live.json` directly from GitHub and inspect the REAL-market provider provenance and actual historical BUY/ADD/REDUCE/EXIT timeline.
-3. If the live diagnostic or any other gate fails, fix it directly on GitHub and rerun validation.
-4. Once the REAL dynamic replay findings are satisfactory, manually inspect the corresponding primary UI timeline/comparisons when convenient.
-5. Next implementation block: build a **comparative causal strategy lab** for **Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble**.
-6. Reuse the dynamic replay as an evaluation surface so each strategy is judged not only by CAGR/Sharpe but by whether its successive BUY/ADD/REDUCE/EXIT actions add or destroy value versus its own static buy-and-hold baseline and remunerated cash.
-7. Do not promote Mean Reversion or Ensemble into the production allocator until comparative causal/OOS evidence supports it.
+1. Sync current `fmaranis/Trading/main` into AI Studio and run **one** local `npm run validate:aistudio`; AI Studio must not edit code.
+2. Inspect the existing `validation-results/latest-aistudio-run.json` and `latest-broker-aware-execution-sweep.json` directly from GitHub.
+3. The broker-aware result should now contain the integrated `dynamicHistoricalReplay` section using the same REAL dataset/provenance as the other execution evidence.
+4. Fix any failure directly on GitHub and rerun the same single validation.
+5. Only after this integrated flow is green, continue to the comparative causal strategy lab: Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble.
+6. That strategy comparison must plug into the existing integrated historical surface/evidence result rather than creating another top-level module.
