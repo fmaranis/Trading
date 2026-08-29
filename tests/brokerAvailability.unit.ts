@@ -26,8 +26,14 @@ try {
   const xeon = EUR_ASSET_UNIVERSE.find(a => a.assetId === 'XEON')!;
   const usFund = EUR_ASSET_UNIVERSE.find(a => a.assetId === 'FUND_VANGUARD_US500')!;
 
-  test('unverified ETF starts as requiring broker lookup', () => {
+  test('public evidence remains objective and unverified ETF still requires lookup', () => {
     assert.equal(getPublicMyInvestorAvailability(xeon).status, 'REQUIRES_INVERSIS_LOOKUP');
+  });
+
+  test('effective policy assumes an unverified instrument is available', () => {
+    const result = getMyInvestorAvailability(xeon);
+    assert.equal(result.status, 'ASSUMED_MYINVESTOR_AVAILABLE');
+    assert.equal(result.evidence, 'USER_POLICY_DEFAULT');
   });
 
   test('manual available confirmation persists and becomes effective', () => {
@@ -38,19 +44,19 @@ try {
     assert.equal(ManualMyInvestorAvailabilityService.get(xeon.ticker)?.value, 'AVAILABLE');
   });
 
-  test('manual unavailable confirmation persists and becomes effective', () => {
+  test('manual unavailable confirmation persists and overrides permissive default', () => {
     ManualMyInvestorAvailabilityService.set(xeon.ticker, 'UNAVAILABLE');
     const result = getMyInvestorAvailability(xeon);
     assert.equal(result.status, 'USER_CONFIRMED_UNAVAILABLE');
     assert.equal(result.evidence, 'USER_CONFIRMED_MYINVESTOR');
   });
 
-  test('removing manual confirmation restores public evidence state', () => {
+  test('removing manual unavailable restores assumed-available effective policy', () => {
     ManualMyInvestorAvailabilityService.remove(xeon.ticker);
-    assert.equal(getMyInvestorAvailability(xeon).status, 'REQUIRES_INVERSIS_LOOKUP');
+    assert.equal(getMyInvestorAvailability(xeon).status, 'ASSUMED_MYINVESTOR_AVAILABLE');
   });
 
-  test('manual confirmation can override public evidence without mutating it', () => {
+  test('manual unavailable can override official current evidence without mutating it', () => {
     assert.equal(getPublicMyInvestorAvailability(usFund).status, 'CONFIRMED_MYINVESTOR');
     ManualMyInvestorAvailabilityService.set(usFund.isin!, 'UNAVAILABLE');
     assert.equal(getMyInvestorAvailability(usFund).status, 'USER_CONFIRMED_UNAVAILABLE');
@@ -62,7 +68,7 @@ try {
     assert.equal(ManualMyInvestorAvailabilityService.get(usFund.isin!), null);
   });
 
-  console.log(`Broker availability: ${passed}/6 persistence/evidence-separation invariants passed.`);
+  console.log(`Broker availability: ${passed}/7 persistence/evidence-separation invariants passed.`);
 } finally {
   if (originalWindow === undefined) delete (globalThis as any).window;
   else (globalThis as any).window = originalWindow;
