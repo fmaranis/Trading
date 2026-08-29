@@ -2,12 +2,15 @@ import type { AssetUniverseCategory, AssetUniverseItem, InvestmentInstrumentType
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import type { InvestmentDecisionResult } from './types';
 import type { FundPosition } from './fundPortfolio';
+import type { PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
 import type { UserPortfolioState } from './userPortfolio';
 
 export type PortfolioPositionAction =
   | 'HOLD'
+  | 'WATCH'
   | 'ADD'
   | 'REDUCE'
+  | 'EXIT'
   | 'REVIEW_TRANSFER'
   | 'DATA_MISSING';
 
@@ -29,6 +32,8 @@ export interface PortfolioPositionDecision {
   currentValueEur: number | null;
   action: PortfolioPositionAction;
   reason: string;
+  suggestedReductionPct?: number | null;
+  healthSource?: PortfolioPositionHealthSnapshot['source'] | null;
 }
 
 export interface ContributionRecommendation {
@@ -78,17 +83,28 @@ function fundMarketValue(fund: FundPosition, marketValues: Record<string, number
   return null;
 }
 
+function healthFor(map: Record<string, PortfolioPositionHealthSnapshot | undefined>, ...keys: Array<string | undefined>): PortfolioPositionHealthSnapshot | undefined {
+  for (const key of keys) {
+    if (!key) continue;
+    const found = map[key] ?? map[key.toUpperCase()];
+    if (found) return found;
+  }
+  return undefined;
+}
+
 export class PortfolioDecisionEngine {
   static evaluate(input: {
     portfolio: UserPortfolioState;
     scan: AssetUniverseScanResult;
     decision: InvestmentDecisionResult;
     fundMarketValues?: Record<string, number | null | undefined>;
+    positionHealth?: Record<string, PortfolioPositionHealthSnapshot | undefined>;
     materialDriftPctPoints?: number;
   }): PortfolioDecisionResult {
     const { portfolio, scan, decision } = input;
     const materialDrift = input.materialDriftPctPoints ?? 5;
     const fundValues = input.fundMarketValues ?? {};
+    const healthMap = input.positionHealth ?? {};
     const assets = categoryMap(scan);
     const prices = new Map(
       scan.candidates
@@ -98,17 +114,18 @@ export class PortfolioDecisionEngine {
 
     const currentByCategory = new Map<AssetUniverseCategory, number>();
     const existingPositions: PortfolioPositionDecision[] = [];
-    const unresolvedPositions: Array<{ index: number; category: AssetUniverseCategory | 'UNKNOWN' }> = [];
+    const unresolvedPositions: Array<{ index: number; category: AssetUniverseCategory | 'UNKNOWN'; health?: PortfolioPositionHealthSnapshot }> = [];
 
     let currentInvestedValueEur = 0;
 
     for (const fund of portfolio.funds ?? []) {
       const asset = assets.get(fund.isin.toUpperCase()) ?? assets.get(fund.id);
       const category = asset?.category ?? (fund.category === 'GLOBAL_EQUITY' || fund.category === 'EMERGING_EQUITY' ? fund.category : 'UNKNOWN');
-      const value = fundMarketValue(fund, fundValues);
-      if (value != null && category !== 'UNKNOWN') {
+      const health = healthFor(healthMap, fund.id, fund.isin);
+      const value = fundMarketValue(fund, fundValues) ?? health?.currentValueEur ?? null;
+      if (value != null) {
         currentInvestedValueEur += value;
-        currentByCategory.set(category, (currentByCategory.get(category) ?? 0) + value);
+        if (category !== 'UNKNOWN') currentByCategory.set(category, (currentByCategory.get(category) ?? 0) + value);
       }
       const index = existingPositions.push({
         id: fund.id,
@@ -118,20 +135,23 @@ export class PortfolioDecisionEngine {
         currentValueEur: value,
         action: value == null ? 'DATA_MISSING' : 'HOLD',
         reason: value == null
-          ? 'Falta una valoración actual del fondo; no se fuerza una decisión usando únicamente el coste aportado.'
-          : 'Pendiente de reconciliar la exposición actual con el objetivo de cartera.'
+          ? health?.reason ?? 'Falta una valoración actual del fondo; no se fuerza una decisión usando únicamente el coste aportado.'
+          : 'Pendiente de reconciliar la salud propia del activo con el objetivo de cartera.',
+        suggestedReductionPct: null,
+        healthSource: health?.source ?? null
       }) - 1;
-      unresolvedPositions.push({ index, category });
+      unresolvedPositions.push({ index, category, health });
     }
 
     for (const holding of portfolio.holdings) {
       const asset = assets.get(holding.ticker.toUpperCase());
       const category = asset?.category ?? 'UNKNOWN';
+      const health = healthFor(healthMap, holding.ticker);
       const price = prices.get(holding.ticker.toUpperCase());
-      const value = price != null ? holding.shares * price : null;
-      if (value != null && category !== 'UNKNOWN') {
+      const value = price != null ? holding.shares * price : health?.currentValueEur ?? null;
+      if (value != null) {
         currentInvestedValueEur += value;
-        currentByCategory.set(category, (currentByCategory.get(category) ?? 0) + value);
+        if (category !== 'UNKNOWN') currentByCategory.set(category, (currentByCategory.get(category) ?? 0) + value);
       }
       const index = existingPositions.push({
         id: holding.ticker.toUpperCase(),
@@ -139,14 +159,16 @@ export class PortfolioDecisionEngine {
         instrumentType: instrumentType(asset),
         category,
         currentValueEur: value,
-        action: value == null || category === 'UNKNOWN' ? 'DATA_MISSING' : 'HOLD',
+        action: value == null ? 'DATA_MISSING' : 'HOLD',
         reason: value == null
-          ? 'No hay precio REAL disponible para valorar esta posición.'
+          ? health?.reason ?? 'No hay valoración REAL utilizable para integrar esta posición en el patrimonio.'
           : category === 'UNKNOWN'
-            ? 'La posición no está clasificada dentro del universo unificado.'
-            : 'Pendiente de reconciliar la exposición actual con el objetivo de cartera.'
+            ? 'Posición valorada y vigilada individualmente; no se fuerza una categoría artificial para el asignador.'
+            : 'Pendiente de reconciliar la salud propia del activo con el objetivo de cartera.',
+        suggestedReductionPct: null,
+        healthSource: health?.source ?? null
       }) - 1;
-      unresolvedPositions.push({ index, category });
+      unresolvedPositions.push({ index, category, health });
     }
 
     const hasMissingValuation = existingPositions.some(x => x.action === 'DATA_MISSING');
@@ -186,25 +208,68 @@ export class PortfolioDecisionEngine {
     const preferredIds = new Set([...preferredByCategory.values()].map(x => x.assetId));
     for (const unresolved of unresolvedPositions) {
       const row = existingPositions[unresolved.index];
-      if (row.action === 'DATA_MISSING' || unresolved.category === 'UNKNOWN') continue;
+      const health = unresolved.health;
+      if (row.action === 'DATA_MISSING') continue;
+
+      // Health of the actual holding has precedence over allocation drift.
+      // Being in the portfolio is never a reason to immunize a deteriorating asset.
+      if (health) {
+        row.healthSource = health.source;
+        if (health.action === 'EXIT') {
+          row.action = 'EXIT';
+          row.reason = health.reason;
+          row.suggestedReductionPct = 100;
+          continue;
+        }
+        if (health.action === 'REDUCE') {
+          row.action = 'REDUCE';
+          row.reason = health.reason;
+          row.suggestedReductionPct = health.suggestedReductionPct ?? 50;
+          continue;
+        }
+        if (health.action === 'WATCH') {
+          row.action = 'WATCH';
+          row.reason = health.reason;
+          continue;
+        }
+        if (health.action === 'ADD') {
+          const exposure = unresolved.category === 'UNKNOWN' ? undefined : exposureByCategory.get(unresolved.category);
+          if (!exposure || exposure.gapPctPoints >= -materialDrift) {
+            row.action = 'ADD';
+            row.reason = health.reason;
+          } else {
+            row.action = 'HOLD';
+            row.reason = `${health.reason} No se añade ahora porque la categoría ya está materialmente sobreponderada.`;
+          }
+          continue;
+        }
+        if (health.action === 'HOLD') {
+          row.action = 'HOLD';
+          row.reason = health.reason;
+          continue;
+        }
+      }
+
+      if (unresolved.category === 'UNKNOWN') {
+        row.action = 'HOLD';
+        row.reason = 'La posición está valorada, pero no tiene clasificación de cartera y no hay todavía una señal independiente de deterioro que justifique reducirla.';
+        continue;
+      }
+
       const exposure = exposureByCategory.get(unresolved.category);
       if (!exposure) continue;
 
       if (exposure.gapPctPoints < -materialDrift) {
-        // Critical distinction: allocation drift is not a sell signal. Previously this branch
-        // emitted REDUCE/REVIEW_TRANSFER and the execution-plan layer converted it into a real
-        // sell/redeem instruction. Existing holdings now remain HOLD until an independent
-        // deterioration/consensus layer explicitly authorises a reduction.
         row.action = 'HOLD';
-        row.reason = `La categoría está sobreponderada ${Math.abs(exposure.gapPctPoints).toFixed(1)} pp respecto al objetivo teórico. Es una desviación de cartera, no una señal de venta: mantener salvo deterioro confirmado por el motor de consenso.`;
+        row.reason = `La categoría está sobreponderada ${Math.abs(exposure.gapPctPoints).toFixed(1)} pp respecto al objetivo teórico. Es una desviación de cartera, no una señal de venta: mantener salvo deterioro confirmado por el motor de salud individual.`;
       } else if (exposure.gapPctPoints > materialDrift) {
         const asset = assets.get(row.id) ?? assets.get((portfolio.funds ?? []).find(f => f.id === row.id)?.isin?.toUpperCase() ?? '');
         if (asset && preferredIds.has(asset.assetId)) {
           row.action = 'ADD';
-          row.reason = `La categoría está infraponderada ${exposure.gapPctPoints.toFixed(1)} pp y este instrumento es el candidato preferente actual de la categoría. Cualquier aportación sigue sujeta a los gates de efectivo, coste y consenso.`;
+          row.reason = `La categoría está infraponderada ${exposure.gapPctPoints.toFixed(1)} pp y este instrumento es el candidato preferente actual de la categoría. Cualquier aportación sigue sujeta a cash, consenso, coste y broker.`;
         } else {
           row.action = 'HOLD';
-          row.reason = `La categoría está infraponderada, pero el motor prioriza otro instrumento equivalente para las nuevas aportaciones. No implica vender esta posición.`;
+          row.reason = 'La categoría está infraponderada, pero el motor prioriza otro instrumento equivalente para las nuevas aportaciones. No implica vender esta posición.';
         }
       } else {
         row.action = 'HOLD';
@@ -233,15 +298,16 @@ export class PortfolioDecisionEngine {
         instrumentType: instrumentType(asset),
         amountEur,
         targetCategoryGapEur: exposure.gapEur,
-        reason: `Objetivo teórico dirigido al déficit de ${exposure.category}; no es una orden de compra hasta superar los gates de consenso, efectivo, coste y broker.`
+        reason: `El candidato ya ha superado cash + consenso antes del asignador. Este importe cubre parte del déficit de ${exposure.category}; la ejecución todavía debe superar costes, títulos enteros y broker.`
       };
     }).filter(x => x.amountEur > 0.01).sort((a, b) => b.amountEur - a.amountEur);
 
     const residualPlannedCashEur = Math.max(0, deployablePool - contributions.reduce((s, x) => s + x.amountEur, 0));
     const warnings: string[] = [];
-    if (hasMissingValuation) warnings.push('Hay posiciones sin valoración REAL: se bloquea temporalmente la asignación de capital nuevo para no calcular como si esas posiciones valieran cero.');
-    if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Existen categorías sobreponderadas, pero una sobreponderación por sí sola NO genera una venta. La reducción requiere una señal independiente de deterioro/consenso.');
-    warnings.push('Las aportaciones mostradas aquí son objetivos teóricos de distribución. La acción ejecutable se decide después mediante consenso, efectivo, costes, títulos enteros y disponibilidad broker.');
+    if (hasMissingValuation) warnings.push('Hay posiciones sin valoración REAL utilizable: se bloquea temporalmente la asignación de capital nuevo para no calcular el patrimonio como si esas posiciones valieran cero.');
+    if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Una sobreponderación por sí sola NO genera una venta. REDUCE/EXIT solo proceden del análisis independiente de salud de la posición.');
+    if (existingPositions.some(x => x.category === 'UNKNOWN' && x.currentValueEur != null)) warnings.push('Hay posiciones fuera del universo clasificado que se valoran y vigilan individualmente; no se inventa una categoría para forzar su peso objetivo.');
+    warnings.push('Las aportaciones mostradas proceden de candidatos que ya superaron cash + consenso. La acción ejecutable todavía exige efectivo, costes, títulos enteros y disponibilidad broker.');
 
     return {
       currentInvestedValueEur,
