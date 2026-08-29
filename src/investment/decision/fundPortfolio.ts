@@ -38,20 +38,29 @@ export interface FundNavValuation {
   precision: 'EXACT_WITH_UNITS' | 'ESTIMATED_FROM_ENTRY_NAV' | 'UNAVAILABLE';
 }
 
-export const EXAMPLE_FUND_POSITIONS: FundPosition[] = [
+/**
+ * User-provided real portfolio baseline. These are not demo/example positions.
+ * A versioned migration in UserPortfolioService restores them only for legacy
+ * portfolio state, so a later intentional sale/transfer is not silently undone.
+ */
+export const USER_REAL_FUND_POSITIONS: FundPosition[] = [
   {
-    id: 'example_vanguard_global', isin: 'IE00B03HD191', name: 'Vanguard Global Stock Index Fund EUR Acc',
+    id: 'user_vanguard_global', isin: 'IE00B03HD191', name: 'Vanguard Global Stock Index Fund EUR Acc',
     category: 'GLOBAL_EQUITY', investedEur: 12600, acquisitionDate: '2026-08-11', currentValueEur: null, units: 196.59,
     transferable: true, broker: 'MyInvestor'
   },
   {
-    id: 'example_vanguard_emerging', isin: 'IE0031786696', name: 'Vanguard Emerging Markets Stock Index Fund EUR Acc',
+    id: 'user_vanguard_emerging', isin: 'IE0031786696', name: 'Vanguard Emerging Markets Stock Index Fund EUR Acc',
     category: 'EMERGING_EQUITY', investedEur: 1400, acquisitionDate: '2026-08-12', currentValueEur: null, units: 4.61,
     transferable: true, broker: 'MyInvestor'
   }
 ];
 
-export const EXAMPLE_STAGED_CAPITAL_PLAN: StagedCapitalPlan = { availableEur: 13000, horizonMonths: 12, preferredMode: 'MONTHLY' };
+export const USER_REAL_STAGED_CAPITAL_PLAN: StagedCapitalPlan = { availableEur: 13000, horizonMonths: 12, preferredMode: 'MONTHLY' };
+
+// Backward-compatible aliases for older imports/tests. Do not use these names in new code.
+export const EXAMPLE_FUND_POSITIONS = USER_REAL_FUND_POSITIONS;
+export const EXAMPLE_STAGED_CAPITAL_PLAN = USER_REAL_STAGED_CAPITAL_PLAN;
 
 export function valueFundFromNav(
   position: FundPosition,
