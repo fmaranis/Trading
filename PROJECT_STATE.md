@@ -4,194 +4,197 @@
 
 ## Current status — 2026-08-29
 
-React + TypeScript + Vite decision-support app using REAL market data. It ranks instruments, explains decisions, reconstructs causal historical recommendations and proposes manual broker actions; it does not submit broker orders.
+React + TypeScript + Vite decision-support app using REAL market data. Latest recorded AI Studio validation before the current research-workspace refactor: **2026-08-29 18:55:33 UTC**, green (`exitCode: 0`, `ok: true`, all 3 expected markers detected). Current HEAD contains substantial later UI/research changes and must receive one fresh `npm run validate:aistudio` before being called validated.
 
-Latest recorded validation before the current interaction/UX and real-portfolio recovery changes: **2026-08-29 18:10:02 UTC**, green (`exitCode: 0`, `ok: true`, all 3 markers detected). Current HEAD contains subsequent transactional portfolio-state, UX and versioned real-portfolio migration changes and therefore requires a fresh `npm run validate:aistudio`.
+## Non-negotiable product architecture
 
-## Non-negotiable architecture
+The application has **two clearly separated primary workspaces**. Do not merge them back into one long vertical data stream.
 
-**One user question = one visible surface.** Internal engines may remain modular, but calculation modules/tests must not become competing cards/pages/results when they answer the same user question.
+### 1. Mi cartera real
 
-**State → Action → Evidence** is the required visible flow:
+Purpose: factual state and actions on the user's actual money only.
 
-1. **Mi cartera real** — one factual current state;
-2. **Qué haría hoy** — the only operational surface;
-3. optional **Por qué recomienda eso** — explanatory evidence only;
-4. **¿Funciona también fuera de los casos cómodos?** — historical/generalization evidence;
-5. optional **Seguimiento y memoria** — audit/alerts/snapshots.
+Contains:
+- real positions and real liquidity;
+- `Qué haría hoy` as the only operational recommendation surface;
+- applying an operation changes the canonical portfolio and liquidity immediately;
+- concise explanation (`Por qué recomienda eso`);
+- portfolio alerts/snapshots/history only as collapsed secondary material.
 
-Do not reintroduce long sequences of intermediate theoretical outputs as primary UI.
+It must not contain arbitrary-ticker research, general historical robustness charts or market-screening tables as primary content.
 
-## User real portfolio baseline — do not relabel as example
+### 2. Estudio y señales
 
-These positions were explicitly provided by the user and are the real starting portfolio for the study. They are **not demo/example data**:
+Purpose: research without mutating the real portfolio.
 
-- Vanguard Global Stock Index Fund EUR Acc — ISIN `IE00B03HD191` — invested **12,600 EUR** — acquisition **2026-08-11** — units recorded **196.59** — MyInvestor — transferable;
-- Vanguard Emerging Markets Stock Index Fund EUR Acc — ISIN `IE0031786696` — invested **1,400 EUR** — acquisition **2026-08-12** — units recorded **4.61** — MyInvestor — transferable;
-- capital pending to invest: **13,000 EUR**, planning horizon 12 months.
+Contains:
+- current radar/rankings;
+- expanded catalog browsing;
+- arbitrary listed ticker analysis;
+- fund analysis by ISIN when EODHD NAV data is available;
+- selectable historical start date and monthly/quarterly review frequency;
+- price/NAV chart with causal BUY / ADD / SELL markers;
+- general external/negative-path robustness as secondary evidence.
 
-Canonical constants are `USER_REAL_FUND_POSITIONS` and `USER_REAL_STAGED_CAPITAL_PLAN` in `fundPortfolio.ts`.
+Research does **not** become a real portfolio operation until broker/currency/cost/portfolio gates are separately satisfied.
 
-Critical persistence rule:
+## User real portfolio baseline — never relabel as demo/example
 
-> **A UI/code refactor must never silently replace or erase the user-provided real portfolio.**
+These are user-provided real starting positions:
 
-`UserPortfolioService` now uses `portfolioDataVersion = 2`. A one-time migration restores the two real funds and the 13,000 EUR pending capital when loading pre-v2/legacy state that was accidentally emptied by the previous model. Once migrated to v2, an intentional future sale, transfer or explicit empty state is respected and the baseline positions are not silently reinserted.
+- Vanguard Global Stock Index Fund EUR Acc — ISIN `IE00B03HD191` — invested **12,600 EUR** — acquisition **2026-08-11** — recorded units **196.59** — MyInvestor — transferable;
+- Vanguard Emerging Markets Stock Index Fund EUR Acc — ISIN `IE0031786696` — invested **1,400 EUR** — acquisition **2026-08-12** — recorded units **4.61** — MyInvestor — transferable;
+- capital pending to invest: **13,000 EUR**, horizon 12 months.
 
-The UI action is named **Restaurar cartera real registrada**, never “Restaurar ejemplo”. The broad one-click “Vaciar todo” control was removed from the normal portfolio editor; individual positions can still be reconciled manually.
+Canonical constants: `USER_REAL_FUND_POSITIONS` and `USER_REAL_STAGED_CAPITAL_PLAN`.
 
-## Single portfolio source of truth and transaction invariant
+Persistence rule:
 
-Canonical client portfolio state is `UserPortfolioService` (`custodia_user_portfolio_v1`).
+> A UI/code refactor must never silently erase or replace the real portfolio.
 
-Critical invariant:
+`UserPortfolioService` uses `portfolioDataVersion = 2`; pre-v2 accidentally empty state is migrated once to the real baseline. Once migrated, intentional later sales/transfers/empty state are respected.
 
-> **An operation cannot be considered executed unless it changes the canonical portfolio state consistently.**
+## Canonical transaction invariant
 
-The former `Marcar hecha` behavior was invalid because it only set an execution-plan line to `DONE`; it did not change holdings or liquidity. That design has been removed from the operational flow.
+Canonical client portfolio state: `UserPortfolioService` (`custodia_user_portfolio_v1`).
 
-`src/investment/decision/portfolioStateExecution.ts` applies manual executions transactionally:
+> An operation cannot be considered executed unless it consistently changes canonical holdings/funds/liquidity.
 
-- `BUY_ETF`: consumes available liquidity including modeled fee and adds/increments shares;
-- `SELL_ETF`: removes shares and credits net proceeds to cash;
-- `SUBSCRIBE_FUND`: consumes liquidity and creates/increments the fund position;
-- `REDEEM_FUND`: reduces the source fund and credits cash;
-- `TRANSFER_FUND`: moves value from source to destination fund without fabricating cash;
-- `REVIEW`: cannot be executed;
-- insufficient liquidity, insufficient shares or invalid quantities reject the operation and leave state unchanged.
+`portfolioStateExecution.ts` transactionally applies:
+- `BUY_ETF`: consumes liquidity + fee, adds shares;
+- `SELL_ETF`: removes shares, credits net proceeds;
+- `SUBSCRIBE_FUND`: consumes liquidity, creates/increments fund;
+- `REDEEM_FUND`: reduces fund, credits cash;
+- `TRANSFER_FUND`: moves value source → destination without fabricating cash;
+- invalid/review/insufficient-liquidity operations fail without changing state.
 
-For backward compatibility the stored state still contains `cashEur` and `stagedCapitalPlan.availableEur`. The primary UI exposes their sum as **Liquidez disponible**, so there is one visible liquidity number. Purchases consume the staged/pending bucket first and then cash; sells/reimbursements credit cash.
+`PortfolioExecutionPlanPanel` uses **Aplicar a mi cartera**, never a cosmetic `Marcar hecha`.
 
-`UserPortfolioService.save/restoreRealBaseline/clear` emit `custodia:user-portfolio-updated`. Components subscribe to this event instead of holding isolated stale copies.
+`InteractiveInvestmentDecisionCenter` now listens to `USER_PORTFOLIO_UPDATED_EVENT` (`custodia:user-portfolio-updated`) so deployable capital recalculates after real portfolio changes.
 
-`PortfolioExecutionPlanPanel` uses **Aplicar a mi cartera**. A successful operation:
+## Arbitrary single-asset research
 
-1. applies the transaction;
-2. persists the new portfolio;
-3. emits the portfolio update;
-4. refreshes the visible portfolio;
-5. regenerates `Qué haría hoy` from the new state;
-6. shows a receipt with liquidity before → after.
+Engine: `src/investment/decision/singleAssetResearch.ts`.
 
-A failed operation is not marked executed.
+UI: `src/components/SingleAssetResearchPanel.tsx`.
 
-## Portfolio UI
+The user can type a listed-market ticker such as:
+- `AAPL`
+- `NVDA`
+- `ASML.AS`
+- `SAN.MC`
+- `SAP.DE`
 
-`UserPortfolioPanel` is a concise factual state view. Default visible values are only:
+or a 12-character ISIN such as `IE00B03HD191` for direct fund NAV research through EODHD when quota/data are available.
 
-- **Invertido ahora**;
-- **Liquidez disponible**;
-- **Capital total controlado**;
-- compact current-position list including invested amount and acquisition date for funds.
+Historical behavior:
+- user selects any start date;
+- engine fetches additional pre-start warmup history so the first displayed decision can still use causal 252-session context;
+- review frequency is monthly or quarterly;
+- every review uses only data known up to that review date;
+- the same `StrategyConsensusEngine` assesses long trend, 120-session momentum, mean reversion/buy-the-dip, risk and cash hurdle;
+- when outside: a `BUY` marker appears only when new-money consensus says BUY;
+- when inside: structural deterioration with required adverse votes creates a `SELL` marker;
+- first ADD in a favorable add regime can be shown as an informational `ADD` marker;
+- markers execute strictly on the **next available observation** after the signal;
+- listed instruments use next-bar opening price;
+- funds use next available NAV observation;
+- future prices cannot change earlier signals.
 
-Manual editing is collapsed under **Editar cartera y liquidez**.
+Visual chart semantics:
+- ▲ green = BUY;
+- ◆ cyan = ADD;
+- ▼ red = SELL / REDUCE;
+- tooltip shows signal date → execution date, execution price/NAV, consensus and votes.
 
-Theoretical exposure/gap calculations remain available only under **Ver diagnóstico teórico** and are explicitly non-operational. The final actionable recommendation remains exclusively in `Qué haría hoy`.
+The chart also compares normalized follow-signals performance vs buy-and-hold and shows asset drawdown. This is research-only and is not a broker execution simulation.
 
-## Current decision protections
+## Research universe and the former “30 assets” limitation
 
-- allocation drift/overweight alone is **not** a sell signal;
-- new money requires strategy consensus plus cash/cost/execution gates;
-- existing positions require stronger evidence to reduce;
-- historical `REDUCE/EXIT` requires structural deterioration plus multiple adverse votes and a lower causal allocator target;
-- historical trades execute after the information date;
-- ETFs use whole shares and modeled MyInvestor commission;
-- funds use fractional units where historical simulation requires them;
-- residual cash earns the configured benchmark (default 2.5%).
+The fixed production list was never a provider/API limit. `marketDataRoutes.ts` already accepts arbitrary ticker symbols for history.
 
-Production allocators remain LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum. Mean Reversion remains a signal/veto, not a promoted allocator.
+Current configured catalog:
+- `EUR_ASSET_UNIVERSE`: production portfolio discovery list;
+- `EUR_VALIDATION_HOLDOUT_UNIVERSE`: separate robustness/holdout list.
 
-## Historical and external evidence
+`InvestmentResearchLab` merges both for browsing suggestions (currently **57 cataloged instruments**, subject to deduplication) and the arbitrary ticker/ISIN field is not limited to that catalog.
 
-User-facing component: `src/components/HistoricalDecisionReplayPanel.tsx`.
+Important distinction:
+- **portfolio allocator shortlist** remains deliberately small/diversified (max ~8 selected exposures) because it constructs a portfolio;
+- **research** must never be limited by that shortlist;
+- the current radar ranks all instruments already accepted in the current market scan, not only the selected 8;
+- the arbitrary analyzer can inspect symbols outside the loaded radar/catalog entirely.
 
-External validation is fetched **on component mount**, not only after opening a robustness disclosure. Therefore the user immediately sees a compact section:
+Future radar expansion should use dynamic/preset research universes and caching/batching. Do not equate “all possible symbols” with firing thousands of Yahoo requests on every page load; Yahoo is an unofficial provider and rate/resource limits must be respected.
 
-**Pruebas con activos que NO son los de siempre**
+## Radar modes
 
-It shows:
+`InvestmentResearchLab` currently supports:
+- **Mejor equilibrio actual** — existing scanner score;
+- **Más fuertes ahora** — 120-session momentum;
+- **Más estables / seguros** — lower volatility/drawdown composite;
+- **Más castigados** — largest observed drawdown.
 
-- number of accepted external REAL instruments;
-- seeded random-sample size and success counts;
-- the worst visible REAL 6M/12M loss episodes;
-- the engine response in those episodes (`NO COMPRAR`, `REDUCIR`, `SALIR`, etc.).
+These labels describe observed metrics, not guaranteed future return.
 
-Full random-sample and negative-window charts are behind one disclosure, preserving the one-surface/no-data-dump rule.
+The user can click any radar row or select any item in the expanded catalog to auto-open/analyze its individual chart.
 
-A user-selected historical replay remains available with:
+## External robustness evidence
 
-- follow-signals vs initial-buy-and-hold vs remunerated cash;
-- equity-path chart;
-- historical signal audit collapsed;
-- start-date robustness collapsed.
+`HistoricalDecisionReplayPanel` remains available only as secondary evidence under **Estudio y señales → Validación general del motor y casos externos**.
 
-The external evidence comes from the existing read-only endpoint `/api/validation/latest-broker-aware`, which reads the existing `validation-results/latest-broker-aware-execution-sweep.json`. It does not create another validation artifact or rerun market providers from the browser.
-
-## External holdout and negative-window validation
-
-`EUR_VALIDATION_HOLDOUT_UNIVERSE` is separate from production and cannot influence live recommendations. Deterministic tests assert no ticker/asset-id overlap.
-
-Last validated external run:
-
-- 19 requested external candidates;
+Latest recorded REAL external evidence includes:
+- 19 requested holdout candidates;
 - 16 accepted ETFs/ETCs;
-- 3 external mutual funds rejected because EODHD returned `QUOTA_EXHAUSTED`;
-- EODHD itself was configured correctly;
-- seeded random sample used 8 external instruments;
-- real adverse paths produced REDUCE/EXIT only when structural sell gates were met.
+- 3 external mutual funds rejected due EODHD `QUOTA_EXHAUSTED`;
+- worst real loss windows including EXI5.DE 12M -45.36%, EXI5.DE 6M -41.73%, G1CE.DE 12M -35.36%;
+- causal defensive behavior/AVOID/REDUCE evidence.
 
-Historical negative-window examples from the recorded REAL run:
-
-- `EXI5.DE` 12M: -45.36%, max DD 48.06%; initially BUY/ADD while evidence was positive, later REDUCE with structural downtrend and consensus -4 / 4 adverse votes;
-- `EXI5.DE` worst 6M: -41.73%; AVOID in all six observed reviews, no buy/add;
-- `G1CE.DE` worst 12M: -35.36%; AVOID during observed loss-window reviews.
-
-Random holdout is the relevant out-of-production-catalog generalization check. Adverse cohorts and worst historical loss windows are **ex-post behavioral stress tests only**, never unbiased OOS evidence for parameter tuning.
+Adverse/worst-window cohorts are ex-post behavioral stress tests only, not unbiased OOS parameter-tuning evidence.
 
 ## Validation gates
 
-Existing `validate:aistudio:raw` includes the relevant deterministic portfolio tests.
+`validate:aistudio:raw` includes:
+- real portfolio persistence/migration tests;
+- transactional portfolio execution tests;
+- consensus tests;
+- `tests/singleAssetResearch.unit.ts`;
+- existing historical/dynamic/holdout/live validation gates.
 
-`tests/portfolioExecutionPlan.unit.ts` verifies transactional state application:
+`singleAssetResearch.unit.ts` asserts:
+- selected period is charted;
+- monthly reviews occur;
+- rising regime can produce BUY;
+- structural falling regime can produce SELL;
+- every execution date is strictly later than its signal date;
+- every marker has a valid execution price;
+- modifying later/future prices does not change earlier signals.
 
-- ETF buy adds shares and consumes liquidity + fee;
-- insufficient liquidity rejects the buy;
-- ETF sale removes shares and credits net cash;
-- fund subscription creates a real fund position and consumes liquidity;
-- fund transfer changes holdings without changing liquidity;
-- REVIEW cannot be executed.
+No new GitHub Actions workflow and no standalone validation artifact/marker was added.
 
-`tests/userPortfolio.unit.ts` now additionally verifies the real-portfolio persistence contract:
+## Known limitations / next research expansion
 
-- baseline contains the two user-provided Vanguard positions with exact ISIN/amount/acquisition date;
-- baseline contains 13,000 EUR pending capital;
-- a pre-v2 accidentally empty state restores both real funds exactly once;
-- migration does not duplicate a fund already present by ISIN;
-- after migration to v2, an intentional empty state remains empty and is not silently repopulated.
-
-No standalone portfolio-validation command/result/marker was created.
-
-## Known limitations
-
-- two internal liquidity buckets remain for backward compatibility although one combined number is exposed to users;
-- mutual-fund live validation is currently limited by EODHD quota;
-- current-catalog survivorship bias remains;
-- dynamic replay drawdown is sampled at decision/execution points and can understate intraperiod drawdown;
+- radar current metrics still require a loaded comparison universe; arbitrary single-symbol research does not;
+- broad market discovery (“scan all S&P 500 / Nasdaq / EuroStoxx / IBEX / etc.”) should be the next research-universe layer, implemented with explicit market presets/dynamic discovery + caching/batching, not by enlarging the portfolio allocator;
+- EODHD mutual-fund research depends on available provider quota;
 - Yahoo is unofficial/non-contractual;
-- broker availability still requires verified/manual evidence where automatic availability is unknown;
-- primary functionality must not require a new paid data subscription.
+- current catalog historical analysis still has survivorship bias;
+- research single-asset performance is a normalized in/out illustration, not a fully costed real-broker portfolio backtest;
+- broker/currency/tax availability is checked only when moving a research idea toward the real portfolio.
 
 ## Immediate next step
 
 1. Sync current `fmaranis/Trading/main` into AI Studio.
-2. Run exactly one local `npm run validate:aistudio`; AI Studio must not modify source.
-3. Inspect the existing result JSONs directly from GitHub.
-4. Verify TypeScript plus the portfolio transaction and real-portfolio migration invariants are green.
-5. Visual sanity check in the normal app:
-   - `Mi cartera real` shows Vanguard Global 12,600 EUR and Vanguard Emerging 1,400 EUR before any new operation;
-   - pending capital shows 13,000 EUR;
-   - applying a proposed operation updates holdings/liquidity immediately;
-   - `Qué haría hoy` recalculates after that change;
-   - external/bad cases are visible without first running the normal historical replay;
-   - theoretical diagnostics remain collapsed by default.
-6. Fix any failure directly in GitHub and rerun the same validation. Do not proceed to the comparative strategy lab until this interaction flow is coherent and green.
+2. AI Studio must not edit source.
+3. Run exactly `npm run validate:aistudio`.
+4. Confirm TypeScript/build plus `Single Asset Research` and portfolio persistence/transaction tests are green.
+5. Visual check:
+   - two primary tabs are clearly visible: **Mi cartera real** / **Estudio y señales**;
+   - real Vanguard positions remain present;
+   - research tab shows radar and expanded catalog;
+   - clicking a radar/catalog symbol loads its individual graph;
+   - arbitrary ticker such as `NVDA` works;
+   - graph visibly contains ▲ BUY and ▼ SELL markers when the historical engine produces them;
+   - marker tooltip shows signal date, later execution date and execution price;
+   - changing start date reruns the study without changing the real portfolio.
+6. Fix any failure directly in GitHub and rerun the same local validation. Do not use GitHub Actions.
