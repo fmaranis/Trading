@@ -8,6 +8,7 @@ export * from './brokerAvailability';
 export * from './cashBenchmark';
 export * from './remuneratedCash';
 export * from './causalUniverseBacktestEngine';
+export * from './historicalDecisionReplay';
 export * from './brokerExecution';
 export * from './brokerBacktestFeasibility';
 export * from './costAwareExecutionPolicy';
