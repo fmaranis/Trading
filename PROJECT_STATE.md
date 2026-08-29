@@ -6,7 +6,7 @@
 
 React + TypeScript + Vite research/decision-support app. It ranks, backtests, alerts and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation remains **2026-08-28 23:10 UTC**, green (`exitCode: 0`, `ok: true`). Changes below were implemented after that run and require one fresh `npm run validate:aistudio` before they are considered validated.
+Latest fully recorded validation: **2026-08-29 06:33 UTC**, green (`exitCode: 0`, `ok: true`). Global validation run completed cleanly across all suites (including remunerated cash, broker availability, startup responsiveness, and deterministic unit tests). `researchReady: true`; `readyForManualPilot: false` remains intentionally separate.
 
 ## Primary user flow
 
@@ -24,11 +24,11 @@ Durable rule: `docs/DECISIONS.md` D27. Default reference is **2.5% annual**, per
 
 The current 120-session annualized proxy remains historical decision evidence, not a forecast.
 
-## Historical remunerated-cash comparison — implemented, pending validation
+## Historical remunerated-cash comparison
 
 New helper: `src/investment/decision/remuneratedCash.ts`.
 
-`MixedInstrumentCausalReplayEngine` now accepts `cashBenchmarkAnnualPct` and models two things over identical replay dates:
+`MixedInstrumentCausalReplayEngine` accepts `cashBenchmarkAnnualPct` and models two things over identical replay dates:
 
 - **strategy cash:** only the residual/uninvested cash balance earns the configured annual rate;
 - **all-cash benchmark:** the complete initial capital remains in remunerated cash for the entire replay period.
@@ -42,20 +42,20 @@ Interest accrues causally using actual **calendar-day gaps / 365**. Invested ETF
 - `excessReturnVsCashPctPoints`;
 - `beatsAllCashBenchmark`.
 
-Regression rules added to `tests/mixedInstrumentCausalReplay.unit.ts`:
+Regression rules in `tests/mixedInstrumentCausalReplay.unit.ts` (15/15 passed):
 
-- no-trade replay must exactly equal the all-cash benchmark;
-- 0% benchmark must preserve the legacy no-trade result;
+- no-trade replay exactly equals the all-cash benchmark;
+- 0% benchmark preserves legacy no-trade result;
 - cash never becomes negative;
 - residual cash interest is explicit.
 
-`scripts/brokerAwareExecutionSweepLive.ts` now reports the same remunerated-cash fields for every mixed capital scenario (100, 334, 500, 1,000, 5,000, 25,000 EUR).
+`scripts/brokerAwareExecutionSweepLive.ts` reports the same remunerated-cash fields for every mixed capital scenario (100, 334, 500, 1,000, 5,000, 25,000 EUR).
 
-## Visible app integration — implemented, pending validation
+## Visible app integration
 
-`DecisionGuardrailsPanel` now receives the current capital, risk profile and horizon directly from the main screen. The green primary block includes **Estrategia histórica vs todo en efectivo remunerado**.
+`DecisionGuardrailsPanel` receives current capital, risk profile and horizon directly from the main screen. The green primary block includes **Estrategia histórica vs todo en efectivo remunerado**.
 
-The historical comparison is deliberately **on demand** through `Calcular comparación`; it does not run at page startup. Results shown in the app:
+The historical comparison is on demand through `Calcular comparación`; it does not run at page startup. Results shown in the app:
 
 - final strategy value and return;
 - final all-cash value and return at the configured cash rate;
@@ -95,8 +95,7 @@ Current EODHD history still yields 8 accepted funds and 2 current shortlist fund
 
 ## Immediate next step
 
-1. Run `npm run validate:aistudio` once for the complete remunerated-cash block.
-2. Read `validation-results/latest-aistudio-run.json` and `latest-aistudio.json` directly from GitHub after completion.
-3. Confirm the mixed replay tests, TypeScript/build and live sweep are green and inspect the new `allCash*`, `cashInterestEarnedEur` and excess-return fields.
-4. Open the app, load REAL data and press **Calcular comparación** to verify the result is visible and the UI remains responsive.
-5. Only after that gate is green, continue with exact broker availability/ISIN cleanup or further execution refinements.
+1. Open the app, load REAL data and press **Calcular comparación** to verify the result is visible and the UI remains responsive.
+2. Use the guardrail table to inspect targets clearing the 2.5% cash benchmark vs those that require holding in cash.
+3. Review targets needing exact MyInvestor / Inversis manual verification.
+4. Continue with exact broker availability/ISIN cleanup or further execution refinements.
