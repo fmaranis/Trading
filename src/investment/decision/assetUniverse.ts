@@ -80,3 +80,33 @@ export const EUR_ASSET_UNIVERSE: AssetUniverseItem[] = [
   { assetId: 'AIGC', ticker: 'AIGC.DE', name: 'WisdomTree Broad Commodities ETC', category: 'COMMODITIES', currency: 'EUR', defensive: true },
   { assetId: 'WCOA', ticker: 'WCOA.DE', name: 'WisdomTree Enhanced Commodity UCITS ETF', category: 'COMMODITIES', currency: 'EUR', defensive: true }
 ];
+
+/**
+ * REAL holdout catalogue used only by integrated live robustness validation.
+ * These instruments are deliberately excluded from EUR_ASSET_UNIVERSE so they
+ * cannot influence production recommendations. Validation samples them with a
+ * recorded pseudo-random seed and also builds adverse-path cohorts afterwards.
+ * Outcome-based cohorts are diagnostic stress tests only: never tune strategy
+ * thresholds on them or report them as unbiased OOS performance evidence.
+ */
+export const EUR_VALIDATION_HOLDOUT_UNIVERSE: AssetUniverseItem[] = [
+  { assetId: 'HOLDOUT_XDEM', ticker: 'XDEM.DE', name: 'Xtrackers MSCI World Momentum Factor UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_XDEV', ticker: 'XDEV.DE', name: 'Xtrackers MSCI World Value UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_XDEQ', ticker: 'XDEQ.DE', name: 'Xtrackers MSCI World Quality Factor UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_XDEB', ticker: 'XDEB.DE', name: 'Xtrackers MSCI World Minimum Volatility UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_IS3R', ticker: 'IS3R.DE', name: 'iShares Edge MSCI World Momentum Factor UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_IS3S', ticker: 'IS3S.DE', name: 'iShares Edge MSCI World Value Factor UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_QDVA', ticker: 'QDVA.DE', name: 'iShares Edge MSCI USA Momentum Factor UCITS ETF', category: 'US_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_QDVI', ticker: 'QDVI.DE', name: 'iShares Edge MSCI USA Value Factor UCITS ETF', category: 'US_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_ZPRX', ticker: 'ZPRX.DE', name: 'SPDR MSCI Europe Small Cap Value Weighted UCITS ETF', category: 'SMALL_CAP', currency: 'EUR' },
+  { assetId: 'HOLDOUT_2B76', ticker: '2B76.DE', name: 'iShares Automation & Robotics UCITS ETF', category: 'TECHNOLOGY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_G1CE', ticker: 'G1CE.DE', name: 'Invesco Global Clean Energy UCITS ETF', category: 'ENERGY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_XUEN', ticker: 'XUEN.DE', name: 'Xtrackers MSCI USA Energy UCITS ETF', category: 'ENERGY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_QDVF', ticker: 'QDVF.DE', name: 'iShares S&P 500 Energy Sector UCITS ETF', category: 'ENERGY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_EXI5', ticker: 'EXI5.DE', name: 'iShares STOXX Europe 600 Real Estate UCITS ETF', category: 'EUROPE_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_TRET', ticker: 'TRET.DE', name: 'VanEck Global Real Estate UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_EXX5', ticker: 'EXX5.DE', name: 'iShares Dow Jones U.S. Select Dividend UCITS ETF', category: 'DIVIDEND', currency: 'EUR' },
+  { assetId: 'HOLDOUT_AMUNDI_WORLD', ticker: 'LU0996182563', isin: 'LU0996182563', name: 'Amundi Index MSCI World AE', category: 'GLOBAL_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
+  { assetId: 'HOLDOUT_AMUNDI_SP500', ticker: 'LU0996179007', isin: 'LU0996179007', name: 'Amundi S&P 500 Screened Index AE', category: 'US_EQUITY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' },
+  { assetId: 'HOLDOUT_FIDELITY_TECH', ticker: 'LU0099574567', isin: 'LU0099574567', name: 'Fidelity Funds Global Technology A EUR', category: 'TECHNOLOGY', currency: 'EUR', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' }
+];
