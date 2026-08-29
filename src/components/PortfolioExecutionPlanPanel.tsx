@@ -11,12 +11,13 @@ import {
   PortfolioExecutionPlan,
   PortfolioExecutionPlanService,
   PortfolioStateExecutionService,
+  type PortfolioPositionHealthResult,
   type PortfolioStateExecutionReceipt,
   StrategyConsensusEngine,
   UserPortfolioService
 } from '../investment/decision';
 
-interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; }
+interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; positionHealth: PortfolioPositionHealthResult | null; }
 function actionLabel(action: string): string {
   switch (action) {
     case 'BUY_ETF': return 'COMPRAR ETF/ETC';
@@ -45,7 +46,7 @@ function availabilityLabel(status: string, evidence: string): string {
   return 'Pendiente de comprobar en MyInvestor/Inversis';
 }
 
-export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision }) => {
+export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision, positionHealth }) => {
   const [plan, setPlan] = useState<PortfolioExecutionPlan | null>(() => PortfolioExecutionPlanService.load());
   const [availabilityRevision, setAvailabilityRevision] = useState(0);
   const [lastExecution, setLastExecution] = useState<PortfolioStateExecutionReceipt | null>(null);
@@ -54,7 +55,7 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision })
 
   const generate = () => {
     const portfolio = UserPortfolioService.load();
-    const portfolioDecision = PortfolioDecisionEngine.evaluate({ portfolio, scan, decision });
+    const portfolioDecision = PortfolioDecisionEngine.evaluate({ portfolio, scan, decision, positionHealth: positionHealth?.byKey });
     const cashBenchmarkAnnualPct = CashBenchmarkService.load();
     const raw = buildPortfolioExecutionPlan({ portfolio, scan, decisionAsOf: decision.asOfDate, portfolioDecision, cashBenchmarkAnnualPct });
     const lines = raw.lines.map(line => {
@@ -70,18 +71,14 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision })
       };
     });
     const vetoed = lines.filter((line, i) => line.action === 'REVIEW' && raw.lines[i]?.action !== 'REVIEW').length;
-    const next: PortfolioExecutionPlan = {
-      ...raw,
-      lines,
-      warnings: vetoed > 0 ? [...raw.warnings, `STRATEGY_CONSENSUS_VETO:${vetoed}`] : raw.warnings
-    };
+    const next: PortfolioExecutionPlan = { ...raw, lines, warnings: vetoed > 0 ? [...raw.warnings, `STRATEGY_CONSENSUS_VETO:${vetoed}`] : raw.warnings };
     setPlan(PortfolioExecutionPlanService.save(next));
   };
 
   useEffect(() => {
     generate();
     return UserPortfolioService.subscribe(() => generate());
-  }, [scan, decision]);
+  }, [scan, decision, positionHealth]);
 
   const applyLine = (line: PortfolioExecutionPlan['lines'][number]) => {
     setExecutionError(null);
@@ -89,9 +86,7 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision })
       const receipt = PortfolioStateExecutionService.execute(line);
       setLastExecution(receipt);
       generate();
-    } catch (error: any) {
-      setExecutionError(error?.message || String(error));
-    }
+    } catch (error: any) { setExecutionError(error?.message || String(error)); }
   };
   const dismiss = (id: string) => setPlan(PortfolioExecutionPlanService.updateStatus(id, 'DISMISSED'));
   const clear = () => { PortfolioExecutionPlanService.clear(); setPlan(null); };
@@ -106,7 +101,7 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision })
 
   return <section id="pending-portfolio-operations" className="rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div><div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-cyan-300"/><h2 className="font-bold">Qué haría hoy</h2></div><p className="mt-1 max-w-3xl text-[11px] text-slate-400">Esta es la única zona operativa. Si aplicas una operación, se actualizan inmediatamente la cartera y la liquidez y se vuelve a calcular lo que queda por hacer.</p></div>
+      <div><div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-cyan-300"/><h2 className="font-bold">Qué haría hoy</h2></div><p className="mt-1 max-w-3xl text-[11px] text-slate-400">Las nuevas compras ya han superado cash + consenso antes de asignar pesos. Las ventas solo aparecen por deterioro propio de una posición, nunca por simple sobreponderación.</p></div>
       <div className="flex gap-2">{plan && <button onClick={clear} className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400"><Trash2 className="h-3.5 w-3.5"/>Vaciar plan</button>}<button onClick={generate} className="flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-bold text-white hover:bg-cyan-500"><RefreshCw className="h-3.5 w-3.5"/>Recalcular</button></div>
     </div>
 
