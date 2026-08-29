@@ -1,12 +1,12 @@
 # Trading — Canonical Project State
 
-> Operational memory. Continue from this file. Repository `fmaranis/Trading/main` is canonical. Do not add or depend on GitHub Actions.
+> Operational memory. Continue from this file. Repository `fmaranis/Trading/main` is canonical. Do not add or depend on GitHub Actions. AI Studio is test-only: development and corrections are made directly in GitHub; AI Studio only syncs and runs deterministic local validation.
 
 ## Current status — 2026-08-29
 
 React + TypeScript + Vite research/decision-support app. It ranks, backtests, explains signals, simulates historical recommendations and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation: **2026-08-29 08:53 UTC**, green (`exitCode: 0`, `ok: true`, `spawnError: null`). The entire block (including Strategy Consensus, buy-the-dip vs structural fall, sell-protection on overweight, consensus veto on execution proposals, causal historical decision replay with next-bar execution and future-price isolation, mixed-instrument remunerated cash replay, and broker availability/execution sweeps) is verified and green.
+Latest fully recorded validation: **2026-08-29 09:23:56 UTC**, green (`exitCode: 0`, `ok: true`, `spawnError: null`). The full validation includes Strategy Consensus, buy-the-dip vs structural fall, sell-protection on overweight, consensus veto on execution proposals, causal static historical decision replay, the new dynamic historical signal replay, mixed-instrument remunerated-cash replay, broker availability/execution sweeps and the remaining `validate:aistudio:raw` gates.
 
 ## Product direction
 
@@ -29,19 +29,15 @@ Core usefulness must not require a new paid external subscription. See `docs/DEC
 
 ## Sell-protection / theoretical allocation separation
 
-Previous issue: `PortfolioDecisionEngine` treated >5 pp category overweights as `REDUCE` / `REVIEW_TRANSFER`; `PortfolioExecutionPlan` could then turn that allocation drift into an actual sell/redeem instruction even while the top-level cash gate said not to operate.
-
 Current rule (D31): **allocation drift alone is not a sell signal**.
 
-`PortfolioDecisionEngine` now keeps an overweight existing position as `HOLD` and explains the theoretical deviation. A reduction must eventually be authorised by independent deterioration/consensus evidence.
-
-`UserPortfolioPanel` was relabeled from **Qué hacer con tu cartera y el dinero nuevo** to **Distribución teórica de tu cartera**. It explicitly states that target gaps are diagnostic and that new-capital amounts are pre-gate theoretical targets, not orders.
+`PortfolioDecisionEngine` keeps an overweight existing position as `HOLD` unless independent deterioration evidence authorises a reduction. `UserPortfolioPanel` describes target gaps as theoretical distribution, not executable orders.
 
 ## Explainable strategy consensus
 
-New engine: `src/investment/decision/strategyConsensusEngine.ts`.
+Engine: `src/investment/decision/strategyConsensusEngine.ts`.
 
-Uses only data already loaded by the app; no paid dependency. Five current votes:
+Five current votes using already-loaded data:
 
 - long trend: ~12-month return + distance to SMA200;
 - 120-session momentum, with 60/20-session context;
@@ -51,127 +47,104 @@ Uses only data already loaded by the app; no paid dependency. Five current votes
 
 Important asymmetry:
 
-- rejecting new money can happen with weak/negative consensus;
-- an existing position is not reduced because of one weak window or an overweight category;
+- weak/negative consensus can reject new money;
+- an existing position is not reduced because of one weak window or overweight alone;
 - `REDUCE_REVIEW` requires structural downtrend plus at least three adverse votes.
 
-`StrategyConsensusPanel` is in the primary flow and shows, for each shortlisted or already-owned instrument, the votes, whether a decline looks like a possible buy-the-dip or a structural fall, the new-money action and the existing-position action.
+The consensus also vetoes executable BUY / SUBSCRIBE / TRANSFER proposals when the target is not `BUY` under the consensus.
 
-The consensus now also acts as a **veto on executable new-money actions** in `PortfolioExecutionPlanPanel`: BUY / SUBSCRIBE / TRANSFER proposals are converted to `REVIEW / NO OPERAR` when the target is not `BUY` under the consensus. This closes the prior possibility of the top-level message saying maintain while a lower plan still proposed buying due to allocation/cash logic alone.
+The consensus does **not** yet replace LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum as production allocators. Promotion requires comparative causal/OOS evidence.
 
-The consensus does **not yet replace** LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum as production allocators. Promotion requires comparative causal/OOS evidence.
+## Historical dated-decision replay — validated
 
-## Historical dated-decision replay
-
-New files:
+Files:
 
 - `src/investment/decision/historicalShortlist.ts`
 - `src/investment/decision/historicalDecisionReplay.ts`
 - `src/components/HistoricalDecisionReplayPanel.tsx`
 - `tests/historicalDecisionReplay.unit.ts`
 
-The user can run annual (1 January) or quarterly historical start-date tests from the primary flow.
+Annual or quarterly historical start-date tests reconstruct the causal shortlist, run `InvestmentDecisionEngine`, execute the initial recommendation on the first later bar, model whole ETF shares / MyInvestor commission and fractional fund units, remunerate target/residual cash, and compare the final result with all-cash.
 
-For each requested date the replay:
+Causal invariant: changing only prices after the historical decision date may alter the eventual outcome but must not alter the reconstructed historical regime, method or target weights.
 
-1. keeps only bars available on/before that date;
-2. requires the same 252-bar minimum history;
-3. rebuilds the shortlist with the same scanner momentum/risk score, one-per-category diversification and defensive preference;
-4. runs the normal `InvestmentDecisionEngine` on that historical shortlist;
-5. executes the resulting static recommendation on the first later market bar;
-6. uses whole ETF shares + modeled MyInvestor commission and fractional fund units;
-7. remunerates target/residual cash at the configured benchmark;
-8. values positions at the latest REAL bar;
-9. compares with keeping the same starting capital entirely in remunerated cash.
+This remains a current-catalog replay and therefore retains explicit survivorship/catalog bias.
 
-Batch output includes:
+## Dynamic historical signal replay — validated
 
-- successful historical dates;
-- number/% beating all-cash;
-- median return;
-- median excess percentage points vs cash;
-- best/worst start dates;
-- per-date regime, method, cash target and full allocation drilldown.
-
-Causal invariant: changing only prices **after** the historical decision date may change final outcome but must not change the reconstructed historical regime, method or target weights.
-
-Remaining limitation: this still uses the present queryable catalog, so survivorship/catalog bias remains explicit. It reconstructs historical shortlist decisions within that catalog but does not reconstruct delisted/unavailable historical constituents.
-
-## Dynamic historical signal replay — implemented, validation pending
-
-New files:
+Files:
 
 - `src/investment/decision/dynamicHistoricalReplay.ts`
 - `src/components/DynamicHistoricalReplayPanel.tsx`
 - `tests/dynamicHistoricalReplay.unit.ts`
 - `docs/DYNAMIC_HISTORICAL_REPLAY.md`
 
-The new replay follows successive monthly or quarterly historical decisions instead of freezing the first recommendation until today.
+The dynamic replay follows successive monthly or quarterly historical decisions rather than freezing the initial recommendation until the end.
 
-At each chronological checkpoint it rebuilds the causal shortlist, reruns `InvestmentDecisionEngine`, rebuilds `StrategyConsensusEngine` for selected and already-held assets, and records BUY / ADD / HOLD / AVOID / REDUCE / EXIT signals.
+At each chronological checkpoint it:
+
+1. rebuilds the causal historical shortlist using only data available then;
+2. reruns `InvestmentDecisionEngine`;
+3. rebuilds `StrategyConsensusEngine` assessments for selected and already-held assets;
+4. records `BUY`, `ADD`, `HOLD`, `AVOID`, `REDUCE` and `EXIT` signals;
+5. executes eligible trades strictly after the information date;
+6. values the evolving portfolio and remunerates residual cash.
 
 Execution protections:
 
 - new positions require consensus `BUY`;
 - increases require `ADD`;
 - allocation drift alone never authorises a sale;
-- REDUCE / EXIT requires historical `REDUCE_REVIEW` plus a materially lower allocator target on that same date;
-- execution occurs strictly after the information date on a common post-signal market date;
+- `REDUCE` / `EXIT` requires historical `REDUCE_REVIEW` plus a materially lower allocator target on that same date;
 - sells execute before buys;
-- ETFs use whole shares and modeled MyInvestor commission; funds use fractional units;
-- residual cash is remunerated at the configured benchmark.
+- ETFs use whole shares and modeled MyInvestor commission;
+- funds use fractional units.
 
-The panel compares three outcomes over the same historical evidence:
+The UI compares three outcomes over the same historical evidence:
 
 1. following successive dynamic signals;
 2. initial recommendation + hold via `HistoricalDecisionReplayEngine`;
 3. all-cash remunerated benchmark.
 
-It also exposes a chronological signal timeline with consensus votes, structural-downtrend / buy-the-dip context, execution date, units, notional and fees. HOLD / AVOID can be shown for audit but are hidden by default.
+It exposes a chronological signal timeline with consensus votes, structural-downtrend / buy-the-dip context, execution date, units, notional and fees. HOLD / AVOID are available for audit but hidden by default.
 
-Important: this block is **implemented in `main` but not yet validated**. Do not call it green until AI Studio has run the full local `npm run validate:aistudio` and the recorded JSON has been inspected.
+`tests/dynamicHistoricalReplay.unit.ts` validates repeated chronological decisions, executable buy/add and reduce/exit paths, structural sell gating, next-bar execution and future-price isolation of earlier signals. This gate passed in the 2026-08-29 09:23:56 UTC full validation.
 
 ## Existing saved-recommendation simulator
 
-`RecommendationSimulationPanel` remains separate from the historical replay engines:
+`RecommendationSimulationPanel` remains separate:
 
-- saved-snapshot simulator asks what a recommendation actually stored by the app would be worth today;
-- dated-decision replay reconstructs what the current engine would have recommended on chosen historical dates even if no snapshot was saved then;
-- dynamic replay measures whether following later historical signals would have improved or worsened that initial decision.
+- saved-snapshot simulator: what an actually stored recommendation would be worth today;
+- dated static replay: what the current engine would have recommended at a chosen historical date;
+- dynamic replay: whether following later historical signals would improve or worsen that initial decision.
 
-All compare against remunerated cash where applicable and remain historical diagnostics, not forecasts.
+All are historical diagnostics, not forecasts.
 
 ## Cash benchmark / execution economics
 
 Default configurable reference: **2.5% annual**.
 
-- BUY/SUBSCRIBE/TRANSFER must beat the cash hurdle after modeled ETF entry fee where applicable.
-- ETFs use whole shares, MyInvestor 0.12%, min 1 EUR/order, max 25 EUR/order.
-- capital-adaptive execution suppresses uneconomic small orders.
-- mixed historical replay accrues residual cash over calendar days/365.
+- BUY/SUBSCRIBE/TRANSFER must beat the cash hurdle after modeled ETF entry fee where applicable;
+- ETFs use whole shares, MyInvestor 0.12%, min 1 EUR/order, max 25 EUR/order;
+- capital-adaptive execution suppresses uneconomic small orders;
+- residual cash accrues over calendar days/365;
 - fund explicit subscription/redemption commission remains unmodeled until verified.
 
 ## Free-data rule
 
 No strategy or primary feature may require a new paid market-data, news or fundamentals subscription. Existing free/zero-incremental-cost sources may be used with explicit provenance and graceful failure. Paid evidence may only be optional in the future.
 
-## Validation gates added in this block
+## Validation gates
 
-Package scripts now include:
+Relevant package scripts include:
 
 - `npm run test:strategy-consensus`
 - `npm run test:historical-decision-replay`
 - `npm run test:dynamic-historical-replay`
 
-All are part of `validate:aistudio:raw`.
+All are included in `validate:aistudio:raw`. Latest recorded full validation is green at **2026-08-29 09:23:56 UTC**.
 
-`tests/strategyConsensus.unit.ts` checks that a healthy long-term trend with a controlled oversold drawdown can be identified as buy-the-dip and that one weak recent window does not trigger a sell; a true structural fall with several adverse signals can trigger `REDUCE_REVIEW`.
-
-`tests/historicalDecisionReplay.unit.ts` checks historical-date causality, next-bar execution and future-price isolation of historical decisions.
-
-`tests/dynamicHistoricalReplay.unit.ts` adds repeated chronological decisions, executable buy/add and reduce/exit paths, structural sell gating, post-signal execution and future-price isolation of earlier dynamic signals.
-
-## Known limitations / next research block
+## Known limitations / research cautions
 
 - Present-catalog survivorship bias remains in historical replays.
 - Exact MyInvestor/Inversis availability remains pending for several active targets.
@@ -179,13 +152,13 @@ All are part of `validate:aistudio:raw`.
 - Historical broker availability changes are not reconstructed.
 - Dynamic replay drawdown is currently measured on decision/execution path points rather than every daily session and can understate intraperiod drawdown.
 - Yahoo remains unofficial/non-contractual.
-- The consensus signal thresholds are deterministic first-pass thresholds; they must not be optimized on the full sample and then claimed as predictive.
-- Mean reversion is implemented as an explainable signal/veto, not yet as a production allocator.
+- Consensus thresholds are deterministic first-pass thresholds; do not optimize them on the full sample and then claim predictive power.
+- Mean reversion is currently an explainable signal/veto, not yet a production allocator.
 
 ## Immediate next step
 
-1. In AI Studio, sync `fmaranis/Trading/main` and run **only** the local deterministic validation: `npm run validate:aistudio`.
-2. Read `validation-results/latest-aistudio-run.json` and related result files directly from GitHub; do not ask the user to paste output.
-3. If TypeScript/test/runtime failures appear, fix them directly on `main`; AI Studio remains test-only and must not develop the feature.
-4. After green validation, manually verify primary UI: automatic refresh, consensus panel, no sell-from-overweight contradiction, static historical replay and dynamic signal timeline/comparisons.
-5. Next implementation block after dynamic replay is validated: comparative causal strategy lab for **Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble**. Dynamic replay should then be reused as an evaluation surface to test whether each strategy's successive actions add or destroy value versus its own buy-and-hold baseline and cash.
+1. Treat static and dynamic historical replay as implemented and validated; do not rebuild them.
+2. Manually inspect the primary UI when convenient: automatic refresh, consensus panel, no sell-from-overweight contradiction, static replay, dynamic signal timeline and the dynamic-vs-static-vs-cash comparison.
+3. Next implementation block: build a **comparative causal strategy lab** for **Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble**.
+4. Reuse the dynamic replay as an evaluation surface so each strategy is judged not only by CAGR/Sharpe but by whether its successive BUY/ADD/REDUCE/EXIT actions add or destroy value versus its own static buy-and-hold baseline and remunerated cash.
+5. Do not promote Mean Reversion or Ensemble into the production allocator until comparative causal/OOS evidence supports it.
