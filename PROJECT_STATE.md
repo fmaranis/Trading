@@ -4,128 +4,165 @@
 
 ## Current status — 2026-08-29
 
-React + TypeScript + Vite research/decision-support app. It ranks REAL instruments, explains decisions, reconstructs causal historical recommendations and proposes manual execution plans; it does not submit broker trades.
+React + TypeScript + Vite decision-support app using REAL market data. It ranks instruments, explains decisions, reconstructs causal historical recommendations and proposes manual broker actions; it does not submit broker orders.
 
-Latest fully recorded validation: **2026-08-29 17:51:02 UTC**, green (`exitCode: 0`, `ok: true`, all 3 expected markers detected). That run validated the integrated production + random holdout + adverse paths + historical negative-window stress. The current HEAD contains a subsequent UI visualization change and a read-only validation-result endpoint, so one fresh `npm run validate:aistudio` is required before the newest HEAD is called fully validated.
+Latest recorded validation before the current interaction/UX overhaul: **2026-08-29 18:10:02 UTC**, green (`exitCode: 0`, `ok: true`, all 3 markers detected). Current HEAD contains subsequent transactional portfolio-state and UX changes and therefore requires a fresh `npm run validate:aistudio`.
 
-## Product architecture rule
+## Non-negotiable architecture
 
-**One user question = one visible surface.** Internal engines may remain modular for correctness/testability, but a new engine, test or diagnostic must be integrated into an existing user-facing flow/result whenever it answers the same question. Do not create another top-level panel, command or JSON merely because another calculation exists.
+**One user question = one visible surface.** Internal engines may remain modular, but calculation modules/tests must not become competing cards/pages/results when they answer the same user question.
 
-Current visible flow:
+**State → Action → Evidence** is now the required visible flow:
 
-1. REAL market refresh;
-2. **Qué haría hoy** — single actionable recommendation;
-3. optional **Por qué** — consensus/evidence explanation;
-4. **Tu cartera**;
-5. **Cómo habría funcionado esta decisión en el pasado** — one integrated historical/robustness surface;
-6. optional **Seguimiento y memoria** — alerts/snapshots/audit.
+1. **Mi cartera** — one factual current state;
+2. **Qué haría hoy** — the only operational surface;
+3. optional **Por qué recomienda eso** — explanatory evidence only;
+4. **¿Funciona también fuera de los casos cómodos?** — historical/generalization evidence;
+5. optional **Seguimiento y memoria** — audit/alerts/snapshots.
 
-## Core decision protections
+Do not reintroduce long sequences of intermediate theoretical outputs as primary UI.
+
+## Single portfolio source of truth and transaction invariant
+
+Canonical client portfolio state is `UserPortfolioService` (`custodia_user_portfolio_v1`).
+
+Critical invariant:
+
+> **An operation cannot be considered executed unless it changes the canonical portfolio state consistently.**
+
+The former `Marcar hecha` behavior was invalid because it only set an execution-plan line to `DONE`; it did not change holdings or liquidity. That design has been removed from the operational flow.
+
+`src/investment/decision/portfolioStateExecution.ts` now applies manual executions transactionally:
+
+- `BUY_ETF`: consumes available liquidity including modeled fee and adds/increments shares;
+- `SELL_ETF`: removes shares and credits net proceeds to cash;
+- `SUBSCRIBE_FUND`: consumes liquidity and creates/increments the fund position;
+- `REDEEM_FUND`: reduces the source fund and credits cash;
+- `TRANSFER_FUND`: moves value from source to destination fund without fabricating cash;
+- `REVIEW`: cannot be executed;
+- insufficient liquidity, insufficient shares or invalid quantities reject the operation and leave state unchanged.
+
+For backward compatibility the stored state still contains `cashEur` and `stagedCapitalPlan.availableEur`. The primary UI exposes their sum as **Liquidez disponible**, so there is one visible liquidity number. Purchases consume the staged/pending bucket first and then cash; sells/reimbursements credit cash.
+
+`UserPortfolioService.save/restoreExample/clear` now emit `custodia:user-portfolio-updated`. Components subscribe to this event instead of holding isolated stale copies.
+
+`PortfolioExecutionPlanPanel` now uses **Aplicar a mi cartera**. A successful operation:
+
+1. applies the transaction;
+2. persists the new portfolio;
+3. emits the portfolio update;
+4. refreshes the visible portfolio;
+5. regenerates `Qué haría hoy` from the new state;
+6. shows a receipt with liquidity before → after.
+
+A failed operation is not marked executed.
+
+## Portfolio UI
+
+`UserPortfolioPanel` is now a concise factual state view. Default visible values are only:
+
+- **Invertido ahora**;
+- **Liquidez disponible**;
+- **Capital total controlado**;
+- compact current-position list.
+
+Manual editing is collapsed under **Editar cartera y liquidez**.
+
+Theoretical exposure/gap calculations remain available only under **Ver diagnóstico teórico** and are explicitly non-operational. The final actionable recommendation remains exclusively in `Qué haría hoy`.
+
+## Current decision protections
 
 - allocation drift/overweight alone is **not** a sell signal;
-- new money requires adequate strategy consensus;
+- new money requires strategy consensus plus cash/cost/execution gates;
 - existing positions require stronger evidence to reduce;
-- `REDUCE_REVIEW` requires structural deterioration plus several adverse votes;
+- historical `REDUCE/EXIT` requires structural deterioration plus multiple adverse votes and a lower causal allocator target;
 - historical trades execute after the information date;
 - ETFs use whole shares and modeled MyInvestor commission;
-- funds use fractional units;
+- funds use fractional units where historical simulation requires them;
 - residual cash earns the configured benchmark (default 2.5%).
 
-Production allocators remain LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum. Mean Reversion remains an explainable signal/veto, not a promoted allocator.
+Production allocators remain LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum. Mean Reversion remains a signal/veto, not a promoted allocator.
 
-## Integrated historical analysis and visible charts
+## Historical and external evidence
 
 User-facing component: `src/components/HistoricalDecisionReplayPanel.tsx`.
 
-One button/surface runs:
-- dynamic chronological replay with BUY/ADD/HOLD/AVOID/REDUCE/EXIT;
-- comparison with initial recommendation + hold;
-- comparison with remunerated cash;
-- robustness across historical start dates.
+External validation is now fetched **on component mount**, not only after opening a robustness disclosure. Therefore the user immediately sees a compact section:
 
-The same surface now also visualizes results instead of leaving them only in cards/JSON:
-- equity-path line chart for the selected historical replay;
-- inside the existing collapsed robustness section, a grouped bar chart for the seeded external random sample (`seguir avisos` vs `comprar y mantener` vs `cash`);
-- a horizontal bar chart for the worst REAL 6M/12M loss episodes, showing realized window loss and max drawdown;
-- per-episode behavioral summaries showing whether the engine avoided, bought/added, reduced or exited during the losing window.
+**Pruebas con activos que NO son los de siempre**
 
-The external charts read the latest existing `validation-results/latest-broker-aware-execution-sweep.json` through read-only endpoint `/api/validation/latest-broker-aware`. This does not create another validation artifact and does not rerun Yahoo/EODHD from the browser.
+It shows:
 
-Internal engines remain separate only for calculation quality:
-- `historicalDecisionReplay.ts`
-- `dynamicHistoricalReplay.ts`
+- number of accepted external REAL instruments;
+- seeded random-sample size and success counts;
+- the worst visible REAL 6M/12M loss episodes;
+- the engine response in those episodes (`NO COMPRAR`, `REDUCIR`, `SALIR`, etc.).
 
-## Integrated REAL live validation
+Full random-sample and negative-window charts are behind one disclosure, preserving the one-surface/no-data-dump rule.
 
-Primary script: `scripts/brokerAwareExecutionSweepLive.ts`.
+A user-selected historical replay remains available with:
 
-It emits the existing `BROKER_AWARE_EXECUTION_SWEEP_RESULT`; no separate holdout/live-loss artifact exists. The integrated result covers:
-- REAL provider provenance/fingerprints;
-- production research reference;
-- adaptive ETF execution sweep;
-- mixed ETF/fund execution sweep;
-- fund eligibility diagnostics;
-- production dynamic historical replay;
-- external random holdout;
-- adverse-path stress;
-- historical negative-window stress.
+- follow-signals vs initial-buy-and-hold vs remunerated cash;
+- equity-path chart;
+- historical signal audit collapsed;
+- start-date robustness collapsed.
 
-Synthetic fallback is forbidden for accepted REAL validation series.
+The external evidence comes from the existing read-only endpoint `/api/validation/latest-broker-aware`, which reads the existing `validation-results/latest-broker-aware-execution-sweep.json`. It does not create another validation artifact or rerun market providers from the browser.
 
-## External holdout robustness — validated 17:51 UTC
+## External holdout and negative-window validation
 
-`EUR_VALIDATION_HOLDOUT_UNIVERSE` is separate from `EUR_ASSET_UNIVERSE`; deterministic tests assert no ticker/asset-id overlap. It cannot influence production recommendations.
+`EUR_VALIDATION_HOLDOUT_UNIVERSE` is separate from production and cannot influence live recommendations. Deterministic tests assert no ticker/asset-id overlap.
 
-Latest effective holdout:
-- requested: 19 external instruments;
-- accepted: 16 ETFs/ETCs;
-- rejected: 3 external mutual funds;
-- seeded random sample: 8 external tickers;
-- random sample replay previously showed generalization outside the production catalogue;
-- adverse-path replay produced genuine REDUCE/EXIT behavior only when structural sell gates were satisfied.
+Last validated external run:
 
-## Historical negative-window stress — validated 17:51 UTC
+- 19 requested external candidates;
+- 16 accepted ETFs/ETCs;
+- 3 external mutual funds rejected because EODHD returned `QUOTA_EXHAUSTED`;
+- EODHD itself was configured correctly;
+- seeded random sample used 8 external instruments;
+- real adverse paths produced REDUCE/EXIT only when structural sell gates were met.
 
-The integrated live script searches each accepted holdout series for its worst REAL:
-- 6-month (~126-session) negative window;
-- 12-month (~252-session) negative window.
+Historical negative-window examples from the recorded REAL run:
 
-A candidate episode is eligible only when at least **252 prior observations already exist at the episode start**, so the engine starts without seeing the subsequent loss.
+- `EXI5.DE` 12M: -45.36%, max DD 48.06%; initially BUY/ADD while evidence was positive, later REDUCE with structural downtrend and consensus -4 / 4 adverse votes;
+- `EXI5.DE` worst 6M: -41.73%; AVOID in all six observed reviews, no buy/add;
+- `G1CE.DE` worst 12M: -35.36%; AVOID during observed loss-window reviews.
 
-Latest run evaluated 4/4 selected episodes. Examples found:
-- `EXI5.DE`: 12M return -45.36%, max DD 48.06%; engine initially bought/added while evidence was favorable, later issued `REDUCE` on 2022-07-01 with structural downtrend and consensus -4 / 4 adverse votes;
-- `EXI5.DE`: worst 6M window -41.73%; engine emitted `AVOID` in all 6 observed reviews and never bought/added during the loss window;
-- `G1CE.DE`: worst 12M window -35.36%; engine emitted `AVOID` during the observed loss-window reviews and did not buy/add.
+Random holdout is the relevant out-of-production-catalog generalization check. Adverse cohorts and worst historical loss windows are **ex-post behavioral stress tests only**, never unbiased OOS evidence for parameter tuning.
 
-These episodes are ex-post **behavioral stress tests**, not unbiased OOS evidence. They must never be used to tune thresholds and then claimed as independent validation.
+## Validation gates
 
-## Fund-data diagnostics — resolved cause in 17:51 run
+Existing `validate:aistudio:raw` includes `tests/portfolioExecutionPlan.unit.ts`. That test now also verifies transactional state application:
 
-The diagnostic bug that collapsed provider failures to generic `Error` is fixed. `assetUniverseScanner.ts` preserves the actual provider message.
+- ETF buy adds shares and consumes liquidity + fee;
+- insufficient liquidity rejects the buy;
+- ETF sale removes shares and credits net cash;
+- fund subscription creates a real fund position and consumes liquidity;
+- fund transfer changes holdings without changing liquidity;
+- REVIEW cannot be executed.
 
-The latest run showed:
-- EODHD endpoint configured successfully (`configured: true`);
-- production mutual funds rejected with `QUOTA_EXHAUSTED`;
-- the 3 external mutual funds also rejected with `QUOTA_EXHAUSTED`.
+No standalone transaction command/result/marker was created.
 
-Therefore the current inability to include mutual-fund NAV series in the live validation is a provider quota limitation, not a calculation-engine or ISIN failure. Primary ETF/Yahoo functionality remains available and non-blocking.
+## Known limitations
 
-## Research discipline
-
-- random holdout = relevant out-of-production-catalog generalization check;
-- adverse cohorts and historical loss windows = ex-post behavioral stress only;
-- no threshold/allocator/execution-rule tuning from stress cohorts without defining a new untouched validation split;
+- two internal liquidity buckets remain for backward compatibility although one combined number is exposed to users;
+- mutual-fund live validation is currently limited by EODHD quota;
 - current-catalog survivorship bias remains;
-- dynamic replay drawdown is measured on decision/execution path points and can understate intraperiod drawdown;
-- Yahoo remains unofficial/non-contractual;
-- primary functionality must not require a new paid external subscription.
+- dynamic replay drawdown is sampled at decision/execution points and can understate intraperiod drawdown;
+- Yahoo is unofficial/non-contractual;
+- broker availability still requires verified/manual evidence where automatic availability is unknown;
+- primary functionality must not require a new paid data subscription.
 
 ## Immediate next step
 
 1. Sync current `fmaranis/Trading/main` into AI Studio.
-2. Run **one** local `npm run validate:aistudio`; AI Studio must not modify code.
-3. Confirm TypeScript/build/runtime remain green after adding Recharts visualization and `/api/validation/latest-broker-aware`.
-4. Open the normal app, run **Analizar histórico**, expand **¿Depende demasiado de la fecha o de los activos elegidos?**, and verify the three integrated visual areas render: equity path, external random comparison, and negative-window stress chart/cards.
-5. Fix any failure directly in GitHub and rerun the same single validation.
-6. Only after this is green proceed to the comparative causal strategy lab (Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble), integrated into the same evidence/historical flow rather than another top-level module.
+2. Run exactly one local `npm run validate:aistudio`; AI Studio must not modify source.
+3. Inspect the existing result JSONs directly from GitHub.
+4. Verify TypeScript plus the new portfolio transaction invariants are green.
+5. Visual sanity check in the normal app:
+   - `Mi cartera` shows one combined liquidity number;
+   - applying a proposed operation updates holdings/liquidity immediately;
+   - `Qué haría hoy` recalculates after that change;
+   - external/bad cases are visible without first running the normal historical replay;
+   - theoretical diagnostics remain collapsed by default.
+6. Fix any failure directly in GitHub and rerun the same validation. Do not proceed to the comparative strategy lab until this interaction flow is coherent and green.
