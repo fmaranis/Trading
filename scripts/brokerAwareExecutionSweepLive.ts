@@ -7,10 +7,12 @@ import {
   BrokerAwareCausalReplayEngine,
   CausalUniverseBacktestEngine,
   CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS,
+  DynamicHistoricalReplayEngine,
   EUR_ASSET_UNIVERSE,
   MixedInstrumentCausalReplayEngine,
   executionPolicyForCapital,
-  DEFAULT_CASH_BENCHMARK_ANNUAL_PCT
+  DEFAULT_CASH_BENCHMARK_ANNUAL_PCT,
+  historicalStartDates
 } from '../src/investment/decision';
 
 async function waitFor(url: string, timeoutMs = 30_000): Promise<boolean> {
@@ -22,6 +24,7 @@ async function waitFor(url: string, timeoutMs = 30_000): Promise<boolean> {
   return false;
 }
 function isoDate(date: Date): string { return date.toISOString().slice(0, 10); }
+function round(value: number | null, digits = 2): number | null { return value == null ? null : Number(value.toFixed(digits)); }
 
 async function main() {
   const base = 'http://127.0.0.1:3000';
@@ -41,6 +44,20 @@ async function main() {
     const end = new Date();
     const start = new Date(end); start.setUTCFullYear(start.getUTCFullYear() - 7);
     const scan = await AssetUniverseScanner.scan(EUR_ASSET_UNIVERSE, isoDate(start), isoDate(end), { forceRefresh: false, concurrency: 3, maxSelected: 8, minimumBars: 252, maxDataAgeDays: 7 });
+
+    const provenance = scan.acceptedDataset.assets.map(asset => ({
+      assetId: asset.assetId,
+      ticker: asset.ticker,
+      sourceType: asset.provenance.sourceType,
+      provider: asset.provenance.provider ?? null,
+      symbol: asset.provenance.symbol ?? null,
+      bars: asset.bars.length,
+      firstDate: asset.bars[0]?.timestamp.slice(0, 10) ?? null,
+      lastDate: asset.bars.at(-1)?.timestamp.slice(0, 10) ?? null,
+      datasetFingerprint: asset.provenance.datasetFingerprint ?? null
+    }));
+    const nonReal = provenance.filter(item => item.sourceType !== 'REAL');
+    if (nonReal.length) throw new Error(`La validación live exige REAL_ONLY; encontrados ${nonReal.length} activos no REAL.`);
 
     const baseConfig = { initialCapital: 100, commissionPct: 0.05, slippagePct: 0.02, riskProfile: 'MEDIUM' as const, horizonYears: 3 as const, rebalanceFrequency: 'MONTHLY' as const };
     const research = CausalUniverseBacktestEngine.run(scan.acceptedDataset, EUR_ASSET_UNIVERSE, baseConfig, 8);
@@ -88,8 +105,76 @@ async function main() {
       };
     });
 
+    const dynamicStarts = historicalStartDates(scan.acceptedDataset, 'ANNUAL').slice(-5);
+    const dynamicScenarios = dynamicStarts.map(startDate => {
+      const replay = DynamicHistoricalReplayEngine.run({
+        dataset: scan.acceptedDataset,
+        catalog: EUR_ASSET_UNIVERSE,
+        startDate,
+        frequency: 'MONTHLY',
+        initialCapitalEur: 1000,
+        riskProfile: 'MEDIUM',
+        horizonYears: 3,
+        cashBenchmarkAnnualPct: DEFAULT_CASH_BENCHMARK_ANNUAL_PCT,
+        minimumBars: 252
+      });
+      return {
+        startDate: replay.startDate,
+        endDate: replay.endDate,
+        finalValueEur: round(replay.finalValueEur),
+        totalReturnPct: round(replay.totalReturnPct),
+        staticBuyHoldFinalEur: round(replay.staticBuyHoldFinalEur),
+        staticBuyHoldReturnPct: round(replay.staticBuyHoldReturnPct),
+        allCashFinalEur: round(replay.allCashFinalEur),
+        allCashReturnPct: round(replay.allCashReturnPct),
+        excessFinalEurVsStatic: round(replay.excessFinalEurVsStatic),
+        excessReturnVsStaticPctPoints: round(replay.excessReturnVsStaticPctPoints),
+        excessFinalEurVsCash: round(replay.excessFinalEurVsCash),
+        excessReturnVsCashPctPoints: round(replay.excessReturnVsCashPctPoints),
+        decisionPathMaxDrawdownPct: round(replay.decisionPathMaxDrawdownPct),
+        decisions: replay.decisions,
+        executedBuys: replay.executedBuys,
+        executedAdds: replay.executedAdds,
+        executedReductions: replay.executedReductions,
+        executedExits: replay.executedExits,
+        totalFeesEur: round(replay.totalFeesEur),
+        cashInterestEur: round(replay.cashInterestEur),
+        executedSignals: replay.signals.filter(signal => signal.executed).map(signal => ({
+          signalDate: signal.signalDate,
+          executionDate: signal.executionDate,
+          ticker: signal.ticker,
+          action: signal.action,
+          targetWeightPct: round(signal.targetWeight * 100, 1),
+          currentWeightPct: round(signal.currentWeight * 100, 1),
+          consensusScore: signal.consensusScore,
+          favorableVotes: signal.favorableVotes,
+          unfavorableVotes: signal.unfavorableVotes,
+          structuralDowntrend: signal.structuralDowntrend,
+          buyTheDipCandidate: signal.buyTheDipCandidate,
+          notionalEur: round(signal.notionalEur),
+          feeEur: round(signal.feeEur),
+          executionPriceEur: round(signal.executionPriceEur),
+          reason: signal.reason
+        }))
+      };
+    });
+    const dynamicHistoricalReplay = {
+      configuration: { riskProfile: 'MEDIUM', horizonYears: 3, initialCapitalEur: 1000, frequency: 'MONTHLY', cashBenchmarkAnnualPct: DEFAULT_CASH_BENCHMARK_ANNUAL_PCT, minimumBars: 252, requestedHistoricalStarts: dynamicStarts },
+      summary: {
+        scenarioCount: dynamicScenarios.length,
+        scenariosBeatingStatic: dynamicScenarios.filter(item => (item.excessFinalEurVsStatic ?? 0) > 0).length,
+        scenariosBeatingCash: dynamicScenarios.filter(item => (item.excessFinalEurVsCash ?? 0) > 0).length,
+        totalExecutedBuys: dynamicScenarios.reduce((sum, item) => sum + item.executedBuys, 0),
+        totalExecutedAdds: dynamicScenarios.reduce((sum, item) => sum + item.executedAdds, 0),
+        totalExecutedReductions: dynamicScenarios.reduce((sum, item) => sum + item.executedReductions, 0),
+        totalExecutedExits: dynamicScenarios.reduce((sum, item) => sum + item.executedExits, 0)
+      },
+      scenarios: dynamicScenarios
+    };
+
     const result = {
-      generatedAt: new Date().toISOString(), scope: 'ADAPTIVE_AND_MIXED_EXECUTION_CAPITAL_SWEEP',
+      generatedAt: new Date().toISOString(), scope: 'INTEGRATED_REAL_EXECUTION_AND_HISTORICAL_VALIDATION',
+      provenance,
       researchReference: { initialCapitalEur: research.initialCapital, researchTrades: research.totalTrades, researchRebalanceWindows: research.rebalanceCount, researchReturnPct: Number(research.totalReturnPct.toFixed(2)) },
       cashBenchmarkAnnualPct: DEFAULT_CASH_BENCHMARK_ANNUAL_PCT,
       fundEligibility,
@@ -99,15 +184,17 @@ async function main() {
         noMonthlyWindowAfterEligibility: fundEligibility.filter(x => x.diagnosis === 'NO_MONTHLY_CAUSAL_WINDOW_AFTER_252_BAR_ELIGIBILITY').length,
         eligibleButNotSelected: fundEligibility.filter(x => x.diagnosis === 'ELIGIBLE_BUT_OUTRANKED_OR_CATEGORY_DEDUPED').length
       },
-      adaptiveEtfSweep, mixedSweep,
-      interpretation: 'COMPARE_RESEARCH_SIGNAL_WITH_EXECUTABLE_MIXED_REPLAY_AND_REMUNERATED_ALL_CASH_BENCHMARK',
+      adaptiveEtfSweep,
+      mixedSweep,
+      dynamicHistoricalReplay,
+      interpretation: 'ONE_REAL_DATASET_FOR_RESEARCH_EXECUTION_CASH_AND_DYNAMIC_SIGNAL_EVIDENCE',
       notes: [
+        'One REAL scan feeds research, execution diagnostics and dynamic historical signal replay; synthetic fallback is forbidden.',
         'Adaptive ETF replay changes execution thresholds by capital band but not research targets.',
         'Mixed replay models ETFs as whole-share broker orders and funds by EUR/NAV with fractional units.',
-        'Residual cash inside the mixed strategy earns the configured annual cash rate using calendar days/365.',
-        'All-cash benchmark keeps the full initial capital remunerated over the identical replay dates.',
-        'Fund eligibility diagnostics distinguish insufficient causal history from genuine ranking/category exclusion; funds are never forced into the shortlist.',
-        'Results are historical execution diagnostics, not profitability forecasts.'
+        'Dynamic replay compares successive historical signals with the initial recommendation held unchanged and with remunerated cash.',
+        'Historical decisions remain causal and execute after their information date.',
+        'Current-catalog survivorship bias remains and results are historical diagnostics, not forecasts.'
       ]
     };
     console.log('BROKER_AWARE_EXECUTION_SWEEP_RESULT');
