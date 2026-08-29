@@ -66,12 +66,25 @@ async function main() {
   });
 
   let output = '';
+  let spawnError: string | null = null;
   child.stdout.on('data', chunk => { const text = String(chunk); output += text; process.stdout.write(text); });
   child.stderr.on('data', chunk => { const text = String(chunk); output += text; process.stderr.write(text); });
 
-  const exitCode = await new Promise<number | null>((resolve, reject) => {
-    child.on('close', resolve);
-    child.on('error', reject);
+  const exitCode = await new Promise<number | null>(resolve => {
+    let settled = false;
+    const finish = (code: number | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(code);
+    };
+    child.on('close', finish);
+    child.on('error', error => {
+      spawnError = error?.message || String(error);
+      const text = `\nVALIDATION_SPAWN_ERROR: ${spawnError}\n`;
+      output += text;
+      process.stderr.write(text);
+      finish(1);
+    });
   });
 
   const detectedMarkers = selected.markers.filter(item => output.includes(item.marker)).map(item => item.marker);
@@ -80,7 +93,8 @@ async function main() {
     mode,
     underlyingScript: selected.script,
     exitCode: exitCode ?? 1,
-    ok: exitCode === 0,
+    ok: exitCode === 0 && !spawnError,
+    spawnError,
     expectedMarkers: selected.markers.map(item => item.marker),
     detectedMarkers,
     outputTail: output.slice(-12000)
@@ -137,7 +151,7 @@ async function main() {
     }
   }
 
-  if (exitCode !== 0) process.exitCode = exitCode ?? 1;
+  if (exitCode !== 0 || spawnError) process.exitCode = exitCode ?? 1;
 }
 
 main().catch(error => {
