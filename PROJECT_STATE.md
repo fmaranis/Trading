@@ -4,133 +4,145 @@
 
 ## Current status — 2026-08-29
 
-React + TypeScript + Vite research/decision-support app. It ranks, backtests, alerts and proposes manual execution plans; it does not submit broker trades.
+React + TypeScript + Vite research/decision-support app. It ranks, backtests, explains signals, simulates historical recommendations and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation: **2026-08-29 06:33 UTC**, green (`exitCode: 0`, `ok: true`, `spawnError: null`). This validation includes the remunerated-cash replay and all prior deterministic suites. Product-flow/UI changes listed below were made **after** that validation and require one fresh local `npm run validate:aistudio` before being called validated.
+Latest fully recorded validation remains **2026-08-29 06:33 UTC**, green (`exitCode: 0`, `ok: true`, `spawnError: null`). All product/strategy changes listed below were made **after** that run and therefore require one fresh local `npm run validate:aistudio` before being called validated.
 
-## Product direction — decision/action first
+## Product direction
 
-The application must behave like an investment decision tool, not a collection of unrelated analytics cards.
+The app must answer investment questions, not behave like a static analytics dashboard.
 
-Primary flow now is:
+Normal flow:
 
-1. market data refreshes automatically on entry using the REAL universe;
-2. current market/risk context;
-3. visible cash-vs-investment guardrails;
-4. **Qué haría hoy · Recomendación accionable** generated automatically from the current portfolio + market decision + execution gates;
-5. **Mi cartera real**;
-6. **Si hubiera seguido una recomendación anterior…** historical simulator linked to saved daily recommendation snapshots;
-7. alerts and change tracking;
-8. research charts/provider diagnostics collapsed or explicitly secondary.
+1. automatic REAL market refresh after first paint;
+2. current market/risk context and cash benchmark;
+3. explainable multi-signal consensus;
+4. explicit actionable plan or **HOY: MANTENER / NO FORZAR OPERACIONES**;
+5. real portfolio;
+6. historical dated-decision replay;
+7. saved-recommendation simulation;
+8. alerts;
+9. research/provider detail secondary/lazy.
 
-Important product rule: important recommendations must not exist only inside research/backtest modules. They must be translated into a visible action or an explicit “mantener/no operar” conclusion.
+Core usefulness must not require a new paid external subscription. See `docs/DECISIONS.md` D30.
 
-## Automatic refresh / responsiveness
+## Sell-protection / theoretical allocation separation
 
-The previous fully-manual market-loading experiment was rejected as poor UX. `InteractiveInvestmentDecisionCenter.tsx` again starts the REAL universe scan automatically after first paint using `requestIdleCallback` (short timer fallback), while keeping the heavy multi-asset research chart lazy.
+Previous issue: `PortfolioDecisionEngine` treated >5 pp category overweights as `REDUCE` / `REVIEW_TRANSFER`; `PortfolioExecutionPlan` could then turn that allocation drift into an actual sell/redeem instruction even while the top-level cash gate said not to operate.
 
-The earlier app freeze was traced more plausibly to stale persisted execution-plan data than to the market scan itself; defensive fallbacks remain in place for old stored plans.
+Current rule (D31): **allocation drift alone is not a sell signal**.
 
-Manual **Actualizar ahora** remains available but is not required for normal entry.
+`PortfolioDecisionEngine` now keeps an overweight existing position as `HOLD` and explains the theoretical deviation. A reduction must eventually be authorised by independent deterioration/consensus evidence.
 
-## Actionable recommendation
+`UserPortfolioPanel` was relabeled from **Qué hacer con tu cartera y el dinero nuevo** to **Distribución teórica de tu cartera**. It explicitly states that target gaps are diagnostic and that new-capital amounts are pre-gate theoretical targets, not orders.
 
-`PortfolioExecutionPlanPanel` now generates the execution plan automatically when `scan` / `decision` changes. The previous mandatory **Preparar operaciones** step is removed.
+## Explainable strategy consensus
 
-The top of that panel states one explicit conclusion:
+New engine: `src/investment/decision/strategyConsensusEngine.ts`.
 
-- one or more concrete BUY / SELL / SUBSCRIBE / TRANSFER / REDEEM actions, including target and amount; or
-- **HOY: MANTENER / NO FORZAR OPERACIONES** when no target clears all gates.
+Uses only data already loaded by the app; no paid dependency. Five current votes:
 
-The detailed lines remain below for auditability, broker availability confirmation and manual completion status.
+- long trend: ~12-month return + distance to SMA200;
+- 120-session momentum, with 60/20-session context;
+- mean reversion / buy-the-dip: RSI14 + current 252-session drawdown + long-trend integrity;
+- risk: annualized volatility + drawdown;
+- cash hurdle: annualized 120-session proxy versus configured remunerated-cash benchmark.
 
-Execution still respects:
+Important asymmetry:
 
-- cash benchmark/opportunity cost;
-- whole ETF shares;
-- MyInvestor modeled commissions;
-- capital-adaptive cost gates;
-- broker availability evidence;
-- fund-vs-ETF semantics.
+- rejecting new money can happen with weak/negative consensus;
+- an existing position is not reduced because of one weak window or an overweight category;
+- `REDUCE_REVIEW` requires structural downtrend plus at least three adverse votes.
 
-## Recommendation-history simulator
+`StrategyConsensusPanel` is in the primary flow and shows, for each shortlisted or already-owned instrument, the votes, whether a decline looks like a possible buy-the-dip or a structural fall, the new-money action and the existing-position action.
 
-New component: `src/components/RecommendationSimulationPanel.tsx`.
+The consensus is currently explanatory/veto logic. It does **not yet replace** LOW=Inverse Volatility, MEDIUM=Risk Parity ERC, HIGH=Relative Momentum as production allocators. Promotion requires comparative causal/OOS evidence.
 
-It consumes the same `MarketSnapshotHistoryService` snapshots already saved by the app and is mounted directly in the portfolio/action flow.
+## Historical dated-decision replay
 
-The user can choose a saved recommendation and a simulated capital amount. For each allocation it calculates:
+New files:
 
-- first executable market bar after the recommendation date;
-- entry price;
-- current/latest REAL price from the same accepted dataset;
-- ETF whole-share quantity and modeled MyInvestor commission;
-- fund fractional units/NAV semantics;
-- residual cash remuneration at the configured cash benchmark;
-- current simulated value and return.
+- `src/investment/decision/historicalShortlist.ts`
+- `src/investment/decision/historicalDecisionReplay.ts`
+- `src/components/HistoricalDecisionReplayPanel.tsx`
+- `tests/historicalDecisionReplay.unit.ts`
 
-It also compares the complete recommendation with leaving the same capital in remunerated cash over the identical period and reports:
+The user can run annual (1 January) or quarterly historical start-date tests from the primary flow.
 
-- value today;
-- return;
-- all-cash value/return;
-- excess EUR;
-- excess percentage points;
-- explicit **MEJOR QUE EFECTIVO / PEOR QUE EFECTIVO** conclusion.
+For each requested date the replay:
 
-The daily snapshot saved during the current session is passed directly into the simulator, so no reload is required for it to appear.
+1. keeps only bars available on/before that date;
+2. requires the same 252-bar minimum history;
+3. rebuilds the shortlist with the same scanner momentum/risk score, one-per-category diversification and defensive preference;
+4. runs the normal `InvestmentDecisionEngine` on that historical shortlist;
+5. executes the resulting static recommendation on the first later market bar;
+6. uses whole ETF shares + modeled MyInvestor commission and fractional fund units;
+7. remunerates target/residual cash at the configured benchmark;
+8. values positions at the latest REAL bar;
+9. compares with keeping the same starting capital entirely in remunerated cash.
 
-This simulator is historical diagnostic evidence, not a profitability forecast. It does not yet model tax, spread or fund settlement.
+Batch output includes:
 
-## Cash benchmark / opportunity-cost hurdle
+- successful historical dates;
+- number/% beating all-cash;
+- median return;
+- median excess percentage points vs cash;
+- best/worst start dates;
+- per-date regime, method, cash target and full allocation drilldown.
 
-Durable rule: `docs/DECISIONS.md` D27–D28. Default reference is **2.5% annual**, persisted with `CashBenchmarkService`.
+Causal invariant: changing only prices **after** the historical decision date may change final outcome but must not change the reconstructed historical regime, method or target weights.
 
-The current execution plan suppresses BUY/SUBSCRIBE/TRANSFER targets that do not beat the configured cash hurdle after modeled initial ETF cost. `MixedInstrumentCausalReplayEngine` also accrues interest on residual cash using calendar days/365 and compares the strategy with an all-cash benchmark over identical dates.
+Remaining limitation: this still uses the present queryable catalog, so survivorship/catalog bias remains explicit. It reconstructs historical shortlist decisions within that catalog but does not reconstruct delisted/unavailable historical constituents.
 
-Latest validated examples from the 06:33 UTC run:
+## Existing saved-recommendation simulator
 
-- 100 EUR mixed replay: no operations; strategy = all-cash, final about 118.87 EUR over the replay span;
-- 334 EUR mixed replay: strategy about 366.60 EUR versus all-cash about 397.02 EUR, therefore cash wins historically for that scenario.
+`RecommendationSimulationPanel` remains separate from the new dated replay:
 
-These are historical diagnostics over the replay period, not forecasts.
+- saved-snapshot simulator asks what a recommendation actually stored by the app would be worth today;
+- dated-decision replay reconstructs what the current engine would have recommended on chosen historical dates even if no snapshot was saved then.
 
-## Broker / MyInvestor availability
+Both compare against remunerated cash and remain historical diagnostics, not forecasts.
 
-Availability remains separate from REAL market-data validity. Manual user confirmations and the cash benchmark remain browser/device-local.
+## Cash benchmark / execution economics
 
-Current first-party evidence supports Vanguard Global Stock Index `IE00B03HD191`, Vanguard Emerging Markets Stock Index `IE0031786696`, and Vanguard U.S. 500 Stock Index `IE0032126645`. Other targets remain lookup-required unless confirmed.
+Default configurable reference: **2.5% annual**.
 
-## Data / causal integrity
+- BUY/SUBSCRIBE/TRANSFER must beat the cash hurdle after modeled ETF entry fee where applicable.
+- ETFs use whole shares, MyInvestor 0.12%, min 1 EUR/order, max 25 EUR/order.
+- capital-adaptive execution suppresses uneconomic small orders.
+- mixed historical replay accrues residual cash over calendar days/365.
+- fund explicit subscription/redemption commission remains unmodeled until verified.
 
-- Yahoo primary daily history; EODHD secondary ETF cross-check and mutual-fund NAV/history.
-- REAL never silently falls back to synthetic.
-- Scanner and causal selection require at least 252 bars.
-- Historical selection uses only information available at each decision date.
-- Current-catalog survivorship/availability bias remains explicit.
+## Free-data rule
 
-## Execution economics
+No strategy or primary feature may require a new paid market-data, news or fundamentals subscription. Existing free/zero-incremental-cost sources may be used with explicit provenance and graceful failure. Paid evidence may only be optional in the future.
 
-- LOW → Inverse Volatility.
-- MEDIUM → Risk Parity ERC.
-- HIGH → Relative Momentum.
-- MyInvestor ETF model: whole shares, 0.12%, min 1 EUR/order, max 25 EUR/order.
-- Capital-adaptive execution continues to suppress uneconomic small orders.
-- Fund subscriptions/redemptions remain modeled without explicit broker fund commission until verified.
+## Validation gates added in this block
 
-## Known limitations
+New package scripts:
 
-- Historical snapshots are currently browser/device-local.
-- Historical universe retains current-catalog survivorship bias.
-- Fund settlement, tax and transfer timing are not simulated.
-- Exact Inversis lookup remains pending for several active targets.
+- `npm run test:strategy-consensus`
+- `npm run test:historical-decision-replay`
+
+Both are now part of `validate:aistudio:raw`.
+
+`tests/strategyConsensus.unit.ts` checks that a healthy long-term trend with a controlled oversold drawdown can be identified as buy-the-dip and that one weak recent window does not trigger a sell; a true structural fall with several adverse signals can trigger `REDUCE_REVIEW`.
+
+`tests/historicalDecisionReplay.unit.ts` checks historical-date causality, next-bar execution and future-price isolation of historical decisions.
+
+## Known limitations / next research block
+
+- Present-catalog survivorship bias remains in historical replays.
+- Exact MyInvestor/Inversis availability remains pending for several active targets.
+- Fund settlement/tax timing is not simulated.
 - Yahoo remains unofficial/non-contractual.
-- The 2.5% cash reference is configurable and not a guarantee of future broker remuneration.
-- The recommendation simulator currently models stored allocation snapshots, not a separately versioned record of every manual chat recommendation made outside the app.
+- The consensus signal thresholds are deterministic first-pass thresholds; they must not be optimized on the full sample and then claimed as predictive.
+- Mean reversion is implemented as an explainable signal/veto, not yet as a production allocator.
 
 ## Immediate next step
 
-1. Run `npm run validate:aistudio` once after commits `1d13146...`, `868fa43...`, `7883929...`, `0d3f7da...`, `8c5fe0d...`, `78cb56f...` and inspect the recorded files from GitHub.
-2. Manually open the app and verify: automatic refresh starts; actionable recommendation appears without a preparation button; portfolio is visible; simulator lists saved recommendations and updates value interactively.
-3. Fix any UI/runtime issue found before adding more analytics.
-4. Next product enhancement after stability: allow a simulated recommendation to be promoted into a separate paper/virtual portfolio timeline without modifying the real portfolio.
+1. Run **one** `npm run validate:aistudio` for the complete post-06:33 block.
+2. Read `validation-results/latest-aistudio-run.json` and related result files directly from GitHub; do not ask the user to paste output.
+3. Fix any TypeScript/test/runtime failure directly on `main`.
+4. After green validation, manually verify primary UI: automatic refresh, consensus panel, no sell-from-overweight contradiction, historical replay annual/quarterly drilldown.
+5. Next implementation block: comparative causal strategy lab for **Inverse Volatility vs Risk Parity ERC vs Relative Momentum vs Mean Reversion vs Ensemble**, then dynamic replay that follows every successive recommendation to measure whether rebalancing adds or destroys value versus buy-and-hold and cash.
