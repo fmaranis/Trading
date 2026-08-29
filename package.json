@@ -37,6 +37,7 @@
     "test:broker-aware-execution-sweep:live": "tsx scripts/brokerAwareExecutionSweepLive.ts",
     "test:execution-fidelity": "tsx tests/executionFidelity.unit.ts",
     "test:opportunity-alerts": "tsx tests/opportunityAlerts.unit.ts",
+    "test:current-opportunity-alerts": "tsx tests/currentOpportunityAlerts.unit.ts",
     "test:opportunity-outcomes": "tsx tests/opportunityOutcomeBacktest.unit.ts",
     "test:opportunity-threshold-research": "tsx tests/opportunityThresholdResearch.unit.ts",
     "test:opportunity-threshold-walk-forward": "tsx tests/opportunityThresholdWalkForward.unit.ts",
@@ -49,12 +50,14 @@
     "test:portfolio-health-execution": "tsx tests/portfolioHealthExecutionPlan.unit.ts",
     "test:portfolio-decision": "tsx tests/portfolioDecisionEngine.unit.ts",
     "test:portfolio-execution-plan": "tsx tests/portfolioExecutionPlan.unit.ts",
+    "test:spanish-tax": "tsx tests/spanishTaxModel.unit.ts",
+    "test:tax-aware-execution": "tsx tests/taxAwareExecutionOverlay.unit.ts",
     "test:alpha-vantage": "tsx scripts/alphaVantageSmoke.ts",
     "test:eodhd": "tsx scripts/eodhdSmoke.ts",
     "test:eodhd-shortlist:raw": "tsx scripts/eodhdShortlistSmoke.ts",
     "test:eodhd-shortlist": "tsx scripts/runRecordedValidation.ts eodhd-shortlist",
     "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts",
-    "validate:aistudio:raw": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx tests/userPortfolio.unit.ts && tsx tests/unifiedInvestmentUniverse.unit.ts && tsx tests/portfolioCandidateGate.unit.ts && tsx tests/portfolioPositionHealth.unit.ts && tsx tests/portfolioDecisionEngine.unit.ts && tsx tests/portfolioExecutionPlan.unit.ts && tsx tests/portfolioHealthExecutionPlan.unit.ts && tsx tests/strategyConsensus.unit.ts && tsx tests/singleAssetResearch.unit.ts && tsx tests/historicalDecisionReplay.unit.ts && tsx tests/dynamicHistoricalReplay.unit.ts && tsx tests/costAwareExecutionPolicy.unit.ts && tsx tests/adaptiveExecutionPolicy.unit.ts && tsx tests/mixedInstrumentCausalReplay.unit.ts && tsx tests/brokerAvailability.unit.ts && tsx tests/brokerBacktestFeasibility.unit.ts && tsx scripts/aiStudioValidate.ts && tsx scripts/brokerBacktestFeasibilityLive.ts && tsx scripts/brokerAwareExecutionSweepLive.ts",
+    "validate:aistudio:raw": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx tests/userPortfolio.unit.ts && tsx tests/unifiedInvestmentUniverse.unit.ts && tsx tests/portfolioCandidateGate.unit.ts && tsx tests/currentOpportunityAlerts.unit.ts && tsx tests/portfolioPositionHealth.unit.ts && tsx tests/portfolioDecisionEngine.unit.ts && tsx tests/portfolioExecutionPlan.unit.ts && tsx tests/portfolioHealthExecutionPlan.unit.ts && tsx tests/spanishTaxModel.unit.ts && tsx tests/taxAwareExecutionOverlay.unit.ts && tsx tests/strategyConsensus.unit.ts && tsx tests/singleAssetResearch.unit.ts && tsx tests/historicalDecisionReplay.unit.ts && tsx tests/dynamicHistoricalReplay.unit.ts && tsx tests/costAwareExecutionPolicy.unit.ts && tsx tests/adaptiveExecutionPolicy.unit.ts && tsx tests/mixedInstrumentCausalReplay.unit.ts && tsx tests/brokerAvailability.unit.ts && tsx tests/brokerBacktestFeasibility.unit.ts && tsx scripts/aiStudioValidate.ts && tsx scripts/brokerBacktestFeasibilityLive.ts && tsx scripts/brokerAwareExecutionSweepLive.ts",
     "validate:aistudio": "tsx scripts/runRecordedValidation.ts aistudio"
   },
   "dependencies": {
