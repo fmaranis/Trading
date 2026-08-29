@@ -1,6 +1,8 @@
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import type { DecisionHistoryEntry, InvestmentDecisionResult } from './types';
 import type { CrossProviderEvidenceQuality } from './evidenceQuality';
+import { DEFAULT_CASH_BENCHMARK_ANNUAL_PCT } from './cashBenchmark';
+import { PortfolioCandidateGate } from './portfolioCandidateGate';
 
 export type OpportunityAlertType = 'OPPORTUNITY' | 'REGIME_CHANGE' | 'REBALANCE' | 'RISK' | 'DATA_WARNING';
 export type OpportunityAlertSeverity = 'INFO' | 'REVIEW' | 'MATERIAL';
@@ -24,6 +26,11 @@ export interface PreviousOpportunitySnapshot {
     score: number | null;
     momentum120Pct: number | null;
     annualizedVolatilityPct: number | null;
+    eligibleForNewMoney?: boolean;
+    gateReason?: string;
+    consensusScore?: number | null;
+    excessVsCashPctPoints?: number | null;
+    rankingScore?: number | null;
   }>;
 }
 
@@ -33,19 +40,19 @@ export interface OpportunityAlertContext {
   previousDecision?: DecisionHistoryEntry | null;
   previousSnapshot?: PreviousOpportunitySnapshot | null;
   evidence?: CrossProviderEvidenceQuality | null;
+  cashBenchmarkAnnualPct?: number;
 }
 
 function id(type: OpportunityAlertType, asOf: string, ticker?: string): string {
   return `${asOf}_${type}_${ticker ?? 'PORTFOLIO'}`;
 }
 
-function isEligible(score: number | null | undefined, momentum: number | null | undefined, vol: number | null | undefined): boolean {
-  return (score ?? -Infinity) >= 2 && (momentum ?? 0) > 0 && (vol ?? Infinity) <= 30;
-}
-
 export class OpportunityAlertEngine {
   static evaluate(context: OpportunityAlertContext): OpportunityAlert[] {
     const { scan, decision, previousDecision, evidence } = context;
+    const cashBenchmarkAnnualPct = Number.isFinite(context.cashBenchmarkAnnualPct)
+      ? Math.max(0, Number(context.cashBenchmarkAnnualPct))
+      : DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
     const inferredPreviousSnapshot = context.previousSnapshot ?? (() => {
       const shortlist = (previousDecision as (DecisionHistoryEntry & { shortlist?: PreviousOpportunitySnapshot['shortlist'] }) | null | undefined)?.shortlist;
       return previousDecision && shortlist ? { asOfDate: previousDecision.asOfDate, shortlist } : null;
@@ -89,46 +96,59 @@ export class OpportunityAlertEngine {
       }
     }
 
-    // A first snapshot establishes the baseline. It must not manufacture a "new opportunity".
+    // Historical opportunity alerts now use the exact new-money gate used by the
+    // portfolio: cash hurdle + strategy consensus. Allocation diversification is
+    // deliberately downstream and must not hide a strong eligible candidate.
     if (inferredPreviousSnapshot) {
-      const selected = [...scan.selected].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
-      const previousRanked = [...inferredPreviousSnapshot.shortlist].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+      const gate = PortfolioCandidateGate.apply(scan, cashBenchmarkAnnualPct, 1000);
+      const currentEligible = gate.entries
+        .filter(entry => entry.status === 'ELIGIBLE')
+        .sort((a, b) => (b.rankingScore ?? -Infinity) - (a.rankingScore ?? -Infinity));
+      const previousHasGateEvidence = inferredPreviousSnapshot.shortlist.some(row => typeof row.eligibleForNewMoney === 'boolean');
+      const previousEligible = inferredPreviousSnapshot.shortlist
+        .filter(row => row.eligibleForNewMoney === true)
+        .sort((a, b) => (b.rankingScore ?? b.score ?? -Infinity) - (a.rankingScore ?? a.score ?? -Infinity));
+      const candidateById = new Map(scan.candidates.map(candidate => [candidate.asset.assetId, candidate]));
       const evidenceConfirmed = evidence?.state === 'CROSS_PROVIDER_CONFIRMED';
 
-      for (const candidate of selected.slice(0, 3)) {
-        const score = candidate.score ?? -Infinity;
-        const momentum = candidate.momentum120Pct ?? 0;
-        const vol = candidate.annualizedVolatilityPct ?? Infinity;
-        if (!isEligible(score, momentum, vol)) continue;
+      // The first snapshot after migrating old history establishes a new gate-aware
+      // baseline rather than manufacturing dozens of "new" opportunities.
+      if (previousHasGateEvidence) {
+        for (const entry of currentEligible.slice(0, 5)) {
+          const candidate = candidateById.get(entry.assetId);
+          if (!candidate) continue;
+          const ticker = candidate.asset.ticker;
+          const previous = inferredPreviousSnapshot.shortlist.find(row => row.ticker === ticker) ?? null;
+          const previousRankIndex = previousEligible.findIndex(row => row.ticker === ticker);
+          const previousRank = previousRankIndex >= 0 ? previousRankIndex + 1 : null;
+          const currentRank = currentEligible.findIndex(row => row.assetId === entry.assetId) + 1;
+          const becameEligible = previous != null && previous.eligibleForNewMoney === false;
+          const newlyObserved = previous == null;
+          const enteredTop5 = previousRank != null && previousRank > 5;
+          const rankingJump = previous?.rankingScore != null && entry.rankingScore != null && entry.rankingScore - previous.rankingScore >= 5;
 
-        const previousIndex = previousRanked.findIndex(x => x.ticker === candidate.asset.ticker);
-        const previous = previousIndex >= 0 ? previousRanked[previousIndex] : null;
-        const previousRank = previousIndex >= 0 ? previousIndex + 1 : null;
-        const currentRank = selected.indexOf(candidate) + 1;
-        const enteredTop3 = previousRank == null || previousRank > 3;
-        const scoreJump = previous?.score != null && score - previous.score >= 1.0;
-        const eligibilityTransition = previous != null && !isEligible(previous.score, previous.momentum120Pct, previous.annualizedVolatilityPct);
+          if (!becameEligible && !newlyObserved && !enteredTop5 && !rankingJump) continue;
 
-        if (!enteredTop3 && !scoreJump && !eligibilityTransition) continue;
+          const reasons: string[] = [];
+          if (becameEligible) reasons.push(`Pasa a superar cash + consenso; antes: ${previous?.gateReason ?? 'no elegible'}`);
+          if (newlyObserved) reasons.push('Nuevo instrumento válido dentro del radar productivo');
+          if (enteredTop5) reasons.push(`Entra en Top 5 de oportunidades desde rango ${previousRank}`);
+          if (rankingJump) reasons.push(`Mejora material de ranking (${previous!.rankingScore!.toFixed(1)} → ${entry.rankingScore!.toFixed(1)})`);
 
-        const changeReasons: string[] = [];
-        if (enteredTop3) changeReasons.push(previousRank == null ? 'Nuevo en el shortlist y entra en Top 3' : `Entrada en Top 3 desde rango ${previousRank}`);
-        if (scoreJump) changeReasons.push(`Score mejora ≥1,0 (${previous!.score!.toFixed(2)} → ${score.toFixed(2)})`);
-        if (eligibilityTransition) changeReasons.push('Pasa de no elegible a elegible por las reglas actuales');
-
-        alerts.push({
-          id: id('OPPORTUNITY', asOf, candidate.asset.ticker), asOfDate: asOf, type: 'OPPORTUNITY',
-          severity: 'REVIEW', ticker: candidate.asset.ticker,
-          title: `${candidate.asset.ticker} · cambio relevante en el scanner`,
-          message: `Top ${currentRank}, score ${score.toFixed(2)}, momentum 120d ${momentum.toFixed(1)}%.`,
-          reasons: [
-            ...changeReasons,
-            `Volatilidad anualizada ${vol.toFixed(1)}%`,
-            evidenceConfirmed ? 'Precio confirmado por Yahoo + EODHD' : 'Validación cruzada no confirmada completamente',
-            'La evidencia histórica actual no demuestra edge relativo; la señal permanece REVIEW_ONLY'
-          ],
-          action: 'REVIEW'
-        });
+          alerts.push({
+            id: id('OPPORTUNITY', asOf, ticker), asOfDate: asOf, type: 'OPPORTUNITY', severity: 'REVIEW', ticker,
+            title: `${ticker} · oportunidad actual del motor`,
+            message: `Top ${currentRank} entre candidatos que superan cash + consenso. Score ${candidate.score?.toFixed(2) ?? 'N/D'}, momentum 120d ${candidate.momentum120Pct?.toFixed(1) ?? 'N/D'}%.`,
+            reasons: [
+              ...reasons,
+              `Consenso ${entry.consensusScore != null && entry.consensusScore >= 0 ? '+' : ''}${entry.consensusScore ?? 'N/D'}`,
+              `Exceso proxy vs cash ${entry.excessVsCashPctPoints != null ? `${entry.excessVsCashPctPoints >= 0 ? '+' : ''}${entry.excessVsCashPctPoints.toFixed(1)} pp` : 'N/D'}`,
+              evidenceConfirmed ? 'Precio confirmado por Yahoo + EODHD' : 'Validación cruzada no confirmada completamente',
+              'Es una alerta de revisión; la asignación final todavía aplica diversificación, costes y cartera existente.'
+            ],
+            action: 'REVIEW'
+          });
+        }
       }
     }
 
