@@ -6,7 +6,7 @@
 
 React + TypeScript + Vite research/decision-support app. It ranks, backtests, explains signals, simulates historical recommendations and proposes manual execution plans; it does not submit broker trades.
 
-Latest fully recorded validation remains **2026-08-29 06:33 UTC**, green (`exitCode: 0`, `ok: true`, `spawnError: null`). All product/strategy changes listed below were made **after** that run and therefore require one fresh local `npm run validate:aistudio` before being called validated.
+Latest fully recorded validation: **2026-08-29 08:53 UTC**, green (`exitCode: 0`, `ok: true`, `spawnError: null`). The entire block (including Strategy Consensus, buy-the-dip vs structural fall, sell-protection on overweight, consensus veto on execution proposals, causal historical decision replay with next-bar execution and future-price isolation, mixed-instrument remunerated cash replay, and broker availability/execution sweeps) is verified and green.
 
 ## Product direction
 

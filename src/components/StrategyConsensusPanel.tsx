@@ -55,9 +55,9 @@ export const StrategyConsensusPanel: React.FC<Props> = ({ scan }) => {
   }, [portfolio, scan]);
 
   const assessments = useMemo(() => {
-    const ids = new Set(scan.selected.map(c => c.asset.assetId));
+    const ids = new Set<string>(scan.selected.map(c => c.asset.assetId));
     for (const id of ownedIds) ids.add(id);
-    return [...ids].map(id => StrategyConsensusEngine.assess(scan, id, benchmark)).filter(Boolean) as StrategyConsensusAssessment[];
+    return Array.from(ids).map(id => StrategyConsensusEngine.assess(scan, id, benchmark)).filter(Boolean) as StrategyConsensusAssessment[];
   }, [scan, benchmark, ownedIds]);
 
   return <section className="rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-5">
