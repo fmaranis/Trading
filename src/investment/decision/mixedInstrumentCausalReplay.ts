@@ -7,6 +7,8 @@ import type { DecisionBacktestConfig, DecisionBacktestPoint } from './types';
 import { MYINVESTOR_BROKER_PROFILE, type BrokerExecutionProfile } from './brokerExecution';
 import { rebalanceCostAware, type CostAwarePosition, type CostAwareOrder, type SuppressedCostAwareOrder } from './costAwareExecutionPolicy';
 import { executionPolicyForCapital, type AdaptiveExecutionPolicy } from './adaptiveExecutionPolicy';
+import { DEFAULT_CASH_BENCHMARK_ANNUAL_PCT } from './cashBenchmark';
+import { accrueRemuneratedCash, allCashBenchmark } from './remuneratedCash';
 
 export type FundOperationType = 'SUBSCRIBE' | 'REDEEM' | 'TRANSFER_REVIEW';
 export interface FundReplayOperation { assetId: string; ticker: string; type: FundOperationType; amountEur: number; navEur: number; units: number; driftPctPointsBefore: number; }
@@ -20,6 +22,7 @@ export interface MixedInstrumentCausalReplayResult {
   scope: 'MIXED_ETF_FUND_BROKER_AWARE_REPLAY_ON_CAUSAL_SELECTIONS'; initialCapitalEur: number; finalEquityEur: number; totalReturnPct: number; maxDrawdownPct: number;
   etfOrders: number; fundOperations: number; transferReviewCandidates: number; suppressedEtfOrders: number; suppressedFundOperations: number;
   totalEtfCommissionEur: number; commissionDragPctOfInitial: number; rebalanceWindows: number; windowsWithAnyOperation: number; residualCashEur: number;
+  cashBenchmarkAnnualPct: number; cashInterestEarnedEur: number; allCashFinalEur: number; allCashReturnPct: number; excessReturnVsCashPctPoints: number; excessFinalEurVsCash: number; beatsAllCashBenchmark: boolean;
   equityCurve: DecisionBacktestPoint[]; events: MixedReplayEvent[]; notes: string[];
 }
 interface PriceBar { open: number; close: number; }
@@ -39,17 +42,19 @@ function slice(dataset: MultiAssetDataset, ids: string[], end: string): MultiAss
 function drawdown(points: DecisionBacktestPoint[]): number { let peak = 0, max = 0; for (const p of points) { peak = Math.max(peak, p.equity); if (peak > 0) max = Math.max(max, (peak - p.equity) / peak * 100); } return max; }
 
 export class MixedInstrumentCausalReplayEngine {
-  static run(input: { universeDataset: MultiAssetDataset; catalog: AssetUniverseItem[]; researchResult: CausalUniverseBacktestResult; config: DecisionBacktestConfig; broker?: BrokerExecutionProfile }): MixedInstrumentCausalReplayResult {
+  static run(input: { universeDataset: MultiAssetDataset; catalog: AssetUniverseItem[]; researchResult: CausalUniverseBacktestResult; config: DecisionBacktestConfig; broker?: BrokerExecutionProfile; cashBenchmarkAnnualPct?: number }): MixedInstrumentCausalReplayResult {
     const { universeDataset, catalog, researchResult, config } = input;
     if (!(config.initialCapital > 0)) throw new Error('initialCapital debe ser > 0.');
     if (buildPortfolioProvenance(universeDataset).portfolioEvidence !== 'REAL_ONLY') throw new Error('El replay mixto exige universo REAL_ONLY.');
     const broker = input.broker ?? MYINVESTOR_BROKER_PROFILE;
+    const cashBenchmarkAnnualPct = Number.isFinite(input.cashBenchmarkAnnualPct) ? Math.max(0, Number(input.cashBenchmarkAnnualPct)) : DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
     const catalogById = new Map(catalog.map(a => [a.assetId, a]));
     const dates = datesOf(universeDataset), bars = mapsOf(universeDataset, dates);
+    if (!dates.length) throw new Error('El replay mixto necesita fechas de mercado.');
     const selections = new Map(researchResult.selectionHistory.map(s => [s.executionDate, s]));
     const etfPositions: Record<string, CostAwarePosition> = {}, fundUnits: Record<string, number> = {};
     for (const a of universeDataset.assets) (catalogById.get(a.assetId)?.instrumentType === 'MUTUAL_FUND' ? fundUnits : etfPositions)[a.assetId] = catalogById.get(a.assetId)?.instrumentType === 'MUTUAL_FUND' ? 0 as never : { assetId: a.assetId, ticker: a.ticker, shares: 0 } as never;
-    let cash = config.initialCapital;
+    let cash = config.initialCapital, cashInterestEarnedEur = 0, previousDate = dates[0];
     let method: DecisionBacktestPoint['method'] = 'WARMUP_CASH', regime: DecisionBacktestPoint['regime'] = 'UNKNOWN';
     const equityCurve: DecisionBacktestPoint[] = [], events: MixedReplayEvent[] = [];
     const valueAt = (date: string, open = false) => {
@@ -60,6 +65,10 @@ export class MixedInstrumentCausalReplayEngine {
     };
 
     for (const executionDate of dates) {
+      if (executionDate !== previousDate) {
+        const accrued = accrueRemuneratedCash(cash, cashBenchmarkAnnualPct, previousDate, executionDate);
+        cash = accrued.cashEur; cashInterestEarnedEur += accrued.interestEur; previousDate = executionDate;
+      }
       const selection = selections.get(executionDate);
       if (selection) {
         const prior = valueAt(selection.informationEndDate);
@@ -101,17 +110,24 @@ export class MixedInstrumentCausalReplayEngine {
     }
 
     const finalEquityEur = equityCurve.at(-1)?.equity ?? config.initialCapital;
+    const totalReturnPct = (finalEquityEur / config.initialCapital - 1) * 100;
+    const cashOnly = allCashBenchmark(config.initialCapital, cashBenchmarkAnnualPct, dates[0], dates[dates.length - 1]);
     const etfOrders = events.reduce((s, e) => s + e.etfOrders.length, 0), fundOperations = events.reduce((s, e) => s + e.fundOperations.length, 0);
     const totalEtfCommissionEur = events.reduce((s, e) => s + e.etfCommissionEur, 0);
     return {
-      scope: 'MIXED_ETF_FUND_BROKER_AWARE_REPLAY_ON_CAUSAL_SELECTIONS', initialCapitalEur: config.initialCapital, finalEquityEur,
-      totalReturnPct: (finalEquityEur / config.initialCapital - 1) * 100, maxDrawdownPct: drawdown(equityCurve), etfOrders, fundOperations,
+      scope: 'MIXED_ETF_FUND_BROKER_AWARE_REPLAY_ON_CAUSAL_SELECTIONS', initialCapitalEur: config.initialCapital, finalEquityEur, totalReturnPct,
+      maxDrawdownPct: drawdown(equityCurve), etfOrders, fundOperations,
       transferReviewCandidates: events.reduce((s, e) => s + e.fundOperations.filter(x => x.type === 'TRANSFER_REVIEW').length, 0),
       suppressedEtfOrders: events.reduce((s, e) => s + e.suppressedEtfOrders.length, 0), suppressedFundOperations: events.reduce((s, e) => s + e.suppressedFundOperations.length, 0),
       totalEtfCommissionEur, commissionDragPctOfInitial: totalEtfCommissionEur / config.initialCapital * 100, rebalanceWindows: events.length,
-      windowsWithAnyOperation: events.filter(e => e.etfOrders.length + e.fundOperations.length > 0).length, residualCashEur: cash, equityCurve, events,
+      windowsWithAnyOperation: events.filter(e => e.etfOrders.length + e.fundOperations.length > 0).length, residualCashEur: cash,
+      cashBenchmarkAnnualPct, cashInterestEarnedEur, allCashFinalEur: cashOnly.finalEur, allCashReturnPct: cashOnly.returnPct,
+      excessReturnVsCashPctPoints: totalReturnPct - cashOnly.returnPct, excessFinalEurVsCash: finalEquityEur - cashOnly.finalEur, beatsAllCashBenchmark: finalEquityEur > cashOnly.finalEur,
+      equityCurve, events,
       notes: [
         'La selección y fechas proceden del backtest causal; la capa adaptativa solo altera ejecución, nunca la señal.',
+        'El efectivo residual se remunera con la referencia anual configurada usando días naturales/365; no se remunera el capital ya invertido.',
+        'La comparación all-cash mantiene el capital inicial completo en esa misma cuenta durante exactamente las mismas fechas del replay.',
         'ETFs/ETCs usan títulos enteros y comisión MyInvestor; sus pesos se calculan contra el patrimonio total, incluidos los fondos.',
         'Fondos se modelan por importe/NAV con participaciones fraccionarias y sin comisión explícita de suscripción/reembolso.',
         'TRANSFER_REVIEW es solo candidato a revisión; no afirma elegibilidad fiscal ni simula liquidación.',
