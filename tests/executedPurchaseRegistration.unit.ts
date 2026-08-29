@@ -86,6 +86,7 @@ test('955 fund subscription can replace suggested amount with the actual execute
   assert.equal(actual.targetIsin, 'IE00B03HD191');
   assert.equal(receipt.portfolio.funds[0]?.isin, 'IE00B03HD191');
   assert.equal(receipt.portfolio.funds[0]?.investedEur, 873.22);
+  assert.equal(receipt.portfolio.funds[0]?.units, null);
   assert.ok(Math.abs(receipt.liquidityAfterEur - (5000 - 873.22)) < 1e-9);
 });
 
@@ -97,4 +98,24 @@ test('957 listed purchase requires real executed shares', () => {
   assert.throws(() => buildExecutedPurchaseLine(buyLine, { amountEur: 1000, shares: 0, feeEur: 0 }));
 });
 
-console.log(`Executed purchase registration: ${passed}/7 ISIN/real-execution invariants passed.`);
+test('958 confirmed fund units are stored when registering the executed subscription', () => {
+  const actual = buildExecutedPurchaseLine(fundLine, { amountEur: 873.22, shares: 13.754321 });
+  const receipt = applyPortfolioExecutionLine(portfolio, actual);
+  assert.equal(receipt.portfolio.funds[0]?.units, 13.754321);
+});
+
+test('959 adding to an existing fund never leaves stale old units marked as exact', () => {
+  const existing: any = {
+    ...portfolio,
+    funds: [{ id: 'FUND_VANGUARD_GLOBAL', isin: 'IE00B03HD191', name: 'Vanguard Global', category: 'GLOBAL_EQUITY', investedEur: 12600, acquisitionDate: '2026-08-11', currentValueEur: 12700, units: 196.59, transferable: true, broker: 'MyInvestor' }]
+  };
+  const withoutUnits = buildExecutedPurchaseLine(fundLine, { amountEur: 500 });
+  const unknownReceipt = applyPortfolioExecutionLine(existing, withoutUnits);
+  assert.equal(unknownReceipt.portfolio.funds[0]?.units, null);
+
+  const withUnits = buildExecutedPurchaseLine(fundLine, { amountEur: 500, shares: 7.8 });
+  const exactReceipt = applyPortfolioExecutionLine(existing, withUnits);
+  assert.ok(Math.abs((exactReceipt.portfolio.funds[0]?.units ?? 0) - 204.39) < 1e-9);
+});
+
+console.log(`Executed purchase registration: ${passed}/9 ISIN/real-execution invariants passed.`);
