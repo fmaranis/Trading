@@ -170,6 +170,18 @@ The primary app must show this comparison on demand, using the currently selecte
 
 This comparison remains historical diagnostic evidence. It must not be described as an expected return or guarantee, and the configured cash rate itself must not be presented as permanently guaranteed by the broker.
 
+## D29. Product UX is a unified decision loop, not a dashboard of disconnected analytics
+
+**Decision:** the default user experience must answer an investment question and lead directly into the user's portfolio. The page must not require the user to manually open multiple independent panels to discover whether the system recommends buying, selling or doing nothing.
+
+The normal entry flow is now: automatic REAL market refresh after first paint → current guardrails → explicit actionable recommendation → real portfolio → historical recommendation simulator → alerts. Heavy research charts and provider diagnostics remain secondary/lazy.
+
+`PortfolioExecutionPlanPanel` must auto-generate from the current portfolio and market decision and begin with a plain conclusion such as one or more concrete operations or **HOY: MANTENER / NO FORZAR OPERACIONES**. A manual recalculate control may remain, but calculation must not depend on pressing it.
+
+Saved `MarketSnapshotHistoryService` recommendations are not merely audit rows: they are product data. `RecommendationSimulationPanel` must let the user select a saved recommendation, apply a simulated capital amount, use the first executable post-decision market bar, respect ETF whole-share commissions and fund fractional units, remunerate uninvested cash, and show what the recommendation would be worth at the latest REAL price versus leaving the same capital in cash.
+
+The app may preserve rich analytics, but new analytical widgets should not be added to the primary page unless they change or explain the actionable decision. Research-only tools belong behind a secondary detail surface.
+
 ## Change protocol
 
 When a durable decision changes:
