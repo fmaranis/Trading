@@ -13,7 +13,8 @@ const config: Record<ValidationMode, { script: string; runFileName: string; mark
     markers: [
       { marker: 'AI_STUDIO_VALIDATION_RESULT', fileName: 'latest-aistudio.json' },
       { marker: 'BROKER_BACKTEST_FEASIBILITY_RESULT', fileName: 'latest-broker-backtest-feasibility.json' },
-      { marker: 'BROKER_AWARE_EXECUTION_SWEEP_RESULT', fileName: 'latest-broker-aware-execution-sweep.json' }
+      { marker: 'BROKER_AWARE_EXECUTION_SWEEP_RESULT', fileName: 'latest-broker-aware-execution-sweep.json' },
+      { marker: 'DYNAMIC_HISTORICAL_REPLAY_LIVE_RESULT', fileName: 'latest-dynamic-historical-replay-live.json' }
     ]
   },
   'eodhd-shortlist': {
