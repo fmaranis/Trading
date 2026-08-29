@@ -1,76 +1,76 @@
 {
   "marker": "AI_STUDIO_VALIDATION_RESULT",
-  "recordedAt": "2026-08-29T22:02:05.489Z",
-  "gitHeadBeforeRecord": "9b80177c6d2c5a13dccce3f4e53aade217ec3cac",
+  "recordedAt": "2026-08-29T22:34:11.984Z",
+  "gitHeadBeforeRecord": "1fca04a8215793ea98cc99ca2eb15233952f4b12",
   "gitBranch": "main",
   "payload": {
-    "generatedAt": "2026-08-29T22:01:34.846Z",
+    "generatedAt": "2026-08-29T22:33:41.688Z",
     "mode": "CURRENT_ARCHITECTURE_ZERO_LLM_VALIDATION",
     "commands": {
       "lint": {
         "ok": false,
         "exitCode": 2,
-        "ms": 12841,
-        "tail": "> react-example@0.0.0 lint\n> tsc --noEmit\nsrc/components/PortfolioExecutionPlanPanel.tsx(110,131): error TS2339: Property 'currentValueEur' does not exist on type 'unknown'."
+        "ms": 12697,
+        "tail": "> react-example@0.0.0 lint\n> tsc --noEmit\nsrc/investment/decision/portfolioDecisionEngine.ts(345,31): error TS2677: A type predicate's type must be assignable to its parameter's type.\n  Type 'ContributionRecommendation' is not assignable to type '{ category: AssetUniverseCategory; assetId: string; ticker: string; name: string; instrumentType: InvestmentInstrumentType; amountEur: number; targetCategoryGapEur: number; opportunityLevel: CurrentOpportunityLevel; priorityScore: number; reason: string; }'.\n    Property 'opportunityLevel' is optional in type 'ContributionRecommendation' but required in type '{ category: AssetUniverseCategory; assetId: string; ticker: string; name: string; instrumentType: InvestmentInstrumentType; amountEur: number; targetCategoryGapEur: number; opportunityLevel: CurrentOpportunityLevel; priorityScore: number; reason: string; }'."
       },
       "build": {
         "ok": true,
         "exitCode": 0,
-        "ms": 9781,
-        "tail": "dist/assets/legacy-De8v3EqT.js                  637.62 kB │ gzip: 123.91 kB\ndist/assets/index-BOnzCjuC.js                   806.33 kB │ gzip: 241.65 kB\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n✓ built in 8.97s\n  dist/server.cjs      122.2kb\n  dist/server.cjs.map  242.9kb\n⚡ Done in 123ms"
+        "ms": 9680,
+        "tail": "dist/assets/legacy-DUtlYh1u.js                  637.62 kB │ gzip: 123.91 kB\ndist/assets/index-BfpoYXoy.js                   806.33 kB │ gzip: 241.65 kB\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n✓ built in 8.87s\n  dist/server.cjs      124.1kb\n  dist/server.cjs.map  246.9kb\n⚡ Done in 144ms"
       },
       "decisionTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 720,
+        "ms": 689,
         "tail": "> react-example@0.0.0 test:decision\n> tsx tests/investmentDecision.unit.ts\nInvestment Decision: 7/7 invariants passed."
       },
       "decisionBacktestTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 1537,
+        "ms": 1585,
         "tail": "> react-example@0.0.0 test:decision-backtest\n> tsx tests/decisionBacktest.unit.ts\nDecision Backtest: 8/8 causal/accounting invariants passed."
       },
       "causalUniverseBacktestTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 2305,
+        "ms": 2311,
         "tail": "> react-example@0.0.0 test:causal-universe-backtest\n> tsx tests/causalUniverseBacktest.unit.ts\nCausal Universe Backtest: 13/13 selection/lookahead/history/accounting invariants passed."
       },
       "brokerExecutionTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 514,
+        "ms": 500,
         "tail": "> react-example@0.0.0 test:broker-execution\n> tsx tests/brokerExecution.unit.ts\nBroker Execution: 14/14 whole-share/fee/diversification invariants passed."
       },
       "executionFidelityTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 510,
+        "ms": 521,
         "tail": "✓ 302 small capital cannot cover all targets\n✓ 303 allocation distance is explicit\n✓ 304 fidelity score is bounded\n✓ 305 larger capital improves target coverage\n✓ 306 larger capital improves or preserves fidelity score\n✓ 307 executed target count is deterministic\n✓ 308 exact allocation has zero distance\n✓ 309 exact allocation has full target coverage\n✓ 310 exact allocation has high fidelity\nExecution fidelity: 10/10 invariants passed."
       },
       "opportunityOutcomeTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 517,
+        "ms": 500,
         "tail": "✓ 302 monthly observation windows are generated\n✓ 303 qualifying opportunity events are generated\n✓ 304 metrics cover 5 20 and 60 sessions\n✓ 305 every event was top three at information date\n✓ 306 every event satisfied score threshold\n✓ 307 every event had positive 120d momentum\n✓ 308 every event stayed below volatility gate\n✓ 309 longer horizons cannot have more evaluated events\n✓ 310 synthetic data is rejected\nOpportunity outcome backtest: 10/10 invariants passed."
       },
       "multiAssetTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 498,
+        "ms": 469,
         "tail": "✓ 130 — Equity accounting identity\n✓ 131 — Cash never negative\n✓ 132 — Trading costs sum exactly\n✓ 133 — Benchmark is buy-and-hold with no rebalance trades\n✓ 134 — Portfolio fingerprint deterministic and order-independent\n✓ 135 — Incomplete/Mixed REAL dataset does not execute\n✓ 136 — Portfolio-sized universe above ten assets aligns\n✓ 9A — Multi-currency portfolio rejected\n✓ 9A — Equal weights helper\n20 multi-asset tests passed."
       },
       "portfolioAnalyticsTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 447,
+        "ms": 442,
         "tail": "✓ 148 relative momentum selects strongest positive asset\n✓ 149 relative momentum goes to cash when all below threshold\n✓ 150 pairwise correlation summary bounded\n✓ 151 momentum uses requested trailing lookback\n✓ 152 insufficient observations rejected\n✓ 161 risk contributions sum to 100 percent\n✓ 162 diversification ratio is positive for invested portfolio\n✓ 163 effective number of equally weighted assets equals two\n✓ 164 cash-only portfolio reports zero volatility\nPortfolio Analytics: 16/16 tests passed."
       },
       "regimeTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 930,
+        "ms": 868,
         "tail": "✓ 177 policy comparison preserves one portfolio fingerprint\n✓ 178 regime policy comparator returns six leaderboards\n✓ 179 attribution has classified observations\n✓ 180 regime ranking does not mutate strategy results\n✓ 181 stability analysis uses fixed chronological blocks\n✓ 182 stability preserves portfolio fingerprint\n✓ 183 winner counts equal windows with evidence\n✓ 184 dominance is bounded 0 to 100\n✓ 185 stability analysis explicitly remains diagnostic\nRegime Analytics: 15/15 tests passed."
       }
     },
