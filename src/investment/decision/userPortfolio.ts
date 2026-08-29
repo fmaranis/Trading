@@ -10,6 +10,7 @@ import {
 const STORAGE_KEY = 'custodia_user_portfolio_v1';
 const LEGACY_FUNDS_KEY = 'custodia_fund_positions_v1';
 const LEGACY_PLAN_KEY = 'custodia_staged_capital_plan_v1';
+export const USER_PORTFOLIO_UPDATED_EVENT = 'custodia:user-portfolio-updated';
 
 export interface UserHolding {
   ticker: string;
@@ -106,6 +107,11 @@ function exampleState(): UserPortfolioState {
   };
 }
 
+function emitPortfolioUpdated(state: UserPortfolioState): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<UserPortfolioState>(USER_PORTFOLIO_UPDATED_EVENT, { detail: state }));
+}
+
 export class UserPortfolioService {
   static load(): UserPortfolioState {
     if (typeof window === 'undefined') return exampleState();
@@ -151,6 +157,7 @@ export class UserPortfolioService {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       window.localStorage.removeItem(LEGACY_FUNDS_KEY);
       window.localStorage.removeItem(LEGACY_PLAN_KEY);
+      emitPortfolioUpdated(state);
     }
     return state;
   }
@@ -161,6 +168,7 @@ export class UserPortfolioService {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       window.localStorage.removeItem(LEGACY_FUNDS_KEY);
       window.localStorage.removeItem(LEGACY_PLAN_KEY);
+      emitPortfolioUpdated(state);
     }
     return state;
   }
@@ -175,7 +183,15 @@ export class UserPortfolioService {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(empty));
       window.localStorage.removeItem(LEGACY_FUNDS_KEY);
       window.localStorage.removeItem(LEGACY_PLAN_KEY);
+      emitPortfolioUpdated(empty);
     }
+  }
+
+  static subscribe(listener: (state: UserPortfolioState) => void): () => void {
+    if (typeof window === 'undefined') return () => undefined;
+    const handler = (event: Event) => listener((event as CustomEvent<UserPortfolioState>).detail ?? this.load());
+    window.addEventListener(USER_PORTFOLIO_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(USER_PORTFOLIO_UPDATED_EVENT, handler);
   }
 }
 
