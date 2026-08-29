@@ -189,25 +189,22 @@ export class PortfolioDecisionEngine {
       if (row.action === 'DATA_MISSING' || unresolved.category === 'UNKNOWN') continue;
       const exposure = exposureByCategory.get(unresolved.category);
       if (!exposure) continue;
+
       if (exposure.gapPctPoints < -materialDrift) {
-        if (row.instrumentType === 'MUTUAL_FUND') {
-          const fund = (portfolio.funds ?? []).find(f => f.id === row.id);
-          row.action = fund?.transferable ? 'REVIEW_TRANSFER' : 'REDUCE';
-          row.reason = fund?.transferable
-            ? `La categoría está sobreponderada ${Math.abs(exposure.gapPctPoints).toFixed(1)} pp. Revisar primero un traspaso elegible antes de un reembolso.`
-            : `La categoría está sobreponderada ${Math.abs(exposure.gapPctPoints).toFixed(1)} pp; revisar reducción.`;
-        } else {
-          row.action = 'REDUCE';
-          row.reason = `La categoría está sobreponderada ${Math.abs(exposure.gapPctPoints).toFixed(1)} pp respecto al objetivo consolidado.`;
-        }
+        // Critical distinction: allocation drift is not a sell signal. Previously this branch
+        // emitted REDUCE/REVIEW_TRANSFER and the execution-plan layer converted it into a real
+        // sell/redeem instruction. Existing holdings now remain HOLD until an independent
+        // deterioration/consensus layer explicitly authorises a reduction.
+        row.action = 'HOLD';
+        row.reason = `La categoría está sobreponderada ${Math.abs(exposure.gapPctPoints).toFixed(1)} pp respecto al objetivo teórico. Es una desviación de cartera, no una señal de venta: mantener salvo deterioro confirmado por el motor de consenso.`;
       } else if (exposure.gapPctPoints > materialDrift) {
         const asset = assets.get(row.id) ?? assets.get((portfolio.funds ?? []).find(f => f.id === row.id)?.isin?.toUpperCase() ?? '');
         if (asset && preferredIds.has(asset.assetId)) {
           row.action = 'ADD';
-          row.reason = `La categoría está infraponderada ${exposure.gapPctPoints.toFixed(1)} pp y este instrumento es el candidato preferente actual de la categoría.`;
+          row.reason = `La categoría está infraponderada ${exposure.gapPctPoints.toFixed(1)} pp y este instrumento es el candidato preferente actual de la categoría. Cualquier aportación sigue sujeta a los gates de efectivo, coste y consenso.`;
         } else {
           row.action = 'HOLD';
-          row.reason = `La categoría está infraponderada, pero el motor prioriza otro instrumento equivalente para las nuevas aportaciones.`;
+          row.reason = `La categoría está infraponderada, pero el motor prioriza otro instrumento equivalente para las nuevas aportaciones. No implica vender esta posición.`;
         }
       } else {
         row.action = 'HOLD';
@@ -236,15 +233,15 @@ export class PortfolioDecisionEngine {
         instrumentType: instrumentType(asset),
         amountEur,
         targetCategoryGapEur: exposure.gapEur,
-        reason: `Aportación dirigida al déficit de ${exposure.category}; la cartera existente ya se descuenta antes de asignar dinero nuevo.`
+        reason: `Objetivo teórico dirigido al déficit de ${exposure.category}; no es una orden de compra hasta superar los gates de consenso, efectivo, coste y broker.`
       };
     }).filter(x => x.amountEur > 0.01).sort((a, b) => b.amountEur - a.amountEur);
 
     const residualPlannedCashEur = Math.max(0, deployablePool - contributions.reduce((s, x) => s + x.amountEur, 0));
     const warnings: string[] = [];
     if (hasMissingValuation) warnings.push('Hay posiciones sin valoración REAL: se bloquea temporalmente la asignación de capital nuevo para no calcular como si esas posiciones valieran cero.');
-    if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Existen categorías sobreponderadas. El motor no vende automáticamente: separa la revisión de posiciones existentes de las nuevas aportaciones.');
-    warnings.push('Las aportaciones nuevas priorizan déficits de categoría y evitan duplicar exposición ya mantenida en fondos o ETFs equivalentes.');
+    if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Existen categorías sobreponderadas, pero una sobreponderación por sí sola NO genera una venta. La reducción requiere una señal independiente de deterioro/consenso.');
+    warnings.push('Las aportaciones mostradas aquí son objetivos teóricos de distribución. La acción ejecutable se decide después mediante consenso, efectivo, costes, títulos enteros y disponibilidad broker.');
 
     return {
       currentInvestedValueEur,
