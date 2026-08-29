@@ -9,7 +9,8 @@ import {
   MarketSnapshotEntry,
   MarketSnapshotHistoryService,
   OpportunityAlert,
-  OpportunityAlertEngine
+  OpportunityAlertEngine,
+  type PortfolioPositionHealthResult
 } from '../investment/decision';
 import { AlertAutomationStatusPanel } from './AlertAutomationStatusPanel';
 import { UserPortfolioPanel } from './UserPortfolioPanel';
@@ -17,7 +18,7 @@ import { RecommendationSimulationPanel } from './RecommendationSimulationPanel';
 import { PortfolioExecutionPlanPanel } from './PortfolioExecutionPlanPanel';
 import { StrategyConsensusPanel } from './StrategyConsensusPanel';
 
-interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; eodhdValidation: EodhdCrossValidationResult | null; }
+interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; eodhdValidation: EodhdCrossValidationResult | null; positionHealth: PortfolioPositionHealthResult | null; }
 
 function evidenceFrom(validation: EodhdCrossValidationResult | null): CrossProviderEvidenceQuality | null {
   if (!validation) return null;
@@ -29,7 +30,7 @@ function severityClass(severity: OpportunityAlert['severity']): string {
   return 'border-slate-700 bg-slate-950 text-slate-200';
 }
 
-export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdValidation }) => {
+export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdValidation, positionHealth }) => {
   const evidence = useMemo(() => evidenceFrom(eodhdValidation), [eodhdValidation]);
   const [alerts, setAlerts] = useState<OpportunityAlert[]>([]);
   const [history, setHistory] = useState<MarketSnapshotEntry[]>(() => MarketSnapshotHistoryService.load());
@@ -45,8 +46,8 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, eodhdV
   const materialCount = alerts.filter(a => a.severity === 'MATERIAL').length;
 
   return <section className="space-y-4">
-    <UserPortfolioPanel scan={scan} decision={decision} />
-    <PortfolioExecutionPlanPanel scan={scan} decision={decision} />
+    <UserPortfolioPanel scan={scan} decision={decision} positionHealth={positionHealth} />
+    <PortfolioExecutionPlanPanel scan={scan} decision={decision} positionHealth={positionHealth} />
 
     <details className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
