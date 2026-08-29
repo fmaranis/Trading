@@ -39,6 +39,7 @@ export const FundMarketDataCard: React.FC<Props> = ({ fund, onChange, onRemove, 
   const valuation = useMemo(() => valueFundFromNav(fund, market?.points ?? [], market?.latestNav), [fund, market]);
   useEffect(() => { onMarketValue(valuation.currentValueEur); }, [valuation.currentValueEur]);
   const tax = assessFundTaxReview({ ...fund, currentValueEur: valuation.currentValueEur ?? fund.currentValueEur ?? null });
+  const providerLabel = market?.provider === 'yahoo_finance_fund_alias' ? 'Yahoo Finance · fondo verificado' : market?.provider === 'eodhd' ? 'EODHD' : 'proveedor pendiente';
 
   return <div className="rounded-xl border border-slate-800 bg-slate-950/55 p-3">
     <div className="grid gap-2 lg:grid-cols-[1.4fr_0.75fr_0.75fr_0.75fr_36px]">
@@ -64,7 +65,7 @@ export const FundMarketDataCard: React.FC<Props> = ({ fund, onChange, onRemove, 
     </div>
 
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950 p-2 text-[10px] text-slate-500">
-      <div>{loading ? 'Actualizando VL EODHD…' : error ? `EODHD: ${error}` : `EODHD · ${market?.symbol ?? `${fund.isin}.EUFUND`} · gráfico disponible en “Histórico, ranking y motivo”`}</div>
+      <div>{loading ? 'Actualizando VL REAL…' : error ? `Mercado: ${error}` : `${providerLabel} · ${market?.symbol ?? fund.isin} · valoración REAL disponible para la cartera`}</div>
       <button onClick={()=>void load()} disabled={loading} className="flex items-center gap-1 rounded border border-slate-700 px-2 py-1 hover:text-slate-300"><RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`}/>Actualizar</button>
     </div>
     {valuation.precision === 'ESTIMATED_FROM_ENTRY_NAV' && <div className="mt-2 text-[10px] text-amber-200">La posición se estima suponiendo que el importe aportado se convirtió al VL del primer día disponible desde la fecha indicada. Introduce las participaciones reales de MyInvestor para obtener el valor exacto.</div>}
