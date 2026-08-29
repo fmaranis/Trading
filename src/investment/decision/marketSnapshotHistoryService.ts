@@ -2,9 +2,25 @@ import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import type { InvestmentDecisionResult, InvestorRiskProfile, InvestmentHorizonYears, DecisionHistoryEntry } from './types';
 import type { CrossProviderEvidenceQuality } from './evidenceQuality';
 import type { OpportunityAlert } from './opportunityAlertEngine';
+import { CashBenchmarkService } from './cashBenchmark';
+import { PortfolioCandidateGate } from './portfolioCandidateGate';
 
 const STORAGE_KEY = 'custodia_market_snapshot_history_v1';
 const MAX_ENTRIES = 180;
+
+export interface MarketSnapshotShortlistEntry {
+  ticker: string;
+  category: string;
+  score: number | null;
+  momentum120Pct: number | null;
+  annualizedVolatilityPct: number | null;
+  maxDrawdownPct: number | null;
+  eligibleForNewMoney?: boolean;
+  gateReason?: string;
+  consensusScore?: number | null;
+  excessVsCashPctPoints?: number | null;
+  rankingScore?: number | null;
+}
 
 export interface MarketSnapshotEntry {
   id: string;
@@ -13,7 +29,7 @@ export interface MarketSnapshotEntry {
   riskProfile: InvestorRiskProfile;
   horizonYears: InvestmentHorizonYears;
   marketRegime: string;
-  shortlist: Array<{ ticker: string; category: string; score: number | null; momentum120Pct: number | null; annualizedVolatilityPct: number | null; maxDrawdownPct: number | null }>;
+  shortlist: MarketSnapshotShortlistEntry[];
   allocation: Array<{ assetId: string; ticker: string; weight: number; amountEur: number }>;
   cashWeight: number;
   evidenceState: string;
@@ -34,6 +50,29 @@ export class MarketSnapshotHistoryService {
 
   static saveDaily(scan: AssetUniverseScanResult, decision: InvestmentDecisionResult, evidence: CrossProviderEvidenceQuality | null, alerts: OpportunityAlert[]): MarketSnapshotEntry[] {
     if (typeof window === 'undefined') return [];
+    const gate = PortfolioCandidateGate.apply(scan, CashBenchmarkService.load(), 1000);
+    const gateById = new Map(gate.entries.map(entry => [entry.assetId, entry]));
+    const shortlist = scan.candidates
+      .filter(candidate => candidate.status === 'ACCEPTED')
+      .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity))
+      .slice(0, 40)
+      .map(candidate => {
+        const gateEntry = gateById.get(candidate.asset.assetId);
+        return {
+          ticker: candidate.asset.ticker,
+          category: candidate.asset.category,
+          score: candidate.score,
+          momentum120Pct: candidate.momentum120Pct,
+          annualizedVolatilityPct: candidate.annualizedVolatilityPct,
+          maxDrawdownPct: candidate.maxDrawdownPct,
+          eligibleForNewMoney: gateEntry?.status === 'ELIGIBLE',
+          gateReason: gateEntry?.reason,
+          consensusScore: gateEntry?.consensusScore ?? null,
+          excessVsCashPctPoints: gateEntry?.excessVsCashPctPoints ?? null,
+          rankingScore: gateEntry?.rankingScore ?? null
+        };
+      });
+
     const entry: MarketSnapshotEntry = {
       id: `market_${decision.asOfDate}_${decision.riskProfile}_${decision.horizonYears}`,
       savedAt: new Date().toISOString(),
@@ -41,14 +80,7 @@ export class MarketSnapshotHistoryService {
       riskProfile: decision.riskProfile,
       horizonYears: decision.horizonYears,
       marketRegime: decision.marketRegime,
-      shortlist: scan.selected.map(c => ({
-        ticker: c.asset.ticker,
-        category: c.asset.category,
-        score: c.score,
-        momentum120Pct: c.momentum120Pct,
-        annualizedVolatilityPct: c.annualizedVolatilityPct,
-        maxDrawdownPct: c.maxDrawdownPct
-      })),
+      shortlist,
       allocation: decision.assets.filter(a => a.weight > 0).map(a => ({ assetId: a.assetId, ticker: a.ticker, weight: a.weight, amountEur: a.amountEur })),
       cashWeight: decision.cashWeight,
       evidenceState: evidence?.state ?? 'PRIMARY_ONLY',
