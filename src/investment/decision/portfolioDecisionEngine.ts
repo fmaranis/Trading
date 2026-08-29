@@ -1,5 +1,7 @@
 import type { AssetUniverseCategory, AssetUniverseItem, InvestmentInstrumentType } from './assetUniverse';
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
+import { CashBenchmarkService } from './cashBenchmark';
+import { CurrentOpportunityAlertEngine, type CurrentOpportunityAlert } from './currentOpportunityAlerts';
 import type { InvestmentDecisionResult } from './types';
 import type { FundPosition } from './fundPortfolio';
 import type { PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
@@ -44,6 +46,8 @@ export interface ContributionRecommendation {
   instrumentType: InvestmentInstrumentType;
   amountEur: number;
   targetCategoryGapEur: number;
+  opportunityLevel?: CurrentOpportunityAlert['level'];
+  priorityScore?: number;
   reason: string;
 }
 
@@ -92,6 +96,31 @@ function healthFor(map: Record<string, PortfolioPositionHealthSnapshot | undefin
   return undefined;
 }
 
+function opportunityLevelWeight(level: CurrentOpportunityAlert['level']): number {
+  return level === 'HIGH_CONVICTION' ? 4 : level === 'GOOD_ENTRY' ? 2.5 : 1;
+}
+
+function opportunityPriority(alert: CurrentOpportunityAlert): number {
+  const excess = Math.max(0, Math.min(25, alert.excessVsCashPctPoints ?? 0));
+  const consensus = Math.max(0, alert.consensusScore);
+  const volatilityPenalty = Math.max(1, (alert.annualizedVolatilityPct ?? 20) / 20);
+  return (opportunityLevelWeight(alert.level) + consensus * 0.35 + excess * 0.08) / volatilityPenalty;
+}
+
+function maxOpportunityPositions(risk: InvestmentDecisionResult['riskProfile']): number {
+  return risk === 'LOW' ? 3 : risk === 'HIGH' ? 5 : 4;
+}
+
+function maxAssetShare(risk: InvestmentDecisionResult['riskProfile'], level: CurrentOpportunityAlert['level']): number {
+  if (risk === 'LOW') return level === 'HIGH_CONVICTION' ? 0.35 : level === 'GOOD_ENTRY' ? 0.28 : 0.20;
+  if (risk === 'HIGH') return level === 'HIGH_CONVICTION' ? 0.65 : level === 'GOOD_ENTRY' ? 0.50 : 0.40;
+  return level === 'HIGH_CONVICTION' ? 0.50 : level === 'GOOD_ENTRY' ? 0.40 : 0.30;
+}
+
+function maxCategoryShare(risk: InvestmentDecisionResult['riskProfile']): number {
+  return risk === 'LOW' ? 0.50 : risk === 'HIGH' ? 0.70 : 0.60;
+}
+
 export class PortfolioDecisionEngine {
   static evaluate(input: {
     portfolio: UserPortfolioState;
@@ -100,11 +129,13 @@ export class PortfolioDecisionEngine {
     fundMarketValues?: Record<string, number | null | undefined>;
     positionHealth?: Record<string, PortfolioPositionHealthSnapshot | undefined>;
     materialDriftPctPoints?: number;
+    cashBenchmarkAnnualPct?: number;
   }): PortfolioDecisionResult {
     const { portfolio, scan, decision } = input;
     const materialDrift = input.materialDriftPctPoints ?? 5;
     const fundValues = input.fundMarketValues ?? {};
     const healthMap = input.positionHealth ?? {};
+    const cashBenchmarkAnnualPct = input.cashBenchmarkAnnualPct ?? CashBenchmarkService.load();
     const assets = categoryMap(scan);
     const prices = new Map(
       scan.candidates
@@ -211,8 +242,6 @@ export class PortfolioDecisionEngine {
       const health = unresolved.health;
       if (row.action === 'DATA_MISSING') continue;
 
-      // Health of the actual holding has precedence over allocation drift.
-      // Being in the portfolio is never a reason to immunize a deteriorating asset.
       if (health) {
         row.healthSource = health.source;
         if (health.action === 'EXIT') {
@@ -258,18 +287,17 @@ export class PortfolioDecisionEngine {
 
       const exposure = exposureByCategory.get(unresolved.category);
       if (!exposure) continue;
-
       if (exposure.gapPctPoints < -materialDrift) {
         row.action = 'HOLD';
-        row.reason = `La categoría está sobreponderada ${Math.abs(exposure.gapPctPoints).toFixed(1)} pp respecto al objetivo teórico. Es una desviación de cartera, no una señal de venta: mantener salvo deterioro confirmado por el motor de salud individual.`;
+        row.reason = `La categoría está sobreponderada ${Math.abs(exposure.gapPctPoints).toFixed(1)} pp respecto al objetivo teórico. Es una desviación de cartera, no una señal de venta: mantener salvo deterioro confirmado por el motor de salud individual o una rotación neta claramente superior.`;
       } else if (exposure.gapPctPoints > materialDrift) {
         const asset = assets.get(row.id) ?? assets.get((portfolio.funds ?? []).find(f => f.id === row.id)?.isin?.toUpperCase() ?? '');
         if (asset && preferredIds.has(asset.assetId)) {
           row.action = 'ADD';
-          row.reason = `La categoría está infraponderada ${exposure.gapPctPoints.toFixed(1)} pp y este instrumento es el candidato preferente actual de la categoría. Cualquier aportación sigue sujeta a cash, consenso, coste y broker.`;
+          row.reason = `La categoría está infraponderada ${exposure.gapPctPoints.toFixed(1)} pp y este instrumento es el candidato preferente teórico de la categoría. La aportación efectiva se decidirá por oportunidades actuales y capital disponible.`;
         } else {
           row.action = 'HOLD';
-          row.reason = 'La categoría está infraponderada, pero el motor prioriza otro instrumento equivalente para las nuevas aportaciones. No implica vender esta posición.';
+          row.reason = 'La categoría está infraponderada, pero eso no constituye por sí solo una orden de compra o venta.';
         }
       } else {
         row.action = 'HOLD';
@@ -280,34 +308,75 @@ export class PortfolioDecisionEngine {
     const targetCashEur = totalPlannedCapitalEur * Math.max(0, Math.min(1, decision.cashWeight));
     const deployablePool = currentCashEur + pendingCapitalEur;
     const deployableToAssetsEur = Math.max(0, deployablePool - targetCashEur);
-    const positiveGaps = exposures.filter(x => x.gapEur > 0.01 && preferredByCategory.has(x.category));
-    const totalPositiveGap = positiveGaps.reduce((s, x) => s + x.gapEur, 0);
-    const recommendedNewInvestmentEur = hasMissingValuation ? 0 : Math.min(deployableToAssetsEur, totalPositiveGap);
+    const opportunities = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct);
 
-    const contributions: ContributionRecommendation[] = hasMissingValuation ? [] : positiveGaps.map(exposure => {
-      const preferred = preferredByCategory.get(exposure.category)!;
-      const asset = assets.get(preferred.assetId) ?? assets.get(preferred.ticker.toUpperCase())!;
-      const amountEur = totalPositiveGap > 0
-        ? Math.min(exposure.gapEur, recommendedNewInvestmentEur * exposure.gapEur / totalPositiveGap)
-        : 0;
-      return {
-        category: exposure.category,
-        assetId: preferred.assetId,
-        ticker: preferred.ticker,
-        name: preferred.name,
-        instrumentType: instrumentType(asset),
-        amountEur,
-        targetCategoryGapEur: exposure.gapEur,
-        reason: `El candidato ya ha superado cash + consenso antes del asignador. Este importe cubre parte del déficit de ${exposure.category}; la ejecución todavía debe superar costes, títulos enteros y broker.`
-      };
-    }).filter(x => x.amountEur > 0.01).sort((a, b) => b.amountEur - a.amountEur);
+    let contributions: ContributionRecommendation[] = [];
+    if (!hasMissingValuation && deployableToAssetsEur > 0.01 && opportunities.length > 0) {
+      const shortlist = opportunities.slice(0, maxOpportunityPositions(decision.riskProfile));
+      const priorities = shortlist.map(alert => ({ alert, priority: opportunityPriority(alert) }));
+      const totalPriority = priorities.reduce((sum, row) => sum + Math.max(0.01, row.priority), 0);
+      const categoryAdded = new Map<AssetUniverseCategory, number>();
+      const categoryLimit = totalPlannedCapitalEur * maxCategoryShare(decision.riskProfile);
 
-    const residualPlannedCashEur = Math.max(0, deployablePool - contributions.reduce((s, x) => s + x.amountEur, 0));
+      contributions = priorities.map(({ alert, priority }) => {
+        const asset = assets.get(alert.assetId) ?? assets.get(alert.ticker.toUpperCase());
+        if (!asset) return null;
+        const rawAmount = deployableToAssetsEur * Math.max(0.01, priority) / totalPriority;
+        const assetCap = deployableToAssetsEur * maxAssetShare(decision.riskProfile, alert.level);
+        const alreadyInCategory = currentByCategory.get(asset.category) ?? 0;
+        const alreadyAdded = categoryAdded.get(asset.category) ?? 0;
+        const categoryCapacity = Math.max(0, categoryLimit - alreadyInCategory - alreadyAdded);
+        const amountEur = Math.max(0, Math.min(rawAmount, assetCap, categoryCapacity));
+        if (amountEur <= 0.01) return null;
+        categoryAdded.set(asset.category, alreadyAdded + amountEur);
+        const theoreticalGap = exposureByCategory.get(asset.category)?.gapEur ?? 0;
+        return {
+          category: asset.category,
+          assetId: alert.assetId,
+          ticker: alert.ticker,
+          name: alert.name,
+          instrumentType: instrumentType(asset),
+          amountEur,
+          targetCategoryGapEur: theoreticalGap,
+          opportunityLevel: alert.level,
+          priorityScore: priority,
+          reason: `${alert.level === 'HIGH_CONVICTION' ? 'Entrada de ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'Buena oportunidad actual' : 'Entrada válida actual'}: consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. El importe sale del capital REAL disponible y respeta límites de concentración; no procede del diagnóstico teórico de pesos.`
+        } satisfies ContributionRecommendation;
+      }).filter((row): row is ContributionRecommendation => row != null);
+    }
+
+    // Backward-compatible fallback for deterministic/legacy cases with no current opportunity evidence.
+    // Production uses the opportunity path whenever at least one candidate passes the current gate.
+    if (!hasMissingValuation && contributions.length === 0 && opportunities.length === 0) {
+      const positiveGaps = exposures.filter(x => x.gapEur > 0.01 && preferredByCategory.has(x.category));
+      const totalPositiveGap = positiveGaps.reduce((s, x) => s + x.gapEur, 0);
+      const fallbackBudget = Math.min(deployableToAssetsEur, totalPositiveGap);
+      contributions = positiveGaps.map(exposure => {
+        const preferred = preferredByCategory.get(exposure.category)!;
+        const asset = assets.get(preferred.assetId) ?? assets.get(preferred.ticker.toUpperCase())!;
+        const amountEur = totalPositiveGap > 0 ? Math.min(exposure.gapEur, fallbackBudget * exposure.gapEur / totalPositiveGap) : 0;
+        return {
+          category: exposure.category,
+          assetId: preferred.assetId,
+          ticker: preferred.ticker,
+          name: preferred.name,
+          instrumentType: instrumentType(asset),
+          amountEur,
+          targetCategoryGapEur: exposure.gapEur,
+          reason: `Fallback teórico: no existe hoy ninguna oportunidad que supere el gate actual; este cálculo se conserva solo como diagnóstico de distribución y no debe contradecir una alerta de entrada.`
+        };
+      }).filter(x => x.amountEur > 0.01);
+    }
+
+    contributions.sort((a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0) || b.amountEur - a.amountEur);
+    const recommendedNewInvestmentEur = contributions.reduce((sum, row) => sum + row.amountEur, 0);
+    const residualPlannedCashEur = Math.max(0, deployablePool - recommendedNewInvestmentEur);
     const warnings: string[] = [];
     if (hasMissingValuation) warnings.push('Hay posiciones sin valoración REAL utilizable: se bloquea temporalmente la asignación de capital nuevo para no calcular el patrimonio como si esas posiciones valieran cero.');
-    if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Una sobreponderación por sí sola NO genera una venta. REDUCE/EXIT solo proceden del análisis independiente de salud de la posición.');
+    if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Una sobreponderación por sí sola NO genera una venta. REDUCE/EXIT proceden de salud; una rotación voluntaria adicional debe demostrar ventaja neta tras impuestos y costes.');
     if (existingPositions.some(x => x.category === 'UNKNOWN' && x.currentValueEur != null)) warnings.push('Hay posiciones fuera del universo clasificado que se valoran y vigilan individualmente; no se inventa una categoría para forzar su peso objetivo.');
-    warnings.push('Las aportaciones mostradas proceden de candidatos que ya superaron cash + consenso. La acción ejecutable todavía exige efectivo, costes, títulos enteros y disponibilidad broker.');
+    if (opportunities.length > 0) warnings.push(`La asignación efectiva usa ${opportunities.length} oportunidad(es) actual(es) que pasan cash + consenso; el capital sugerido nunca supera la liquidez realmente disponible y aplica límites de concentración.`);
+    else warnings.push('No hay oportunidades actuales que pasen el gate; los pesos teóricos quedan solo como diagnóstico secundario y no son una orden de compra.');
 
     return {
       currentInvestedValueEur,
