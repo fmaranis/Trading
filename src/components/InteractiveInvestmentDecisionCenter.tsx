@@ -70,6 +70,7 @@ type Workspace = 'PORTFOLIO' | 'RESEARCH';
 
 export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   const [workspace, setWorkspace] = useState<Workspace>('PORTFOLIO');
+  const [researchSymbol, setResearchSymbol] = useState<string | null>(null);
   const [capital, setCapital] = useState(() => portfolioDeployableCapital());
   const [riskProfile, setRiskProfile] = useState<InvestorRiskProfile>('MEDIUM');
   const [horizon, setHorizon] = useState<InvestmentHorizonYears>(3);
@@ -93,6 +94,14 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   const [alphaValidation, setAlphaValidation] = useState<AlphaVantageCrossValidationResult | null>(null);
   const [alphaLoading, setAlphaLoading] = useState(false);
   const [alphaError, setAlphaError] = useState<string | null>(null);
+
+  const inspectAsset = (symbolOrIsin: string) => {
+    const clean = symbolOrIsin.trim().toUpperCase();
+    if (!clean) return;
+    setResearchSymbol(clean);
+    setWorkspace('RESEARCH');
+    window.setTimeout(() => document.getElementById('single-asset-research')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
 
   const shortlistPayload = (scanResult: AssetUniverseScanResult) => scanResult.selected.filter(c => c.asset.instrumentType !== 'MUTUAL_FUND').map(c => ({ ticker: c.asset.ticker, asOfDate: c.asOfDate, lastClose: c.lastClose }));
 
@@ -215,11 +224,11 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
 
       {result && <section className="grid gap-3 md:grid-cols-4"><div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><div className="text-[10px] uppercase text-slate-500">Datos hasta</div><div className="mt-1 font-mono font-bold">{result.asOfDate}</div></div><div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><BarChart3 className="h-4 w-4 text-indigo-400"/><div className="mt-2 text-[10px] uppercase text-slate-500">Régimen</div><div className="font-bold text-sm">{result.marketRegime}</div></div><div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><ShieldCheck className="h-4 w-4 text-emerald-400"/><div className="mt-2 text-[10px] uppercase text-slate-500">Método tras gates</div><div className="font-bold text-sm">{result.recommendedMethod}</div></div><div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><div className="text-[10px] uppercase text-slate-500">Efectivo objetivo</div><div className="mt-1 font-mono font-bold">{pct(result.cashWeight)}</div></div></section>}
 
-      {scan && result && <><DecisionGuardrailsPanel scan={scan} capitalEur={capital} riskProfile={riskProfile} horizonYears={horizon}/><MarketUtilityDashboard scan={scan} decision={result} eodhdValidation={eodhdValidation} positionHealth={positionHealth}/></>}
+      {scan && result && <><DecisionGuardrailsPanel scan={scan} capitalEur={capital} riskProfile={riskProfile} horizonYears={horizon}/><MarketUtilityDashboard scan={scan} decision={result} eodhdValidation={eodhdValidation} positionHealth={positionHealth} onInspectAsset={inspectAsset}/></>}
     </>}
 
     {workspace === 'RESEARCH' && <>
-      {scan && result ? <InvestmentResearchLab scan={scan} decision={result}/> : <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400">El radar se habilitará cuando termine la actualización inicial. El estudio individual utiliza datos REAL del proveedor y no modifica tu cartera.</div>}
+      {scan && result ? <InvestmentResearchLab scan={scan} decision={result} requestedSymbol={researchSymbol}/> : <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400">El radar se habilitará cuando termine la actualización inicial. El estudio individual utiliza datos REAL del proveedor y no modifica tu cartera.</div>}
       {scan && <details className="rounded-2xl border border-slate-800 bg-slate-900 p-5"><summary className="cursor-pointer font-bold">Ranking técnico completo y métricas auxiliares</summary><div className="mt-4"><RecommendationEvidencePanel scan={scan}/></div></details>}
       {scan && <details className="rounded-2xl border border-slate-800 bg-slate-900 p-5"><summary className="cursor-pointer font-bold">Cobertura y proveedores</summary><div className="mt-2 text-xs text-slate-400">{scan.accepted}/{scan.scanned} instrumentos válidos en el descubrimiento ampliado · {scan.selected.length} pasan a asignación después de cash + consenso. El buscador individual sigue sin estar limitado por este conjunto.</div><button onClick={() => void runSecondaryValidation()} disabled={eodhdLoading || alphaLoading} className="mt-3 rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2 text-xs font-bold text-sky-100 disabled:opacity-50">{eodhdLoading||alphaLoading?'Validando proveedores…':'Validar EODHD / Alpha Vantage'}</button><div className="mt-3 grid gap-2 md:grid-cols-3 text-xs"><div className="rounded-lg bg-slate-950 p-3"><b className="text-emerald-300">Yahoo</b><div className="mt-1 text-slate-500">acciones / ETFs · principal</div></div><div className="rounded-lg bg-slate-950 p-3"><b className="text-cyan-300">EODHD</b><div className="mt-1 text-slate-500">{eodhdValidation?.summaryState??(eodhdStatus?.configured?'listo':'sin validar')}</div></div><div className="rounded-lg bg-slate-950 p-3"><b className="text-slate-300">Alpha Vantage</b><div className="mt-1 text-slate-500">{alphaValidation?.summaryState??(alphaStatus?.configured?'listo':'sin validar')}</div></div></div>{(eodhdError || alphaError) && <div className="mt-3 text-xs text-amber-300">{[eodhdError, alphaError].filter(Boolean).join(' · ')}</div>}</details>}
     </>}
