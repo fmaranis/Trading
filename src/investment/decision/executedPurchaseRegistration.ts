@@ -16,16 +16,18 @@ export function buildExecutedPurchaseLine(line: PortfolioExecutionLine, override
   const feeEur = Math.max(0, Number(override.feeEur ?? line.estimatedFeeEur ?? 0));
 
   if (line.action === 'SUBSCRIBE_FUND') {
+    const unitsRaw = override.shares == null || override.shares === 0 ? null : Number(override.shares);
+    const units = unitsRaw != null && Number.isFinite(unitsRaw) && unitsRaw > 0 ? unitsRaw : null;
     return {
       ...line,
       id: `${line.id}_actual_${Date.now()}`,
       status: 'PENDING',
       targetIsin,
       amountEur,
-      shares: null,
+      shares: units,
       estimatedFeeEur: 0,
-      instruction: `Registrar suscripción realmente ejecutada por ${amountEur.toFixed(2)} € en ${line.targetName ?? line.targetIsin ?? line.targetTicker ?? 'fondo'}.`,
-      rationale: `${line.rationale} El importe ha sido sustituido por el valor real confirmado por el usuario.`
+      instruction: `Registrar suscripción realmente ejecutada por ${amountEur.toFixed(2)} € en ${line.targetName ?? line.targetIsin ?? line.targetTicker ?? 'fondo'}${units != null ? ` · ${units} participaciones añadidas` : ''}.`,
+      rationale: `${line.rationale} El importe${units != null ? ' y las participaciones' : ''} ha sido sustituido por el valor real confirmado por el usuario.`
     };
   }
 
