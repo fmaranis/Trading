@@ -318,7 +318,7 @@ export class PortfolioDecisionEngine {
       const categoryAdded = new Map<AssetUniverseCategory, number>();
       const categoryLimit = totalPlannedCapitalEur * maxCategoryShare(decision.riskProfile);
 
-      contributions = priorities.map(({ alert, priority }) => {
+      const allocated = priorities.map<ContributionRecommendation | null>(({ alert, priority }) => {
         const asset = assets.get(alert.assetId) ?? assets.get(alert.ticker.toUpperCase());
         if (!asset) return null;
         const rawAmount = deployableToAssetsEur * Math.max(0.01, priority) / totalPriority;
@@ -341,12 +341,11 @@ export class PortfolioDecisionEngine {
           opportunityLevel: alert.level,
           priorityScore: priority,
           reason: `${alert.level === 'HIGH_CONVICTION' ? 'Entrada de ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'Buena oportunidad actual' : 'Entrada válida actual'}: consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. El importe sale del capital REAL disponible y respeta límites de concentración; no procede del diagnóstico teórico de pesos.`
-        } satisfies ContributionRecommendation;
-      }).filter((row): row is ContributionRecommendation => row != null);
+        };
+      });
+      contributions = allocated.filter((row): row is ContributionRecommendation => row != null);
     }
 
-    // Backward-compatible fallback for deterministic/legacy cases with no current opportunity evidence.
-    // Production uses the opportunity path whenever at least one candidate passes the current gate.
     if (!hasMissingValuation && contributions.length === 0 && opportunities.length === 0) {
       const positiveGaps = exposures.filter(x => x.gapEur > 0.01 && preferredByCategory.has(x.category));
       const totalPositiveGap = positiveGaps.reduce((s, x) => s + x.gapEur, 0);
