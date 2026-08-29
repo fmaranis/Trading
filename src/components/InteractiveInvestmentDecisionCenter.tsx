@@ -146,7 +146,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><WalletCards className="h-4 w-4 text-amber-400"/><div className="mt-2 text-[10px] uppercase text-slate-500">Efectivo objetivo</div><div className="font-mono font-bold">{pct(result.cashWeight)}</div></div>
     </section>}
 
-    {scan && <DecisionGuardrailsPanel scan={scan}/>} 
+    {scan && <DecisionGuardrailsPanel scan={scan} capitalEur={capital} riskProfile={riskProfile} horizonYears={horizon}/>} 
 
     {scan && <section className="grid gap-3 lg:grid-cols-3">
       <button onClick={() => setShowPortfolioFlow(v => !v)} className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4 text-left text-xs text-cyan-100"><b>{showPortfolioFlow?'Ocultar':'Ver'} cartera, operaciones y alertas</b><div className="mt-1 text-slate-400">Esta zona puede cargar valoraciones de fondos al abrirse.</div></button>
