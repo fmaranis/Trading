@@ -1,13 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import { BadgeCheck, CircleDollarSign, ShieldAlert } from 'lucide-react';
+import { BadgeCheck, Calculator, CircleDollarSign, ShieldAlert } from 'lucide-react';
 import {
   assessAgainstCashBenchmark,
   AssetUniverseScanResult,
   CashBenchmarkService,
-  getMyInvestorAvailability
+  CausalUniverseBacktestEngine,
+  EUR_ASSET_UNIVERSE,
+  getMyInvestorAvailability,
+  InvestmentHorizonYears,
+  InvestorRiskProfile,
+  MixedInstrumentCausalReplayEngine,
+  type MixedInstrumentCausalReplayResult
 } from '../investment/decision';
 
-interface Props { scan: AssetUniverseScanResult; }
+interface Props { scan: AssetUniverseScanResult; capitalEur: number; riskProfile: InvestorRiskProfile; horizonYears: InvestmentHorizonYears; }
 
 function brokerLabel(status: string, evidence: string): string {
   if (status === 'CONFIRMED_MYINVESTOR' && evidence === 'USER_CONFIRMED_MYINVESTOR') return 'Confirmado por ti';
@@ -16,15 +22,13 @@ function brokerLabel(status: string, evidence: string): string {
   return 'Pendiente MyInvestor/Inversis';
 }
 
-export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan }) => {
+export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, riskProfile, horizonYears }) => {
   const [benchmark, setBenchmark] = useState(() => CashBenchmarkService.load());
+  const [historical, setHistorical] = useState<MixedInstrumentCausalReplayResult | null>(null);
+  const [historicalLoading, setHistoricalLoading] = useState(false);
+  const [historicalError, setHistoricalError] = useState<string | null>(null);
   const rows = useMemo(() => scan.selected.map(candidate => {
-    const assessment = assessAgainstCashBenchmark({
-      momentum120Pct: candidate.momentum120Pct,
-      benchmarkAnnualPct: benchmark,
-      notionalEur: 0,
-      estimatedFeeEur: 0
-    });
+    const assessment = assessAgainstCashBenchmark({ momentum120Pct: candidate.momentum120Pct, benchmarkAnnualPct: benchmark, notionalEur: 0, estimatedFeeEur: 0 });
     const broker = getMyInvestorAvailability(candidate.asset);
     return { candidate, assessment, broker };
   }), [scan, benchmark]);
@@ -32,14 +36,26 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan }) => {
   const passCount = rows.filter(r => r.assessment.passes === true).length;
   const failCount = rows.filter(r => r.assessment.passes === false).length;
   const pendingBroker = rows.filter(r => r.broker.status !== 'CONFIRMED_MYINVESTOR').length;
+  const updateBenchmark = (value: number) => { setBenchmark(CashBenchmarkService.set(value)); setHistorical(null); };
 
-  const updateBenchmark = (value: number) => setBenchmark(CashBenchmarkService.set(value));
+  const calculateHistorical = () => {
+    if (historicalLoading) return;
+    setHistoricalLoading(true); setHistoricalError(null); setHistorical(null);
+    window.setTimeout(() => {
+      try {
+        const config = { initialCapital: Math.max(1, capitalEur), commissionPct: 0.05, slippagePct: 0.02, riskProfile, horizonYears, rebalanceFrequency: 'MONTHLY' as const };
+        const research = CausalUniverseBacktestEngine.run(scan.acceptedDataset, EUR_ASSET_UNIVERSE, config, 8);
+        setHistorical(MixedInstrumentCausalReplayEngine.run({ universeDataset: scan.acceptedDataset, catalog: EUR_ASSET_UNIVERSE, researchResult: research, config, cashBenchmarkAnnualPct: benchmark }));
+      } catch (e: any) { setHistoricalError(e?.message || String(e)); }
+      finally { setHistoricalLoading(false); }
+    }, 0);
+  };
 
   return <section className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/45 via-slate-900 to-slate-950 p-5">
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div className="max-w-3xl">
         <div className="flex items-center gap-2"><CircleDollarSign className="h-5 w-5 text-emerald-300"/><h2 className="text-lg font-bold text-white">¿Compensa invertir frente a dejar el dinero en MyInvestor?</h2></div>
-        <p className="mt-1 text-xs text-slate-400">Este filtro es visible y operativo. El shortlist puede seguir siendo válido para investigación, pero una compra solo pasa a ejecución si supera la referencia de efectivo y después los filtros de costes, títulos enteros y disponibilidad broker.</p>
+        <p className="mt-1 text-xs text-slate-400">El filtro actual y el replay histórico usan la misma referencia de efectivo. Una compra solo pasa a ejecución si supera esa referencia y después los filtros de costes, títulos enteros y disponibilidad broker.</p>
       </div>
       <label className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3 text-xs text-emerald-100">
         <div className="font-bold">Cuenta remunerada</div>
@@ -67,6 +83,22 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan }) => {
         </tr>)}</tbody>
       </table>
     </div>
-    <div className="mt-3 text-[10px] text-slate-500">El proxy anualiza el momentum REAL de 120 sesiones. Esta tabla es comparativa y no una previsión. La comisión real se aplica después en “Operaciones pendientes”, por lo que un activo que pasa aquí todavía puede quedar bloqueado por coste o tamaño de orden.</div>
+
+    <div className="mt-5 rounded-xl border border-emerald-500/20 bg-slate-950/55 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div><div className="font-bold text-emerald-100">Estrategia histórica vs todo en efectivo remunerado</div><div className="mt-1 text-[10px] text-slate-500">Replay causal con {capitalEur.toFixed(2)} €, riesgo {riskProfile}, horizonte {horizonYears} años. El efectivo residual dentro de la estrategia también devenga {benchmark.toFixed(2)}% anual por días naturales.</div></div>
+        <button onClick={calculateHistorical} disabled={historicalLoading} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><Calculator className="h-3.5 w-3.5"/>{historicalLoading ? 'Calculando…' : historical ? 'Recalcular' : 'Calcular comparación'}</button>
+      </div>
+      {historicalError && <div className="mt-3 rounded-lg border border-rose-500/25 bg-rose-500/10 p-3 text-xs text-rose-200">{historicalError}</div>}
+      {historical && <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5 text-xs">
+        <div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Estrategia final</div><b className="font-mono">{historical.finalEquityEur.toFixed(2)} €</b><div className="text-[10px] text-slate-500">{historical.totalReturnPct >= 0 ? '+' : ''}{historical.totalReturnPct.toFixed(2)}%</div></div>
+        <div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Todo en cuenta</div><b className="font-mono">{historical.allCashFinalEur.toFixed(2)} €</b><div className="text-[10px] text-slate-500">+{historical.allCashReturnPct.toFixed(2)}%</div></div>
+        <div className={`rounded-lg p-3 ${historical.beatsAllCashBenchmark ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}><div className="text-[9px] uppercase text-slate-500">Diferencia</div><b className={`font-mono ${historical.beatsAllCashBenchmark ? 'text-emerald-200' : 'text-amber-200'}`}>{historical.excessFinalEurVsCash >= 0 ? '+' : ''}{historical.excessFinalEurVsCash.toFixed(2)} €</b><div className="text-[10px] text-slate-500">{historical.excessReturnVsCashPctPoints >= 0 ? '+' : ''}{historical.excessReturnVsCashPctPoints.toFixed(2)} pp</div></div>
+        <div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Interés efectivo residual</div><b className="font-mono text-sky-200">+{historical.cashInterestEarnedEur.toFixed(2)} €</b></div>
+        <div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Conclusión histórica</div><b className={historical.beatsAllCashBenchmark ? 'text-emerald-200' : 'text-amber-200'}>{historical.beatsAllCashBenchmark ? 'ESTRATEGIA > EFECTIVO' : 'EFECTIVO > ESTRATEGIA'}</b></div>
+      </div>}
+    </div>
+
+    <div className="mt-3 text-[10px] text-slate-500">El proxy superior anualiza el momentum REAL de 120 sesiones. La comparación histórica inferior es un replay causal ejecutable con costes y remuneración del efectivo residual. Ninguno de los dos es una previsión o garantía.</div>
   </section>;
 };
