@@ -2,7 +2,7 @@ import type { PriceBar } from '../backtesting/types';
 import type { AssetUniverseScanResult, AssetScanCandidate } from './assetUniverseScanner';
 import { StrategyConsensusEngine, type StrategyConsensusAssessment } from './strategyConsensusEngine';
 
-export type SingleAssetResearchFrequency = 'MONTHLY' | 'QUARTERLY';
+export type SingleAssetResearchFrequency = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY';
 export type SingleAssetResearchSignalAction = 'BUY' | 'ADD' | 'SELL';
 
 export interface SingleAssetResearchSignal {
@@ -67,8 +67,15 @@ function maxDrawdown(prices: number[]): number | null {
 function researchScore(m20: number | null, m60: number | null, m120: number | null, vol: number | null, dd: number | null): number {
   return (m20 ?? 0) * 0.20 + (m60 ?? 0) * 0.35 + (m120 ?? 0) * 0.45 - (vol ?? 30) * 0.30 - (dd ?? 25) * 0.25;
 }
+function weekKey(date: string): string {
+  const d = new Date(`${isoDate(date)}T00:00:00.000Z`);
+  const daysSinceMonday = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - daysSinceMonday);
+  return `W-${d.toISOString().slice(0, 10)}`;
+}
 function periodKey(date: string, frequency: SingleAssetResearchFrequency): string {
   const d = isoDate(date);
+  if (frequency === 'WEEKLY') return weekKey(d);
   if (frequency === 'MONTHLY') return d.slice(0, 7);
   const month = Number(d.slice(5, 7));
   return `${d.slice(0, 4)}-Q${Math.floor((month - 1) / 3) + 1}`;
