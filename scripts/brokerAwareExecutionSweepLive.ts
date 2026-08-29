@@ -26,6 +26,15 @@ async function waitFor(url: string, timeoutMs = 30_000): Promise<boolean> {
   }
   return false;
 }
+async function readJson(url: string): Promise<any> {
+  try {
+    const response = await fetch(url);
+    const payload = await response.json().catch(() => null);
+    return { ok: response.ok, status: response.status, payload };
+  } catch (error: any) {
+    return { ok: false, status: null, payload: null, error: error?.message || String(error) };
+  }
+}
 function isoDate(date: Date): string { return date.toISOString().slice(0, 10); }
 function round(value: number | null, digits = 2): number | null { return value == null ? null : Number(value.toFixed(digits)); }
 function hashSeed(text: string): number {
@@ -99,6 +108,55 @@ function currentDrawdown(prices: number[], bars = 252): number | null {
   const peak = Math.max(...slice); const last = slice.at(-1)!;
   return peak > 0 ? (peak - last) / peak * 100 : null;
 }
+
+type HistoricalLossEpisode = {
+  assetId: string;
+  ticker: string;
+  name: string;
+  category: string;
+  instrumentType: 'ETF_ETC' | 'MUTUAL_FUND';
+  window: '6M' | '12M';
+  windowBars: number;
+  startDate: string;
+  endDate: string;
+  returnPct: number;
+  maxDrawdownPct: number;
+};
+
+function worstHistoricalLossEpisode(
+  asset: MultiAssetDataset['assets'][number],
+  item: AssetUniverseItem,
+  window: '6M' | '12M',
+  windowBars: number
+): HistoricalLossEpisode | null {
+  if (asset.bars.length <= 252 + windowBars) return null;
+  let worst: HistoricalLossEpisode | null = null;
+  // Start only after 252 prior observations exist so the engine can make a causal decision at episode start.
+  for (let startIndex = 251; startIndex + windowBars < asset.bars.length; startIndex++) {
+    const endIndex = startIndex + windowBars;
+    const startPrice = asset.bars[startIndex].close;
+    const endPrice = asset.bars[endIndex].close;
+    if (!(startPrice > 0) || !(endPrice > 0)) continue;
+    const returnPct = (endPrice / startPrice - 1) * 100;
+    if (returnPct >= 0 || (worst && returnPct >= worst.returnPct)) continue;
+    const prices = asset.bars.slice(startIndex, endIndex + 1).map(bar => bar.close);
+    worst = {
+      assetId: asset.assetId,
+      ticker: asset.ticker,
+      name: item.name,
+      category: item.category,
+      instrumentType: item.instrumentType ?? 'ETF_ETC',
+      window,
+      windowBars,
+      startDate: asset.bars[startIndex].timestamp.slice(0, 10),
+      endDate: asset.bars[endIndex].timestamp.slice(0, 10),
+      returnPct: Number(returnPct.toFixed(2)),
+      maxDrawdownPct: Number((maxDrawdown(prices) ?? 0).toFixed(2))
+    };
+  }
+  return worst;
+}
+
 function summarizeReplay(replay: ReturnType<typeof DynamicHistoricalReplayEngine.run>, focusIds: Set<string> = new Set()) {
   const signalCounts: Record<string, number> = {};
   for (const signal of replay.signals) signalCounts[signal.action] = (signalCounts[signal.action] ?? 0) + 1;
@@ -177,6 +235,77 @@ function runDynamicScenarioSet(dataset: MultiAssetDataset, catalog: AssetUnivers
   };
 }
 
+function runHistoricalLossEpisodeStress(dataset: MultiAssetDataset, catalog: AssetUniverseItem[], episodes: HistoricalLossEpisode[]) {
+  const responses = episodes.map(episode => {
+    try {
+      const replay = DynamicHistoricalReplayEngine.run({
+        dataset,
+        catalog,
+        startDate: episode.startDate,
+        frequency: 'MONTHLY',
+        initialCapitalEur: 1000,
+        riskProfile: 'MEDIUM',
+        horizonYears: 3,
+        cashBenchmarkAnnualPct: DEFAULT_CASH_BENCHMARK_ANNUAL_PCT,
+        minimumBars: 252
+      });
+      const duringEpisode = replay.signals.filter(signal => signal.assetId === episode.assetId && signal.signalDate >= episode.startDate && signal.signalDate <= episode.endDate);
+      const signalCounts: Record<string, number> = {};
+      for (const signal of duringEpisode) signalCounts[signal.action] = (signalCounts[signal.action] ?? 0) + 1;
+      const executedSignals = duringEpisode.filter(signal => signal.executed).map(signal => ({
+        signalDate: signal.signalDate,
+        executionDate: signal.executionDate,
+        action: signal.action,
+        consensusScore: signal.consensusScore,
+        favorableVotes: signal.favorableVotes,
+        unfavorableVotes: signal.unfavorableVotes,
+        structuralDowntrend: signal.structuralDowntrend,
+        buyTheDipCandidate: signal.buyTheDipCandidate,
+        currentWeightPct: round(signal.currentWeight * 100, 1),
+        targetWeightPct: round(signal.targetWeight * 100, 1),
+        notionalEur: round(signal.notionalEur),
+        feeEur: round(signal.feeEur),
+        reason: signal.reason
+      }));
+      const firstDefensive = duringEpisode.find(signal => signal.action === 'REDUCE' || signal.action === 'EXIT');
+      return {
+        episode,
+        evaluated: true,
+        responseDuringLossWindow: {
+          observedSignals: duringEpisode.length,
+          signalCounts,
+          everBoughtOrAdded: duringEpisode.some(signal => signal.action === 'BUY' || signal.action === 'ADD'),
+          executedBuyOrAdd: duringEpisode.some(signal => signal.executed && (signal.action === 'BUY' || signal.action === 'ADD')),
+          everAvoided: duringEpisode.some(signal => signal.action === 'AVOID'),
+          reducedOrExited: Boolean(firstDefensive),
+          firstDefensiveSignalDate: firstDefensive?.signalDate ?? null,
+          firstDefensiveExecutionDate: firstDefensive?.executionDate ?? null,
+          executedSignals
+        },
+        portfolioOutcomeFromEpisodeStart: {
+          finalValueEur: round(replay.finalValueEur),
+          totalReturnPct: round(replay.totalReturnPct),
+          staticBuyHoldReturnPct: round(replay.staticBuyHoldReturnPct),
+          allCashReturnPct: round(replay.allCashReturnPct),
+          excessReturnVsStaticPctPoints: round(replay.excessReturnVsStaticPctPoints),
+          excessReturnVsCashPctPoints: round(replay.excessReturnVsCashPctPoints),
+          decisionPathMaxDrawdownPct: round(replay.decisionPathMaxDrawdownPct)
+        }
+      };
+    } catch (error: any) {
+      return { episode, evaluated: false, error: error?.message || String(error) };
+    }
+  });
+  const evaluated = responses.filter(response => response.evaluated);
+  return {
+    evaluatedEpisodes: evaluated.length,
+    requestedEpisodes: episodes.length,
+    episodesWithDefensiveSignal: evaluated.filter((response: any) => response.responseDuringLossWindow?.reducedOrExited).length,
+    episodesWithExecutedBuyOrAdd: evaluated.filter((response: any) => response.responseDuringLossWindow?.executedBuyOrAdd).length,
+    responses
+  };
+}
+
 async function main() {
   const base = 'http://127.0.0.1:3000';
   let server: ReturnType<typeof spawn> | null = null;
@@ -192,6 +321,7 @@ async function main() {
     registry.register(new RealMarketDataProvider(`${base}/api/market-data/history`));
     registry.setDefaultProvider('yahoo_finance');
     HistoricalMarketDataService.setRegistry(registry);
+    const fundProviderStatus = await readJson(`${base}/api/eodhd/status`);
     const end = new Date();
     const start = new Date(end); start.setUTCFullYear(start.getUTCFullYear() - 7);
     const startDate = isoDate(start), endDate = isoDate(end);
@@ -275,6 +405,32 @@ async function main() {
     const stressStarts = historicalStartDates(stressDataset, 'ANNUAL').slice(-3);
     const stressReplay = stressCatalog.length >= 2 && stressStarts.length ? runDynamicScenarioSet(stressDataset, stressCatalog, stressStarts, limitedStressIds) : null;
 
+    const lossEpisodes = holdoutScan.acceptedDataset.assets.flatMap(asset => {
+      const item = acceptedHoldoutCatalog.find(candidate => candidate.assetId === asset.assetId)!;
+      return [
+        worstHistoricalLossEpisode(asset, item, '6M', 126),
+        worstHistoricalLossEpisode(asset, item, '12M', 252)
+      ].filter(Boolean) as HistoricalLossEpisode[];
+    });
+    const worst6mEpisodes = lossEpisodes.filter(episode => episode.window === '6M').sort((a, b) => a.returnPct - b.returnPct).slice(0, 4);
+    const worst12mEpisodes = lossEpisodes.filter(episode => episode.window === '12M').sort((a, b) => a.returnPct - b.returnPct).slice(0, 4);
+    const selectedEpisodeKeys = new Set<string>();
+    const episodesToTest: HistoricalLossEpisode[] = [];
+    for (const episode of [...worst6mEpisodes.slice(0, 2), ...worst12mEpisodes.slice(0, 2)].sort((a, b) => a.returnPct - b.returnPct)) {
+      const key = `${episode.assetId}|${episode.startDate}|${episode.window}`;
+      if (selectedEpisodeKeys.has(key)) continue;
+      selectedEpisodeKeys.add(key);
+      episodesToTest.push(episode);
+    }
+    const historicalNegativeWindowStress = runHistoricalLossEpisodeStress(holdoutScan.acceptedDataset, acceptedHoldoutCatalog, episodesToTest);
+    if (historicalNegativeWindowStress.evaluatedEpisodes < Math.min(2, episodesToTest.length)) {
+      throw new Error(`HISTORICAL_LOSS_STRESS_TOO_FEW:${historicalNegativeWindowStress.evaluatedEpisodes}`);
+    }
+
+    const rejectedHoldoutInstruments = holdoutScan.candidates
+      .filter(candidate => candidate.status === 'REJECTED')
+      .map(candidate => ({ ticker: candidate.asset.ticker, name: candidate.asset.name, instrumentType: candidate.asset.instrumentType ?? 'ETF_ETC', provider: candidate.asset.marketDataProvider ?? 'YAHOO', reason: candidate.reason ?? 'UNKNOWN' }));
+
     const outOfUniverseRobustness = {
       purpose: 'CHECK_GENERALIZATION_OUTSIDE_PRODUCTION_CATALOG_WITHOUT_TUNING_ON_OUTCOMES',
       seed: holdoutSeed,
@@ -283,6 +439,7 @@ async function main() {
         accepted: holdoutScan.accepted,
         rejected: holdoutScan.rejected,
         rejectionCounts: holdoutScan.rejectionCounts,
+        rejectedInstruments: rejectedHoldoutInstruments,
         acceptedMutualFunds: acceptedHoldoutCatalog.filter(item => item.instrumentType === 'MUTUAL_FUND').map(item => item.ticker),
         acceptedEtfs: acceptedHoldoutCatalog.filter(item => item.instrumentType !== 'MUTUAL_FUND').map(item => item.ticker)
       },
@@ -300,13 +457,20 @@ async function main() {
         sidewaysCases,
         stressTickers: stressCatalog.map(item => item.ticker),
         replay: stressReplay
+      },
+      historicalNegativeWindowStress: {
+        warning: 'Worst historical 6M/12M loss windows are selected ex-post only to inspect behavior from the start of a real losing episode. They are stress diagnostics, not OOS performance evidence.',
+        worst6mEpisodes,
+        worst12mEpisodes,
+        ...historicalNegativeWindowStress
       }
     };
 
     const result = {
       generatedAt: new Date().toISOString(),
-      scope: 'INTEGRATED_REAL_EXECUTION_HISTORICAL_AND_HOLDOUT_ROBUSTNESS_VALIDATION',
+      scope: 'INTEGRATED_REAL_EXECUTION_HISTORICAL_HOLDOUT_AND_LOSS_EPISODE_VALIDATION',
       provenance,
+      fundProviderStatus,
       researchReference: { initialCapitalEur: research.initialCapital, researchTrades: research.totalTrades, researchRebalanceWindows: research.rebalanceCount, researchReturnPct: Number(research.totalReturnPct.toFixed(2)) },
       cashBenchmarkAnnualPct: DEFAULT_CASH_BENCHMARK_ANNUAL_PCT,
       fundEligibility,
@@ -315,12 +479,14 @@ async function main() {
       mixedSweep,
       dynamicHistoricalReplay,
       outOfUniverseRobustness,
-      interpretation: 'ONE_INTEGRATED_REAL_VALIDATION_FOR_PRODUCTION_UNIVERSE_PLUS_OUT_OF_UNIVERSE_RANDOM_AND_ADVERSE_PATH_CHALLENGES',
+      interpretation: 'ONE_INTEGRATED_REAL_VALIDATION_FOR_PRODUCTION_UNIVERSE_RANDOM_HOLDOUT_ADVERSE_PATHS_AND_REAL_HISTORICAL_LOSS_WINDOWS',
       notes: [
         'One REAL production scan feeds research, execution diagnostics and dynamic historical signal replay; synthetic fallback is forbidden.',
         'The holdout catalogue is excluded from production recommendations and is sampled with a recorded pseudo-random seed.',
         'The random holdout sample is selected independently of subsequent performance and is the relevant generalization check.',
-        'Loss/drawdown/volatility/sideways cohorts are selected after observing REAL paths only as behavioral stress tests; they are not OOS return evidence.',
+        'Current losing/drawdown/volatility/sideways cohorts and historical 6M/12M worst-loss windows are ex-post behavioral stress diagnostics, not OOS return evidence.',
+        'Historical loss-episode replay starts at the beginning of each losing window, after at least 252 prior bars exist, so the engine cannot know the subsequent loss when making the first decision.',
+        'Fund-provider status and exact rejected-instrument reasons are recorded so provider/configuration failures are distinguishable from insufficient history or ranking exclusion.',
         'Dynamic historical decisions remain causal and execute after their information date.',
         'No holdout result may be used to retune consensus thresholds without a separately defined training/validation protocol.',
         'Current-catalog survivorship bias remains and results are historical diagnostics, not forecasts.'
