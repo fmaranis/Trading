@@ -6,21 +6,15 @@ import { RealMarketDataProvider } from '../src/investment/data/marketData/provid
 import {
   assessCrossProviderEvidence,
   AssetUniverseScanner,
-  EUR_ASSET_UNIVERSE,
-  InvestmentDecisionEngine,
-  InvestmentHorizonYears,
-  InvestorRiskProfile,
-  OpportunityAlertEngine,
-  type DecisionHistoryEntry,
-  type InvestmentDecisionResult,
-  type OpportunityAlert,
-  type PreviousOpportunitySnapshot
+  CashBenchmarkService,
+  CurrentOpportunityAlertEngine,
+  EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
+  PortfolioCandidateGate,
+  type CurrentOpportunityAlert
 } from '../src/investment/decision';
 
 const STATE_DIR = path.join(process.cwd(), '.runtime');
 const STATE_FILE = path.join(STATE_DIR, 'alertAutomationState.json');
-
-type DecisionWithShortlist = DecisionHistoryEntry & { shortlist?: PreviousOpportunitySnapshot['shortlist'] };
 
 export interface AlertAutomationState {
   lastAttemptAt: string | null;
@@ -28,8 +22,8 @@ export interface AlertAutomationState {
   lastRunLocalDate: string | null;
   lastMarketDate: string | null;
   lastError: string | null;
-  lastAlerts: OpportunityAlert[];
-  lastDecision: DecisionWithShortlist | null;
+  lastAlerts: CurrentOpportunityAlert[];
+  lastDecision: unknown | null;
   lastEvidenceState: string | null;
   lastNotificationAt: string | null;
 }
@@ -42,7 +36,8 @@ const EMPTY_STATE: AlertAutomationState = {
 function loadState(): AlertAutomationState {
   try {
     if (!fs.existsSync(STATE_FILE)) return { ...EMPTY_STATE };
-    return { ...EMPTY_STATE, ...JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) };
+    const parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    return { ...EMPTY_STATE, ...parsed, lastAlerts: Array.isArray(parsed?.lastAlerts) ? parsed.lastAlerts : [] };
   } catch { return { ...EMPTY_STATE }; }
 }
 function saveState(state: AlertAutomationState): void {
@@ -51,22 +46,6 @@ function saveState(state: AlertAutomationState): void {
 }
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function sevenYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 7); return isoDate(d); }
-function toHistoryEntry(result: InvestmentDecisionResult, scan: Awaited<ReturnType<typeof AssetUniverseScanner.scan>>): DecisionWithShortlist {
-  return {
-    id: `automation_${result.asOfDate}_${result.riskProfile}_${result.horizonYears}`,
-    savedAt: new Date().toISOString(), asOfDate: result.asOfDate, capitalEur: result.capitalEur,
-    riskProfile: result.riskProfile, horizonYears: result.horizonYears, marketRegime: result.marketRegime,
-    confidence: result.confidence, confidenceScore: result.confidenceScore, cashWeight: result.cashWeight,
-    portfolioDatasetFingerprint: result.portfolioDatasetFingerprint, recommendedMethod: result.recommendedMethod,
-    allocations: result.assets.map(a => ({ assetId: a.assetId, ticker: a.ticker, weight: a.weight, amountEur: a.amountEur })),
-    shortlist: scan.selected.map(c => ({
-      ticker: c.asset.ticker,
-      score: c.score,
-      momentum120Pct: c.momentum120Pct,
-      annualizedVolatilityPct: c.annualizedVolatilityPct
-    }))
-  };
-}
 function baseUrl(): string {
   const configured = process.env.ALERT_INTERNAL_BASE_URL?.trim() || process.env.APP_URL?.trim();
   return configured ? configured.replace(/\/$/, '') : 'http://127.0.0.1:3000';
@@ -124,37 +103,36 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
     registry.setDefaultProvider('yahoo_finance');
     HistoricalMarketDataService.setRegistry(registry);
 
-    const scan = await AssetUniverseScanner.scan(EUR_ASSET_UNIVERSE, sevenYearsAgo(), isoDate(new Date()), {
-      forceRefresh: true, concurrency: 3, maxSelected: 8, minimumBars: 252, maxDataAgeDays: 7
+    const scan = await AssetUniverseScanner.scan(EUR_PORTFOLIO_DISCOVERY_UNIVERSE, sevenYearsAgo(), isoDate(new Date()), {
+      forceRefresh: true, concurrency: 3, maxSelected: 12, minimumBars: 252, maxDataAgeDays: 7
     });
-    const capitalEur = Math.max(1, Number(process.env.ALERT_CAPITAL_EUR) || 1000);
-    const risk = (['LOW','MEDIUM','HIGH'].includes(process.env.ALERT_RISK_PROFILE ?? '') ? process.env.ALERT_RISK_PROFILE : 'MEDIUM') as InvestorRiskProfile;
-    const horizonRaw = Number(process.env.ALERT_HORIZON_YEARS) || 3;
-    const horizon = ([1,3,5].includes(horizonRaw) ? horizonRaw : 3) as InvestmentHorizonYears;
-    const decision = InvestmentDecisionEngine.decide(scan.dataset, { capitalEur, riskProfile: risk, horizonYears: horizon });
+    const cashBenchmarkAnnualPct = Number(process.env.ALERT_CASH_BENCHMARK_PCT) || 2.5;
+    const gate = PortfolioCandidateGate.apply(scan, cashBenchmarkAnnualPct, 12);
+    const alerts = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct);
+    const actionable = alerts.filter(alert => alert.level === 'HIGH_CONVICTION' || alert.level === 'GOOD_ENTRY');
 
-    const eodhd = await crossValidateEodhd(scan).catch(() => null);
+    const eodhd = await crossValidateEodhd(gate.scan).catch(() => null);
     const evidence = eodhd ? assessCrossProviderEvidence({
       primaryProvider: 'Yahoo Finance', secondaryProvider: 'EODHD', requested: eodhd.requested,
       checked: eodhd.checked, matched: eodhd.matched, divergent: eodhd.divergent,
       summaryState: eodhd.summaryState, checkedAt: eodhd.checkedAt
     }) : null;
-    const alerts = OpportunityAlertEngine.evaluate({ scan, decision, previousDecision: state.lastDecision, evidence });
-    const actionable = alerts.filter(a => a.severity === 'MATERIAL' || a.severity === 'REVIEW');
+    const marketDate = scan.candidates.filter(c => c.status === 'ACCEPTED' && c.asOfDate).map(c => c.asOfDate!).sort().at(-1) ?? isoDate(new Date());
 
     let notificationSent = false;
     if (actionable.length > 0) {
       notificationSent = await notifyWebhook({
-        source: 'Custodia', kind: 'MARKET_OPPORTUNITY_ALERTS', generatedAt: new Date().toISOString(),
-        marketDate: decision.asOfDate, regime: decision.marketRegime,
+        source: 'Custodia', kind: 'CURRENT_ENTRY_OPPORTUNITIES', generatedAt: new Date().toISOString(),
+        marketDate, cashBenchmarkAnnualPct,
         evidence: evidence ? { state: evidence.state, summary: evidence.summary } : { state: 'PRIMARY_ONLY' },
-        alerts: actionable
+        highConviction: actionable.filter(alert => alert.level === 'HIGH_CONVICTION'),
+        goodEntries: actionable.filter(alert => alert.level === 'GOOD_ENTRY')
       }).catch(() => false);
     }
 
     const next: AlertAutomationState = {
       lastAttemptAt: state.lastAttemptAt, lastSuccessAt: new Date().toISOString(), lastRunLocalDate: localRunDate,
-      lastMarketDate: decision.asOfDate, lastError: null, lastAlerts: alerts, lastDecision: toHistoryEntry(decision, scan),
+      lastMarketDate: marketDate, lastError: null, lastAlerts: alerts, lastDecision: null,
       lastEvidenceState: evidence?.state ?? 'PRIMARY_ONLY',
       lastNotificationAt: notificationSent ? new Date().toISOString() : state.lastNotificationAt
     };
@@ -172,8 +150,6 @@ export function getAlertAutomationStatus() {
     enabled: process.env.ALERT_AUTOMATION_ENABLED === 'true',
     timezone: 'Europe/Madrid', runTimeLocal: process.env.ALERT_RUN_TIME_LOCAL || '22:30',
     webhookConfigured: Boolean(process.env.ALERT_WEBHOOK_URL?.trim()),
-    capitalEur: Math.max(1, Number(process.env.ALERT_CAPITAL_EUR) || 1000),
-    riskProfile: process.env.ALERT_RISK_PROFILE || 'MEDIUM', horizonYears: Number(process.env.ALERT_HORIZON_YEARS) || 3,
     state: loadState()
   };
 }
