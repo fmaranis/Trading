@@ -48,8 +48,20 @@ const KNOWN_ISIN_BY_TICKER: Record<string, string> = {
   'SGLD.DE': 'IE00B579F325'
 };
 
+/** ISO 6166 ISIN validation, including the Luhn check digit. */
 export function isValidIsin(value: string | null | undefined): boolean {
-  return Boolean(value && /^[A-Z]{2}[A-Z0-9]{10}$/.test(value.trim().toUpperCase()));
+  const isin = value?.trim().toUpperCase() ?? '';
+  if (!/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(isin)) return false;
+  const expanded = [...isin].map(char => /\d/.test(char) ? char : String(char.charCodeAt(0) - 55)).join('');
+  let total = 0;
+  for (let i = 0; i < expanded.length; i++) {
+    let digit = Number(expanded[expanded.length - 1 - i]);
+    if (i % 2 === 1) {
+      digit *= 2;
+      total += Math.floor(digit / 10) + digit % 10;
+    } else total += digit;
+  }
+  return total % 10 === 0;
 }
 
 export function resolveSecurityIsin(ticker: string | null | undefined, explicitIsin?: string | null): string | null {
@@ -57,7 +69,8 @@ export function resolveSecurityIsin(ticker: string | null | undefined, explicitI
   if (isValidIsin(explicit)) return explicit;
   const key = ticker?.trim().toUpperCase() ?? '';
   if (isValidIsin(key)) return key;
-  return KNOWN_ISIN_BY_TICKER[key] ?? null;
+  const mapped = KNOWN_ISIN_BY_TICKER[key] ?? null;
+  return isValidIsin(mapped) ? mapped : null;
 }
 
 export function preferredBrokerSearchCode(ticker: string | null | undefined, explicitIsin?: string | null): string {
