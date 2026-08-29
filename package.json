@@ -25,6 +25,7 @@
     "test:causal-universe-backtest": "tsx tests/causalUniverseBacktest.unit.ts",
     "test:historical-decision-replay": "tsx tests/historicalDecisionReplay.unit.ts",
     "test:dynamic-historical-replay": "tsx tests/dynamicHistoricalReplay.unit.ts",
+    "test:dynamic-historical-replay:live": "tsx scripts/dynamicHistoricalReplayLive.ts",
     "test:strategy-consensus": "tsx tests/strategyConsensus.unit.ts",
     "test:broker-execution": "tsx tests/brokerExecution.unit.ts",
     "test:broker-backtest-feasibility": "tsx tests/brokerBacktestFeasibility.unit.ts",
@@ -50,7 +51,7 @@
     "test:eodhd-shortlist:raw": "tsx scripts/eodhdShortlistSmoke.ts",
     "test:eodhd-shortlist": "tsx scripts/runRecordedValidation.ts eodhd-shortlist",
     "test:smoke:real-multi-asset": "tsx scripts/realMultiAssetSmoke.ts",
-    "validate:aistudio:raw": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx tests/unifiedInvestmentUniverse.unit.ts && tsx tests/portfolioDecisionEngine.unit.ts && tsx tests/portfolioExecutionPlan.unit.ts && tsx tests/strategyConsensus.unit.ts && tsx tests/historicalDecisionReplay.unit.ts && tsx tests/dynamicHistoricalReplay.unit.ts && tsx tests/costAwareExecutionPolicy.unit.ts && tsx tests/adaptiveExecutionPolicy.unit.ts && tsx tests/mixedInstrumentCausalReplay.unit.ts && tsx tests/brokerAvailability.unit.ts && tsx tests/brokerBacktestFeasibility.unit.ts && tsx scripts/aiStudioValidate.ts && tsx scripts/brokerBacktestFeasibilityLive.ts && tsx scripts/brokerAwareExecutionSweepLive.ts",
+    "validate:aistudio:raw": "tsx tests/opportunityThresholdResearch.unit.ts && tsx tests/opportunityThresholdWalkForward.unit.ts && tsx tests/fundPortfolio.unit.ts && tsx tests/unifiedInvestmentUniverse.unit.ts && tsx tests/portfolioDecisionEngine.unit.ts && tsx tests/portfolioExecutionPlan.unit.ts && tsx tests/strategyConsensus.unit.ts && tsx tests/historicalDecisionReplay.unit.ts && tsx tests/dynamicHistoricalReplay.unit.ts && tsx tests/costAwareExecutionPolicy.unit.ts && tsx tests/adaptiveExecutionPolicy.unit.ts && tsx tests/mixedInstrumentCausalReplay.unit.ts && tsx tests/brokerAvailability.unit.ts && tsx tests/brokerBacktestFeasibility.unit.ts && tsx scripts/aiStudioValidate.ts && tsx scripts/brokerBacktestFeasibilityLive.ts && tsx scripts/brokerAwareExecutionSweepLive.ts && tsx scripts/dynamicHistoricalReplayLive.ts",
     "validate:aistudio": "tsx scripts/runRecordedValidation.ts aistudio"
   },
   "dependencies": {
