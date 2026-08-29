@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import { readFile } from 'node:fs/promises';
 import { createServer as createViteServer } from 'vite';
 import { marketDataRouter } from './server/marketDataRoutes';
 import { alphaVantageRouter } from './server/alphaVantageRoutes';
@@ -32,6 +33,16 @@ async function startServer() {
   });
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+  app.get('/api/validation/latest-broker-aware', async (_req, res) => {
+    try {
+      const validationPath = path.join(process.cwd(), 'validation-results', 'latest-broker-aware-execution-sweep.json');
+      const raw = await readFile(validationPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      res.json(parsed);
+    } catch (error: any) {
+      res.status(404).json({ error: 'LATEST_VALIDATION_RESULT_NOT_AVAILABLE', detail: error?.message || String(error) });
+    }
+  });
   app.use('/api/market-data', marketDataRouter);
   app.use('/api/alpha-vantage', alphaVantageRouter);
   app.use('/api/eodhd', eodhdRouter);
