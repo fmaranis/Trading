@@ -1,4 +1,5 @@
 import { assessFundTaxReview, EXAMPLE_FUND_POSITIONS, EXAMPLE_STAGED_CAPITAL_PLAN, monthlyStagedAmount, valueFundFromNav } from '../src/investment/decision';
+import { VERIFIED_YAHOO_FUND_ALIASES } from '../src/investment/data/marketData/fundMarketData';
 
 let passed = 0;
 function check(name: string, condition: boolean) { if (!condition) throw new Error(`FAIL ${name}`); passed++; console.log(`✓ ${name}`); }
@@ -27,5 +28,7 @@ check('413 estimated return is calculated from real NAV movement', Math.abs((est
 const exact = valueFundFromNav({ ...EXAMPLE_FUND_POSITIONS[0], investedEur: 1200, units: 20.5 }, navPoints, 63);
 check('414 explicit fund units produce exact market valuation', exact.precision === 'EXACT_WITH_UNITS' && Math.abs((exact.currentValueEur ?? 0) - 1291.5) < 1e-9);
 check('415 missing NAV history never fabricates a position value', valueFundFromNav(EXAMPLE_FUND_POSITIONS[0], [], null).precision === 'UNAVAILABLE');
+check('416 real global Vanguard has an explicit verified Yahoo fallback symbol', VERIFIED_YAHOO_FUND_ALIASES.IE00B03HD191 === '0P00000WLG.F');
+check('417 real emerging Vanguard has an explicit verified Yahoo fallback symbol', VERIFIED_YAHOO_FUND_ALIASES.IE0031786696 === '0P00012I6A.F');
 
-console.log(`Fund portfolio/tax/NAV: ${passed}/15 invariants passed.`);
+console.log(`Fund portfolio/tax/NAV: ${passed}/17 invariants passed.`);
