@@ -158,6 +158,18 @@ If the net proxy is `<=` the cash benchmark, or cannot be computed, the target b
 
 `tests/portfolioExecutionPlan.unit.ts` must prove that investments beating the benchmark can remain actionable and investments below it are suppressed to review.
 
+## D28. Historical execution must compete against remunerated cash on identical dates
+
+**Decision:** the historical executable replay must measure whether taking investment risk added value versus leaving the same starting capital in the configured remunerated cash account.
+
+`remuneratedCash.ts` compounds the annual cash reference across actual calendar-day gaps using a 365-day basis. `MixedInstrumentCausalReplayEngine` applies that growth only to the residual cash balance while ETF/fund positions remain invested. In parallel, an all-cash benchmark keeps the complete initial capital remunerated from the first replay date to the last.
+
+The replay must expose final all-cash value/return, interest earned by strategy residual cash, final EUR excess versus all-cash, percentage-point excess, and a boolean indicating whether the strategy beat cash. A no-trade replay must exactly equal the all-cash benchmark; a 0% cash rate must reproduce the legacy no-trade result.
+
+The primary app must show this comparison on demand, using the currently selected capital, risk profile, horizon and cash benchmark. It must not run automatically at page startup because the causal replay is materially heavier than the current-decision calculation.
+
+This comparison remains historical diagnostic evidence. It must not be described as an expected return or guarantee, and the configured cash rate itself must not be presented as permanently guaranteed by the broker.
+
 ## Change protocol
 
 When a durable decision changes:
