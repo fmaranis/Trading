@@ -21,7 +21,7 @@ interface Props {
 
 export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
   return <section className="space-y-4">
-    <CurrentOpportunityAlertsPanel scan={scan} decision={decision} onInspectAsset={onInspectAsset} />
+    <CurrentOpportunityAlertsPanel scan={scan} decision={decision} positionHealth={positionHealth} onInspectAsset={onInspectAsset} />
     <UserPortfolioPanel scan={scan} decision={decision} positionHealth={positionHealth} onInspectAsset={onInspectAsset} />
     <PortfolioExecutionPlanPanel scan={scan} decision={decision} positionHealth={positionHealth} onInspectAsset={onInspectAsset} />
 
