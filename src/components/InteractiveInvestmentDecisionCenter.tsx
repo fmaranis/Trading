@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart3, RefreshCw, ShieldCheck, Sparkles, WalletCards } from 'lucide-react';
+import { BarChart3, Radar, RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
 import {
   AssetUniverseScanResult,
   AssetUniverseScanner,
@@ -8,6 +8,7 @@ import {
   InvestmentDecisionResult,
   InvestorRiskProfile,
   InvestmentHorizonYears,
+  USER_PORTFOLIO_UPDATED_EVENT,
   UserPortfolioService
 } from '../investment/decision';
 import { AlphaVantageCrossValidationResult, AlphaVantageCrossValidationService, AlphaVantageStatus } from '../investment/data/marketData/alphaVantageCrossValidation';
@@ -15,6 +16,7 @@ import { EodhdCrossValidationResult, EodhdCrossValidationService, EodhdStatus } 
 import { RecommendationEvidencePanel } from './RecommendationEvidencePanel';
 import { MarketUtilityDashboard } from './MarketUtilityDashboard';
 import { DecisionGuardrailsPanel } from './DecisionGuardrailsPanel';
+import { InvestmentResearchLab } from './InvestmentResearchLab';
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function sevenYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 7); return isoDate(d); }
@@ -29,7 +31,10 @@ function portfolioDeployableCapital(): number {
   return Math.max(1, (p.stagedCapitalPlan?.availableEur ?? 0) + p.cashEur);
 }
 
+type Workspace = 'PORTFOLIO' | 'RESEARCH';
+
 export const InteractiveInvestmentDecisionCenter: React.FC = () => {
+  const [workspace, setWorkspace] = useState<Workspace>('PORTFOLIO');
   const [capital, setCapital] = useState(() => portfolioDeployableCapital());
   const [riskProfile, setRiskProfile] = useState<InvestorRiskProfile>('MEDIUM');
   const [horizon, setHorizon] = useState<InvestmentHorizonYears>(3);
@@ -39,7 +44,6 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastMarketRefresh, setLastMarketRefresh] = useState<string | null>(null);
   const [localRevision, setLocalRevision] = useState(0);
-  const [showResearchDetails, setShowResearchDetails] = useState(false);
   const [eodhdStatus, setEodhdStatus] = useState<EodhdStatus | null>(null);
   const [eodhdValidation, setEodhdValidation] = useState<EodhdCrossValidationResult | null>(null);
   const [eodhdLoading, setEodhdLoading] = useState(false);
@@ -119,10 +123,10 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       return Math.abs(prev - next) > 0.01 ? next : prev;
     });
     window.addEventListener('focus', sync);
-    window.addEventListener('trading:portfolio-updated', sync as EventListener);
+    window.addEventListener(USER_PORTFOLIO_UPDATED_EVENT, sync as EventListener);
     return () => {
       window.removeEventListener('focus', sync);
-      window.removeEventListener('trading:portfolio-updated', sync as EventListener);
+      window.removeEventListener(USER_PORTFOLIO_UPDATED_EVENT, sync as EventListener);
     };
   }, []);
 
@@ -135,46 +139,33 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   }, [scan, capital, riskProfile, horizon]);
 
   return <div className="space-y-5">
-    <section className="rounded-2xl border border-indigo-500/25 bg-gradient-to-br from-indigo-950/70 via-slate-900 to-slate-950 p-5 sm:p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="max-w-3xl"><div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-indigo-300"/><h1 className="text-xl sm:text-2xl font-bold text-white">¿Qué haría hoy con mi dinero?</h1></div><p className="mt-2 text-sm text-slate-300">La app actualiza automáticamente el universo REAL al entrar. Debajo verás primero la decisión accionable, después tu cartera y la simulación de recomendaciones; el detalle técnico queda en segundo plano.</p></div>
-        {result && <div className={`rounded-xl border px-3 py-2 text-xs font-bold ${confidenceClass(result.confidence)}`}>Calidad de evidencia {result.confidence} · {result.confidenceScore}/100</div>}
-      </div>
-      <div className="mt-5 grid gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3"><span className="text-[10px] uppercase text-emerald-300">Capital disponible · Mi cartera real</span><div className="mt-1 text-xl font-mono font-bold">{capital.toFixed(2)} €</div><div className="mt-1 text-[10px] text-slate-400">Efectivo libre + capital pendiente.</div></div>
-        <label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Riesgo máximo</span><select value={riskProfile} onChange={e=>setRiskProfile(e.target.value as InvestorRiskProfile)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value="LOW">Bajo</option><option className="bg-slate-900" value="MEDIUM">Medio</option><option className="bg-slate-900" value="HIGH">Alto</option></select></label>
-        <label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Horizonte</span><select value={horizon} onChange={e=>setHorizon(Number(e.target.value) as InvestmentHorizonYears)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value={1}>1 año</option><option className="bg-slate-900" value={3}>3 años</option><option className="bg-slate-900" value={5}>5 años</option></select></label>
-      </div>
-      <button onClick={()=>void refreshMarket(true)} disabled={marketLoading} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 font-bold text-white hover:bg-indigo-500 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${marketLoading?'animate-spin':''}`}/>{marketLoading?'Actualizando universo REAL…':'Actualizar ahora'}</button>
-      <div className="mt-3 flex flex-wrap gap-2 text-[10px]"><span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-400">Mercado: {lastMarketRefresh??(marketLoading?'actualizando automáticamente…':'pendiente')}</span><span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-emerald-300">Recalculo local #{localRevision}</span></div>
-    </section>
+    <nav className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-700 bg-slate-950 p-2">
+      <button onClick={() => setWorkspace('PORTFOLIO')} className={`rounded-xl px-4 py-4 text-left transition ${workspace === 'PORTFOLIO' ? 'bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-500/30' : 'text-slate-400 hover:bg-slate-900'}`}><div className="flex items-center gap-2"><WalletCards className="h-5 w-5"/><b>Mi cartera real</b></div><div className="mt-1 text-[10px] opacity-70">Lo que tengo, liquidez y qué haría hoy con mi dinero.</div></button>
+      <button onClick={() => setWorkspace('RESEARCH')} className={`rounded-xl px-4 py-4 text-left transition ${workspace === 'RESEARCH' ? 'bg-violet-500/15 text-violet-100 ring-1 ring-violet-500/30' : 'text-slate-400 hover:bg-slate-900'}`}><div className="flex items-center gap-2"><Radar className="h-5 w-5"/><b>Estudio y señales</b></div><div className="mt-1 text-[10px] opacity-70">Buscar valores, rankings, histórico y puntos de compra/venta.</div></button>
+    </nav>
 
-    {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200"><b>No puedo calcular la decisión.</b> {error}</div>}
-    {marketLoading && !scan && <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">Actualizando automáticamente el mercado REAL. Puedes seguir usando la cabecera mientras termina.</div>}
+    {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200"><b>No puedo calcular el mercado actual.</b> {error}</div>}
+    {marketLoading && !scan && <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">Actualizando automáticamente el mercado REAL…</div>}
 
-    {result && <section className="grid gap-3 md:grid-cols-4">
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><div className="text-[10px] uppercase text-slate-500">Datos hasta</div><div className="mt-1 font-mono font-bold">{result.asOfDate}</div></div>
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><BarChart3 className="h-4 w-4 text-indigo-400"/><div className="mt-2 text-[10px] uppercase text-slate-500">Régimen</div><div className="font-bold text-sm">{result.marketRegime}</div></div>
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><ShieldCheck className="h-4 w-4 text-emerald-400"/><div className="mt-2 text-[10px] uppercase text-slate-500">Método</div><div className="font-bold text-sm">{result.recommendedMethod}</div></div>
-      <div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><WalletCards className="h-4 w-4 text-amber-400"/><div className="mt-2 text-[10px] uppercase text-slate-500">Efectivo objetivo</div><div className="font-mono font-bold">{pct(result.cashWeight)}</div></div>
-    </section>}
+    {workspace === 'PORTFOLIO' && <>
+      <section className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/35 via-slate-900 to-slate-950 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="max-w-3xl"><div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-emerald-300"/><h1 className="text-xl sm:text-2xl font-bold text-white">Mi cartera real</h1></div><p className="mt-2 text-sm text-slate-300">Aquí solo se trabaja con tus posiciones y tu liquidez. El laboratorio de valores, rankings y backtests está en la otra pestaña.</p></div>{result && <div className={`rounded-xl border px-3 py-2 text-xs font-bold ${confidenceClass(result.confidence)}`}>Evidencia {result.confidence} · {result.confidenceScore}/100</div>}</div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3"><div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3"><span className="text-[10px] uppercase text-emerald-300">Liquidez para nuevas operaciones</span><div className="mt-1 text-xl font-mono font-bold">{capital.toFixed(2)} €</div></div><label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Riesgo</span><select value={riskProfile} onChange={e=>setRiskProfile(e.target.value as InvestorRiskProfile)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value="LOW">Bajo</option><option className="bg-slate-900" value="MEDIUM">Medio</option><option className="bg-slate-900" value="HIGH">Alto</option></select></label><label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Horizonte</span><select value={horizon} onChange={e=>setHorizon(Number(e.target.value) as InvestmentHorizonYears)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value={1}>1 año</option><option className="bg-slate-900" value={3}>3 años</option><option className="bg-slate-900" value={5}>5 años</option></select></label></div>
+        <button onClick={()=>void refreshMarket(true)} disabled={marketLoading} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${marketLoading?'animate-spin':''}`}/>{marketLoading?'Actualizando mercado…':'Actualizar mercado y recomendación'}</button>
+        <div className="mt-2 text-[9px] text-slate-500">Mercado: {lastMarketRefresh ?? 'pendiente'} · recalculo #{localRevision}</div>
+      </section>
 
-    {scan && result && <>
-      <DecisionGuardrailsPanel scan={scan} capitalEur={capital} riskProfile={riskProfile} horizonYears={horizon}/>
-      <MarketUtilityDashboard scan={scan} decision={result} eodhdValidation={eodhdValidation}/>
+      {result && <section className="grid gap-3 md:grid-cols-4"><div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><div className="text-[10px] uppercase text-slate-500">Datos hasta</div><div className="mt-1 font-mono font-bold">{result.asOfDate}</div></div><div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><BarChart3 className="h-4 w-4 text-indigo-400"/><div className="mt-2 text-[10px] uppercase text-slate-500">Régimen</div><div className="font-bold text-sm">{result.marketRegime}</div></div><div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><ShieldCheck className="h-4 w-4 text-emerald-400"/><div className="mt-2 text-[10px] uppercase text-slate-500">Método de cartera</div><div className="font-bold text-sm">{result.recommendedMethod}</div></div><div className="rounded-xl border border-slate-800 bg-slate-900 p-4"><div className="text-[10px] uppercase text-slate-500">Efectivo objetivo</div><div className="mt-1 font-mono font-bold">{pct(result.cashWeight)}</div></div></section>}
+
+      {scan && result && <><DecisionGuardrailsPanel scan={scan} capitalEur={capital} riskProfile={riskProfile} horizonYears={horizon}/><MarketUtilityDashboard scan={scan} decision={result} eodhdValidation={eodhdValidation}/></>}
     </>}
 
-    {scan && <section className="rounded-2xl border border-violet-500/20 bg-slate-900 p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-bold text-white">Investigación y detalle técnico</h2><p className="mt-1 text-xs text-slate-400">El histórico multiactivo y el ranking completo son evidencia de apoyo, no otro flujo de decisión.</p></div><button onClick={() => setShowResearchDetails(v => !v)} className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-xs font-bold text-violet-200">{showResearchDetails ? 'Ocultar detalle' : 'Ver histórico y ranking completo'}</button></div>
-    </section>}
-    {scan && showResearchDetails && <RecommendationEvidencePanel scan={scan}/>} 
+    {workspace === 'RESEARCH' && <>
+      {scan && result ? <InvestmentResearchLab scan={scan} decision={result}/> : <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400">El radar se habilitará cuando termine la actualización inicial. El estudio individual utiliza datos REAL del proveedor y no modifica tu cartera.</div>}
 
-    {scan && <details className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <summary className="cursor-pointer font-bold">Cobertura y proveedores · detalle técnico</summary>
-      <div className="mt-2 text-xs text-slate-400">{scan.accepted}/{scan.scanned} instrumentos válidos · shortlist {scan.selected.length}.</div>
-      <button onClick={() => void runSecondaryValidation()} disabled={eodhdLoading || alphaLoading} className="mt-3 rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2 text-xs font-bold text-sky-100 disabled:opacity-50">{eodhdLoading||alphaLoading?'Validando proveedores…':'Validar EODHD / Alpha Vantage'}</button>
-      <div className="mt-3 grid gap-2 md:grid-cols-3 text-xs"><div className="rounded-lg bg-slate-950 p-3"><b className="text-emerald-300">Yahoo</b><div className="mt-1 text-slate-500">ETFs/ETCs · principal</div></div><div className="rounded-lg bg-slate-950 p-3"><b className="text-cyan-300">EODHD</b><div className="mt-1 text-slate-500">{eodhdValidation?.summaryState??(eodhdStatus?.configured?'listo':'sin validar')}</div></div><div className="rounded-lg bg-slate-950 p-3"><b className="text-slate-300">Alpha Vantage</b><div className="mt-1 text-slate-500">{alphaValidation?.summaryState??(alphaStatus?.configured?'listo':'sin validar')}</div></div></div>
-      {(eodhdError || alphaError) && <div className="mt-3 text-xs text-amber-300">{[eodhdError, alphaError].filter(Boolean).join(' · ')}</div>}
-    </details>}
+      {scan && <details className="rounded-2xl border border-slate-800 bg-slate-900 p-5"><summary className="cursor-pointer font-bold">Ranking técnico completo y métricas auxiliares</summary><div className="mt-4"><RecommendationEvidencePanel scan={scan}/></div></details>}
+
+      {scan && <details className="rounded-2xl border border-slate-800 bg-slate-900 p-5"><summary className="cursor-pointer font-bold">Cobertura y proveedores</summary><div className="mt-2 text-xs text-slate-400">{scan.accepted}/{scan.scanned} instrumentos válidos en el escáner de cartera · shortlist de cartera {scan.selected.length}. Esto no limita el buscador de ticker individual.</div><button onClick={() => void runSecondaryValidation()} disabled={eodhdLoading || alphaLoading} className="mt-3 rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2 text-xs font-bold text-sky-100 disabled:opacity-50">{eodhdLoading||alphaLoading?'Validando proveedores…':'Validar EODHD / Alpha Vantage'}</button><div className="mt-3 grid gap-2 md:grid-cols-3 text-xs"><div className="rounded-lg bg-slate-950 p-3"><b className="text-emerald-300">Yahoo</b><div className="mt-1 text-slate-500">acciones / ETFs · principal</div></div><div className="rounded-lg bg-slate-950 p-3"><b className="text-cyan-300">EODHD</b><div className="mt-1 text-slate-500">{eodhdValidation?.summaryState??(eodhdStatus?.configured?'listo':'sin validar')}</div></div><div className="rounded-lg bg-slate-950 p-3"><b className="text-slate-300">Alpha Vantage</b><div className="mt-1 text-slate-500">{alphaValidation?.summaryState??(alphaStatus?.configured?'listo':'sin validar')}</div></div></div>{(eodhdError || alphaError) && <div className="mt-3 text-xs text-amber-300">{[eodhdError, alphaError].filter(Boolean).join(' · ')}</div>}</details>}
+    </>}
   </div>;
 };
