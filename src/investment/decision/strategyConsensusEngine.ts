@@ -42,7 +42,8 @@ function pct(a: number, b: number): number | null { return a > 0 ? (b / a - 1) *
 function mean(values: number[]): number | null { return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null; }
 function rsi14(prices: number[]): number | null {
   if (prices.length < 15) return null;
-  const changes = prices.slice(-15).slice(1).map((p, i) => p - prices.slice(-15)[i]);
+  const last15 = prices.slice(-15);
+  const changes = last15.slice(1).map((p, i) => p - last15[i]);
   const gains = changes.map(x => Math.max(0, x));
   const losses = changes.map(x => Math.max(0, -x));
   const avgGain = mean(gains) ?? 0;
@@ -105,7 +106,7 @@ export class StrategyConsensusEngine {
       vote('MOMENTUM_120', 'Momentum 120 sesiones', momentumScore, `${m120 == null ? 'N/D' : `${m120.toFixed(1)}%`} · 60d ${m60 == null ? 'N/D' : `${m60.toFixed(1)}%`} · 20d ${m20 == null ? 'N/D' : `${m20.toFixed(1)}%`}.`),
       vote('MEAN_REVERSION', 'Mean reversion / buy-the-dip', meanReversionScore, `RSI14 ${rsi == null ? 'N/D' : rsi.toFixed(1)} · drawdown actual ${dd == null ? 'N/D' : `${dd.toFixed(1)}%`}${buyTheDipCandidate ? ' · caída dentro de tendencia no estructural.' : ''}`),
       vote('RISK', 'Riesgo', riskScore, `Volatilidad anualizada ${vol == null ? 'N/D' : `${vol.toFixed(1)}%`} · drawdown ${dd == null ? 'N/D' : `${dd.toFixed(1)}%`}.`),
-      vote('CASH_HURDLE', 'Frente a efectivo', cashScore, cash.estimatedAnnualReturnProxyPct == null ? `No hay proxy suficiente frente a ${cashBenchmarkAnnualPct.toFixed(2)}%.` : `Proxy anual ${cash.estimatedAnnualReturnProxyPct.toFixed(2)}% vs efectivo ${cashBenchmarkAnnualPct.toFixed(2)}%.`)
+      vote('CASH_HURDLE', 'Frente a efectivo', cashScore, cash.netAnnualizedProxyPct == null ? `No hay proxy suficiente frente a ${cashBenchmarkAnnualPct.toFixed(2)}%.` : `Proxy anual ${cash.netAnnualizedProxyPct.toFixed(2)}% vs efectivo ${cashBenchmarkAnnualPct.toFixed(2)}%.`)
     ];
     const favorableVotes = votes.filter(v => v.score > 0).length;
     const unfavorableVotes = votes.filter(v => v.score < 0).length;
@@ -116,8 +117,6 @@ export class StrategyConsensusEngine {
     if (!structuralDowntrend && consensusScore >= 2 && cashScore >= 0) newMoneyAction = 'BUY';
     else if (structuralDowntrend || consensusScore <= -2 || cashScore < 0) newMoneyAction = 'AVOID';
 
-    // Existing positions deliberately have a higher sell hurdle than new-money rejection.
-    // A weak 120-day window or an overweight category is not sufficient on its own.
     let existingPositionAction: ExistingPositionAction = 'HOLD';
     if (structuralDowntrend && unfavorableVotes >= 3) existingPositionAction = 'REDUCE_REVIEW';
     else if (newMoneyAction === 'BUY' && favorableVotes >= 3) existingPositionAction = 'ADD';
