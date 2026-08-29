@@ -31,13 +31,20 @@ assert.ok(result.signals.every(s => Number.isFinite(s.executionPrice) && s.execu
 assert.ok(result.buyHoldReturnPct != null && Number.isFinite(result.buyHoldReturnPct));
 assert.ok(result.assetMaxDrawdownPct != null && result.assetMaxDrawdownPct > 0);
 
+const weekly = SingleAssetResearchEngine.run({
+  symbol: 'TEST', bars, displayStartDate: '2023-01-01', frequency: 'WEEKLY', cashBenchmarkAnnualPct: 2.5
+});
+assert.ok(weekly.reviews > result.reviews * 3, 'weekly cadence should review materially more often than monthly');
+assert.ok(weekly.signals.every(s => s.executionDate > s.signalDate), 'weekly signals must preserve strict NEXT_OPEN causality');
+assert.ok(weekly.signals.every(s => Number.isFinite(s.executionPrice) && s.executionPrice > 0), 'weekly markers must use a valid next-bar execution price');
+
 const cutoff = '2023-09-01';
-const baseBefore = result.signals.filter(s => s.signalDate <= cutoff).map(s => `${s.action}:${s.signalDate}:${s.executionDate}`);
+const baseBefore = weekly.signals.filter(s => s.signalDate <= cutoff).map(s => `${s.action}:${s.signalDate}:${s.executionDate}`);
 const altered = bars.map((bar, i) => i > 700 ? { ...bar, open: bar.open * 5, high: bar.high * 5, low: bar.low * 5, close: bar.close * 5 } : bar);
 const alteredResult = SingleAssetResearchEngine.run({
-  symbol: 'TEST', bars: altered, displayStartDate: '2023-01-01', frequency: 'MONTHLY', cashBenchmarkAnnualPct: 2.5
+  symbol: 'TEST', bars: altered, displayStartDate: '2023-01-01', frequency: 'WEEKLY', cashBenchmarkAnnualPct: 2.5
 });
 const alteredBefore = alteredResult.signals.filter(s => s.signalDate <= cutoff).map(s => `${s.action}:${s.signalDate}:${s.executionDate}`);
-assert.deepEqual(alteredBefore, baseBefore, 'future prices must not change earlier research signals');
+assert.deepEqual(alteredBefore, baseBefore, 'future prices must not change earlier weekly research signals');
 
-console.log(`Single Asset Research: ${result.signals.length} markers, causal BUY/SELL and future isolation passed.`);
+console.log(`Single Asset Research: weekly=${weekly.reviews} reviews, monthly=${result.reviews}; causal BUY/SELL and future isolation passed.`);
