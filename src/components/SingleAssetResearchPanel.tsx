@@ -40,9 +40,10 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, sug
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const analyzeSymbol = async (rawSymbol?: string) => {
+  const analyzeSymbol = async (rawSymbol?: string, frequencyOverride?: SingleAssetResearchFrequency) => {
     const clean = (rawSymbol ?? symbol).trim().toUpperCase();
     if (!clean) return;
+    const reviewFrequency = frequencyOverride ?? frequency;
     setLoading(true); setError(null); setSymbol(clean);
     try {
       const endDate = isoDate(new Date());
@@ -57,7 +58,7 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, sug
         bars = response.bars;
         nextMetadata = response.metadata;
       }
-      const next = SingleAssetResearchEngine.run({ symbol: clean, bars, displayStartDate: startDate, endDate, frequency, cashBenchmarkAnnualPct: CashBenchmarkService.load() });
+      const next = SingleAssetResearchEngine.run({ symbol: clean, bars, displayStartDate: startDate, endDate, frequency: reviewFrequency, cashBenchmarkAnnualPct: CashBenchmarkService.load() });
       setResult(next);
       setMetadata(nextMetadata);
     } catch (e: any) {
@@ -75,9 +76,7 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, sug
   const chartData = useMemo(() => {
     if (!result) return [];
     const markerByDate = new Map<string, SingleAssetResearchSignal>();
-    for (const signal of result.signals) {
-      markerByDate.set(signal.executionDate, signal);
-    }
+    for (const signal of result.signals) markerByDate.set(signal.executionDate, signal);
     return result.chart.map(point => {
       const signal = markerByDate.get(point.date);
       return {
@@ -100,23 +99,24 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, sug
   const current = result?.currentAssessment ?? null;
   const currentLabel = current?.newMoneyAction === 'BUY' ? 'CANDIDATO A COMPRAR' : current?.newMoneyAction === 'AVOID' ? 'NO COMPRAR AHORA' : current ? 'VIGILAR' : 'SIN ANÁLISIS';
 
-  return <section className="rounded-2xl border border-cyan-500/25 bg-slate-900 p-5">
+  return <section id="single-asset-research" className="scroll-mt-4 rounded-2xl border border-cyan-500/25 bg-slate-900 p-5">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-cyan-300"/><h2 className="font-bold text-white">Analizar cualquier valor</h2></div><p className="mt-1 max-w-3xl text-xs text-slate-400">Ticker cotizado o ISIN de fondo. Ejemplos: AAPL, NVDA, ASML.AS, SAN.MC, SAP.DE o IE00B03HD191. El gráfico reconstruye qué habría dicho el motor usando solo información disponible entonces.</p></div>
+      <div><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-cyan-300"/><h2 className="font-bold text-white">Analizar cualquier valor</h2></div><p className="mt-1 max-w-3xl text-xs text-slate-400">Ticker cotizado o ISIN de fondo. El gráfico reconstruye qué habría dicho el mismo motor usando solo información disponible entonces.</p></div>
       {current && <div className={`rounded-xl border px-4 py-2 text-xs font-black ${current.newMoneyAction === 'BUY' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : current.newMoneyAction === 'AVOID' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>{currentLabel}</div>}
     </div>
 
     <div className="mt-4 grid gap-2 md:grid-cols-[1.2fr_1fr_0.8fr_auto]">
       <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Ticker / ISIN</span><div className="mt-1 flex items-center gap-2"><Search className="h-4 w-4 text-slate-500"/><input list="research-symbol-suggestions" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === 'Enter') void analyzeSymbol(); }} placeholder="AAPL / SAN.MC / IE00B03HD191…" className="w-full bg-transparent font-mono font-bold outline-none"/></div><datalist id="research-symbol-suggestions">{suggestions.map(item => <option key={item.ticker} value={item.ticker}>{item.name}</option>)}</datalist></label>
       <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Estudiar desde</span><input type="date" value={startDate} max={isoDate(new Date())} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full bg-transparent font-mono text-sm outline-none"/></label>
-      <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Revisión</span><select value={frequency} onChange={e => setFrequency(e.target.value as SingleAssetResearchFrequency)} className="mt-1 w-full bg-transparent text-sm outline-none"><option className="bg-slate-900" value="WEEKLY">Semanal</option><option className="bg-slate-900" value="MONTHLY">Mensual</option><option className="bg-slate-900" value="QUARTERLY">Trimestral</option></select><span className="mt-1 block text-[9px] text-slate-500">Semanal revisa una vez por semana usando la misma serie diaria y ejecuta en la siguiente observación.</span></label>
+      <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Revisión</span><select value={frequency} onChange={e => { const next = e.target.value as SingleAssetResearchFrequency; setFrequency(next); void analyzeSymbol(undefined, next); }} className="mt-1 w-full bg-transparent text-sm outline-none"><option className="bg-slate-900" value="WEEKLY">Semanal</option><option className="bg-slate-900" value="MONTHLY">Mensual</option><option className="bg-slate-900" value="QUARTERLY">Trimestral</option></select><span className="mt-1 block text-[9px] text-slate-500">Semanal es el modo por defecto: una revisión por semana con datos diarios y ejecución en la siguiente observación.</span></label>
       <button onClick={() => void analyzeSymbol()} disabled={loading} className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Analizando…' : 'Analizar'}</button>
     </div>
 
     {error && <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">{error}</div>}
 
     {result && <>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5 text-xs">
+      <div className="mt-4 flex flex-wrap gap-2 text-[10px]"><span className="rounded-full border border-cyan-500/25 bg-cyan-500/5 px-3 py-1 font-bold text-cyan-200">Frecuencia: {frequency === 'WEEKLY' ? 'SEMANAL' : frequency === 'MONTHLY' ? 'MENSUAL' : 'TRIMESTRAL'}</span><span className="rounded-full border border-slate-700 px-3 py-1 text-slate-400">{result.reviews} revisiones causales</span></div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5 text-xs">
         <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Valor</div><b className="font-mono text-white">{result.symbol}</b><div className="text-[9px] text-slate-500">{metadata?.currency ?? 'divisa N/D'} · {metadata?.exchange ?? metadata?.providerName ?? 'mercado'}</div></div>
         <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Seguir entradas/salidas</div><b className={(result.strategyReturnPct ?? 0) >= 0 ? 'font-mono text-emerald-200' : 'font-mono text-rose-200'}>{signed(result.strategyReturnPct)}</b></div>
         <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Comprar y mantener</div><b className={(result.buyHoldReturnPct ?? 0) >= 0 ? 'font-mono text-emerald-200' : 'font-mono text-rose-200'}>{signed(result.buyHoldReturnPct)}</b></div>
@@ -129,7 +129,7 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, sug
         <div className="h-[430px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 15, right: 15, left: 5, bottom: 10 }}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/><XAxis dataKey="date" minTickGap={36} tick={{ fontSize: 9, fill: '#94a3b8' }}/><YAxis domain={['auto','auto']} width={62} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={v => Number(v).toFixed(0)}/><Tooltip content={<ResearchTooltip/>}/><Legend wrapperStyle={{ fontSize: 10 }}/><Line type="monotone" dataKey="price" name="Precio / NAV" stroke="#94a3b8" strokeWidth={2} dot={false}/><Scatter dataKey="buyPrice" name="COMPRAR ▲" shape={<BuyShape/>}/><Scatter dataKey="addPrice" name="AÑADIR ◆" shape={<AddShape/>}/><Scatter dataKey="sellPrice" name="SALIR ▼" shape={<SellShape/>}/></ComposedChart></ResponsiveContainer></div>
       </div>
 
-      <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 text-[10px] text-sky-100">Este gráfico es investigación de un activo aislado. No altera tu cartera real. Si el valor está en otra divisa o no está disponible en tu broker, esos gates se comprueban solo antes de convertirlo en operación real.</div>
+      <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 text-[10px] text-sky-100">Este gráfico es investigación de un activo aislado. No altera tu cartera real. La disponibilidad en MyInvestor se trata como asumida salvo que la marques expresamente como no disponible.</div>
     </>}
   </section>;
 };
