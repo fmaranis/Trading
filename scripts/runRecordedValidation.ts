@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { recordValidationResult } from './validationResultStore';
 
 type ValidationMode = 'aistudio' | 'eodhd-shortlist';
+const mode = process.argv[2] as ValidationMode | undefined;
 const RESULT_BRANCH = 'validation-results';
 
 const config: Record<ValidationMode, { script: string; runFileName: string; markers: Array<{ marker: string; fileName: string }> }> = {
