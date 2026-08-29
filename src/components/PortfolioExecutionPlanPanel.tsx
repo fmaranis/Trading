@@ -10,6 +10,7 @@ import {
   PortfolioDecisionEngine,
   PortfolioExecutionPlan,
   PortfolioExecutionPlanService,
+  StrategyConsensusEngine,
   UserPortfolioService
 } from '../investment/decision';
 
@@ -51,7 +52,25 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision })
     const portfolio = UserPortfolioService.load();
     const portfolioDecision = PortfolioDecisionEngine.evaluate({ portfolio, scan, decision });
     const cashBenchmarkAnnualPct = CashBenchmarkService.load();
-    const next = buildPortfolioExecutionPlan({ portfolio, scan, decisionAsOf: decision.asOfDate, portfolioDecision, cashBenchmarkAnnualPct });
+    const raw = buildPortfolioExecutionPlan({ portfolio, scan, decisionAsOf: decision.asOfDate, portfolioDecision, cashBenchmarkAnnualPct });
+    const lines = raw.lines.map(line => {
+      if (!['BUY_ETF', 'SUBSCRIBE_FUND', 'TRANSFER_FUND'].includes(line.action) || !line.targetAssetId) return line;
+      const consensus = StrategyConsensusEngine.assess(scan, line.targetAssetId, cashBenchmarkAnnualPct);
+      if (!consensus || consensus.newMoneyAction === 'BUY') return line;
+      const state = consensus.newMoneyAction === 'AVOID' ? 'desfavorable' : 'insuficiente';
+      return {
+        ...line,
+        action: 'REVIEW' as const,
+        instruction: `No ejecutar todavía ${line.targetTicker ?? line.targetName ?? line.targetAssetId}: el consenso de señales es ${state}.`,
+        rationale: `${line.rationale} Consenso: ${consensus.favorableVotes} favorables, ${consensus.unfavorableVotes} desfavorables y ${consensus.neutralVotes} neutras. ${consensus.explanation}`
+      };
+    });
+    const vetoed = lines.filter((line, i) => line.action === 'REVIEW' && raw.lines[i]?.action !== 'REVIEW').length;
+    const next: PortfolioExecutionPlan = {
+      ...raw,
+      lines,
+      warnings: vetoed > 0 ? [...raw.warnings, `STRATEGY_CONSENSUS_VETO:${vetoed}`] : raw.warnings
+    };
     setPlan(PortfolioExecutionPlanService.save(next));
   };
 
@@ -70,7 +89,7 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision })
 
   return <section id="pending-portfolio-operations" className="rounded-2xl border border-cyan-500/25 bg-cyan-500/5 p-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div><div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-cyan-300"/><h2 className="font-bold">Qué haría hoy · Recomendación accionable</h2></div><p className="mt-1 max-w-3xl text-[11px] text-slate-400">Se genera automáticamente con tu cartera, la decisión de mercado, el 2,5% de efectivo, costes, títulos enteros y disponibilidad broker. No necesitas preparar nada manualmente.</p></div>
+      <div><div className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-cyan-300"/><h2 className="font-bold">Qué haría hoy · Recomendación accionable</h2></div><p className="mt-1 max-w-3xl text-[11px] text-slate-400">Se genera automáticamente con tu cartera, la decisión de mercado, el efectivo remunerado, costes, títulos enteros, disponibilidad broker y el consenso de señales. Una asignación teórica no se convierte por sí sola en una orden.</p></div>
       <div className="flex gap-2">{plan && <button onClick={clear} className="flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400"><Trash2 className="h-3.5 w-3.5"/>Vaciar</button>}<button onClick={generate} className="flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-bold text-white hover:bg-cyan-500"><RefreshCw className="h-3.5 w-3.5"/>Recalcular</button></div>
     </div>
 
