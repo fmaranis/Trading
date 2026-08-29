@@ -11,6 +11,7 @@ export * from './causalUniverseBacktestEngine';
 export * from './historicalDecisionReplay';
 export * from './dynamicHistoricalReplay';
 export * from './strategyConsensusEngine';
+export * from './singleAssetResearch';
 export * from './brokerExecution';
 export * from './brokerBacktestFeasibility';
 export * from './costAwareExecutionPolicy';
