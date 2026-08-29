@@ -11,7 +11,7 @@ import {
 import { SingleAssetResearchPanel } from './SingleAssetResearchPanel';
 import { HistoricalDecisionReplayPanel } from './HistoricalDecisionReplayPanel';
 
-interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; }
+interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; requestedSymbol?: string | null; }
 type RankingMode = 'OPPORTUNITY' | 'MOMENTUM' | 'SAFETY' | 'PUNISHED';
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
@@ -29,11 +29,11 @@ function modeLabel(mode: RankingMode): string {
   return 'Mejor equilibrio actual';
 }
 
-export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision }) => {
+export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision, requestedSymbol }) => {
   const [rankingMode, setRankingMode] = useState<RankingMode>('OPPORTUNITY');
   const [query, setQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(scan.selected[0]?.asset.ticker ?? null);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(requestedSymbol ?? scan.selected[0]?.asset.ticker ?? null);
   const [externalScan, setExternalScan] = useState<AssetUniverseScanResult | null>(null);
   const [externalLoading, setExternalLoading] = useState(false);
   const [externalError, setExternalError] = useState<string | null>(null);
@@ -43,6 +43,10 @@ export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision }) => {
     for (const item of [...EUR_PORTFOLIO_DISCOVERY_UNIVERSE, ...EUR_VALIDATION_HOLDOUT_UNIVERSE]) map.set(item.ticker.toUpperCase(), { ticker: item.ticker, name: item.name });
     return [...map.values()].sort((a, b) => a.ticker.localeCompare(b.ticker));
   }, []);
+
+  useEffect(() => {
+    if (requestedSymbol?.trim()) setSelectedSymbol(requestedSymbol.trim().toUpperCase());
+  }, [requestedSymbol]);
 
   useEffect(() => {
     let active = true;
