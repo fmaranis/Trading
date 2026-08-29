@@ -1,5 +1,6 @@
 export const DEFAULT_CASH_BENCHMARK_ANNUAL_PCT = 2.5;
 const STORAGE_KEY = 'custodia_cash_benchmark_annual_pct_v1';
+export const CASH_BENCHMARK_UPDATED_EVENT = 'custodia:cash-benchmark-updated';
 
 export interface CashBenchmarkAssessment {
   benchmarkAnnualPct: number;
@@ -16,6 +17,11 @@ function sanitizeRate(value: number): number {
   return Math.min(50, Math.max(0, value));
 }
 
+function emitBenchmarkUpdated(value: number): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<number>(CASH_BENCHMARK_UPDATED_EVENT, { detail: value }));
+}
+
 export class CashBenchmarkService {
   static load(): number {
     if (typeof window === 'undefined') return DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
@@ -30,12 +36,18 @@ export class CashBenchmarkService {
 
   static set(annualPct: number): number {
     const value = sanitizeRate(annualPct);
-    if (typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, String(value));
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(STORAGE_KEY, String(value));
+      emitBenchmarkUpdated(value);
+    }
     return value;
   }
 
   static reset(): void {
-    if (typeof window !== 'undefined') window.localStorage.removeItem(STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(STORAGE_KEY);
+      emitBenchmarkUpdated(DEFAULT_CASH_BENCHMARK_ANNUAL_PCT);
+    }
   }
 }
 
