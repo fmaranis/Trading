@@ -61,12 +61,15 @@ function fundCategory(category: string): FundPosition['category'] {
 function addFundPosition(funds: FundPosition[], line: PortfolioExecutionLine, amountEur: number): FundPosition[] {
   const isin = String(line.targetIsin ?? line.targetTicker ?? '').trim().toUpperCase();
   const id = line.targetAssetId ?? (isin ? `fund_${isin}` : `fund_exec_${Date.now()}`);
+  const addedUnitsRaw = line.shares == null ? null : Number(line.shares);
+  const addedUnits = addedUnitsRaw != null && Number.isFinite(addedUnitsRaw) && addedUnitsRaw > 0 ? addedUnitsRaw : null;
   const existing = funds.find(fund => fund.id === id || (!!isin && fund.isin.toUpperCase() === isin));
   if (existing) {
     return funds.map(fund => fund.id === existing.id ? {
       ...fund,
       investedEur: fund.investedEur + amountEur,
-      currentValueEur: (fund.currentValueEur ?? fund.investedEur) + amountEur
+      currentValueEur: (fund.currentValueEur ?? fund.investedEur) + amountEur,
+      units: fund.units != null && addedUnits != null ? fund.units + addedUnits : null
     } : fund);
   }
   return [...funds, {
@@ -77,7 +80,7 @@ function addFundPosition(funds: FundPosition[], line: PortfolioExecutionLine, am
     investedEur: amountEur,
     acquisitionDate: new Date().toISOString().slice(0, 10),
     currentValueEur: amountEur,
-    units: null,
+    units: addedUnits,
     transferable: true,
     broker: 'MyInvestor'
   }];
@@ -142,7 +145,8 @@ export function applyPortfolioExecutionLine(portfolio: UserPortfolioState, line:
     if (amount <= 0) throw new Error('La suscripción no tiene un importe válido.');
     next = consumeLiquidity(next, amount);
     next.funds = addFundPosition(next.funds ?? [], line, amount);
-    description = `Suscripción aplicada: ${line.targetName ?? line.targetIsin ?? 'fondo'} +${amount.toFixed(2)} €.`;
+    const units = line.shares != null && Number(line.shares) > 0 ? ` · +${Number(line.shares)} participaciones registradas` : ' · participaciones pendientes de confirmar';
+    description = `Suscripción aplicada: ${line.targetName ?? line.targetIsin ?? 'fondo'} +${amount.toFixed(2)} €${units}.`;
   } else if (line.action === 'REDEEM_FUND') {
     const requested = Number(line.amountEur ?? 0);
     if (requested <= 0) throw new Error('El reembolso no tiene un importe válido.');
