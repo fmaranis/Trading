@@ -9,6 +9,7 @@ import {
 import { CurrentOpportunityAlertsPanel } from './CurrentOpportunityAlertsPanel';
 import { UserPortfolioPanel } from './UserPortfolioPanel';
 import { PortfolioExecutionPlanPanel } from './PortfolioExecutionPlanPanel';
+import { RealPurchaseRegistrationPanel } from './RealPurchaseRegistrationPanel';
 import { StrategyConsensusPanel } from './StrategyConsensusPanel';
 
 interface Props {
@@ -24,6 +25,7 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
     <CurrentOpportunityAlertsPanel scan={scan} decision={decision} positionHealth={positionHealth} onInspectAsset={onInspectAsset} />
     <UserPortfolioPanel scan={scan} decision={decision} positionHealth={positionHealth} onInspectAsset={onInspectAsset} />
     <PortfolioExecutionPlanPanel scan={scan} decision={decision} positionHealth={positionHealth} onInspectAsset={onInspectAsset} />
+    <RealPurchaseRegistrationPanel scan={scan} decision={decision} positionHealth={positionHealth} />
 
     <details className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
