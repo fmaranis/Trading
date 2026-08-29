@@ -4,7 +4,7 @@
 
 ## Current status — 2026-08-29
 
-React + TypeScript + Vite decision-support app using REAL market data. Latest recorded AI Studio validation before the current research-workspace refactor: **2026-08-29 18:55:33 UTC**, green (`exitCode: 0`, `ok: true`, all 3 expected markers detected). Current HEAD contains later portfolio/research UI and arbitrary-symbol research changes and requires one fresh `npm run validate:aistudio`.
+React + TypeScript + Vite decision-support app using REAL market data. Latest recorded AI Studio validation before the current portfolio-discovery/position-health refactor: **2026-08-29 18:55:33 UTC**, green (`exitCode: 0`, `ok: true`, all 3 expected markers detected). Current HEAD contains later research UX plus the new cash-first portfolio discovery and independent position-health logic and therefore requires one fresh `npm run validate:aistudio` before being called validated.
 
 ## Non-negotiable product architecture
 
@@ -14,7 +14,14 @@ The application has exactly **two clearly separated primary workspaces**. Do not
 
 Purpose: factual state and actions on the user's actual money only.
 
-Contains real positions, real liquidity, `Qué haría hoy`, transactional application of an operation, concise explanation and collapsed portfolio alerts/history. It must not contain arbitrary-ticker research, general robustness charts or screening tables as primary content.
+Contains:
+- real positions and real liquidity;
+- `Qué haría hoy` as the only operational recommendation surface;
+- transactional application of confirmed manual operations;
+- independent health of every current position;
+- concise explanation and collapsed alerts/history.
+
+It must not contain arbitrary-ticker research, general robustness charts or screening tables as primary content.
 
 ### 2. Estudio y señales
 
@@ -30,7 +37,7 @@ Contains:
 - price/NAV chart with BUY / ADD / SELL markers;
 - general external/negative-path robustness as secondary evidence.
 
-Research does **not** become a real portfolio operation until broker/currency/cost/portfolio gates are separately satisfied.
+Research does **not** become a real portfolio operation until portfolio/cash/consensus/cost/broker/currency gates are satisfied.
 
 ## User real portfolio baseline — never relabel as demo/example
 
@@ -54,7 +61,102 @@ Canonical client portfolio state: `UserPortfolioService` (`custodia_user_portfol
 
 `portfolioStateExecution.ts` applies real local state changes for BUY/SELL/SUBSCRIBE/REDEEM/TRANSFER; invalid/review/insufficient-liquidity operations fail without state mutation. `PortfolioExecutionPlanPanel` uses **Aplicar a mi cartera**, never a cosmetic `Marcar hecha`.
 
-`InteractiveInvestmentDecisionCenter` listens to `USER_PORTFOLIO_UPDATED_EVENT` (`custodia:user-portfolio-updated`) so deployable capital recalculates after portfolio changes.
+`InteractiveInvestmentDecisionCenter` listens to `USER_PORTFOLIO_UPDATED_EVENT` (`custodia:user-portfolio-updated`) so deployable capital and position health recalculate after portfolio changes.
+
+## New-money portfolio decision pipeline — cash and consensus BEFORE allocator
+
+The old behavior allowed Risk Parity / Inverse Volatility to construct a target first and only compared its proposed purchases with the 2.5% cash account later. This created contradictory-looking weak recommendations.
+
+The canonical new-money pipeline is now:
+
+**REAL discovery → cash hurdle → strategy consensus → diversified candidate shortlist → allocator → execution costs / whole shares / broker**
+
+Files:
+- `src/investment/decision/portfolioDiscoveryUniverse.ts`
+- `src/investment/decision/portfolioCandidateGate.ts`
+- `src/components/InteractiveInvestmentDecisionCenter.tsx`
+
+### Production discovery universe
+
+`EUR_PORTFOLIO_DISCOVERY_UNIVERSE` = original `EUR_ASSET_UNIVERSE` + a separate EUR-quoted equity expansion including names such as ASML, SAP, Siemens, Allianz, Airbus, LVMH, Schneider Electric, TotalEnergies, Santander, BBVA, Inditex, Iberdrola, Repsol, Enel, UniCredit, etc.
+
+Critical validation invariant:
+
+> `EUR_VALIDATION_HOLDOUT_UNIVERSE` remains completely outside production portfolio discovery.
+
+The holdout is still independent evidence. It must **never** be merged into `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` merely to increase the number of portfolio candidates.
+
+### Candidate gate
+
+`PortfolioCandidateGate.apply(...)` requires a new-money candidate to:
+1. have accepted REAL data;
+2. beat the configured cash benchmark (`CashBenchmarkService`, default **2.5% annual**), using the existing explicit historical proxy;
+3. obtain `StrategyConsensusEngine.newMoneyAction === BUY`;
+4. not be in structural downtrend.
+
+Only after these gates does the app rank/diversify candidates and pass up to 12 candidates (maximum 2 per category) to the allocator.
+
+MEDIUM risk still uses **Risk Parity ERC**, but now it can allocate only among assets that already earned eligibility through cash + consensus. LOW remains Inverse Volatility; HIGH remains Relative Momentum.
+
+If **no candidate** passes the pre-allocation gates, the correct portfolio recommendation is explicit **100% cash**. The app must not force a weak asset into the portfolio merely to produce a recommendation.
+
+`CashBenchmarkService.set/reset` emits `CASH_BENCHMARK_UPDATED_EVENT`; changing the account yield re-runs the candidate gate without requiring a fresh market download.
+
+## Existing-position health — being owned does not grant immunity
+
+Engine/service:
+`src/investment/decision/portfolioPositionHealth.ts`
+
+Every real position is evaluated independently from allocation drift. Visible states are:
+- **AÑADIR**
+- **MANTENER**
+- **VIGILAR**
+- **REDUCIR**
+- **SALIR**
+- **DATOS PENDIENTES**
+
+Core asymmetry:
+
+> A position is never sold merely because it is overweight or merely because its recent proxy is below the 2.5% cash account.
+
+Rules:
+- `ADD`: favorable existing-position consensus and positive excess vs cash;
+- `HOLD`: no material deterioration and no strong add signal;
+- `WATCH`: weak/AVOID or below-cash evidence without the structural sell threshold;
+- `REDUCE`: existing-position consensus reaches `REDUCE_REVIEW` / confirmed structural deterioration; default review size 50%;
+- `EXIT`: stronger threshold — structural downtrend + at least 4 unfavorable votes + consensus <= -3; suggested reduction 100%;
+- `DATA_MISSING`: insufficient REAL evidence/valuation.
+
+Thus **cash underperformance alone => WATCH, never REDUCE/EXIT**.
+
+`PortfolioDecisionEngine` gives independent position health precedence over theoretical allocation drift. Allocation overweight alone remains HOLD. REDUCE/EXIT come only from position health.
+
+## Arbitrary holdings inside the real portfolio
+
+A manually entered holding is no longer automatically `UNKNOWN`/ignored simply because it is not in the configured portfolio catalogue.
+
+`PortfolioPositionHealthService`:
+- uses the loaded scan for known positions;
+- for an arbitrary listed ticker, requests its REAL history through `HistoricalMarketDataService` and evaluates it with the same `SingleAssetResearchEngine` / consensus logic;
+- for an arbitrary 12-character ISIN, attempts direct EODHD NAV history;
+- can value an arbitrary EUR-listed holding from REAL unit price × shares;
+- does **not** invent EUR valuation for a non-EUR position. Such positions surface `FX_REQUIRED` until FX valuation is implemented.
+
+An arbitrary EUR holding with valid REAL data can therefore become HOLD/WATCH/REDUCE/EXIT instead of being automatically protected or automatically blocking the model because it was not pre-catalogued.
+
+No fake allocation category is invented for an arbitrary holding. It contributes to total invested capital when its EUR valuation is known, while its own health determines sell/watch behavior.
+
+## Health-driven execution
+
+`portfolioExecutionPlan.ts` now consumes `PortfolioPositionDecision.action` from independent health:
+- `REDUCE` → partial sale/reimbursement using `suggestedReductionPct`;
+- `EXIT` → full sale/reimbursement;
+- `WATCH` / `HOLD` → no sell instruction;
+- ETF/stock sell cost gates remain active;
+- for transferable funds, if an eligible destination fund exists and passes the cash hurdle, traspaso is preferred before taxable reimbursement where applicable;
+- arbitrary listed positions can use their monitored REAL portfolio value to derive a unit price for a sell plan when they are outside the configured scan.
+
+This remains **manual execution guidance**, never automatic broker order submission.
 
 ## Arbitrary single-asset research
 
@@ -70,11 +172,11 @@ Historical behavior:
 - engine fetches ~2 years of pre-start warmup so the first displayed decision can use causal history;
 - monthly or quarterly checkpoints;
 - each checkpoint sees only data available then;
-- same `StrategyConsensusEngine` logic: long trend, 120-session momentum, mean reversion/buy-the-dip, risk, cash hurdle;
+- same `StrategyConsensusEngine`: long trend, 120-session momentum, mean reversion/buy-the-dip, risk, cash hurdle;
 - outside position + BUY consensus => BUY marker;
 - inside position + required structural deterioration/adverse votes => SELL marker;
 - first ADD regime may show ADD marker;
-- execution is strictly on the next available observation after the signal;
+- execution strictly on the next available observation after the signal;
 - listed instruments use next-bar open; funds use next available NAV;
 - future prices cannot change earlier signals.
 
@@ -86,27 +188,23 @@ Chart semantics:
 
 The chart compares normalized follow-signals performance vs buy-and-hold and shows asset drawdown. It is research-only, not a costed broker simulation.
 
-## Research universe and removal of the former “30 assets” limitation
+## Research universe vs production universe
 
-The old ~30 visible ETF limit was a catalogue/workflow artifact, not a market-data provider limit. `/api/market-data/history` accepts arbitrary ticker symbols.
-
-Configured catalogues:
-- `EUR_ASSET_UNIVERSE`: production portfolio discovery;
-- `EUR_VALIDATION_HOLDOUT_UNIVERSE`: separate robustness/external universe.
+The research workspace remains broader than production decisions.
 
 `InvestmentResearchLab`:
-- merges both catalogues for browsing suggestions (currently **57 catalogued instruments**, before provider acceptance/deduplication);
-- automatically scans the external holdout when the research workspace opens;
-- combines accepted production + accepted external candidates in **Radar actual ampliado**;
-- therefore the visible radar is no longer restricted to the portfolio universe or its max-8 shortlist;
-- based on recent provider behavior, roughly 30 production ETFs/ETCs + ~16 external ETFs/ETCs may be visible when data are available, while mutual funds may be rejected by EODHD quota;
-- arbitrary ticker/ISIN research remains available even when a symbol is not in either catalogue.
+- merges production/catalog data with `EUR_VALIDATION_HOLDOUT_UNIVERSE` for **research viewing only**;
+- automatically scans the external holdout when research opens;
+- combines accepted candidates in `Radar actual ampliado`;
+- arbitrary ticker/ISIN research remains available outside either catalogue.
 
 Important distinction:
-- **portfolio allocator shortlist** remains deliberately small/diversified (max ~8 selected exposures) because it builds a portfolio;
-- **research** must never inherit that cap.
+- holdout may be visible in research because research is non-operational;
+- holdout may **not** feed production portfolio recommendations;
+- production allocator uses `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` after cash+consensus gating;
+- arbitrary research remains uncapped by the portfolio shortlist.
 
-Do not interpret “all possible symbols” as sending thousands of Yahoo requests on page load. Broader market-wide discovery should use explicit market presets/dynamic discovery with caching and batching.
+Do not interpret “all possible symbols” as sending thousands of Yahoo requests on page load. Broader market-wide discovery should use explicit market presets/dynamic discovery with caching/batching.
 
 ## Radar modes
 
@@ -135,42 +233,61 @@ Adverse/worst-window cohorts are ex-post behavioral stress tests only, not unbia
 
 ## Validation gates
 
-`validate:aistudio:raw` includes:
-- user real-portfolio persistence/migration tests;
-- transactional execution tests;
-- consensus tests;
-- `tests/singleAssetResearch.unit.ts`;
-- existing historical/dynamic/holdout/live validation gates.
+`validate:aistudio:raw` includes all previous deterministic/live gates plus:
+- `tests/portfolioCandidateGate.unit.ts`
+- `tests/portfolioPositionHealth.unit.ts`
+- expanded `tests/portfolioDecisionEngine.unit.ts`
+- `tests/portfolioHealthExecutionPlan.unit.ts`
 
-`singleAssetResearch.unit.ts` asserts chart period, monthly reviews, BUY and SELL behavior, NEXT observation execution, valid execution prices and future-price isolation.
+New regression invariants include:
+- strong candidates can survive the pre-allocation gate;
+- a candidate that does not beat cash is excluded **before** allocator;
+- structural downtrend is excluded from new money;
+- portfolio discovery remains disjoint from validation holdout;
+- position cash-underperformance alone => WATCH;
+- strong structural deterioration => EXIT;
+- REDUCE remains partial;
+- arbitrary EUR holdings with REAL monitored values count in portfolio value and are not automatically `DATA_MISSING`;
+- health REDUCE/EXIT overrides protective allocation-drift HOLD logic;
+- EXIT produces a full executable sale, REDUCE a partial sale;
+- WATCH never becomes a sell instruction.
+
+Existing gates remain for:
+- user real-portfolio persistence/migration;
+- transactional execution;
+- strategy consensus;
+- single-asset causal graph;
+- historical/dynamic replay;
+- holdout/live robustness.
 
 No GitHub Actions workflow and no standalone validation artifact/marker was added.
 
-## Known limitations / next research expansion
+## Known limitations / next expansion
 
-- expanded radar currently compares production + external holdout catalogues; arbitrary single-symbol research is broader than the radar;
-- true market-wide discovery (e.g. complete S&P 500 / Nasdaq / EuroStoxx / IBEX presets) should be implemented as a research-universe layer with caching/batching, not by enlarging the portfolio allocator;
-- EODHD fund research depends on quota;
+- production discovery is now materially broader but is still a curated EUR list; true market-wide presets (complete IBEX / EuroStoxx / S&P 500 / Nasdaq, etc.) should use cached/batched universe discovery rather than thousands of requests on each page load;
+- non-EUR arbitrary holdings can be analyzed but need a proper FX valuation layer before their market value can safely feed EUR portfolio accounting;
+- EODHD fund research/valuation depends on provider quota;
 - Yahoo is unofficial/non-contractual;
 - current catalogue historical analysis has survivorship bias;
 - single-asset follow-signals return is normalized research, not a costed broker backtest;
-- broker/currency/tax checks apply only when turning a research idea into a real portfolio operation.
+- broker/currency/tax checks still apply before a research idea becomes a real manual operation.
 
 ## Immediate next step
 
 1. Sync current `fmaranis/Trading/main` into AI Studio.
 2. AI Studio must not modify source.
 3. Run exactly `npm run validate:aistudio`.
-4. Confirm TypeScript/build, portfolio persistence/transactions and `Single Asset Research` are green.
-5. Visual check:
-   - exactly two primary tabs: **Mi cartera real** / **Estudio y señales**;
+4. Confirm TypeScript/build plus all new candidate-gate/position-health tests and previous portfolio/research gates are green.
+5. Visual sanity check:
+   - exactly two primary tabs remain: **Mi cartera real** / **Estudio y señales**;
    - real Vanguard positions remain present;
-   - `Radar actual ampliado` shows production + external instruments when provider data loads;
-   - expanded catalogue has 57 suggestions;
-   - clicking radar/catalog symbol auto-loads graph;
-   - arbitrary `NVDA` works;
-   - `IE00B03HD191` attempts fund NAV research;
-   - graph shows ▲ BUY / ◆ ADD / ▼ SELL when produced;
-   - tooltip shows signal date, later execution date and execution price/NAV;
-   - changing the research date never mutates the real portfolio.
-6. Fix failures directly in GitHub and rerun the same validation. Never use GitHub Actions.
+   - portfolio header reports discovery count → cash+consensus eligible count → allocator count;
+   - weak below-cash candidates are absent from new-money recommendations;
+   - stronger candidates from the expanded production universe can compete for portfolio allocation;
+   - each existing position visibly shows AÑADIR / MANTENER / VIGILAR / REDUCIR / SALIR;
+   - manually adding an arbitrary EUR ticker with valid Yahoo data produces a health state instead of automatic UNKNOWN/HOLD immunity;
+   - cash underperformance alone shows VIGILAR, not a sell;
+   - structural deterioration can create REDUCIR/SALIR;
+   - `Aplicar a mi cartera` still mutates holdings/liquidity transactionally;
+   - research graph and its ▲/◆/▼ markers remain unchanged.
+6. Fix any failure directly in GitHub and rerun the same local validation. Never use GitHub Actions.
