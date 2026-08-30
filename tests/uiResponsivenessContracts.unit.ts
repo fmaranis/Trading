@@ -14,6 +14,7 @@ const decisionCenter = readFileSync('src/components/InteractiveInvestmentDecisio
 const marketDashboard = readFileSync('src/components/MarketUtilityDashboard.tsx', 'utf8');
 const currentOpportunity = readFileSync('src/components/CurrentOpportunityAlertsPanel.tsx', 'utf8');
 const historicalReplayPanel = readFileSync('src/components/HistoricalDecisionReplayPanel.tsx', 'utf8');
+const historicalRobustness = readFileSync('src/components/HistoricalReplayRobustnessPanel.tsx', 'utf8');
 const userPortfolio = readFileSync('src/components/UserPortfolioPanel.tsx', 'utf8');
 const portfolioEvolution = readFileSync('src/components/PortfolioEvolutionChart.tsx', 'utf8');
 
@@ -148,4 +149,12 @@ test('980 real portfolio evolution is integrated inside Mi cartera real rather t
   assert.equal((decisionCenter.match(/type Workspace = 'PORTFOLIO' \| 'RESEARCH'/g) ?? []).length, 1);
 });
 
-console.log(`UI responsiveness contracts: ${passed}/20 invariants passed.`);
+test('981 multi-date robustness remains inside the same historical validation surface and is explicit-run only', () => {
+  assert.match(researchLab, /<HistoricalDecisionReplayPanel[\s\S]*<HistoricalReplayRobustnessPanel/);
+  assert.match(historicalRobustness, /Prueba masiva desde muchas fechas/);
+  assert.match(historicalRobustness, /Probar muchas fechas/);
+  assert.match(historicalRobustness, /DynamicHistoricalReplayBatchEngine\.run/);
+  assert.doesNotMatch(decisionCenter, /HistoricalReplayRobustnessPanel/);
+});
+
+console.log(`UI responsiveness contracts: ${passed}/21 invariants passed.`);
