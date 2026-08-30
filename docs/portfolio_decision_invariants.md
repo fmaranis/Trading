@@ -30,7 +30,7 @@ Reglas:
 - Deben aparecer como `Calidad de datos` dentro de detalles técnicos secundarios.
 - La convicción de una compra procede de los gates de oportunidad/consenso (`HIGH_CONVICTION`, `GOOD_ENTRY`, votos, tendencia, exceso frente a cash, riesgo), no del `confidenceScore` del asignador general.
 
-## 3. Capital finito
+## 3. Capital finito y objetivos de compra estables
 
 El capital sugerido no es infinito.
 
@@ -39,6 +39,15 @@ El capital sugerido no es infinito.
 - Se aplican límites por activo y categoría.
 - La suma de aportaciones propuestas nunca puede superar la liquidez realmente disponible.
 - Una oportunidad válida puede recibir 0 EUR si la bloquean concentración/riesgo/costes/valoración; la UI debe explicarlo solo como información secundaria.
+
+Regla de ejecución acumulativa:
+- Cada oportunidad financiada tiene un **objetivo final por activo**, no un porcentaje nuevo del efectivo restante en cada render.
+- El valor REAL que ya existe de ese activo en cartera cuenta contra su objetivo.
+- Al registrar una compra completa, el pendiente de ese activo debe quedar en 0 y no puede volver a recomendarse automáticamente por haber quedado efectivo disponible.
+- Al registrar una compra parcial, solo puede recomendarse la diferencia que falte para alcanzar el objetivo actual.
+- Ejecutar una oportunidad no puede inflar automáticamente el objetivo de las demás mediante un nuevo reparto del efectivo restante.
+- Solo una nueva decisión de mercado material —nuevos datos/señales, cambio de perfil/horizonte o cambio real de cartera/mercado— puede alterar los objetivos; no el mero hecho de registrar una ejecución ya recomendada.
+- Residuos inferiores al mínimo operativo útil no deben reaparecer como una nueva orden marginal.
 
 ## 4. Valor actual no es coste de compra
 
@@ -104,5 +113,6 @@ Regla de arquitectura UX: **integrar antes de crear**.
 - Los rankings deben alimentar el mismo analizador que usa la búsqueda manual; abrir un candidato no debe crear otro workspace equivalente.
 - Solo se mantiene una sección separada cuando responde a una pregunta materialmente distinta. Ejemplo válido: `Validación general del motor` puede separarse de `Estudio de inversiones y señales` porque evalúa robustez histórica global, no un activo concreto.
 - En `Estudio de inversiones y señales`, catálogo, escritura manual de ticker/ISIN, selección, gráfica, señales y ranking forman un único flujo integrado.
+- Una recomendación operativa debe ser directamente interactiva: tocar el activo recomendado abre el mismo analizador existente con su ticker/ISIN, gráfica, señales y metadatos disponibles; no se crea una ficha paralela desconectada.
 
 Esta regla tiene prioridad sobre la comodidad de implementar una feature como componente visible independiente. La modularidad interna del código se conserva, pero no debe trasladarse automáticamente a fragmentación de la interfaz.
