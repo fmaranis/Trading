@@ -57,7 +57,10 @@ function classifyRegime(trendPct: number, highVol: boolean, cfg: Required<Regime
 export class DeterministicRegimeClassifier {
   static classify(aligned: AlignedMultiAssetDataset, config: RegimeClassifierConfig = {}): RegimeSeriesResult {
     const cfg = { ...DEFAULT_CONFIG, ...config };
-    if (aligned.assetIds.length < 2) throw new Error('La clasificación de régimen multi-activo requiere al menos 2 activos.');
+    // With one asset, the equal-weight market proxy is simply that asset's
+    // normalized series. This is a valid causal regime classification and
+    // avoids failing when upstream gates leave exactly one investable asset.
+    if (aligned.assetIds.length < 1) throw new Error('La clasificación de régimen requiere al menos 1 activo.');
     if (cfg.trendLookbackBars < 2 || cfg.volatilityLookbackBars < 2 || cfg.volatilityBaselineBars < cfg.volatilityLookbackBars) {
       throw new Error('Configuración de régimen inválida.');
     }
