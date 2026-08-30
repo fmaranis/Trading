@@ -31,6 +31,14 @@ export interface AssetDecisionScore {
   rationale: string[];
 }
 
+export interface DecisionDataQualityDiagnostics {
+  marketSessionAge: number;
+  minimumAssetBars: number;
+  commonAlignedBars: number;
+  commonCoveragePct: number;
+  regimeClassified: boolean;
+}
+
 export interface InvestmentDecisionResult {
   generatedAt: string;
   asOfDate: string;
@@ -44,6 +52,7 @@ export interface InvestmentDecisionResult {
   regimeVolatilityPct: number | null;
   confidence: DecisionConfidence;
   confidenceScore: number;
+  dataQualityDiagnostics?: DecisionDataQualityDiagnostics;
   recommendedMethod: 'INVERSE_VOLATILITY' | 'RISK_PARITY_ERC' | 'RELATIVE_MOMENTUM';
   cashWeight: number;
   cashAmountEur: number;
