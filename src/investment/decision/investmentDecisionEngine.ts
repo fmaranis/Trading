@@ -4,6 +4,7 @@ import { DeterministicRegimeClassifier, MarketRegime } from '../portfolioRegimes
 import {
   AssetDecisionScore,
   DecisionConfidence,
+  DecisionDataQualityDiagnostics,
   InvestmentDecisionRequest,
   InvestmentDecisionResult,
   InvestorRiskProfile
@@ -70,20 +71,73 @@ function profileCaps(profile: InvestorRiskProfile, ids: string[]): Record<string
   return caps;
 }
 
-function confidenceFrom(dataAgeDays: number, bars: number, regime: MarketRegime): { score: number; label: DecisionConfidence } {
-  // Base evidence/data confidence only: never interpreted as probability of profit.
-  // The engine scores the primary REAL series for each instrument. Runtime cross-provider
-  // validation is a separate evidence layer so external API availability cannot silently
-  // alter portfolio weights or make deterministic tests network-dependent.
-  let score = 85;
-  if (dataAgeDays > 14) score -= 60;
-  else if (dataAgeDays > 4) score -= 35;
-  else if (dataAgeDays > 2) score -= 12;
-  if (bars < 250) score -= 25;
-  else if (bars < 500) score -= 10;
-  if (regime === 'UNKNOWN') score -= 30;
-  score = clamp(score, 0, 85);
-  return { score, label: score >= 75 ? 'HIGH' : score >= 50 ? 'MEDIUM' : 'LOW' };
+/**
+ * Approximate freshness in market sessions rather than calendar days.
+ * Weekends therefore do not make a Friday close look stale on Saturday/Sunday.
+ * Exchange-specific holidays are intentionally not guessed here; one isolated
+ * weekday without a bar only produces a very small penalty.
+ */
+function marketSessionsSince(lastDate: string, now: Date): number {
+  const last = new Date(`${lastDate}T00:00:00Z`);
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  if (last >= end) return 0;
+  let sessions = 0;
+  const cursor = new Date(last);
+  cursor.setUTCDate(cursor.getUTCDate() + 1);
+  while (cursor <= end) {
+    const day = cursor.getUTCDay();
+    if (day !== 0 && day !== 6) sessions += 1;
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return sessions;
+}
+
+function confidenceFrom(input: {
+  marketSessionAge: number;
+  minimumAssetBars: number;
+  commonAlignedBars: number;
+  regime: MarketRegime;
+}): { score: number; label: DecisionConfidence; diagnostics: DecisionDataQualityDiagnostics } {
+  // Data quality only; never interpreted as probability of profit.
+  // A healthy REAL Yahoo/EODHD dataset can reach 100/100. Penalties are reserved
+  // for actual staleness, shallow histories, poor common coverage or an unknown regime.
+  const commonCoveragePct = input.minimumAssetBars > 0
+    ? clamp(input.commonAlignedBars / input.minimumAssetBars * 100, 0, 100)
+    : 0;
+
+  let score = 100;
+
+  // Freshness: use sessions, not calendar days.
+  if (input.marketSessionAge > 10) score -= 55;
+  else if (input.marketSessionAge > 5) score -= 35;
+  else if (input.marketSessionAge > 3) score -= 20;
+  else if (input.marketSessionAge > 1) score -= 5;
+
+  // Depth: evaluate the shallowest source series before alignment.
+  if (input.minimumAssetBars < 120) score -= 40;
+  else if (input.minimumAssetBars < 250) score -= 25;
+  else if (input.minimumAssetBars < 500) score -= 8;
+
+  // Coverage: holidays/listing gaps should not be confused with missing history.
+  if (commonCoveragePct < 50) score -= 25;
+  else if (commonCoveragePct < 70) score -= 15;
+  else if (commonCoveragePct < 85) score -= 7;
+
+  if (input.regime === 'UNKNOWN') score -= 20;
+
+  score = clamp(Math.round(score), 0, 100);
+  const label: DecisionConfidence = score >= 80 ? 'HIGH' : score >= 60 ? 'MEDIUM' : 'LOW';
+  return {
+    score,
+    label,
+    diagnostics: {
+      marketSessionAge: input.marketSessionAge,
+      minimumAssetBars: input.minimumAssetBars,
+      commonAlignedBars: input.commonAlignedBars,
+      commonCoveragePct,
+      regimeClassified: input.regime !== 'UNKNOWN'
+    }
+  };
 }
 
 function assetRationale(assetId: string, momentum: number | null, vol: number | null, weight: number, regime: MarketRegime): string[] {
@@ -112,6 +166,8 @@ export class InvestmentDecisionEngine {
     const currentRegime = [...regimeSeries.observations].reverse().find(x => x.regime !== 'UNKNOWN') ?? regimeSeries.observations[regimeSeries.observations.length - 1];
     const lastDate = aligned.rows[aligned.rows.length - 1].tradingDate;
     const dataAgeDays = Math.max(0, Math.floor((now.getTime() - Date.parse(`${lastDate}T00:00:00Z`)) / DAY_MS));
+    const marketSessionAge = marketSessionsSince(lastDate, now);
+    const minimumAssetBars = Math.min(...dataset.assets.map(asset => asset.bars.length));
 
     const method = request.riskProfile === 'LOW'
       ? 'INVERSE_VOLATILITY'
@@ -177,13 +233,20 @@ export class InvestmentDecisionEngine {
       } satisfies AssetDecisionScore;
     }).sort((a, b) => b.weight - a.weight);
 
-    const confidence = confidenceFrom(dataAgeDays, aligned.rows.length, currentRegime.regime);
+    const confidence = confidenceFrom({
+      marketSessionAge,
+      minimumAssetBars,
+      commonAlignedBars: aligned.rows.length,
+      regime: currentRegime.regime
+    });
     const warnings: string[] = [
-      'La confianza mostrada mide calidad de evidencia/datos; no es una probabilidad de rentabilidad.',
-      'La puntuación base usa la serie REAL primaria de cada instrumento: Yahoo para cotizados y EODHD NAV para fondos. La validación cruzada adicional se informa por separado y no modifica silenciosamente los pesos.'
+      'La calidad de datos mide frescura en sesiones de mercado, profundidad histórica, cobertura común y capacidad de clasificar el régimen; no es una probabilidad de rentabilidad.',
+      'La puntuación usa exclusivamente series REAL: Yahoo para cotizados y la ruta REAL disponible para fondos. La validación cruzada adicional se informa por separado y no modifica silenciosamente los pesos.'
     ];
-    if (dataAgeDays > 4) warnings.push(`Los últimos datos tienen ${dataAgeDays} días de antigüedad; no tratar la salida como actual.`);
-    if (currentRegime.regime === 'UNKNOWN') warnings.push('No hay historial suficiente para clasificar el régimen con confianza.');
+    if (marketSessionAge > 3) warnings.push(`La serie común lleva aproximadamente ${marketSessionAge} sesiones hábiles sin una observación nueva; revisar proveedor/caché antes de tratarla como plenamente actual.`);
+    if (minimumAssetBars < 500) warnings.push(`La serie más corta aporta ${minimumAssetBars} barras; la calidad puede mejorar con mayor profundidad histórica REAL.`);
+    if (confidence.diagnostics.commonCoveragePct < 85) warnings.push(`La intersección común conserva ${confidence.diagnostics.commonCoveragePct.toFixed(1)}% de la profundidad de la serie más corta; revisar huecos/calendarios si esta cobertura cae más.`);
+    if (currentRegime.regime === 'UNKNOWN') warnings.push('No hay historial común suficiente para clasificar el régimen con confianza.');
     if (request.horizonYears === 1) warnings.push('Horizonte de 1 año: la dispersión de resultados puede ser elevada incluso con diversificación.');
     if (finalCashWeight >= 0.999999) warnings.push('Ningún activo supera las reglas de asignación actuales: el resultado es 100% efectivo.');
 
@@ -203,6 +266,7 @@ export class InvestmentDecisionEngine {
       regimeVolatilityPct: currentRegime.realizedVolatilityPct,
       confidence: confidence.label,
       confidenceScore: confidence.score,
+      dataQualityDiagnostics: confidence.diagnostics,
       recommendedMethod: method,
       cashWeight: finalCashWeight,
       cashAmountEur: request.capitalEur * finalCashWeight,
@@ -213,6 +277,7 @@ export class InvestmentDecisionEngine {
       summary,
       methodology: [
         'Series históricas diarias REAL del universo EUR, sin fallback sintético.',
+        'Calidad de datos: frescura por sesiones hábiles + profundidad mínima por activo + cobertura de intersección + régimen clasificable.',
         `Asignación base: ${method} con lookback de ${allocationLookback} barras.`,
         'Overlay de efectivo determinado por perfil de riesgo y régimen causal actual.',
         'Los pesos se limitan por instrumento para evitar concentraciones extremas.',
