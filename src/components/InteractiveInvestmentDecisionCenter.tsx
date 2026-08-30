@@ -25,7 +25,14 @@ import { DecisionGuardrailsPanel } from './DecisionGuardrailsPanel';
 import { InvestmentResearchLab } from './InvestmentResearchLab';
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
-function sevenYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 7); return isoDate(d); }
+/**
+ * The live decision path only needs 252 bars for scanner risk, 180 for the
+ * allocator and 120 for the regime volatility baseline. Three calendar years
+ * normally provide well above 500 daily observations, preserving the engine's
+ * HIGH evidence threshold while avoiding seven years of payload/parse work for
+ * every instrument. Long-history backtests and robustness replays stay separate.
+ */
+function liveDecisionHistoryStart(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 3); return isoDate(d); }
 function pct(v: number): string { return `${(v * 100).toFixed(1)}%`; }
 function confidenceClass(level: string): string {
   return level === 'HIGH' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
@@ -141,7 +148,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
     try {
       const scanResult = await AssetUniverseScanner.scan(
         EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
-        sevenYearsAgo(),
+        liveDecisionHistoryStart(),
         isoDate(new Date()),
         { forceRefresh, concurrency: 3, maxSelected: 12, minimumBars: 252, maxDataAgeDays: 7 }
       );
