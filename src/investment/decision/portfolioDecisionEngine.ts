@@ -340,7 +340,7 @@ export class PortfolioDecisionEngine {
         const assetCapValueEur = stableOpportunityPoolEur * maxAssetShare(decision.riskProfile, alert.level);
         const targetAssetValueEur = Math.max(0, Math.min(rawTargetValueEur, assetCapValueEur));
         const targetGapEur = Math.max(0, targetAssetValueEur - currentAssetValueEur);
-        const minimumMeaningfulGapEur = instrumentType(asset) === 'MUTUAL_FUND' ? 5 : executionPolicy.minimumOrderNotionalEur;
+        const minimumMeaningfulGapEur = executionPolicy.minimumOrderNotionalEur;
         if (targetGapEur < minimumMeaningfulGapEur - 1e-9) return null;
 
         const alreadyInCategory = currentByCategory.get(asset.category) ?? 0;
