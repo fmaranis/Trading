@@ -69,7 +69,11 @@ export function buildPortfolioProvenance(dataset: MultiAssetDataset): PortfolioD
 
 export class MultiAssetDataAligner {
   public static align(dataset: MultiAssetDataset, policy: CalendarAlignmentPolicy = 'INTERSECTION'): AlignedMultiAssetDataset {
-    if (dataset.assets.length < 2) throw new MultiAssetDataError('Se requieren al menos 2 activos para un backtest multi-activo.');
+    // N=1 is a valid degenerate portfolio: its aligned calendar is simply the
+    // instrument's own calendar. Requiring two assets here used to make both
+    // live decisions and causal replay fail whenever only one candidate passed
+    // the upstream gates. Zero assets remains invalid.
+    if (dataset.assets.length < 1) throw new MultiAssetDataError('Se requiere al menos 1 activo para alinear datos de cartera.');
 
     // Phase 9A originally imposed a temporary 10-asset development guard. The
     // production discovery/gating path can now legitimately feed a larger set
