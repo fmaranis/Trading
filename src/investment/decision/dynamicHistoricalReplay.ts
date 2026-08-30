@@ -1,15 +1,20 @@
 import type { MultiAssetDataset } from '../portfolioBacktesting/types';
 import type { AssetUniverseItem } from './assetUniverse';
 import type { AssetScanCandidate, AssetUniverseScanResult } from './assetUniverseScanner';
-import { DEFAULT_CASH_BENCHMARK_ANNUAL_PCT } from './cashBenchmark';
+import { executionPolicyForCapital } from './adaptiveExecutionPolicy';
+import { assessAgainstCashBenchmark, DEFAULT_CASH_BENCHMARK_ANNUAL_PCT } from './cashBenchmark';
 import { brokerCommission } from './costAwareExecutionPolicy';
-import { buildHistoricalShortlist } from './historicalShortlist';
 import { HistoricalDecisionReplayEngine } from './historicalDecisionReplay';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
+import { PortfolioCandidateGate } from './portfolioCandidateGate';
+import { PortfolioDecisionEngine, type PortfolioPositionDecision } from './portfolioDecisionEngine';
+import { classifyPositionHealth, type PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
 import { accrueRemuneratedCash, allCashBenchmark } from './remuneratedCash';
 import { estimateSpanishTaxOnRealizedGain, type SpanishTaxSettings } from './spanishTaxModel';
 import { StrategyConsensusEngine, type StrategyConsensusAssessment } from './strategyConsensusEngine';
-import type { InvestmentHorizonYears, InvestorRiskProfile } from './types';
+import type { FundPosition } from './fundPortfolio';
+import type { InvestmentDecisionResult, InvestmentHorizonYears, InvestorRiskProfile } from './types';
+import type { UserPortfolioState } from './userPortfolio';
 
 export type DynamicReplayFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY';
 export type DynamicReplaySignalAction = 'BUY' | 'ADD' | 'HOLD' | 'AVOID' | 'REDUCE' | 'EXIT';
@@ -24,6 +29,7 @@ export interface DynamicReplaySignal {
   action: DynamicReplaySignalAction;
   targetWeight: number;
   currentWeight: number;
+  recommendedAmountEur: number;
   consensusScore: number | null;
   favorableVotes: number | null;
   unfavorableVotes: number | null;
@@ -93,6 +99,7 @@ export interface DynamicHistoricalReplayResult {
   totalTransferredEur: number;
   cashInterestEur: number;
   taxMethod: 'CONFIGURED_PROGRESSIVE' | 'CONSERVATIVE_MAX_RATE';
+  operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN';
   signals: DynamicReplaySignal[];
   events: DynamicReplayEvent[];
   equityPath: DynamicReplayEquityPoint[];
@@ -135,7 +142,6 @@ interface DecisionState {
   method: string;
 }
 
-const MIN_WEIGHT_DELTA = 0.01;
 const DEFAULT_TAX_SETTINGS: SpanishTaxSettings = { priorSavingsTaxableBaseEur: 0, contextConfirmed: false };
 
 function isoDate(timestamp: string): string { return timestamp.slice(0, 10); }
@@ -238,13 +244,12 @@ function requestedDecisionDates(dataset: MultiAssetDataset, startDate: string, e
   }
   return [...new Set(out)];
 }
-function buildHistoricalConsensusScan(input: {
+
+function buildHistoricalFullScan(input: {
   dataset: MultiAssetDataset;
   catalog: AssetUniverseItem[];
   date: string;
   minimumBars: number;
-  selectedIds: string[];
-  selectedDataset: MultiAssetDataset;
 }): AssetUniverseScanResult {
   const candidates: AssetScanCandidate[] = [];
   const acceptedAssets: MultiAssetDataset['assets'] = [];
@@ -276,15 +281,15 @@ function buildHistoricalConsensusScan(input: {
       score: scoreCandidate(m20, m60, m120, vol, dd, Boolean(item.defensive))
     });
   }
-  const selectedSet = new Set(input.selectedIds);
+  const acceptedDataset: MultiAssetDataset = { ...input.dataset, assets: acceptedAssets };
   return {
     scanned: candidates.length,
     accepted: candidates.length,
     rejected: 0,
-    selected: candidates.filter(candidate => selectedSet.has(candidate.asset.assetId)),
+    selected: candidates,
     candidates,
-    dataset: input.selectedDataset,
-    acceptedDataset: { ...input.dataset, assets: acceptedAssets },
+    dataset: acceptedDataset,
+    acceptedDataset,
     rejectionCounts: {}
   };
 }
@@ -304,10 +309,6 @@ function pathMaxDrawdown(path: DynamicReplayEquityPoint[]): number {
     if (peak > 0) max = Math.max(max, (peak - point.equityEur) / peak * 100);
   }
   return max;
-}
-function actionReason(assessment: StrategyConsensusAssessment | null, method: string, regime: string): string {
-  if (!assessment) return `Sin consenso causal suficiente. Método ${method}; régimen ${regime}.`;
-  return `${assessment.explanation} Consenso ${assessment.consensusScore > 0 ? '+' : ''}${assessment.consensusScore}; ${assessment.favorableVotes} favorables / ${assessment.unfavorableVotes} adversas. Método ${method}; régimen ${regime}.`;
 }
 function addLot(holding: Holding, units: number, costEur: number, acquisitionDate: string): void {
   if (!(units > 0)) return;
@@ -341,6 +342,120 @@ function taxForPositiveGain(gainEur: number, executionDate: string, settings: Sp
   positiveGainByYear.set(year, priorSimulatedGain + positive);
   return estimate.estimatedTaxEur;
 }
+function historicalCashOnlyDecision(scan: AssetUniverseScanResult, capitalEur: number, riskProfile: InvestorRiskProfile, horizonYears: InvestmentHorizonYears): InvestmentDecisionResult {
+  const asOfDate = scan.candidates.map(candidate => candidate.asOfDate).filter(Boolean).sort().at(-1) ?? latestDatasetDate(scan.acceptedDataset);
+  const recommendedMethod: InvestmentDecisionResult['recommendedMethod'] = riskProfile === 'LOW' ? 'INVERSE_VOLATILITY' : riskProfile === 'MEDIUM' ? 'RISK_PARITY_ERC' : 'RELATIVE_MOMENTUM';
+  return {
+    generatedAt: `${asOfDate}T23:59:59.000Z`, asOfDate, dataAgeDays: 0, currency: 'EUR', capitalEur, riskProfile, horizonYears,
+    marketRegime: 'UNKNOWN', regimeTrendPct: null, regimeVolatilityPct: null, confidence: 'MEDIUM', confidenceScore: 70,
+    recommendedMethod, cashWeight: 1, cashAmountEur: capitalEur, assets: [],
+    portfolioDatasetFingerprint: `HISTORICAL_CASH_ONLY:${asOfDate}`, evidence: 'REAL_ONLY',
+    warnings: ['Ningún candidato histórico supera simultáneamente cash + consenso BUY.'],
+    summary: 'Mantener el capital en efectivo.', methodology: ['Gate histórico REAL + cash + consenso.']
+  };
+}
+function basisOf(holding: Holding): number { return holding.lots.reduce((sum, lot) => sum + lot.costEur, 0); }
+function fundCategory(item: AssetUniverseItem): FundPosition['category'] {
+  return item.category === 'GLOBAL_EQUITY' ? 'GLOBAL_EQUITY' : item.category === 'EMERGING_EQUITY' ? 'EMERGING_EQUITY' : 'OTHER';
+}
+function buildSimulatedPortfolio(input: {
+  holdings: Map<string, Holding>;
+  cashEur: number;
+  dataset: MultiAssetDataset;
+  catalog: AssetUniverseItem[];
+  date: string;
+}): { portfolio: UserPortfolioState; fundMarketValues: Record<string, number> } {
+  const listed: UserPortfolioState['holdings'] = [];
+  const funds: FundPosition[] = [];
+  const fundMarketValues: Record<string, number> = {};
+  for (const holding of input.holdings.values()) {
+    const item = catalogItem(input.catalog, holding.assetId);
+    if (!item) continue;
+    const value = holdingValue(input.dataset, holding, input.date);
+    if (holding.instrumentType === 'MUTUAL_FUND') {
+      const isin = item.isin ?? item.ticker;
+      funds.push({
+        id: holding.assetId,
+        isin,
+        name: item.name,
+        category: fundCategory(item),
+        investedEur: basisOf(holding),
+        acquisitionDate: holding.lots[0]?.acquisitionDate ?? input.date,
+        currentValueEur: value,
+        units: holding.units,
+        transferable: true,
+        broker: 'MyInvestor'
+      });
+      fundMarketValues[holding.assetId] = value;
+    } else {
+      listed.push({ ticker: item.ticker, shares: holding.units });
+    }
+  }
+  return {
+    portfolio: {
+      cashEur: Math.max(0, input.cashEur), holdings: listed, funds,
+      stagedCapitalPlan: { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' },
+      portfolioDataVersion: 2,
+      updatedAt: `${input.date}T23:59:59.000Z`
+    },
+    fundMarketValues
+  };
+}
+function buildHistoricalHealthMap(input: {
+  holdings: Map<string, Holding>;
+  scan: AssetUniverseScanResult;
+  dataset: MultiAssetDataset;
+  catalog: AssetUniverseItem[];
+  date: string;
+  cashBenchmarkAnnualPct: number;
+}): Record<string, PortfolioPositionHealthSnapshot> {
+  const out: Record<string, PortfolioPositionHealthSnapshot> = {};
+  for (const holding of input.holdings.values()) {
+    const item = catalogItem(input.catalog, holding.assetId);
+    const candidate = input.scan.candidates.find(row => row.asset.assetId === holding.assetId);
+    if (!item || !candidate) continue;
+    const assessment = StrategyConsensusEngine.assess(input.scan, holding.assetId, input.cashBenchmarkAnnualPct);
+    const cash = assessAgainstCashBenchmark({ momentum120Pct: candidate.momentum120Pct, benchmarkAnnualPct: input.cashBenchmarkAnnualPct, notionalEur: 0, estimatedFeeEur: 0 });
+    const classification = classifyPositionHealth(assessment, cash.excessVsCashPctPoints);
+    const price = closeOnOrBefore(input.dataset, holding.assetId, input.date);
+    const snapshot: PortfolioPositionHealthSnapshot = {
+      key: holding.instrumentType === 'MUTUAL_FUND' ? holding.assetId : item.ticker.toUpperCase(),
+      label: item.name,
+      tickerOrIsin: holding.instrumentType === 'MUTUAL_FUND' ? (item.isin ?? item.ticker) : item.ticker,
+      action: classification.action,
+      reason: classification.reason,
+      source: 'UNIVERSE_SCAN',
+      currency: 'EUR',
+      currentUnitPrice: price,
+      currentValueEur: price == null ? null : price * holding.units,
+      consensusScore: assessment?.consensusScore ?? null,
+      favorableVotes: assessment?.favorableVotes ?? null,
+      unfavorableVotes: assessment?.unfavorableVotes ?? null,
+      structuralDowntrend: assessment?.structuralDowntrend ?? null,
+      excessVsCashPctPoints: cash.excessVsCashPctPoints,
+      suggestedReductionPct: classification.suggestedReductionPct
+    };
+    out[snapshot.key] = snapshot;
+    out[snapshot.tickerOrIsin.toUpperCase()] = snapshot;
+    out[holding.assetId] = snapshot;
+  }
+  return out;
+}
+function findHoldingForPosition(position: PortfolioPositionDecision, holdings: Map<string, Holding>, catalog: AssetUniverseItem[]): Holding | null {
+  for (const holding of holdings.values()) {
+    const item = catalogItem(catalog, holding.assetId);
+    if (!item) continue;
+    if (position.id === holding.assetId || position.id.toUpperCase() === item.ticker.toUpperCase() || position.id.toUpperCase() === (item.isin ?? '').toUpperCase()) return holding;
+  }
+  return null;
+}
+function orderEconomicallyExecutable(notionalEur: number, totalCapitalEur: number): boolean {
+  if (!(notionalEur > 0)) return false;
+  const policy = executionPolicyForCapital(totalCapitalEur);
+  if (notionalEur < policy.minimumOrderNotionalEur - 1e-9) return false;
+  const fee = brokerCommission(notionalEur);
+  return fee / notionalEur * 100 <= policy.maximumOrderFeeDragPct + 1e-9;
+}
 function buildDailyEquityPath(input: {
   dataset: MultiAssetDataset;
   signals: DynamicReplaySignal[];
@@ -353,17 +468,13 @@ function buildDailyEquityPath(input: {
   const dates = tradingDates(input.dataset, input.startDate, input.endDate);
   if (!dates.length) return [];
   const barsByAssetDate = new Map<string, Map<string, number>>();
-  for (const asset of input.dataset.assets) {
-    barsByAssetDate.set(asset.assetId, new Map(asset.bars.map(bar => [isoDate(bar.timestamp), bar.close])));
-  }
+  for (const asset of input.dataset.assets) barsByAssetDate.set(asset.assetId, new Map(asset.bars.map(bar => [isoDate(bar.timestamp), bar.close])));
   const lastPrice = new Map<string, number>();
   const holdings = new Map<string, number>();
   const signalsByDate = new Map<string, DynamicReplaySignal[]>();
   for (const signal of input.signals.filter(signal => signal.executed && signal.executionDate)) {
     const date = signal.executionDate!;
-    const list = signalsByDate.get(date) ?? [];
-    list.push(signal);
-    signalsByDate.set(date, list);
+    signalsByDate.set(date, [...(signalsByDate.get(date) ?? []), signal]);
   }
   const states = [...input.decisionStates].sort((a, b) => a.date.localeCompare(b.date));
   let stateIndex = 0;
@@ -392,19 +503,14 @@ function buildDailyEquityPath(input: {
       return rank(a) - rank(b);
     });
     for (const signal of daySignals) {
-      if (signal.unitsDelta < 0) {
-        cashEur += Math.max(0, signal.notionalEur - signal.feeEur - signal.estimatedTaxEur);
-      } else if (signal.unitsDelta > 0) {
-        cashEur = Math.max(0, cashEur - signal.notionalEur - signal.feeEur);
-      }
+      if (signal.unitsDelta < 0) cashEur += Math.max(0, signal.notionalEur - signal.feeEur - signal.estimatedTaxEur);
+      else if (signal.unitsDelta > 0) cashEur = Math.max(0, cashEur - signal.notionalEur - signal.feeEur);
       const units = Math.max(0, (holdings.get(signal.assetId) ?? 0) + signal.unitsDelta);
       if (units <= 1e-12) holdings.delete(signal.assetId); else holdings.set(signal.assetId, units);
     }
     let investedEur = 0;
     for (const [assetId, units] of holdings) investedEur += units * (lastPrice.get(assetId) ?? 0);
-    const cashBenchmarkEur = date <= input.startDate
-      ? input.initialCapitalEur
-      : allCashBenchmark(input.initialCapitalEur, input.cashBenchmarkAnnualPct, input.startDate, date).finalEur;
+    const cashBenchmarkEur = date <= input.startDate ? input.initialCapitalEur : allCashBenchmark(input.initialCapitalEur, input.cashBenchmarkAnnualPct, input.startDate, date).finalEur;
     path.push({ date, equityEur: cashEur + investedEur, cashEur, investedEur, cashBenchmarkEur, regime, method });
   }
   return path;
@@ -426,9 +532,7 @@ export class DynamicHistoricalReplayEngine {
     if (!(input.initialCapitalEur > 0)) throw new Error('El capital del replay dinámico debe ser > 0.');
     const frequency = input.frequency ?? 'MONTHLY';
     const minimumBars = input.minimumBars ?? 252;
-    const cashBenchmarkAnnualPct = Number.isFinite(input.cashBenchmarkAnnualPct)
-      ? Math.max(0, Number(input.cashBenchmarkAnnualPct))
-      : DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
+    const cashBenchmarkAnnualPct = Number.isFinite(input.cashBenchmarkAnnualPct) ? Math.max(0, Number(input.cashBenchmarkAnnualPct)) : DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
     const taxSettings = input.taxSettings ?? DEFAULT_TAX_SETTINGS;
     const endDate = latestDatasetDate(input.dataset);
     if (input.startDate >= endDate) throw new Error('La fecha inicial debe ser anterior al último dato REAL.');
@@ -449,208 +553,179 @@ export class DynamicHistoricalReplayEngine {
     let decisions = 0;
 
     for (const requestedDate of requestedDecisionDates(input.dataset, input.startDate, endDate, frequency)) {
-      const shortlist = buildHistoricalShortlist({
-        dataset: input.dataset,
-        catalog: input.catalog,
-        requestedDate,
-        minimumBars,
-        maxSelected: 8
-      });
-      if (shortlist.dataset.assets.length < 2) continue;
-
-      const provisionalValue = lastDecisionDate
-        ? portfolioValue(input.dataset, holdings, cashEur, lastDecisionDate).equityEur
-        : input.initialCapitalEur;
-      const decision = InvestmentDecisionEngine.decide(
-        shortlist.dataset,
-        { capitalEur: Math.max(1, provisionalValue), riskProfile: input.riskProfile, horizonYears: input.horizonYears },
-        new Date(`${requestedDate}T23:59:59Z`)
-      );
-      const decisionDate = decision.asOfDate;
+      const fullScan = buildHistoricalFullScan({ dataset: input.dataset, catalog: input.catalog, date: requestedDate, minimumBars });
+      if (fullScan.accepted < 1) continue;
+      const provisionalDate = fullScan.candidates.map(candidate => candidate.asOfDate).filter(Boolean).sort().at(-1) ?? requestedDate;
+      const provisionalValue = lastDecisionDate ? portfolioValue(input.dataset, holdings, cashEur, lastDecisionDate).equityEur : input.initialCapitalEur;
+      const gate = PortfolioCandidateGate.apply(fullScan, cashBenchmarkAnnualPct, 12);
+      const firstDecision = gate.scan.selected.length > 0
+        ? InvestmentDecisionEngine.decide(gate.scan.dataset, { capitalEur: Math.max(1, provisionalValue), riskProfile: input.riskProfile, horizonYears: input.horizonYears }, new Date(`${requestedDate}T23:59:59Z`))
+        : historicalCashOnlyDecision(fullScan, Math.max(1, provisionalValue), input.riskProfile, input.horizonYears);
+      const decisionDate = firstDecision.asOfDate || provisionalDate;
       if (decisionDate >= endDate || decisionDate === lastDecisionDate) continue;
       if (lastDecisionDate && decisionDate < lastDecisionDate) continue;
 
-      if (!firstDecisionDate) {
-        firstDecisionDate = decisionDate;
-        lastCashDate = decisionDate;
-      } else if (lastCashDate && decisionDate > lastCashDate) {
+      if (!firstDecisionDate) { firstDecisionDate = decisionDate; lastCashDate = decisionDate; }
+      else if (lastCashDate && decisionDate > lastCashDate) {
         const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, lastCashDate, decisionDate);
-        cashEur = accrued.cashEur;
-        cashInterestEur += accrued.interestEur;
-        lastCashDate = decisionDate;
+        cashEur = accrued.cashEur; cashInterestEur += accrued.interestEur; lastCashDate = decisionDate;
       }
 
       const current = portfolioValue(input.dataset, holdings, cashEur, decisionDate);
-      const liveDecision = InvestmentDecisionEngine.decide(
-        shortlist.dataset,
-        { capitalEur: Math.max(1, current.equityEur), riskProfile: input.riskProfile, horizonYears: input.horizonYears },
-        new Date(`${requestedDate}T23:59:59Z`)
-      );
+      const dateScan = buildHistoricalFullScan({ dataset: input.dataset, catalog: input.catalog, date: decisionDate, minimumBars });
+      const dateGate = PortfolioCandidateGate.apply(dateScan, cashBenchmarkAnnualPct, 12);
+      const liveDecision = dateGate.scan.selected.length > 0
+        ? InvestmentDecisionEngine.decide(dateGate.scan.dataset, { capitalEur: Math.max(1, current.equityEur), riskProfile: input.riskProfile, horizonYears: input.horizonYears }, new Date(`${decisionDate}T23:59:59Z`))
+        : historicalCashOnlyDecision(dateScan, Math.max(1, current.equityEur), input.riskProfile, input.horizonYears);
       decisionStates.push({ date: decisionDate, regime: liveDecision.marketRegime, method: liveDecision.recommendedMethod });
-      const targetWeights = new Map(liveDecision.assets.map(asset => [asset.assetId, asset.weight]));
-      const historicalScan = buildHistoricalConsensusScan({
-        dataset: input.dataset,
-        catalog: input.catalog,
-        date: decisionDate,
-        minimumBars,
-        selectedIds: shortlist.selectedAssetIds,
-        selectedDataset: shortlist.dataset
-      });
-      const ids = new Set<string>([...shortlist.selectedAssetIds, ...holdings.keys()]);
-      const planned: PlannedSignal[] = [];
 
-      for (const assetId of ids) {
-        const item = catalogItem(input.catalog, assetId);
+      const simulated = buildSimulatedPortfolio({ holdings, cashEur, dataset: input.dataset, catalog: input.catalog, date: decisionDate });
+      const healthMap = buildHistoricalHealthMap({ holdings, scan: dateGate.scan, dataset: input.dataset, catalog: input.catalog, date: decisionDate, cashBenchmarkAnnualPct });
+      const portfolioDecision = PortfolioDecisionEngine.evaluate({
+        portfolio: simulated.portfolio,
+        scan: dateGate.scan,
+        decision: liveDecision,
+        fundMarketValues: simulated.fundMarketValues,
+        positionHealth: healthMap,
+        cashBenchmarkAnnualPct
+      });
+
+      const plannedByAsset = new Map<string, PlannedSignal>();
+      const ensureAssessment = (assetId: string) => StrategyConsensusEngine.assess(dateGate.scan, assetId, cashBenchmarkAnnualPct);
+      for (const contribution of portfolioDecision.contributions) {
+        const item = catalogItem(input.catalog, contribution.assetId);
         if (!item) continue;
-        const assessment = StrategyConsensusEngine.assess(historicalScan, assetId, cashBenchmarkAnnualPct);
-        const holding = holdings.get(assetId);
+        const holding = holdings.get(contribution.assetId);
         const heldValue = holding ? holdingValue(input.dataset, holding, decisionDate) : 0;
         const currentWeight = current.equityEur > 0 ? heldValue / current.equityEur : 0;
-        const targetWeight = clamp(targetWeights.get(assetId) ?? 0, 0, 1);
-        let action: DynamicReplaySignalAction;
-
-        if (holding && holding.units > 1e-12) {
-          if (assessment?.existingPositionAction === 'REDUCE_REVIEW' && targetWeight < currentWeight - MIN_WEIGHT_DELTA) {
-            action = targetWeight <= 0.005 ? 'EXIT' : 'REDUCE';
-          } else if (targetWeight > currentWeight + MIN_WEIGHT_DELTA && assessment?.existingPositionAction === 'ADD') {
-            action = 'ADD';
-          } else {
-            action = 'HOLD';
-          }
-        } else {
-          action = targetWeight > MIN_WEIGHT_DELTA && assessment?.newMoneyAction === 'BUY' ? 'BUY' : 'AVOID';
-        }
-
-        planned.push({
+        const targetValue = contribution.targetAssetValueEur ?? heldValue + contribution.amountEur;
+        const assessment = ensureAssessment(contribution.assetId);
+        plannedByAsset.set(contribution.assetId, {
           assessment,
           signal: {
-            id: `${decisionDate}_${assetId}_${action}`,
+            id: `${decisionDate}_${contribution.assetId}_${holding ? 'ADD' : 'BUY'}`,
             signalDate: decisionDate,
             executionDate: null,
-            assetId,
-            ticker: item.ticker,
-            action,
-            targetWeight,
+            assetId: contribution.assetId,
+            ticker: contribution.ticker,
+            action: holding ? 'ADD' : 'BUY',
+            targetWeight: current.equityEur > 0 ? clamp(targetValue / current.equityEur, 0, 1) : 0,
             currentWeight,
+            recommendedAmountEur: contribution.amountEur,
             consensusScore: assessment?.consensusScore ?? null,
             favorableVotes: assessment?.favorableVotes ?? null,
             unfavorableVotes: assessment?.unfavorableVotes ?? null,
             structuralDowntrend: assessment?.structuralDowntrend ?? false,
             buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
-            executed: false,
-            unitsDelta: 0,
-            notionalEur: 0,
-            feeEur: 0,
-            realizedGainEur: 0,
-            estimatedTaxEur: 0,
-            taxDeferredTransferEur: 0,
-            executionPriceEur: null,
-            reason: actionReason(assessment, liveDecision.recommendedMethod, liveDecision.marketRegime)
+            executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
+            reason: contribution.reason
           }
         });
       }
 
+      for (const position of portfolioDecision.existingPositions.filter(position => position.action === 'REDUCE' || position.action === 'EXIT')) {
+        const holding = findHoldingForPosition(position, holdings, input.catalog);
+        if (!holding) continue;
+        const item = catalogItem(input.catalog, holding.assetId);
+        if (!item) continue;
+        const assessment = ensureAssessment(holding.assetId);
+        const heldValue = holdingValue(input.dataset, holding, decisionDate);
+        const currentWeight = current.equityEur > 0 ? heldValue / current.equityEur : 0;
+        const reductionPct = position.action === 'EXIT' ? 100 : Math.max(0, Math.min(100, position.suggestedReductionPct ?? 50));
+        const recommendedAmount = heldValue * reductionPct / 100;
+        plannedByAsset.set(holding.assetId, {
+          assessment,
+          signal: {
+            id: `${decisionDate}_${holding.assetId}_${position.action}`,
+            signalDate: decisionDate, executionDate: null, assetId: holding.assetId, ticker: item.ticker,
+            action: position.action, targetWeight: position.action === 'EXIT' ? 0 : currentWeight * (1 - reductionPct / 100), currentWeight,
+            recommendedAmountEur: recommendedAmount,
+            consensusScore: assessment?.consensusScore ?? null, favorableVotes: assessment?.favorableVotes ?? null, unfavorableVotes: assessment?.unfavorableVotes ?? null,
+            structuralDowntrend: assessment?.structuralDowntrend ?? false, buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
+            executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
+            reason: position.reason
+          }
+        });
+      }
+
+      // Keep a small non-operational trace so the chosen start date can also show “no comprar/mantener”.
+      const traceIds = new Set<string>([...dateGate.scan.selected.slice(0, 5).map(candidate => candidate.asset.assetId), ...holdings.keys()]);
+      for (const assetId of traceIds) {
+        if (plannedByAsset.has(assetId)) continue;
+        const item = catalogItem(input.catalog, assetId);
+        if (!item) continue;
+        const assessment = ensureAssessment(assetId);
+        const holding = holdings.get(assetId);
+        const heldValue = holding ? holdingValue(input.dataset, holding, decisionDate) : 0;
+        const currentWeight = current.equityEur > 0 ? heldValue / current.equityEur : 0;
+        plannedByAsset.set(assetId, {
+          assessment,
+          signal: {
+            id: `${decisionDate}_${assetId}_${holding ? 'HOLD' : 'AVOID'}`,
+            signalDate: decisionDate, executionDate: null, assetId, ticker: item.ticker,
+            action: holding ? 'HOLD' : 'AVOID', targetWeight: currentWeight, currentWeight, recommendedAmountEur: 0,
+            consensusScore: assessment?.consensusScore ?? null, favorableVotes: assessment?.favorableVotes ?? null, unfavorableVotes: assessment?.unfavorableVotes ?? null,
+            structuralDowntrend: assessment?.structuralDowntrend ?? false, buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
+            executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
+            reason: holding ? 'La cadena operativa actual no exige mover esta posición en esta fecha.' : 'Candidato sin una compra financiada por la cadena operativa actual en esta fecha.'
+          }
+        });
+      }
+
+      const planned = [...plannedByAsset.values()];
       const tradePlans = planned.filter(plan => ['BUY', 'ADD', 'REDUCE', 'EXIT'].includes(plan.signal.action));
       const nextDates = tradePlans.map(plan => nextBarAfter(input.dataset, plan.signal.assetId, decisionDate)).filter(Boolean).map(bar => isoDate(bar!.timestamp));
-      const commonExecutionDate = nextDates.length === tradePlans.length && nextDates.length
-        ? [...nextDates].sort().at(-1)!
-        : null;
+      const commonExecutionDate = nextDates.length === tradePlans.length && nextDates.length ? [...nextDates].sort().at(-1)! : null;
 
       if (commonExecutionDate && lastCashDate && commonExecutionDate > lastCashDate) {
         const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, lastCashDate, commonExecutionDate);
-        cashEur = accrued.cashEur;
-        cashInterestEur += accrued.interestEur;
-        lastCashDate = commonExecutionDate;
+        cashEur = accrued.cashEur; cashInterestEur += accrued.interestEur; lastCashDate = commonExecutionDate;
       }
 
       if (commonExecutionDate) {
         const executedSales: ExecutedSale[] = [];
-        const sellPlans = tradePlans.filter(plan => plan.signal.action === 'REDUCE' || plan.signal.action === 'EXIT');
-        for (const plan of sellPlans) {
+        for (const plan of tradePlans.filter(plan => plan.signal.action === 'REDUCE' || plan.signal.action === 'EXIT')) {
           const holding = holdings.get(plan.signal.assetId);
           const bar = executionBarOnOrAfter(input.dataset, plan.signal.assetId, commonExecutionDate);
           if (!holding || !bar || !(bar.open > 0)) continue;
           const price = bar.open;
-          const targetEur = plan.signal.action === 'EXIT' ? 0 : current.equityEur * plan.signal.targetWeight;
-          let unitsToSell = 0;
-          if (holding.instrumentType === 'MUTUAL_FUND') {
-            const targetUnits = Math.max(0, targetEur / price);
-            unitsToSell = Math.max(0, holding.units - targetUnits);
-          } else {
-            const targetUnits = Math.max(0, Math.floor(targetEur / price));
-            unitsToSell = Math.max(0, Math.floor(holding.units - targetUnits));
-          }
-          unitsToSell = Math.min(holding.units, unitsToSell);
+          let unitsToSell = plan.signal.action === 'EXIT' ? holding.units : Math.min(holding.units, plan.signal.recommendedAmountEur / price);
+          if (holding.instrumentType === 'ETF_ETC') unitsToSell = Math.floor(unitsToSell + 1e-9);
           if (!(unitsToSell > 1e-12)) continue;
           const gross = unitsToSell * price;
           const fee = holding.instrumentType === 'ETF_ETC' ? brokerCommission(gross) : 0;
+          if (holding.instrumentType === 'ETF_ETC' && !orderEconomicallyExecutable(gross, current.equityEur)) continue;
           const basis = consumeLots(holding, unitsToSell);
           const realizedGain = gross - fee - basis;
           cashEur += Math.max(0, gross - fee);
           holding.units = Math.max(0, holding.units - unitsToSell);
           if (holding.units <= 1e-12) holdings.delete(holding.assetId);
           totalFeesEur += fee;
-          plan.signal.executed = true;
-          plan.signal.executionDate = isoDate(bar.timestamp);
-          plan.signal.unitsDelta = -unitsToSell;
-          plan.signal.notionalEur = gross;
-          plan.signal.feeEur = fee;
-          plan.signal.realizedGainEur = realizedGain;
-          plan.signal.executionPriceEur = price;
+          Object.assign(plan.signal, { executed: true, executionDate: isoDate(bar.timestamp), unitsDelta: -unitsToSell, notionalEur: gross, feeEur: fee, realizedGainEur: realizedGain, executionPriceEur: price });
           executedSales.push({ plan, holdingType: holding.instrumentType, grossEur: gross, feeEur: fee, costBasisEur: basis, realizedGainEur: realizedGain, transferPlannedEur: 0, transferRemainingEur: 0 });
         }
 
-        const buyPlans = tradePlans
-          .filter(plan => plan.signal.action === 'BUY' || plan.signal.action === 'ADD')
-          .sort((a, b) => {
-            const typeA = instrumentType(input.catalog, a.signal.assetId);
-            const typeB = instrumentType(input.catalog, b.signal.assetId);
-            if (typeA !== typeB) return typeA === 'MUTUAL_FUND' ? -1 : 1;
-            return (b.signal.targetWeight - b.signal.currentWeight) - (a.signal.targetWeight - a.signal.currentWeight);
-          });
-
+        const buyPlans = tradePlans.filter(plan => plan.signal.action === 'BUY' || plan.signal.action === 'ADD').sort((a, b) => {
+          const typeA = instrumentType(input.catalog, a.signal.assetId), typeB = instrumentType(input.catalog, b.signal.assetId);
+          if (typeA !== typeB) return typeA === 'MUTUAL_FUND' ? -1 : 1;
+          return b.signal.recommendedAmountEur - a.signal.recommendedAmountEur;
+        });
         const fundSales = executedSales.filter(sale => sale.holdingType === 'MUTUAL_FUND');
-        const desiredFundBuyEur = buyPlans
-          .filter(plan => instrumentType(input.catalog, plan.signal.assetId) === 'MUTUAL_FUND')
-          .reduce((sum, plan) => {
-            const bar = executionBarOnOrAfter(input.dataset, plan.signal.assetId, commonExecutionDate);
-            if (!bar || !(bar.open > 0)) return sum;
-            const existing = holdings.get(plan.signal.assetId);
-            const currentUnits = existing?.units ?? 0;
-            const targetEur = current.equityEur * plan.signal.targetWeight;
-            return sum + Math.max(0, targetEur - currentUnits * bar.open);
-          }, 0);
+        const desiredFundBuyEur = buyPlans.filter(plan => instrumentType(input.catalog, plan.signal.assetId) === 'MUTUAL_FUND').reduce((sum, plan) => sum + plan.signal.recommendedAmountEur, 0);
         let remainingTransferPotential = Math.min(fundSales.reduce((sum, sale) => sum + sale.grossEur, 0), desiredFundBuyEur);
         for (const sale of fundSales) {
           const paired = Math.min(sale.grossEur, remainingTransferPotential);
-          sale.transferPlannedEur = paired;
-          sale.transferRemainingEur = paired;
-          sale.plan.signal.taxDeferredTransferEur = paired;
-          remainingTransferPotential -= paired;
+          sale.transferPlannedEur = paired; sale.transferRemainingEur = paired; sale.plan.signal.taxDeferredTransferEur = paired; remainingTransferPotential -= paired;
         }
 
         for (const sale of executedSales) {
-          const taxableFraction = sale.holdingType === 'MUTUAL_FUND' && sale.grossEur > 0
-            ? Math.max(0, (sale.grossEur - sale.transferPlannedEur) / sale.grossEur)
-            : 1;
+          const taxableFraction = sale.holdingType === 'MUTUAL_FUND' && sale.grossEur > 0 ? Math.max(0, (sale.grossEur - sale.transferPlannedEur) / sale.grossEur) : 1;
           const taxableGain = Math.max(0, sale.realizedGainEur) * taxableFraction;
           const tax = taxForPositiveGain(taxableGain, commonExecutionDate, taxSettings, positiveGainByYear);
           sale.plan.signal.estimatedTaxEur = tax;
-          cashEur = Math.max(0, cashEur - tax);
-          totalEstimatedTaxEur += tax;
+          cashEur = Math.max(0, cashEur - tax); totalEstimatedTaxEur += tax;
           const signal = sale.plan.signal;
-          events.push({
-            id: `event_${signal.id}`,
-            date: commonExecutionDate,
-            type: signal.action as 'REDUCE' | 'EXIT',
-            ticker: signal.ticker,
-            amountEur: sale.grossEur,
-            feeEur: sale.feeEur,
-            taxEur: tax,
-            realizedGainEur: sale.realizedGainEur,
-            label: `${signal.action === 'EXIT' ? 'SALIR' : 'REDUCIR'} ${signal.ticker}`,
-            detail: `${sale.grossEur.toFixed(2)} € vendidos · coste ${sale.feeEur.toFixed(2)} € · plusvalía realizada ${sale.realizedGainEur.toFixed(2)} € · reserva fiscal ${tax.toFixed(2)} €${sale.transferPlannedEur > 0 ? ` · ${sale.transferPlannedEur.toFixed(2)} € preparados para traspaso` : ''}.`
-          });
+          events.push({ id: `event_${signal.id}`, date: commonExecutionDate, type: signal.action as 'REDUCE' | 'EXIT', ticker: signal.ticker, amountEur: sale.grossEur, feeEur: sale.feeEur, taxEur: tax, realizedGainEur: sale.realizedGainEur, label: `${signal.action === 'EXIT' ? 'SALIR' : 'REDUCIR'} ${signal.ticker}`, detail: `${sale.grossEur.toFixed(2)} € vendidos · comisión ${sale.feeEur.toFixed(2)} € · plusvalía realizada ${sale.realizedGainEur.toFixed(2)} € · reserva fiscal ${tax.toFixed(2)} €${sale.transferPlannedEur > 0 ? ` · ${sale.transferPlannedEur.toFixed(2)} € preparados para traspaso` : ''}.` });
         }
 
         for (const plan of buyPlans) {
@@ -658,41 +733,24 @@ export class DynamicHistoricalReplayEngine {
           if (!bar || !(bar.open > 0) || cashEur <= 0) continue;
           const type = instrumentType(input.catalog, plan.signal.assetId);
           const existing = holdings.get(plan.signal.assetId);
-          const currentUnits = existing?.units ?? 0;
           const price = bar.open;
-          const targetEur = current.equityEur * plan.signal.targetWeight;
-          const currentEur = currentUnits * price;
-          const gapEur = Math.max(0, targetEur - currentEur);
-          if (gapEur <= 0.01) continue;
-
-          let unitsToBuy = 0;
-          let fee = 0;
-          let spend = 0;
+          const desiredSpend = Math.min(plan.signal.recommendedAmountEur, cashEur);
+          let unitsToBuy = 0, fee = 0, spend = 0;
           if (type === 'MUTUAL_FUND') {
-            spend = Math.min(gapEur, cashEur);
-            unitsToBuy = spend / price;
+            spend = desiredSpend; unitsToBuy = spend / price;
           } else {
-            unitsToBuy = Math.floor(gapEur / price);
+            unitsToBuy = Math.floor(desiredSpend / price + 1e-9);
             fee = unitsToBuy > 0 ? brokerCommission(unitsToBuy * price) : 0;
-            while (unitsToBuy > 0 && unitsToBuy * price + fee > cashEur + 1e-9) {
-              unitsToBuy--;
-              fee = unitsToBuy > 0 ? brokerCommission(unitsToBuy * price) : 0;
-            }
+            while (unitsToBuy > 0 && unitsToBuy * price + fee > cashEur + 1e-9) { unitsToBuy--; fee = unitsToBuy > 0 ? brokerCommission(unitsToBuy * price) : 0; }
             spend = unitsToBuy * price + fee;
+            if (unitsToBuy > 0 && !orderEconomicallyExecutable(unitsToBuy * price, current.equityEur)) { unitsToBuy = 0; spend = 0; fee = 0; }
           }
           if (!(unitsToBuy > 1e-12) || spend > cashEur + 1e-9) continue;
           cashEur = Math.max(0, cashEur - spend);
           const nextHolding: Holding = existing ?? { assetId: plan.signal.assetId, ticker: plan.signal.ticker, instrumentType: type, units: 0, lots: [] };
-          nextHolding.units += unitsToBuy;
-          addLot(nextHolding, unitsToBuy, spend, commonExecutionDate);
-          holdings.set(nextHolding.assetId, nextHolding);
+          nextHolding.units += unitsToBuy; addLot(nextHolding, unitsToBuy, spend, commonExecutionDate); holdings.set(nextHolding.assetId, nextHolding);
           totalFeesEur += fee;
-          plan.signal.executed = true;
-          plan.signal.executionDate = isoDate(bar.timestamp);
-          plan.signal.unitsDelta = unitsToBuy;
-          plan.signal.notionalEur = unitsToBuy * price;
-          plan.signal.feeEur = fee;
-          plan.signal.executionPriceEur = price;
+          Object.assign(plan.signal, { executed: true, executionDate: isoDate(bar.timestamp), unitsDelta: unitsToBuy, notionalEur: unitsToBuy * price, feeEur: fee, executionPriceEur: price });
 
           if (type === 'MUTUAL_FUND') {
             let transferNeed = plan.signal.notionalEur;
@@ -700,38 +758,11 @@ export class DynamicHistoricalReplayEngine {
               if (transferNeed <= 1e-9) break;
               const amount = Math.min(transferNeed, sale.transferRemainingEur);
               if (amount <= 1e-9) continue;
-              sale.transferRemainingEur -= amount;
-              transferNeed -= amount;
-              plan.signal.taxDeferredTransferEur += amount;
-              totalTransferredEur += amount;
-              events.push({
-                id: `transfer_${sale.plan.signal.id}_${plan.signal.id}_${events.length}`,
-                date: commonExecutionDate,
-                type: 'TRANSFER',
-                sourceTicker: sale.plan.signal.ticker,
-                targetTicker: plan.signal.ticker,
-                amountEur: amount,
-                feeEur: 0,
-                taxEur: 0,
-                realizedGainEur: 0,
-                label: `TRASPASO ${sale.plan.signal.ticker} → ${plan.signal.ticker}`,
-                detail: `${amount.toFixed(2)} € tratados como traspaso fondo→fondo fiscalmente diferido; impuesto inmediato estimado 0 € para esa parte.`
-              });
+              sale.transferRemainingEur -= amount; transferNeed -= amount; plan.signal.taxDeferredTransferEur += amount; totalTransferredEur += amount;
+              events.push({ id: `transfer_${sale.plan.signal.id}_${plan.signal.id}_${events.length}`, date: commonExecutionDate, type: 'TRANSFER', sourceTicker: sale.plan.signal.ticker, targetTicker: plan.signal.ticker, amountEur: amount, feeEur: 0, taxEur: 0, realizedGainEur: 0, label: `TRASPASO ${sale.plan.signal.ticker} → ${plan.signal.ticker}`, detail: `${amount.toFixed(2)} € tratados como traspaso fondo→fondo fiscalmente diferido; impuesto inmediato estimado 0 € para esa parte.` });
             }
           }
-
-          events.push({
-            id: `event_${plan.signal.id}`,
-            date: commonExecutionDate,
-            type: plan.signal.action as 'BUY' | 'ADD',
-            ticker: plan.signal.ticker,
-            amountEur: plan.signal.notionalEur,
-            feeEur: fee,
-            taxEur: 0,
-            realizedGainEur: 0,
-            label: `${plan.signal.action === 'BUY' ? 'COMPRAR' : 'AÑADIR'} ${plan.signal.ticker}`,
-            detail: `${plan.signal.notionalEur.toFixed(2)} € invertidos · coste ${fee.toFixed(2)} €${plan.signal.taxDeferredTransferEur > 0 ? ` · ${plan.signal.taxDeferredTransferEur.toFixed(2)} € procedentes de traspaso fiscalmente diferido` : ''}.`
-          });
+          events.push({ id: `event_${plan.signal.id}`, date: commonExecutionDate, type: plan.signal.action as 'BUY' | 'ADD', ticker: plan.signal.ticker, amountEur: plan.signal.notionalEur, feeEur: fee, taxEur: 0, realizedGainEur: 0, label: `${plan.signal.action === 'BUY' ? 'COMPRAR' : 'AÑADIR'} ${plan.signal.ticker}`, detail: `${plan.signal.notionalEur.toFixed(2)} € invertidos · comisión ${fee.toFixed(2)} €${plan.signal.taxDeferredTransferEur > 0 ? ` · ${plan.signal.taxDeferredTransferEur.toFixed(2)} € procedentes de traspaso fiscalmente diferido` : ''}.` });
         }
       }
 
@@ -740,80 +771,47 @@ export class DynamicHistoricalReplayEngine {
       decisions++;
     }
 
-    if (!firstDecisionDate) throw new Error('No hay una fecha con al menos dos activos y suficiente historia causal para iniciar el replay dinámico.');
+    if (!firstDecisionDate) throw new Error('No hay una fecha con suficiente historia causal para iniciar el replay dinámico.');
     if (lastCashDate && endDate > lastCashDate) {
       const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, lastCashDate, endDate);
-      cashEur = accrued.cashEur;
-      cashInterestEur += accrued.interestEur;
+      cashEur = accrued.cashEur; cashInterestEur += accrued.interestEur;
     }
     const finalPortfolio = portfolioValue(input.dataset, holdings, cashEur, endDate);
     const finalValueEur = finalPortfolio.equityEur;
     const totalReturnPct = (finalValueEur / input.initialCapitalEur - 1) * 100;
     const allCash = allCashBenchmark(input.initialCapitalEur, cashBenchmarkAnnualPct, firstDecisionDate, endDate);
-    const staticResult = HistoricalDecisionReplayEngine.run({
-      dataset: input.dataset,
-      catalog: input.catalog,
-      requestedDates: [input.startDate],
-      initialCapitalEur: input.initialCapitalEur,
-      riskProfile: input.riskProfile,
-      horizonYears: input.horizonYears,
-      cashBenchmarkAnnualPct,
-      minimumBars
-    }).cases[0] ?? null;
+    const staticResult = HistoricalDecisionReplayEngine.run({ dataset: input.dataset, catalog: input.catalog, requestedDates: [input.startDate], initialCapitalEur: input.initialCapitalEur, riskProfile: input.riskProfile, horizonYears: input.horizonYears, cashBenchmarkAnnualPct, minimumBars }).cases[0] ?? null;
     const staticFinal = staticResult?.finalValueEur ?? null;
     const staticReturn = staticResult?.totalReturnPct ?? null;
     const material = signals.filter(signal => ['BUY', 'ADD', 'REDUCE', 'EXIT'].includes(signal.action));
-    const equityPath = buildDailyEquityPath({
-      dataset: input.dataset,
-      signals,
-      initialCapitalEur: input.initialCapitalEur,
-      cashBenchmarkAnnualPct,
-      startDate: firstDecisionDate,
-      endDate,
-      decisionStates
-    });
+    const equityPath = buildDailyEquityPath({ dataset: input.dataset, signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: firstDecisionDate, endDate, decisionStates });
 
     return {
-      requestedStartDate: input.startDate,
-      startDate: firstDecisionDate,
-      endDate,
-      frequency,
-      initialCapitalEur: input.initialCapitalEur,
-      finalValueEur,
-      totalReturnPct,
-      staticBuyHoldFinalEur: staticFinal,
-      staticBuyHoldReturnPct: staticReturn,
-      allCashFinalEur: allCash.finalEur,
-      allCashReturnPct: allCash.returnPct,
+      requestedStartDate: input.startDate, startDate: firstDecisionDate, endDate, frequency, initialCapitalEur: input.initialCapitalEur,
+      finalValueEur, totalReturnPct, staticBuyHoldFinalEur: staticFinal, staticBuyHoldReturnPct: staticReturn,
+      allCashFinalEur: allCash.finalEur, allCashReturnPct: allCash.returnPct,
       excessFinalEurVsStatic: staticFinal == null ? null : finalValueEur - staticFinal,
       excessReturnVsStaticPctPoints: staticReturn == null ? null : totalReturnPct - staticReturn,
-      excessFinalEurVsCash: finalValueEur - allCash.finalEur,
-      excessReturnVsCashPctPoints: totalReturnPct - allCash.returnPct,
-      decisionPathMaxDrawdownPct: pathMaxDrawdown(equityPath),
-      decisions,
-      materialSignals: material.length,
+      excessFinalEurVsCash: finalValueEur - allCash.finalEur, excessReturnVsCashPctPoints: totalReturnPct - allCash.returnPct,
+      decisionPathMaxDrawdownPct: pathMaxDrawdown(equityPath), decisions, materialSignals: material.length,
       executedBuys: signals.filter(signal => signal.action === 'BUY' && signal.executed).length,
       executedAdds: signals.filter(signal => signal.action === 'ADD' && signal.executed).length,
       executedReductions: signals.filter(signal => signal.action === 'REDUCE' && signal.executed).length,
       executedExits: signals.filter(signal => signal.action === 'EXIT' && signal.executed).length,
-      totalFeesEur,
-      totalEstimatedTaxEur,
-      totalTransferredEur,
-      cashInterestEur,
+      totalFeesEur, totalEstimatedTaxEur, totalTransferredEur, cashInterestEur,
       taxMethod: taxSettings.contextConfirmed ? 'CONFIGURED_PROGRESSIVE' : 'CONSERVATIVE_MAX_RATE',
-      signals,
-      events: events.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)),
-      equityPath,
+      operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN',
+      signals, events: events.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)), equityPath,
       notes: [
-        'Cada decisión se reconstruye causalmente con datos disponibles hasta esa fecha; nunca se eligen compras o ventas mirando el resultado futuro.',
-        'La prueba puede revisar cada sesión, semana, mes o trimestre. Cada operación se ejecuta después de la señal usando la primera apertura común disponible.',
-        'Una compra nueva exige consenso BUY; una ampliación exige ADD. Un cambio teórico de peso por sí solo no autoriza operar.',
-        'Una reducción/venta exige deterioro estructural (REDUCE_REVIEW) y que el asignador de esa misma fecha pida menos exposición.',
-        'ETFs usan títulos enteros y comisión MyInvestor modelada; fondos usan unidades fraccionarias. Fondo→fondo se empareja como traspaso fiscalmente diferido cuando coincide en el mismo cambio.',
-        taxSettings.contextConfirmed
-          ? 'La fiscalidad usa la escala española del ahorro y la base previa configurada; la reserva se descuenta de forma conservadora al realizar ganancias.'
-          : 'El contexto fiscal anual no está confirmado: las plusvalías imponibles reservan conservadoramente el 30%. Es una estimación de fricción, no una liquidación tributaria histórica exacta.',
-        'La trayectoria de patrimonio se valora en cada sesión disponible y se compara en la misma gráfica con mantener todo el capital en la cuenta remunerada.',
+        'Cada fecha reconstruye la misma cadena operativa in-universe que usa la pantalla actual: universo REAL → cash+consenso → PortfolioCandidateGate → InvestmentDecisionEngine → PortfolioDecisionEngine con objetivos estables → salud individual para REDUCE/EXIT.',
+        'Cada decisión usa exclusivamente datos disponibles hasta esa fecha; nunca se eligen compras o ventas mirando el resultado futuro.',
+        'DAILY revisa cada sesión disponible; WEEKLY/MONTHLY/QUARTERLY reducen la frecuencia de decisión. La ejecución siempre ocurre después de la señal.',
+        'Una compra ejecutada cuenta contra el objetivo estable del activo en las decisiones posteriores; el replay no redistribuye desde cero el efectivo restante después de cada operación.',
+        'ETFs usan títulos enteros, mínimo/drag de comisión de la política adaptativa y comisión MyInvestor modelada; fondos usan unidades fraccionarias.',
+        'La salud histórica de posiciones del universo usa la misma función pura classifyPositionHealth. Activos arbitrarios fuera del universo actual no se introducen porque reconstruir su monitor externo histórico exigiría una fuente no contenida en el dataset causal.',
+        'Fondo→fondo se empareja como traspaso fiscalmente diferido cuando coincide en el mismo cambio. La parte no diferida soporta la reserva fiscal estimada.',
+        taxSettings.contextConfirmed ? 'La fiscalidad usa la escala española del ahorro y la base previa configurada.' : 'El contexto fiscal anual no está confirmado: las plusvalías imponibles reservan conservadoramente el 30%.',
+        'La trayectoria se valora en cada sesión disponible y se compara con mantener todo el capital en la cuenta remunerada.',
         'Permanece el sesgo de supervivencia del catálogo actual y no se reconstruyen cambios históricos de comercialización/disponibilidad del broker.'
       ]
     };
