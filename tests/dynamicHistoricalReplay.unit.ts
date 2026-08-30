@@ -25,12 +25,12 @@ const catalog: AssetUniverseItem[] = [
   { assetId: 'RISK', ticker: 'RISK.DE', name: 'Risk Asset', category: 'GLOBAL_EQUITY', currency: 'EUR', instrumentType: 'ETF_ETC' },
   { assetId: 'DEF', ticker: 'DEF.DE', name: 'Defensive Asset', category: 'GOV_BONDS', currency: 'EUR', instrumentType: 'ETF_ETC', defensive: true }
 ];
-function dataset(futureShock = false): MultiAssetDataset {
+function dataset(futureShock = false, bars = 1050): MultiAssetDataset {
   return {
     timeframe: '1d',
     assets: [
-      { assetId: 'RISK', ticker: 'RISK.DE', name: 'Risk Asset', currency: 'EUR', bars: riskBars(futureShock), provenance: { sourceType: 'REAL', provider: 'test', symbol: 'RISK.DE', isReproducible: true, datasetFingerprint: futureShock ? 'risk-future-shock' : 'risk-base' } },
-      { assetId: 'DEF', ticker: 'DEF.DE', name: 'Defensive Asset', currency: 'EUR', bars: defensiveBars(), provenance: { sourceType: 'REAL', provider: 'test', symbol: 'DEF.DE', isReproducible: true, datasetFingerprint: 'def-base' } }
+      { assetId: 'RISK', ticker: 'RISK.DE', name: 'Risk Asset', currency: 'EUR', bars: riskBars(futureShock).slice(0, bars), provenance: { sourceType: 'REAL', provider: 'test', symbol: 'RISK.DE', isReproducible: true, datasetFingerprint: futureShock ? 'risk-future-shock' : 'risk-base' } },
+      { assetId: 'DEF', ticker: 'DEF.DE', name: 'Defensive Asset', currency: 'EUR', bars: defensiveBars().slice(0, bars), provenance: { sourceType: 'REAL', provider: 'test', symbol: 'DEF.DE', isReproducible: true, datasetFingerprint: 'def-base' } }
     ]
   };
 }
@@ -57,7 +57,38 @@ assert.ok(Number.isFinite(base.finalValueEur));
 assert.ok(Number.isFinite(base.allCashFinalEur));
 assert.ok(base.staticBuyHoldFinalEur != null && Number.isFinite(base.staticBuyHoldFinalEur));
 assert.ok(base.totalFeesEur >= 0);
+assert.ok(base.totalEstimatedTaxEur >= 0, 'tax friction must be explicitly accounted for');
+assert.ok(base.totalTransferredEur >= 0, 'tax-deferred fund transfer accounting must be explicit even when the test has no funds');
 assert.ok(base.cashInterestEur >= 0);
+assert.ok(base.equityPath.length > base.decisions, 'portfolio equity must be valued on a denser session path than decision dates');
+assert.ok(base.equityPath.every(point => Number.isFinite(point.equityEur) && Number.isFinite(point.cashBenchmarkEur)), 'every chart point must carry portfolio and cash benchmark values');
+assert.ok(base.events.every(event => Number.isFinite(event.amountEur) && event.feeEur >= 0 && event.taxEur >= 0), 'operation ledger must expose finite amounts, fees and taxes');
+
+const daily = DynamicHistoricalReplayEngine.run({
+  dataset: dataset(false, 560),
+  catalog,
+  startDate,
+  frequency: 'DAILY',
+  initialCapitalEur: 10_000,
+  riskProfile: 'MEDIUM',
+  horizonYears: 3,
+  cashBenchmarkAnnualPct: 2.5,
+  minimumBars: 252
+});
+const monthlySameWindow = DynamicHistoricalReplayEngine.run({
+  dataset: dataset(false, 560),
+  catalog,
+  startDate,
+  frequency: 'MONTHLY',
+  initialCapitalEur: 10_000,
+  riskProfile: 'MEDIUM',
+  horizonYears: 3,
+  cashBenchmarkAnnualPct: 2.5,
+  minimumBars: 252
+});
+assert.equal(daily.frequency, 'DAILY');
+assert.ok(daily.decisions > monthlySameWindow.decisions, 'DAILY mode must genuinely re-evaluate more often than MONTHLY mode');
+assert.ok(daily.equityPath.length >= daily.decisions, 'DAILY replay must still provide a coherent session-valued equity path');
 
 const shocked = DynamicHistoricalReplayEngine.run({
   dataset: dataset(true),
@@ -77,4 +108,4 @@ const before = (result: typeof base) => result.signals
 assert.deepEqual(before(shocked), before(base), 'prices changed only after the cutoff must not alter earlier dynamic signals or targets');
 assert.notEqual(shocked.finalValueEur, base.finalValueEur, 'future prices may change final outcome while prior signals remain invariant');
 
-console.log('Dynamic Historical Replay: causality, buy/sell gating, next-bar execution and future isolation passed.');
+console.log('Dynamic Historical Replay: causal daily/monthly decisions, dense equity path, costs/tax accounting and future isolation passed.');
