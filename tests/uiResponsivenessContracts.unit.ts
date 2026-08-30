@@ -44,4 +44,18 @@ test('966 long-history robustness modules remain separate from this live-window 
   assert.doesNotMatch(decisionCenter, /HistoricalDecisionReplayEngine|DynamicHistoricalReplayEngine/);
 });
 
-console.log(`UI responsiveness contracts: ${passed}/6 invariants passed.`);
+test('967 mobile research keeps a real manual text input without datalist interception', () => {
+  assert.match(singleAsset, /id="research-symbol-input"/);
+  assert.match(singleAsset, /type="text"/);
+  assert.match(singleAsset, /inputMode="text"/);
+  assert.match(singleAsset, /symbolInputRef\.current\?\.focus\(\)/);
+  assert.doesNotMatch(singleAsset, /<datalist|list="research-symbol-suggestions"/);
+});
+
+test('968 catalog selection remains available separately from manual typing', () => {
+  assert.match(singleAsset, /O elegir del listado catalogado/);
+  assert.match(singleAsset, /selectCatalogSymbol/);
+  assert.match(singleAsset, /suggestions\.map\(item => <option/);
+});
+
+console.log(`UI responsiveness contracts: ${passed}/8 invariants passed.`);
