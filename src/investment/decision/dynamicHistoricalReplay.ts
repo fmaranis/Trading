@@ -638,7 +638,7 @@ export class DynamicHistoricalReplayEngine {
           signal: {
             id: `${decisionDate}_${holding.assetId}_${position.action}`,
             signalDate: decisionDate, executionDate: null, assetId: holding.assetId, ticker: item.ticker,
-            action: position.action, targetWeight: position.action === 'EXIT' ? 0 : currentWeight * (1 - reductionPct / 100), currentWeight,
+            action: position.action as 'REDUCE' | 'EXIT', targetWeight: position.action === 'EXIT' ? 0 : currentWeight * (1 - reductionPct / 100), currentWeight,
             recommendedAmountEur: recommendedAmount,
             consensusScore: assessment?.consensusScore ?? null, favorableVotes: assessment?.favorableVotes ?? null, unfavorableVotes: assessment?.unfavorableVotes ?? null,
             structuralDowntrend: assessment?.structuralDowntrend ?? false, buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
