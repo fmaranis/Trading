@@ -47,13 +47,46 @@ function AddShape(props: any) { const { cx = 0, cy = 0 } = props; return <path d
 
 const ResearchControls: React.FC<ResearchControlsProps> = React.memo(({ currentSymbol, suggestions, startDate, frequency, loading, onStartDateChange, onFrequencyChange, onAnalyze }) => {
   const [draftSymbol, setDraftSymbol] = useState(currentSymbol);
+  const symbolInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setDraftSymbol(currentSymbol);
   }, [currentSymbol]);
 
-  return <div className="mt-4 grid gap-2 md:grid-cols-[1.2fr_1fr_0.8fr_auto]">
-    <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Ticker / ISIN</span><div className="mt-1 flex items-center gap-2"><Search className="h-4 w-4 text-slate-500"/><input list="research-symbol-suggestions" value={draftSymbol} onChange={e => setDraftSymbol(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === 'Enter') onAnalyze(draftSymbol); }} placeholder="AAPL / SAN.MC / IE00B03HD191…" className="w-full bg-transparent font-mono font-bold outline-none"/></div><datalist id="research-symbol-suggestions">{suggestions.map(item => <option key={item.ticker} value={item.ticker}>{item.name}</option>)}</datalist></label>
+  const selectCatalogSymbol = (value: string) => {
+    if (!value) return;
+    setDraftSymbol(value.toUpperCase());
+    window.setTimeout(() => symbolInputRef.current?.focus(), 0);
+  };
+
+  return <div className="mt-4 grid gap-2 md:grid-cols-[1.35fr_1fr_0.8fr_auto]">
+    <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
+      <label htmlFor="research-symbol-input" className="text-[9px] uppercase text-slate-500">Ticker / ISIN · escritura manual</label>
+      <div onClick={() => symbolInputRef.current?.focus()} className="relative z-10 mt-1 flex min-h-12 cursor-text items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-3 touch-manipulation">
+        <Search className="pointer-events-none h-4 w-4 shrink-0 text-slate-500"/>
+        <input
+          ref={symbolInputRef}
+          id="research-symbol-input"
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
+          value={draftSymbol}
+          onChange={e => setDraftSymbol(e.target.value.toUpperCase())}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAnalyze(draftSymbol); } }}
+          placeholder="Escribe o pega: AAPL / SAN.MC / IE00B03HD191…"
+          className="relative z-20 min-h-11 w-full bg-transparent font-mono text-base font-bold text-white outline-none pointer-events-auto touch-manipulation"
+        />
+      </div>
+      <label className="mt-2 block text-[9px] uppercase text-slate-500">O elegir del listado catalogado</label>
+      <select value="" onChange={e => selectCatalogSymbol(e.target.value)} className="mt-1 min-h-10 w-full rounded-lg border border-slate-800 bg-slate-900 px-2 text-xs text-slate-300 outline-none touch-manipulation">
+        <option value="">Seleccionar ticker / fondo…</option>
+        {suggestions.map(item => <option key={item.ticker} value={item.ticker}>{item.ticker} · {item.name}</option>)}
+      </select>
+      <div className="mt-1 text-[9px] text-slate-600">El listado solo rellena el campo. También puedes escribir o pegar cualquier ticker/ISIN que acepte el proveedor.</div>
+    </div>
     <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Estudiar desde</span><input type="date" value={startDate} max={isoDate(new Date())} onChange={e => onStartDateChange(e.target.value)} className="mt-1 w-full bg-transparent font-mono text-sm outline-none"/></label>
     <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Revisión</span><select value={frequency} onChange={e => onFrequencyChange(e.target.value as SingleAssetResearchFrequency)} className="mt-1 w-full bg-transparent text-sm outline-none"><option className="bg-slate-900" value="WEEKLY">Semanal</option><option className="bg-slate-900" value="MONTHLY">Mensual</option><option className="bg-slate-900" value="QUARTERLY">Trimestral</option></select><span className="mt-1 block text-[9px] text-slate-500">Semanal es el modo por defecto: una revisión por semana con datos diarios y ejecución en la siguiente observación.</span></label>
     <button onClick={() => onAnalyze(draftSymbol)} disabled={loading || !draftSymbol.trim()} className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Analizando…' : 'Analizar'}</button>
@@ -155,13 +188,13 @@ const SingleAssetResearchPanelImpl: React.FC<Props> = ({ requestedSymbol, sugges
 
   return <section id="single-asset-research" className="scroll-mt-4 rounded-2xl border border-cyan-500/25 bg-slate-900 p-5">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-cyan-300"/><h2 className="font-bold text-white">Analizar cualquier valor</h2></div><p className="mt-1 max-w-3xl text-xs text-slate-400">Ticker cotizado o ISIN de fondo. Escribir o pegar aquí ya no recalcula la gráfica: el análisis solo se lanza al pulsar Analizar/Enter o al abrir expresamente la gráfica de una oportunidad.</p></div>
+      <div><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-cyan-300"/><h2 className="font-bold text-white">Analizar cualquier valor</h2></div><p className="mt-1 max-w-3xl text-xs text-slate-400">Puedes escribir o pegar manualmente cualquier ticker/ISIN o elegir uno del catálogo. Editar el campo no recalcula la gráfica: el análisis solo se lanza al pulsar Analizar/Enter o al abrir expresamente la gráfica de una oportunidad.</p></div>
       {current && <div className={`rounded-xl border px-4 py-2 text-xs font-black ${current.newMoneyAction === 'BUY' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : current.newMoneyAction === 'AVOID' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>{currentLabel}</div>}
     </div>
 
     <ResearchControls currentSymbol={symbol} suggestions={suggestions} startDate={startDate} frequency={frequency} loading={loading} onStartDateChange={setStartDate} onFrequencyChange={changeFrequency} onAnalyze={value => void analyzeSymbol(value)} />
 
-    {!result && !loading && !error && <div className="mt-3 rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-xs text-slate-500">Introduce un ticker o ISIN y pulsa <b className="text-slate-300">Analizar</b>. No se ejecuta un análisis pesado por defecto al entrar en esta pantalla.</div>}
+    {!result && !loading && !error && <div className="mt-3 rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-xs text-slate-500">Escribe, pega o selecciona un ticker/ISIN y pulsa <b className="text-slate-300">Analizar</b>. No se ejecuta un análisis pesado por defecto al entrar en esta pantalla.</div>}
     {error && <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">{error}</div>}
 
     {result && <>
