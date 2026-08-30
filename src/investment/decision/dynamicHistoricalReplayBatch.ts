@@ -108,6 +108,14 @@ export function summarizeDynamicReplayBatch(startDates: string[], cases: Dynamic
   };
 }
 
+export interface DynamicReplayBatchProgress {
+  phase: 'MONTHLY' | 'DAILY' | 'DONE';
+  completed: number;
+  total: number;
+  startDate?: string;
+  message: string;
+}
+
 export class DynamicHistoricalReplayBatchEngine {
   static run(input: {
     dataset: MultiAssetDataset;
@@ -180,6 +188,124 @@ export class DynamicHistoricalReplayBatchEngine {
         }
       }
       return { ...row, dailyStress };
+    });
+
+    return {
+      startDates,
+      cases,
+      summary: summarizeDynamicReplayBatch(startDates, cases),
+      notes: [
+        'Las fechas se seleccionan por disponibilidad cronológica, no por rentabilidad observada.',
+        'La batería principal usa MONTHLY para cubrir muchas fechas sin multiplicar ruido operativo.',
+        'DAILY se repite únicamente en los casos con mayor drawdown mensual como stress diagnóstico; no se usa para ajustar parámetros.',
+        'Cada caso compara seguir todos los avisos contra cash y contra congelar exactamente la primera cartera ejecutada.',
+        'Un buen resultado aislado no valida el motor: importan la mediana, el peor caso y la proporción de fechas favorables.'
+      ]
+    };
+  }
+
+  static async runAsync(input: {
+    dataset: MultiAssetDataset;
+    catalog: AssetUniverseItem[];
+    initialCapitalEur: number;
+    riskProfile: InvestorRiskProfile;
+    horizonYears: InvestmentHorizonYears;
+    cashBenchmarkAnnualPct: number;
+    taxSettings?: SpanishTaxSettings;
+    minimumBars?: number;
+    maximumStartDates?: number;
+    dailyStressCases?: number;
+    onProgress?: (progress: DynamicReplayBatchProgress) => void;
+  }): Promise<DynamicReplayBatchResult> {
+    const minimumBars = input.minimumBars ?? 252;
+    const startDates = selectDynamicReplayBatchStartDates(input.dataset, {
+      minimumBars,
+      minimumForwardSessions: 126,
+      maxCases: input.maximumStartDates ?? 20
+    });
+
+    const monthlyRows: Array<{ startDate: string; monthly: DynamicHistoricalReplayResult }> = [];
+    const totalMonthly = startDates.length;
+
+    for (let i = 0; i < startDates.length; i++) {
+      const startDate = startDates[i];
+      input.onProgress?.({
+        phase: 'MONTHLY',
+        completed: i,
+        total: totalMonthly,
+        startDate,
+        message: `Simulando fecha ${i + 1}/${totalMonthly} (${startDate}) en rebalanceo mensual…`
+      });
+      await new Promise(resolve => window.setTimeout(resolve, 0));
+
+      try {
+        const monthly = DynamicHistoricalReplayEngine.run({
+          dataset: input.dataset,
+          catalog: input.catalog,
+          startDate,
+          frequency: 'MONTHLY',
+          initialCapitalEur: input.initialCapitalEur,
+          riskProfile: input.riskProfile,
+          horizonYears: input.horizonYears,
+          cashBenchmarkAnnualPct: input.cashBenchmarkAnnualPct,
+          minimumBars,
+          taxSettings: input.taxSettings
+        });
+        monthlyRows.push({ startDate, monthly });
+      } catch {
+        // Causal gate / insufficient history for this specific start date
+      }
+    }
+
+    const stressCount = Math.max(0, Math.min(input.dailyStressCases ?? 4, monthlyRows.length));
+    const stressDates = new Set(
+      [...monthlyRows]
+        .sort((a, b) => b.monthly.decisionPathMaxDrawdownPct - a.monthly.decisionPathMaxDrawdownPct)
+        .slice(0, stressCount)
+        .map(row => row.startDate)
+    );
+
+    const cases: DynamicReplayBatchCase[] = [];
+    let stressIndex = 0;
+
+    for (const row of monthlyRows) {
+      let dailyStress: DynamicHistoricalReplayResult | null = null;
+      if (stressDates.has(row.startDate)) {
+        stressIndex++;
+        input.onProgress?.({
+          phase: 'DAILY',
+          completed: stressIndex - 1,
+          total: stressCount,
+          startDate: row.startDate,
+          message: `Prueba de estrés diario ${stressIndex}/${stressCount} (${row.startDate})…`
+        });
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+
+        try {
+          dailyStress = DynamicHistoricalReplayEngine.run({
+            dataset: input.dataset,
+            catalog: input.catalog,
+            startDate: row.startDate,
+            frequency: 'DAILY',
+            initialCapitalEur: input.initialCapitalEur,
+            riskProfile: input.riskProfile,
+            horizonYears: input.horizonYears,
+            cashBenchmarkAnnualPct: input.cashBenchmarkAnnualPct,
+            minimumBars,
+            taxSettings: input.taxSettings
+          });
+        } catch {
+          dailyStress = null;
+        }
+      }
+      cases.push({ ...row, dailyStress });
+    }
+
+    input.onProgress?.({
+      phase: 'DONE',
+      completed: totalMonthly,
+      total: totalMonthly,
+      message: 'Completado con éxito.'
     });
 
     return {

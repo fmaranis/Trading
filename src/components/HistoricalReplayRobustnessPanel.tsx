@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Activity, PlayCircle } from 'lucide-react';
+import { Activity, Loader2, PlayCircle } from 'lucide-react';
 import {
   AssetUniverseScanner,
   CashBenchmarkService,
   DynamicHistoricalReplayBatchEngine,
   EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   SpanishTaxSettingsService,
+  type DynamicReplayBatchProgress,
   type DynamicReplayBatchResult,
   type InvestmentHorizonYears,
   type InvestorRiskProfile
@@ -26,6 +27,7 @@ function signed(value: number | null, digits = 2): string {
 
 export const HistoricalReplayRobustnessPanel: React.FC<Props> = ({ capitalEur, riskProfile, horizonYears }) => {
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<DynamicReplayBatchProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DynamicReplayBatchResult | null>(null);
   const [coverage, setCoverage] = useState<{ accepted: number; scanned: number; from: string } | null>(null);
@@ -35,6 +37,7 @@ export const HistoricalReplayRobustnessPanel: React.FC<Props> = ({ capitalEur, r
     setLoading(true);
     setError(null);
     setResult(null);
+    setProgress({ phase: 'MONTHLY', completed: 0, total: 20, message: 'Descargando histórico REAL de los instrumentos (6 años)…' });
     try {
       const from = yearsAgo(6);
       const to = isoDate(new Date());
@@ -46,8 +49,8 @@ export const HistoricalReplayRobustnessPanel: React.FC<Props> = ({ capitalEur, r
       );
       setCoverage({ accepted: historicalScan.accepted, scanned: historicalScan.scanned, from });
       if (historicalScan.acceptedDataset.assets.length < 1) throw new Error('No hay histórico REAL suficiente para ejecutar la batería de fechas.');
-      await new Promise(resolve => window.setTimeout(resolve, 0));
-      setResult(DynamicHistoricalReplayBatchEngine.run({
+
+      const batchResult = await DynamicHistoricalReplayBatchEngine.runAsync({
         dataset: historicalScan.acceptedDataset,
         catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
         initialCapitalEur: Math.max(1, capitalEur),
@@ -57,16 +60,22 @@ export const HistoricalReplayRobustnessPanel: React.FC<Props> = ({ capitalEur, r
         taxSettings: SpanishTaxSettingsService.load(),
         minimumBars: 252,
         maximumStartDates: 20,
-        dailyStressCases: 4
-      }));
+        dailyStressCases: 4,
+        onProgress: (p) => setProgress(p)
+      });
+      setResult(batchResult);
     } catch (e: any) {
       setError(e?.message || String(e));
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
   const summary = result?.summary;
+  const progressPct = progress && progress.total > 0
+    ? Math.round((progress.completed / progress.total) * 100)
+    : 0;
 
   return <div className="mt-5 rounded-xl border border-fuchsia-500/20 bg-fuchsia-950/10 p-4">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -74,8 +83,32 @@ export const HistoricalReplayRobustnessPanel: React.FC<Props> = ({ capitalEur, r
         <div className="flex items-center gap-2"><Activity className="h-4 w-4 text-fuchsia-300"/><b className="text-sm text-white">Prueba masiva desde muchas fechas</b></div>
         <p className="mt-1 text-[10px] text-slate-400">Prueba el mismo motor desde hasta 20 momentos distribuidos por el histórico REAL. No busca la mejor fecha ni ajusta parámetros. MONTHLY cubre todas las fechas y DAILY se repite solo en los peores drawdowns como stress.</p>
       </div>
-      <button type="button" onClick={() => void run()} disabled={loading} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2 text-xs font-bold text-fuchsia-100 disabled:opacity-50"><PlayCircle className="h-4 w-4"/>{loading ? 'Ejecutando batería…' : 'Probar muchas fechas'}</button>
+      <button
+        type="button"
+        onClick={() => void run()}
+        disabled={loading}
+        className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2 text-xs font-bold text-fuchsia-100 transition hover:bg-fuchsia-500/20 disabled:opacity-50"
+      >
+        {loading ? <Loader2 className="h-4 w-4 animate-spin text-fuchsia-300"/> : <PlayCircle className="h-4 w-4 text-fuchsia-300"/>}
+        {loading ? 'Ejecutando batería…' : 'Probar muchas fechas'}
+      </button>
     </div>
+
+    {loading && progress && (
+      <div className="mt-3 rounded-lg border border-fuchsia-500/20 bg-slate-950/70 p-3">
+        <div className="flex items-center justify-between text-xs text-fuchsia-200">
+          <span>{progress.message}</span>
+          <span className="font-mono font-bold text-fuchsia-300">{progressPct}%</span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+          <div
+            className="h-full bg-gradient-to-r from-fuchsia-600 to-pink-500 transition-all duration-300 ease-out"
+            style={{ width: `${Math.max(5, progressPct)}%` }}
+          />
+        </div>
+      </div>
+    )}
+
     {coverage && <div className="mt-2 text-[9px] text-slate-500">Cobertura: {coverage.accepted}/{coverage.scanned} instrumentos REAL · histórico solicitado desde {coverage.from}.</div>}
     {error && <div className="mt-3 rounded-lg border border-rose-500/25 bg-rose-500/10 p-3 text-xs text-rose-200">{error}</div>}
 
