@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, Search, TrendingDown, TrendingUp } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from 'recharts';
 import type { PriceBar } from '../investment/backtesting/types';
@@ -10,6 +10,20 @@ interface Props {
   requestedSymbol?: string | null;
   suggestions?: Array<{ ticker: string; name: string }>;
 }
+
+interface ResearchControlsProps {
+  currentSymbol: string;
+  suggestions: Array<{ ticker: string; name: string }>;
+  startDate: string;
+  frequency: SingleAssetResearchFrequency;
+  loading: boolean;
+  onStartDateChange: (value: string) => void;
+  onFrequencyChange: (value: SingleAssetResearchFrequency) => void;
+  onAnalyze: (value: string) => void;
+}
+
+type CachedResearch = { result: SingleAssetResearchResult; metadata: Record<string, any> };
+const researchCache = new Map<string, CachedResearch>();
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function yearsAgo(years: number): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - years); return isoDate(d); }
@@ -31,22 +45,50 @@ function BuyShape(props: any) { const { cx = 0, cy = 0 } = props; return <path d
 function SellShape(props: any) { const { cx = 0, cy = 0 } = props; return <path d={`M ${cx} ${cy + 8} L ${cx - 7} ${cy - 6} L ${cx + 7} ${cy - 6} Z`} fill="#fb7185" stroke="#ffe4e6" strokeWidth="1"/>; }
 function AddShape(props: any) { const { cx = 0, cy = 0 } = props; return <path d={`M ${cx} ${cy - 7} L ${cx - 7} ${cy} L ${cx} ${cy + 7} L ${cx + 7} ${cy} Z`} fill="#22d3ee" stroke="#cffafe" strokeWidth="1"/>; }
 
-export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, suggestions = [] }) => {
-  const [symbol, setSymbol] = useState(requestedSymbol || 'NVDA');
+const ResearchControls: React.FC<ResearchControlsProps> = React.memo(({ currentSymbol, suggestions, startDate, frequency, loading, onStartDateChange, onFrequencyChange, onAnalyze }) => {
+  const [draftSymbol, setDraftSymbol] = useState(currentSymbol);
+
+  useEffect(() => {
+    setDraftSymbol(currentSymbol);
+  }, [currentSymbol]);
+
+  return <div className="mt-4 grid gap-2 md:grid-cols-[1.2fr_1fr_0.8fr_auto]">
+    <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Ticker / ISIN</span><div className="mt-1 flex items-center gap-2"><Search className="h-4 w-4 text-slate-500"/><input list="research-symbol-suggestions" value={draftSymbol} onChange={e => setDraftSymbol(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === 'Enter') onAnalyze(draftSymbol); }} placeholder="AAPL / SAN.MC / IE00B03HD191…" className="w-full bg-transparent font-mono font-bold outline-none"/></div><datalist id="research-symbol-suggestions">{suggestions.map(item => <option key={item.ticker} value={item.ticker}>{item.name}</option>)}</datalist></label>
+    <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Estudiar desde</span><input type="date" value={startDate} max={isoDate(new Date())} onChange={e => onStartDateChange(e.target.value)} className="mt-1 w-full bg-transparent font-mono text-sm outline-none"/></label>
+    <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Revisión</span><select value={frequency} onChange={e => onFrequencyChange(e.target.value as SingleAssetResearchFrequency)} className="mt-1 w-full bg-transparent text-sm outline-none"><option className="bg-slate-900" value="WEEKLY">Semanal</option><option className="bg-slate-900" value="MONTHLY">Mensual</option><option className="bg-slate-900" value="QUARTERLY">Trimestral</option></select><span className="mt-1 block text-[9px] text-slate-500">Semanal es el modo por defecto: una revisión por semana con datos diarios y ejecución en la siguiente observación.</span></label>
+    <button onClick={() => onAnalyze(draftSymbol)} disabled={loading || !draftSymbol.trim()} className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Analizando…' : 'Analizar'}</button>
+  </div>;
+});
+
+const SingleAssetResearchPanelImpl: React.FC<Props> = ({ requestedSymbol, suggestions = [] }) => {
+  const [symbol, setSymbol] = useState(requestedSymbol?.trim().toUpperCase() ?? '');
   const [startDate, setStartDate] = useState(yearsAgo(5));
   const [frequency, setFrequency] = useState<SingleAssetResearchFrequency>('WEEKLY');
   const [result, setResult] = useState<SingleAssetResearchResult | null>(null);
   const [metadata, setMetadata] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const analyzeSymbol = async (rawSymbol?: string, frequencyOverride?: SingleAssetResearchFrequency) => {
     const clean = (rawSymbol ?? symbol).trim().toUpperCase();
     if (!clean) return;
     const reviewFrequency = frequencyOverride ?? frequency;
-    setLoading(true); setError(null); setSymbol(clean);
+    const endDate = isoDate(new Date());
+    const cacheKey = `${clean}|${startDate}|${endDate}|${reviewFrequency}`;
+    const cached = researchCache.get(cacheKey);
+    setSymbol(clean);
+    setError(null);
+    if (cached) {
+      setResult(cached.result);
+      setMetadata(cached.metadata);
+      setLoading(false);
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+    setLoading(true);
     try {
-      const endDate = isoDate(new Date());
       let bars: PriceBar[];
       let nextMetadata: Record<string, any>;
       if (looksLikeIsin(clean)) {
@@ -58,18 +100,26 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, sug
         bars = response.bars;
         nextMetadata = response.metadata;
       }
+      if (requestId !== requestIdRef.current) return;
       const next = SingleAssetResearchEngine.run({ symbol: clean, bars, displayStartDate: startDate, endDate, frequency: reviewFrequency, cashBenchmarkAnnualPct: CashBenchmarkService.load() });
+      if (requestId !== requestIdRef.current) return;
+      researchCache.set(cacheKey, { result: next, metadata: nextMetadata });
+      if (researchCache.size > 12) researchCache.delete(researchCache.keys().next().value as string);
       setResult(next);
       setMetadata(nextMetadata);
     } catch (e: any) {
-      setResult(null);
-      setError(e?.message || String(e));
-    } finally { setLoading(false); }
+      if (requestId === requestIdRef.current) {
+        setResult(null);
+        setError(e?.message || String(e));
+      }
+    } finally {
+      if (requestId === requestIdRef.current) setLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (requestedSymbol) void analyzeSymbol(requestedSymbol);
-    else void analyzeSymbol('NVDA');
+    const clean = requestedSymbol?.trim().toUpperCase();
+    if (clean) void analyzeSymbol(clean);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [requestedSymbol]);
 
@@ -98,20 +148,20 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, sug
 
   const current = result?.currentAssessment ?? null;
   const currentLabel = current?.newMoneyAction === 'BUY' ? 'CANDIDATO A COMPRAR' : current?.newMoneyAction === 'AVOID' ? 'NO COMPRAR AHORA' : current ? 'VIGILAR' : 'SIN ANÁLISIS';
+  const changeFrequency = (next: SingleAssetResearchFrequency) => {
+    setFrequency(next);
+    if (symbol) void analyzeSymbol(symbol, next);
+  };
 
   return <section id="single-asset-research" className="scroll-mt-4 rounded-2xl border border-cyan-500/25 bg-slate-900 p-5">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-cyan-300"/><h2 className="font-bold text-white">Analizar cualquier valor</h2></div><p className="mt-1 max-w-3xl text-xs text-slate-400">Ticker cotizado o ISIN de fondo. El gráfico reconstruye qué habría dicho el mismo motor usando solo información disponible entonces.</p></div>
+      <div><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-cyan-300"/><h2 className="font-bold text-white">Analizar cualquier valor</h2></div><p className="mt-1 max-w-3xl text-xs text-slate-400">Ticker cotizado o ISIN de fondo. Escribir o pegar aquí ya no recalcula la gráfica: el análisis solo se lanza al pulsar Analizar/Enter o al abrir expresamente la gráfica de una oportunidad.</p></div>
       {current && <div className={`rounded-xl border px-4 py-2 text-xs font-black ${current.newMoneyAction === 'BUY' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : current.newMoneyAction === 'AVOID' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>{currentLabel}</div>}
     </div>
 
-    <div className="mt-4 grid gap-2 md:grid-cols-[1.2fr_1fr_0.8fr_auto]">
-      <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Ticker / ISIN</span><div className="mt-1 flex items-center gap-2"><Search className="h-4 w-4 text-slate-500"/><input list="research-symbol-suggestions" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} onKeyDown={e => { if (e.key === 'Enter') void analyzeSymbol(); }} placeholder="AAPL / SAN.MC / IE00B03HD191…" className="w-full bg-transparent font-mono font-bold outline-none"/></div><datalist id="research-symbol-suggestions">{suggestions.map(item => <option key={item.ticker} value={item.ticker}>{item.name}</option>)}</datalist></label>
-      <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Estudiar desde</span><input type="date" value={startDate} max={isoDate(new Date())} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full bg-transparent font-mono text-sm outline-none"/></label>
-      <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Revisión</span><select value={frequency} onChange={e => { const next = e.target.value as SingleAssetResearchFrequency; setFrequency(next); void analyzeSymbol(undefined, next); }} className="mt-1 w-full bg-transparent text-sm outline-none"><option className="bg-slate-900" value="WEEKLY">Semanal</option><option className="bg-slate-900" value="MONTHLY">Mensual</option><option className="bg-slate-900" value="QUARTERLY">Trimestral</option></select><span className="mt-1 block text-[9px] text-slate-500">Semanal es el modo por defecto: una revisión por semana con datos diarios y ejecución en la siguiente observación.</span></label>
-      <button onClick={() => void analyzeSymbol()} disabled={loading} className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Analizando…' : 'Analizar'}</button>
-    </div>
+    <ResearchControls currentSymbol={symbol} suggestions={suggestions} startDate={startDate} frequency={frequency} loading={loading} onStartDateChange={setStartDate} onFrequencyChange={changeFrequency} onAnalyze={value => void analyzeSymbol(value)} />
 
+    {!result && !loading && !error && <div className="mt-3 rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-xs text-slate-500">Introduce un ticker o ISIN y pulsa <b className="text-slate-300">Analizar</b>. No se ejecuta un análisis pesado por defecto al entrar en esta pantalla.</div>}
     {error && <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">{error}</div>}
 
     {result && <>
@@ -133,3 +183,5 @@ export const SingleAssetResearchPanel: React.FC<Props> = ({ requestedSymbol, sug
     </>}
   </section>;
 };
+
+export const SingleAssetResearchPanel = React.memo(SingleAssetResearchPanelImpl);
