@@ -7,6 +7,7 @@ import {
   DynamicHistoricalReplayEngine,
   EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   SpanishTaxSettingsService,
+  allCashBenchmark,
   type AssetUniverseScanResult,
   type DynamicHistoricalReplayResult,
   type DynamicReplayEvent,
@@ -43,6 +44,14 @@ interface ExternalValidationResult {
 
 type LoadingPhase = 'IDLE' | 'MARKET_DATA' | 'SIMULATION';
 
+interface InitialHoldBenchmark {
+  executionDate: string | null;
+  finalValueEur: number;
+  returnPct: number;
+  residualCashAtExecutionEur: number;
+  holdings: Array<{ assetId: string; units: number }>;
+}
+
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function today(): string { return isoDate(new Date()); }
 function yearsAgo(years: number): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - years); return isoDate(d); }
@@ -76,6 +85,23 @@ function eventClass(type: DynamicReplayEvent['type']): string {
   if (type === 'REDUCE' || type === 'EXIT') return 'text-rose-200';
   return 'text-violet-200';
 }
+function catalogueItem(assetId: string) {
+  return EUR_PORTFOLIO_DISCOVERY_UNIVERSE.find(item => item.assetId === assetId) ?? null;
+}
+function signalLabel(signal: DynamicReplaySignal): string {
+  const item = catalogueItem(signal.assetId);
+  return item?.name ?? signal.ticker;
+}
+function signalCode(signal: DynamicReplaySignal): string {
+  const item = catalogueItem(signal.assetId);
+  return item?.isin ?? item?.ticker ?? signal.ticker;
+}
+function closeOnOrBefore(scan: AssetUniverseScanResult, assetId: string, date: string): number | null {
+  const asset = scan.acceptedDataset.assets.find(item => item.assetId === assetId);
+  if (!asset) return null;
+  const bar = [...asset.bars].reverse().find(item => item.timestamp.slice(0, 10) <= date);
+  return bar && bar.close > 0 ? bar.close : null;
+}
 
 function ReplayTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -85,6 +111,7 @@ function ReplayTooltip({ active, payload, label }: any) {
     <div className="font-mono text-slate-400">{label}</div>
     <div className="mt-1 font-bold text-white">Patrimonio {Number(row?.equityEur ?? 0).toFixed(2)} €</div>
     <div className="mt-1 text-slate-400">Invertido {Number(row?.investedEur ?? 0).toFixed(2)} € · cash {Number(row?.cashEur ?? 0).toFixed(2)} €</div>
+    <div className="text-slate-500">Primera cartera y mantener: {Number(row?.initialHoldEur ?? 0).toFixed(2)} €</div>
     <div className="text-slate-500">Todo en cuenta: {Number(row?.cashBenchmarkEur ?? 0).toFixed(2)} €</div>
     {events.length > 0 && <div className="mt-2 space-y-1 border-t border-slate-800 pt-2">{events.map(event => <div key={event.id}><b className={eventClass(event.type)}>{event.label}</b><div className="text-slate-400">{event.detail}</div></div>)}</div>}
   </div>;
@@ -95,6 +122,7 @@ export const HistoricalDecisionReplayPanel: React.FC<Props> = ({ scan, capitalEu
   const [frequency, setFrequency] = useState<DynamicReplayFrequency>('DAILY');
   const [initialCapital, setInitialCapital] = useState(() => Math.max(1, capitalEur).toFixed(2));
   const [dynamicResult, setDynamicResult] = useState<DynamicHistoricalReplayResult | null>(null);
+  const [historicalScan, setHistoricalScan] = useState<AssetUniverseScanResult | null>(null);
   const [historicalCoverage, setHistoricalCoverage] = useState<{ accepted: number; scanned: number; from: string } | null>(null);
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('IDLE');
   const [error, setError] = useState<string | null>(null);
@@ -123,21 +151,23 @@ export const HistoricalDecisionReplayPanel: React.FC<Props> = ({ scan, capitalEu
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || startDate >= today()) { setError('Elige una fecha pasada válida.'); return; }
     setError(null);
     setDynamicResult(null);
+    setHistoricalScan(null);
     try {
       setLoadingPhase('MARKET_DATA');
       const from = warmupDate(startDate);
-      const historicalScan = await AssetUniverseScanner.scan(
+      const nextHistoricalScan = await AssetUniverseScanner.scan(
         EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
         from,
         today(),
         { forceRefresh: false, concurrency: 3, maxSelected: 12, minimumBars: 252, maxDataAgeDays: 7 }
       );
-      setHistoricalCoverage({ accepted: historicalScan.accepted, scanned: historicalScan.scanned, from });
-      if (historicalScan.acceptedDataset.assets.length < 2) throw new Error('No hay al menos dos instrumentos con histórico REAL suficiente para esa fecha.');
+      setHistoricalCoverage({ accepted: nextHistoricalScan.accepted, scanned: nextHistoricalScan.scanned, from });
+      if (nextHistoricalScan.acceptedDataset.assets.length < 1) throw new Error('No hay instrumentos con histórico REAL suficiente para esa fecha.');
+      setHistoricalScan(nextHistoricalScan);
       setLoadingPhase('SIMULATION');
       await new Promise(resolve => window.setTimeout(resolve, 0));
       const result = DynamicHistoricalReplayEngine.run({
-        dataset: historicalScan.acceptedDataset,
+        dataset: nextHistoricalScan.acceptedDataset,
         catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
         startDate,
         frequency,
@@ -163,19 +193,73 @@ export const HistoricalDecisionReplayPanel: React.FC<Props> = ({ scan, capitalEu
       return material(a) - material(b) || b.targetWeight - a.targetWeight;
     }).slice(0, 10)
     : [], [dynamicResult, firstSignalDate]);
+
+  const initialHoldBenchmark = useMemo<InitialHoldBenchmark | null>(() => {
+    if (!dynamicResult || !historicalScan || !firstSignalDate) return null;
+    const initialBuys = dynamicResult.signals.filter(signal =>
+      signal.signalDate === firstSignalDate && signal.executed && signal.unitsDelta > 0 && signal.executionDate
+    );
+    if (initialBuys.length === 0) {
+      return {
+        executionDate: null,
+        finalValueEur: dynamicResult.allCashFinalEur,
+        returnPct: dynamicResult.allCashReturnPct,
+        residualCashAtExecutionEur: dynamicResult.initialCapitalEur,
+        holdings: []
+      };
+    }
+    const executionDate = initialBuys.map(signal => signal.executionDate!).sort().at(-1)!;
+    const rate = CashBenchmarkService.load();
+    const capitalAtExecution = allCashBenchmark(dynamicResult.initialCapitalEur, rate, dynamicResult.startDate, executionDate).finalEur;
+    const spent = initialBuys.reduce((sum, signal) => sum + signal.notionalEur + signal.feeEur, 0);
+    const residualCashAtExecutionEur = Math.max(0, capitalAtExecution - spent);
+    const holdings = initialBuys.map(signal => ({ assetId: signal.assetId, units: signal.unitsDelta }));
+    const investedFinal = holdings.reduce((sum, holding) => {
+      const price = closeOnOrBefore(historicalScan, holding.assetId, dynamicResult.endDate);
+      return sum + (price == null ? 0 : holding.units * price);
+    }, 0);
+    const residualFinal = allCashBenchmark(residualCashAtExecutionEur, rate, executionDate, dynamicResult.endDate).finalEur;
+    const finalValueEur = investedFinal + residualFinal;
+    return {
+      executionDate,
+      finalValueEur,
+      returnPct: (finalValueEur / dynamicResult.initialCapitalEur - 1) * 100,
+      residualCashAtExecutionEur,
+      holdings
+    };
+  }, [dynamicResult, historicalScan, firstSignalDate]);
+
   const visibleSignals = useMemo(() => dynamicResult
     ? dynamicResult.signals.filter(signal => showAllSignals || ['BUY', 'ADD', 'REDUCE', 'EXIT'].includes(signal.action))
     : [], [dynamicResult, showAllSignals]);
+
   const chartData = useMemo(() => {
     if (!dynamicResult) return [];
     const eventMap = new Map<string, DynamicReplayEvent[]>();
     for (const event of dynamicResult.events) eventMap.set(event.date, [...(eventMap.get(event.date) ?? []), event]);
+    const rate = CashBenchmarkService.load();
     return dynamicResult.equityPath.map(point => {
       const events = eventMap.get(point.date) ?? [];
-      return { ...point, events, eventEquityEur: events.length ? point.equityEur : null };
+      let initialHoldEur = point.cashBenchmarkEur;
+      if (initialHoldBenchmark && historicalScan && initialHoldBenchmark.executionDate) {
+        if (point.date < initialHoldBenchmark.executionDate) {
+          initialHoldEur = allCashBenchmark(dynamicResult.initialCapitalEur, rate, dynamicResult.startDate, point.date).finalEur;
+        } else {
+          const invested = initialHoldBenchmark.holdings.reduce((sum, holding) => {
+            const price = closeOnOrBefore(historicalScan, holding.assetId, point.date);
+            return sum + (price == null ? 0 : holding.units * price);
+          }, 0);
+          const cash = allCashBenchmark(initialHoldBenchmark.residualCashAtExecutionEur, rate, initialHoldBenchmark.executionDate, point.date).finalEur;
+          initialHoldEur = invested + cash;
+        }
+      }
+      return { ...point, events, initialHoldEur, eventEquityEur: events.length ? point.equityEur : null };
     });
-  }, [dynamicResult]);
+  }, [dynamicResult, historicalScan, initialHoldBenchmark]);
+
   const external = externalValidation?.payload?.outOfUniverseRobustness;
+  const dynamicVsInitialEur = dynamicResult && initialHoldBenchmark ? dynamicResult.finalValueEur - initialHoldBenchmark.finalValueEur : null;
+  const dynamicVsInitialPp = dynamicResult && initialHoldBenchmark ? dynamicResult.totalReturnPct - initialHoldBenchmark.returnPct : null;
 
   return <section className="rounded-2xl border border-indigo-500/25 bg-gradient-to-br from-indigo-950/30 via-slate-900 to-slate-950 p-5">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -200,11 +284,13 @@ export const HistoricalDecisionReplayPanel: React.FC<Props> = ({ scan, capitalEu
       <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-4">
         <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-cyan-300"/><b className="text-sm text-cyan-100">Qué habría dicho la app al empezar</b></div>
         <div className="mt-1 text-[10px] text-slate-400">Fecha solicitada {dynamicResult.requestedStartDate} · primera decisión causal utilizable {firstSignalDate ?? dynamicResult.startDate}.</div>
-        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">{firstRecommendations.map(signal => <div key={signal.id} className={`rounded-lg border p-3 text-[10px] ${actionClass(signal.action)}`}><div className="flex items-center justify-between gap-2"><b>{actionLabel(signal.action)} · {signal.ticker}</b><span className="font-mono">objetivo {(signal.targetWeight * 100).toFixed(1)}%</span></div><div className="mt-1 opacity-80">consenso {signal.consensusScore ?? 'N/D'} · {signal.favorableVotes ?? 0}/5 favorables</div>{signal.executed && <div className="mt-1 font-mono">Ejecutado {signal.executionDate}: {signal.notionalEur.toFixed(2)} €</div>}</div>)}</div>
+        <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">{firstRecommendations.map(signal => <div key={signal.id} className={`rounded-lg border p-3 text-[10px] ${actionClass(signal.action)}`}><div className="flex items-start justify-between gap-2"><div><b>{actionLabel(signal.action)} · {signalLabel(signal)}</b><div className="mt-0.5 font-mono opacity-70">{signalCode(signal)}</div></div><span className="font-mono">objetivo {(signal.targetWeight * 100).toFixed(1)}%</span></div><div className="mt-1 opacity-80">consenso {signal.consensusScore ?? 'N/D'} · {signal.favorableVotes ?? 0}/5 favorables</div>{signal.executed && <div className="mt-1 font-mono">Ejecutado {signal.executionDate}: {signal.notionalEur.toFixed(2)} €</div>}</div>)}</div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6 text-xs">
-        <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Siguiendo la app</div><b className="font-mono text-emerald-200">{dynamicResult.finalValueEur.toFixed(2)} €</b><div>{signed(dynamicResult.totalReturnPct)}%</div></div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 text-xs">
+        <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Siguiendo todos los avisos</div><b className="font-mono text-emerald-200">{dynamicResult.finalValueEur.toFixed(2)} €</b><div>{signed(dynamicResult.totalReturnPct)}%</div></div>
+        <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Primera cartera y mantener</div><b className="font-mono text-cyan-200">{initialHoldBenchmark ? initialHoldBenchmark.finalValueEur.toFixed(2) : 'N/D'} €</b><div>{initialHoldBenchmark ? `${signed(initialHoldBenchmark.returnPct)}%` : 'N/D'}</div></div>
+        <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Valor de avisos posteriores</div><b className={dynamicVsInitialEur != null && dynamicVsInitialEur >= 0 ? 'font-mono text-emerald-200' : 'font-mono text-rose-200'}>{dynamicVsInitialEur == null ? 'N/D' : `${signed(dynamicVsInitialEur)} €`}</b><div>{dynamicVsInitialPp == null ? 'N/D' : `${signed(dynamicVsInitialPp)} pp`}</div></div>
         <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Todo en cuenta</div><b className="font-mono">{dynamicResult.allCashFinalEur.toFixed(2)} €</b><div>{signed(dynamicResult.allCashReturnPct)}%</div></div>
         <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Ventaja vs cuenta</div><b className={dynamicResult.excessFinalEurVsCash >= 0 ? 'font-mono text-emerald-200' : 'font-mono text-rose-200'}>{signed(dynamicResult.excessFinalEurVsCash)} €</b><div>{signed(dynamicResult.excessReturnVsCashPctPoints)} pp</div></div>
         <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Drawdown</div><b className="font-mono text-amber-200">-{dynamicResult.decisionPathMaxDrawdownPct.toFixed(2)}%</b><div>{dynamicResult.decisions} decisiones</div></div>
@@ -213,8 +299,8 @@ export const HistoricalDecisionReplayPanel: React.FC<Props> = ({ scan, capitalEu
       </div>
 
       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div><b className="text-sm">Evolución del dinero siguiendo las recomendaciones</b><div className="text-[9px] text-slate-500">Cada punto usa valoración de esa sesión. Los puntos de operación muestran compras, ventas y traspasos; el tooltip detalla comisión, plusvalía y reserva fiscal.</div></div><div className="text-[9px] text-slate-500">{dynamicResult.startDate} → {dynamicResult.endDate}</div></div>
-        <div className="h-[360px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 12, right: 12, left: 5, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/><XAxis dataKey="date" minTickGap={38} tick={{ fontSize: 9, fill: '#94a3b8' }}/><YAxis width={72} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={value => `${Number(value).toFixed(0)}€`}/><Tooltip content={<ReplayTooltip/>}/><Legend wrapperStyle={{ fontSize: 10 }}/><Line type="monotone" dataKey="equityEur" name="Siguiendo la app" stroke="#22c55e" strokeWidth={2} dot={false}/><Line type="monotone" dataKey="cashBenchmarkEur" name="Todo en cuenta remunerada" stroke="#94a3b8" strokeWidth={1.5} dot={false} strokeDasharray="5 4"/><Scatter dataKey="eventEquityEur" name="Operación" fill="#22d3ee"/></ComposedChart></ResponsiveContainer></div>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><div><b className="text-sm">Evolución del dinero siguiendo las recomendaciones</b><div className="text-[9px] text-slate-500">Compara la misma primera cartera mantenida sin cambios, seguir todos los avisos y dejar todo en cash. Los puntos de operación muestran compras, ventas y traspasos.</div></div><div className="text-[9px] text-slate-500">{dynamicResult.startDate} → {dynamicResult.endDate}</div></div>
+        <div className="h-[360px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 12, right: 12, left: 5, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/><XAxis dataKey="date" minTickGap={38} tick={{ fontSize: 9, fill: '#94a3b8' }}/><YAxis width={72} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={value => `${Number(value).toFixed(0)}€`}/><Tooltip content={<ReplayTooltip/>}/><Legend wrapperStyle={{ fontSize: 10 }}/><Line type="monotone" dataKey="equityEur" name="Siguiendo la app" stroke="#22c55e" strokeWidth={2} dot={false}/><Line type="monotone" dataKey="initialHoldEur" name="Primera cartera y mantener" stroke="#22d3ee" strokeWidth={1.5} dot={false}/><Line type="monotone" dataKey="cashBenchmarkEur" name="Todo en cuenta remunerada" stroke="#94a3b8" strokeWidth={1.5} dot={false} strokeDasharray="5 4"/><Scatter dataKey="eventEquityEur" name="Operación" fill="#eab308"/></ComposedChart></ResponsiveContainer></div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
@@ -225,11 +311,11 @@ export const HistoricalDecisionReplayPanel: React.FC<Props> = ({ scan, capitalEu
 
         <details className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3"><b className="text-sm">Todas las decisiones, incluidas mantener/no comprar</b><ChevronDown className="h-4 w-4"/></summary>
-          <div className="mt-3 border-t border-slate-800 pt-3"><button type="button" onClick={() => setShowAllSignals(v => !v)} className="mb-3 rounded-lg border border-slate-700 px-3 py-2 text-[10px]">{showAllSignals ? 'Mostrar solo operaciones' : 'Incluir mantener / no comprar'}</button><div className="max-h-[390px] space-y-2 overflow-y-auto">{visibleSignals.slice(0, 500).map(signal => <div key={signal.id} className={`rounded-lg border p-3 text-[10px] ${actionClass(signal.action)}`}><div className="flex items-center justify-between gap-2"><b>{actionLabel(signal.action)} · {signal.ticker}</b><span className="font-mono">{signal.signalDate}</span></div><div className="mt-1 opacity-80">consenso {signal.consensusScore ?? 'N/D'} · {signal.favorableVotes ?? 0} favorables / {signal.unfavorableVotes ?? 0} adversas{signal.structuralDowntrend ? ' · deterioro estructural' : ''}</div></div>)}</div></div>
+          <div className="mt-3 border-t border-slate-800 pt-3"><button type="button" onClick={() => setShowAllSignals(v => !v)} className="mb-3 rounded-lg border border-slate-700 px-3 py-2 text-[10px]">{showAllSignals ? 'Mostrar solo operaciones' : 'Incluir mantener / no comprar'}</button><div className="max-h-[390px] space-y-2 overflow-y-auto">{visibleSignals.slice(0, 500).map(signal => <div key={signal.id} className={`rounded-lg border p-3 text-[10px] ${actionClass(signal.action)}`}><div className="flex items-start justify-between gap-2"><div><b>{actionLabel(signal.action)} · {signalLabel(signal)}</b><div className="font-mono opacity-60">{signalCode(signal)}</div></div><span className="font-mono">{signal.signalDate}</span></div><div className="mt-1 opacity-80">consenso {signal.consensusScore ?? 'N/D'} · {signal.favorableVotes ?? 0} favorables / {signal.unfavorableVotes ?? 0} adversas{signal.structuralDowntrend ? ' · deterioro estructural' : ''}</div></div>)}</div></div>
         </details>
       </div>
 
-      <details className="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><summary className="cursor-pointer text-xs font-bold text-slate-200">Supuestos, límites y fiscalidad de esta simulación</summary><div className="mt-3 space-y-1 border-t border-slate-800 pt-3 text-[10px] text-slate-400">{dynamicResult.notes.map(note => <div key={note}>• {note}</div>)}<div>• Método fiscal usado: <b>{dynamicResult.taxMethod === 'CONFIGURED_PROGRESSIVE' ? 'escala progresiva configurada' : '30% conservador sobre plusvalías imponibles'}</b>.</div></div></details>
+      <details className="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><summary className="cursor-pointer text-xs font-bold text-slate-200">Supuestos, límites y fiscalidad de esta simulación</summary><div className="mt-3 space-y-1 border-t border-slate-800 pt-3 text-[10px] text-slate-400">{dynamicResult.notes.map(note => <div key={note}>• {note}</div>)}<div>• Comparación “Primera cartera y mantener”: congela exactamente las compras ejecutadas de la primera decisión dinámica, mantiene esas unidades hasta el final y remunera solo el cash residual. No usa el shortlist del replay histórico antiguo.</div><div>• Método fiscal usado: <b>{dynamicResult.taxMethod === 'CONFIGURED_PROGRESSIVE' ? 'escala progresiva configurada' : '30% conservador sobre plusvalías imponibles'}</b>.</div></div></details>
     </div>}
 
     <details className="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
