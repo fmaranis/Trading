@@ -30,5 +30,6 @@ check('414 explicit fund units produce exact market valuation', exact.precision 
 check('415 missing NAV history never fabricates a position value', valueFundFromNav(EXAMPLE_FUND_POSITIONS[0], [], null).precision === 'UNAVAILABLE');
 check('416 real global Vanguard has an explicit verified Yahoo fallback symbol', VERIFIED_YAHOO_FUND_ALIASES.IE00B03HD191 === '0P00000WLG.F');
 check('417 real emerging Vanguard has an explicit verified Yahoo fallback symbol', VERIFIED_YAHOO_FUND_ALIASES.IE0031786696 === '0P00012I6A.F');
+check('418 CINVEST A&A ISIN resolves to its verified Yahoo Finance alias', VERIFIED_YAHOO_FUND_ALIASES.ES0174115065 === '0P0001PBAK.F');
 
-console.log(`Fund portfolio/tax/NAV: ${passed}/17 invariants passed.`);
+console.log(`Fund portfolio/tax/NAV: ${passed}/18 invariants passed.`);
