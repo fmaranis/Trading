@@ -1,4 +1,5 @@
 import type { FundPosition } from './fundPortfolio';
+import { PortfolioExecutionHistoryService } from './portfolioExecutionHistory';
 import type { PortfolioExecutionLine } from './portfolioExecutionPlan';
 import { TaxLotLedgerService } from './spanishTaxModel';
 import { UserPortfolioService, type UserHolding, type UserPortfolioState } from './userPortfolio';
@@ -199,6 +200,7 @@ export class PortfolioStateExecutionService {
       if (ticker && sold > 0) TaxLotLedgerService.recordSell(ticker, beforeShares, sold);
     }
 
+    PortfolioExecutionHistoryService.record(line, receipt.appliedAt);
     return { ...receipt, portfolio: saved, liquidityAfterEur: liquidity(saved) };
   }
 }
