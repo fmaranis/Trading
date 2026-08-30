@@ -58,32 +58,6 @@ function cashOnlyDecision(scan: AssetUniverseScanResult, capitalEur: number, ris
   };
 }
 
-const SCAN_CACHE_KEY = 'custodia_raw_scan_cache_v2';
-
-function loadCachedScan(): AssetUniverseScanResult | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(SCAN_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && Array.isArray(parsed.candidates) && parsed.candidates.length > 0) {
-      return parsed as AssetUniverseScanResult;
-    }
-  } catch (e) {
-    console.warn('Could not read cached scan from localStorage', e);
-  }
-  return null;
-}
-
-function saveCachedScan(scan: AssetUniverseScanResult) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(SCAN_CACHE_KEY, JSON.stringify(scan));
-  } catch (e) {
-    console.warn('Could not write scan cache to localStorage', e);
-  }
-}
-
 type Workspace = 'PORTFOLIO' | 'RESEARCH';
 
 export const InteractiveInvestmentDecisionCenter: React.FC = () => {
@@ -92,7 +66,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   const [capital, setCapital] = useState(() => portfolioDeployableCapital());
   const [riskProfile, setRiskProfile] = useState<InvestorRiskProfile>('MEDIUM');
   const [horizon, setHorizon] = useState<InvestmentHorizonYears>(3);
-  const [rawScan, setRawScan] = useState<AssetUniverseScanResult | null>(() => loadCachedScan());
+  const [rawScan, setRawScan] = useState<AssetUniverseScanResult | null>(null);
   const [scan, setScan] = useState<AssetUniverseScanResult | null>(null);
   const [candidateGate, setCandidateGate] = useState<PortfolioCandidateGateResult | null>(null);
   const [positionHealth, setPositionHealth] = useState<PortfolioPositionHealthResult | null>(null);
@@ -166,7 +140,6 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
         { forceRefresh, concurrency: 3, maxSelected: 12, minimumBars: 252, maxDataAgeDays: 7 }
       );
       setRawScan(scanResult);
-      saveCachedScan(scanResult);
       setLastMarketRefresh(new Date().toLocaleString('es-ES'));
       setEodhdValidation(null); setAlphaValidation(null);
     } catch (e: any) { setError(e?.message || String(e)); }
@@ -230,27 +203,8 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       <button onClick={() => setWorkspace('RESEARCH')} className={`rounded-xl px-4 py-4 text-left transition ${workspace === 'RESEARCH' ? 'bg-violet-500/15 text-violet-100 ring-1 ring-violet-500/30' : 'text-slate-400 hover:bg-slate-900'}`}><div className="flex items-center gap-2"><Radar className="h-5 w-5"/><b>Estudio y señales</b></div><div className="mt-1 text-[10px] opacity-70">Buscar valores, ranking, gráfico y puntos de compra/venta.</div></button>
     </nav>
 
-    {error && (
-      <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
-        <div className="font-bold">Aviso al obtener datos de mercado en tiempo real</div>
-        <p className="mt-1 text-xs opacity-90">{error}</p>
-        <button
-          onClick={() => void refreshMarket(true)}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-rose-500/20 px-3 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-500/30"
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> Reintentar conexión
-        </button>
-      </div>
-    )}
-    {marketLoading && !scan && (
-      <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-slate-900/80 p-5 text-sm text-slate-300 backdrop-blur">
-        <RefreshCw className="h-5 w-5 animate-spin text-emerald-400" />
-        <div>
-          <div className="font-semibold text-white">Cargando datos reales de mercado…</div>
-          <div className="text-xs text-slate-400">Consultando cotizaciones históricas y analizando el régimen de mercado para la cartera.</div>
-        </div>
-      </div>
-    )}
+    {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200"><b>No puedo calcular el mercado actual.</b> {error}</div>}
+    {marketLoading && !scan && <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">Actualizando automáticamente el mercado REAL ampliado…</div>}
 
     {workspace === 'PORTFOLIO' && <>
       <section className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/35 via-slate-900 to-slate-950 p-5 sm:p-6">
