@@ -1,3 +1,5 @@
+import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { assessFundTaxReview, EXAMPLE_FUND_POSITIONS, EXAMPLE_STAGED_CAPITAL_PLAN, monthlyStagedAmount, valueFundFromNav } from '../src/investment/decision';
 import { VERIFIED_YAHOO_FUND_ALIASES } from '../src/investment/data/marketData/fundMarketData';
 
@@ -32,4 +34,13 @@ check('416 real global Vanguard has an explicit verified Yahoo fallback symbol',
 check('417 real emerging Vanguard has an explicit verified Yahoo fallback symbol', VERIFIED_YAHOO_FUND_ALIASES.IE0031786696 === '0P00012I6A.F');
 check('418 CINVEST A&A ISIN resolves to its verified Yahoo Finance alias', VERIFIED_YAHOO_FUND_ALIASES.ES0174115065 === '0P0001PBAK.F');
 
-console.log(`Fund portfolio/tax/NAV: ${passed}/18 invariants passed.`);
+const fundMarketSource = readFileSync('src/investment/data/marketData/fundMarketData.ts', 'utf8');
+const marketRoutesSource = readFileSync('server/marketDataRoutes.ts', 'utf8');
+check('419 unknown ISINs use the automatic Yahoo resolver without another UI surface', fundMarketSource.includes('/api/market-data/resolve-symbol?'));
+check('420 automatically discovered ISIN aliases are cached in browser storage', fundMarketSource.includes('custodia_yahoo_isin_alias_cache_v1'));
+check('421 resolver uses Yahoo exact-ISIN search and validates candidate history', marketRoutesSource.includes('/v1/finance/search?q=') && marketRoutesSource.includes('yahooSymbolHasHistory'));
+check('422 resolver rejects ambiguous matches instead of guessing', marketRoutesSource.includes('Equivalencia ambigua') && marketRoutesSource.includes('top.length !== 1'));
+assert.doesNotMatch(fundMarketSource, /VERIFIED_YAHOO_FUND_ALIASES\[[^\]]+\]\s*=\s*/);
+check('423 runtime discovery does not mutate the curated verified alias registry', true);
+
+console.log(`Fund portfolio/tax/NAV: ${passed}/23 invariants passed.`);
