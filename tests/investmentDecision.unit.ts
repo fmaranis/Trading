@@ -65,8 +65,19 @@ assert.equal(stale.confidence, 'LOW');
 assert.ok(stale.dataQualityDiagnostics && stale.dataQualityDiagnostics.marketSessionAge > 10);
 assert.ok(stale.warnings.some(x => x.includes('sesiones hábiles')));
 
+// A gate can legitimately leave one candidate. N=1 is a valid degenerate
+// portfolio and must produce a finite decision instead of crashing the live
+// app or a causal replay at that date.
+const oneAssetDataset: MultiAssetDataset = { ...dataset(), assets: [dataset().assets[0]] };
+const oneAsset = InvestmentDecisionEngine.decide(oneAssetDataset, { capitalEur: 100, riskProfile: 'MEDIUM', horizonYears: 3 }, current);
+assert.equal(oneAsset.assets.length, 1);
+assert.equal(oneAsset.assets[0].assetId, 'VWCE');
+assert.ok(Number.isFinite(oneAsset.assets[0].weight) && oneAsset.assets[0].weight >= 0);
+assert.ok(Number.isFinite(oneAsset.cashWeight) && oneAsset.cashWeight >= 0 && oneAsset.cashWeight <= 1);
+assert.ok(Math.abs(oneAsset.assets.reduce((s, a) => s + a.amountEur, 0) + oneAsset.cashAmountEur - 100) < 0.02);
+
 assert.throws(() => InvestmentDecisionEngine.decide(dataset('SYNTHETIC'), { capitalEur: 100, riskProfile: 'MEDIUM', horizonYears: 3 }, current));
 assert.throws(() => InvestmentDecisionEngine.decide(dataset('REAL', 'USD'), { capitalEur: 100, riskProfile: 'MEDIUM', horizonYears: 3 }, current));
 assert.throws(() => InvestmentDecisionEngine.decide(dataset(), { capitalEur: 0, riskProfile: 'MEDIUM', horizonYears: 3 }, current));
 
-console.log('Investment Decision: 11/11 invariants passed.');
+console.log('Investment Decision: multi-asset + single-candidate invariants passed.');
