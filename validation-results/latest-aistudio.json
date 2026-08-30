@@ -1,76 +1,76 @@
 {
   "marker": "AI_STUDIO_VALIDATION_RESULT",
-  "recordedAt": "2026-08-30T11:54:56.253Z",
-  "gitHeadBeforeRecord": "83dcbfd50a90c16d5692aa66f3333f9a639ed2df",
+  "recordedAt": "2026-08-30T12:21:06.841Z",
+  "gitHeadBeforeRecord": "512abce84509fc4b21d626216c2eed91226dccf7",
   "gitBranch": "main",
   "payload": {
-    "generatedAt": "2026-08-30T11:50:08.296Z",
+    "generatedAt": "2026-08-30T12:16:18.322Z",
     "mode": "CURRENT_ARCHITECTURE_ZERO_LLM_VALIDATION",
     "commands": {
       "lint": {
         "ok": true,
         "exitCode": 0,
-        "ms": 13078,
+        "ms": 13538,
         "tail": "> react-example@0.0.0 lint\n> tsc --noEmit"
       },
       "build": {
         "ok": true,
         "exitCode": 0,
-        "ms": 9978,
-        "tail": "dist/assets/legacy-B2Q6Pc2o.js                637.60 kB │ gzip: 123.92 kB\ndist/assets/index-QdO6Swky.js                 805.80 kB │ gzip: 241.47 kB\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n✓ built in 9.17s\n  dist/server.cjs      131.2kb\n  dist/server.cjs.map  260.1kb\n⚡ Done in 96ms"
+        "ms": 10351,
+        "tail": "dist/assets/legacy-DZ0ei4kK.js                637.60 kB │ gzip: 123.92 kB\ndist/assets/index-DxTtfqqZ.js                 805.80 kB │ gzip: 241.47 kB\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n✓ built in 9.49s\n  dist/server.cjs      131.2kb\n  dist/server.cjs.map  260.1kb\n⚡ Done in 93ms"
       },
       "decisionTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 828,
+        "ms": 852,
         "tail": "> react-example@0.0.0 test:decision\n> tsx tests/investmentDecision.unit.ts\nInvestment Decision: multi-asset + single-candidate invariants passed."
       },
       "decisionBacktestTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 1656,
+        "ms": 1735,
         "tail": "> react-example@0.0.0 test:decision-backtest\n> tsx tests/decisionBacktest.unit.ts\nDecision Backtest: 8/8 causal/accounting invariants passed."
       },
       "causalUniverseBacktestTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 2464,
+        "ms": 2574,
         "tail": "> react-example@0.0.0 test:causal-universe-backtest\n> tsx tests/causalUniverseBacktest.unit.ts\nCausal Universe Backtest: 13/13 selection/lookahead/history/accounting invariants passed."
       },
       "brokerExecutionTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 556,
+        "ms": 581,
         "tail": "> react-example@0.0.0 test:broker-execution\n> tsx tests/brokerExecution.unit.ts\nBroker Execution: 14/14 whole-share/fee/diversification invariants passed."
       },
       "executionFidelityTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 562,
+        "ms": 526,
         "tail": "✓ 302 small capital cannot cover all targets\n✓ 303 allocation distance is explicit\n✓ 304 fidelity score is bounded\n✓ 305 larger capital improves target coverage\n✓ 306 larger capital improves or preserves fidelity score\n✓ 307 executed target count is deterministic\n✓ 308 exact allocation has zero distance\n✓ 309 exact allocation has full target coverage\n✓ 310 exact allocation has high fidelity\nExecution fidelity: 10/10 invariants passed."
       },
       "opportunityOutcomeTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 539,
+        "ms": 549,
         "tail": "✓ 302 monthly observation windows are generated\n✓ 303 qualifying opportunity events are generated\n✓ 304 metrics cover 5 20 and 60 sessions\n✓ 305 every event was top three at information date\n✓ 306 every event satisfied score threshold\n✓ 307 every event had positive 120d momentum\n✓ 308 every event stayed below volatility gate\n✓ 309 longer horizons cannot have more evaluated events\n✓ 310 synthetic data is rejected\nOpportunity outcome backtest: 10/10 invariants passed."
       },
       "multiAssetTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 478,
+        "ms": 501,
         "tail": "✓ 130 — Equity accounting identity\n✓ 131 — Cash never negative\n✓ 132 — Trading costs sum exactly\n✓ 133 — Benchmark is buy-and-hold with no rebalance trades\n✓ 134 — Portfolio fingerprint deterministic and order-independent\n✓ 135 — Incomplete/Mixed REAL dataset does not execute\n✓ 136 — Portfolio-sized universe above ten assets aligns\n✓ 9A — Multi-currency portfolio rejected\n✓ 9A — Equal weights helper\n20 multi-asset tests passed."
       },
       "portfolioAnalyticsTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 471,
+        "ms": 486,
         "tail": "✓ 148 relative momentum selects strongest positive asset\n✓ 149 relative momentum goes to cash when all below threshold\n✓ 150 pairwise correlation summary bounded\n✓ 151 momentum uses requested trailing lookback\n✓ 152 insufficient observations rejected\n✓ 161 risk contributions sum to 100 percent\n✓ 162 diversification ratio is positive for invested portfolio\n✓ 163 effective number of equally weighted assets equals two\n✓ 164 cash-only portfolio reports zero volatility\nPortfolio Analytics: 16/16 tests passed."
       },
       "regimeTests": {
         "ok": true,
         "exitCode": 0,
-        "ms": 1163,
+        "ms": 1001,
         "tail": "✓ 177 policy comparison preserves one portfolio fingerprint\n✓ 178 regime policy comparator returns six leaderboards\n✓ 179 attribution has classified observations\n✓ 180 regime ranking does not mutate strategy results\n✓ 181 stability analysis uses fixed chronological blocks\n✓ 182 stability preserves portfolio fingerprint\n✓ 183 winner counts equal windows with evidence\n✓ 184 dominance is bounded 0 to 100\n✓ 185 stability analysis explicitly remains diagnostic\nRegime Analytics: 15/15 tests passed."
       }
     },
