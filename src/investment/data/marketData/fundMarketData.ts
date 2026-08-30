@@ -16,13 +16,14 @@ export interface FundMarketDataResult {
 }
 
 /**
- * Explicitly verified Yahoo fund aliases for the user's real Vanguard funds.
- * They provide a REAL secondary NAV path when EODHD is unavailable/quota-limited.
- * Do not guess aliases for arbitrary ISINs.
+ * Explicitly verified Yahoo Finance aliases for funds whose public identity is an ISIN
+ * but whose Yahoo REAL series is published under a provider-specific 0P... symbol.
+ * Keep this registry curated: never guess aliases for arbitrary ISINs.
  */
 export const VERIFIED_YAHOO_FUND_ALIASES: Record<string, string> = {
   IE00B03HD191: '0P00000WLG.F',
-  IE0031786696: '0P00012I6A.F'
+  IE0031786696: '0P00012I6A.F',
+  ES0174115065: '0P0001PBAK.F'
 };
 
 function apiBase(): string {
@@ -70,7 +71,7 @@ export class FundMarketDataService {
     const verifiedAlias = VERIFIED_YAHOO_FUND_ALIASES[normalizedIsin];
 
     // For explicitly verified aliases prefer the primary REAL Yahoo route so the
-    // real portfolio valuation does not disappear merely because EODHD quota is exhausted.
+    // fund remains searchable by its normal ISIN even when Yahoo uses another symbol.
     if (verifiedAlias) {
       try { return await yahooAliasHistory(normalizedIsin, verifiedAlias, from, to); }
       catch { /* fall through to EODHD */ }
