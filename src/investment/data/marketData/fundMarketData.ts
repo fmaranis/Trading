@@ -15,6 +15,13 @@ export interface FundMarketDataResult {
   cached: boolean;
 }
 
+interface YahooResolvedAlias {
+  symbol: string;
+  name?: string;
+  quoteType?: string;
+  resolvedAt?: string;
+}
+
 /**
  * Explicitly verified Yahoo Finance aliases for funds whose public identity is an ISIN
  * but whose Yahoo REAL series is published under a provider-specific 0P... symbol.
@@ -25,6 +32,9 @@ export const VERIFIED_YAHOO_FUND_ALIASES: Record<string, string> = {
   IE0031786696: '0P00012I6A.F',
   ES0174115065: '0P0001PBAK.F'
 };
+
+const runtimeAliasCache = new Map<string, YahooResolvedAlias>();
+const BROWSER_ALIAS_CACHE_KEY = 'custodia_yahoo_isin_alias_cache_v1';
 
 function apiBase(): string {
   if (typeof window !== 'undefined') return '';
@@ -38,6 +48,46 @@ function oneYearAgo(): string {
 }
 
 function today(): string { return new Date().toISOString().slice(0, 10); }
+
+function readBrowserAlias(isin: string): YahooResolvedAlias | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(BROWSER_ALIAS_CACHE_KEY) || '{}') as Record<string, YahooResolvedAlias>;
+    const cached = parsed[isin];
+    return cached?.symbol ? cached : null;
+  } catch { return null; }
+}
+
+function persistBrowserAlias(isin: string, alias: YahooResolvedAlias): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(BROWSER_ALIAS_CACHE_KEY) || '{}') as Record<string, YahooResolvedAlias>;
+    parsed[isin] = alias;
+    window.localStorage.setItem(BROWSER_ALIAS_CACHE_KEY, JSON.stringify(parsed));
+  } catch { /* cache failure must never block market data */ }
+}
+
+async function resolveYahooAlias(isin: string): Promise<YahooResolvedAlias | null> {
+  const verified = VERIFIED_YAHOO_FUND_ALIASES[isin];
+  if (verified) return { symbol: verified, quoteType: 'MUTUALFUND', resolvedAt: 'CURATED' };
+
+  const memory = runtimeAliasCache.get(isin);
+  if (memory) return memory;
+  const browser = readBrowserAlias(isin);
+  if (browser) {
+    runtimeAliasCache.set(isin, browser);
+    return browser;
+  }
+
+  const params = new URLSearchParams({ isin });
+  const response = await fetch(`${apiBase()}/api/market-data/resolve-symbol?${params.toString()}`);
+  if (!response.ok) return null;
+  const payload = await response.json().catch(() => null) as YahooResolvedAlias | null;
+  if (!payload?.symbol) return null;
+  runtimeAliasCache.set(isin, payload);
+  persistBrowserAlias(isin, payload);
+  return payload;
+}
 
 async function yahooAliasHistory(isin: string, symbol: string, from?: string, to?: string): Promise<FundMarketDataResult> {
   const startDate = from || oneYearAgo();
@@ -70,8 +120,6 @@ export class FundMarketDataService {
     const normalizedIsin = isin.trim().toUpperCase();
     const verifiedAlias = VERIFIED_YAHOO_FUND_ALIASES[normalizedIsin];
 
-    // For explicitly verified aliases prefer the primary REAL Yahoo route so the
-    // fund remains searchable by its normal ISIN even when Yahoo uses another symbol.
     if (verifiedAlias) {
       try { return await yahooAliasHistory(normalizedIsin, verifiedAlias, from, to); }
       catch { /* fall through to EODHD */ }
@@ -84,8 +132,13 @@ export class FundMarketDataService {
     const payload = await response.json().catch(() => null);
     if (response.ok) return payload as FundMarketDataResult;
 
-    // Only verified mappings are allowed as fallback; arbitrary ISINs remain explicit DATA_MISSING.
     if (verifiedAlias) return yahooAliasHistory(normalizedIsin, verifiedAlias, from, to);
+
+    // Unknown ISIN: discover the Yahoo alias lazily, validate it server-side and cache it.
+    // This keeps the UI as one search box while avoiding a manually curated exhaustive list.
+    const resolvedAlias = await resolveYahooAlias(normalizedIsin).catch(() => null);
+    if (resolvedAlias?.symbol) return yahooAliasHistory(normalizedIsin, resolvedAlias.symbol, from, to);
+
     throw new Error(payload?.error || `FUND_MARKET_DATA_HTTP_${response.status}`);
   }
 }
