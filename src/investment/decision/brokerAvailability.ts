@@ -96,8 +96,11 @@ export class ManualMyInvestorAvailabilityService {
 }
 
 export function getPublicMyInvestorAvailability(asset: AssetUniverseItem): BrokerAvailabilityRecord {
-  const key = normalizeKey(asset.isin ?? asset.ticker);
-  const explicit = MYINVESTOR_AVAILABILITY[key];
+  const isinKey = asset.isin ? normalizeKey(asset.isin) : null;
+  const tickerKey = asset.ticker ? normalizeKey(asset.ticker) : null;
+  const key = isinKey ?? tickerKey ?? '';
+  const explicit = (isinKey ? MYINVESTOR_AVAILABILITY[isinKey] : undefined)
+    ?? (tickerKey ? MYINVESTOR_AVAILABILITY[tickerKey] : undefined);
   if (explicit) return explicit;
   return {
     isinOrTicker: key,
@@ -109,8 +112,11 @@ export function getPublicMyInvestorAvailability(asset: AssetUniverseItem): Broke
 }
 
 export function getMyInvestorAvailability(asset: AssetUniverseItem): BrokerAvailabilityRecord {
-  const key = normalizeKey(asset.isin ?? asset.ticker);
-  const manual = ManualMyInvestorAvailabilityService.get(key);
+  const isinKey = asset.isin ? normalizeKey(asset.isin) : null;
+  const tickerKey = asset.ticker ? normalizeKey(asset.ticker) : null;
+  const key = isinKey ?? tickerKey ?? '';
+  const manual = (isinKey ? ManualMyInvestorAvailabilityService.get(isinKey) : null)
+    ?? (tickerKey ? ManualMyInvestorAvailabilityService.get(tickerKey) : null);
   if (manual?.value === 'AVAILABLE') return {
     isinOrTicker: key,
     status: 'CONFIRMED_MYINVESTOR',

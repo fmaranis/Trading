@@ -14,7 +14,7 @@ const decisionCenter = readFileSync('src/components/InteractiveInvestmentDecisio
 
 test('961 ticker/ISIN draft is isolated from the heavy chart state', () => {
   assert.match(singleAsset, /const \[draftSymbol, setDraftSymbol\] = useState\(currentSymbol\)/);
-  assert.match(singleAsset, /onChange=\{e => setDraftSymbol\(e\.target\.value\.toUpperCase\(\)\)\}/);
+  assert.match(singleAsset, /setDraftSymbol\(e\.target\.value\.toUpperCase\(\)\)/);
 });
 
 test('962 research screen does not auto-run NVDA when opened without an explicit asset', () => {
@@ -28,8 +28,8 @@ test('963 individual research only auto-runs when requestedSymbol is explicit', 
 
 test('964 external holdout scan is user-triggered rather than a mount effect', () => {
   assert.match(researchLab, /const loadExternalScan = async \(\) =>/);
-  assert.match(researchLab, />Cargar validación externa</);
-  assert.doesNotMatch(researchLab, /useEffect\(\(\) => \{[\s\S]{0,500}AssetUniverseScanner\.scan\(EUR_VALIDATION_HOLDOUT_UNIVERSE/);
+  assert.match(researchLab, /Cargar validación externa/);
+  assert.doesNotMatch(researchLab, /useEffect\(\(\) => \{[\s\r\n]*[^}]*AssetUniverseScanner\.scan\(EUR_VALIDATION_HOLDOUT_UNIVERSE/);
 });
 
 test('965 live decision scan uses the bounded three-year window', () => {
@@ -52,10 +52,11 @@ test('967 mobile research keeps a real manual text input without datalist interc
   assert.doesNotMatch(singleAsset, /<datalist|list="research-symbol-suggestions"/);
 });
 
-test('968 catalog selection remains available separately from manual typing', () => {
-  assert.match(singleAsset, /O elegir del listado catalogado/);
-  assert.match(singleAsset, /selectCatalogSymbol/);
-  assert.match(singleAsset, /suggestions\.map\(item => <option/);
+test('968 catalog suggestions are unified in an interactive dropdown without dual input boxes', () => {
+  assert.match(singleAsset, /filteredSuggestions/);
+  assert.match(singleAsset, /selectSymbol/);
+  assert.match(singleAsset, /filteredSuggestions\.map\(item =>/);
+  assert.doesNotMatch(singleAsset, /<select value="" onChange=\{e => selectCatalogSymbol/);
 });
 
 console.log(`UI responsiveness contracts: ${passed}/8 invariants passed.`);

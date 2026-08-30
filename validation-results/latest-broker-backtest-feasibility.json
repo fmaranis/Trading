@@ -1,37 +1,37 @@
 {
   "marker": "BROKER_BACKTEST_FEASIBILITY_RESULT",
-  "recordedAt": "2026-08-29T21:18:29.769Z",
-  "gitHeadBeforeRecord": null,
-  "gitBranch": null,
+  "recordedAt": "2026-08-30T08:36:58.923Z",
+  "gitHeadBeforeRecord": "50b8c938b4f895657ceef7284b08fc0d2e0f0443",
+  "gitBranch": "main",
   "payload": {
-    "generatedAt": "2026-08-29T21:14:49.146Z",
+    "generatedAt": "2026-08-30T08:33:16.510Z",
     "scope": "CURRENT_CAUSAL_BACKTEST_BROKER_COST_DIAGNOSTIC",
     "researchBacktest": {
       "initialCapitalEur": 100,
-      "finalEquityEur": 112.44,
-      "totalReturnPct": 12.44,
-      "maxDrawdownPct": 2.7,
-      "totalTrades": 496,
-      "rebalanceCount": 73,
-      "modeledCommissionEur": 0.9697,
-      "modeledSlippageEur": 0.3879,
-      "modeledTradingCostsEur": 1.3576,
-      "selectionWindows": 73
+      "finalEquityEur": 111.76,
+      "totalReturnPct": 11.76,
+      "maxDrawdownPct": 4.57,
+      "totalTrades": 570,
+      "rebalanceCount": 72,
+      "modeledCommissionEur": 1.5405,
+      "modeledSlippageEur": 0.6162,
+      "modeledTradingCostsEur": 2.1567,
+      "selectionWindows": 72
     },
     "brokerDiagnostic": {
       "broker": "MyInvestor",
-      "minimumCommissionLowerBoundEur": 496,
-      "minimumTradingCostLowerBoundEur": 496.39,
-      "minimumCommissionDragPct": 496,
-      "modeledCommissionUnderstatementEur": 495.03,
-      "modeledCommissionUnderstatementFactor": 511.5,
+      "minimumCommissionLowerBoundEur": 570,
+      "minimumTradingCostLowerBoundEur": 570.62,
+      "minimumCommissionDragPct": 570,
+      "modeledCommissionUnderstatementEur": 568.46,
+      "modeledCommissionUnderstatementFactor": 370.01,
       "brokerCommissionModelCompatible": false,
       "commissionDragTargetPct": 2,
-      "minimumCapitalForCommissionDragTargetEur": 24800,
+      "minimumCapitalForCommissionDragTargetEur": 28500,
       "warnings": [
         "PERCENTAGE_ONLY_COMMISSION_MODEL_UNDERESTIMATES_BROKER_MINIMUM_FEES",
         "BROKER_MINIMUM_COMMISSIONS_EXCEED_INITIAL_CAPITAL",
-        "MINIMUM_COMMISSION_DRAG_ABOVE_TARGET:496.00%>2.00%"
+        "MINIMUM_COMMISSION_DRAG_ABOVE_TARGET:570.00%>2.00%"
       ]
     },
     "interpretation": "RESEARCH_BACKTEST_NOT_DIRECTLY_EXECUTABLE_UNDER_MODELED_MYINVESTOR_MINIMUM_FEES",

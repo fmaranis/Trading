@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, Search, TrendingDown, TrendingUp } from 'lucide-react';
+import { Activity, ChevronDown, Search, TrendingDown, TrendingUp } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from 'recharts';
 import type { PriceBar } from '../investment/backtesting/types';
 import { HistoricalMarketDataService } from '../investment/data/marketData/historicalMarketDataService';
@@ -47,22 +47,55 @@ function AddShape(props: any) { const { cx = 0, cy = 0 } = props; return <path d
 
 const ResearchControls: React.FC<ResearchControlsProps> = React.memo(({ currentSymbol, suggestions, startDate, frequency, loading, onStartDateChange, onFrequencyChange, onAnalyze }) => {
   const [draftSymbol, setDraftSymbol] = useState(currentSymbol);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const symbolInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setDraftSymbol(currentSymbol);
   }, [currentSymbol]);
 
-  const selectCatalogSymbol = (value: string) => {
-    if (!value) return;
-    setDraftSymbol(value.toUpperCase());
-    window.setTimeout(() => symbolInputRef.current?.focus(), 0);
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, []);
+
+  const filteredSuggestions = useMemo(() => {
+    const query = draftSymbol.trim().toUpperCase();
+    if (!query) return suggestions.slice(0, 25);
+    return suggestions.filter(item =>
+      item.ticker.toUpperCase().includes(query) ||
+      item.name.toUpperCase().includes(query)
+    ).slice(0, 25);
+  }, [draftSymbol, suggestions]);
+
+  const selectSymbol = (selected: string, immediateAnalyze = false) => {
+    const clean = selected.trim().toUpperCase();
+    setDraftSymbol(clean);
+    setIsOpen(false);
+    if (immediateAnalyze) {
+      onAnalyze(clean);
+    } else {
+      symbolInputRef.current?.focus();
+    }
   };
 
-  return <div className="mt-4 grid gap-2 md:grid-cols-[1.35fr_1fr_0.8fr_auto]">
-    <div className="rounded-xl border border-slate-700 bg-slate-950 p-3">
-      <label htmlFor="research-symbol-input" className="text-[9px] uppercase text-slate-500">Ticker / ISIN · escritura manual</label>
-      <div onClick={() => symbolInputRef.current?.focus()} className="relative z-10 mt-1 flex min-h-12 cursor-text items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-3 touch-manipulation">
+  return <div className="mt-4 grid gap-2 md:grid-cols-[1.4fr_1fr_0.8fr_auto]">
+    <div ref={containerRef} className="relative rounded-xl border border-slate-700 bg-slate-950 p-3">
+      <div className="flex items-center justify-between text-[9px] uppercase text-slate-500">
+        <label htmlFor="research-symbol-input" className="cursor-pointer">Ticker / ISIN · buscador y listado</label>
+        {draftSymbol && <button type="button" onClick={() => { setDraftSymbol(''); setIsOpen(true); symbolInputRef.current?.focus(); }} className="text-slate-400 hover:text-white transition-colors">Limpiar</button>}
+      </div>
+      <div onClick={() => symbolInputRef.current?.focus()} className="relative mt-1 flex min-h-12 cursor-text items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-3 touch-manipulation">
         <Search className="pointer-events-none h-4 w-4 shrink-0 text-slate-500"/>
         <input
           ref={symbolInputRef}
@@ -74,22 +107,91 @@ const ResearchControls: React.FC<ResearchControlsProps> = React.memo(({ currentS
           autoCorrect="off"
           spellCheck={false}
           value={draftSymbol}
-          onChange={e => setDraftSymbol(e.target.value.toUpperCase())}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAnalyze(draftSymbol); } }}
-          placeholder="Escribe o pega: AAPL / SAN.MC / IE00B03HD191…"
-          className="relative z-20 min-h-11 w-full bg-transparent font-mono text-base font-bold text-white outline-none pointer-events-auto touch-manipulation"
+          onFocus={() => setIsOpen(true)}
+          onChange={e => {
+            setDraftSymbol(e.target.value.toUpperCase());
+            setIsOpen(true);
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              setIsOpen(false);
+              onAnalyze(draftSymbol);
+            } else if (e.key === 'Escape') {
+              setIsOpen(false);
+            }
+          }}
+          placeholder="Escribe o busca: AAPL, SAN.MC, IE00B03HD191…"
+          className="min-h-11 w-full bg-transparent font-mono text-sm font-bold text-white placeholder:text-slate-600 outline-none"
         />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(prev => !prev);
+            symbolInputRef.current?.focus();
+          }}
+          className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+          title="Ver catálogo"
+        >
+          <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180 text-cyan-400' : ''}`} />
+        </button>
       </div>
-      <label className="mt-2 block text-[9px] uppercase text-slate-500">O elegir del listado catalogado</label>
-      <select value="" onChange={e => selectCatalogSymbol(e.target.value)} className="mt-1 min-h-10 w-full rounded-lg border border-slate-800 bg-slate-900 px-2 text-xs text-slate-300 outline-none touch-manipulation">
-        <option value="">Seleccionar ticker / fondo…</option>
-        {suggestions.map(item => <option key={item.ticker} value={item.ticker}>{item.ticker} · {item.name}</option>)}
-      </select>
-      <div className="mt-1 text-[9px] text-slate-600">El listado solo rellena el campo. También puedes escribir o pegar cualquier ticker/ISIN que acepte el proveedor.</div>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/98 p-1.5 shadow-2xl backdrop-blur">
+          <div className="px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+            {draftSymbol.trim() ? `Sugerencias coincidentes (${filteredSuggestions.length})` : `Catálogo disponible (${filteredSuggestions.length})`}
+          </div>
+          {filteredSuggestions.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-slate-400">
+              No hay coincidencias en catálogo. Pulsa <b className="text-white">Analizar</b> para consultar el proveedor en vivo.
+            </div>
+          ) : (
+            filteredSuggestions.map(item => {
+              const isIsin = looksLikeIsin(item.ticker);
+              return (
+                <button
+                  key={item.ticker}
+                  type="button"
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    selectSymbol(item.ticker, false);
+                  }}
+                  className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-cyan-500/15 hover:text-white"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-cyan-300">{item.ticker}</span>
+                      <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{isIsin ? 'FONDO' : 'ACCIÓN / ETF'}</span>
+                    </div>
+                    <div className="truncate text-[11px] text-slate-400">{item.name}</div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
-    <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Estudiar desde</span><input type="date" value={startDate} max={isoDate(new Date())} onChange={e => onStartDateChange(e.target.value)} className="mt-1 w-full bg-transparent font-mono text-sm outline-none"/></label>
-    <label className="rounded-xl border border-slate-700 bg-slate-950 p-3"><span className="text-[9px] uppercase text-slate-500">Revisión</span><select value={frequency} onChange={e => onFrequencyChange(e.target.value as SingleAssetResearchFrequency)} className="mt-1 w-full bg-transparent text-sm outline-none"><option className="bg-slate-900" value="WEEKLY">Semanal</option><option className="bg-slate-900" value="MONTHLY">Mensual</option><option className="bg-slate-900" value="QUARTERLY">Trimestral</option></select><span className="mt-1 block text-[9px] text-slate-500">Semanal es el modo por defecto: una revisión por semana con datos diarios y ejecución en la siguiente observación.</span></label>
-    <button onClick={() => onAnalyze(draftSymbol)} disabled={loading || !draftSymbol.trim()} className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Analizando…' : 'Analizar'}</button>
+
+    <label className="rounded-xl border border-slate-700 bg-slate-950 p-3">
+      <span className="text-[9px] uppercase text-slate-500">Estudiar desde</span>
+      <input type="date" value={startDate} max={isoDate(new Date())} onChange={e => onStartDateChange(e.target.value)} className="mt-1 w-full bg-transparent font-mono text-sm outline-none"/>
+    </label>
+    <label className="rounded-xl border border-slate-700 bg-slate-950 p-3">
+      <span className="text-[9px] uppercase text-slate-500">Revisión</span>
+      <select value={frequency} onChange={e => onFrequencyChange(e.target.value as SingleAssetResearchFrequency)} className="mt-1 w-full bg-transparent text-sm outline-none">
+        <option className="bg-slate-900" value="WEEKLY">Semanal</option>
+        <option className="bg-slate-900" value="MONTHLY">Mensual</option>
+        <option className="bg-slate-900" value="QUARTERLY">Trimestral</option>
+      </select>
+      <span className="mt-1 block text-[9px] text-slate-500">Semanal es el modo por defecto: una revisión por semana con datos diarios y ejecución en la siguiente observación.</span>
+    </label>
+    <button onClick={() => onAnalyze(draftSymbol)} disabled={loading || !draftSymbol.trim()} className="rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50 hover:bg-cyan-500 transition-colors">
+      {loading ? 'Analizando…' : 'Analizar'}
+    </button>
   </div>;
 });
 
