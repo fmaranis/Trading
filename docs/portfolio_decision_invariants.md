@@ -1,6 +1,6 @@
 # Invariantes operativos de cartera
 
-Estas reglas son canónicas para `Mi cartera real` y no deben romperse en refactors futuros.
+Estas reglas son canónicas para `Mi cartera real` y `Estudio y señales` y no deben romperse en refactors futuros.
 
 ## 1. Una sola decisión operativa
 
@@ -69,5 +69,20 @@ Los tests obligatorios incluyen:
 - `fundPortfolio.unit.ts`
 - `spanishTaxModel.unit.ts`
 - `taxAwareExecutionOverlay.unit.ts`
+- `uiResponsivenessContracts.unit.ts`
 
 No usar GitHub Actions. La validación canónica se ejecuta localmente mediante `npm run validate:aistudio` en el entorno de test sincronizado con `main`.
+
+## 8. Integración máxima de interfaz
+
+Regla de arquitectura UX: **integrar antes de crear**.
+
+- Una pregunta del usuario debe resolverse en una única superficie visible siempre que sea posible.
+- Antes de añadir una tarjeta, panel, buscador, tabla o módulo visible nuevo, comprobar si la función puede integrarse en una superficie existente.
+- Dos controles que buscan, seleccionan o analizan el mismo concepto deben compartir el mismo flujo y estado; no se crean buscadores paralelos.
+- Un nuevo motor interno, test o fuente de datos no justifica por sí mismo una nueva sección visible.
+- Los rankings deben alimentar el mismo analizador que usa la búsqueda manual; abrir un candidato no debe crear otro workspace equivalente.
+- Solo se mantiene una sección separada cuando responde a una pregunta materialmente distinta. Ejemplo válido: `Validación general del motor` puede separarse de `Estudio de inversiones y señales` porque evalúa robustez histórica global, no un activo concreto.
+- En `Estudio de inversiones y señales`, catálogo, escritura manual de ticker/ISIN, selección, gráfica, señales y ranking forman un único flujo integrado.
+
+Esta regla tiene prioridad sobre la comodidad de implementar una feature como componente visible independiente. La modularidad interna del código se conserva, pero no debe trasladarse automáticamente a fragmentación de la interfaz.
