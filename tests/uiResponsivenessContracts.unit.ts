@@ -11,6 +11,8 @@ function test(name: string, fn: () => void) {
 const singleAsset = readFileSync('src/components/SingleAssetResearchPanel.tsx', 'utf8');
 const researchLab = readFileSync('src/components/InvestmentResearchLab.tsx', 'utf8');
 const decisionCenter = readFileSync('src/components/InteractiveInvestmentDecisionCenter.tsx', 'utf8');
+const marketDashboard = readFileSync('src/components/MarketUtilityDashboard.tsx', 'utf8');
+const currentOpportunity = readFileSync('src/components/CurrentOpportunityAlertsPanel.tsx', 'utf8');
 
 test('961 ticker/ISIN draft is isolated from the heavy chart state', () => {
   assert.match(singleAsset, /const \[draftSymbol, setDraftSymbol\] = useState\(currentSymbol\)/);
@@ -74,4 +76,30 @@ test('970 ranking candidates route back into the same analyzer instead of openin
   assert.match(researchLab, /Ranking y oportunidades del mismo estudio/);
 });
 
-console.log(`UI responsiveness contracts: ${passed}/10 invariants passed.`);
+test('971 portfolio surface starts from one action-first decision', () => {
+  assert.match(currentOpportunity, /Decisión de hoy/);
+  assert.match(currentOpportunity, /HOY: INVERTIR/);
+  assert.match(currentOpportunity, /HOY: NO MOVER DINERO/);
+  assert.match(currentOpportunity, /fundedAlerts/);
+  assert.match(currentOpportunity, /structuralSales/);
+  assert.doesNotMatch(currentOpportunity, /Dónde pondría dinero hoy/);
+});
+
+test('972 unfunded opportunities are secondary rather than competing recommendations', () => {
+  assert.match(currentOpportunity, /Otras oportunidades válidas que hoy no reciben dinero/);
+  assert.match(currentOpportunity, /no le asigna capital hoy por prioridad relativa, riesgo o concentración/);
+});
+
+test('973 duplicate execution plan is demoted inside explanation details', () => {
+  assert.match(marketDashboard, /<CurrentOpportunityAlertsPanel[\s\S]*<details[\s\S]*PortfolioExecutionPlanPanel/);
+  assert.match(marketDashboard, /Son explicaciones de la decisión superior, no recomendaciones independientes/);
+});
+
+test('974 data confidence is labelled as data quality and never presented as profit probability', () => {
+  assert.doesNotMatch(decisionCenter, />Evidencia \{result\.confidence\}/);
+  assert.match(decisionCenter, /Calidad de datos \{result\.confidence\}/);
+  assert.match(decisionCenter, /No es probabilidad de beneficio ni convicción de una compra/);
+  assert.match(decisionCenter, /<MarketUtilityDashboard[\s\S]*Datos y controles técnicos de la decisión/);
+});
+
+console.log(`UI responsiveness contracts: ${passed}/14 invariants passed.`);
