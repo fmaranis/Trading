@@ -98,6 +98,7 @@ Los tests obligatorios incluyen:
 - `fundPortfolio.unit.ts`
 - `spanishTaxModel.unit.ts`
 - `taxAwareExecutionOverlay.unit.ts`
+- `dynamicHistoricalReplay.unit.ts`
 - `uiResponsivenessContracts.unit.ts`
 
 No usar GitHub Actions. La validación canónica se ejecuta localmente mediante `npm run validate:aistudio` en el entorno de test sincronizado con `main`.
@@ -116,3 +117,34 @@ Regla de arquitectura UX: **integrar antes de crear**.
 - Una recomendación operativa debe ser directamente interactiva: tocar el activo recomendado abre el mismo analizador existente con su ticker/ISIN, gráfica, señales y metadatos disponibles; no se crea una ficha paralela desconectada.
 
 Esta regla tiene prioridad sobre la comodidad de implementar una feature como componente visible independiente. La modularidad interna del código se conserva, pero no debe trasladarse automáticamente a fragmentación de la interfaz.
+
+## 10. Prueba histórica causal de la cartera
+
+La validación histórica debe responder una pregunta concreta: **si el usuario hubiera empezado en una fecha pasada y hubiera obedecido la app, ¿cómo habría evolucionado su dinero?**
+
+Reglas canónicas:
+- El usuario puede introducir una fecha pasada arbitraria; no queda limitado a una lista fija de años o trimestres.
+- La prueba puede revisar cada sesión, semana, mes o trimestre. `DAILY` es la prueba operativa más exigente.
+- Cada recomendación se calcula exclusivamente con barras y datos disponibles hasta la fecha de señal. Está prohibido usar precios, rankings, retornos o composición futura para decidir una operación anterior.
+- La ejecución ocurre después de la señal, nunca en el mismo cierre usado para decidir.
+- El histórico largo se descarga solo cuando el usuario lanza la prueba. No se amplía por ello la ventana corta del escaneo live, para no degradar la interfaz diaria.
+- La simulación debe mantener una contabilidad acumulativa de cartera: posiciones, cash, aportaciones, compras, ampliaciones, reducciones, salidas y traspasos.
+- ETFs/cotizados usan títulos enteros y costes de ejecución modelados; fondos pueden usar unidades fraccionarias.
+- Las ventas deben llevar base FIFO dentro del replay y plusvalía realizada. La fiscalidad mostrada es una estimación de fricción: escala configurada si existe contexto fiscal confirmado y reserva conservadora del 30% si no existe.
+- Cuando una salida de fondo y una entrada en otro fondo elegible coinciden en el mismo cambio, la parte emparejada se trata como traspaso fiscalmente diferido y su impuesto inmediato estimado es 0.
+- La gráfica debe valorar la cartera a lo largo de las sesiones disponibles y mostrar marcadores/eventos de operación con importe, comisión, plusvalía y fiscalidad estimada.
+- Debe existir una comparación visible sobre las mismas fechas contra, como mínimo, mantener todo el capital en la cuenta remunerada.
+- Los resultados históricos no se presentan como garantía futura. Deben conservar visibles las limitaciones de supervivencia del catálogo y de disponibilidad histórica del broker.
+
+## 11. Evolución de la cartera real
+
+La evolución real forma parte de `Mi cartera real`; no crea un tercer workspace ni una superficie paralela de cartera.
+
+- Las operaciones registradas mediante la app se guardan en un historial persistente para que una venta futura no borre del pasado una posición que realmente existió.
+- La reconstrucción usa fechas, títulos/participaciones y series REAL cuando están disponibles.
+- Las posiciones reales de partida con fecha y unidades conocidas pueden sembrar el histórico inicial.
+- Una compra posterior puede financiarse con cash procedente de ventas anteriores: ese dinero no vuelve a contabilizarse como una nueva aportación externa.
+- Solo se suma nueva aportación cuando la caja histórica reconstruida no alcanza para financiar una compra registrada.
+- Si faltan unidades exactas de una operación de fondo, pueden inferirse desde el NAV de la fecha, pero la interfaz debe marcar esa parte como estimada.
+- La liquidez o capital pendiente actual sin fecha histórica conocida se muestra aparte y **no se retroproyecta** a fechas anteriores.
+- Nunca se inventa una fecha de entrada para completar una gráfica visualmente más bonita. La precisión y huecos de reconstrucción deben quedar explícitos.
