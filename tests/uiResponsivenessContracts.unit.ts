@@ -87,7 +87,7 @@ test('971 portfolio surface starts from one action-first decision', () => {
 
 test('972 unfunded opportunities are secondary rather than competing recommendations', () => {
   assert.match(currentOpportunity, /Otras oportunidades válidas que hoy no reciben dinero/);
-  assert.match(currentOpportunity, /no le asigna capital hoy por prioridad relativa, riesgo o concentración/);
+  assert.match(currentOpportunity, /no tiene un importe pendiente ejecutable/);
 });
 
 test('973 duplicate execution plan is demoted inside explanation details', () => {
@@ -102,4 +102,16 @@ test('974 data confidence is labelled as data quality and never presented as pro
   assert.match(decisionCenter, /<MarketUtilityDashboard[\s\S]*Datos y controles técnicos de la decisión/);
 });
 
-console.log(`UI responsiveness contracts: ${passed}/14 invariants passed.`);
+test('975 the recommendation itself opens the same integrated asset research surface', () => {
+  assert.match(currentOpportunity, /onClick=\{\(\) => onInspectAsset\?\.\(inspectKey\)\}/);
+  assert.match(currentOpportunity, /Toca esta recomendación para abrir ficha, código\/ISIN, gráfica y señales/);
+  assert.match(decisionCenter, /setResearchSymbol\(clean\)/);
+  assert.match(decisionCenter, /setWorkspace\('RESEARCH'\)/);
+});
+
+test('976 buy cards explain target, already-held value and remaining amount instead of recursive cash allocation', () => {
+  assert.match(currentOpportunity, /Pendiente para completar el objetivo/);
+  assert.match(currentOpportunity, /Objetivo total \{contribution\.targetAssetValueEur\.toFixed\(2\)\} € · ya en cartera/);
+});
+
+console.log(`UI responsiveness contracts: ${passed}/16 invariants passed.`);
