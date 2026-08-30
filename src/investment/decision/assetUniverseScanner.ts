@@ -123,7 +123,7 @@ export class AssetUniverseScanner {
     });
     const acceptedCandidates=candidates.filter(c=>c.status==='ACCEPTED');
     const selected=chooseDiversified(candidates,Math.min(options.maxSelected??8,10));
-    if(selected.length<2)throw new Error(`El escáner solo encontró ${selected.length} exposiciones válidas; se requieren al menos 2.`);
+    if(selected.length<1)throw new Error('El escáner no encontró ninguna exposición REAL válida.');
     const rejectionCounts:Record<string,number>={}; for(const c of candidates.filter(c=>c.status==='REJECTED')) rejectionCounts[c.reason??'UNKNOWN']=(rejectionCounts[c.reason??'UNKNOWN']??0)+1;
     return{scanned:candidates.length,accepted:acceptedCandidates.length,rejected:candidates.length-acceptedCandidates.length,selected,candidates,dataset:toDataset(selected),acceptedDataset:toDataset(acceptedCandidates),rejectionCounts};
   }
