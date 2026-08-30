@@ -137,7 +137,7 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[]): Prom
     const amount = Math.max(0, row.amountEur ?? 0);
     const fee = Math.max(0, row.feeEur);
     if (row.action === 'BUY_ETF' && row.targetTicker && (row.shares ?? 0) > 0) {
-      events.push({ id: row.id, date, key: keyListed(row.targetTicker), unitsDelta: Number(row.shares), externalContributionEur: amount + fee, cashDeltaEur: -(amount + fee), label: `Compra ${row.targetTicker}: ${amount.toFixed(2)} € + ${fee.toFixed(2)} € comisión` });
+      events.push({ id: row.id, date, key: keyListed(row.targetTicker), unitsDelta: Number(row.shares), externalContributionEur: 0, cashDeltaEur: -(amount + fee), label: `Compra ${row.targetTicker}: ${amount.toFixed(2)} € + ${fee.toFixed(2)} € comisión` });
     } else if (row.action === 'SELL_ETF' && row.targetTicker && (row.shares ?? 0) > 0) {
       events.push({ id: row.id, date, key: keyListed(row.targetTicker), unitsDelta: -Number(row.shares), externalContributionEur: 0, cashDeltaEur: Math.max(0, amount - fee), label: `Venta ${row.targetTicker}: ${amount.toFixed(2)} € - ${fee.toFixed(2)} € comisión` });
     } else if (row.action === 'SUBSCRIBE_FUND' && row.targetIsin) {
@@ -145,7 +145,7 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[]): Prom
       const price = series ? priceOnOrBefore(series, date) ?? priceOnOrAfter(series, date) : null;
       const units = row.shares != null && row.shares > 0 ? row.shares : price && amount > 0 ? amount / price : 0;
       if (row.shares == null) inferredEvents++;
-      if (units > 0) events.push({ id: row.id, date, key: keyFund(row.targetIsin), unitsDelta: units, externalContributionEur: amount, cashDeltaEur: -amount, label: `Suscripción ${row.targetName ?? row.targetIsin}: ${amount.toFixed(2)} €${row.shares == null ? ' · unidades inferidas' : ''}` });
+      if (units > 0) events.push({ id: row.id, date, key: keyFund(row.targetIsin), unitsDelta: units, externalContributionEur: 0, cashDeltaEur: -amount, label: `Suscripción ${row.targetName ?? row.targetIsin}: ${amount.toFixed(2)} €${row.shares == null ? ' · unidades inferidas' : ''}` });
     } else if (row.action === 'REDEEM_FUND' && row.sourceIsin) {
       const series = seriesByKey.get(keyFund(row.sourceIsin));
       const price = series ? priceOnOrBefore(series, date) ?? priceOnOrAfter(series, date) : null;
