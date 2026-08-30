@@ -49,4 +49,29 @@ check('935 medium-risk high-conviction single-name amount respects concentration
 check('936 operational contributions explicitly carry current opportunity semantics', result.contributions.every(row => row.opportunityLevel != null && row.priorityScore != null));
 check('937 residual cash reconciles exactly with finite available capital', Math.abs(result.residualPlannedCashEur - (10000 - totalContribution)) < 1e-6);
 
-console.log(`Current finite-capital allocation: ${passed}/7 invariants passed.`);
+const techInitial = result.contributions.find(row => row.assetId === 'STRONG_TECH')!;
+const euInitial = result.contributions.find(row => row.assetId === 'STRONG_EU')!;
+const techPrice = candidates[0].lastClose;
+const fullyExecutedPortfolio: any = {
+  ...portfolio,
+  holdings: [{ ticker: 'STRONGT.DE', shares: techInitial.amountEur / techPrice }],
+  stagedCapitalPlan: { ...portfolio.stagedCapitalPlan, availableEur: 10000 - techInitial.amountEur },
+  updatedAt: '2026-08-30T00:10:00Z'
+};
+const afterFullExecution = PortfolioDecisionEngine.evaluate({ portfolio: fullyExecutedPortfolio, scan, decision, cashBenchmarkAnnualPct: 2.5 });
+const euAfterFull = afterFullExecution.contributions.find(row => row.assetId === 'STRONG_EU');
+check('938 a fully executed asset target is not recommended again from the remaining cash', !afterFullExecution.contributions.some(row => row.assetId === 'STRONG_TECH'));
+check('939 buying one target does not inflate the untouched target by recursively redistributing remaining cash', Boolean(euAfterFull) && Math.abs((euAfterFull?.amountEur ?? 0) - euInitial.amountEur) < 0.01);
+
+const halfExecutedPortfolio: any = {
+  ...portfolio,
+  holdings: [{ ticker: 'STRONGT.DE', shares: (techInitial.amountEur / 2) / techPrice }],
+  stagedCapitalPlan: { ...portfolio.stagedCapitalPlan, availableEur: 10000 - techInitial.amountEur / 2 },
+  updatedAt: '2026-08-30T00:05:00Z'
+};
+const afterHalfExecution = PortfolioDecisionEngine.evaluate({ portfolio: halfExecutedPortfolio, scan, decision, cashBenchmarkAnnualPct: 2.5 });
+const techRemaining = afterHalfExecution.contributions.find(row => row.assetId === 'STRONG_TECH');
+check('940 a partial execution leaves only the unfilled portion of that asset target', Boolean(techRemaining) && Math.abs((techRemaining?.amountEur ?? 0) - techInitial.amountEur / 2) < 0.01);
+check('941 recommendations expose final target and current exposure so the UI can explain the remaining amount', result.contributions.every(row => row.targetAssetValueEur != null && row.currentAssetValueEur != null));
+
+console.log(`Current finite-capital allocation: ${passed}/11 invariants passed.`);
