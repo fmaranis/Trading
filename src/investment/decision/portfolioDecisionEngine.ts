@@ -1,5 +1,6 @@
 import type { AssetUniverseCategory, AssetUniverseItem, InvestmentInstrumentType } from './assetUniverse';
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
+import { executionPolicyForCapital } from './adaptiveExecutionPolicy';
 import { CashBenchmarkService } from './cashBenchmark';
 import { CurrentOpportunityAlertEngine, type CurrentOpportunityAlert } from './currentOpportunityAlerts';
 import type { InvestmentDecisionResult } from './types';
@@ -48,6 +49,8 @@ export interface ContributionRecommendation {
   targetCategoryGapEur: number;
   opportunityLevel?: CurrentOpportunityAlert['level'];
   priorityScore?: number;
+  currentAssetValueEur?: number;
+  targetAssetValueEur?: number;
   reason: string;
 }
 
@@ -144,6 +147,7 @@ export class PortfolioDecisionEngine {
     );
 
     const currentByCategory = new Map<AssetUniverseCategory, number>();
+    const currentByAsset = new Map<string, number>();
     const existingPositions: PortfolioPositionDecision[] = [];
     const unresolvedPositions: Array<{ index: number; category: AssetUniverseCategory | 'UNKNOWN'; health?: PortfolioPositionHealthSnapshot }> = [];
 
@@ -157,6 +161,7 @@ export class PortfolioDecisionEngine {
       if (value != null) {
         currentInvestedValueEur += value;
         if (category !== 'UNKNOWN') currentByCategory.set(category, (currentByCategory.get(category) ?? 0) + value);
+        if (asset) currentByAsset.set(asset.assetId, (currentByAsset.get(asset.assetId) ?? 0) + value);
       }
       const index = existingPositions.push({
         id: fund.id,
@@ -183,6 +188,7 @@ export class PortfolioDecisionEngine {
       if (value != null) {
         currentInvestedValueEur += value;
         if (category !== 'UNKNOWN') currentByCategory.set(category, (currentByCategory.get(category) ?? 0) + value);
+        if (asset) currentByAsset.set(asset.assetId, (currentByAsset.get(asset.assetId) ?? 0) + value);
       }
       const index = existingPositions.push({
         id: holding.ticker.toUpperCase(),
@@ -315,20 +321,37 @@ export class PortfolioDecisionEngine {
       const shortlist = opportunities.slice(0, maxOpportunityPositions(decision.riskProfile));
       const priorities = shortlist.map(alert => ({ alert, priority: opportunityPriority(alert) }));
       const totalPriority = priorities.reduce((sum, row) => sum + Math.max(0.01, row.priority), 0);
+      const currentOpportunityValueEur = shortlist.reduce((sum, alert) => sum + Math.max(0, currentByAsset.get(alert.assetId) ?? 0), 0);
+      // Stable opportunity book: after an execution, deployable cash falls by roughly the
+      // same amount that current exposure rises. Their sum therefore stays stable and the
+      // engine subtracts the purchase from the asset's target instead of redistributing the
+      // remaining cash across the same shortlist on every click.
+      const stableOpportunityPoolEur = deployableToAssetsEur + currentOpportunityValueEur;
       const categoryAdded = new Map<AssetUniverseCategory, number>();
       const categoryLimit = totalPlannedCapitalEur * maxCategoryShare(decision.riskProfile);
+      const executionPolicy = executionPolicyForCapital(totalPlannedCapitalEur);
+      let allocatedTotalEur = 0;
 
       const allocated = priorities.map<ContributionRecommendation | null>(({ alert, priority }) => {
         const asset = assets.get(alert.assetId) ?? assets.get(alert.ticker.toUpperCase());
         if (!asset) return null;
-        const rawAmount = deployableToAssetsEur * Math.max(0.01, priority) / totalPriority;
-        const assetCap = deployableToAssetsEur * maxAssetShare(decision.riskProfile, alert.level);
+        const currentAssetValueEur = Math.max(0, currentByAsset.get(alert.assetId) ?? 0);
+        const rawTargetValueEur = stableOpportunityPoolEur * Math.max(0.01, priority) / totalPriority;
+        const assetCapValueEur = stableOpportunityPoolEur * maxAssetShare(decision.riskProfile, alert.level);
+        const targetAssetValueEur = Math.max(0, Math.min(rawTargetValueEur, assetCapValueEur));
+        const targetGapEur = Math.max(0, targetAssetValueEur - currentAssetValueEur);
+        const minimumMeaningfulGapEur = instrumentType(asset) === 'MUTUAL_FUND' ? 5 : executionPolicy.minimumOrderNotionalEur;
+        if (targetGapEur < minimumMeaningfulGapEur - 1e-9) return null;
+
         const alreadyInCategory = currentByCategory.get(asset.category) ?? 0;
         const alreadyAdded = categoryAdded.get(asset.category) ?? 0;
         const categoryCapacity = Math.max(0, categoryLimit - alreadyInCategory - alreadyAdded);
-        const amountEur = Math.max(0, Math.min(rawAmount, assetCap, categoryCapacity));
-        if (amountEur <= 0.01) return null;
+        const remainingDeployable = Math.max(0, deployableToAssetsEur - allocatedTotalEur);
+        const amountEur = Math.max(0, Math.min(targetGapEur, categoryCapacity, remainingDeployable));
+        if (amountEur < minimumMeaningfulGapEur - 1e-9) return null;
+
         categoryAdded.set(asset.category, alreadyAdded + amountEur);
+        allocatedTotalEur += amountEur;
         const theoreticalGap = exposureByCategory.get(asset.category)?.gapEur ?? 0;
         return {
           category: asset.category,
@@ -340,7 +363,9 @@ export class PortfolioDecisionEngine {
           targetCategoryGapEur: theoreticalGap,
           opportunityLevel: alert.level,
           priorityScore: priority,
-          reason: `${alert.level === 'HIGH_CONVICTION' ? 'Entrada de ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'Buena oportunidad actual' : 'Entrada válida actual'}: consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. El importe sale del capital REAL disponible y respeta límites de concentración; no procede del diagnóstico teórico de pesos.`
+          currentAssetValueEur,
+          targetAssetValueEur,
+          reason: `${alert.level === 'HIGH_CONVICTION' ? 'Entrada de ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'Buena oportunidad actual' : 'Entrada válida actual'}: consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Objetivo actual del activo ${targetAssetValueEur.toFixed(2)} €; ya hay ${currentAssetValueEur.toFixed(2)} € en cartera y quedan ${amountEur.toFixed(2)} € por cubrir. Una compra registrada reduce este pendiente; no se reinicia el reparto desde cero.`
         };
       });
       contributions = allocated.filter((row): row is ContributionRecommendation => row != null);
@@ -374,7 +399,7 @@ export class PortfolioDecisionEngine {
     if (hasMissingValuation) warnings.push('Hay posiciones sin valoración REAL utilizable: se bloquea temporalmente la asignación de capital nuevo para no calcular el patrimonio como si esas posiciones valieran cero.');
     if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Una sobreponderación por sí sola NO genera una venta. REDUCE/EXIT proceden de salud; una rotación voluntaria adicional debe demostrar ventaja neta tras impuestos y costes.');
     if (existingPositions.some(x => x.category === 'UNKNOWN' && x.currentValueEur != null)) warnings.push('Hay posiciones fuera del universo clasificado que se valoran y vigilan individualmente; no se inventa una categoría para forzar su peso objetivo.');
-    if (opportunities.length > 0) warnings.push(`La asignación efectiva usa ${opportunities.length} oportunidad(es) actual(es) que pasan cash + consenso; el capital sugerido nunca supera la liquidez realmente disponible y aplica límites de concentración.`);
+    if (opportunities.length > 0) warnings.push(`La asignación efectiva usa ${opportunities.length} oportunidad(es) actual(es) que pasan cash + consenso. Cada activo tiene un objetivo final estable: las compras ya registradas cuentan contra ese objetivo y no provocan un nuevo reparto desde cero.`);
     else warnings.push('No hay oportunidades actuales que pasen el gate; los pesos teóricos quedan solo como diagnóstico secundario y no son una orden de compra.');
 
     return {
