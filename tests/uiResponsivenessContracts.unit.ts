@@ -13,6 +13,9 @@ const researchLab = readFileSync('src/components/InvestmentResearchLab.tsx', 'ut
 const decisionCenter = readFileSync('src/components/InteractiveInvestmentDecisionCenter.tsx', 'utf8');
 const marketDashboard = readFileSync('src/components/MarketUtilityDashboard.tsx', 'utf8');
 const currentOpportunity = readFileSync('src/components/CurrentOpportunityAlertsPanel.tsx', 'utf8');
+const historicalReplayPanel = readFileSync('src/components/HistoricalDecisionReplayPanel.tsx', 'utf8');
+const userPortfolio = readFileSync('src/components/UserPortfolioPanel.tsx', 'utf8');
+const portfolioEvolution = readFileSync('src/components/PortfolioEvolutionChart.tsx', 'utf8');
 
 test('961 ticker/ISIN draft is isolated from the heavy chart state', () => {
   assert.match(singleAsset, /const \[draftSymbol, setDraftSymbol\] = useState\(currentSymbol\)/);
@@ -114,4 +117,35 @@ test('976 buy cards explain target, already-held value and remaining amount inst
   assert.match(currentOpportunity, /Objetivo total \{contribution\.targetAssetValueEur\.toFixed\(2\)\} € · ya en cartera/);
 });
 
-console.log(`UI responsiveness contracts: ${passed}/16 invariants passed.`);
+test('977 historical validation accepts any past date and can follow decisions every session', () => {
+  assert.match(historicalReplayPanel, /type="date"/);
+  assert.match(historicalReplayPanel, /value="DAILY"/);
+  assert.match(historicalReplayPanel, /Cada sesión · prueba más exigente/);
+  assert.match(historicalReplayPanel, /Probar desde esa fecha/);
+});
+
+test('978 long historical data is loaded only on explicit replay and uses the production discovery universe', () => {
+  assert.match(historicalReplayPanel, /AssetUniverseScanner\.scan\(/);
+  assert.match(historicalReplayPanel, /EUR_PORTFOLIO_DISCOVERY_UNIVERSE/);
+  assert.match(historicalReplayPanel, /warmupDate\(startDate\)/);
+  assert.match(historicalReplayPanel, /SpanishTaxSettingsService\.load\(\)/);
+  assert.match(historicalReplayPanel, /Esta prueba histórica larga solo se descarga cuando tú la ejecutas expresamente/);
+});
+
+test('979 definitive replay visibly integrates equity, operations, fees, taxes and transfers', () => {
+  assert.match(historicalReplayPanel, /Evolución del dinero siguiendo las recomendaciones/);
+  assert.match(historicalReplayPanel, /Operaciones y costes del camino/);
+  assert.match(historicalReplayPanel, /totalEstimatedTaxEur/);
+  assert.match(historicalReplayPanel, /totalTransferredEur/);
+  assert.match(historicalReplayPanel, /cashBenchmarkEur/);
+});
+
+test('980 real portfolio evolution is integrated inside Mi cartera real rather than a new workspace', () => {
+  assert.match(userPortfolio, /<PortfolioEvolutionChart/);
+  assert.match(portfolioEvolution, /Evolución real registrada/);
+  assert.match(portfolioEvolution, /PortfolioExecutionHistoryService\.load\(\)/);
+  assert.match(portfolioEvolution, /Liquidez actual sin fecha histórica/);
+  assert.equal((decisionCenter.match(/type Workspace = 'PORTFOLIO' \| 'RESEARCH'/g) ?? []).length, 1);
+});
+
+console.log(`UI responsiveness contracts: ${passed}/20 invariants passed.`);
