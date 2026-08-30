@@ -74,4 +74,26 @@ const techRemaining = afterHalfExecution.contributions.find(row => row.assetId =
 check('940 a partial execution leaves only the unfilled portion of that asset target', Boolean(techRemaining) && Math.abs((techRemaining?.amountEur ?? 0) - techInitial.amountEur / 2) < 0.01);
 check('941 recommendations expose final target and current exposure so the UI can explain the remaining amount', result.contributions.every(row => row.targetAssetValueEur != null && row.currentAssetValueEur != null));
 
-console.log(`Current finite-capital allocation: ${passed}/11 invariants passed.`);
+const fundBars = bars(1.0023);
+const fundCandidate: any = candidate('FUND_TEST', 'IE000000TEST', 'GLOBAL_EQUITY', fundBars, 24, 14, 20);
+fundCandidate.asset = { ...fundCandidate.asset, isin: 'IE000000TEST', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' };
+const fundDataset: any = { timeframe: '1d', assets: [{ assetId: 'FUND_TEST', ticker: 'IE000000TEST', name: 'Fund Test', currency: 'EUR', bars: fundBars, provenance: { sourceType: 'REAL', provider: 'unit', symbol: 'IE000000TEST', isReproducible: true } }] };
+const fundScan: any = { scanned: 1, accepted: 1, rejected: 0, rejectionCounts: {}, selected: [fundCandidate], candidates: [fundCandidate], acceptedDataset: fundDataset, dataset: fundDataset };
+const fundDecision: any = { cashWeight: 0.10, riskProfile: 'MEDIUM', horizonYears: 3, assets: [{ assetId: 'FUND_TEST', ticker: 'IE000000TEST', name: 'Fund Test', weight: 0.90 }] };
+const nearTargetFundPortfolio: any = {
+  cashEur: 0, holdings: [],
+  funds: [{ id: 'FUND_TEST', isin: 'IE000000TEST', name: 'Fund Test', category: 'GLOBAL_EQUITY', investedEur: 4450, currentValueEur: 4450 }],
+  stagedCapitalPlan: { availableEur: 5550, horizonMonths: 12, preferredMode: 'MONTHLY' }, updatedAt: '2026-08-30T00:00:00Z'
+};
+const nearTargetFundResult = PortfolioDecisionEngine.evaluate({ portfolio: nearTargetFundPortfolio, scan: fundScan, decision: fundDecision, cashBenchmarkAnnualPct: 2.5 });
+check('942 mutual funds do not create sub-minimum micro-orders merely because brokerage commission is zero', !nearTargetFundResult.contributions.some(row => row.assetId === 'FUND_TEST'));
+
+const materialGapFundPortfolio: any = {
+  ...nearTargetFundPortfolio,
+  funds: [{ ...nearTargetFundPortfolio.funds[0], investedEur: 4300, currentValueEur: 4300 }],
+  stagedCapitalPlan: { ...nearTargetFundPortfolio.stagedCapitalPlan, availableEur: 5700 }
+};
+const materialGapFundResult = PortfolioDecisionEngine.evaluate({ portfolio: materialGapFundPortfolio, scan: fundScan, decision: fundDecision, cashBenchmarkAnnualPct: 2.5 });
+check('943 mutual funds still execute a material gap above the adaptive minimum', (materialGapFundResult.contributions.find(row => row.assetId === 'FUND_TEST')?.amountEur ?? 0) >= 100);
+
+console.log(`Current finite-capital allocation: ${passed}/13 invariants passed.`);
