@@ -117,7 +117,7 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
 
     {missingValuations > 0 && <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[10px] text-amber-100">Hay {missingValuations} posición(es) sin valoración REAL actual. Hasta resolverlas, el total se muestra como mínimo conocido y el motor no debe fingir que su valor coincide con lo invertido originalmente.</div>}
 
-    <PortfolioEvolutionChart funds={funds} holdings={holdings} cashEur={cash} pendingCapitalEur={plan.availableEur} revision={savedRevision}/>
+    <PortfolioEvolutionChart scan={scan} funds={funds} holdings={holdings} cashEur={cash} pendingCapitalEur={plan.availableEur} revision={savedRevision}/>
 
     <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
       <div className="flex items-center justify-between gap-3"><div><b className="text-sm">Posiciones actuales</b><div className="text-[10px] text-slate-500">Valor actual, coste de entrada y salud son conceptos separados.</div></div><span className="text-[10px] text-slate-500">{funds.length + holdings.length} posiciones</span></div>
