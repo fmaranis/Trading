@@ -52,11 +52,26 @@ test('967 mobile research keeps a real manual text input without datalist interc
   assert.doesNotMatch(singleAsset, /<datalist|list="research-symbol-suggestions"/);
 });
 
-test('968 catalog suggestions are unified in an interactive dropdown without dual input boxes', () => {
+test('968 catalog suggestions are unified in the same interactive search box', () => {
   assert.match(singleAsset, /filteredSuggestions/);
   assert.match(singleAsset, /selectSymbol/);
   assert.match(singleAsset, /filteredSuggestions\.map\(item =>/);
-  assert.doesNotMatch(singleAsset, /<select value="" onChange=\{e => selectCatalogSymbol/);
+  assert.match(singleAsset, /buscador y listado/);
 });
 
-console.log(`UI responsiveness contracts: ${passed}/8 invariants passed.`);
+test('969 research uses one search/analyzer surface instead of parallel catalog and radar search boxes', () => {
+  assert.equal((researchLab.match(/<SingleAssetResearchPanel/g) ?? []).length, 1);
+  assert.doesNotMatch(researchLab, /Explorar catálogo ampliado/);
+  assert.doesNotMatch(researchLab, /Filtrar ticker, nombre o categoría/);
+  assert.match(researchLab, /Buscador único/);
+  assert.match(researchLab, /No se crean buscadores paralelos para la misma tarea/);
+});
+
+test('970 ranking candidates route back into the same analyzer instead of opening another module', () => {
+  assert.match(researchLab, /const openAsset = \(symbol: string\) =>/);
+  assert.match(researchLab, /setSelectedSymbol\(symbol\.toUpperCase\(\)\)/);
+  assert.match(researchLab, /onClick=\{\(\) => openAsset\(c\.asset\.ticker\)\}/);
+  assert.match(researchLab, /Ranking y oportunidades del mismo estudio/);
+});
+
+console.log(`UI responsiveness contracts: ${passed}/10 invariants passed.`);
