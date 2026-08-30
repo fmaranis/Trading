@@ -37,5 +37,6 @@ export * from './fundPortfolio';
 export * from './portfolioDecisionEngine';
 export * from './portfolioExecutionPlan';
 export * from './portfolioStateExecution';
+export * from './portfolioExecutionHistory';
 export * from './spanishTaxModel';
 export * from './taxAwareExecutionOverlay';
