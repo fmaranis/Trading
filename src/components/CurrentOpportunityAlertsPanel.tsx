@@ -72,7 +72,7 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
           : 'HOY: NO MOVER DINERO';
 
   const headlineDetail = hasBuys || hasSales || hasRotation
-    ? 'Estas son las operaciones que superan los filtros actuales. Lo demás es explicación o vigilancia, no otra recomendación paralela.'
+    ? 'Estas son las operaciones que superan los filtros actuales. Cada compra tiene un objetivo final y lo ya registrado en cartera se descuenta de ese objetivo.'
     : 'Ninguna compra, venta o rotación supera hoy todos los filtros. Mantener liquidez también es una decisión válida.';
 
   return <section className={`rounded-2xl border p-5 ${hasBuys || hasSales || hasRotation ? 'border-emerald-400/35 bg-emerald-500/5' : 'border-amber-500/20 bg-slate-900'}`}>
@@ -83,7 +83,7 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
           <h2 className={`mt-2 text-xl font-black sm:text-2xl ${hasBuys || hasSales || hasRotation ? 'text-emerald-100' : 'text-amber-100'}`}>{headline}</h2>
           <p className="mt-2 max-w-3xl text-xs text-slate-300">{headlineDetail}</p>
         </div>
-        <div className="rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-right"><div className="text-[9px] uppercase text-slate-500">Dinero nuevo disponible</div><div className="mt-1 font-mono text-lg font-black text-white">{availableCapital.toFixed(2)} €</div><div className="text-[9px] text-slate-500">Asignado hoy: {buyAmount.toFixed(2)} €</div></div>
+        <div className="rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-right"><div className="text-[9px] uppercase text-slate-500">Dinero nuevo disponible</div><div className="mt-1 font-mono text-lg font-black text-white">{availableCapital.toFixed(2)} €</div><div className="text-[9px] text-slate-500">Pendiente recomendado: {buyAmount.toFixed(2)} €</div></div>
       </div>
     </div>
 
@@ -95,12 +95,15 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
         const isin = resolveSecurityIsin(alert.ticker, candidate?.asset.isin);
         const inspectKey = candidate?.asset.instrumentType === 'MUTUAL_FUND' ? (isin ?? alert.ticker) : alert.ticker;
         return <article key={alert.assetId} className={`rounded-xl border p-4 ${levelClass(alert.level)}`}>
-          <div className="text-[9px] font-black uppercase opacity-70">#{index + 1} · COMPRAR AHORA · {levelLabel(alert.level)}</div>
-          <div className="mt-2 flex items-start justify-between gap-2"><div><div className="font-mono text-xl font-black">{alert.ticker}</div><div className="max-w-[260px] truncate text-[10px] opacity-70">{alert.name}</div>{isin && <div className="mt-1 font-mono text-[10px] font-bold text-cyan-200">ISIN {isin}</div>}</div>{alert.level === 'HIGH_CONVICTION' && <ShieldAlert className="h-5 w-5 shrink-0"/>}</div>
-          <div className="mt-3 rounded-lg border border-emerald-400/30 bg-slate-950/35 p-3"><div className="text-[9px] uppercase opacity-60">Importe propuesto</div><div className="mt-1 font-mono text-2xl font-black">{contribution.amountEur.toFixed(2)} €</div></div>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]"><span>Consenso <b>{alert.consensusScore >= 0 ? '+' : ''}{alert.consensusScore}</b></span><span>Favorables <b>{alert.favorableVotes}/5</b></span><span>Momentum 120d <b>{alert.momentum120Pct?.toFixed(1) ?? 'N/D'}%</b></span><span>vs cash <b>{alert.excessVsCashPctPoints != null ? `${alert.excessVsCashPctPoints >= 0 ? '+' : ''}${alert.excessVsCashPctPoints.toFixed(1)} pp` : 'N/D'}</b></span></div>
+          <button type="button" disabled={!onInspectAsset} onClick={() => onInspectAsset?.(inspectKey)} className="block w-full rounded-lg text-left disabled:cursor-default">
+            <div className="text-[9px] font-black uppercase opacity-70">#{index + 1} · COMPRAR AHORA · {levelLabel(alert.level)}</div>
+            <div className="mt-2 flex items-start justify-between gap-2"><div><div className="font-mono text-xl font-black">{alert.ticker}</div><div className="max-w-[260px] truncate text-[10px] opacity-70">{alert.name}</div>{isin && <div className="mt-1 font-mono text-[10px] font-bold text-cyan-200">ISIN {isin}</div>}</div>{alert.level === 'HIGH_CONVICTION' && <ShieldAlert className="h-5 w-5 shrink-0"/>}</div>
+            <div className="mt-3 rounded-lg border border-emerald-400/30 bg-slate-950/35 p-3"><div className="text-[9px] uppercase opacity-60">Pendiente para completar el objetivo</div><div className="mt-1 font-mono text-2xl font-black">{contribution.amountEur.toFixed(2)} €</div>{contribution.targetAssetValueEur != null && <div className="mt-1 text-[9px] opacity-70">Objetivo total {contribution.targetAssetValueEur.toFixed(2)} € · ya en cartera {(contribution.currentAssetValueEur ?? 0).toFixed(2)} €</div>}</div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]"><span>Consenso <b>{alert.consensusScore >= 0 ? '+' : ''}{alert.consensusScore}</b></span><span>Favorables <b>{alert.favorableVotes}/5</b></span><span>Momentum 120d <b>{alert.momentum120Pct?.toFixed(1) ?? 'N/D'}%</b></span><span>vs cash <b>{alert.excessVsCashPctPoints != null ? `${alert.excessVsCashPctPoints >= 0 ? '+' : ''}${alert.excessVsCashPctPoints.toFixed(1)} pp` : 'N/D'}</b></span></div>
+            {onInspectAsset && <div className="mt-3 flex items-center gap-1 text-[10px] font-bold text-cyan-200"><BarChart3 className="h-3.5 w-3.5"/>Toca esta recomendación para abrir ficha, código/ISIN, gráfica y señales →</div>}
+          </button>
           <details className="mt-3 text-[10px]"><summary className="cursor-pointer font-bold opacity-80">Por qué comprar</summary><div className="mt-2 space-y-1 opacity-70">{alert.reasons.map(reason => <div key={reason}>• {reason}</div>)}<div>• {contribution.reason}</div></div></details>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">{onInspectAsset && <button type="button" onClick={() => onInspectAsset(inspectKey)} className="flex w-full items-center justify-center gap-1 rounded-lg border border-cyan-400/30 bg-slate-950/40 px-3 py-2 text-[10px] font-bold text-cyan-100"><BarChart3 className="h-3.5 w-3.5"/>Código, gráfica y señales</button>}<a href="#register-real-purchase" className="flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100"><CheckCircle2 className="h-3.5 w-3.5"/>Registrar compra</a></div>
+          <a href="#register-real-purchase" className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100"><CheckCircle2 className="h-3.5 w-3.5"/>Registrar compra ejecutada</a>
         </article>;
       })}</div>
     </div>}
@@ -111,11 +114,13 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
         const pct = position.suggestedReductionPct ?? (position.action === 'EXIT' ? 100 : 50);
         const estimatedAmount = position.currentValueEur == null ? null : position.currentValueEur * pct / 100;
         return <article key={position.key} className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-100">
-          <div className="text-[9px] font-black uppercase">{position.action === 'EXIT' ? 'SALIR DE LA POSICIÓN' : `REDUCIR APROX. ${pct}%`}</div>
-          <div className="mt-1 font-mono text-lg font-black">{position.tickerOrIsin}</div><div className="text-[10px] opacity-70">{position.label}</div>
-          {estimatedAmount != null && <div className="mt-3 font-mono text-xl font-black">≈ {estimatedAmount.toFixed(2)} €</div>}
-          <div className="mt-2 text-[10px] text-amber-100/80">{position.reason}</div>
-          {onInspectAsset && <button type="button" onClick={() => onInspectAsset(position.tickerOrIsin)} className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-amber-400/30 bg-slate-950/30 px-3 py-2 text-[10px] font-bold"><BarChart3 className="h-3.5 w-3.5"/>Ver código, gráfica y señales</button>}
+          <button type="button" disabled={!onInspectAsset} onClick={() => onInspectAsset?.(position.tickerOrIsin)} className="block w-full text-left disabled:cursor-default">
+            <div className="text-[9px] font-black uppercase">{position.action === 'EXIT' ? 'SALIR DE LA POSICIÓN' : `REDUCIR APROX. ${pct}%`}</div>
+            <div className="mt-1 font-mono text-lg font-black">{position.tickerOrIsin}</div><div className="text-[10px] opacity-70">{position.label}</div>
+            {estimatedAmount != null && <div className="mt-3 font-mono text-xl font-black">≈ {estimatedAmount.toFixed(2)} €</div>}
+            <div className="mt-2 text-[10px] text-amber-100/80">{position.reason}</div>
+            {onInspectAsset && <div className="mt-3 flex items-center gap-1 text-[10px] font-bold"><BarChart3 className="h-3.5 w-3.5"/>Abrir ficha, gráfica y señales →</div>}
+          </button>
         </article>;
       })}</div>
     </div>}
@@ -131,7 +136,7 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
 
     {unfundedAlerts.length > 0 && <details className="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
       <summary className="cursor-pointer text-xs font-bold text-slate-300">Otras oportunidades válidas que hoy no reciben dinero ({unfundedAlerts.length})</summary>
-      <div className="mt-3 grid gap-2 md:grid-cols-2">{unfundedAlerts.slice(0, 6).map(alert => <div key={alert.assetId} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-[10px] text-slate-300"><b className="font-mono text-cyan-200">{alert.ticker}</b> · {levelLabel(alert.level)}<div className="mt-1 text-slate-500">Cumple el gate de oportunidad, pero la cartera no le asigna capital hoy por prioridad relativa, riesgo o concentración.</div>{onInspectAsset && <button type="button" onClick={() => onInspectAsset(alert.ticker)} className="mt-2 text-cyan-300 underline underline-offset-2">Ver estudio</button>}</div>)}</div>
+      <div className="mt-3 grid gap-2 md:grid-cols-2">{unfundedAlerts.slice(0, 6).map(alert => <div key={alert.assetId} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-[10px] text-slate-300"><b className="font-mono text-cyan-200">{alert.ticker}</b> · {levelLabel(alert.level)}<div className="mt-1 text-slate-500">Cumple el gate de oportunidad, pero no tiene un importe pendiente ejecutable con el objetivo actual, la cartera existente y los límites de riesgo/concentración.</div>{onInspectAsset && <button type="button" onClick={() => onInspectAsset(alert.ticker)} className="mt-2 text-cyan-300 underline underline-offset-2">Ver estudio</button>}</div>)}</div>
     </details>}
 
     <details className="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-3"><summary className="cursor-pointer text-xs font-bold text-slate-300">Alarmas y seguimiento automático</summary><div className="mt-3"><AlertAutomationStatusPanel /></div></details>
