@@ -45,6 +45,10 @@ assert.equal(medium.recommendedMethod, 'RISK_PARITY_ERC');
 assert.equal(medium.evidence, 'REAL_ONLY');
 assert.ok(Math.abs(medium.assets.reduce((s, a) => s + a.amountEur, 0) + medium.cashAmountEur - 100) < 0.02);
 assert.ok(medium.cashWeight >= 0.12);
+assert.equal(medium.confidence, 'HIGH');
+assert.ok(medium.confidenceScore >= 80);
+assert.equal(medium.dataQualityDiagnostics?.minimumAssetBars, 320);
+assert.equal(medium.dataQualityDiagnostics?.commonCoveragePct, 100);
 
 const low = InvestmentDecisionEngine.decide(dataset(), { capitalEur: 1000, riskProfile: 'LOW', horizonYears: 5 }, current);
 assert.equal(low.recommendedMethod, 'INVERSE_VOLATILITY');
@@ -58,10 +62,11 @@ assert.ok(high.assets.every(a => a.amountEur >= 0));
 
 const stale = InvestmentDecisionEngine.decide(dataset(), { capitalEur: 100, riskProfile: 'MEDIUM', horizonYears: 3 }, new Date('2026-01-01T00:00:00Z'));
 assert.equal(stale.confidence, 'LOW');
-assert.ok(stale.warnings.some(x => x.includes('antigüedad')));
+assert.ok(stale.dataQualityDiagnostics && stale.dataQualityDiagnostics.marketSessionAge > 10);
+assert.ok(stale.warnings.some(x => x.includes('sesiones hábiles')));
 
 assert.throws(() => InvestmentDecisionEngine.decide(dataset('SYNTHETIC'), { capitalEur: 100, riskProfile: 'MEDIUM', horizonYears: 3 }, current));
 assert.throws(() => InvestmentDecisionEngine.decide(dataset('REAL', 'USD'), { capitalEur: 100, riskProfile: 'MEDIUM', horizonYears: 3 }, current));
 assert.throws(() => InvestmentDecisionEngine.decide(dataset(), { capitalEur: 0, riskProfile: 'MEDIUM', horizonYears: 3 }, current));
 
-console.log('Investment Decision: 7/7 invariants passed.');
+console.log('Investment Decision: 11/11 invariants passed.');
