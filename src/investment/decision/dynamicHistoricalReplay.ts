@@ -4,6 +4,7 @@ import type { AssetScanCandidate, AssetUniverseScanResult } from './assetUnivers
 import { executionPolicyForCapital } from './adaptiveExecutionPolicy';
 import { assessAgainstCashBenchmark, DEFAULT_CASH_BENCHMARK_ANNUAL_PCT } from './cashBenchmark';
 import { brokerCommission } from './costAwareExecutionPolicy';
+import type { EntryTimingSetup, EntryTimingState } from './entryTiming';
 import { HistoricalDecisionReplayEngine } from './historicalDecisionReplay';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
 import { PortfolioCandidateGate } from './portfolioCandidateGate';
@@ -19,6 +20,7 @@ import type { UserPortfolioState } from './userPortfolio';
 export type DynamicReplayFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY';
 export type DynamicReplaySignalAction = 'BUY' | 'ADD' | 'HOLD' | 'AVOID' | 'REDUCE' | 'EXIT';
 export type DynamicReplayEventType = 'BUY' | 'ADD' | 'REDUCE' | 'EXIT' | 'TRANSFER';
+export type DynamicReplayDeploymentSession = 1 | 5 | 20 | 60;
 
 export interface DynamicReplaySignal {
   id: string;
@@ -35,6 +37,10 @@ export interface DynamicReplaySignal {
   unfavorableVotes: number | null;
   structuralDowntrend: boolean;
   buyTheDipCandidate: boolean;
+  timingState: EntryTimingState | null;
+  timingSetup: EntryTimingSetup | null;
+  timingScore: number | null;
+  suggestedInitialFraction: number | null;
   executed: boolean;
   unitsDelta: number;
   notionalEur: number;
@@ -71,6 +77,21 @@ export interface DynamicReplayEquityPoint {
   method: string;
 }
 
+export interface DynamicReplayDeploymentHorizon {
+  sessionsFromStart: DynamicReplayDeploymentSession;
+  date: string | null;
+  netCommittedEur: number | null;
+  netCommittedPctOfInitialCapital: number | null;
+  investedMarketValueEur: number | null;
+  investedPctOfEquity: number | null;
+}
+
+export interface DynamicReplayTimingStateCounts {
+  WAIT: number;
+  ENTRY_READY: number;
+  ENTRY_STRONG: number;
+}
+
 export interface DynamicHistoricalReplayResult {
   requestedStartDate: string;
   startDate: string;
@@ -94,6 +115,8 @@ export interface DynamicHistoricalReplayResult {
   executedAdds: number;
   executedReductions: number;
   executedExits: number;
+  timingStateCounts: DynamicReplayTimingStateCounts;
+  deploymentHorizons: DynamicReplayDeploymentHorizon[];
   totalFeesEur: number;
   totalEstimatedTaxEur: number;
   totalTransferredEur: number;
@@ -143,6 +166,7 @@ interface DecisionState {
 }
 
 const DEFAULT_TAX_SETTINGS: SpanishTaxSettings = { priorSavingsTaxableBaseEur: 0, contextConfirmed: false };
+const DEPLOYMENT_SESSIONS: readonly DynamicReplayDeploymentSession[] = [1, 5, 20, 60];
 
 function isoDate(timestamp: string): string { return timestamp.slice(0, 10); }
 function clamp(x: number, min: number, max: number): number { return Math.min(max, Math.max(min, x)); }
@@ -515,6 +539,45 @@ function buildDailyEquityPath(input: {
   }
   return path;
 }
+function buildDeploymentHorizons(input: {
+  path: DynamicReplayEquityPoint[];
+  signals: DynamicReplaySignal[];
+  initialCapitalEur: number;
+}): DynamicReplayDeploymentHorizon[] {
+  return DEPLOYMENT_SESSIONS.map(sessionsFromStart => {
+    const point = input.path[sessionsFromStart] ?? null;
+    if (!point) {
+      return {
+        sessionsFromStart,
+        date: null,
+        netCommittedEur: null,
+        netCommittedPctOfInitialCapital: null,
+        investedMarketValueEur: null,
+        investedPctOfEquity: null
+      };
+    }
+    let netCommittedEur = 0;
+    for (const signal of input.signals) {
+      if (!signal.executed || !signal.executionDate || signal.executionDate > point.date) continue;
+      if (signal.unitsDelta > 0) netCommittedEur += signal.notionalEur + signal.feeEur;
+      else if (signal.unitsDelta < 0) netCommittedEur -= Math.max(0, signal.notionalEur - signal.feeEur - signal.estimatedTaxEur);
+    }
+    netCommittedEur = Math.max(0, netCommittedEur);
+    return {
+      sessionsFromStart,
+      date: point.date,
+      netCommittedEur,
+      netCommittedPctOfInitialCapital: input.initialCapitalEur > 0 ? netCommittedEur / input.initialCapitalEur * 100 : null,
+      investedMarketValueEur: point.investedEur,
+      investedPctOfEquity: point.equityEur > 0 ? point.investedEur / point.equityEur * 100 : null
+    };
+  });
+}
+function timingCounts(signals: DynamicReplaySignal[]): DynamicReplayTimingStateCounts {
+  const counts: DynamicReplayTimingStateCounts = { WAIT: 0, ENTRY_READY: 0, ENTRY_STRONG: 0 };
+  for (const signal of signals) if (signal.timingState) counts[signal.timingState] += 1;
+  return counts;
+}
 
 export class DynamicHistoricalReplayEngine {
   static run(input: {
@@ -568,6 +631,7 @@ export class DynamicHistoricalReplayEngine {
       const current = portfolioValue(input.dataset, holdings, cashEur, decisionDate);
       const dateScan = buildHistoricalFullScan({ dataset: input.dataset, catalog: input.catalog, date: decisionDate, minimumBars });
       const dateGate = PortfolioCandidateGate.apply(dateScan, cashBenchmarkAnnualPct, 12);
+      const gateEntryByAsset = new Map(dateGate.entries.map(entry => [entry.assetId, entry]));
       const liveDecision = dateGate.scan.selected.length > 0
         ? InvestmentDecisionEngine.decide(dateGate.scan.dataset, { capitalEur: Math.max(1, current.equityEur), riskProfile: input.riskProfile, horizonYears: input.horizonYears }, new Date(`${decisionDate}T23:59:59Z`))
         : historicalCashOnlyDecision(dateScan, Math.max(1, current.equityEur), input.riskProfile, input.horizonYears);
@@ -594,6 +658,7 @@ export class DynamicHistoricalReplayEngine {
         const currentWeight = current.equityEur > 0 ? heldValue / current.equityEur : 0;
         const targetValue = contribution.targetAssetValueEur ?? heldValue + contribution.amountEur;
         const assessment = ensureAssessment(contribution.assetId);
+        const gateEntry = gateEntryByAsset.get(contribution.assetId);
         plannedByAsset.set(contribution.assetId, {
           assessment,
           signal: {
@@ -611,6 +676,10 @@ export class DynamicHistoricalReplayEngine {
             unfavorableVotes: assessment?.unfavorableVotes ?? null,
             structuralDowntrend: assessment?.structuralDowntrend ?? false,
             buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
+            timingState: gateEntry?.timingState ?? contribution.timingState ?? null,
+            timingSetup: gateEntry?.timingSetup ?? null,
+            timingScore: gateEntry?.timingScore ?? null,
+            suggestedInitialFraction: gateEntry?.suggestedInitialFraction ?? contribution.suggestedInitialFraction ?? null,
             executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
             reason: contribution.reason
           }
@@ -636,32 +705,52 @@ export class DynamicHistoricalReplayEngine {
             recommendedAmountEur: recommendedAmount,
             consensusScore: assessment?.consensusScore ?? null, favorableVotes: assessment?.favorableVotes ?? null, unfavorableVotes: assessment?.unfavorableVotes ?? null,
             structuralDowntrend: assessment?.structuralDowntrend ?? false, buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
+            timingState: null, timingSetup: null, timingScore: null, suggestedInitialFraction: null,
             executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
             reason: position.reason
           }
         });
       }
 
-      // Keep a small non-operational trace so the chosen start date can also show “no comprar/mantener”.
-      const traceIds = new Set<string>([...dateGate.scan.selected.slice(0, 5).map(candidate => candidate.asset.assetId), ...holdings.keys()]);
+      // Keep non-operational traces for holdings, selected candidates and every asset that reached Entry Timing.
+      // This makes WAIT/READY/STRONG measurable without inventing a second replay path.
+      const timingTraceIds = dateGate.entries.filter(entry => entry.timingState != null).map(entry => entry.assetId);
+      const traceIds = new Set<string>([
+        ...timingTraceIds,
+        ...dateGate.scan.selected.slice(0, 5).map(candidate => candidate.asset.assetId),
+        ...holdings.keys()
+      ]);
       for (const assetId of traceIds) {
         if (plannedByAsset.has(assetId)) continue;
         const item = catalogItem(input.catalog, assetId);
         if (!item) continue;
         const assessment = ensureAssessment(assetId);
         const holding = holdings.get(assetId);
+        const gateEntry = gateEntryByAsset.get(assetId);
         const heldValue = holding ? holdingValue(input.dataset, holding, decisionDate) : 0;
         const currentWeight = current.equityEur > 0 ? heldValue / current.equityEur : 0;
+        const traceReason = holding
+          ? 'La cadena operativa actual no exige mover esta posición en esta fecha.'
+          : gateEntry?.timingState === 'WAIT'
+            ? `Entrada no financiada: Entry Timing = WAIT (${gateEntry.timingSetup ?? 'NONE'}, score ${gateEntry.timingScore ?? 'N/D'}).`
+            : 'Candidato sin una compra financiada por la cadena operativa actual en esta fecha.';
         plannedByAsset.set(assetId, {
           assessment,
           signal: {
             id: `${decisionDate}_${assetId}_${holding ? 'HOLD' : 'AVOID'}`,
             signalDate: decisionDate, executionDate: null, assetId, ticker: item.ticker,
             action: holding ? 'HOLD' : 'AVOID', targetWeight: currentWeight, currentWeight, recommendedAmountEur: 0,
-            consensusScore: assessment?.consensusScore ?? null, favorableVotes: assessment?.favorableVotes ?? null, unfavorableVotes: assessment?.unfavorableVotes ?? null,
-            structuralDowntrend: assessment?.structuralDowntrend ?? false, buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
+            consensusScore: assessment?.consensusScore ?? gateEntry?.consensusScore ?? null,
+            favorableVotes: assessment?.favorableVotes ?? gateEntry?.favorableVotes ?? null,
+            unfavorableVotes: assessment?.unfavorableVotes ?? gateEntry?.unfavorableVotes ?? null,
+            structuralDowntrend: assessment?.structuralDowntrend ?? false,
+            buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
+            timingState: gateEntry?.timingState ?? null,
+            timingSetup: gateEntry?.timingSetup ?? null,
+            timingScore: gateEntry?.timingScore ?? null,
+            suggestedInitialFraction: gateEntry?.suggestedInitialFraction ?? null,
             executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
-            reason: holding ? 'La cadena operativa actual no exige mover esta posición en esta fecha.' : 'Candidato sin una compra financiada por la cadena operativa actual en esta fecha.'
+            reason: traceReason
           }
         });
       }
@@ -779,6 +868,8 @@ export class DynamicHistoricalReplayEngine {
     const staticReturn = staticResult?.totalReturnPct ?? null;
     const material = signals.filter(signal => ['BUY', 'ADD', 'REDUCE', 'EXIT'].includes(signal.action));
     const equityPath = buildDailyEquityPath({ dataset: input.dataset, signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: firstDecisionDate, endDate, decisionStates });
+    const timingStateCounts = timingCounts(signals);
+    const deploymentHorizons = buildDeploymentHorizons({ path: equityPath, signals, initialCapitalEur: input.initialCapitalEur });
 
     return {
       requestedStartDate: input.startDate, startDate: firstDecisionDate, endDate, frequency, initialCapitalEur: input.initialCapitalEur,
@@ -792,6 +883,7 @@ export class DynamicHistoricalReplayEngine {
       executedAdds: signals.filter(signal => signal.action === 'ADD' && signal.executed).length,
       executedReductions: signals.filter(signal => signal.action === 'REDUCE' && signal.executed).length,
       executedExits: signals.filter(signal => signal.action === 'EXIT' && signal.executed).length,
+      timingStateCounts, deploymentHorizons,
       totalFeesEur, totalEstimatedTaxEur, totalTransferredEur, cashInterestEur,
       taxMethod: taxSettings.contextConfirmed ? 'CONFIGURED_PROGRESSIVE' : 'CONSERVATIVE_MAX_RATE',
       operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN',
@@ -801,6 +893,8 @@ export class DynamicHistoricalReplayEngine {
         'Cada decisión usa exclusivamente datos disponibles hasta esa fecha; nunca se eligen compras o ventas mirando el resultado futuro.',
         'La fecha operativa de señal es siempre la fecha de decisión solicitada; el asOfDate de los datos puede ser anterior sin desplazar la señal fuera de la ventana del replay.',
         'DAILY revisa cada sesión disponible; WEEKLY/MONTHLY/QUARTERLY reducen la frecuencia de decisión. La ejecución siempre ocurre después de la señal.',
+        'Las señales conservan timingState, timingSetup, timingScore y suggestedInitialFraction; WAIT queda auditado como NO COMPRAR y READY/STRONG permanecen visibles aunque el candidato no reciba capital.',
+        'deploymentHorizons mide 1/5/20/60 sesiones transcurridas desde la fecha inicial: capital neto comprometido por flujos ejecutados y valor de mercado invertido se informan por separado.',
         'Una compra ejecutada cuenta contra el objetivo estable del activo en las decisiones posteriores; el replay no redistribuye desde cero el efectivo restante después de cada operación.',
         'ETFs usan títulos enteros, mínimo/drag de comisión de la política adaptativa y comisión MyInvestor modelada; fondos usan unidades fraccionarias.',
         'La salud histórica de posiciones del universo usa la misma función pura classifyPositionHealth. Activos arbitrarios fuera del universo actual no se introducen porque reconstruir su monitor externo histórico exigiría una fuente no contenida en el dataset causal.',
