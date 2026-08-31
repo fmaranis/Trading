@@ -146,6 +146,7 @@ interface Holding {
 interface PlannedSignal {
   signal: DynamicReplaySignal;
   assessment: StrategyConsensusAssessment | null;
+  rotationPairAssetId?: string | null;
 }
 
 interface ExecutedSale {
@@ -649,6 +650,10 @@ export class DynamicHistoricalReplayEngine {
       });
 
       const plannedByAsset = new Map<string, PlannedSignal>();
+      const rotationIncumbentByChallenger = new Map<string, string>();
+      for (const position of portfolioDecision.existingPositions) {
+        if (position.assetId && position.rotationChallengerAssetId) rotationIncumbentByChallenger.set(position.rotationChallengerAssetId, position.assetId);
+      }
       const ensureAssessment = (assetId: string) => StrategyConsensusEngine.assess(dateGate.scan, assetId, cashBenchmarkAnnualPct);
       for (const contribution of portfolioDecision.contributions) {
         const item = catalogItem(input.catalog, contribution.assetId);
@@ -661,6 +666,7 @@ export class DynamicHistoricalReplayEngine {
         const gateEntry = gateEntryByAsset.get(contribution.assetId);
         plannedByAsset.set(contribution.assetId, {
           assessment,
+          rotationPairAssetId: rotationIncumbentByChallenger.get(contribution.assetId) ?? null,
           signal: {
             id: `${decisionDate}_${contribution.assetId}_${holding ? 'ADD' : 'BUY'}`,
             signalDate: decisionDate,
@@ -698,6 +704,7 @@ export class DynamicHistoricalReplayEngine {
         const recommendedAmount = heldValue * reductionPct / 100;
         plannedByAsset.set(holding.assetId, {
           assessment,
+          rotationPairAssetId: position.rotationChallengerAssetId ?? null,
           signal: {
             id: `${decisionDate}_${holding.assetId}_${position.action}`,
             signalDate: decisionDate, executionDate: null, assetId: holding.assetId, ticker: item.ticker,
@@ -736,6 +743,7 @@ export class DynamicHistoricalReplayEngine {
             : 'Candidato sin una compra financiada por la cadena operativa actual en esta fecha.';
         plannedByAsset.set(assetId, {
           assessment,
+          rotationPairAssetId: null,
           signal: {
             id: `${decisionDate}_${assetId}_${holding ? 'HOLD' : 'AVOID'}`,
             signalDate: decisionDate, executionDate: null, assetId, ticker: item.ticker,
@@ -766,8 +774,69 @@ export class DynamicHistoricalReplayEngine {
       }
 
       if (commonExecutionDate) {
+        const blockedRotationSellIds = new Set<string>();
+        const blockedRotationBuyIds = new Set<string>();
+        const rotationSales = tradePlans.filter(plan => (plan.signal.action === 'REDUCE' || plan.signal.action === 'EXIT') && plan.rotationPairAssetId);
+        for (const salePlan of rotationSales) {
+          const challengerAssetId = salePlan.rotationPairAssetId!;
+          const challengerPlan = tradePlans.find(plan =>
+            (plan.signal.action === 'BUY' || plan.signal.action === 'ADD')
+            && plan.signal.assetId === challengerAssetId
+            && plan.rotationPairAssetId === salePlan.signal.assetId
+          );
+          let executablePair = Boolean(challengerPlan);
+          const saleHolding = holdings.get(salePlan.signal.assetId);
+          const saleBar = executionBarOnOrAfter(input.dataset, salePlan.signal.assetId, commonExecutionDate);
+          if (!saleHolding || !saleBar || !(saleBar.open > 0)) executablePair = false;
+
+          let availableAfterSale = cashEur;
+          if (executablePair && saleHolding && saleBar) {
+            let unitsToSell = salePlan.signal.action === 'EXIT'
+              ? saleHolding.units
+              : Math.min(saleHolding.units, salePlan.signal.recommendedAmountEur / saleBar.open);
+            if (saleHolding.instrumentType === 'ETF_ETC') unitsToSell = Math.floor(unitsToSell + 1e-9);
+            if (!(unitsToSell > 1e-12)) executablePair = false;
+            else {
+              const gross = unitsToSell * saleBar.open;
+              const fee = saleHolding.instrumentType === 'ETF_ETC' ? brokerCommission(gross) : 0;
+              if (saleHolding.instrumentType === 'ETF_ETC' && !orderEconomicallyExecutable(gross, current.equityEur)) executablePair = false;
+              const basisPreview = saleHolding.units > 0 ? basisOf(saleHolding) * (unitsToSell / saleHolding.units) : 0;
+              const conservativeTaxReserve = Math.max(0, gross - fee - basisPreview) * 0.30;
+              availableAfterSale += Math.max(0, gross - fee - conservativeTaxReserve);
+            }
+          }
+
+          if (executablePair && challengerPlan) {
+            const buyBar = executionBarOnOrAfter(input.dataset, challengerPlan.signal.assetId, commonExecutionDate);
+            const type = instrumentType(input.catalog, challengerPlan.signal.assetId);
+            if (!buyBar || !(buyBar.open > 0)) executablePair = false;
+            else if (type === 'MUTUAL_FUND') {
+              const desiredSpend = Math.min(challengerPlan.signal.recommendedAmountEur, availableAfterSale);
+              executablePair = desiredSpend > 1e-9;
+            } else {
+              const desiredSpend = Math.min(challengerPlan.signal.recommendedAmountEur, availableAfterSale);
+              let unitsToBuy = Math.floor(desiredSpend / buyBar.open + 1e-9);
+              let fee = unitsToBuy > 0 ? brokerCommission(unitsToBuy * buyBar.open) : 0;
+              while (unitsToBuy > 0 && unitsToBuy * buyBar.open + fee > availableAfterSale + 1e-9) {
+                unitsToBuy--;
+                fee = unitsToBuy > 0 ? brokerCommission(unitsToBuy * buyBar.open) : 0;
+              }
+              executablePair = unitsToBuy > 0 && orderEconomicallyExecutable(unitsToBuy * buyBar.open, current.equityEur);
+            }
+          }
+
+          if (!executablePair) {
+            blockedRotationSellIds.add(salePlan.signal.assetId);
+            blockedRotationBuyIds.add(challengerAssetId);
+            const auditSuffix = ' Ejecución bloqueada: la rotación 1:1 es atómica y el challenger no era realmente ejecutable en la misma fecha; se conserva el incumbent y no se abre la plaza.';
+            salePlan.signal.reason += auditSuffix;
+            if (challengerPlan) challengerPlan.signal.reason += auditSuffix;
+          }
+        }
+
         const executedSales: ExecutedSale[] = [];
         for (const plan of tradePlans.filter(plan => plan.signal.action === 'REDUCE' || plan.signal.action === 'EXIT')) {
+          if (blockedRotationSellIds.has(plan.signal.assetId)) continue;
           const holding = holdings.get(plan.signal.assetId);
           const bar = executionBarOnOrAfter(input.dataset, plan.signal.assetId, commonExecutionDate);
           if (!holding || !bar || !(bar.open > 0)) continue;
@@ -789,12 +858,14 @@ export class DynamicHistoricalReplayEngine {
         }
 
         const buyPlans = tradePlans.filter(plan => plan.signal.action === 'BUY' || plan.signal.action === 'ADD').sort((a, b) => {
+          const rotationRank = Number(Boolean(b.rotationPairAssetId)) - Number(Boolean(a.rotationPairAssetId));
+          if (rotationRank) return rotationRank;
           const typeA = instrumentType(input.catalog, a.signal.assetId), typeB = instrumentType(input.catalog, b.signal.assetId);
           if (typeA !== typeB) return typeA === 'MUTUAL_FUND' ? -1 : 1;
           return b.signal.recommendedAmountEur - a.signal.recommendedAmountEur;
         });
         const fundSales = executedSales.filter(sale => sale.holdingType === 'MUTUAL_FUND');
-        const desiredFundBuyEur = buyPlans.filter(plan => instrumentType(input.catalog, plan.signal.assetId) === 'MUTUAL_FUND').reduce((sum, plan) => sum + plan.signal.recommendedAmountEur, 0);
+        const desiredFundBuyEur = buyPlans.filter(plan => !blockedRotationBuyIds.has(plan.signal.assetId) && instrumentType(input.catalog, plan.signal.assetId) === 'MUTUAL_FUND').reduce((sum, plan) => sum + plan.signal.recommendedAmountEur, 0);
         let remainingTransferPotential = Math.min(fundSales.reduce((sum, sale) => sum + sale.grossEur, 0), desiredFundBuyEur);
         for (const sale of fundSales) {
           const paired = Math.min(sale.grossEur, remainingTransferPotential);
@@ -812,6 +883,7 @@ export class DynamicHistoricalReplayEngine {
         }
 
         for (const plan of buyPlans) {
+          if (blockedRotationBuyIds.has(plan.signal.assetId)) continue;
           const bar = executionBarOnOrAfter(input.dataset, plan.signal.assetId, commonExecutionDate);
           if (!bar || !(bar.open > 0) || cashEur <= 0) continue;
           const type = instrumentType(input.catalog, plan.signal.assetId);
@@ -897,6 +969,7 @@ export class DynamicHistoricalReplayEngine {
         'deploymentHorizons mide 1/5/20/60 sesiones transcurridas desde la fecha inicial: capital neto comprometido por flujos ejecutados y valor de mercado invertido se informan por separado.',
         'Una compra ejecutada cuenta contra el objetivo estable del activo en las decisiones posteriores; el replay no redistribuye desde cero el efectivo restante después de cada operación.',
         'ETFs usan títulos enteros, mínimo/drag de comisión de la política adaptativa y comisión MyInvestor modelada; fondos usan unidades fraccionarias.',
+        'Las rotaciones competitivas 1:1 son atómicas en ejecución: si el challenger no puede comprarse realmente en la fecha común de ejecución, no se vende el incumbent ni se abre una plaza ficticia.',
         'La salud histórica de posiciones del universo usa la misma función pura classifyPositionHealth. Activos arbitrarios fuera del universo actual no se introducen porque reconstruir su monitor externo histórico exigiría una fuente no contenida en el dataset causal.',
         'Fondo→fondo se empareja como traspaso fiscalmente diferido cuando coincide en el mismo cambio. La parte no diferida soporta la reserva fiscal estimada.',
         taxSettings.contextConfirmed ? 'La fiscalidad usa la escala española del ahorro y la base previa configurada.' : 'El contexto fiscal anual no está confirmado: las plusvalías imponibles reservan conservadoramente el 30%.',
