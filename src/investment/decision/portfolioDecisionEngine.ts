@@ -2,6 +2,7 @@ import type { AssetUniverseCategory, AssetUniverseItem, InvestmentInstrumentType
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import { executionPolicyForCapital } from './adaptiveExecutionPolicy';
 import { CashBenchmarkService } from './cashBenchmark';
+import { brokerCommission } from './costAwareExecutionPolicy';
 import { CurrentOpportunityAlertEngine, type CurrentOpportunityAlert } from './currentOpportunityAlerts';
 import type { InvestmentDecisionResult } from './types';
 import type { FundPosition } from './fundPortfolio';
@@ -29,6 +30,7 @@ export interface PortfolioExposureLine {
 
 export interface PortfolioPositionDecision {
   id: string;
+  assetId: string | null;
   label: string;
   instrumentType: InvestmentInstrumentType;
   category: AssetUniverseCategory | 'UNKNOWN';
@@ -37,7 +39,13 @@ export interface PortfolioPositionDecision {
   reason: string;
   suggestedReductionPct?: number | null;
   healthSource?: PortfolioPositionHealthSnapshot['source'] | null;
+  relativeSelectionScore?: number | null;
+  rotationChallengerAssetId?: string | null;
+  rotationChallengerTicker?: string | null;
+  rotationAdvantageScore?: number | null;
 }
+
+export type ContributionPositionStage = 'STARTER' | 'BUILD' | 'ROTATION_ENTRY';
 
 export interface ContributionRecommendation {
   category: AssetUniverseCategory;
@@ -54,6 +62,8 @@ export interface ContributionRecommendation {
   executableTargetAssetValueEur?: number;
   timingState?: CurrentOpportunityAlert['timingState'];
   suggestedInitialFraction?: number;
+  positionStage?: ContributionPositionStage;
+  portfolioShareCapPct?: number;
   reason: string;
 }
 
@@ -64,6 +74,10 @@ export interface PortfolioDecisionResult {
   totalPlannedCapitalEur: number;
   targetCashEur: number;
   deployableToAssetsEur: number;
+  plannedRotationProceedsEur: number;
+  maxPortfolioPositions: number;
+  occupiedPortfolioPositions: number;
+  availablePortfolioSlots: number;
   recommendedNewInvestmentEur: number;
   residualPlannedCashEur: number;
   exposures: PortfolioExposureLine[];
@@ -114,7 +128,25 @@ function opportunityPriority(alert: CurrentOpportunityAlert): number {
 }
 
 function maxOpportunityPositions(risk: InvestmentDecisionResult['riskProfile']): number {
-  return risk === 'LOW' ? 3 : risk === 'HIGH' ? 5 : 4;
+  return risk === 'LOW' ? 8 : risk === 'HIGH' ? 16 : 12;
+}
+
+function maxPortfolioPositionsForRisk(risk: InvestmentDecisionResult['riskProfile']): number {
+  return risk === 'LOW' ? 8 : risk === 'HIGH' ? 16 : 12;
+}
+
+function maxNewPositionsPerDecision(risk: InvestmentDecisionResult['riskProfile']): number {
+  return risk === 'LOW' ? 1 : risk === 'HIGH' ? 3 : 2;
+}
+
+function starterPortfolioShare(risk: InvestmentDecisionResult['riskProfile'], timingState: CurrentOpportunityAlert['timingState']): number {
+  if (risk === 'LOW') return timingState === 'ENTRY_READY' ? 0.02 : 0.035;
+  if (risk === 'HIGH') return timingState === 'ENTRY_READY' ? 0.04 : 0.07;
+  return timingState === 'ENTRY_READY' ? 0.03 : 0.05;
+}
+
+function buildPortfolioShare(risk: InvestmentDecisionResult['riskProfile']): number {
+  return risk === 'LOW' ? 0.06 : risk === 'HIGH' ? 0.12 : 0.08;
 }
 
 function maxAssetShare(risk: InvestmentDecisionResult['riskProfile'], level: CurrentOpportunityAlert['level']): number {
@@ -125,6 +157,22 @@ function maxAssetShare(risk: InvestmentDecisionResult['riskProfile'], level: Cur
 
 function maxCategoryShare(risk: InvestmentDecisionResult['riskProfile']): number {
   return risk === 'LOW' ? 0.50 : risk === 'HIGH' ? 0.70 : 0.60;
+}
+
+function rotationPriorityMargin(risk: InvestmentDecisionResult['riskProfile']): number {
+  return risk === 'LOW' ? 15 : risk === 'HIGH' ? 10 : 12;
+}
+
+function incumbentSelectionScore(candidate: AssetUniverseScanResult['candidates'][number] | undefined, health: PortfolioPositionHealthSnapshot | undefined): number | null {
+  if (!candidate || candidate.score == null || !Number.isFinite(candidate.score)) return null;
+  const consensus = Number.isFinite(health?.consensusScore) ? Number(health?.consensusScore) : 0;
+  const excess = Number.isFinite(health?.excessVsCashPctPoints) ? Number(health?.excessVsCashPctPoints) : 0;
+  return candidate.score + consensus * 5 + Math.max(-20, Math.min(20, excess)) * 0.5;
+}
+
+function estimatedRotationRoundTripFeeDragPct(notionalEur: number, type: InvestmentInstrumentType): number {
+  if (!(notionalEur > 0) || type === 'MUTUAL_FUND') return 0;
+  return brokerCommission(notionalEur) * 2 / notionalEur * 100;
 }
 
 export class PortfolioDecisionEngine {
@@ -152,14 +200,14 @@ export class PortfolioDecisionEngine {
     const currentByCategory = new Map<AssetUniverseCategory, number>();
     const currentByAsset = new Map<string, number>();
     const existingPositions: PortfolioPositionDecision[] = [];
-    const unresolvedPositions: Array<{ index: number; category: AssetUniverseCategory | 'UNKNOWN'; health?: PortfolioPositionHealthSnapshot }> = [];
+    const unresolvedPositions: Array<{ index: number; assetId: string | null; category: AssetUniverseCategory | 'UNKNOWN'; health?: PortfolioPositionHealthSnapshot }> = [];
 
     let currentInvestedValueEur = 0;
 
     for (const fund of portfolio.funds ?? []) {
       const asset = assets.get(fund.isin.toUpperCase()) ?? assets.get(fund.id);
       const category = asset?.category ?? (fund.category === 'GLOBAL_EQUITY' || fund.category === 'EMERGING_EQUITY' ? fund.category : 'UNKNOWN');
-      const health = healthFor(healthMap, fund.id, fund.isin);
+      const health = healthFor(healthMap, fund.id, fund.isin, asset?.assetId);
       const value = fundMarketValue(fund, fundValues) ?? health?.currentValueEur ?? null;
       if (value != null) {
         currentInvestedValueEur += value;
@@ -168,6 +216,7 @@ export class PortfolioDecisionEngine {
       }
       const index = existingPositions.push({
         id: fund.id,
+        assetId: asset?.assetId ?? null,
         label: fund.name || fund.isin,
         instrumentType: 'MUTUAL_FUND',
         category,
@@ -177,15 +226,19 @@ export class PortfolioDecisionEngine {
           ? health?.reason ?? 'Falta una valoración actual del fondo; no se fuerza una decisión usando únicamente el coste aportado.'
           : 'Pendiente de reconciliar la salud propia del activo con el objetivo de cartera.',
         suggestedReductionPct: null,
-        healthSource: health?.source ?? null
+        healthSource: health?.source ?? null,
+        relativeSelectionScore: null,
+        rotationChallengerAssetId: null,
+        rotationChallengerTicker: null,
+        rotationAdvantageScore: null
       }) - 1;
-      unresolvedPositions.push({ index, category, health });
+      unresolvedPositions.push({ index, assetId: asset?.assetId ?? null, category, health });
     }
 
     for (const holding of portfolio.holdings) {
       const asset = assets.get(holding.ticker.toUpperCase());
       const category = asset?.category ?? 'UNKNOWN';
-      const health = healthFor(healthMap, holding.ticker);
+      const health = healthFor(healthMap, holding.ticker, asset?.assetId);
       const price = prices.get(holding.ticker.toUpperCase());
       const value = price != null ? holding.shares * price : health?.currentValueEur ?? null;
       if (value != null) {
@@ -195,6 +248,7 @@ export class PortfolioDecisionEngine {
       }
       const index = existingPositions.push({
         id: holding.ticker.toUpperCase(),
+        assetId: asset?.assetId ?? null,
         label: asset?.name ?? holding.ticker.toUpperCase(),
         instrumentType: instrumentType(asset),
         category,
@@ -206,9 +260,13 @@ export class PortfolioDecisionEngine {
             ? 'Posición valorada y vigilada individualmente; no se fuerza una categoría artificial para el asignador.'
             : 'Pendiente de reconciliar la salud propia del activo con el objetivo de cartera.',
         suggestedReductionPct: null,
-        healthSource: health?.source ?? null
+        healthSource: health?.source ?? null,
+        relativeSelectionScore: null,
+        rotationChallengerAssetId: null,
+        rotationChallengerTicker: null,
+        rotationAdvantageScore: null
       }) - 1;
-      unresolvedPositions.push({ index, category, health });
+      unresolvedPositions.push({ index, assetId: asset?.assetId ?? null, category, health });
     }
 
     const hasMissingValuation = existingPositions.some(x => x.action === 'DATA_MISSING');
@@ -316,34 +374,113 @@ export class PortfolioDecisionEngine {
 
     const targetCashEur = totalPlannedCapitalEur * Math.max(0, Math.min(1, decision.cashWeight));
     const deployablePool = currentCashEur + pendingCapitalEur;
-    const deployableToAssetsEur = Math.max(0, deployablePool - targetCashEur);
+    const baseDeployableToAssetsEur = Math.max(0, deployablePool - targetCashEur);
     const opportunities = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct);
+    const executionPolicy = executionPolicyForCapital(totalPlannedCapitalEur);
+    const heldAssetIds = new Set(currentByAsset.keys());
+
+    // Challenger vs incumbent: one partial rotation at most per evaluation. The incumbent
+    // must already be WATCH or weak HOLD, while the challenger must be ENTRY_STRONG and
+    // clearly superior after a cost buffer. Healthy ADD/HOLD winners are never displaced
+    // merely because another asset ranks slightly higher.
+    const rotationChallengers = opportunities
+      .filter(alert => !heldAssetIds.has(alert.assetId) && alert.timingState === 'ENTRY_STRONG' && alert.consensusScore >= 3 && alert.favorableVotes >= 4)
+      .sort((a, b) => b.rankingScore - a.rankingScore);
+    const rotationIncumbents = unresolvedPositions
+      .map(unresolved => {
+        const row = existingPositions[unresolved.index];
+        const candidate = unresolved.assetId ? scan.candidates.find(c => c.asset.assetId === unresolved.assetId) : undefined;
+        const score = incumbentSelectionScore(candidate, unresolved.health);
+        row.relativeSelectionScore = score;
+        return { unresolved, row, score };
+      })
+      .filter(item => item.row.currentValueEur != null && (item.row.currentValueEur ?? 0) > 0 && item.score != null && (
+        item.row.action === 'WATCH' ||
+        (item.row.action === 'HOLD' && (item.unresolved.health?.consensusScore ?? 99) <= 0)
+      ))
+      .sort((a, b) => (a.score ?? Infinity) - (b.score ?? Infinity));
+
+    let plannedRotationProceedsEur = 0;
+    let rotationActions = 0;
+    const rotationChallengerIds = new Set<string>();
+    outerRotation:
+    for (const challenger of rotationChallengers) {
+      for (const incumbent of rotationIncumbents) {
+        if (rotationActions >= 1) break outerRotation;
+        const currentValue = incumbent.row.currentValueEur ?? 0;
+        const reductionPct = 50;
+        const reductionNotional = currentValue * reductionPct / 100;
+        if (reductionNotional < executionPolicy.minimumOrderNotionalEur - 1e-9) continue;
+        const incumbentExcess = incumbent.unresolved.health?.excessVsCashPctPoints ?? 0;
+        const challengerExcess = challenger.excessVsCashPctPoints ?? -Infinity;
+        const feeDrag = estimatedRotationRoundTripFeeDragPct(reductionNotional, incumbent.row.instrumentType);
+        const advantageScore = challenger.rankingScore - (incumbent.score ?? challenger.rankingScore);
+        const requiredExcessMargin = Math.max(2, feeDrag * 2);
+        if (advantageScore < rotationPriorityMargin(decision.riskProfile) - 1e-9) continue;
+        if (!(challengerExcess >= incumbentExcess + requiredExcessMargin)) continue;
+
+        incumbent.row.action = 'REDUCE';
+        incumbent.row.suggestedReductionPct = reductionPct;
+        incumbent.row.rotationChallengerAssetId = challenger.assetId;
+        incumbent.row.rotationChallengerTicker = challenger.ticker;
+        incumbent.row.rotationAdvantageScore = advantageScore;
+        incumbent.row.reason = `Rotación competitiva parcial: ${challenger.ticker} aparece como ENTRY_STRONG y supera claramente a esta posición (${advantageScore.toFixed(1)} puntos de ranking; ventaja frente a cash ${challengerExcess.toFixed(1)} pp vs ${incumbentExcess.toFixed(1)} pp). Se propone reducir ${reductionPct}% y liberar aproximadamente ${reductionNotional.toFixed(2)} €. Coste ETF ida/vuelta estimado ~${feeDrag.toFixed(2)}% antes de fiscalidad; no se fuerza salida total ni se rota un ganador sano por una diferencia marginal.`;
+        plannedRotationProceedsEur += reductionNotional;
+        rotationChallengerIds.add(challenger.assetId);
+        rotationActions++;
+      }
+    }
+
+    const deployableToAssetsEur = baseDeployableToAssetsEur + plannedRotationProceedsEur;
+    const maxPortfolioPositions = maxPortfolioPositionsForRisk(decision.riskProfile);
+    const occupiedPortfolioPositions = existingPositions.filter(row => (row.currentValueEur ?? 0) > 0).length;
+    const availablePortfolioSlots = Math.max(0, maxPortfolioPositions - occupiedPortfolioPositions);
+    const effectiveNewSlots = availablePortfolioSlots + rotationActions;
 
     let contributions: ContributionRecommendation[] = [];
     if (!hasMissingValuation && deployableToAssetsEur > 0.01 && opportunities.length > 0) {
-      const shortlist = opportunities.slice(0, maxOpportunityPositions(decision.riskProfile));
+      const existingOpportunities = opportunities.filter(alert => heldAssetIds.has(alert.assetId));
+      const newOpportunities = opportunities.filter(alert => !heldAssetIds.has(alert.assetId));
+      const shortlistLimit = maxOpportunityPositions(decision.riskProfile);
+      const shortlist = [...existingOpportunities, ...newOpportunities]
+        .filter((alert, index, all) => all.findIndex(other => other.assetId === alert.assetId) === index)
+        .sort((a, b) => {
+          const rotationDelta = Number(rotationChallengerIds.has(b.assetId)) - Number(rotationChallengerIds.has(a.assetId));
+          return rotationDelta || b.rankingScore - a.rankingScore;
+        })
+        .slice(0, Math.max(shortlistLimit, existingOpportunities.length));
       const priorities = shortlist.map(alert => ({ alert, priority: opportunityPriority(alert) }));
       const totalPriority = priorities.reduce((sum, row) => sum + Math.max(0.01, row.priority), 0);
       const currentOpportunityValueEur = shortlist.reduce((sum, alert) => sum + Math.max(0, currentByAsset.get(alert.assetId) ?? 0), 0);
-      // Stable strategic opportunity book: executions reduce available cash while increasing
-      // current exposure, so their sum remains approximately stable. Entry timing then caps
-      // how much of each strategic target may be built today (25% or 50%), instead of
-      // converting the full strategic target into an immediate order.
       const stableOpportunityPoolEur = deployableToAssetsEur + currentOpportunityValueEur;
       const categoryAdded = new Map<AssetUniverseCategory, number>();
       const categoryLimit = totalPlannedCapitalEur * maxCategoryShare(decision.riskProfile);
-      const executionPolicy = executionPolicyForCapital(totalPlannedCapitalEur);
       let allocatedTotalEur = 0;
+      let newPositionsAllocated = 0;
+      const newPositionBudget = Math.min(effectiveNewSlots, maxNewPositionsPerDecision(decision.riskProfile));
 
       const allocated = priorities.map<ContributionRecommendation | null>(({ alert, priority }) => {
         const asset = assets.get(alert.assetId) ?? assets.get(alert.ticker.toUpperCase());
         if (!asset) return null;
         const currentAssetValueEur = Math.max(0, currentByAsset.get(alert.assetId) ?? 0);
+        const isExisting = currentAssetValueEur > 0.01;
+        if (!isExisting && newPositionsAllocated >= newPositionBudget) return null;
+
         const rawTargetValueEur = stableOpportunityPoolEur * Math.max(0.01, priority) / totalPriority;
         const assetCapValueEur = stableOpportunityPoolEur * maxAssetShare(decision.riskProfile, alert.level);
         const targetAssetValueEur = Math.max(0, Math.min(rawTargetValueEur, assetCapValueEur));
         const suggestedInitialFraction = Math.max(0, Math.min(1, alert.suggestedInitialFraction));
-        const executableTargetAssetValueEur = targetAssetValueEur * suggestedInitialFraction;
+        const timingAuthorizedTargetEur = targetAssetValueEur * suggestedInitialFraction;
+        const starterShare = starterPortfolioShare(decision.riskProfile, alert.timingState);
+        const starterCapValueEur = totalPlannedCapitalEur * starterShare;
+        const assetHealth = healthFor(healthMap, alert.assetId, alert.ticker, asset.isin);
+        const confirmedBuild = isExisting
+          && alert.timingState === 'ENTRY_STRONG'
+          && assetHealth?.action === 'ADD'
+          && currentAssetValueEur >= starterCapValueEur * 0.80;
+        const portfolioShareCap = confirmedBuild ? buildPortfolioShare(decision.riskProfile) : starterShare;
+        const portfolioCapValueEur = totalPlannedCapitalEur * portfolioShareCap;
+        const executableTargetAssetValueEur = Math.max(0, Math.min(timingAuthorizedTargetEur, portfolioCapValueEur));
         const targetGapEur = Math.max(0, executableTargetAssetValueEur - currentAssetValueEur);
         const minimumMeaningfulGapEur = executionPolicy.minimumOrderNotionalEur;
         if (targetGapEur < minimumMeaningfulGapEur - 1e-9) return null;
@@ -357,7 +494,13 @@ export class PortfolioDecisionEngine {
 
         categoryAdded.set(asset.category, alreadyAdded + amountEur);
         allocatedTotalEur += amountEur;
+        if (!isExisting) newPositionsAllocated++;
         const theoreticalGap = exposureByCategory.get(asset.category)?.gapEur ?? 0;
+        const positionStage: ContributionPositionStage = rotationChallengerIds.has(alert.assetId)
+          ? 'ROTATION_ENTRY'
+          : confirmedBuild
+            ? 'BUILD'
+            : 'STARTER';
         return {
           category: asset.category,
           assetId: alert.assetId,
@@ -373,42 +516,28 @@ export class PortfolioDecisionEngine {
           executableTargetAssetValueEur,
           timingState: alert.timingState,
           suggestedInitialFraction,
-          reason: `${alert.level === 'HIGH_CONVICTION' ? 'Entrada de ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'Buena oportunidad actual' : 'Entrada válida actual'}: consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Objetivo estratégico del activo ${targetAssetValueEur.toFixed(2)} €; timing ${alert.timingState} autoriza ${(suggestedInitialFraction * 100).toFixed(0)}% (${executableTargetAssetValueEur.toFixed(2)} €). Ya hay ${currentAssetValueEur.toFixed(2)} € y el tramo ejecutable pendiente es ${amountEur.toFixed(2)} €.`
+          positionStage,
+          portfolioShareCapPct: portfolioShareCap * 100,
+          reason: `${positionStage === 'ROTATION_ENTRY' ? 'Entrada por rotación' : positionStage === 'BUILD' ? 'Construcción confirmada' : 'Starter'}: ${alert.level === 'HIGH_CONVICTION' ? 'ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'buena oportunidad' : 'entrada válida'}, consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Objetivo estratégico ${targetAssetValueEur.toFixed(2)} €; timing ${alert.timingState} autoriza hasta ${(suggestedInitialFraction * 100).toFixed(0)}%, pero la etapa ${positionStage} limita la posición al ${portfolioShareCap * 100}% del patrimonio (${portfolioCapValueEur.toFixed(2)} €). Ya hay ${currentAssetValueEur.toFixed(2)} €; orden pendiente ${amountEur.toFixed(2)} €.`
         };
       });
       contributions = allocated.filter((row): row is ContributionRecommendation => row != null);
     }
 
-    if (!hasMissingValuation && contributions.length === 0 && opportunities.length === 0) {
-      const positiveGaps = exposures.filter(x => x.gapEur > 0.01 && preferredByCategory.has(x.category));
-      const totalPositiveGap = positiveGaps.reduce((s, x) => s + x.gapEur, 0);
-      const fallbackBudget = Math.min(deployableToAssetsEur, totalPositiveGap);
-      contributions = positiveGaps.map(exposure => {
-        const preferred = preferredByCategory.get(exposure.category)!;
-        const asset = assets.get(preferred.assetId) ?? assets.get(preferred.ticker.toUpperCase())!;
-        const amountEur = totalPositiveGap > 0 ? Math.min(exposure.gapEur, fallbackBudget * exposure.gapEur / totalPositiveGap) : 0;
-        return {
-          category: exposure.category,
-          assetId: preferred.assetId,
-          ticker: preferred.ticker,
-          name: preferred.name,
-          instrumentType: instrumentType(asset),
-          amountEur,
-          targetCategoryGapEur: exposure.gapEur,
-          reason: `Fallback teórico: no existe hoy ninguna oportunidad que supere el gate actual; este cálculo se conserva solo como diagnóstico de distribución y no debe contradecir una alerta de entrada.`
-        };
-      }).filter(x => x.amountEur > 0.01);
-    }
-
+    // No-opportunity means no operational new-money order. Theoretical target gaps remain
+    // visible in exposures, but they must never be converted into a fallback purchase.
     contributions.sort((a, b) => (b.priorityScore ?? 0) - (a.priorityScore ?? 0) || b.amountEur - a.amountEur);
     const recommendedNewInvestmentEur = contributions.reduce((sum, row) => sum + row.amountEur, 0);
-    const residualPlannedCashEur = Math.max(0, deployablePool - recommendedNewInvestmentEur);
+    const residualPlannedCashEur = Math.max(0, deployablePool + plannedRotationProceedsEur - recommendedNewInvestmentEur);
     const warnings: string[] = [];
     if (hasMissingValuation) warnings.push('Hay posiciones sin valoración REAL utilizable: se bloquea temporalmente la asignación de capital nuevo para no calcular el patrimonio como si esas posiciones valieran cero.');
-    if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Una sobreponderación por sí sola NO genera una venta. REDUCE/EXIT proceden de salud; una rotación voluntaria adicional debe demostrar ventaja neta tras impuestos y costes.');
+    if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Una sobreponderación por sí sola NO genera una venta. REDUCE/EXIT proceden de salud o de una rotación challenger/incumbent con ventaja material; nunca de peso aislado.');
     if (existingPositions.some(x => x.category === 'UNKNOWN' && x.currentValueEur != null)) warnings.push('Hay posiciones fuera del universo clasificado que se valoran y vigilan individualmente; no se inventa una categoría para forzar su peso objetivo.');
-    if (opportunities.length > 0) warnings.push(`La asignación efectiva usa ${opportunities.length} oportunidad(es) actual(es) que pasan cash + consenso + timing. El objetivo estratégico se mantiene estable y el timing limita el tramo ejecutable al 25%/50% correspondiente; una compra registrada cuenta contra ese tramo.`);
-    else warnings.push('No hay oportunidades actuales que pasen el gate; los pesos teóricos quedan solo como diagnóstico secundario y no son una orden de compra.');
+    warnings.push(`Cartera dinámica: máximo ${maxPortfolioPositions} plazas para riesgo ${decision.riskProfile}; ocupadas ${occupiedPortfolioPositions}, libres ${availablePortfolioSlots}. Nuevas plazas por evaluación: máximo ${maxNewPositionsPerDecision(decision.riskProfile)}.`);
+    warnings.push(`Sizing por etapas: ENTRY_READY/ENTRY_STRONG abren starters pequeños; en riesgo ${decision.riskProfile} los caps son ${(starterPortfolioShare(decision.riskProfile, 'ENTRY_READY') * 100).toFixed(1)}% / ${(starterPortfolioShare(decision.riskProfile, 'ENTRY_STRONG') * 100).toFixed(1)}%. Sólo una posición ya confirmada como ADD y todavía ENTRY_STRONG puede construir hasta ${(buildPortfolioShare(decision.riskProfile) * 100).toFixed(1)}%.`);
+    if (rotationActions > 0) warnings.push(`Rotación competitiva activa: ${rotationActions} incumbent(s) se reducen parcialmente para challenger(s) claramente superiores. Proceeds teóricos liberados: ${plannedRotationProceedsEur.toFixed(2)} €; la ejecución real sigue sujeta a comisión, fiscalidad y efectivo realmente obtenido.`);
+    if (opportunities.length > 0) warnings.push(`La asignación efectiva usa oportunidades que pasan cash + consenso + timing. El 25%/50% sigue siendo techo por timing, pero ya no obliga a construir una posición grande: starter/build y plazas de cartera añaden límites más estrictos.`);
+    else warnings.push('No hay oportunidades actuales que pasen el gate: no se genera ninguna compra fallback. Los pesos teóricos quedan sólo como diagnóstico.');
 
     return {
       currentInvestedValueEur,
@@ -417,6 +546,10 @@ export class PortfolioDecisionEngine {
       totalPlannedCapitalEur,
       targetCashEur,
       deployableToAssetsEur,
+      plannedRotationProceedsEur,
+      maxPortfolioPositions,
+      occupiedPortfolioPositions,
+      availablePortfolioSlots,
       recommendedNewInvestmentEur,
       residualPlannedCashEur,
       exposures,
