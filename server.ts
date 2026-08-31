@@ -1,12 +1,16 @@
 import express from 'express';
 import path from 'path';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer as createViteServer } from 'vite';
 import { marketDataRouter } from './server/marketDataRoutes';
 import { alphaVantageRouter } from './server/alphaVantageRoutes';
 import { eodhdRouter } from './server/eodhdRoutes';
 import { alertAutomationRouter } from './server/alertAutomationRoutes';
 import { startDailyAlertScheduler } from './server/alertAutomation';
+
+const HISTORICAL_AUDIT_FORMAT = 'TRADING_HISTORICAL_REPLAY_AUDIT';
+const HISTORICAL_AUDIT_SCHEMA_VERSION = 1;
+const MAX_HISTORICAL_AUDIT_BYTES = 25 * 1024 * 1024;
 
 function redactSecrets(value: unknown): unknown {
   const secrets = [process.env.ALPHA_VANTAGE_API_KEY, process.env.EODHD_API_KEY, process.env.MARKET_DATA_API_KEY, process.env.GEMINI_API_KEY, process.env.ALERT_WEBHOOK_URL, process.env.ALERT_ADMIN_TOKEN]
@@ -21,10 +25,27 @@ function redactSecrets(value: unknown): unknown {
   return scrub(value);
 }
 
+function validateHistoricalAuditPayload(payload: any): void {
+  if (!payload || typeof payload !== 'object') throw new Error('INVALID_AUDIT_PAYLOAD');
+  if (payload?.metadata?.format !== HISTORICAL_AUDIT_FORMAT) throw new Error('INVALID_AUDIT_FORMAT');
+  if (Number(payload?.metadata?.schemaVersion) !== HISTORICAL_AUDIT_SCHEMA_VERSION) throw new Error('UNSUPPORTED_AUDIT_SCHEMA');
+  const session = payload.session;
+  if (!session || Number(session.version) !== 3) throw new Error('UNSUPPORTED_REPLAY_STORAGE_VERSION');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(session.startDate ?? ''))) throw new Error('INVALID_START_DATE');
+  for (const field of ['checkpoints', 'executions', 'path', 'signals']) {
+    if (!Array.isArray(session[field])) throw new Error(`MISSING_${field.toUpperCase()}`);
+  }
+}
+
+function auditArchiveName(exportedAt: string): string {
+  const safe = exportedAt.replace(/[:.]/g, '-').replace(/[^0-9TZ-]/g, '');
+  return `${safe || Date.now()}-historical-replay.json`;
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
-  app.use(express.json());
+  app.use(express.json({ limit: `${MAX_HISTORICAL_AUDIT_BYTES}b` }));
 
   app.use((req, res, next) => {
     const originalJson = res.json.bind(res);
@@ -43,6 +64,40 @@ async function startServer() {
       res.status(404).json({ error: 'LATEST_VALIDATION_RESULT_NOT_AVAILABLE', detail: error?.message || String(error) });
     }
   });
+
+  app.post('/api/validation/historical-audit/save', async (req, res) => {
+    try {
+      validateHistoricalAuditPayload(req.body);
+      const serialized = JSON.stringify(req.body, null, 2);
+      if (Buffer.byteLength(serialized, 'utf8') > MAX_HISTORICAL_AUDIT_BYTES) {
+        return res.status(413).json({ error: 'HISTORICAL_AUDIT_TOO_LARGE' });
+      }
+
+      const root = path.resolve(process.cwd(), 'validation-runs');
+      const archiveDir = path.resolve(root, 'archive');
+      if (!archiveDir.startsWith(`${root}${path.sep}`)) throw new Error('INVALID_ARCHIVE_PATH');
+      await mkdir(archiveDir, { recursive: true });
+
+      const exportedAt = String(req.body?.metadata?.exportedAt || new Date().toISOString());
+      const archiveName = auditArchiveName(exportedAt);
+      const latestPath = path.resolve(root, 'latest.json');
+      const archivePath = path.resolve(archiveDir, archiveName);
+      if (!latestPath.startsWith(`${root}${path.sep}`) || !archivePath.startsWith(`${archiveDir}${path.sep}`)) throw new Error('INVALID_OUTPUT_PATH');
+
+      await writeFile(latestPath, `${serialized}\n`, 'utf8');
+      await writeFile(archivePath, `${serialized}\n`, 'utf8');
+
+      res.json({
+        ok: true,
+        latestPath: path.relative(process.cwd(), latestPath).replaceAll('\\', '/'),
+        archivePath: path.relative(process.cwd(), archivePath).replaceAll('\\', '/'),
+        bytes: Buffer.byteLength(serialized, 'utf8')
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: 'HISTORICAL_AUDIT_SAVE_FAILED', detail: error?.message || String(error) });
+    }
+  });
+
   app.use('/api/market-data', marketDataRouter);
   app.use('/api/alpha-vantage', alphaVantageRouter);
   app.use('/api/eodhd', eodhdRouter);
