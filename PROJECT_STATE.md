@@ -29,10 +29,13 @@
 - `d8dd1986c1c3e4bae5de5983d75f8fe3da91a0c3` — `Instrument historical replay entry timing`.
 - `c4d24fb538eee1249f37671efa257cfcfde759f2` — `Assert replay timing audit and deployment horizons`.
 - `38b563d86a3d30ac8a2405281bebe3546a24df66` — `Preserve timing audit in progressive replay exports`.
+- `c01a735311aeeb02e4a56c0d7062aa260488888e` — `Use causal split-adjusted scanner prices`.
+- `3d72f54703f43283b847dc91e9061f4652283765` — `Assert market data prefix invariance`.
+- `670c74f9081fa0fb0c6559040b5447a6bd763cc7` — `Fix prefix invariance regression types`.
 
 La corrección temporal, el comparador por cohorte inicial y el límite 25%/50% del Entry Timing fueron **runtime-validados por el gate local completo ejecutado el 2026-08-31**. La ejecución alcanzó los tres marcadores finales (`AI_STUDIO_VALIDATION_RESULT`, `BROKER_BACKTEST_FEASIBILITY_RESULT`, `BROKER_AWARE_EXECUTION_SWEEP_RESULT`) dentro de la cadena `validate:aistudio:raw`, unida por `&&`. El warning posterior de `git add validation-results/...` se debe a que el workspace de AI Studio no contiene `.git`; no fue un fallo del gate.
 
-La instrumentación nueva de Fase 1 (`d8dd1986` + `c4d24fb` + `38b563d8`) **todavía requiere un nuevo gate local completo** porque se implementó después del verde anterior. No usar el verde previo como validación de estos commits.
+La instrumentación de Fase 1 (`d8dd1986` + `c4d24fb` + `38b563d8`) y la corrección posterior de **invariancia de prefijo de datos** (`c01a7353` + `3d72f547` + `670c74f9`) requieren nueva validación. No usar el verde anterior como validación de estos commits.
 
 Stack: React 19 + TypeScript + Vite + Tailwind + Recharts + Motion. Aplicación de soporte a decisiones con datos REAL, replay causal, cartera real, radar de oportunidades, fiscalidad española y ejecución condicionada por broker/costes.
 
@@ -139,7 +142,7 @@ Contrato de `currentCapitalAllocation.unit.ts` exige que:
 - una ejecución parcial deje únicamente el resto del mismo tramo;
 - una posición existente por encima del tramo temporal no sea completada automáticamente por el new-money entry gate.
 
-## Instrumentación histórica de Entry Timing — implementada, pendiente de gate runtime
+## Instrumentación histórica de Entry Timing — implementada, pendiente de nueva validación runtime
 
 Desde `d8dd1986`:
 - cada `DynamicReplaySignal` conserva explícitamente `timingState`, `timingSetup`, `timingScore` y `suggestedInitialFraction`;
@@ -162,6 +165,52 @@ Regresión `c4d24fb` exige:
 - setup y score explícitos;
 - horizontes canónicos 1/5/20/60 y valores no negativos;
 - aislamiento causal futuro también para timing state/setup/score/fraction.
+
+---
+
+# Base de precios causal / invariancia del prefijo
+
+## Defecto detectado el 2026-08-31
+
+Al comparar dos replays que empiezan exactamente en `2022-07-11` se detectó que el primer año no era idéntico cuando cambiaba únicamente la duración futura solicitada:
+
+- replay 12 meses (`2022-07-11 → 2023-07-10`): capital comprometido a 60 sesiones ~40,68%;
+- replay 36 meses, guardado parcial hasta `2023-07-06`: capital comprometido a 60 sesiones ~37,30%.
+
+Ejemplo concreto: Deutsche Telekom en `2022-09-15` conservaba en ambos casos consenso `+4`, 4/5 votos favorables, `ENTRY_STRONG`, `PULLBACK_RECOVERY`, timing score 90 y fracción 50%, pero el target estratégico y la ejecución cambiaban:
+- replay corto: target ~308,41 €, ejecución 9 acciones / ~152,29 €;
+- replay largo parcial: target ~251,66 €, ejecución 7 acciones / ~118,45 €.
+
+Los dos datasets contenían los mismos 58 activos. También aparecieron cambios de timing para un mismo activo/fecha. Por tanto la causa no era la composición del universo ni el gate 25%/50%, sino el **prefijo de precios** recibido por el motor.
+
+## Causa localizada
+
+`AssetUniverseScanner` solicitaba Yahoo con `adjusted:true`. La ruta reconstruía todo el OHLC histórico multiplicando por `Adj Close / Close`. Yahoo define `Adj Close` como cierre ajustado por splits y también por dividendos/distribuciones, aplicando multiplicadores a fechas anteriores. Al ampliar `endDate`, eventos corporativos posteriores pueden modificar retrospectivamente el prefijo usado por un replay corto.
+
+Esto viola la propiedad requerida:
+
+> **Mismo startDate + mismo prefijo temporal ⇒ mismas barras, señales, timing, targets y operaciones, independientemente del endDate futuro solicitado.**
+
+## Corrección implementada
+
+Desde `c01a7353`, `AssetUniverseScanner` pide para instrumentos listados:
+
+- `adjusted:false`;
+- base Yahoo `Close`, que mantiene el ajuste por splits del proveedor pero no añade el ajuste retrospectivo por dividendos de `Adj Close`;
+- la misma base se usa tanto para decisiones actuales como históricas, evitando una distribución distinta live/replay.
+
+Los fondos de inversión no cambian: siguen usando NAV REAL directo por ISIN mediante EODHD Fund.
+
+La consecuencia metodológica es importante: para acciones/ETF listados, el motor pasa a trabajar con **rentabilidad de precio split-adjusted**, no con una serie de total return dividend-adjusted. Esto es deliberado para preservar causalidad. Si más adelante se quiere incorporar dividendo/total return, deberá hacerse como flujo/evento causal explícito, nunca reescribiendo el pasado con información posterior.
+
+## Regresión obligatoria
+
+`dynamicHistoricalReplay.unit.ts` incorpora desde `3d72f547`/`670c74f9` un proveedor simulado que reproduce exactamente el fallo: si se solicita una serie dividend-adjusted y se amplía el `endDate`, altera el prefijo anterior. El contrato exige:
+- que `AssetUniverseScanner` solicite `adjusted:false`;
+- que el prefijo OHLC de un scan corto sea exactamente idéntico al prefijo del scan largo para las mismas fechas;
+- que el test siga formando parte del gate existente `test:dynamic-historical-replay` / `validate:aistudio:raw`.
+
+**Estado:** código implementado; pendiente validación manual/runtime y repetición de los replays reales. Los resultados numéricos anteriores siguen siendo útiles como diagnóstico histórico, pero no deben usarse como benchmark exacto después de cambiar la base de precios.
 
 ---
 
@@ -206,7 +255,7 @@ Parte importante de la ventaja mostrada proviene de Xetra-Gold, incorporado desp
 
 Archivo revisado: `trading-replay-2025-03-27-2026-03-26 (2).zip`.
 
-Resultado:
+Resultado previo a la corrección de base de precios:
 - capital inicial: 1.000 €;
 - motor: 1.188,96 € / +18,90%;
 - DD máx.: ~5,49%;
@@ -214,40 +263,50 @@ Resultado:
 - diferencia total vs cohorte inicial: -2,45 € / -0,245 pp;
 - el límite temporal está correcto: no hay señales anteriores a 2025-03-27.
 
-Despliegue medido manualmente sobre este export anterior a la instrumentación explícita:
+Despliegue medido:
 - ~39,18% tras 1 sesión;
 - ~39,18% tras 5;
 - ~39,67% tras 20;
 - ~39,67% tras 60.
 
-Conclusión: desaparece el patrón de entrada inicial del 80–90%. El nuevo sizing mejora claramente la prudencia de entrada, pero este periodo **no demuestra mejora de rentabilidad**: el motor queda ligeramente por debajo de mantener la cohorte inicial. EXH1 salió rápidamente con deterioro fuerte (~-17,4% neto), mientras que Xetra-Gold, Enel, Eni, Ferrovial e Iberdrola fueron ganadores relevantes.
+Conclusión diagnóstica: desaparecía el patrón de entrada inicial del 80–90%, pero estas cifras deben repetirse con la nueva base causal `adjusted:false` antes de considerarlas benchmark definitivo.
 
 ## 2022-07-11 → 2023-07-10 — repetido tras Fase 0 / Entry Timing vinculante
 
-Archivo revisado: `trading-replay-2022-07-11-2023-07-10.zip`. Es un replay de un año; **no sustituye** al replay largo 2022-07-11 → 2025-07-10 pendiente.
+Archivo revisado: `trading-replay-2022-07-11-2023-07-10.zip`.
 
-Resultado:
+Resultado previo a la corrección de base de precios:
 - capital inicial: 1.000 €;
 - motor: ~995,00 € / -0,50%;
 - DD máx.: ~3,94%;
 - mantener cohorte inicial corregida: ~1.011,23 € / +1,12%;
 - diferencia total: ~-16,23 € / -1,623 pp;
-- todo cash: ~+2,49%;
-- límite temporal correcto desde 2022-07-11.
+- todo cash: ~+2,49%.
 
-Despliegue manual:
+Despliegue:
 - ~14,07% tras 1 sesión;
 - ~14,07% tras 5;
 - ~25,35% tras 20;
 - ~40,68% tras 60.
 
-Conclusión: la entrada inicial deja de ser agresiva, pero la selección/timing de incorporaciones posteriores no compensó el cash ni la cohorte inicial en este periodo. El problema observable pasa de “invertir demasiado al empezar” a estudiar **dónde y cuándo se siguen añadiendo posiciones**.
+## Replay largo instrumentado — intento parcial que descubrió el defecto de prefijo
 
-### Conclusión conjunta de los dos replays nuevos
+Archivo: `trading-replay-2022-07-11-2023-07-06.zip`, configurado realmente a 36 meses pero guardado tras 12 checkpoints.
 
-Con dos fechas de inicio muy diferentes, el patrón del 80–90% inicial ya no aparece. Se considera **evidencia suficiente para cerrar el defecto concreto de despliegue inicial excesivo**, no para afirmar que los umbrales actuales maximizan rentabilidad.
+Hasta `2023-07-06`, antes de la corrección de base de precios:
+- motor: ~998,32 € / -0,17%;
+- DD máx.: ~3,04%;
+- cohorte inicial: ~1.012,68 € / +1,27%;
+- diferencia: ~-14,36 € / -1,44 pp;
+- 6 compras ejecutadas, todas `ENTRY_STRONG`;
+- WAIT ~76,6%, READY ~18,7%, STRONG ~4,7%;
+- despliegue 1/5/20/60: ~14,07 / 14,07 / 25,35 / 37,30%.
 
-No recalibrar todavía 25%/50% ni thresholds con estos mismos periodos: son periodos diagnósticos y no holdout de calibración.
+Este resultado **no debe continuarse hasta 2025** desde el dataset antiguo. Debe iniciarse una nueva sesión tras sincronizar la corrección causal.
+
+### Conclusión sobre los replays previos
+
+La evidencia sigue apoyando que el 25%/50% evita la entrada inicial del 80–90%, pero tras descubrir la dependencia del prefijo con `endDate` se exige reconfirmarlo con la nueva base causal antes de cerrar Fase 1. No recalibrar thresholds con los periodos diagnósticos.
 
 ## Replay largo antiguo — 2022-07-11 → 2025-07-10
 
@@ -277,7 +336,7 @@ Operaciones relevantes:
 - Ganadores retenidos: 4GLD ~+65,5%, DTE ~+74,7%, SAP ~+108,6%, UniCredit ~+198,9%, Intesa ~+127%.
 
 Lectura:
-- en horizonte largo la gestión dinámica puede aportar valor, pero la cifra exacta debe recalcularse con el comparador corregido;
+- en horizonte largo la gestión dinámica puede aportar valor, pero la cifra exacta debe recalcularse con el comparador y la base de precios causal corregidos;
 - el patrón de salida sigue siendo tardío en varios activos;
 - el sistema conserva bien grandes ganadores, por lo que no debe introducirse take-profit fijo;
 - sigue haciendo falta memoria de high-water mark y transición WATCH/REDUCE antes del deterioro severo.
@@ -377,6 +436,10 @@ Problema de persistencia confirmado: AI Studio puede ejecutar y escribir los JSO
 - [x] Cambiar etiqueta ambigua “valor aportado por mover la cartera”.
 - [x] Blindar semántica del comparador en contrato UI.
 - [x] Ejecutar validación local completa — verde 2026-08-31; warning posterior sólo de persistencia Git.
+- [x] Detectar dependencia del prefijo de datos respecto a `endDate`.
+- [x] Cambiar el scanner listado a `adjusted:false` para eliminar ajuste retrospectivo de dividendos.
+- [x] Añadir regresión de invariancia short-vs-long del prefijo.
+- [ ] Validar runtime la nueva base de precios y confirmar con datos reales que el prefijo short/long es idéntico.
 - [ ] Separar progresivamente:
   - diferencia total vs mantener cartera inicial;
   - valor por nuevas selecciones/recomposición posterior;
@@ -384,13 +447,13 @@ Problema de persistencia confirmado: AI Studio puede ejecutar y escribir los JSO
 
 ## Fase 1 — validar Entry Timing actual
 
-1. [x] Repetir dos replays después de Fase 0: 2025-03-27→2026-03-26 y 2022-07-11→2023-07-10.
-2. [x] Instrumentar WAIT / ENTRY_READY / ENTRY_STRONG de forma explícita en replay/export. **Pendiente validar runtime y volver a medir con export nuevo.**
-3. [x] Instrumentar %/€ de capital desplegado en 1, 5, 20 y 60 sesiones. **Pendiente validar runtime y volver a medir con export nuevo.**
-4. [x] Confirmar que ya no entra 80–90% simplemente por empezar en una fecha arbitraria: dos replays reales muestran ~39,2% y ~14,1% tras la primera sesión, respectivamente.
-5. [x] Hacer vinculante y runtime-validar la fracción 25%/50% sobre la orden real.
-6. [ ] Ejecutar `npm run validate:aistudio` después de la nueva instrumentación.
-7. [ ] Repetir con export instrumentado al menos un replay corto y el replay largo 2022-07-11→2025-07-10.
+1. [x] Instrumentar WAIT / ENTRY_READY / ENTRY_STRONG de forma explícita en replay/export.
+2. [x] Instrumentar %/€ de capital desplegado en 1, 5, 20 y 60 sesiones.
+3. [x] Hacer vinculante y runtime-validar la fracción 25%/50% sobre la orden real.
+4. [~] La desaparición del 80–90% inicial se observó en dos replays, pero debe reconfirmarse después del cambio de base de precios.
+5. [ ] Ejecutar primero la prueba de invariancia REAL: mismo `2022-07-11`, replay 12m y replay 36m; el tramo compartido debe ser idéntico.
+6. [ ] Repetir después un replay corto y el largo `2022-07-11 → 2025-07-10` desde sesión nueva.
+7. [ ] Medir con la base causal WAIT/READY/STRONG, despliegue 1/5/20/60, cash medio, turnover, acciones y retorno/DD.
 8. [ ] No ajustar umbrales usando los mismos periodos diagnósticos; usar holdout para calibración.
 
 ## Fase 2 — target estratégico vs tramo ejecutable
@@ -432,7 +495,12 @@ Objetivo: conducta más racional y robusta, no maximizar los mismos backtests us
 
 # Próxima acción concreta
 
-1. Ejecutar **una sola vez** `npm run validate:aistudio` sobre el HEAD que contiene `d8dd1986`, `c4d24fb` y `38b563d8`. No usar Scheduled Task/agent polling para vigilarlo.
-2. Si el gate queda verde, ejecutar un replay instrumentado corto y exportarlo. El JSON debe contener en cada señal aplicable `timingState`, `timingSetup`, `timingScore`, `suggestedInitialFraction`, y en `summary` los bloques `timingStateCounts` y `deploymentHorizons`.
-3. Después repetir el replay largo **2022-07-11 → 2025-07-10** con la instrumentación nueva.
-4. Con esos datos decidir si Fase 1 puede cerrarse y si el siguiente cambio debe ser sizing sensible a régimen/volatilidad o construcción progresiva/ADD. No recalibrar todavía los thresholds con los periodos diagnósticos.
+No continuar el replay parcial antiguo de 36 meses.
+
+Después de sincronizar el HEAD con la corrección causal:
+
+1. Iniciar **sesión nueva** de replay `2022-07-11`, duración 12 meses, DAILY, 1.000 € y exportar al terminar.
+2. Iniciar otra **sesión nueva** con el mismo `2022-07-11`, duración 36 meses, DAILY, 1.000 €. Basta inicialmente con calcular hasta superar julio de 2023 y exportar el parcial.
+3. Comparar automáticamente ambos exports en el periodo compartido: barras implícitas/operaciones, señales, `timingState/setup/score`, targets, ejecuciones y `deploymentHorizons`. Deben ser idénticos hasta el final del replay corto.
+4. Solo si esa invariancia queda demostrada, continuar el replay 36m hasta `2025-07-10` y retomar la evaluación de Fase 1.
+5. No recalibrar Entry Timing ni avanzar a Fase 2 mientras la invariancia de prefijo no esté confirmada con datos REAL.
