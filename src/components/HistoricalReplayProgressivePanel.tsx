@@ -198,19 +198,9 @@ function toAuditExecution(signal: DynamicReplaySignal): AuditExecution {
   };
 }
 function toAuditSignal(signal: DynamicReplaySignal): AuditSignal {
-  return {
-    id: signal.id,
-    signalDate: signal.signalDate,
-    executionDate: signal.executionDate,
-    assetId: signal.assetId,
-    ticker: signal.ticker,
-    action: signal.action,
-    recommendedAmountEur: signal.recommendedAmountEur,
-    targetWeight: signal.targetWeight,
-    currentWeight: signal.currentWeight,
-    executed: signal.executed,
-    reason: signal.reason
-  };
+  // DynamicReplaySignal is a strict superset of AuditSignal. Keeping the original
+  // object preserves consensus + Entry Timing audit fields in persisted/exported JSON.
+  return signal;
 }
 function loadPersistedAudit(): PersistedAudit | null {
   try {
@@ -569,6 +559,12 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
       taxMethod: result.taxMethod,
       initialPortfolioDate: exactHold.firstDate
     };
+    // Keep phase-1 diagnostics inside the existing summary without changing the v3
+    // storage/export envelope. Older v3 files remain import-compatible.
+    Object.assign(nextSummary, {
+      timingStateCounts: result.timingStateCounts,
+      deploymentHorizons: result.deploymentHorizons
+    });
     const nextPositions = buildPositionSummaries(scan, currentExecutions, result.endDate);
 
     setExecutions(currentExecutions); setSignals(currentSignals); setPath(nextPath); setCheckpoints(nextCheckpoints); setSummary(nextSummary); setPositions(nextPositions);
