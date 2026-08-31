@@ -1,232 +1,555 @@
-# Trading — Canonical Project State
+# Trading — Estado Canónico del Proyecto
 
-> Operational memory. Repository `fmaranis/Trading/main` is canonical. **Never add or depend on GitHub Actions.** ChatGPT develops/fixes directly in GitHub. AI Studio is test-only: sync current `main`, restart the local server if needed, run deterministic local validation, and do not edit source or use Gemini/LLM diagnosis.
+> **Leer este archivo primero al retomar el proyecto desde otra conversación, equipo o dispositivo.** El repositorio canónico es `fmaranis/Trading/main`. Este documento es la memoria operativa del proyecto y debe mantenerse actualizado cuando cambien decisiones de arquitectura, hallazgos de validación o próximos pasos.
 
-## Current status — 2026-08-29
+## Reglas de trabajo no negociables
 
-React 19 + TypeScript + Vite + Tailwind + Recharts + Motion decision-support SPA using REAL market data. Current HEAD contains the expanded production discovery, cash-first candidate gate, independent position health, interactive portfolio/research navigation, weekly research signals, current high-conviction entry alerts and Spanish tax-aware rotation logic.
+- **Nunca añadir ni depender de GitHub Actions.** Las validaciones se ejecutan en local/AI Studio.
+- ChatGPT inspecciona, desarrolla y corrige directamente sobre GitHub cuando sea posible.
+- AI Studio se usa principalmente como entorno de ejecución/Preview/validación local. No delegar en Gemini diagnósticos amplios ni cambios de arquitectura salvo petición expresa.
+- El gate local completo sigue siendo `npm run validate:aistudio`. Un resultado verde anterior no valida cambios posteriores.
+- No usar datos sintéticos como fallback silencioso. La procedencia REAL / STATIC_REFERENCE / SYNTHETIC debe seguir siendo explícita.
+- El replay histórico debe ser causal: solo información disponible hasta la fecha evaluada, ejecución en observación posterior y ningún lookahead.
+- Si el usuario dice “terminó, revisa la prueba”, buscar primero el resultado sincronizado en GitHub antes de pedirle que lo adjunte manualmente.
 
-**Current HEAD is not validated until a fresh `npm run validate:aistudio` finishes green after these changes.** Do not reuse an older green result.
+---
 
-## Non-negotiable product architecture
+# Estado actual — 2026-08-31
 
-Exactly two primary workspaces:
+HEAD observado al actualizar este documento: `9061b0778d2b02be5a91aad3fc7efd9dcb74a266` (`Assert timing gate before portfolio allocation`).
 
-### 1. Mi cartera real
+Stack: React 19 + TypeScript + Vite + Tailwind + Recharts + Motion. Aplicación de soporte a decisiones de inversión con datos REAL, backtesting/replay causal, cartera real, radar de oportunidades, fiscalidad española y ejecución condicionada por broker/costes.
 
-Purpose: actual positions, actual liquidity and actionable decisions.
+La pregunta de producto que debe ordenar toda la UX sigue siendo:
 
-Primary surfaces, in order:
-1. **Alertas importantes de entrada ahora** — current opportunities only.
-2. **Mi cartera real** — positions, valuation and independent health.
-3. **Qué haría hoy** — operational execution plan.
-4. Collapsed explanation of consensus.
+> **¿Muevo dinero hoy o no?**
 
-The old historical/snapshot alert list is **not** a primary portfolio surface anymore. Historical BUY/ADD/SELL behavior is inspected directly on each asset chart and in secondary robustness tests.
+Formato deseado de recomendación:
 
-### 2. Estudio y señales
+> **ACCIÓN → IMPORTE → ACTIVO → POR QUÉ → DETALLE TÉCNICO**
 
-Purpose: research without mutating the real portfolio.
+Acciones operativas objetivo:
+- INVERTIR X €
+- REDUCIR / SALIR
+- ROTAR
+- NO MOVER DINERO
+- REORDENAR CARTERA
 
-Contains expanded radar, catalog browsing, arbitrary ticker/ISIN analysis, weekly/monthly/quarterly causal reviews, price/NAV chart with BUY/ADD/SELL markers and secondary historical robustness.
+La app no debe convertir “tengo efectivo” en “debo invertirlo”. Mantener liquidez es una decisión válida.
 
-Research ideas do not become real operations until portfolio/cash/consensus/cost/tax/currency gates are satisfied.
+---
 
-## User real portfolio baseline — never relabel as demo/example
+# Cartera real de referencia
 
-- Vanguard Global Stock Index Fund EUR Acc — ISIN `IE00B03HD191` — invested **12,600 EUR** — acquisition **2026-08-11** — units **196.59** — MyInvestor — transferable.
-- Vanguard Emerging Markets Stock Index Fund EUR Acc — ISIN `IE0031786696` — invested **1,400 EUR** — acquisition **2026-08-12** — units **4.61** — MyInvestor — transferable.
-- Pending capital: **13,000 EUR**, horizon 12 months.
-- Cash alternative / hurdle: **2.5% annual** unless changed explicitly.
+No relabelar como demo/ejemplo ni sustituir silenciosamente:
 
-Canonical constants: `USER_REAL_FUND_POSITIONS`, `USER_REAL_STAGED_CAPITAL_PLAN`.
+- Vanguard Global Stock Index Fund EUR Acc — ISIN `IE00B03HD191` — 12.600 € invertidos — adquisición 2026-08-11 — 196,59 participaciones — MyInvestor — traspasable.
+- Vanguard Emerging Markets Stock Index Fund EUR Acc — ISIN `IE0031786696` — 1.400 € invertidos — adquisición 2026-08-12 — 4,61 participaciones — MyInvestor — traspasable.
+- Capital pendiente de invertir: 13.000 €.
+- Horizonte de despliegue: 12 meses.
+- Alternativa de efectivo / hurdle: 2,5% anual salvo cambio explícito.
 
-Persistence invariant: UI/code refactors must never silently erase or replace the real portfolio. Intentional later executions are respected.
+Constantes canónicas: `USER_REAL_FUND_POSITIONS`, `USER_REAL_STAGED_CAPITAL_PLAN`.
 
-## Production discovery and new-money decision pipeline
+Política operativa MyInvestor:
 
-Production universe: `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` — materially broader EUR-quoted universe including funds, ETFs/ETCs and European equities.
+> **Asumir disponibilidad salvo que el usuario marque expresamente un instrumento como no disponible.**
 
-`EUR_VALIDATION_HOLDOUT_UNIVERSE` remains completely outside production decisions. It may appear in research/validation only.
+Debe seguir diferenciándose de una confirmación oficial del broker.
 
-Canonical new-money chain:
+---
 
-**REAL discovery → cash hurdle → StrategyConsensus BUY → no structural downtrend → diversified eligible shortlist → allocator → execution costs / whole shares / broker → tax-aware execution where rotation is involved**
+# Arquitectura de producto
 
-`PortfolioCandidateGate` requires every new-money candidate to beat the configured cash benchmark and obtain BUY-grade consensus before it can reach Risk Parity / Inverse Volatility / Relative Momentum.
+Solo dos workspaces principales:
 
-If no candidate passes, 100% cash is a valid result. Never force an investment merely to produce an answer.
+## 1. Mi cartera real
 
-## Current opportunity alerts
+Objetivo: posiciones reales, liquidez real y decisiones accionables.
 
-Engine: `src/investment/decision/currentOpportunityAlerts.ts`.
-UI: `src/components/CurrentOpportunityAlertsPanel.tsx`.
+Superficies principales:
+1. Alertas importantes de entrada ahora.
+2. Mi cartera real y salud independiente de cada posición.
+3. Qué haría hoy / plan operativo.
+4. Explicación técnica secundaria.
 
-Every emitted current-entry alert already passed the canonical new-money gate.
+## 2. Estudio y señales
 
-Levels:
+Objetivo: investigar sin mutar la cartera real.
 
-- **HIGH_CONVICTION / ENTRADA DE ALTA CONVICCIÓN**: favorableVotes >= 4/5, consensusScore >= +3, excess vs cash >= +5 pp, healthy long trend and SMA200, aligned 20/60/120-session momentum, annualized volatility <= 30%, current drawdown no worse than -20%.
-- **GOOD_ENTRY / BUENA OPORTUNIDAD**: favorableVotes >= 3, consensusScore >= +2, excess vs cash >= +2 pp, positive 120-session momentum and volatility <= 35%.
-- **VALID_ENTRY / ENTRADA VÁLIDA**: passes cash + consensus but does not meet the stronger alert thresholds.
+Incluye radar, catálogo, análisis por ticker/ISIN, gráfica de precio/NAV, señales históricas y replay auditado.
 
-A large score or momentum ratio alone can never create HIGH_CONVICTION.
+Las ideas de research no se convierten en operaciones reales hasta superar filtros de datos, cash, consenso, timing, costes, broker, fiscalidad y disponibilidad de capital.
 
-“High conviction” means strong agreement among model signals, **not** a guaranteed return or probability of profit.
+---
 
-Autonomous scheduler:
-- scans `EUR_PORTFOLIO_DISCOVERY_UNIVERSE`;
-- excludes validation holdout;
-- webhook kind `CURRENT_ENTRY_OPPORTUNITIES`;
-- notifies only HIGH_CONVICTION or GOOD_ENTRY;
-- no longer generates operational notifications from historical Top-3 transitions.
+# Pipeline de nueva inversión
 
-## MyInvestor availability policy
+Cadena conceptual deseada:
 
-Operational default:
+> **REAL discovery → calidad / cash hurdle → consenso → Entry Timing → selección diversificada → target estratégico → tramo ejecutable hoy → costes/broker/fiscalidad**
 
-> **Assume an instrument is available in MyInvestor unless the user explicitly marks it unavailable.**
+El selector responde principalmente **DÓNDE** invertir. El nuevo timing debe responder **CUÁNDO**. El sizing debe responder **CUÁNTO HOY**, sin confundirlo con el target estratégico final.
 
-This is a user-directed operational assumption and must remain distinct from official/public broker evidence. It must never be presented as official MyInvestor confirmation.
+## Entry Timing — ya implementado parcialmente
 
-A user-confirmed `UNAVAILABLE` value blocks application of the corresponding buy operation until reset.
+Archivos principales:
+- `src/investment/decision/entryTiming.ts`
+- integración en `portfolioCandidateGate.ts`
+- integración en `currentOpportunityAlerts.ts`
 
-## Existing-position health
+Commits principales del 2026-08-31:
+- `1952fb07...` — Add causal entry timing gate
+- `7ea0e87c...` — Gate current opportunities by entry timing
+- `53805ade...` — Export entry timing engine
+- `6b3b7223...` — Assert causal entry timing on alerts
+- `5a577907...` — Apply entry timing before new-money allocation
+- `9061b077...` — Assert timing gate before portfolio allocation
 
-Every current position is evaluated independently:
-- AÑADIR
-- MANTENER
-- VIGILAR
-- REDUCIR
-- SALIR
-- DATOS PENDIENTES
+Estados implementados:
+- `WAIT`
+- `ENTRY_READY`
+- `ENTRY_STRONG`
 
-Cash underperformance alone => WATCH, never REDUCE/EXIT.
-Allocation overweight alone => HOLD, never sell.
-Structural deterioration can cause REDUCE/EXIT.
+Setups implementados:
+- `BREAKOUT_CONFIRMATION`
+- `PULLBACK_RECOVERY`
+- `TREND_CONTINUATION`
+- `NONE`
+
+Variables usadas de forma causal:
+- SMA20 / SMA50 / SMA200
+- distancia a medias
+- retorno 5 sesiones
+- máximo previo de 20 sesiones
+- drawdown desde máximo de 60 sesiones
+- momentum 20/60/120
+- volatilidad
+- tendencia estructural
+- consenso y votos favorables/adversos
+
+Reglas actuales destacables:
+- un activo de buena calidad puede quedar en `WAIT` aunque pase cash + consenso;
+- activos demasiado extendidos o con riesgo alto no deben perseguirse;
+- `ENTRY_READY` propone una fracción inicial de 0,25 del target;
+- `ENTRY_STRONG` propone 0,50;
+- el timing nunca autoriza completar el 100% del target en la primera orden;
+- el allocator ya no debe recibir un candidato mientras el timing esté en `WAIT`.
 
-Arbitrary EUR tickers with valid REAL data can be monitored even if not pre-catalogued. Non-EUR positions still require an FX layer before entering EUR portfolio accounting.
+**Importante:** esta implementación es reciente y todavía debe ser validada con replay histórico amplio antes de considerar correctos sus umbrales. No optimizar sobre los mismos periodos usados para descubrir el problema.
 
-## Spanish tax-aware rotation logic
+---
 
-Files:
-- `src/investment/decision/spanishTaxModel.ts`
-- `src/investment/decision/taxAwareExecutionOverlay.ts`
-- tax UI inside `PortfolioExecutionPlanPanel.tsx`
+# Problema estructural detectado en los replays históricos
 
-Savings-base scale implemented:
-- 0–6,000 EUR: 19%
-- 6,000–50,000 EUR: 21%
-- 50,000–200,000 EUR: 23%
-- 200,000–300,000 EUR: 27%
-- above 300,000 EUR: 30%
+La evidencia acumulada hasta hoy muestra que el motor antiguo se comportaba demasiado parecido a:
 
-The user may configure positive savings taxable base already accumulated during the year. If not confirmed, the model reserves a conservative **30% of estimated positive realized gain** rather than inventing the user's marginal bracket.
+> **seleccionar → invertir casi todo al inicio → HOLD casi indefinido**
 
-### Rotation rule
+La sensación del usuario está respaldada por los casos estudiados: casi independientemente de la fecha inicial, el sistema encontraba rápidamente varias posiciones aceptables, desplegaba gran parte del efectivo y luego apenas gestionaba las posiciones.
 
-For a partial REDUCE / rotation with positive realized gain:
+Conclusión conceptual:
 
-**expected advantage over the selected horizon > estimated tax on realized gain + transaction fee**
+- El análisis/selector de activos parece razonablemente prometedor.
+- Faltaba una capa explícita de **timing de entrada**.
+- Sigue faltando mejorar de forma importante la **gestión posterior de posiciones**.
+- El motor no debe intentar adivinar techos/suelos ni usar stops rígidos simples.
 
-If the improvement cannot demonstrably compensate the friction, the proposed sale becomes **REVIEW / NO OPERAR**.
+Arquitectura objetivo de estado:
 
-A structural EXIT is a risk-control decision: estimated tax is shown, but tax does not trap the portfolio in a severely deteriorating position.
+> **CANDIDATE → WAIT → ENTER → BUILD → HOLD → WATCH → REDUCE → EXIT**
 
-### Mutual funds
+La intención es separar claramente:
 
-When a transferable fund has an eligible destination, fund-to-fund transfer is preferred where operationally appropriate. Immediate tax estimate is 0 under the tax-deferral assumption, subject to legal/operational eligibility.
+1. **DÓNDE** — calidad/ranking/consenso.
+2. **CUÁNDO** — timing causal de entrada.
+3. **CUÁNTO** — target estratégico vs tramo ejecutable hoy.
+4. **CÓMO GESTIONAR** — HOLD/ADD/WATCH/REDUCE/EXIT.
 
-For direct redemption, realized gain is estimated from registered invested cost and current value. The two real Vanguard baseline positions have acquisition amount/date/units registered.
+---
 
-### Listed shares / ETFs
+# Evidencia histórica revisada
 
-Purchases executed through the app create a separate tax-lot ledger in `custodia_spanish_tax_lots_v1`.
-Future sales use FIFO tracked lots to estimate acquisition cost.
-Existing/manual holdings without sufficient lot history => `UNKNOWN_COST_BASIS`; a non-structural tax-sensitive rotation cannot be approved by inventing a cost basis.
+## Caso 1 — 2022-04-13 → 2023-04-12
 
-Estimated income tax is **not subtracted from canonical broker cash** when an execution is applied. The portfolio records the broker cash movement; tax is modeled separately as decision friction/reserve.
+Capital inicial: 9.000 €.
 
-Tax output is decision-support only. It does not automatically model every loss-compensation rule, carried losses, taxpayer-specific circumstances or the final tax return.
+Resultado:
+- motor: 8.528,55 € / -5,2383%
+- comprar primeras posiciones y mantener: 8.526,77 € / -5,2581%
+- ventaja mostrada: +1,78 € / +0,0198 pp
+- drawdown máximo: -10,479%
+- 5 compras ejecutadas
+- 0 REDUCE / 0 EXIT
 
-## Transaction invariant
+Posiciones reveladoras:
+- AIGC: MFE +7,73%, MAE -18,55%, final aprox. -16,29% neto.
+- WCOA: MFE +7,16%, MAE -17,07%, final aprox. -14,36% neto.
+- Sanofi: MAE aprox. -21,70% y acaba positiva (~+2,98% neto), demostrando que un stop fijo simple puede destruir recuperaciones válidas.
 
-`PortfolioStateExecutionService` applies BUY/SELL/SUBSCRIBE/REDEEM/TRANSFER to canonical portfolio state. Invalid or REVIEW lines cannot execute.
+Interpretación: la gestión dinámica añadió prácticamente cero valor y toleró reversión de ganancias a pérdidas fuertes sin reducción.
 
-`Aplicar a mi cartera` must change holdings/funds/liquidity transactionally. No cosmetic “Marcar hecha”.
+## Caso 2 — 2023-04-13 → 2024-04-12
 
-## Research signals
+Resultado:
+- motor: +7,1278%
+- hold inicial exacto: +7,1208%
+- ventaja: +0,62 € / +0,0069 pp
+- drawdown máximo: -7,283%
+- 4 compras iniciales
+- 0 REDUCE / 0 EXIT
 
-`SingleAssetResearchEngine` supports:
-- WEEKLY — default
-- MONTHLY
-- QUARTERLY
+Ejemplos:
+- Air Liquide: MFE +24,59%, final +19,56% neto.
+- Deutsche Telekom: MAE -17,02%, final ~-1,95% neto.
+- Iberdrola: MAE -13,13%, final ~+0,49% neto.
+- Vanguard Eurozone: MFE +15,42%, final +13,09%.
 
-All modes use daily REAL data, causal snapshots and next-observation execution. Future data cannot alter prior signals.
+Interpretación: aguantar algunos drawdowns fue correcto; por tanto no debe implantarse un stop-loss porcentual universal.
 
-Charts:
-- ▲ BUY
-- ◆ ADD
-- ▼ SELL / REDUCE
+## Caso 3 — 2024-07-12 → 2025-07-11
 
-Positions, opportunities and current alerts can open the same individual research chart via ticker/ISIN.
+Resultado:
+- motor: +7,7268%
+- hold inicial exacto: +3,7679%
+- ventaja mostrada: +356,30 € / +3,9588 pp
+- drawdown máximo: -17,863%
+- 5 compras
+- 0 REDUCE / 0 EXIT
 
-## Validation gates
+Punto clave:
+- en febrero de 2025 la cartera llegó a ~+12,79%; dos meses después estaba ~-3,21%; el motor no redujo nada.
+- EQQQ: MFE +13,50%, MAE -16,81%, final ~+4,13% neto.
+- SXRV: MFE +13,46%, MAE -16,82%, final ~+4,08%.
+- VUSA: MFE +14,33%, MAE -12,24%, final ~+4,42%.
+- Xetra-Gold entró dos días después de las compras iniciales y terminó ~+26,81% neto.
 
-`npm run validate:aistudio` remains the only requested full local gate.
+**Interpretación crítica de “valor aportado por mover la cartera”:**
 
-`validate:aistudio:raw` now includes, among all previous deterministic/live gates:
-- `tests/portfolioCandidateGate.unit.ts`
-- `tests/currentOpportunityAlerts.unit.ts`
-- `tests/portfolioPositionHealth.unit.ts`
-- `tests/portfolioDecisionEngine.unit.ts`
-- `tests/portfolioExecutionPlan.unit.ts`
-- `tests/portfolioHealthExecutionPlan.unit.ts`
-- `tests/spanishTaxModel.unit.ts`
-- `tests/taxAwareExecutionOverlay.unit.ts`
-- `tests/strategyConsensus.unit.ts`
-- `tests/singleAssetResearch.unit.ts`
-- historical/dynamic replay tests
-- broker/cost/availability tests
-- `scripts/aiStudioValidateCurrent.ts`
-- existing live broker feasibility and broker-aware execution sweeps.
+Ese indicador es actualmente, en esencia:
 
-The central validator now checks the expanded production universe and current opportunity alert counts and reports broker policy `ASSUME_AVAILABLE_UNLESS_USER_MARKS_UNAVAILABLE`.
+> `engineFinalEur - exactHoldFinalEur`
 
-Expected existing markers remain exactly:
-1. `AI_STUDIO_VALIDATION_RESULT`
-2. `BROKER_BACKTEST_FEASIBILITY_RESULT`
-3. `BROKER_AWARE_EXECUTION_SWEEP_RESULT`
+Por tanto un valor positivo **no significa necesariamente que la gestión activa de ventas/reducciones haya añadido valor**. Puede ser positivo simplemente porque el motor añadió más tarde un activo que el comparador “primeras compras y mantener” no contiene. En este caso, gran parte de la ventaja aparente proviene de la entrada posterior de Xetra-Gold, no de una mejor gestión de salidas.
 
-Do not add GitHub Actions or new standalone validation markers/files just for this feature.
+La etiqueta debe revisarse porque puede inducir a interpretar “alpha de trading” donde solo existe diferencia de composición inicial/posterior.
 
-## Known limitations / next expansion
+## Caso 4 — 2025-03-27 → 2026-03-26
 
-- Production discovery is broader but still curated, not literally the entire world market. Broader IBEX/EuroStoxx/S&P/Nasdaq presets should use cached/batched discovery, not thousands of Yahoo calls on page load.
-- Non-EUR portfolio recommendations still need a proper FX valuation/cost layer.
-- EODHD fund availability depends on provider quota.
-- Yahoo endpoint is unofficial/non-contractual.
-- Historical catalogs carry survivorship bias.
-- High-conviction thresholds require validation over time; they are not a profitability guarantee.
-- Tax estimation does not replace Spanish tax filing or automatically know unrelated gains/losses.
+Se observó finalmente un EXIT (Deutsche Börse) y varios movimientos posteriores, pero existe una anomalía temporal: el replay solicitado desde 2025-03-27 contiene señal/operaciones anteriores a esa fecha. No usar este caso para calibrar estrategia hasta corregir el límite temporal.
 
-## Immediate next step
+Comportamiento útil para diagnóstico:
+- Deutsche Börse llegó aproximadamente a MFE +8,23% y terminó saliendo alrededor de -23% tras deterioro estructural fuerte.
 
-1. Sync current `fmaranis/Trading/main` into AI Studio.
-2. AI Studio must not modify source.
-3. Restart the local server with current code.
-4. Run exactly `npm run validate:aistudio` until it finishes completely.
-5. Confirm `exitCode = 0`, `ok = true`, all three expected markers, and a recorded timestamp newer than this implementation.
-6. Visual checks:
-   - exactly two primary tabs remain;
-   - `Alertas importantes de entrada ahora` appears above portfolio state;
-   - HIGH_CONVICTION/GOOD_ENTRY cards open their graphs;
-   - old historical alert/snapshot block is absent from `Mi cartera real`;
-   - real Vanguard positions and units/dates remain intact;
-   - `Qué haría hoy` shows tax context and tax/friction notes;
-   - partial profitable rotations can become REVIEW when tax+fees are not justified;
-   - structural EXIT remains possible while displaying tax estimate;
-   - transferable fund transfer shows deferred-tax treatment;
-   - MyInvestor is assumed available unless explicitly marked unavailable;
-   - weekly chart mode remains default and functional.
-7. Any failure is fixed directly in GitHub and the same local validation is rerun. Never use GitHub Actions.
+Esto sugiere que el mecanismo EXIT existe pero históricamente estaba demasiado tardío.
+
+## Caso largo pendiente
+
+Archivo recibido para estudiar:
+- `trading-replay-2022-07-11-2025-07-10.zip`
+
+Debe usarse como prueba extensa antes de fijar reglas definitivas de WATCH/REDUCE/EXIT y para revisar la métrica “valor aportado por mover la cartera”.
+
+---
+
+# Gestión de posiciones — siguiente gran fase pendiente
+
+No implantar un simple:
+- stop -X%
+- take-profit +Y%
+
+La evidencia de Sanofi, Deutsche Telekom, Air Liquide y Xetra-Gold demuestra que esas reglas simples pueden cortar recuperaciones o ganadores de largo recorrido.
+
+La dirección acordada es una gestión dinámica basada en:
+
+## High-water mark / memoria de beneficio
+
+Cada posición debe recordar el máximo favorable alcanzado desde su entrada (MFE / high-water mark).
+
+Una posición que estuvo +15% no debe tratarse igual que una que nunca pasó de +1%.
+
+El motor debe evaluar cuánto beneficio acumulado está devolviendo y si esa devolución coincide con deterioro técnico/estructural.
+
+## Estados de salud objetivo
+
+- `HOLD`
+- `ADD`
+- `WATCH`
+- `REDUCE`
+- `EXIT`
+- `DATA_MISSING`
+
+Transición conceptual deseada:
+
+> ganador sano → HOLD / ADD
+>
+> pérdida de momentum o beneficio devuelto → WATCH
+>
+> deterioro confirmado + devolución relevante → REDUCE
+>
+> ruptura estructural fuerte → EXIT
+
+No vender solo por estar “overweight”. No vender solo por perder contra cash. No vender automáticamente por un drawdown porcentual aislado.
+
+## Factores a combinar
+
+- tendencia de largo plazo
+- momentum 20/60/120
+- ruptura/recuperación de SMA
+- volatilidad y régimen
+- consenso
+- número de señales adversas
+- MFE desde entrada
+- drawdown desde máximo de posición
+- drawdown desde coste de adquisición
+- velocidad del deterioro
+- ventaja fiscal/costes de rotación
+
+Objetivo: permitir que los ganadores corran, pero impedir que una posición pase de +10/+15% a -15/-20% sin atravesar al menos WATCH/REDUCE si además la evidencia se deteriora.
+
+---
+
+# Sizing / construcción progresiva de posición
+
+Principio acordado:
+
+> **Target estratégico ≠ orden de hoy.**
+
+Ejemplo conceptual:
+- target final 20%
+- entrada inicial autorizada 5%
+- confirmación posterior +5%
+- nueva confirmación +5%
+- completar solo cuando la evidencia lo justifique
+
+El Entry Timing actual ya expone `suggestedInitialFraction` 0,25 / 0,50, pero debe comprobarse de extremo a extremo que el motor de asignación y ejecución realmente respete esa fracción y no vuelva a convertir un target en una compra inmediata completa.
+
+Debe evitarse promediar a la baja automáticamente. Los ADD deben responder a tesis confirmada, no simplemente a que el precio haya caído.
+
+---
+
+# Técnicas/teorías adoptadas como marco conceptual
+
+No existe ningún método que garantice comprar abajo y vender arriba. El diseño busca robustez, no predicción perfecta.
+
+Familias usadas como referencia conceptual:
+- trend following / time-series momentum para confirmar si una tendencia merece exposición;
+- cross-sectional / relative momentum para ayudar a decidir dónde concentrar atención;
+- breakout confirmation, pullback recovery y trend continuation para timing;
+- volatility-aware sizing para decidir cuánto riesgo asumir;
+- scaling-in / construcción progresiva de posición;
+- high-water mark y trailing defensivo condicionado por deterioro, no take-profit fijo;
+- salida estructural basada en múltiples señales, no stop-loss rígido universal.
+
+Garantías de diseño deseadas:
+- no invertir todo solo porque haya efectivo;
+- no confundir target con orden inmediata;
+- no comprar nueva exposición con timing `WAIT`;
+- mantener cash cuando no hay setup suficiente;
+- reducir tamaño con riesgo alto;
+- recordar máximo beneficio alcanzado;
+- no cortar automáticamente un ganador sano;
+- no mantener indefinidamente una posición severamente deteriorada sin transición WATCH/REDUCE/EXIT.
+
+---
+
+# Replay histórico auditado
+
+UI principal: `HistoricalReplayProgressivePanel.tsx`.
+Worker: `src/workers/historicalReplayAudit.worker.ts`.
+Storage actual: `historical_progressive_audit_v3`.
+
+Controles:
+- fecha inicial
+- frecuencia DAILY/WEEKLY/MONTHLY/QUARTERLY
+- duración total
+- tamaño de tramo
+- modo MANUAL/AUTO
+- capital inicial
+
+Características actuales:
+- cálculo por worker para no bloquear la UI;
+- checkpoints y reanudación;
+- trayectoria completa `equityPath`;
+- señales cronológicas;
+- operaciones ejecutadas;
+- selección visual de activos;
+- comparador exacto de primeras compras y mantener;
+- análisis por posición con MFE/MAE, entrada/salida, bruto/neto, comisiones y fiscalidad;
+- invariant de auditoría: operaciones pasadas no pueden desaparecer/cambiar silenciosamente entre chunks.
+
+## Export/import JSON
+
+`HistoricalAuditJsonControls.tsx` permite:
+- Exportar prueba JSON
+- Importar prueba JSON
+
+Formato:
+- metadata
+- config/session
+- checkpoints
+- executions
+- path
+- signals
+- summary
+- positions
+
+## Guardado al proyecto / GitHub
+
+Se añadió backend local para guardar:
+- `validation-runs/latest.json`
+- `validation-runs/archive/<timestamp>-historical-replay.json`
+
+Commits:
+- `67530eb7...` — Persist historical replay audits into project files
+- `146910c8...` — Add project persistence for historical audit runs
+- `2472f49e...` — Lock project-saved historical audit contract
+
+Flujo deseado definitivo:
+
+> **App ejecuta → guarda resultado en workspace → usuario sincroniza workspace con GitHub → ChatGPT lee directamente GitHub**
+
+No implementar autenticación GitHub/token en frontend salvo petición expresa.
+
+Problema actual observado: AI Studio puede no detectar los archivos generados en runtime como “cambio de la web” y no ofrecer sincronización. Este punto sigue abierto. Hasta resolverlo, los JSON/ZIP adjuntos por el usuario pueden analizarse directamente, pero el objetivo sigue siendo cero adjuntos manuales.
+
+Cuando el flujo funcione, al recibir “terminó, revisa la prueba”, leer primero `validation-runs/latest.json` desde GitHub.
+
+---
+
+# Fiscalidad española
+
+Archivos principales:
+- `spanishTaxModel.ts`
+- `taxAwareExecutionOverlay.ts`
+
+Escala de ahorro implementada:
+- 0–6.000 €: 19%
+- 6.000–50.000 €: 21%
+- 50.000–200.000 €: 23%
+- 200.000–300.000 €: 27%
+- >300.000 €: 30%
+
+Si la base previa no está confirmada, reservar conservadoramente 30% de ganancia positiva estimada para análisis de fricción.
+
+Regla importante:
+- una rotación no estructural debe compensar impuestos + costes;
+- un EXIT estructural puede ejecutarse por control de riesgo aunque tenga coste fiscal;
+- para fondos traspasables, preferir traspaso fiscalmente diferido cuando sea operacionalmente elegible;
+- el impuesto estimado no debe restarse automáticamente del cash del broker en cada venta como si se pagase inmediatamente.
+
+Tema aún pendiente del replay histórico: modelar pago fiscal anual de forma temporalmente realista y separar `tax paid` de `pending tax liability`. No considerar este punto cerrado.
+
+---
+
+# Invariantes de backtesting
+
+- datos causales / no lookahead;
+- `NEXT_OPEN` por defecto;
+- `SAME_CLOSE` solo experimental;
+- políticas intrabar: CONSERVATIVE / STOP_FIRST / TAKE_PROFIT_FIRST;
+- no fallback sintético silencioso;
+- WFO requiere `stepBars >= testWindowBars`;
+- métricas con periodicidad dinámica: CAGR, Sharpe, Sortino, Calmar;
+- cualquier `executedFallbackSignals > 0` en replay debe tratarse como bug de corrección.
+
+Ruta REAL histórica:
+- `/api/market-data/history`
+- Yahoo Finance / proveedores de fondos
+- cache 6h
+- timeout 10s
+- retry/backoff
+- no intradía
+
+Aliases Yahoo importantes:
+- IE00B03HD191 → `0P00000WLG.F`
+- IE0031786696 → `0P00012I6A.F`
+- ES0174115065 → `0P0001PBAK.F`
+
+---
+
+# Próximo plan de implementación
+
+No volver a tocar el selector general hasta validar el nuevo Entry Timing sobre periodos amplios.
+
+Orden recomendado:
+
+## Fase 1 — validar Entry Timing recién implementado
+
+1. Ejecutar replay histórico causal con varias fechas y periodos largos.
+2. Medir porcentaje de días `WAIT`, `ENTRY_READY`, `ENTRY_STRONG`.
+3. Confirmar que ya no invierte sistemáticamente 80–90% al inicio de cualquier fecha arbitraria.
+4. Confirmar que `suggestedInitialFraction` realmente limita el importe ejecutado, no solo aparece como metadata.
+5. Mantener un conjunto holdout separado para no ajustar y evaluar sobre los mismos periodos.
+
+## Fase 2 — máquina de estados de posiciones
+
+1. Añadir high-water mark persistente / MFE por posición.
+2. Calcular drawdown desde máximo de posición.
+3. Introducir `WATCH` como estado intermedio real.
+4. Definir `REDUCE` por deterioro combinado, no por stop fijo.
+5. Mantener `EXIT` para ruptura estructural fuerte, pero evitar que llegue siempre demasiado tarde.
+6. Definir `ADD` solo sobre confirmación favorable y riesgo aceptable.
+
+## Fase 3 — sizing / capital deployment
+
+1. Separar target estratégico de tramo autorizado hoy.
+2. Respetar fracciones 25%/50% del timing o reglas equivalentes calibradas.
+3. Incorporar volatilidad al tamaño de la entrada.
+4. Permitir explícitamente que gran parte de los 13.000 € permanezca en cash si no hay setups.
+
+## Fase 4 — corregir/redefinir comparador de “valor aportado por mover la cartera”
+
+El comparador actual mezcla:
+- diferencias por nuevas entradas posteriores;
+- diferencias por gestión activa real;
+- diferencias de cash residual.
+
+Separar al menos:
+1. **valor por selección/composición posterior**;
+2. **valor por gestión de posiciones (ADD/REDUCE/EXIT)**;
+3. **valor total vs buy-and-hold inicial**.
+
+La etiqueta actual “valor aportado por mover la cartera” puede ser engañosa y debe cambiarse antes de usarla como KPI de calidad del motor.
+
+## Fase 5 — corregir anomalías del replay
+
+- investigar el caso cuyo replay comienza antes de la fecha seleccionada;
+- garantizar truncado estricto a `startDate`;
+- no usar un replay con violación temporal para calibrar estrategia;
+- mantener test de regresión específico.
+
+## Fase 6 — volver a ejecutar los casos históricos
+
+Comparar antes/después en:
+- retorno
+- drawdown
+- cash medio
+- turnover
+- nº BUY/ADD/WATCH/REDUCE/EXIT
+- MFE cedido antes de salida
+- recuperación de posiciones
+- valor vs hold
+- costes/fiscalidad
+
+Objetivo: no maximizar retorno en los mismos casos, sino demostrar una conducta más racional y robusta.
+
+---
+
+# Criterio de éxito de la siguiente versión
+
+La siguiente versión será mejor si puede hacer de forma natural cosas como:
+
+> “El activo es bueno pero hoy está extendido: WAIT.”
+
+> “Target estratégico 20%, pero hoy solo autorizo 5%.”
+
+> “La posición sigue sana: HOLD aunque lleve una corrección temporal.”
+
+> “Estuvo +15%, ha devuelto gran parte del beneficio y la tendencia se deteriora: WATCH / REDUCE.”
+
+> “La tesis estructural está rota: EXIT.”
+
+> “No hay suficientes oportunidades: mantener 70–100% de la nueva liquidez sin invertir.”
+
+La aplicación debe responder **cuándo, cómo, dónde y cuánto**, sin asumir que estar en cash es un problema que haya que resolver inmediatamente.
