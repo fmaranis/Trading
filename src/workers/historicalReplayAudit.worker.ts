@@ -27,6 +27,12 @@ interface RunMessage {
 interface ResetMessage { type: 'RESET'; }
 type IncomingMessage = InitMessage | RunMessage | ResetMessage;
 
+interface WorkerScope {
+  onmessage: ((event: MessageEvent<IncomingMessage>) => void) | null;
+  postMessage: (message: unknown) => void;
+}
+
+const workerScope = self as unknown as WorkerScope;
 let configuration: Omit<InitMessage, 'type' | 'dataset'> | null = null;
 let sourceDataset: MultiAssetDataset | null = null;
 
@@ -42,13 +48,13 @@ function truncateDataset(dataset: MultiAssetDataset, endDate: string): MultiAsse
   };
 }
 
-self.onmessage = (event: MessageEvent<IncomingMessage>) => {
+workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
   const message = event.data;
 
   if (message.type === 'RESET') {
     configuration = null;
     sourceDataset = null;
-    self.postMessage({ type: 'RESET_DONE' });
+    workerScope.postMessage({ type: 'RESET_DONE' });
     return;
   }
 
@@ -56,33 +62,31 @@ self.onmessage = (event: MessageEvent<IncomingMessage>) => {
     const { dataset, type: _type, ...rest } = message;
     sourceDataset = dataset;
     configuration = rest;
-    self.postMessage({ type: 'READY' });
+    workerScope.postMessage({ type: 'READY' });
     return;
   }
 
-  if (message.type === 'RUN') {
-    if (!configuration || !sourceDataset) {
-      self.postMessage({ type: 'ERROR', error: 'AUDIT_WORKER_NOT_INITIALIZED' });
-      return;
-    }
+  if (!configuration || !sourceDataset) {
+    workerScope.postMessage({ type: 'ERROR', error: 'AUDIT_WORKER_NOT_INITIALIZED' });
+    return;
+  }
 
-    try {
-      const dataset = truncateDataset(sourceDataset, message.endDate);
-      const result = DynamicHistoricalReplayEngine.run({
-        dataset,
-        catalog: configuration.catalog,
-        startDate: configuration.startDate,
-        frequency: configuration.frequency,
-        initialCapitalEur: configuration.initialCapitalEur,
-        riskProfile: configuration.riskProfile,
-        horizonYears: configuration.horizonYears,
-        cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
-        minimumBars: configuration.minimumBars,
-        taxSettings: configuration.taxSettings
-      });
-      self.postMessage({ type: 'RESULT', requestedEndDate: message.endDate, result });
-    } catch (error: any) {
-      self.postMessage({ type: 'ERROR', error: error?.message || String(error), requestedEndDate: message.endDate });
-    }
+  try {
+    const dataset = truncateDataset(sourceDataset, message.endDate);
+    const result = DynamicHistoricalReplayEngine.run({
+      dataset,
+      catalog: configuration.catalog,
+      startDate: configuration.startDate,
+      frequency: configuration.frequency,
+      initialCapitalEur: configuration.initialCapitalEur,
+      riskProfile: configuration.riskProfile,
+      horizonYears: configuration.horizonYears,
+      cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
+      minimumBars: configuration.minimumBars,
+      taxSettings: configuration.taxSettings
+    });
+    workerScope.postMessage({ type: 'RESULT', requestedEndDate: message.endDate, result });
+  } catch (error: any) {
+    workerScope.postMessage({ type: 'ERROR', error: error?.message || String(error), requestedEndDate: message.endDate });
   }
 };
