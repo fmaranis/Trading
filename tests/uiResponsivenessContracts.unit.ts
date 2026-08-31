@@ -46,8 +46,9 @@ test('965 live decision scan uses the bounded three-year window', () => {
   assert.doesNotMatch(decisionCenter, /sevenYearsAgo/);
 });
 
-test('966 long-history robustness modules remain separate from this live-window change', () => {
-  assert.match(researchLab, /HistoricalDecisionReplayPanel/);
+test('966 long-history robustness remains separate from the live-window change and uses one historical UI', () => {
+  assert.match(researchLab, /HistoricalReplayProgressivePanel/);
+  assert.doesNotMatch(researchLab, /<HistoricalDecisionReplayPanel/);
   assert.doesNotMatch(decisionCenter, /HistoricalDecisionReplayEngine|DynamicHistoricalReplayEngine/);
 });
 
@@ -149,8 +150,9 @@ test('980 real portfolio evolution is integrated inside Mi cartera real rather t
   assert.equal((decisionCenter.match(/type Workspace = 'PORTFOLIO' \| 'RESEARCH'/g) ?? []).length, 1);
 });
 
-test('981 progressive historical audit preserves full session trajectory and chronological decision trace', () => {
-  assert.match(researchLab, /<HistoricalDecisionReplayPanel[\s\S]*<HistoricalReplayProgressivePanel/);
+test('981 unified progressive historical audit exposes selectable assets, exact hold comparison, position excursions and tax netting', () => {
+  assert.match(researchLab, /<HistoricalReplayProgressivePanel/);
+  assert.doesNotMatch(researchLab, /<HistoricalDecisionReplayPanel/);
   assert.match(historicalProgressive, /Replay histórico auditado · manual o automático/);
   assert.match(historicalProgressive, /Duración total \(meses\)/);
   assert.match(historicalProgressive, /Tramo de cálculo \(días\)/);
@@ -162,12 +164,20 @@ test('981 progressive historical audit preserves full session trajectory and chr
   assert.match(historicalProgressive, /historical_progressive_audit_v3/);
   assert.match(historicalProgressive, /function buildPath/);
   assert.match(historicalProgressive, /result\.equityPath/);
-  assert.match(historicalProgressive, /Evolución completa desde la fecha inicial/);
+  assert.match(historicalProgressive, /Mostrar todas/);
+  assert.match(historicalProgressive, /selectedAssetId/);
+  assert.match(historicalProgressive, /ASSET_COLORS/);
+  assert.match(historicalProgressive, /function buildExactInitialHold/);
+  assert.match(historicalProgressive, /Resumen final del periodo · Motor vs comprar y mantener/);
+  assert.match(historicalProgressive, /function buildPositionSummaries/);
+  assert.match(historicalProgressive, /Máx\. ganancia/);
+  assert.match(historicalProgressive, /Máx\. caída/);
+  assert.match(historicalProgressive, /Resultado neto/);
+  assert.match(historicalProgressive, /estimatedTaxEur/);
+  assert.match(historicalProgressive, /taxDeferredTransferEur/);
   assert.match(historicalProgressive, /Decisiones y señales cronológicas/);
-  assert.match(historicalProgressive, /Ver también MANTENER \/ NO COMPRAR/);
   assert.match(historicalProgressive, /Operaciones realmente ejecutadas/);
   assert.match(historicalProgressive, /INCONSISTENCIA DE AUDITORÍA/);
-  assert.match(historicalProgressive, /AUTO_PAUSE_MS/);
   assert.match(historicalProgressive, /new Worker\(new URL\('\.\.\/workers\/historicalReplayAudit\.worker\.ts'/);
   assert.match(historicalAuditWorker, /DynamicHistoricalReplayEngine\.run/);
   assert.match(historicalAuditWorker, /truncateDataset/);
