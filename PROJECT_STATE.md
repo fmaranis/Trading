@@ -1,104 +1,84 @@
 # Trading — Estado Canónico del Proyecto
 
-> **Leer este archivo primero al retomar el proyecto desde otra conversación, equipo o dispositivo.** El repositorio canónico es `fmaranis/Trading/main`. Este documento es la memoria operativa del proyecto y debe mantenerse actualizado cuando cambien decisiones de arquitectura, hallazgos de validación o próximos pasos.
+> Leer este archivo primero al retomar el proyecto desde otra conversación, equipo o dispositivo. El repositorio canónico es `fmaranis/Trading/main`. Este documento es la memoria operativa del proyecto y debe actualizarse cada vez que cambie código, arquitectura, conclusiones de validación o próximos pasos.
 
 ## Reglas de trabajo no negociables
 
-- **Nunca añadir ni depender de GitHub Actions.** Las validaciones se ejecutan en local/AI Studio.
+- Nunca añadir ni depender de GitHub Actions. Las validaciones se ejecutan en local/AI Studio.
 - ChatGPT inspecciona, desarrolla y corrige directamente sobre GitHub cuando sea posible.
-- AI Studio se usa principalmente como entorno de ejecución/Preview/validación local. No delegar en Gemini diagnósticos amplios ni cambios de arquitectura salvo petición expresa.
-- El gate local completo sigue siendo `npm run validate:aistudio`. Un resultado verde anterior no valida cambios posteriores.
-- No usar datos sintéticos como fallback silencioso. La procedencia REAL / STATIC_REFERENCE / SYNTHETIC debe seguir siendo explícita.
-- El replay histórico debe ser causal: solo información disponible hasta la fecha evaluada, ejecución en observación posterior y ningún lookahead.
-- Si el usuario dice “terminó, revisa la prueba”, buscar primero el resultado sincronizado en GitHub antes de pedirle que lo adjunte manualmente.
+- AI Studio se usa principalmente como entorno de ejecución/Preview/validación local; no delegar cambios de arquitectura o diagnósticos amplios en Gemini salvo petición expresa.
+- Gate local completo: `npm run validate:aistudio`. Un verde anterior no valida cambios posteriores.
+- No usar datos sintéticos como fallback silencioso. Procedencia REAL / STATIC_REFERENCE / SYNTHETIC siempre explícita.
+- Replay histórico causal: solo información disponible hasta la fecha evaluada; ejecución posterior a la señal; ningún lookahead.
+- Si el usuario dice “terminó, revisa la prueba”, buscar primero el resultado sincronizado en GitHub antes de pedir adjuntos.
+- A partir de 2026-08-31, cada cambio de código/arquitectura debe ir acompañado de actualización de `PROJECT_STATE.md`.
 
 ---
 
 # Estado actual — 2026-08-31
 
-HEAD observado al actualizar este documento: `9061b0778d2b02be5a91aad3fc7efd9dcb74a266` (`Assert timing gate before portfolio allocation`).
+HEAD funcional observado antes de esta actualización: `71f8f6cba6f496309e81bfb1003100ff1f4c6a87` (`Refresh canonical project knowledge and replay roadmap`).
 
-Stack: React 19 + TypeScript + Vite + Tailwind + Recharts + Motion. Aplicación de soporte a decisiones de inversión con datos REAL, backtesting/replay causal, cartera real, radar de oportunidades, fiscalidad española y ejecución condicionada por broker/costes.
+Stack: React 19 + TypeScript + Vite + Tailwind + Recharts + Motion. Aplicación de soporte a decisiones con datos REAL, replay causal, cartera real, radar de oportunidades, fiscalidad española y ejecución condicionada por broker/costes.
 
-La pregunta de producto que debe ordenar toda la UX sigue siendo:
+Pregunta central de producto:
 
 > **¿Muevo dinero hoy o no?**
 
-Formato deseado de recomendación:
+Formato deseado:
 
 > **ACCIÓN → IMPORTE → ACTIVO → POR QUÉ → DETALLE TÉCNICO**
 
-Acciones operativas objetivo:
+Acciones objetivo:
 - INVERTIR X €
 - REDUCIR / SALIR
 - ROTAR
 - NO MOVER DINERO
 - REORDENAR CARTERA
 
-La app no debe convertir “tengo efectivo” en “debo invertirlo”. Mantener liquidez es una decisión válida.
+Principio clave: tener efectivo no implica que haya que invertirlo.
 
 ---
 
 # Cartera real de referencia
 
-No relabelar como demo/ejemplo ni sustituir silenciosamente:
-
-- Vanguard Global Stock Index Fund EUR Acc — ISIN `IE00B03HD191` — 12.600 € invertidos — adquisición 2026-08-11 — 196,59 participaciones — MyInvestor — traspasable.
-- Vanguard Emerging Markets Stock Index Fund EUR Acc — ISIN `IE0031786696` — 1.400 € invertidos — adquisición 2026-08-12 — 4,61 participaciones — MyInvestor — traspasable.
-- Capital pendiente de invertir: 13.000 €.
+- Vanguard Global Stock Index Fund EUR Acc — `IE00B03HD191` — 12.600 € — adquisición 2026-08-11 — 196,59 participaciones — MyInvestor — traspasable.
+- Vanguard Emerging Markets Stock Index Fund EUR Acc — `IE0031786696` — 1.400 € — adquisición 2026-08-12 — 4,61 participaciones — MyInvestor — traspasable.
+- Capital pendiente: 13.000 €.
 - Horizonte de despliegue: 12 meses.
-- Alternativa de efectivo / hurdle: 2,5% anual salvo cambio explícito.
+- Cash hurdle: 2,5% anual salvo cambio explícito.
 
 Constantes canónicas: `USER_REAL_FUND_POSITIONS`, `USER_REAL_STAGED_CAPITAL_PLAN`.
 
-Política operativa MyInvestor:
-
-> **Asumir disponibilidad salvo que el usuario marque expresamente un instrumento como no disponible.**
-
-Debe seguir diferenciándose de una confirmación oficial del broker.
+Política MyInvestor: asumir disponibilidad salvo que el usuario marque expresamente un instrumento como no disponible; no presentarlo como confirmación oficial del broker.
 
 ---
 
-# Arquitectura de producto
+# Arquitectura de decisión objetivo
 
-Solo dos workspaces principales:
+Separar claramente:
 
-## 1. Mi cartera real
+1. **DÓNDE** — calidad / ranking / consenso.
+2. **CUÁNDO** — timing causal de entrada.
+3. **CUÁNTO HOY** — sizing / construcción progresiva; target estratégico ≠ orden inmediata.
+4. **CÓMO GESTIONAR** — HOLD / ADD / WATCH / REDUCE / EXIT.
 
-Objetivo: posiciones reales, liquidez real y decisiones accionables.
+Máquina de estados objetivo:
 
-Superficies principales:
-1. Alertas importantes de entrada ahora.
-2. Mi cartera real y salud independiente de cada posición.
-3. Qué haría hoy / plan operativo.
-4. Explicación técnica secundaria.
+> **CANDIDATE → WAIT → ENTER → BUILD → HOLD → WATCH → REDUCE → EXIT**
 
-## 2. Estudio y señales
-
-Objetivo: investigar sin mutar la cartera real.
-
-Incluye radar, catálogo, análisis por ticker/ISIN, gráfica de precio/NAV, señales históricas y replay auditado.
-
-Las ideas de research no se convierten en operaciones reales hasta superar filtros de datos, cash, consenso, timing, costes, broker, fiscalidad y disponibilidad de capital.
+No usar stops rígidos universales ni take-profit fijo.
 
 ---
 
-# Pipeline de nueva inversión
-
-Cadena conceptual deseada:
-
-> **REAL discovery → calidad / cash hurdle → consenso → Entry Timing → selección diversificada → target estratégico → tramo ejecutable hoy → costes/broker/fiscalidad**
-
-El selector responde principalmente **DÓNDE** invertir. El nuevo timing debe responder **CUÁNDO**. El sizing debe responder **CUÁNTO HOY**, sin confundirlo con el target estratégico final.
-
-## Entry Timing — ya implementado parcialmente
+# Entry Timing — implementación actual
 
 Archivos principales:
 - `src/investment/decision/entryTiming.ts`
-- integración en `portfolioCandidateGate.ts`
-- integración en `currentOpportunityAlerts.ts`
+- `src/investment/decision/portfolioCandidateGate.ts`
+- `src/investment/decision/currentOpportunityAlerts.ts`
 
-Commits principales del 2026-08-31:
+Commits relevantes:
 - `1952fb07...` — Add causal entry timing gate
 - `7ea0e87c...` — Gate current opportunities by entry timing
 - `53805ade...` — Export entry timing engine
@@ -106,450 +86,254 @@ Commits principales del 2026-08-31:
 - `5a577907...` — Apply entry timing before new-money allocation
 - `9061b077...` — Assert timing gate before portfolio allocation
 
-Estados implementados:
+Estados:
 - `WAIT`
 - `ENTRY_READY`
 - `ENTRY_STRONG`
 
-Setups implementados:
+Setups:
 - `BREAKOUT_CONFIRMATION`
 - `PULLBACK_RECOVERY`
 - `TREND_CONTINUATION`
 - `NONE`
 
-Variables usadas de forma causal:
+Variables causales principales:
 - SMA20 / SMA50 / SMA200
 - distancia a medias
 - retorno 5 sesiones
-- máximo previo de 20 sesiones
-- drawdown desde máximo de 60 sesiones
+- máximo previo 20 sesiones
+- drawdown desde máximo 60 sesiones
 - momentum 20/60/120
 - volatilidad
 - tendencia estructural
 - consenso y votos favorables/adversos
 
-Reglas actuales destacables:
-- un activo de buena calidad puede quedar en `WAIT` aunque pase cash + consenso;
-- activos demasiado extendidos o con riesgo alto no deben perseguirse;
-- `ENTRY_READY` propone una fracción inicial de 0,25 del target;
-- `ENTRY_STRONG` propone 0,50;
-- el timing nunca autoriza completar el 100% del target en la primera orden;
-- el allocator ya no debe recibir un candidato mientras el timing esté en `WAIT`.
+Reglas actuales:
+- un activo bueno puede quedar en `WAIT`;
+- no perseguir activos demasiado extendidos;
+- `ENTRY_READY` sugiere 25% del target;
+- `ENTRY_STRONG` sugiere 50%;
+- timing nunca pretende autorizar 100% del target de una vez.
 
-**Importante:** esta implementación es reciente y todavía debe ser validada con replay histórico amplio antes de considerar correctos sus umbrales. No optimizar sobre los mismos periodos usados para descubrir el problema.
-
----
-
-# Problema estructural detectado en los replays históricos
-
-La evidencia acumulada hasta hoy muestra que el motor antiguo se comportaba demasiado parecido a:
-
-> **seleccionar → invertir casi todo al inicio → HOLD casi indefinido**
-
-La sensación del usuario está respaldada por los casos estudiados: casi independientemente de la fecha inicial, el sistema encontraba rápidamente varias posiciones aceptables, desplegaba gran parte del efectivo y luego apenas gestionaba las posiciones.
-
-Conclusión conceptual:
-
-- El análisis/selector de activos parece razonablemente prometedor.
-- Faltaba una capa explícita de **timing de entrada**.
-- Sigue faltando mejorar de forma importante la **gestión posterior de posiciones**.
-- El motor no debe intentar adivinar techos/suelos ni usar stops rígidos simples.
-
-Arquitectura objetivo de estado:
-
-> **CANDIDATE → WAIT → ENTER → BUILD → HOLD → WATCH → REDUCE → EXIT**
-
-La intención es separar claramente:
-
-1. **DÓNDE** — calidad/ranking/consenso.
-2. **CUÁNDO** — timing causal de entrada.
-3. **CUÁNTO** — target estratégico vs tramo ejecutable hoy.
-4. **CÓMO GESTIONAR** — HOLD/ADD/WATCH/REDUCE/EXIT.
+**Pendiente crítico:** comprobar de extremo a extremo que `suggestedInitialFraction` limita el importe realmente ejecutado. El gate ya expone la fracción, pero el allocator/ejecutor todavía debe auditarse para confirmar que no vuelve a convertir target estratégico en orden completa.
 
 ---
 
 # Evidencia histórica revisada
 
-## Caso 1 — 2022-04-13 → 2023-04-12
+## 2022-04-13 → 2023-04-12
 
-Capital inicial: 9.000 €.
-
-Resultado:
-- motor: 8.528,55 € / -5,2383%
-- comprar primeras posiciones y mantener: 8.526,77 € / -5,2581%
+- motor: -5,2383%
+- hold inicial mostrado: -5,2581%
 - ventaja mostrada: +1,78 € / +0,0198 pp
-- drawdown máximo: -10,479%
-- 5 compras ejecutadas
-- 0 REDUCE / 0 EXIT
-
-Posiciones reveladoras:
-- AIGC: MFE +7,73%, MAE -18,55%, final aprox. -16,29% neto.
-- WCOA: MFE +7,16%, MAE -17,07%, final aprox. -14,36% neto.
-- Sanofi: MAE aprox. -21,70% y acaba positiva (~+2,98% neto), demostrando que un stop fijo simple puede destruir recuperaciones válidas.
-
-Interpretación: la gestión dinámica añadió prácticamente cero valor y toleró reversión de ganancias a pérdidas fuertes sin reducción.
-
-## Caso 2 — 2023-04-13 → 2024-04-12
-
-Resultado:
-- motor: +7,1278%
-- hold inicial exacto: +7,1208%
-- ventaja: +0,62 € / +0,0069 pp
-- drawdown máximo: -7,283%
-- 4 compras iniciales
-- 0 REDUCE / 0 EXIT
+- DD máx.: -10,48%
+- 5 compras; 0 REDUCE; 0 EXIT
 
 Ejemplos:
-- Air Liquide: MFE +24,59%, final +19,56% neto.
-- Deutsche Telekom: MAE -17,02%, final ~-1,95% neto.
-- Iberdrola: MAE -13,13%, final ~+0,49% neto.
-- Vanguard Eurozone: MFE +15,42%, final +13,09%.
+- AIGC: MFE +7,73%, MAE -18,55%, final ~-16,29% neto.
+- WCOA: MFE +7,16%, MAE -17,07%, final ~-14,36%.
+- Sanofi llegó a ~-21,70% y terminó positiva: prueba de que un stop fijo puede destruir recuperaciones válidas.
 
-Interpretación: aguantar algunos drawdowns fue correcto; por tanto no debe implantarse un stop-loss porcentual universal.
+## 2023-04-13 → 2024-04-12
 
-## Caso 3 — 2024-07-12 → 2025-07-11
+- motor: +7,1278%
+- hold inicial: +7,1208%
+- ventaja: +0,62 € / +0,0069 pp
+- DD máx.: -7,28%
+- 4 compras; 0 REDUCE; 0 EXIT
 
-Resultado:
+Air Liquide y Vanguard Eurozone muestran que dejar correr ganadores es correcto; Deutsche Telekom e Iberdrola muestran que un drawdown aislado no debe obligar a vender.
+
+## 2024-07-12 → 2025-07-11
+
 - motor: +7,7268%
-- hold inicial exacto: +3,7679%
+- hold inicial mostrado: +3,7679%
 - ventaja mostrada: +356,30 € / +3,9588 pp
-- drawdown máximo: -17,863%
-- 5 compras
-- 0 REDUCE / 0 EXIT
+- DD máx.: -17,86%
+- 5 compras; 0 REDUCE; 0 EXIT
 
-Punto clave:
-- en febrero de 2025 la cartera llegó a ~+12,79%; dos meses después estaba ~-3,21%; el motor no redujo nada.
-- EQQQ: MFE +13,50%, MAE -16,81%, final ~+4,13% neto.
-- SXRV: MFE +13,46%, MAE -16,82%, final ~+4,08%.
-- VUSA: MFE +14,33%, MAE -12,24%, final ~+4,42%.
-- Xetra-Gold entró dos días después de las compras iniciales y terminó ~+26,81% neto.
+La cartera pasó de ~+12,79% en febrero de 2025 a ~-3,21% en abril sin reducción. EQQQ/SXR8/SXRV/VUSA devolvieron gran parte de MFE de +13/+14% y aun así permanecieron en HOLD.
 
-**Interpretación crítica de “valor aportado por mover la cartera”:**
+Parte importante de la ventaja mostrada proviene de Xetra-Gold, incorporado después de las primeras compras; por tanto la métrica actual no equivale a “alpha por gestionar posiciones”.
 
-Ese indicador es actualmente, en esencia:
+## 2025-03-27 → 2026-03-26
 
-> `engineFinalEur - exactHoldFinalEur`
+Existe anomalía temporal: el replay contiene señales/operaciones anteriores a la fecha inicial solicitada. No usar para calibrar hasta corregir el límite temporal.
 
-Por tanto un valor positivo **no significa necesariamente que la gestión activa de ventas/reducciones haya añadido valor**. Puede ser positivo simplemente porque el motor añadió más tarde un activo que el comparador “primeras compras y mantener” no contiene. En este caso, gran parte de la ventaja aparente proviene de la entrada posterior de Xetra-Gold, no de una mejor gestión de salidas.
+Diagnóstico útil: Deutsche Börse llegó aprox. a MFE +8,23% y salió cerca de -23%, mostrando que EXIT existe pero puede llegar demasiado tarde.
 
-La etiqueta debe revisarse porque puede inducir a interpretar “alpha de trading” donde solo existe diferencia de composición inicial/posterior.
+## Replay largo — 2022-07-11 → 2025-07-10
 
-## Caso 4 — 2025-03-27 → 2026-03-26
+Archivo revisado: `trading-replay-2022-07-11-2025-07-10.zip`.
 
-Se observó finalmente un EXIT (Deutsche Börse) y varios movimientos posteriores, pero existe una anomalía temporal: el replay solicitado desde 2025-03-27 contiene señal/operaciones anteriores a esa fecha. No usar este caso para calibrar estrategia hasta corregir el límite temporal.
+Resumen:
+- capital inicial: 9.000 €
+- motor: 13.274,61 € / +47,4957%
+- hold inicial mostrado: 12.203,96 € / +35,5996%
+- diferencia mostrada: +1.070,65 € / +11,8961 pp
+- DD máx. motor: -8,7697%
+- 8.101 señales totales
+- 6.098 HOLD
+- 1.937 AVOID
+- 35 BUY
+- 23 ADD
+- 5 EXIT
+- 3 REDUCE
+- operaciones ejecutadas: 15 BUY, 1 ADD, 1 REDUCE, 5 EXIT
 
-Comportamiento útil para diagnóstico:
-- Deutsche Börse llegó aproximadamente a MFE +8,23% y terminó saliendo alrededor de -23% tras deterioro estructural fuerte.
+Operaciones relevantes:
+- AIGC: entra 2022-07-12 y sale 2023-07-20 con ~-16,46% neto; MFE +8,04%, MAE -19,56%.
+- WCOA: sale 2023-11-15 con ~-12,87%; MFE +5,83%, MAE -16,89%.
+- ENI: REDUCE en 2024-12-18 y EXIT 2024-12-27, pérdida final ~-9,63%.
+- TotalEnergies: EXIT 2024-12-13, ~-11,49%.
+- Airbus: EXIT 2025-04-10 con beneficio todavía positivo; MFE +31,34%, neto ~+8,71%, lo que muestra devolución grande de beneficio antes de salir.
+- Ganadores retenidos: 4GLD ~+65,5%, DTE ~+74,7%, SAP ~+108,6%, UniCredit ~+198,9%, Intesa ~+127%.
 
-Esto sugiere que el mecanismo EXIT existe pero históricamente estaba demasiado tardío.
+Lectura:
+- en horizonte largo la gestión dinámica sí puede aportar valor frente al comparador mostrado;
+- pero el patrón de salida sigue siendo tardío en varios activos;
+- el sistema conserva bien grandes ganadores, por lo que no debe introducirse take-profit fijo;
+- sigue haciendo falta memoria de high-water mark y transición WATCH/REDUCE antes del deterioro severo.
 
-## Caso largo pendiente
+### Hallazgo crítico del comparador
 
-Archivo recibido para estudiar:
-- `trading-replay-2022-07-11-2025-07-10.zip`
+El helper `buildExactInitialHold(...)` actualmente define “cartera inicial” como **solo las compras positivas ejecutadas en la primera fecha de ejecución**.
 
-Debe usarse como prueba extensa antes de fijar reglas definitivas de WATCH/REDUCE/EXIT y para revisar la métrica “valor aportado por mover la cartera”.
+Eso es incorrecto cuando una misma decisión inicial produce ejecuciones escalonadas en días consecutivos. En el replay largo, 4GLD/DTE/WCOA ejecutan el 2022-07-11 y AIGC —con la misma señal inicial— ejecuta el 2022-07-12; el comparador excluye AIGC solo por ese desfase de ejecución.
+
+Por tanto `advantageEur = engineFinalEur - exactHoldFinalEur` puede sobre/infraestimar el valor de la gestión. Debe definir la cartera inicial por **cohorte de señal/decisión inicial**, no por una única fecha de ejecución.
+
+### Hallazgo crítico del límite temporal
+
+El replay largo solicitado desde 2022-07-11 contiene señales fechadas 2022-07-06 que ejecutan 2022-07-11/12. Esto confirma que la anomalía temporal no era aislada.
+
+Causa probable en `DynamicHistoricalReplayEngine.run`: `requestedDate` sí respeta `startDate`, pero `decisionDate` se toma de `firstDecision.asOfDate/provisionalDate`, que puede ser anterior al día solicitado si los últimos datos comunes son más antiguos.
+
+Regla correcta: nunca emitir `signalDate < requested startDate`. Se puede decidir en la fecha solicitada usando únicamente datos `asOf <= fecha`, pero la fecha de señal debe permanecer dentro de la ventana pedida.
 
 ---
 
-# Gestión de posiciones — siguiente gran fase pendiente
+# Gestión de posiciones — dirección acordada
 
-No implantar un simple:
-- stop -X%
-- take-profit +Y%
+Estados:
+- ADD
+- HOLD
+- WATCH
+- REDUCE
+- EXIT
+- DATA_MISSING
 
-La evidencia de Sanofi, Deutsche Telekom, Air Liquide y Xetra-Gold demuestra que esas reglas simples pueden cortar recuperaciones o ganadores de largo recorrido.
-
-La dirección acordada es una gestión dinámica basada en:
-
-## High-water mark / memoria de beneficio
-
-Cada posición debe recordar el máximo favorable alcanzado desde su entrada (MFE / high-water mark).
-
-Una posición que estuvo +15% no debe tratarse igual que una que nunca pasó de +1%.
-
-El motor debe evaluar cuánto beneficio acumulado está devolviendo y si esa devolución coincide con deterioro técnico/estructural.
-
-## Estados de salud objetivo
-
-- `HOLD`
-- `ADD`
-- `WATCH`
-- `REDUCE`
-- `EXIT`
-- `DATA_MISSING`
-
-Transición conceptual deseada:
-
-> ganador sano → HOLD / ADD
->
-> pérdida de momentum o beneficio devuelto → WATCH
->
-> deterioro confirmado + devolución relevante → REDUCE
->
-> ruptura estructural fuerte → EXIT
-
-No vender solo por estar “overweight”. No vender solo por perder contra cash. No vender automáticamente por un drawdown porcentual aislado.
-
-## Factores a combinar
-
-- tendencia de largo plazo
+Factores a combinar:
+- tendencia larga
 - momentum 20/60/120
-- ruptura/recuperación de SMA
+- SMA / ruptura / recuperación
 - volatilidad y régimen
-- consenso
-- número de señales adversas
-- MFE desde entrada
+- consenso y votos adversos
+- MFE / high-water mark desde entrada
 - drawdown desde máximo de posición
-- drawdown desde coste de adquisición
-- velocidad del deterioro
-- ventaja fiscal/costes de rotación
+- drawdown desde coste
+- velocidad de deterioro
+- costes/fiscalidad de rotación
 
-Objetivo: permitir que los ganadores corran, pero impedir que una posición pase de +10/+15% a -15/-20% sin atravesar al menos WATCH/REDUCE si además la evidencia se deteriora.
+Objetivo: permitir que ganadores sanos corran, pero evitar pasar de +10/+15% a -15/-20% sin atravesar WATCH/REDUCE cuando además se deteriora la evidencia.
 
----
-
-# Sizing / construcción progresiva de posición
-
-Principio acordado:
-
-> **Target estratégico ≠ orden de hoy.**
-
-Ejemplo conceptual:
-- target final 20%
-- entrada inicial autorizada 5%
-- confirmación posterior +5%
-- nueva confirmación +5%
-- completar solo cuando la evidencia lo justifique
-
-El Entry Timing actual ya expone `suggestedInitialFraction` 0,25 / 0,50, pero debe comprobarse de extremo a extremo que el motor de asignación y ejecución realmente respete esa fracción y no vuelva a convertir un target en una compra inmediata completa.
-
-Debe evitarse promediar a la baja automáticamente. Los ADD deben responder a tesis confirmada, no simplemente a que el precio haya caído.
+No vender solo por overweight. No vender solo por perder contra cash. No vender por un porcentaje fijo aislado.
 
 ---
 
-# Técnicas/teorías adoptadas como marco conceptual
+# Fiscalidad española — pendiente importante
 
-No existe ningún método que garantice comprar abajo y vender arriba. El diseño busca robustez, no predicción perfecta.
+El replay todavía descuenta `estimatedTaxEur` de forma inmediata en ventas. El usuario quiere modelar disponibilidad del efectivo hasta la liquidación fiscal anual.
 
-Familias usadas como referencia conceptual:
-- trend following / time-series momentum para confirmar si una tendencia merece exposición;
-- cross-sectional / relative momentum para ayudar a decidir dónde concentrar atención;
-- breakout confirmation, pullback recovery y trend continuation para timing;
-- volatility-aware sizing para decidir cuánto riesgo asumir;
-- scaling-in / construcción progresiva de posición;
-- high-water mark y trailing defensivo condicionado por deterioro, no take-profit fijo;
-- salida estructural basada en múltiples señales, no stop-loss rígido universal.
+Pendiente:
+- beneficio/pérdida realizable neta por año;
+- `pendingTaxLiabilityEur` vs `taxPaidEur`;
+- pago en fecha de simulación del año siguiente, no en cada venta;
+- respetar traspaso fiscalmente diferido.
 
-Garantías de diseño deseadas:
-- no invertir todo solo porque haya efectivo;
-- no confundir target con orden inmediata;
-- no comprar nueva exposición con timing `WAIT`;
-- mantener cash cuando no hay setup suficiente;
-- reducir tamaño con riesgo alto;
-- recordar máximo beneficio alcanzado;
-- no cortar automáticamente un ganador sano;
-- no mantener indefinidamente una posición severamente deteriorada sin transición WATCH/REDUCE/EXIT.
+No considerar cerrado.
 
 ---
 
-# Replay histórico auditado
+# Replay histórico / persistencia
 
-UI principal: `HistoricalReplayProgressivePanel.tsx`.
+UI: `HistoricalReplayProgressivePanel.tsx`.
 Worker: `src/workers/historicalReplayAudit.worker.ts`.
-Storage actual: `historical_progressive_audit_v3`.
+Storage: `historical_progressive_audit_v3`.
 
-Controles:
-- fecha inicial
-- frecuencia DAILY/WEEKLY/MONTHLY/QUARTERLY
-- duración total
-- tamaño de tramo
-- modo MANUAL/AUTO
-- capital inicial
+Export/import JSON completo disponible.
 
-Características actuales:
-- cálculo por worker para no bloquear la UI;
-- checkpoints y reanudación;
-- trayectoria completa `equityPath`;
-- señales cronológicas;
-- operaciones ejecutadas;
-- selección visual de activos;
-- comparador exacto de primeras compras y mantener;
-- análisis por posición con MFE/MAE, entrada/salida, bruto/neto, comisiones y fiscalidad;
-- invariant de auditoría: operaciones pasadas no pueden desaparecer/cambiar silenciosamente entre chunks.
-
-## Export/import JSON
-
-`HistoricalAuditJsonControls.tsx` permite:
-- Exportar prueba JSON
-- Importar prueba JSON
-
-Formato:
-- metadata
-- config/session
-- checkpoints
-- executions
-- path
-- signals
-- summary
-- positions
-
-## Guardado al proyecto / GitHub
-
-Se añadió backend local para guardar:
+Persistencia al proyecto:
 - `validation-runs/latest.json`
 - `validation-runs/archive/<timestamp>-historical-replay.json`
 
-Commits:
-- `67530eb7...` — Persist historical replay audits into project files
-- `146910c8...` — Add project persistence for historical audit runs
-- `2472f49e...` — Lock project-saved historical audit contract
+Flujo objetivo:
 
-Flujo deseado definitivo:
+> App ejecuta → guarda en workspace → usuario sincroniza a GitHub → ChatGPT lee directamente GitHub.
 
-> **App ejecuta → guarda resultado en workspace → usuario sincroniza workspace con GitHub → ChatGPT lee directamente GitHub**
-
-No implementar autenticación GitHub/token en frontend salvo petición expresa.
-
-Problema actual observado: AI Studio puede no detectar los archivos generados en runtime como “cambio de la web” y no ofrecer sincronización. Este punto sigue abierto. Hasta resolverlo, los JSON/ZIP adjuntos por el usuario pueden analizarse directamente, pero el objetivo sigue siendo cero adjuntos manuales.
-
-Cuando el flujo funcione, al recibir “terminó, revisa la prueba”, leer primero `validation-runs/latest.json` desde GitHub.
+Problema abierto: AI Studio puede no detectar archivos escritos en runtime como cambios sincronizables.
 
 ---
 
-# Fiscalidad española
+# Plan de implementación vigente
 
-Archivos principales:
-- `spanishTaxModel.ts`
-- `taxAwareExecutionOverlay.ts`
+## Fase 0 — hacer fiable la auditoría antes de calibrar
 
-Escala de ahorro implementada:
-- 0–6.000 €: 19%
-- 6.000–50.000 €: 21%
-- 50.000–200.000 €: 23%
-- 200.000–300.000 €: 27%
-- >300.000 €: 30%
+1. Corregir límite temporal: ninguna señal antes de `startDate`.
+2. Añadir regresión específica para este caso.
+3. Corregir “hold inicial exacto” por cohorte de señal/decisión inicial, no por primera fecha de ejecución.
+4. Cambiar etiqueta “valor aportado por mover la cartera” por una descripción no ambigua.
+5. Separar progresivamente tres métricas:
+   - diferencia total vs mantener cartera inicial;
+   - valor por nuevas selecciones/recomposición posterior;
+   - valor por gestión de posiciones existentes (ADD/REDUCE/EXIT).
 
-Si la base previa no está confirmada, reservar conservadoramente 30% de ganancia positiva estimada para análisis de fricción.
+## Fase 1 — validar Entry Timing actual
 
-Regla importante:
-- una rotación no estructural debe compensar impuestos + costes;
-- un EXIT estructural puede ejecutarse por control de riesgo aunque tenga coste fiscal;
-- para fondos traspasables, preferir traspaso fiscalmente diferido cuando sea operacionalmente elegible;
-- el impuesto estimado no debe restarse automáticamente del cash del broker en cada venta como si se pagase inmediatamente.
+1. Repetir replays después de Fase 0.
+2. Medir WAIT / ENTRY_READY / ENTRY_STRONG.
+3. Medir % de capital desplegado en 1, 5, 20 y 60 sesiones.
+4. Confirmar que ya no entra 80–90% simplemente por empezar en una fecha arbitraria.
+5. Confirmar que la fracción 25%/50% limita la orden real.
+6. No ajustar umbrales usando los mismos periodos que originaron el diagnóstico; usar holdout.
 
-Tema aún pendiente del replay histórico: modelar pago fiscal anual de forma temporalmente realista y separar `tax paid` de `pending tax liability`. No considerar este punto cerrado.
+## Fase 2 — target estratégico vs tramo ejecutable
 
----
+1. Hacer vinculante `suggestedInitialFraction`.
+2. Añadir sizing sensible a volatilidad/régimen.
+3. Construcción progresiva de posición.
+4. ADD solo por confirmación, nunca por promediar pérdidas automáticamente.
 
-# Invariantes de backtesting
+## Fase 3 — máquina de estados de posición
 
-- datos causales / no lookahead;
-- `NEXT_OPEN` por defecto;
-- `SAME_CLOSE` solo experimental;
-- políticas intrabar: CONSERVATIVE / STOP_FIRST / TAKE_PROFIT_FIRST;
-- no fallback sintético silencioso;
-- WFO requiere `stepBars >= testWindowBars`;
-- métricas con periodicidad dinámica: CAGR, Sharpe, Sortino, Calmar;
-- cualquier `executedFallbackSignals > 0` en replay debe tratarse como bug de corrección.
+1. High-water mark persistente/MFE.
+2. Drawdown desde máximo.
+3. WATCH real.
+4. REDUCE por deterioro combinado + devolución de beneficio.
+5. EXIT estructural antes de deterioros extremos cuando la evidencia lo justifique.
+6. Mantener ganadores sanos sin take-profit fijo.
 
-Ruta REAL histórica:
-- `/api/market-data/history`
-- Yahoo Finance / proveedores de fondos
-- cache 6h
-- timeout 10s
-- retry/backoff
-- no intradía
+## Fase 4 — fiscalidad temporal realista
 
-Aliases Yahoo importantes:
-- IE00B03HD191 → `0P00000WLG.F`
-- IE0031786696 → `0P00012I6A.F`
-- ES0174115065 → `0P0001PBAK.F`
+Separar impuesto estimado, pasivo pendiente y pago anual.
 
----
+## Fase 5 — validación robusta
 
-# Próximo plan de implementación
-
-No volver a tocar el selector general hasta validar el nuevo Entry Timing sobre periodos amplios.
-
-Orden recomendado:
-
-## Fase 1 — validar Entry Timing recién implementado
-
-1. Ejecutar replay histórico causal con varias fechas y periodos largos.
-2. Medir porcentaje de días `WAIT`, `ENTRY_READY`, `ENTRY_STRONG`.
-3. Confirmar que ya no invierte sistemáticamente 80–90% al inicio de cualquier fecha arbitraria.
-4. Confirmar que `suggestedInitialFraction` realmente limita el importe ejecutado, no solo aparece como metadata.
-5. Mantener un conjunto holdout separado para no ajustar y evaluar sobre los mismos periodos.
-
-## Fase 2 — máquina de estados de posiciones
-
-1. Añadir high-water mark persistente / MFE por posición.
-2. Calcular drawdown desde máximo de posición.
-3. Introducir `WATCH` como estado intermedio real.
-4. Definir `REDUCE` por deterioro combinado, no por stop fijo.
-5. Mantener `EXIT` para ruptura estructural fuerte, pero evitar que llegue siempre demasiado tarde.
-6. Definir `ADD` solo sobre confirmación favorable y riesgo aceptable.
-
-## Fase 3 — sizing / capital deployment
-
-1. Separar target estratégico de tramo autorizado hoy.
-2. Respetar fracciones 25%/50% del timing o reglas equivalentes calibradas.
-3. Incorporar volatilidad al tamaño de la entrada.
-4. Permitir explícitamente que gran parte de los 13.000 € permanezca en cash si no hay setups.
-
-## Fase 4 — corregir/redefinir comparador de “valor aportado por mover la cartera”
-
-El comparador actual mezcla:
-- diferencias por nuevas entradas posteriores;
-- diferencias por gestión activa real;
-- diferencias de cash residual.
-
-Separar al menos:
-1. **valor por selección/composición posterior**;
-2. **valor por gestión de posiciones (ADD/REDUCE/EXIT)**;
-3. **valor total vs buy-and-hold inicial**.
-
-La etiqueta actual “valor aportado por mover la cartera” puede ser engañosa y debe cambiarse antes de usarla como KPI de calidad del motor.
-
-## Fase 5 — corregir anomalías del replay
-
-- investigar el caso cuyo replay comienza antes de la fecha seleccionada;
-- garantizar truncado estricto a `startDate`;
-- no usar un replay con violación temporal para calibrar estrategia;
-- mantener test de regresión específico.
-
-## Fase 6 — volver a ejecutar los casos históricos
-
-Comparar antes/después en:
+Comparar antes/después en múltiples ventanas y holdout:
 - retorno
 - drawdown
 - cash medio
 - turnover
-- nº BUY/ADD/WATCH/REDUCE/EXIT
+- BUY/ADD/WATCH/REDUCE/EXIT
 - MFE cedido antes de salida
-- recuperación de posiciones
-- valor vs hold
+- capital desplegado por horizonte
+- valor total vs hold
 - costes/fiscalidad
 
-Objetivo: no maximizar retorno en los mismos casos, sino demostrar una conducta más racional y robusta.
+Objetivo: conducta más racional y robusta, no maximizar los mismos backtests usados para descubrir los problemas.
 
 ---
 
-# Criterio de éxito de la siguiente versión
+# Próxima acción concreta
 
-La siguiente versión será mejor si puede hacer de forma natural cosas como:
-
-> “El activo es bueno pero hoy está extendido: WAIT.”
-
-> “Target estratégico 20%, pero hoy solo autorizo 5%.”
-
-> “La posición sigue sana: HOLD aunque lleve una corrección temporal.”
-
-> “Estuvo +15%, ha devuelto gran parte del beneficio y la tendencia se deteriora: WATCH / REDUCE.”
-
-> “La tesis estructural está rota: EXIT.”
-
-> “No hay suficientes oportunidades: mantener 70–100% de la nueva liquidez sin invertir.”
-
-La aplicación debe responder **cuándo, cómo, dónde y cuánto**, sin asumir que estar en cash es un problema que haya que resolver inmediatamente.
+Empezar por Fase 0: corregir límite temporal + comparador de cartera inicial + etiquetas/tests. Después ejecutar un replay nuevo con el Entry Timing ya presente en `main` y evaluar su comportamiento antes de tocar umbrales o Position Health.
