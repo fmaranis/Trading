@@ -718,3 +718,106 @@ No usar el gate verde anterior para validar esta arquitectura. Antes de calibrar
    - `2024-04-01`, 12 meses o hasta el límite disponible equivalente.
 6. Comparar motor anterior vs cartera dinámica en retorno, DD, cash medio, turnover, comisiones, número de posiciones, STARTER/BUILD, REDUCE/ROTATE/EXIT y MFE cedido antes de rotar.
 7. No recalibrar todavía 3%/5%/8%, 12 plazas ni margen de rotación usando esos mismos periodos; primero comprobar comportamiento y después usar holdout independiente.
+
+---
+
+# ACTUALIZACIÓN — 2026-09-01 — ROTACIÓN 1:1 ESTRICTA Y EJECUCIÓN ATÓMICA
+
+> Esta sección sustituye la semántica anterior de “REDUCE 50% libera una plaza”. Esa interpretación quedó invalidada por replay REAL: una reducción parcial no elimina el incumbent y por tanto no libera una plaza.
+
+## Replay REAL revisado — 2022-07-11 → 2023-06-06 — 13.000 €
+
+Archivo revisado: `trading-replay-2022-07-11-2023-06-06 (1).zip`.
+
+Resultado con la primera corrección de plazas 1:1:
+- capital inicial: **13.000 €**;
+- final: **12.847,52 €**;
+- retorno motor: **-1,17296%**;
+- DD máximo: **3,78118%**;
+- hold cohorte inicial: **+2,01943%**;
+- diferencia motor vs cohorte: **-3,19239 pp**;
+- comisiones: **52,83 €**, ~**0,41%** del capital inicial;
+- impuesto estimado: **11,84 €**;
+- timing observado: WAIT 4.819 / READY 923 / STRONG 198;
+- entradas ejecutadas BUY+ADD: 44;
+- de esas entradas: **17 ENTRY_READY** y 27 ENTRY_STRONG;
+- etapas ejecutadas: **25 STARTER / 9 BUILD / 10 ROTATION_ENTRY**;
+- operaciones ejecutadas: 26 BUY / 18 ADD / 1 REDUCE / 14 EXIT.
+
+Despliegue 1/5/20/60 sesiones:
+- 4,664%;
+- 7,639%;
+- 38,504%;
+- 42,611%.
+
+### Límite de plazas — CONFIRMADO EN EL REPLAY
+
+Reconstruyendo unidades activas por fecha de ejecución, el máximo de posiciones al cierre de cada fecha es **12**. Algunos listados de operaciones muestran temporalmente 13 si se leen BUY y EXIT del mismo día en el orden textual del export, pero el motor económico vende antes de comprar y al cierre de la fecha nunca excede 12.
+
+La corrección anterior del crecimiento 12→17/19/20 queda por tanto validada en este replay: la cartera ya no crece por tratar un REDUCE parcial como plaza libre.
+
+### Nuevo defecto detectado: DTE → SXR8 no fue atómico
+
+Señal 2023-06-02:
+- incumbent: Deutsche Telekom (`EQ_DTE` / DTE.DE);
+- challenger: `SXR8.DE`;
+- DTE recibió EXIT competitivo 1:1;
+- target de compra SXR8: sólo **307,71 €**;
+- SXR8 era ETF de títulos enteros y ese importe no alcanzaba una acción a la siguiente apertura;
+- DTE sí se vendió el 2023-06-05 por ~1.008,78 €;
+- SXR8 no se ejecutó;
+- la plaza quedó libre y el 2023-06-06 entró SAP por otra decisión.
+
+Conclusión: la semántica “1:1” del decision engine era correcta en número de plazas, pero la ejecución podía vender el incumbent aunque el challenger emparejado fuese materialmente inexecutable. Esto no es una decisión económica válida y debe bloquearse.
+
+## Corrección implementada — rama `chatgpt/atomic-rotation-execution`
+
+### Cinturón 1 — asignador
+
+`PortfolioDecisionEngine` ahora:
+- para ETF exige, además del mínimo monetario de la política adaptativa, que la contribución alcance **al menos una acción completa + comisión modelada** al último cierre causal;
+- cuando la cartera está llena, una nueva posición sólo puede usar la plaza provisional de su challenger emparejado; no se cuela otro activo distinto aprovechando el hueco teórico;
+- el capital procedente de rotación queda separado del capital base: BUILD/otras aportaciones no pueden consumir proceeds de una venta competitiva reservada para el challenger;
+- si el challenger emparejado no recibe una contribución realmente ejecutable, se restaura el incumbent a su acción previa, se borran los metadatos de rotación y `plannedRotationProceedsEur` vuelve a cero.
+
+### Cinturón 2 — replay / siguiente apertura
+
+`DynamicHistoricalReplayEngine` conserva explícitamente el par incumbent↔challenger dentro del plan operativo y valida el par en la fecha común de ejecución:
+- comprueba que la venta del incumbent es realmente ejecutable;
+- comprueba que el challenger existe como BUY/ADD emparejado;
+- para ETF calcula títulos enteros al `open` causal de ejecución, comisión y gate económico;
+- reserva de forma conservadora hasta 30% de una plusvalía prevista al comprobar cash disponible;
+- prioriza la compra del challenger emparejado antes que compras no relacionadas;
+- si el challenger no es ejecutable, **bloquea simultáneamente venta y compra**;
+- la señal queda no ejecutada y añade explicación de auditoría: la rotación 1:1 fue bloqueada para conservar el incumbent y no abrir una plaza ficticia.
+
+Esto cubre tanto el caso detectado SXR8 como un posible gap entre último cierre y siguiente apertura.
+
+### Regresión añadida
+
+`currentCapitalAllocation.unit.ts` pasa a 30 invariantes e incorpora explícitamente:
+- challenger ETF demasiado caro para comprar una sola acción;
+- en cartera 12/12 ese challenger no puede provocar EXIT del incumbent;
+- `plannedRotationProceedsEur` debe quedar en 0;
+- no debe existir contribución del challenger imposible.
+
+## Estado
+
+**IMPLEMENTADO EN RAMA, NO RUNTIME-VALIDADO TODAVÍA.**
+
+No ejecutar GitHub Actions. El siguiente gate debe hacerse localmente por el usuario tras sincronizar el nuevo `main`.
+
+## Próxima comprobación
+
+Después del gate local verde, repetir sólo:
+- `2022-07-11`;
+- 12 meses;
+- DAILY;
+- **13.000 €**.
+
+Criterios principales:
+1. máximo 12 posiciones al cierre de cada fecha;
+2. toda EXIT con motivo `Rotación competitiva 1:1` debe tener challenger ejecutado en la misma fecha; si no puede ejecutarse, ambos deben quedar `executed=false`;
+3. no debe repetirse DTE vendido sin SXR8;
+4. READY/STARTER/BUILD deben seguir presentes;
+5. comparar retorno, DD, turnover y comisiones con el replay anterior sin recalibrar todavía thresholds.
