@@ -159,10 +159,17 @@ check('954 the paired challenger is tagged as ROTATION_ENTRY rather than an unre
 check('955 projected active-position count cannot exceed the strict medium-risk slot limit after a paired rotation', rotationResult.occupiedPortfolioPositions - rotationResult.existingPositions.filter(row => row.rotationChallengerAssetId != null && row.action === 'EXIT').length + rotationResult.contributions.filter(row => row.positionStage === 'ROTATION_ENTRY').length <= rotationResult.maxPortfolioPositions);
 check('956 rotation remains hysteretic: at most one incumbent is competitively replaced per evaluation', rotationResult.existingPositions.filter(row => row.rotationChallengerAssetId != null).length <= 1);
 
+const expensiveBars = techBars.map(bar => ({ ...bar, open: bar.open * 20, high: bar.high * 20, low: bar.low * 20, close: bar.close * 20 }));
+const expensiveCandidate: any = candidate('EXPENSIVE_CHALLENGER', 'EXP.DE', 'TECHNOLOGY', expensiveBars, 26, 15, 25);
+const expensiveRotationScan: any = scanFrom([incumbentCandidate, expensiveCandidate], { INCUMBENT: incumbentBars, EXPENSIVE_CHALLENGER: expensiveBars });
+const expensiveRotationResult = PortfolioDecisionEngine.evaluate({ portfolio: rotationPortfolio, scan: expensiveRotationScan, decision: rotationDecision, positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5 });
+const preservedIncumbent = expensiveRotationResult.existingPositions.find(row => row.assetId === 'INCUMBENT');
+check('957 a full-slot rotation is cancelled when the challenger allocation cannot buy even one whole ETF share', preservedIncumbent?.action === 'WATCH' && preservedIncumbent.rotationChallengerAssetId == null && expensiveRotationResult.plannedRotationProceedsEur === 0 && !expensiveRotationResult.contributions.some(row => row.assetId === 'EXPENSIVE_CHALLENGER'));
+
 const weakOnlyScan: any = scanFrom([candidates[2]], { WEAK_BOND: weakBars });
 const weakOnlyDecision: any = { cashWeight: 0.10, riskProfile: 'MEDIUM', horizonYears: 3, assets: [{ assetId: 'WEAK_BOND', ticker: 'WEAKB.DE', name: 'Weak theoretical bond', weight: 0.90 }] };
 const noOpportunityResult = PortfolioDecisionEngine.evaluate({ portfolio, scan: weakOnlyScan, decision: weakOnlyDecision, cashBenchmarkAnnualPct: 2.5 });
-check('957 no-opportunity state never converts theoretical target gaps into fallback purchase orders', noOpportunityResult.contributions.length === 0 && noOpportunityResult.recommendedNewInvestmentEur === 0);
+check('958 no-opportunity state never converts theoretical target gaps into fallback purchase orders', noOpportunityResult.contributions.length === 0 && noOpportunityResult.recommendedNewInvestmentEur === 0);
 
 const addHealth: any = {
   'STRONGT.DE': {
@@ -174,7 +181,7 @@ const addHealth: any = {
 };
 const confirmedBuildResult = PortfolioDecisionEngine.evaluate({ portfolio: fullyExecutedPortfolio, scan, decision, positionHealth: addHealth, cashBenchmarkAnnualPct: 2.5 });
 const confirmedBuild = confirmedBuildResult.contributions.find(row => row.assetId === 'STRONG_TECH');
-check('958 a filled starter may grow only when position health independently confirms ADD while timing remains strong', Boolean(confirmedBuild) && confirmedBuild?.positionStage === 'BUILD' && (confirmedBuild.portfolioShareCapPct ?? 0) === 8);
-check('959 confirmed BUILD remains incremental and cannot jump beyond the eight-percent medium-risk build cap', Boolean(confirmedBuild) && (confirmedBuild?.executableTargetAssetValueEur ?? Infinity) <= 800 + 1e-6 && (confirmedBuild?.amountEur ?? Infinity) <= 300 + 1e-6);
+check('959 a filled starter may grow only when position health independently confirms ADD while timing remains strong', Boolean(confirmedBuild) && confirmedBuild?.positionStage === 'BUILD' && (confirmedBuild.portfolioShareCapPct ?? 0) === 8);
+check('960 confirmed BUILD remains incremental and cannot jump beyond the eight-percent medium-risk build cap', Boolean(confirmedBuild) && (confirmedBuild?.executableTargetAssetValueEur ?? Infinity) <= 800 + 1e-6 && (confirmedBuild?.amountEur ?? Infinity) <= 300 + 1e-6);
 
-console.log(`Current finite-capital allocation: ${passed}/29 invariants passed.`);
+console.log(`Current finite-capital allocation: ${passed}/30 invariants passed.`);
