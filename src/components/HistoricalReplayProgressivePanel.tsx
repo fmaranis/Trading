@@ -277,22 +277,37 @@ function buildExactInitialHold(input: {
   initialCapitalEur: number;
   endDate: string;
 }): { finalEur: number | null; returnPct: number | null; firstDate: string | null } {
-  const positive = input.executions.filter(operation => operation.unitsDelta > 0).sort((a, b) => a.executionDate.localeCompare(b.executionDate));
-  const firstDate = positive[0]?.executionDate ?? null;
-  if (!firstDate) return { finalEur: null, returnPct: null, firstDate: null };
-  const initialBuys = positive.filter(operation => operation.executionDate === firstDate);
-  const spent = initialBuys.reduce((sum, operation) => sum + operation.notionalEur + operation.feeEur, 0);
-  const residualCash = Math.max(0, input.initialCapitalEur - spent);
-  const benchmarkAtEntry = input.path.find(point => point.date >= firstDate)?.cashBenchmarkEur ?? input.initialCapitalEur;
-  const benchmarkEnd = input.path.at(-1)?.cashBenchmarkEur ?? benchmarkAtEntry;
-  const cashGrowth = benchmarkAtEntry > 0 ? benchmarkEnd / benchmarkAtEntry : 1;
-  let finalEur = residualCash * cashGrowth;
+  const positive = input.executions
+    .filter(operation => operation.unitsDelta > 0)
+    .sort((a, b) => a.signalDate.localeCompare(b.signalDate) || a.executionDate.localeCompare(b.executionDate) || a.id.localeCompare(b.id));
+  const firstSignalDate = positive[0]?.signalDate ?? null;
+  if (!firstSignalDate) return { finalEur: null, returnPct: null, firstDate: null };
+
+  const initialBuys = positive.filter(operation => operation.signalDate === firstSignalDate);
+  const executionDates = [...new Set(initialBuys.map(operation => operation.executionDate))].sort();
+  const benchmarkAtOrAfter = (date: string): number => input.path.find(point => point.date >= date)?.cashBenchmarkEur ?? input.path.at(-1)?.cashBenchmarkEur ?? input.initialCapitalEur;
+
+  let residualCash = input.initialCapitalEur;
+  let lastBenchmark = benchmarkAtOrAfter(firstSignalDate);
+  for (const executionDate of executionDates) {
+    const benchmark = benchmarkAtOrAfter(executionDate);
+    if (lastBenchmark > 0) residualCash *= benchmark / lastBenchmark;
+    const spentOnDate = initialBuys
+      .filter(operation => operation.executionDate === executionDate)
+      .reduce((sum, operation) => sum + operation.notionalEur + operation.feeEur, 0);
+    residualCash = Math.max(0, residualCash - spentOnDate);
+    lastBenchmark = benchmark;
+  }
+  const benchmarkEnd = input.path.at(-1)?.cashBenchmarkEur ?? lastBenchmark;
+  if (lastBenchmark > 0) residualCash *= benchmarkEnd / lastBenchmark;
+
+  let finalEur = residualCash;
   for (const operation of initialBuys) {
     const price = latestPrice(input.scan, operation.assetId, input.endDate);
-    if (price == null) return { finalEur: null, returnPct: null, firstDate };
+    if (price == null) return { finalEur: null, returnPct: null, firstDate: firstSignalDate };
     finalEur += Math.max(0, operation.unitsDelta) * price;
   }
-  return { finalEur, returnPct: (finalEur / input.initialCapitalEur - 1) * 100, firstDate };
+  return { finalEur, returnPct: (finalEur / input.initialCapitalEur - 1) * 100, firstDate: firstSignalDate };
 }
 
 function buildPositionSummaries(scan: AssetUniverseScanResult, executions: AuditExecution[], endDate: string): PositionSummary[] {
@@ -648,7 +663,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
 
   return <section className="mt-5 rounded-2xl border border-fuchsia-500/25 bg-gradient-to-br from-fuchsia-950/20 via-slate-900 to-slate-950 p-5">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div className="max-w-3xl"><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-fuchsia-300"/><h2 className="font-bold text-white">Replay histórico auditado · manual o automático</h2></div><p className="mt-1 text-[11px] text-slate-400">La gráfica conserva todas las sesiones desde la fecha inicial. Las líneas de cada inversión son seleccionables. El cierre compara el motor contra congelar exactamente las compras iniciales y muestra rentabilidad, caídas, costes e impuestos por posición.</p></div>
+      <div className="max-w-3xl"><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-fuchsia-300"/><h2 className="font-bold text-white">Replay histórico auditado · manual o automático</h2></div><p className="mt-1 text-[11px] text-slate-400">La gráfica conserva todas las sesiones desde la fecha inicial. Las líneas de cada inversión son seleccionables. El cierre compara el motor contra congelar la cohorte de compras nacida de la primera señal y muestra rentabilidad, caídas, costes e impuestos por posición.</p></div>
       <span className="flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-3 py-1 text-[9px] font-black text-emerald-200"><ShieldCheck className="h-3 w-3"/> AUDITORÍA PERSISTENTE</span>
     </div>
 
@@ -690,11 +705,11 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
       </div>
 
       {summary && <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-4">
-        <div><b className="text-sm text-white">Resumen final del periodo · Motor vs comprar y mantener</b><div className="mt-1 text-[9px] text-slate-500">“Mantener” congela exactamente las primeras compras ejecutadas por este replay: mismos activos, unidades, comisiones y efectivo residual. No usa el comparador histórico antiguo.</div></div>
+        <div><b className="text-sm text-white">Resumen final del periodo · Motor vs mantener cohorte inicial</b><div className="mt-1 text-[9px] text-slate-500">“Mantener” congela todas las compras ejecutadas que nacieron de la primera señal del replay, aunque se ejecutasen en días distintos: mismos activos, unidades, comisiones y efectivo residual. No incluye selecciones posteriores.</div></div>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3"><div className="text-[9px] uppercase text-emerald-300">Seguir el motor</div><div className="mt-1 text-lg font-black text-white">{summary.engineFinalEur.toFixed(2)} €</div><div className={summary.engineReturnPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.engineProfitEur >= 0 ? '+' : ''}{summary.engineProfitEur.toFixed(2)} € · {summary.engineReturnPct >= 0 ? '+' : ''}{summary.engineReturnPct.toFixed(2)}%</div><div className="mt-2 text-[9px] text-slate-500">DD máx. -{summary.engineMaxDrawdownPct.toFixed(2)}% · comisiones {summary.engineFeesEur.toFixed(2)} € · impuestos ya soportados {summary.engineTaxEur.toFixed(2)} €</div></div>
-          <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3"><div className="text-[9px] uppercase text-indigo-300">Mismas compras iniciales · mantener</div><div className="mt-1 text-lg font-black text-white">{summary.exactHoldFinalEur == null ? 'N/D' : `${summary.exactHoldFinalEur.toFixed(2)} €`}</div><div className={(summary.exactHoldReturnPct ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.exactHoldProfitEur == null ? 'N/D' : `${summary.exactHoldProfitEur >= 0 ? '+' : ''}${summary.exactHoldProfitEur.toFixed(2)} € · ${summary.exactHoldReturnPct! >= 0 ? '+' : ''}${summary.exactHoldReturnPct!.toFixed(2)}%`}</div><div className="mt-2 text-[9px] text-slate-500">Primera cartera ejecutada: {summary.initialPortfolioDate ?? 'N/D'} · sin ventas posteriores ni impuesto realizado durante el periodo.</div></div>
-          <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-3"><div className="text-[9px] uppercase text-fuchsia-300">Valor aportado por mover la cartera</div><div className={`mt-1 text-lg font-black ${(summary.advantageEur ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{summary.advantageEur == null ? 'N/D' : `${summary.advantageEur >= 0 ? '+' : ''}${summary.advantageEur.toFixed(2)} €`}</div><div className={(summary.advantagePctPoints ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.advantagePctPoints == null ? 'N/D' : `${summary.advantagePctPoints >= 0 ? '+' : ''}${summary.advantagePctPoints.toFixed(2)} pp`}</div><div className="mt-2 text-[9px] text-slate-500">Fiscalidad del motor: {summary.taxMethod === 'CONFIGURED_PROGRESSIVE' ? 'escala configurada' : 'reserva conservadora 30%'} · traspasos diferidos {summary.engineTransferredEur.toFixed(2)} €.</div></div>
+          <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3"><div className="text-[9px] uppercase text-indigo-300">Misma cohorte inicial · mantener</div><div className="mt-1 text-lg font-black text-white">{summary.exactHoldFinalEur == null ? 'N/D' : `${summary.exactHoldFinalEur.toFixed(2)} €`}</div><div className={(summary.exactHoldReturnPct ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.exactHoldProfitEur == null ? 'N/D' : `${summary.exactHoldProfitEur >= 0 ? '+' : ''}${summary.exactHoldProfitEur.toFixed(2)} € · ${summary.exactHoldReturnPct! >= 0 ? '+' : ''}${summary.exactHoldReturnPct!.toFixed(2)}%`}</div><div className="mt-2 text-[9px] text-slate-500">Cohorte señalada inicialmente: {summary.initialPortfolioDate ?? 'N/D'} · se respetan las fechas reales de ejecución de cada compra y luego no se vende.</div></div>
+          <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-3"><div className="text-[9px] uppercase text-fuchsia-300">Diferencia total vs mantener cohorte inicial</div><div className={`mt-1 text-lg font-black ${(summary.advantageEur ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{summary.advantageEur == null ? 'N/D' : `${summary.advantageEur >= 0 ? '+' : ''}${summary.advantageEur.toFixed(2)} €`}</div><div className={(summary.advantagePctPoints ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.advantagePctPoints == null ? 'N/D' : `${summary.advantagePctPoints >= 0 ? '+' : ''}${summary.advantagePctPoints.toFixed(2)} pp`}</div><div className="mt-2 text-[9px] text-slate-500">Incluye nuevas selecciones, ADD/REDUCE/EXIT y diferencias de liquidez posteriores; no equivale por sí sola a “alpha por mover”. Fiscalidad: {summary.taxMethod === 'CONFIGURED_PROGRESSIVE' ? 'escala configurada' : 'reserva conservadora 30%'}.</div></div>
         </div>
       </div>}
 
