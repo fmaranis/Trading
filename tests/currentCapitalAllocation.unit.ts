@@ -97,6 +97,6 @@ const materialGapFundPortfolio: any = {
   stagedCapitalPlan: { ...nearTargetFundPortfolio.stagedCapitalPlan, availableEur: 5700 }
 };
 const materialGapFundResult = PortfolioDecisionEngine.evaluate({ portfolio: materialGapFundPortfolio, scan: fundScan, decision: fundDecision, cashBenchmarkAnnualPct: 2.5 });
-check('946 mutual funds still execute a material timing-authorized gap above the adaptive minimum', (materialGapFundResult.contributions.find(row => row.assetId === 'FUND_TEST')?.amountEur ?? 0) >= 100);
+check('946 an existing position already above the timing-authorized tranche is not topped up by the new-money entry gate', !materialGapFundResult.contributions.some(row => row.assetId === 'FUND_TEST'));
 
 console.log(`Current finite-capital allocation: ${passed}/16 invariants passed.`);
