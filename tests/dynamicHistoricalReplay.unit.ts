@@ -53,6 +53,9 @@ assert.ok(base.signals.some(signal => (signal.action === 'BUY' || signal.action 
 assert.ok(base.signals.some(signal => (signal.action === 'REDUCE' || signal.action === 'EXIT') && signal.executed), 'the engineered structural collapse should produce an executable reduce/exit signal');
 assert.ok(base.signals.filter(signal => signal.action === 'REDUCE' || signal.action === 'EXIT').every(signal => signal.structuralDowntrend && (signal.unfavorableVotes ?? 0) >= 3), 'sell-side signals require structural deterioration plus several adverse votes');
 assert.ok(base.signals.filter(signal => signal.executed).every(signal => signal.executionDate != null && signal.executionDate > signal.signalDate), 'every trade must execute strictly after the information date');
+assert.ok(base.startDate >= startDate, 'reported replay start must never precede the requested start date');
+assert.ok(base.signals.every(signal => signal.signalDate >= startDate), 'no signal may be dated before the requested replay boundary');
+assert.ok(base.equityPath.every(point => point.date >= startDate), 'equity path must never contain points before the requested replay boundary');
 assert.ok(Number.isFinite(base.finalValueEur));
 assert.ok(Number.isFinite(base.allCashFinalEur));
 assert.ok(base.staticBuyHoldFinalEur != null && Number.isFinite(base.staticBuyHoldFinalEur));
@@ -89,6 +92,8 @@ const monthlySameWindow = DynamicHistoricalReplayEngine.run({
 assert.equal(daily.frequency, 'DAILY');
 assert.ok(daily.decisions > monthlySameWindow.decisions, 'DAILY mode must genuinely re-evaluate more often than MONTHLY mode');
 assert.ok(daily.equityPath.length >= daily.decisions, 'DAILY replay must still provide a coherent session-valued equity path');
+assert.ok(daily.signals.every(signal => signal.signalDate >= startDate), 'DAILY signals must respect the requested replay boundary');
+assert.ok(monthlySameWindow.signals.every(signal => signal.signalDate >= startDate), 'MONTHLY signals must respect the requested replay boundary');
 
 const shocked = DynamicHistoricalReplayEngine.run({
   dataset: dataset(true),
@@ -108,4 +113,4 @@ const before = (result: typeof base) => result.signals
 assert.deepEqual(before(shocked), before(base), 'prices changed only after the cutoff must not alter earlier dynamic signals or targets');
 assert.notEqual(shocked.finalValueEur, base.finalValueEur, 'future prices may change final outcome while prior signals remain invariant');
 
-console.log('Dynamic Historical Replay: causal daily/monthly decisions, dense equity path, costs/tax accounting and future isolation passed.');
+console.log('Dynamic Historical Replay: causal start boundary, daily/monthly decisions, dense equity path, costs/tax accounting and future isolation passed.');
