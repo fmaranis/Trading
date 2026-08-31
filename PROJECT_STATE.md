@@ -17,11 +17,13 @@
 
 # Estado actual — 2026-08-31
 
-Últimos cambios implementados:
+Últimos cambios implementados de Fase 0:
 - `f1bb80d029f1904085e6a49db97577296086d6f9` — `Enforce requested replay decision boundary`.
 - `b13d60572f430387e3eafb5ca0585d6926e11326` — `Assert strict historical replay start boundary`.
+- `48de3171d6ff22682f27bf658e0fca7e9b1f0559` — `Fix initial cohort hold comparator semantics`.
+- `00835f5594ffb762d91eee1d37dbe40ecdcdfe90` — `Assert initial signal cohort comparator labels`.
 
-La corrección temporal de Fase 0 está implementada en código y cubierta por regresión, pero **todavía no se considera validada hasta ejecutar el gate local completo** después de estos commits. No se ha usado GitHub Actions.
+La corrección temporal y el comparador por cohorte inicial están implementados y cubiertos por contratos/regresiones, pero **todavía no se consideran runtime-validados hasta ejecutar el gate local completo** después de estos commits. No se ha usado GitHub Actions.
 
 Stack: React 19 + TypeScript + Vite + Tailwind + Recharts + Motion. Aplicación de soporte a decisiones con datos REAL, replay causal, cartera real, radar de oportunidades, fiscalidad española y ejecución condicionada por broker/costes.
 
@@ -158,7 +160,7 @@ Air Liquide y Vanguard Eurozone muestran que dejar correr ganadores es correcto;
 
 La cartera pasó de ~+12,79% en febrero de 2025 a ~-3,21% en abril sin reducción. EQQQ/SXR8/SXRV/VUSA devolvieron gran parte de MFE de +13/+14% y aun así permanecieron en HOLD.
 
-Parte importante de la ventaja mostrada proviene de Xetra-Gold, incorporado después de las primeras compras; por tanto la métrica actual no equivale a “alpha por gestionar posiciones”.
+Parte importante de la ventaja mostrada proviene de Xetra-Gold, incorporado después de las primeras compras; por tanto la métrica antigua no equivalía a “alpha por gestionar posiciones”. Este caso debe repetirse con el comparador corregido.
 
 ## 2025-03-27 → 2026-03-26
 
@@ -170,7 +172,7 @@ Diagnóstico previo útil: Deutsche Börse llegó aprox. a MFE +8,23% y salió c
 
 Archivo revisado: `trading-replay-2022-07-11-2025-07-10.zip`.
 
-Resumen:
+Resumen del replay antiguo, previo a las correcciones de Fase 0:
 - capital inicial: 9.000 €
 - motor: 13.274,61 € / +47,4957%
 - hold inicial mostrado: 12.203,96 € / +35,5996%
@@ -194,20 +196,31 @@ Operaciones relevantes:
 - Ganadores retenidos: 4GLD ~+65,5%, DTE ~+74,7%, SAP ~+108,6%, UniCredit ~+198,9%, Intesa ~+127%.
 
 Lectura:
-- en horizonte largo la gestión dinámica sí puede aportar valor frente al comparador mostrado;
-- pero el patrón de salida sigue siendo tardío en varios activos;
+- en horizonte largo la gestión dinámica puede aportar valor, pero la cifra exacta debe recalcularse con el comparador corregido;
+- el patrón de salida sigue siendo tardío en varios activos;
 - el sistema conserva bien grandes ganadores, por lo que no debe introducirse take-profit fijo;
 - sigue haciendo falta memoria de high-water mark y transición WATCH/REDUCE antes del deterioro severo.
 
-### Hallazgo crítico del comparador
+### Comparador de cohorte inicial — CORREGIDO EN CÓDIGO
 
-El helper `buildExactInitialHold(...)` actualmente define “cartera inicial” como **solo las compras positivas ejecutadas en la primera fecha de ejecución**.
+El helper `buildExactInitialHold(...)` antiguo definía “cartera inicial” como solo las compras positivas ejecutadas en la primera fecha de ejecución. Eso excluía operaciones nacidas de la misma decisión inicial cuando su ejecución se retrasaba uno o varios días.
 
-Eso es incorrecto cuando una misma decisión inicial produce ejecuciones escalonadas en días consecutivos. En el replay largo, 4GLD/DTE/WCOA ejecutan el 2022-07-11 y AIGC —con la misma señal inicial— ejecuta el 2022-07-12; el comparador excluye AIGC solo por ese desfase de ejecución.
+Desde `48de3171`:
+- las compras iniciales se agrupan por **primera `signalDate`**;
+- todas las ejecuciones nacidas de esa señal se incluyen aunque tengan distintas `executionDate`;
+- el efectivo residual remunera entre las fechas reales de ejecución y hasta el final;
+- cada activo mantiene exactamente las unidades realmente compradas en esa cohorte;
+- no se incorporan selecciones posteriores.
 
-Por tanto `advantageEur = engineFinalEur - exactHoldFinalEur` puede sobre/infraestimar el valor de la gestión. Debe definir la cartera inicial por **cohorte de señal/decisión inicial**, no por una única fecha de ejecución.
+La UI ya no muestra “Valor aportado por mover la cartera”. Ahora muestra:
 
-### Hallazgo crítico del límite temporal — CORREGIDO EN CÓDIGO
+> **Diferencia total vs mantener cohorte inicial**
+
+Semántica: `engineFinalEur - holdCohorteInicialFinalEur`. Si es positiva, el motor completo terminó con más patrimonio que mantener congelada la cohorte inicial. Incluye nuevas selecciones, ADD/REDUCE/EXIT y diferencias de liquidez; **no es alpha aislada de las operaciones de compraventa**.
+
+Contrato UI reforzado en `00835f55` para impedir volver a la semántica antigua.
+
+### Límite temporal — CORREGIDO EN CÓDIGO
 
 La causa estaba en `DynamicHistoricalReplayEngine.run`: `requestedDate` respetaba `startDate`, pero luego `decisionDate` se sustituía por `firstDecision.asOfDate`, que podía ser anterior.
 
@@ -223,7 +236,7 @@ Regresión en `b13d6057` exige:
 - toda la `equityPath >= startDate`;
 - DAILY y MONTHLY respetan el mismo límite.
 
-**Pendiente:** ejecutar validación local completa. Hasta entonces el cambio está implementado pero no runtime-validado.
+**Pendiente:** ejecutar validación local completa. Hasta entonces los cambios están implementados pero no runtime-validados.
 
 ---
 
@@ -296,9 +309,10 @@ Problema abierto: AI Studio puede no detectar archivos escritos en runtime como 
 Estado:
 - [x] Corregir límite temporal en motor.
 - [x] Añadir regresión de límite temporal.
-- [ ] Ejecutar validación local completa de esos cambios.
-- [ ] Corregir “hold inicial exacto” por cohorte de señal/decisión inicial, no por primera fecha de ejecución.
-- [ ] Cambiar etiqueta “valor aportado por mover la cartera” por una descripción no ambigua.
+- [x] Corregir hold inicial por cohorte de primera señal.
+- [x] Cambiar etiqueta ambigua “valor aportado por mover la cartera”.
+- [x] Blindar semántica del comparador en contrato UI.
+- [ ] Ejecutar validación local completa de todos estos cambios.
 - [ ] Separar progresivamente:
   - diferencia total vs mantener cartera inicial;
   - valor por nuevas selecciones/recomposición posterior;
@@ -352,4 +366,4 @@ Objetivo: conducta más racional y robusta, no maximizar los mismos backtests us
 
 # Próxima acción concreta
 
-Continuar Fase 0 con el comparador: reconstruir la cartera inicial por cohorte de señal inicial, renombrar la métrica para que no se interprete como “alpha por mover”, y añadir tests/contratos. Después ejecutar un replay nuevo con Entry Timing ya presente y evaluar comportamiento antes de tocar sus umbrales o Position Health.
+Ejecutar el gate local completo de Fase 0. Si queda verde, repetir un replay corto y uno largo con el Entry Timing ya presente y medir cuánto capital despliega realmente en 1/5/20/60 sesiones. Solo después decidir si hay que hacer vinculante `suggestedInitialFraction` en el allocator o ajustar timing/Position Health.
