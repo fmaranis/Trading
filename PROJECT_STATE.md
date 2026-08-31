@@ -17,13 +17,15 @@
 
 # Estado actual — 2026-08-31
 
-Últimos cambios implementados de Fase 0:
+Últimos cambios implementados:
 - `f1bb80d029f1904085e6a49db97577296086d6f9` — `Enforce requested replay decision boundary`.
 - `b13d60572f430387e3eafb5ca0585d6926e11326` — `Assert strict historical replay start boundary`.
 - `48de3171d6ff22682f27bf658e0fca7e9b1f0559` — `Fix initial cohort hold comparator semantics`.
 - `00835f5594ffb762d91eee1d37dbe40ecdcdfe90` — `Assert initial signal cohort comparator labels`.
+- `167791c35ceaddb5948ad34aac33877f9743d75a` — `Enforce entry timing fraction in capital allocation`.
+- `af6c955e91379ec4d150170c5101c21d28cb2ce2` — `Align existing-position test with staged entry semantics`.
 
-La corrección temporal y el comparador por cohorte inicial están implementados y cubiertos por contratos/regresiones, pero **todavía no se consideran runtime-validados hasta ejecutar el gate local completo** después de estos commits. No se ha usado GitHub Actions.
+La corrección temporal, el comparador por cohorte inicial y el límite 25%/50% del Entry Timing están implementados y cubiertos por contratos/regresiones, pero **todavía no se consideran runtime-validados hasta ejecutar el gate local completo** después de estos commits. La última validación sincronizada es de 2026-08-30 sobre `512abce84509fc4b21d626216c2eed91226dccf7`, por lo que no valida los cambios actuales. No se ha usado GitHub Actions.
 
 Stack: React 19 + TypeScript + Vite + Tailwind + Recharts + Motion. Aplicación de soporte a decisiones con datos REAL, replay causal, cartera real, radar de oportunidades, fiscalidad española y ejecución condicionada por broker/costes.
 
@@ -83,6 +85,7 @@ Archivos principales:
 - `src/investment/decision/entryTiming.ts`
 - `src/investment/decision/portfolioCandidateGate.ts`
 - `src/investment/decision/currentOpportunityAlerts.ts`
+- `src/investment/decision/portfolioDecisionEngine.ts`
 
 Commits relevantes:
 - `1952fb07...` — Add causal entry timing gate
@@ -91,6 +94,8 @@ Commits relevantes:
 - `6b3b7223...` — Assert causal entry timing on alerts
 - `5a577907...` — Apply entry timing before new-money allocation
 - `9061b077...` — Assert timing gate before portfolio allocation
+- `167791c3...` — Enforce entry timing fraction in capital allocation
+- `af6c955e...` — Align existing-position test with staged entry semantics
 
 Estados:
 - `WAIT`
@@ -117,11 +122,25 @@ Variables causales principales:
 Reglas actuales:
 - un activo bueno puede quedar en `WAIT`;
 - no perseguir activos demasiado extendidos;
-- `ENTRY_READY` sugiere 25% del target;
-- `ENTRY_STRONG` sugiere 50%;
-- timing nunca pretende autorizar 100% del target de una vez.
+- `ENTRY_READY` autoriza como máximo 25% del target estratégico;
+- `ENTRY_STRONG` autoriza como máximo 50%;
+- el target estratégico permanece separado del target ejecutable;
+- una posición ya por encima del tramo autorizado no se completa automáticamente desde el flujo de entrada; un incremento posterior debe venir de lógica ADD/confirmación;
+- timing nunca autoriza 100% del target de una vez.
 
-**Pendiente crítico:** comprobar de extremo a extremo que `suggestedInitialFraction` limita el importe realmente ejecutado. El gate ya expone la fracción, pero el allocator/ejecutor todavía debe auditarse para confirmar que no vuelve a convertir target estratégico en orden completa.
+`ContributionRecommendation` expone ahora:
+- `targetAssetValueEur` — target estratégico estable;
+- `executableTargetAssetValueEur` — target máximo autorizado por timing hoy;
+- `suggestedInitialFraction` — 0,25 o 0,50;
+- `timingState` — estado causal que justifica el tramo.
+
+Contrato de `currentCapitalAllocation.unit.ts` exige que:
+- la orden nunca supere el tramo temporal autorizado;
+- ejecutar completamente ese tramo no vuelva a recomendarlo mientras el timing no cambie;
+- una ejecución parcial deje únicamente el resto del mismo tramo;
+- una posición existente por encima del tramo temporal no sea completada automáticamente por el new-money entry gate.
+
+**Pendiente crítico:** runtime-validar estas invariantes con `npm run validate:aistudio` y después medir su efecto real en replays.
 
 ---
 
@@ -290,15 +309,17 @@ Storage: `historical_progressive_audit_v3`.
 
 Export/import JSON completo disponible.
 
-Persistencia al proyecto:
-- `validation-runs/latest.json`
-- `validation-runs/archive/<timestamp>-historical-replay.json`
+Resultados del gate local sincronizados al proyecto:
+- `validation-results/latest-aistudio-run.json`
+- `validation-results/latest-aistudio.json`
+- `validation-results/latest-broker-backtest-feasibility.json`
+- `validation-results/latest-broker-aware-execution-sweep.json`
 
 Flujo objetivo:
 
-> App ejecuta → guarda en workspace → usuario sincroniza a GitHub → ChatGPT lee directamente GitHub.
+> App/AI Studio ejecuta → registra resultado → sincroniza a GitHub → ChatGPT lee directamente GitHub.
 
-Problema abierto: AI Studio puede no detectar archivos escritos en runtime como cambios sincronizables.
+Problema abierto: AI Studio puede no detectar algunos archivos escritos en runtime como cambios sincronizables; el wrapper `runRecordedValidation.ts` intenta commit/push explícito de `validation-results`.
 
 ---
 
@@ -320,19 +341,19 @@ Estado:
 
 ## Fase 1 — validar Entry Timing actual
 
-1. Repetir replays después de Fase 0.
-2. Medir WAIT / ENTRY_READY / ENTRY_STRONG.
-3. Medir % de capital desplegado en 1, 5, 20 y 60 sesiones.
-4. Confirmar que ya no entra 80–90% simplemente por empezar en una fecha arbitraria.
-5. Confirmar que la fracción 25%/50% limita la orden real.
-6. No ajustar umbrales usando los mismos periodos que originaron el diagnóstico; usar holdout.
+1. [ ] Repetir replays después de Fase 0.
+2. [ ] Medir WAIT / ENTRY_READY / ENTRY_STRONG.
+3. [ ] Medir % de capital desplegado en 1, 5, 20 y 60 sesiones.
+4. [ ] Confirmar que ya no entra 80–90% simplemente por empezar en una fecha arbitraria.
+5. [x] Hacer vinculante en código la fracción 25%/50% sobre la orden real; falta confirmación runtime/replay.
+6. [ ] No ajustar umbrales usando los mismos periodos que originaron el diagnóstico; usar holdout.
 
 ## Fase 2 — target estratégico vs tramo ejecutable
 
-1. Hacer vinculante `suggestedInitialFraction`.
-2. Añadir sizing sensible a volatilidad/régimen.
-3. Construcción progresiva de posición.
-4. ADD solo por confirmación, nunca por promediar pérdidas automáticamente.
+1. [x] Hacer vinculante `suggestedInitialFraction`: target ejecutable = target estratégico × 25%/50%, y la exposición existente cuenta contra ese tramo.
+2. [ ] Añadir sizing sensible a volatilidad/régimen.
+3. [ ] Construcción progresiva de posición más allá de ENTRY_READY/ENTRY_STRONG.
+4. [ ] ADD solo por confirmación, nunca por promediar pérdidas automáticamente.
 
 ## Fase 3 — máquina de estados de posición
 
@@ -366,4 +387,7 @@ Objetivo: conducta más racional y robusta, no maximizar los mismos backtests us
 
 # Próxima acción concreta
 
-Ejecutar el gate local completo de Fase 0. Si queda verde, repetir un replay corto y uno largo con el Entry Timing ya presente y medir cuánto capital despliega realmente en 1/5/20/60 sesiones. Solo después decidir si hay que hacer vinculante `suggestedInitialFraction` en el allocator o ajustar timing/Position Health.
+1. Ejecutar `npm run validate:aistudio` sobre el HEAD actual y comprobar que `validation-results/latest-aistudio-run.json` queda con `ok: true` y con `gitHeadBeforeRecord` posterior a `af6c955e`.
+2. Si queda verde, repetir un replay corto y uno largo con Entry Timing ya vinculante.
+3. Medir WAIT / ENTRY_READY / ENTRY_STRONG y capital desplegado en 1/5/20/60 sesiones.
+4. Solo después calibrar sizing/régimen o avanzar a construcción progresiva/ADD; no reajustar los umbrales de timing usando los mismos periodos de diagnóstico.
