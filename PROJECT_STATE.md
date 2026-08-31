@@ -504,3 +504,217 @@ Después de sincronizar el HEAD con la corrección causal:
 3. Comparar automáticamente ambos exports en el periodo compartido: barras implícitas/operaciones, señales, `timingState/setup/score`, targets, ejecuciones y `deploymentHorizons`. Deben ser idénticos hasta el final del replay corto.
 4. Solo si esa invariancia queda demostrada, continuar el replay 36m hasta `2025-07-10` y retomar la evaluación de Fase 1.
 5. No recalibrar Entry Timing ni avanzar a Fase 2 mientras la invariancia de prefijo no esté confirmada con datos REAL.
+
+---
+
+# ACTUALIZACIÓN VIGENTE — 2026-09-01 — CARTERA DINÁMICA POR PLAZAS
+
+> Esta sección **sustituye la “Próxima acción concreta” anterior**. Se conserva el texto histórico superior para trazabilidad, pero el plan vigente es el descrito aquí.
+
+## Invariancia causal REAL — CONFIRMADA
+
+Tras `c01a7353` + `3d72f547` + `670c74f9` se repitieron desde cero dos sesiones con `startDate=2022-07-11`, DAILY y 1.000 €:
+
+- replay corto 12 meses hasta `2023-07-10`;
+- replay 36 meses guardado parcial hasta `2023-07-06`.
+
+Comparación automática del tramo común:
+- 255 sesiones de trayectoria patrimonial compartida: **idénticas**;
+- cash, valor invertido y benchmark: **idénticos fecha a fecha**;
+- 12 checkpoints compartidos: **idénticos**;
+- 5 operaciones ejecutadas compartidas: **idénticas** en fecha, activo, unidades, precio, comisión, target y motivo;
+- 7.366 señales anteriores a `2023-07-06`: **idénticas campo por campo**;
+- `WAIT/ENTRY_READY/ENTRY_STRONG`, setup, score, 0/25/50 y targets: idénticos;
+- deployment 1/5/20/60: **0 / 0 / 30,126 / 43,666%** en ambos.
+
+Las 36 señales adicionales del replay corto están exclusivamente en la propia fecha límite `2023-07-06`: el parcial usa esa fecha como frontera del checkpoint y el corto continúa después. No es divergencia causal.
+
+**Conclusión:** ampliar `endDate` ya no reescribe el pasado. El defecto short-vs-long queda cerrado con evidencia REAL.
+
+Replay corto causal 2022-07-11 → 2023-07-10:
+- motor ~985,15 € / **-1,485%**;
+- cohorte inicial ~1.005,04 € / **+0,504%**;
+- diferencia motor vs cohorte ~**-1,989 pp**;
+- cash final ~42,18%;
+- WAIT ~78,68%, READY ~16,92%, STRONG ~4,40%;
+- sólo 5 compras ejecutadas.
+
+## Nuevos replays de estrés — evidencia que motiva la arquitectura por plazas
+
+### 2021-11-01 → 2022-10-31 — completo
+
+- motor: **-3,28%**;
+- mantener cohorte inicial: **+1,06%**;
+- cash: **+2,49%**;
+- ventaja motor vs hold: **-4,34 pp**;
+- DD máximo: **10,31%**;
+- cash medio ~47,3%;
+- 7 BUY + 2 EXIT;
+- ENTRY_READY observados ~1.189, pero **0 compras READY ejecutadas**;
+- todas las compras ejecutadas fueron ENTRY_STRONG;
+- despliegue 1/5/20/60: **21,6 / 39,1 / 55,6 / 55,6%**.
+
+Hallazgo: el 25/50 por activo evita el antiguo 80–90% inmediato, pero varias medias posiciones STRONG consecutivas pueden llenar rápidamente la cartera. Además varias posiciones de noviembre de 2021 permanecen durante meses tras deteriorarse. QDVE, por ejemplo, pasó de MFE aproximado +10,8% a salida cerca de -15%, con deterioro visible meses antes del EXIT.
+
+### 2024-04-01 → 2024-11-27 — parcial suficiente para diagnóstico
+
+- motor: **+5,56%**;
+- mantener cohorte inicial: **+3,93%**;
+- cash: **+1,63%**;
+- ventaja motor vs hold: **+1,63 pp**;
+- DD máximo: **5,81%**;
+- cash medio ~42,7%;
+- 7 BUY; sin ventas en el tramo;
+- ENTRY_READY observados ~1.253, pero **0 compras READY ejecutadas**;
+- todas las compras ejecutadas fueron ENTRY_STRONG;
+- despliegue 1/5/20/60: **30,7 / 39,1 / 49,2 / 56,7%**.
+
+Lectura conjunta:
+- el scanner/ranking encuentra candidatos útiles y el caso favorable de 2024 funciona;
+- el problema ya no es simplemente “entra demasiado el primer día”;
+- la debilidad principal es **cartera pegajosa**: una vez ocupada, el motor tarda demasiado en liberar capital para oportunidades nuevas;
+- el porcentaje agregado desplegado converge a ~50–57% con rapidez tanto en entorno malo como favorable;
+- `ENTRY_READY` existe y se instrumenta, pero en estos replays no llega a ejecución porque STRONG domina selección/ranking/capacidad;
+- no forzar READY artificialmente sólo para usar la rama: primero probar cartera dinámica y competencia relativa.
+
+## Decisión de arquitectura acordada
+
+Nueva filosofía:
+
+> **más starters pequeños + ganadores que construyen posición + incumbents que compiten continuamente contra challengers nuevos.**
+
+No convertir la cartera en “estática con mejores stops”. Aprovechar la fortaleza de selección actual.
+
+Máquina conceptual:
+
+> **CANDIDATE → STARTER → BUILD → CORE/HOLD → WATCH → ROTATE/REDUCE → EXIT**
+
+Un activo no necesita convertirse en “malo” para liberar parte de su plaza si un challenger es materialmente superior, pero un ganador sano no se vende por diferencias marginales de ranking.
+
+## Primera implementación — rama `chatgpt/dynamic-slot-rotation`
+
+Commits de código/test previos a esta actualización:
+- `363439fe0a27ef492f4230ff67d2887be42d0415` — `Add slot-aware starters and challenger rotation`.
+- `8e30caf882bed8c81b14d25606de5a00e9998ae6` — `Assert confirmed build stage` (incluye las regresiones añadidas después del commit intermedio de tests).
+
+Archivo de producción modificado:
+- `src/investment/decision/portfolioDecisionEngine.ts`.
+
+No se crea un motor paralelo. `DynamicHistoricalReplayEngine` seguirá invocando el mismo `PortfolioDecisionEngine`, por lo que la nueva lógica entra automáticamente en el replay causal existente.
+
+### Plazas
+
+Máximo de posiciones:
+- LOW: 8;
+- MEDIUM: **12**;
+- HIGH: 16.
+
+Nuevas plazas máximas por evaluación:
+- LOW: 1;
+- MEDIUM: **2**;
+- HIGH: 3.
+
+Las posiciones existentes fuera del universo también cuentan como plazas ocupadas para impedir que el sistema ignore exposiciones reales no clasificadas.
+
+### STARTER
+
+El 25%/50% de Entry Timing **se conserva como techo**, pero deja de ser el sizing principal.
+
+Caps de starter sobre patrimonio total:
+- LOW: READY 2%, STRONG 3,5%;
+- MEDIUM: **READY 3%, STRONG 5%**;
+- HIGH: READY 4%, STRONG 7%.
+
+Orden ejecutable = mínimo entre:
+- target estratégico × fracción timing 25/50;
+- cap STARTER/BUILD sobre patrimonio;
+- capacidad de categoría;
+- efectivo realmente desplegable;
+- gate mínimo de orden/comisión.
+
+Por tanto una señal STRONG ya no implica automáticamente construir media posición estratégica.
+
+### BUILD
+
+En MEDIUM una posición puede crecer hasta **8%**; LOW 6%, HIGH 12%.
+
+BUILD sólo se activa si simultáneamente:
+- la posición ya existe;
+- sigue `ENTRY_STRONG`;
+- `PortfolioPositionHealth` confirma independientemente `ADD`;
+- la posición ya ha llenado al menos ~80% de su cap STARTER.
+
+Una posición que simplemente sigue STRONG al día siguiente, sin `ADD` independiente, **no vuelve a recibir capital**. Una ejecución parcial sólo completa el starter pendiente.
+
+### Challenger vs incumbent / ROTACIÓN
+
+Máximo **1 rotación competitiva parcial por evaluación** para introducir histéresis y limitar turnover.
+
+Challenger exigido:
+- no estar ya en cartera;
+- `ENTRY_STRONG`;
+- consenso ≥ +3;
+- ≥4/5 votos favorables.
+
+Incumbent elegible:
+- `WATCH`; o
+- `HOLD` débil con consenso ≤0.
+
+Nunca se rota por esta vía una posición `ADD` o un HOLD sano sólo porque otra esté un puesto por encima.
+
+Ventaja mínima de ranking challenger-incumbent:
+- LOW: 15 puntos;
+- MEDIUM: **12 puntos**;
+- HIGH: 10 puntos.
+
+Además el challenger debe superar al incumbent frente a cash por al menos:
+- 2 pp; o
+- 2× el drag estimado de comisión ida/vuelta,
+lo que sea mayor.
+
+La primera rotación es **REDUCE 50%**, no EXIT completo. Libera una plaza/capital parcial para probar el challenger. El replay vende antes de comprar y aplica después sus comisiones/fiscalidad reales; el presupuesto de rotación del decision engine es sólo teórico.
+
+### Sin fallback operativo
+
+Se elimina la compra fallback que podía convertir pesos teóricos en aportaciones cuando `opportunities.length === 0`.
+
+Regla nueva:
+
+> **sin oportunidad que pase cash + consenso + timing ⇒ cero órdenes de capital nuevo.**
+
+Los gaps teóricos permanecen sólo como diagnóstico.
+
+## Regresiones añadidas a `currentCapitalAllocation.unit.ts`
+
+El contrato ahora exige, además de las invariantes anteriores:
+- STARTER explícito para posiciones nuevas;
+- STRONG starter MEDIUM ≤5% del patrimonio;
+- máximo 2 nuevas plazas por evaluación MEDIUM;
+- cartera con 12 plazas ocupadas no puede abrir una 13.ª sin liberar hueco;
+- WATCH débil puede REDUCE 50% sólo ante challenger STRONG claramente superior;
+- proceeds de rotación quedan explícitos;
+- challenger emparejado se marca `ROTATION_ENTRY`;
+- máximo una rotación competitiva por evaluación;
+- sin oportunidades no existe compra fallback;
+- starter lleno no vuelve a recibir capital sin confirmación ADD;
+- con ADD independiente + STRONG puede pasar a BUILD;
+- BUILD MEDIUM ≤8% y es incremental.
+
+## Estado de validación
+
+**IMPLEMENTADO EN RAMA, TODAVÍA NO RUNTIME-VALIDADO.**
+
+No usar el gate verde anterior para validar esta arquitectura. Antes de calibrar thresholds o interpretar rentabilidades debe pasar el gate local actual.
+
+## Próxima acción vigente
+
+1. Revisar diff final de `chatgpt/dynamic-slot-rotation` frente a `main` y hacer fast-forward sólo si no hay cambios accidentales.
+2. Sincronizar el nuevo `main` en el entorno local/AI Studio.
+3. Ejecutar localmente `npm run validate:aistudio` **una sola vez**, sin Scheduled Task, sin GitHub Actions y sin agente de Gemini monitorizando.
+4. Si falla, corregir la causa exacta; no debilitar regresiones para obtener verde.
+5. Si queda verde, repetir A/B como mínimo estas mismas ventanas ya conocidas, no buscar fechas nuevas todavía:
+   - `2021-11-01`, 12 meses, DAILY;
+   - `2022-07-11`, 12 meses, DAILY;
+   - `2024-04-01`, 12 meses o hasta el límite disponible equivalente.
+6. Comparar motor anterior vs cartera dinámica en retorno, DD, cash medio, turnover, comisiones, número de posiciones, STARTER/BUILD, REDUCE/ROTATE/EXIT y MFE cedido antes de rotar.
+7. No recalibrar todavía 3%/5%/8%, 12 plazas ni margen de rotación usando esos mismos periodos; primero comprobar comportamiento y después usar holdout independiente.
