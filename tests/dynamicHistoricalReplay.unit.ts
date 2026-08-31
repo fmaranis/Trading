@@ -160,17 +160,18 @@ const originalGetHistoricalBars = HistoricalMarketDataService.getHistoricalBars;
 const adjustedFlags: Array<boolean | undefined> = [];
 (HistoricalMarketDataService as any).getHistoricalBars = async (request: any) => {
   adjustedFlags.push(request.adjusted);
-  const start = new Date(`${request.startDate}T00:00:00Z`);
-  const end = new Date(`${request.endDate}T00:00:00Z`);
+  const startMs = Date.parse(`${request.startDate}T00:00:00Z`);
+  const endMs = Date.parse(`${request.endDate}T00:00:00Z`);
   const laterDividendIncluded = request.endDate >= '2023-10-01';
+  const dividendBoundaryMs = Date.parse('2023-10-01T00:00:00Z');
   const bars: Array<{ timestamp: string; open: number; high: number; low: number; close: number; volume: number }> = [];
   let i = 0;
-  for (let cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+  for (let cursorMs = startMs; cursorMs <= endMs; cursorMs += 86_400_000) {
     const rawClose = 100 + i * 0.05 + Math.sin(i / 17) * 0.2;
-    const hindsightDividendFactor = laterDividendIncluded && cursor < new Date('2023-10-01T00:00:00Z') ? 0.91 : 1;
+    const hindsightDividendFactor = laterDividendIncluded && cursorMs < dividendBoundaryMs ? 0.91 : 1;
     const factor = request.adjusted === false ? 1 : hindsightDividendFactor;
     const close = rawClose * factor;
-    bars.push({ timestamp: cursor.toISOString(), open: close * 0.999, high: close * 1.002, low: close * 0.998, close, volume: 1000 + i });
+    bars.push({ timestamp: new Date(cursorMs).toISOString(), open: close * 0.999, high: close * 1.002, low: close * 0.998, close, volume: 1000 + i });
     i++;
   }
   return {
