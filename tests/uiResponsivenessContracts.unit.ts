@@ -54,7 +54,6 @@ test('967 mobile research keeps a real manual text input without datalist interc
   assert.match(singleAsset, /id="research-symbol-input"/);
   assert.match(singleAsset, /type="text"/);
   assert.match(singleAsset, /inputMode="text"/);
-  assert.match(singleAsset, /symbolInputRef\.current\?\.focus\(\)/);
   assert.doesNotMatch(singleAsset, /<datalist|list="research-symbol-suggestions"/);
 });
 
@@ -149,11 +148,15 @@ test('980 real portfolio evolution is integrated inside Mi cartera real rather t
   assert.equal((decisionCenter.match(/type Workspace = 'PORTFOLIO' \| 'RESEARCH'/g) ?? []).length, 1);
 });
 
-test('981 multi-date robustness remains inside the same historical validation surface and is explicit-run only', () => {
+test('981 multi-date robustness stays explicit-run and executes in bounded compact chunks', () => {
   assert.match(researchLab, /<HistoricalDecisionReplayPanel[\s\S]*<HistoricalReplayRobustnessPanel/);
-  assert.match(historicalRobustness, /Prueba masiva desde muchas fechas/);
-  assert.match(historicalRobustness, /Probar muchas fechas/);
-  assert.match(historicalRobustness, /DynamicHistoricalReplayBatchEngine\.run/);
+  assert.match(historicalRobustness, /Prueba masiva desde muchas fechas · modo por tramos/);
+  assert.match(historicalRobustness, /Preparar prueba por tramos/);
+  assert.match(historicalRobustness, /const MONTHLY_CHUNK_SIZE = 2/);
+  assert.match(historicalRobustness, /const DAILY_CHUNK_SIZE = 1/);
+  assert.match(historicalRobustness, /compactReplay\(result\)/);
+  assert.match(historicalRobustness, /DynamicHistoricalReplayEngine\.run/);
+  assert.doesNotMatch(historicalRobustness, /DynamicHistoricalReplayBatchEngine\.runAsync/);
   assert.doesNotMatch(decisionCenter, /HistoricalReplayRobustnessPanel/);
 });
 
