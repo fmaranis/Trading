@@ -2,6 +2,7 @@ import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import { PortfolioCandidateGate } from './portfolioCandidateGate';
 import { CashBenchmarkService } from './cashBenchmark';
 import { StrategyConsensusEngine } from './strategyConsensusEngine';
+import { EntryTimingEngine, type EntryTimingSetup, type EntryTimingState } from './entryTiming';
 
 export type CurrentOpportunityLevel = 'HIGH_CONVICTION' | 'GOOD_ENTRY' | 'VALID_ENTRY';
 
@@ -23,6 +24,10 @@ export interface CurrentOpportunityAlert {
   unfavorableVotes: number;
   annualizedProxyPct: number | null;
   excessVsCashPctPoints: number | null;
+  timingState: Exclude<EntryTimingState, 'WAIT'>;
+  timingSetup: EntryTimingSetup;
+  timingScore: number;
+  suggestedInitialFraction: number;
   reasons: string[];
 }
 
@@ -31,10 +36,12 @@ function levelRank(level: CurrentOpportunityLevel): number {
 }
 
 /**
- * Current-only opportunity surface. Every emitted alert has already passed the
- * canonical new-money gate: REAL data, cash hurdle, BUY consensus and no
- * structural downtrend. HIGH_CONVICTION deliberately requires agreement across
- * several independent signals; a large standalone ratio is never sufficient.
+ * Current-only opportunity surface.
+ *
+ * Candidate quality and entry timing are deliberately separate. An asset can
+ * pass REAL data + cash hurdle + BUY consensus and still emit no alert today
+ * when the causal timing layer says WAIT. This prevents the allocator from
+ * treating every strategically attractive asset as an immediate order.
  */
 export class CurrentOpportunityAlertEngine {
   static evaluate(scan: AssetUniverseScanResult, cashBenchmarkAnnualPct = CashBenchmarkService.load()): CurrentOpportunityAlert[] {
@@ -46,6 +53,9 @@ export class CurrentOpportunityAlertEngine {
       const candidate = scan.candidates.find(c => c.asset.assetId === entry.assetId);
       const consensus = StrategyConsensusEngine.assess(scan, entry.assetId, cashBenchmarkAnnualPct);
       if (!candidate || candidate.status !== 'ACCEPTED' || !consensus || consensus.structuralDowntrend) continue;
+
+      const timing = EntryTimingEngine.assess(scan, entry.assetId, consensus);
+      if (timing.state === 'WAIT') continue;
 
       const excess = entry.excessVsCashPctPoints ?? -Infinity;
       const m20 = candidate.momentum20Pct;
@@ -59,6 +69,7 @@ export class CurrentOpportunityAlertEngine {
 
       let level: CurrentOpportunityLevel = 'VALID_ENTRY';
       if (
+        timing.state === 'ENTRY_STRONG' &&
         consensus.favorableVotes >= 4 &&
         consensus.consensusScore >= 3 &&
         excess >= 5 &&
@@ -80,7 +91,8 @@ export class CurrentOpportunityAlertEngine {
           ? `Supera el filtro de efectivo de ${cashBenchmarkAnnualPct.toFixed(2)}%`
           : `Proxy anual ${entry.annualizedProxyPct.toFixed(1)}% · +${entry.excessVsCashPctPoints.toFixed(1)} pp frente al efectivo`,
         `Momentum 20/60/120: ${m20?.toFixed(1) ?? 'N/D'}% / ${m60?.toFixed(1) ?? 'N/D'}% / ${m120?.toFixed(1) ?? 'N/D'}%`,
-        `Volatilidad ${vol?.toFixed(1) ?? 'N/D'}% · drawdown actual ${dd?.toFixed(1) ?? 'N/D'}%`
+        `Volatilidad ${vol?.toFixed(1) ?? 'N/D'}% · drawdown actual ${dd?.toFixed(1) ?? 'N/D'}%`,
+        ...timing.reasons
       ];
       if (longTrendHealthy) reasons.push('Tendencia larga positiva y precio por encima de SMA200');
 
@@ -102,10 +114,14 @@ export class CurrentOpportunityAlertEngine {
         unfavorableVotes: consensus.unfavorableVotes,
         annualizedProxyPct: entry.annualizedProxyPct,
         excessVsCashPctPoints: entry.excessVsCashPctPoints,
+        timingState: timing.state,
+        timingSetup: timing.setup,
+        timingScore: timing.score,
+        suggestedInitialFraction: timing.suggestedInitialFraction,
         reasons
       });
     }
 
-    return alerts.sort((a, b) => levelRank(b.level) - levelRank(a.level) || b.rankingScore - a.rankingScore);
+    return alerts.sort((a, b) => levelRank(b.level) - levelRank(a.level) || b.timingScore - a.timingScore || b.rankingScore - a.rankingScore);
   }
 }
