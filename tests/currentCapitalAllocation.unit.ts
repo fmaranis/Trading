@@ -21,6 +21,13 @@ function candidate(assetId: string, ticker: string, category: string, series: an
     annualizedVolatilityPct: vol, maxDrawdownPct: 8, score
   };
 }
+function scanFrom(rows: any[], seriesByAsset: Record<string, any[]>): any {
+  const acceptedDataset: any = {
+    timeframe: '1d',
+    assets: rows.map(c => ({ assetId: c.asset.assetId, ticker: c.asset.ticker, name: c.asset.name, currency: 'EUR', bars: seriesByAsset[c.asset.assetId], provenance: { sourceType: 'REAL', provider: 'unit', symbol: c.asset.ticker, isReproducible: true } }))
+  };
+  return { scanned: rows.length, accepted: rows.length, rejected: 0, rejectionCounts: {}, selected: rows, candidates: rows, acceptedDataset, dataset: acceptedDataset };
+}
 const techBars = bars(1.0024);
 const europeBars = bars(1.0021);
 const weakBars = bars(1.00005);
@@ -29,8 +36,7 @@ const candidates: any[] = [
   candidate('STRONG_EU', 'STRONGE.DE', 'EUROPE_EQUITY', europeBars, 21, 14, 18),
   candidate('WEAK_BOND', 'WEAKB.DE', 'GOV_BONDS', weakBars, 0.5, 7, 10)
 ];
-const acceptedDataset: any = { timeframe: '1d', assets: candidates.map((c, i) => ({ assetId: c.asset.assetId, ticker: c.asset.ticker, name: c.asset.name, currency: 'EUR', bars: [techBars, europeBars, weakBars][i], provenance: { sourceType: 'REAL', provider: 'unit', symbol: c.asset.ticker, isReproducible: true } })) };
-const scan: any = { scanned: 3, accepted: 3, rejected: 0, rejectionCounts: {}, selected: candidates, candidates, acceptedDataset, dataset: acceptedDataset };
+const scan: any = scanFrom(candidates, { STRONG_TECH: techBars, STRONG_EU: europeBars, WEAK_BOND: weakBars });
 const portfolio: any = { cashEur: 0, holdings: [], funds: [], stagedCapitalPlan: { availableEur: 10000, horizonMonths: 12, preferredMode: 'MONTHLY' }, updatedAt: '2026-08-30T00:00:00Z' };
 const decision: any = {
   cashWeight: 0.10, riskProfile: 'MEDIUM', horizonYears: 3,
@@ -60,8 +66,8 @@ const fullyExecutedPortfolio: any = {
 };
 const afterFullExecution = PortfolioDecisionEngine.evaluate({ portfolio: fullyExecutedPortfolio, scan, decision, cashBenchmarkAnnualPct: 2.5 });
 const euAfterFull = afterFullExecution.contributions.find(row => row.assetId === 'STRONG_EU');
-check('938 a fully executed timing tranche is not recommended again while the timing state is unchanged', !afterFullExecution.contributions.some(row => row.assetId === 'STRONG_TECH'));
-check('939 buying one timing tranche does not inflate the untouched target by recursively redistributing remaining cash', Boolean(euAfterFull) && Math.abs((euAfterFull?.amountEur ?? 0) - euInitial.amountEur) < 0.01);
+check('938 a fully executed starter is not recommended again without an independent ADD confirmation', !afterFullExecution.contributions.some(row => row.assetId === 'STRONG_TECH'));
+check('939 buying one starter does not inflate the untouched target by recursively redistributing remaining cash', Boolean(euAfterFull) && Math.abs((euAfterFull?.amountEur ?? 0) - euInitial.amountEur) < 0.01);
 
 const halfExecutedPortfolio: any = {
   ...portfolio,
@@ -71,7 +77,7 @@ const halfExecutedPortfolio: any = {
 };
 const afterHalfExecution = PortfolioDecisionEngine.evaluate({ portfolio: halfExecutedPortfolio, scan, decision, cashBenchmarkAnnualPct: 2.5 });
 const techRemaining = afterHalfExecution.contributions.find(row => row.assetId === 'STRONG_TECH');
-check('940 a partial execution leaves only the unfilled portion of the authorized timing tranche', Boolean(techRemaining) && Math.abs((techRemaining?.amountEur ?? 0) - techInitial.amountEur / 2) < 0.01);
+check('940 a partial starter execution leaves only the unfilled portion of the starter cap', Boolean(techRemaining) && Math.abs((techRemaining?.amountEur ?? 0) - techInitial.amountEur / 2) < 0.01);
 check('941 recommendations expose strategic target and current exposure so the UI can explain the remaining amount', result.contributions.every(row => row.targetAssetValueEur != null && row.currentAssetValueEur != null));
 check('942 timing fraction is propagated into every actionable contribution', result.contributions.every(row => row.timingState != null && row.suggestedInitialFraction != null && row.suggestedInitialFraction > 0 && row.suggestedInitialFraction <= 0.5));
 check('943 executable target never exceeds the timing-authorized fraction of the strategic target', result.contributions.every(row => row.executableTargetAssetValueEur != null && row.targetAssetValueEur != null && row.suggestedInitialFraction != null && (row.executableTargetAssetValueEur ?? Infinity) <= (row.targetAssetValueEur ?? 0) * (row.suggestedInitialFraction ?? 0) + 1e-6));
@@ -80,8 +86,7 @@ check('944 immediate order never exceeds the remaining timing-authorized tranche
 const fundBars = bars(1.0023);
 const fundCandidate: any = candidate('FUND_TEST', 'IE000000TEST', 'GLOBAL_EQUITY', fundBars, 24, 14, 20);
 fundCandidate.asset = { ...fundCandidate.asset, isin: 'IE000000TEST', instrumentType: 'MUTUAL_FUND', marketDataProvider: 'EODHD_FUND' };
-const fundDataset: any = { timeframe: '1d', assets: [{ assetId: 'FUND_TEST', ticker: 'IE000000TEST', name: 'Fund Test', currency: 'EUR', bars: fundBars, provenance: { sourceType: 'REAL', provider: 'unit', symbol: 'IE000000TEST', isReproducible: true } }] };
-const fundScan: any = { scanned: 1, accepted: 1, rejected: 0, rejectionCounts: {}, selected: [fundCandidate], candidates: [fundCandidate], acceptedDataset: fundDataset, dataset: fundDataset };
+const fundScan: any = scanFrom([fundCandidate], { FUND_TEST: fundBars });
 const fundDecision: any = { cashWeight: 0.10, riskProfile: 'MEDIUM', horizonYears: 3, assets: [{ assetId: 'FUND_TEST', ticker: 'IE000000TEST', name: 'Fund Test', weight: 0.90 }] };
 const nearTargetFundPortfolio: any = {
   cashEur: 0, holdings: [],
@@ -97,6 +102,52 @@ const materialGapFundPortfolio: any = {
   stagedCapitalPlan: { ...nearTargetFundPortfolio.stagedCapitalPlan, availableEur: 5700 }
 };
 const materialGapFundResult = PortfolioDecisionEngine.evaluate({ portfolio: materialGapFundPortfolio, scan: fundScan, decision: fundDecision, cashBenchmarkAnnualPct: 2.5 });
-check('946 an existing position already above the timing-authorized tranche is not topped up by the new-money entry gate', !materialGapFundResult.contributions.some(row => row.assetId === 'FUND_TEST'));
+check('946 an existing position already above the timing/starter authorization is not topped up by the new-money entry gate', !materialGapFundResult.contributions.some(row => row.assetId === 'FUND_TEST'));
 
-console.log(`Current finite-capital allocation: ${passed}/16 invariants passed.`);
+check('947 medium-risk fresh opportunities are explicitly classified as STARTER positions', result.contributions.every(row => row.positionStage === 'STARTER'));
+check('948 medium-risk ENTRY_STRONG starters are capped at five percent of total planned capital', result.contributions.every(row => (row.portfolioShareCapPct ?? Infinity) <= 5 + 1e-9 && (row.executableTargetAssetValueEur ?? Infinity) <= 500 + 1e-6));
+
+const fullSlotPortfolio: any = {
+  cashEur: 0,
+  holdings: [],
+  funds: Array.from({ length: 12 }, (_, i) => ({ id: `UNKNOWN_${i}`, isin: `UNKNOWN_${i}`, name: `Existing ${i}`, category: 'OTHER', investedEur: 100, currentValueEur: 100 })),
+  stagedCapitalPlan: { availableEur: 8800, horizonMonths: 12, preferredMode: 'MONTHLY' },
+  updatedAt: '2026-08-30T00:00:00Z'
+};
+const fullSlotResult = PortfolioDecisionEngine.evaluate({ portfolio: fullSlotPortfolio, scan, decision, cashBenchmarkAnnualPct: 2.5 });
+check('949 a full 12-slot medium-risk portfolio cannot open another unrelated starter without freeing a slot', fullSlotResult.maxPortfolioPositions === 12 && fullSlotResult.availablePortfolioSlots === 0 && fullSlotResult.contributions.every(row => (row.currentAssetValueEur ?? 0) > 0));
+
+const incumbentBars = bars(0.9998);
+const incumbentCandidate: any = candidate('INCUMBENT', 'INC.DE', 'EUROPE_EQUITY', incumbentBars, -8, 18, 4);
+const rotationScan: any = scanFrom([incumbentCandidate, candidates[0]], { INCUMBENT: incumbentBars, STRONG_TECH: techBars });
+const incumbentPrice = incumbentCandidate.lastClose;
+const rotationPortfolio: any = {
+  cashEur: 0,
+  holdings: [{ ticker: 'INC.DE', shares: 2000 / incumbentPrice }],
+  funds: [],
+  stagedCapitalPlan: { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' },
+  updatedAt: '2026-08-30T00:00:00Z'
+};
+const rotationHealth: any = {
+  'INC.DE': {
+    key: 'INC.DE', label: 'Incumbent', tickerOrIsin: 'INC.DE', action: 'WATCH',
+    reason: 'Deterioro persistente sin señal de salida estructural.', source: 'UNIVERSE_SCAN', currency: 'EUR', currentUnitPrice: incumbentPrice,
+    currentValueEur: 2000, consensusScore: -1, favorableVotes: 1, unfavorableVotes: 3, structuralDowntrend: false,
+    excessVsCashPctPoints: -4, suggestedReductionPct: null
+  }
+};
+const rotationDecision: any = { cashWeight: 0.10, riskProfile: 'MEDIUM', horizonYears: 3, assets: [] };
+const rotationResult = PortfolioDecisionEngine.evaluate({ portfolio: rotationPortfolio, scan: rotationScan, decision: rotationDecision, positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5 });
+const rotatedIncumbent = rotationResult.existingPositions.find(row => row.assetId === 'INCUMBENT');
+const challengerEntry = rotationResult.contributions.find(row => row.assetId === 'STRONG_TECH');
+check('950 a materially weaker WATCH incumbent can be partially reduced for a clearly superior ENTRY_STRONG challenger', rotatedIncumbent?.action === 'REDUCE' && rotatedIncumbent.suggestedReductionPct === 50 && rotatedIncumbent.rotationChallengerAssetId === 'STRONG_TECH');
+check('951 rotation exposes the theoretical proceeds that can fund the challenger after the sell executes', Math.abs(rotationResult.plannedRotationProceedsEur - 1000) < 0.01 && rotationResult.deployableToAssetsEur >= 1000 - 0.01);
+check('952 the paired challenger is tagged as ROTATION_ENTRY rather than an unrelated starter', Boolean(challengerEntry) && challengerEntry?.positionStage === 'ROTATION_ENTRY');
+check('953 rotation is intentionally hysteretic: at most one incumbent is competitively reduced per evaluation', rotationResult.existingPositions.filter(row => row.rotationChallengerAssetId != null).length <= 1);
+
+const weakOnlyScan: any = scanFrom([candidates[2]], { WEAK_BOND: weakBars });
+const weakOnlyDecision: any = { cashWeight: 0.10, riskProfile: 'MEDIUM', horizonYears: 3, assets: [{ assetId: 'WEAK_BOND', ticker: 'WEAKB.DE', name: 'Weak theoretical bond', weight: 0.90 }] };
+const noOpportunityResult = PortfolioDecisionEngine.evaluate({ portfolio, scan: weakOnlyScan, decision: weakOnlyDecision, cashBenchmarkAnnualPct: 2.5 });
+check('954 no-opportunity state never converts theoretical target gaps into fallback purchase orders', noOpportunityResult.contributions.length === 0 && noOpportunityResult.recommendedNewInvestmentEur === 0);
+
+console.log(`Current finite-capital allocation: ${passed}/23 invariants passed.`);
