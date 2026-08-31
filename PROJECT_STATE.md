@@ -17,7 +17,11 @@
 
 # Estado actual — 2026-08-31
 
-HEAD funcional observado antes de esta actualización: `71f8f6cba6f496309e81bfb1003100ff1f4c6a87` (`Refresh canonical project knowledge and replay roadmap`).
+Últimos cambios implementados:
+- `f1bb80d029f1904085e6a49db97577296086d6f9` — `Enforce requested replay decision boundary`.
+- `b13d60572f430387e3eafb5ca0585d6926e11326` — `Assert strict historical replay start boundary`.
+
+La corrección temporal de Fase 0 está implementada en código y cubierta por regresión, pero **todavía no se considera validada hasta ejecutar el gate local completo** después de estos commits. No se ha usado GitHub Actions.
 
 Stack: React 19 + TypeScript + Vite + Tailwind + Recharts + Motion. Aplicación de soporte a decisiones con datos REAL, replay causal, cartera real, radar de oportunidades, fiscalidad española y ejecución condicionada por broker/costes.
 
@@ -158,9 +162,9 @@ Parte importante de la ventaja mostrada proviene de Xetra-Gold, incorporado desp
 
 ## 2025-03-27 → 2026-03-26
 
-Existe anomalía temporal: el replay contiene señales/operaciones anteriores a la fecha inicial solicitada. No usar para calibrar hasta corregir el límite temporal.
+Se detectó anomalía temporal: el replay contenía señales/operaciones anteriores a la fecha inicial solicitada. La causa ya se ha corregido en `f1bb80d0`; este caso debe repetirse antes de usarlo para calibrar.
 
-Diagnóstico útil: Deutsche Börse llegó aprox. a MFE +8,23% y salió cerca de -23%, mostrando que EXIT existe pero puede llegar demasiado tarde.
+Diagnóstico previo útil: Deutsche Börse llegó aprox. a MFE +8,23% y salió cerca de -23%, mostrando que EXIT existe pero puede llegar demasiado tarde.
 
 ## Replay largo — 2022-07-11 → 2025-07-10
 
@@ -203,13 +207,23 @@ Eso es incorrecto cuando una misma decisión inicial produce ejecuciones escalon
 
 Por tanto `advantageEur = engineFinalEur - exactHoldFinalEur` puede sobre/infraestimar el valor de la gestión. Debe definir la cartera inicial por **cohorte de señal/decisión inicial**, no por una única fecha de ejecución.
 
-### Hallazgo crítico del límite temporal
+### Hallazgo crítico del límite temporal — CORREGIDO EN CÓDIGO
 
-El replay largo solicitado desde 2022-07-11 contiene señales fechadas 2022-07-06 que ejecutan 2022-07-11/12. Esto confirma que la anomalía temporal no era aislada.
+La causa estaba en `DynamicHistoricalReplayEngine.run`: `requestedDate` respetaba `startDate`, pero luego `decisionDate` se sustituía por `firstDecision.asOfDate`, que podía ser anterior.
 
-Causa probable en `DynamicHistoricalReplayEngine.run`: `requestedDate` sí respeta `startDate`, pero `decisionDate` se toma de `firstDecision.asOfDate/provisionalDate`, que puede ser anterior al día solicitado si los últimos datos comunes son más antiguos.
+Desde `f1bb80d0`:
+- `decisionDate = requestedDate`;
+- el `asOfDate` de los datos puede ser anterior y sigue representando solo la frescura de la información;
+- la señal nunca debe desplazarse hacia atrás por ese motivo;
+- NEXT_OPEN continúa ejecutando después de la señal.
 
-Regla correcta: nunca emitir `signalDate < requested startDate`. Se puede decidir en la fecha solicitada usando únicamente datos `asOf <= fecha`, pero la fecha de señal debe permanecer dentro de la ventana pedida.
+Regresión en `b13d6057` exige:
+- `result.startDate >= requested startDate`;
+- todas las `signalDate >= startDate`;
+- toda la `equityPath >= startDate`;
+- DAILY y MONTHLY respetan el mismo límite.
+
+**Pendiente:** ejecutar validación local completa. Hasta entonces el cambio está implementado pero no runtime-validado.
 
 ---
 
@@ -279,14 +293,16 @@ Problema abierto: AI Studio puede no detectar archivos escritos en runtime como 
 
 ## Fase 0 — hacer fiable la auditoría antes de calibrar
 
-1. Corregir límite temporal: ninguna señal antes de `startDate`.
-2. Añadir regresión específica para este caso.
-3. Corregir “hold inicial exacto” por cohorte de señal/decisión inicial, no por primera fecha de ejecución.
-4. Cambiar etiqueta “valor aportado por mover la cartera” por una descripción no ambigua.
-5. Separar progresivamente tres métricas:
-   - diferencia total vs mantener cartera inicial;
-   - valor por nuevas selecciones/recomposición posterior;
-   - valor por gestión de posiciones existentes (ADD/REDUCE/EXIT).
+Estado:
+- [x] Corregir límite temporal en motor.
+- [x] Añadir regresión de límite temporal.
+- [ ] Ejecutar validación local completa de esos cambios.
+- [ ] Corregir “hold inicial exacto” por cohorte de señal/decisión inicial, no por primera fecha de ejecución.
+- [ ] Cambiar etiqueta “valor aportado por mover la cartera” por una descripción no ambigua.
+- [ ] Separar progresivamente:
+  - diferencia total vs mantener cartera inicial;
+  - valor por nuevas selecciones/recomposición posterior;
+  - valor por gestión de posiciones existentes (ADD/REDUCE/EXIT).
 
 ## Fase 1 — validar Entry Timing actual
 
@@ -336,4 +352,4 @@ Objetivo: conducta más racional y robusta, no maximizar los mismos backtests us
 
 # Próxima acción concreta
 
-Empezar por Fase 0: corregir límite temporal + comparador de cartera inicial + etiquetas/tests. Después ejecutar un replay nuevo con el Entry Timing ya presente en `main` y evaluar su comportamiento antes de tocar umbrales o Position Health.
+Continuar Fase 0 con el comparador: reconstruir la cartera inicial por cohorte de señal inicial, renombrar la métrica para que no se interprete como “alpha por mover”, y añadir tests/contratos. Después ejecutar un replay nuevo con Entry Timing ya presente y evaluar comportamiento antes de tocar sus umbrales o Position Health.
