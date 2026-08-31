@@ -9,7 +9,6 @@ import {
   type InvestmentDecisionResult
 } from '../investment/decision';
 import { SingleAssetResearchPanel } from './SingleAssetResearchPanel';
-import { HistoricalDecisionReplayPanel } from './HistoricalDecisionReplayPanel';
 import { HistoricalReplayProgressivePanel } from './HistoricalReplayProgressivePanel';
 
 interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; requestedSymbol?: string | null; }
@@ -130,6 +129,6 @@ export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision, request
       </div>
     </section>
 
-    <details className="rounded-2xl border border-indigo-500/20 bg-slate-900 p-4"><summary className="cursor-pointer list-none"><div className="font-bold text-white">Validación general del motor y casos externos</div><div className="mt-1 text-[10px] text-slate-500">Esto sí permanece separado porque responde a otra pregunta: robustez histórica del motor, no búsqueda o análisis de un activo concreto.</div></summary><div className="mt-4"><HistoricalDecisionReplayPanel scan={scan} capitalEur={decision.capitalEur} riskProfile={decision.riskProfile} horizonYears={decision.horizonYears}/><HistoricalReplayProgressivePanel capitalEur={decision.capitalEur} riskProfile={decision.riskProfile} horizonYears={decision.horizonYears}/></div></details>
+    <details className="rounded-2xl border border-indigo-500/20 bg-slate-900 p-4"><summary className="cursor-pointer list-none"><div className="font-bold text-white">Validación histórica auditada</div><div className="mt-1 text-[10px] text-slate-500">Una sola herramienta histórica: trayectoria, decisiones, operaciones, fiscalidad, comparación contra mantener y análisis por posición.</div></summary><div className="mt-4"><HistoricalReplayProgressivePanel capitalEur={decision.capitalEur} riskProfile={decision.riskProfile} horizonYears={decision.horizonYears}/></div></details>
   </div>;
 };
