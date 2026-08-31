@@ -283,8 +283,9 @@ function buildExactInitialHold(input: {
   const initialBuys = positive.filter(operation => operation.executionDate === firstDate);
   const spent = initialBuys.reduce((sum, operation) => sum + operation.notionalEur + operation.feeEur, 0);
   const residualCash = Math.max(0, input.initialCapitalEur - spent);
-  const benchmarkEnd = input.path.at(-1)?.cashBenchmarkEur ?? input.initialCapitalEur;
-  const cashGrowth = input.initialCapitalEur > 0 ? benchmarkEnd / input.initialCapitalEur : 1;
+  const benchmarkAtEntry = input.path.find(point => point.date >= firstDate)?.cashBenchmarkEur ?? input.initialCapitalEur;
+  const benchmarkEnd = input.path.at(-1)?.cashBenchmarkEur ?? benchmarkAtEntry;
+  const cashGrowth = benchmarkAtEntry > 0 ? benchmarkEnd / benchmarkAtEntry : 1;
   let finalEur = residualCash * cashGrowth;
   for (const operation of initialBuys) {
     const price = latestPrice(input.scan, operation.assetId, input.endDate);
@@ -318,7 +319,9 @@ function buildPositionSummaries(scan: AssetUniverseScanResult, executions: Audit
       const totalFeesEur = ops.reduce((sum, op) => sum + op.feeEur, 0);
       const realizedGainEur = ops.reduce((sum, op) => sum + op.realizedGainEur, 0);
       const estimatedTaxEur = ops.reduce((sum, op) => sum + op.estimatedTaxEur, 0);
-      const taxDeferredTransferEur = ops.reduce((sum, op) => sum + op.taxDeferredTransferEur, 0);
+      const deferredInEur = ops.filter(op => op.unitsDelta > 0).reduce((sum, op) => sum + op.taxDeferredTransferEur, 0);
+      const deferredOutEur = ops.filter(op => op.unitsDelta < 0).reduce((sum, op) => sum + op.taxDeferredTransferEur, 0);
+      const taxDeferredTransferEur = deferredInEur + deferredOutEur;
       const entryPriceEur = ops.find(op => op.unitsDelta > 0)?.executionPriceEur ?? null;
       const opsByDate = new Map<string, AuditExecution[]>();
       for (const op of ops) opsByDate.set(op.executionDate, [...(opsByDate.get(op.executionDate) ?? []), op]);
@@ -360,18 +363,23 @@ function buildPositionSummaries(scan: AssetUniverseScanResult, executions: Audit
         return basis;
       })();
       const unrealizedAtEnd = remainingUnits > 0 && endPrice != null ? remainingUnits * endPrice - remainingBasisApprox : 0;
-      const finalGrossProfitEur = realizedGainEur + unrealizedAtEnd;
-      const finalNetProfitEur = finalGrossProfitEur - estimatedTaxEur - totalFeesEur;
+      const afterFeesBeforeTaxProfitEur = realizedGainEur + unrealizedAtEnd;
+      const finalGrossProfitEur = afterFeesBeforeTaxProfitEur + totalFeesEur;
+      const finalNetProfitEur = afterFeesBeforeTaxProfitEur - estimatedTaxEur;
       const denominator = Math.max(1e-9, totalBoughtEur);
-      const taxLabel = taxDeferredTransferEur > 0 && estimatedTaxEur <= 1e-9
-        ? `TRASPASO DIFERIDO · ${taxDeferredTransferEur.toFixed(2)} € · impuesto inmediato 0 €`
-        : estimatedTaxEur > 0
-          ? `VENTA CON PLUSVALÍA · impuesto estimado ${estimatedTaxEur.toFixed(2)} €`
-          : realizedGainEur < -1e-9
-            ? 'VENTA CON PÉRDIDA · impuesto estimado 0 € en esta operación'
-            : closed
-              ? 'SIN IMPUESTO ESTIMADO EN LA SALIDA'
-              : 'POSICIÓN ABIERTA · fiscalidad no realizada todavía';
+      const taxLabel = deferredOutEur > 0 && estimatedTaxEur > 1e-9
+        ? `TRASPASO PARCIAL · ${deferredOutEur.toFixed(2)} € diferidos · parte no diferida con impuesto ${estimatedTaxEur.toFixed(2)} €`
+        : deferredOutEur > 0
+          ? `TRASPASO DIFERIDO · ${deferredOutEur.toFixed(2)} € · impuesto inmediato 0 €`
+          : estimatedTaxEur > 0
+            ? `VENTA CON PLUSVALÍA · impuesto estimado ${estimatedTaxEur.toFixed(2)} €`
+            : realizedGainEur < -1e-9
+              ? 'VENTA CON PÉRDIDA · impuesto estimado 0 € en esta operación'
+              : !closed && deferredInEur > 0
+                ? `POSICIÓN ABIERTA · ${deferredInEur.toFixed(2)} € recibidos mediante traspaso fiscalmente diferido`
+                : closed
+                  ? 'SIN IMPUESTO ESTIMADO EN LA SALIDA'
+                  : 'POSICIÓN ABIERTA · fiscalidad no realizada todavía';
       summaries.push({
         id: `${assetId}_${cycleIndex}_${entryDate}`,
         assetId,
@@ -386,8 +394,8 @@ function buildPositionSummaries(scan: AssetUniverseScanResult, executions: Audit
         realizedGainEur,
         estimatedTaxEur,
         taxDeferredTransferEur,
-        mfePct: maxPct,
-        maePct: minPct,
+        mfePct: Math.max(0, maxPct),
+        maePct: Math.min(0, minPct),
         finalGrossProfitEur,
         finalGrossPct: finalGrossProfitEur / denominator * 100,
         finalNetProfitEur,
@@ -691,8 +699,8 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
       </div>}
 
       {positions.length > 0 && <div className="rounded-xl border border-slate-800">
-        <div className="p-3"><b className="text-xs text-white">Resultado de cada posición comprada</b><div className="mt-1 text-[9px] text-slate-500">MFE = máxima ganancia alcanzada por la posición agregada; MAE = máxima caída desde su coste acumulado. ADD actualiza el coste medio; REDUCE disminuye unidades sin crear una posición falsa; una recompra después de EXIT inicia un ciclo nuevo.</div></div>
-        <div className="max-h-[520px] overflow-auto border-t border-slate-800"><table className="w-full min-w-[1320px] text-[10px]"><thead className="sticky top-0 bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Activo</th><th className="p-2 text-left">Entrada → salida</th><th className="p-2 text-right">Invertido</th><th className="p-2 text-right">Máx. ganancia</th><th className="p-2 text-right">Máx. caída</th><th className="p-2 text-right">Resultado bruto</th><th className="p-2 text-right">Impuesto</th><th className="p-2 text-right">Comisiones</th><th className="p-2 text-right">Resultado neto</th><th className="p-2 text-left">Tratamiento fiscal</th></tr></thead><tbody>{positions.map(position => <tr key={position.id} className={`border-t border-slate-800 ${selectedAssetId === position.assetId ? 'bg-white/5' : ''}`} onClick={() => setSelectedAssetId(current => current === position.assetId ? null : position.assetId)}><td className="cursor-pointer p-2"><b>{position.ticker}</b><div className="max-w-[240px] truncate text-[9px] text-slate-500">{position.name}</div></td><td className="p-2 font-mono">{position.entryDate} → {position.exitDate ?? 'ABIERTA'}</td><td className="p-2 text-right">{position.totalBoughtEur.toFixed(2)} €</td><td className="p-2 text-right font-bold text-emerald-300">+{position.mfePct.toFixed(2)}%</td><td className="p-2 text-right font-bold text-rose-300">{position.maePct.toFixed(2)}%</td><td className={`p-2 text-right ${position.finalGrossPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{position.finalGrossProfitEur >= 0 ? '+' : ''}{position.finalGrossProfitEur.toFixed(2)} € · {position.finalGrossPct >= 0 ? '+' : ''}{position.finalGrossPct.toFixed(2)}%</td><td className="p-2 text-right">-{position.estimatedTaxEur.toFixed(2)} €</td><td className="p-2 text-right">-{position.totalFeesEur.toFixed(2)} €</td><td className={`p-2 text-right font-bold ${position.finalNetPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{position.finalNetProfitEur >= 0 ? '+' : ''}{position.finalNetProfitEur.toFixed(2)} € · {position.finalNetPct >= 0 ? '+' : ''}{position.finalNetPct.toFixed(2)}%</td><td className="p-2 text-slate-400">{position.taxLabel}</td></tr>)}</tbody></table></div>
+        <div className="p-3"><b className="text-xs text-white">Resultado de cada posición comprada</b><div className="mt-1 text-[9px] text-slate-500">MFE = máxima ganancia alcanzada por la posición agregada; MAE = máxima caída desde su coste acumulado. ADD actualiza el coste medio; REDUCE disminuye unidades sin crear una posición falsa; una recompra después de EXIT inicia un ciclo nuevo. “Bruto” es antes de comisiones/impuestos; “neto” descuenta ambos una sola vez.</div></div>
+        <div className="max-h-[520px] overflow-auto border-t border-slate-800"><table className="w-full min-w-[1400px] text-[10px]"><thead className="sticky top-0 bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Activo</th><th className="p-2 text-left">Entrada → salida</th><th className="p-2 text-right">P. entrada</th><th className="p-2 text-right">Invertido</th><th className="p-2 text-right">Máx. ganancia</th><th className="p-2 text-right">Máx. caída</th><th className="p-2 text-right">Resultado bruto</th><th className="p-2 text-right">Impuesto</th><th className="p-2 text-right">Comisiones</th><th className="p-2 text-right">Resultado neto</th><th className="p-2 text-left">Tratamiento fiscal</th></tr></thead><tbody>{positions.map(position => <tr key={position.id} className={`border-t border-slate-800 ${selectedAssetId === position.assetId ? 'bg-white/5' : ''}`} onClick={() => setSelectedAssetId(current => current === position.assetId ? null : position.assetId)}><td className="cursor-pointer p-2"><b>{position.ticker}</b><div className="max-w-[240px] truncate text-[9px] text-slate-500">{position.name}</div></td><td className="p-2 font-mono">{position.entryDate} → {position.exitDate ?? 'ABIERTA'}</td><td className="p-2 text-right">{position.entryPriceEur == null ? 'N/D' : `${position.entryPriceEur.toFixed(4)} €`}</td><td className="p-2 text-right">{position.totalBoughtEur.toFixed(2)} €</td><td className="p-2 text-right font-bold text-emerald-300">+{position.mfePct.toFixed(2)}%</td><td className="p-2 text-right font-bold text-rose-300">{position.maePct.toFixed(2)}%</td><td className={`p-2 text-right ${position.finalGrossPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{position.finalGrossProfitEur >= 0 ? '+' : ''}{position.finalGrossProfitEur.toFixed(2)} € · {position.finalGrossPct >= 0 ? '+' : ''}{position.finalGrossPct.toFixed(2)}%</td><td className="p-2 text-right">-{position.estimatedTaxEur.toFixed(2)} €</td><td className="p-2 text-right">-{position.totalFeesEur.toFixed(2)} €</td><td className={`p-2 text-right font-bold ${position.finalNetPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{position.finalNetProfitEur >= 0 ? '+' : ''}{position.finalNetProfitEur.toFixed(2)} € · {position.finalNetPct >= 0 ? '+' : ''}{position.finalNetPct.toFixed(2)}%</td><td className="p-2 text-slate-400">{position.taxLabel}</td></tr>)}</tbody></table></div>
       </div>}
 
       <div className="rounded-xl border border-slate-800"><div className="flex items-center justify-between gap-2 p-3"><div><b className="text-xs text-white">Decisiones y señales cronológicas</b><div className="text-[9px] text-slate-500">Incluye lo que el motor pensó en cada fecha, aunque no hubiese operación.</div></div><button type="button" onClick={() => setShowAllSignals(value => !value)} className="rounded-lg border border-slate-700 px-3 py-1.5 text-[10px] text-slate-300">{showAllSignals ? 'Solo movimientos' : 'Ver también MANTENER / NO COMPRAR'}</button></div><div className="max-h-[420px] overflow-auto border-t border-slate-800"><table className="w-full min-w-[1040px] text-[10px]"><thead className="sticky top-0 bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Fecha señal</th><th className="p-2 text-left">Acción</th><th className="p-2 text-left">Activo</th><th className="p-2 text-right">Importe recomendado</th><th className="p-2 text-right">Peso actual → objetivo</th><th className="p-2 text-left">Ejecución</th><th className="p-2 text-left">Motivo</th></tr></thead><tbody>{visibleSignals.map(signal => <tr key={signal.id} className="border-t border-slate-800"><td className="p-2 font-mono">{signal.signalDate}</td><td className={`p-2 font-bold ${signal.action === 'BUY' || signal.action === 'ADD' ? 'text-emerald-200' : signal.action === 'REDUCE' || signal.action === 'EXIT' ? 'text-rose-200' : signal.action === 'AVOID' ? 'text-amber-200' : 'text-slate-300'}`}>{actionLabel(signal.action)}</td><td className="p-2"><b>{signal.ticker}</b><div className="max-w-[250px] truncate text-[9px] text-slate-500">{catalogueLabel(signal.assetId, signal.ticker)}</div></td><td className="p-2 text-right">{signal.recommendedAmountEur.toFixed(2)} €</td><td className="p-2 text-right">{(signal.currentWeight * 100).toFixed(1)}% → {(signal.targetWeight * 100).toFixed(1)}%</td><td className="p-2">{signal.executed ? `Sí · ${signal.executionDate ?? ''}` : 'No'}</td><td className="p-2 text-slate-400">{signal.reason}</td></tr>)}</tbody></table></div></div>
