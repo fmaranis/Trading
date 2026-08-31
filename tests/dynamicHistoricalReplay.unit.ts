@@ -67,6 +67,31 @@ assert.ok(base.equityPath.length > base.decisions, 'portfolio equity must be val
 assert.ok(base.equityPath.every(point => Number.isFinite(point.equityEur) && Number.isFinite(point.cashBenchmarkEur)), 'every chart point must carry portfolio and cash benchmark values');
 assert.ok(base.events.every(event => Number.isFinite(event.amountEur) && event.feeEur >= 0 && event.taxEur >= 0), 'operation ledger must expose finite amounts, fees and taxes');
 
+const timingSignals = base.signals.filter(signal => signal.timingState != null);
+assert.ok(timingSignals.length > 0, 'replay audit must retain Entry Timing observations inside chronological signals');
+assert.equal(
+  base.timingStateCounts.WAIT + base.timingStateCounts.ENTRY_READY + base.timingStateCounts.ENTRY_STRONG,
+  timingSignals.length,
+  'timing state counts must reconcile exactly with timing-aware signals'
+);
+assert.ok(base.signals.filter(signal => signal.action === 'BUY' || signal.action === 'ADD').every(signal => signal.timingState === 'ENTRY_READY' || signal.timingState === 'ENTRY_STRONG'), 'every funded new-money BUY/ADD must expose the timing state that authorized it');
+for (const signal of timingSignals) {
+  assert.ok(Number.isFinite(signal.timingScore), 'every timing-aware signal must retain its causal timing score');
+  assert.ok(signal.timingSetup != null, 'every timing-aware signal must retain its setup');
+  if (signal.timingState === 'WAIT') assert.equal(signal.suggestedInitialFraction, 0, 'WAIT must authorize zero initial fraction');
+  if (signal.timingState === 'ENTRY_READY') assert.equal(signal.suggestedInitialFraction, 0.25, 'ENTRY_READY must retain the 25% tranche');
+  if (signal.timingState === 'ENTRY_STRONG') assert.equal(signal.suggestedInitialFraction, 0.50, 'ENTRY_STRONG must retain the 50% tranche');
+}
+assert.deepEqual(base.deploymentHorizons.map(item => item.sessionsFromStart), [1, 5, 20, 60], 'deployment audit must expose the canonical 1/5/20/60-session horizons');
+for (const horizon of base.deploymentHorizons) {
+  if (horizon.date == null) continue;
+  assert.equal(horizon.date, base.equityPath[horizon.sessionsFromStart]?.date, 'deployment horizon date must mean sessions elapsed from replay start, not array position including start as session one');
+  assert.ok((horizon.netCommittedEur ?? -1) >= 0, 'net committed capital must be non-negative');
+  assert.ok((horizon.netCommittedPctOfInitialCapital ?? -1) >= 0, 'committed percentage must be non-negative');
+  assert.ok((horizon.investedMarketValueEur ?? -1) >= 0, 'market value invested must be non-negative');
+  assert.ok((horizon.investedPctOfEquity ?? -1) >= 0, 'invested share of equity must be non-negative');
+}
+
 const daily = DynamicHistoricalReplayEngine.run({
   dataset: dataset(false, 560),
   catalog,
@@ -109,8 +134,20 @@ const shocked = DynamicHistoricalReplayEngine.run({
 const isolationCutoff = dateAt(820).slice(0, 10);
 const before = (result: typeof base) => result.signals
   .filter(signal => signal.signalDate <= isolationCutoff)
-  .map(signal => [signal.signalDate, signal.assetId, signal.action, signal.consensusScore, signal.structuralDowntrend, signal.buyTheDipCandidate, Number(signal.targetWeight.toFixed(10))]);
-assert.deepEqual(before(shocked), before(base), 'prices changed only after the cutoff must not alter earlier dynamic signals or targets');
+  .map(signal => [
+    signal.signalDate,
+    signal.assetId,
+    signal.action,
+    signal.consensusScore,
+    signal.structuralDowntrend,
+    signal.buyTheDipCandidate,
+    signal.timingState,
+    signal.timingSetup,
+    signal.timingScore == null ? null : Number(signal.timingScore.toFixed(10)),
+    signal.suggestedInitialFraction,
+    Number(signal.targetWeight.toFixed(10))
+  ]);
+assert.deepEqual(before(shocked), before(base), 'prices changed only after the cutoff must not alter earlier dynamic signals, timing diagnostics or targets');
 assert.notEqual(shocked.finalValueEur, base.finalValueEur, 'future prices may change final outcome while prior signals remain invariant');
 
-console.log('Dynamic Historical Replay: causal start boundary, daily/monthly decisions, dense equity path, costs/tax accounting and future isolation passed.');
+console.log('Dynamic Historical Replay: causal boundary, timing audit, staged deployment horizons, costs/tax accounting and future isolation passed.');
