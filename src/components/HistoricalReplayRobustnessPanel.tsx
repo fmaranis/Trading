@@ -273,48 +273,13 @@ export const HistoricalReplayRobustnessPanel: React.FC<Props> = ({ capitalEur, r
     checkpointsRef.current = nextCheckpoints;
     persist(nextCheckpoints, nextExecutions);
 
-    const complete = nextCheckpoints.length >= chunkEnds.length;
+    const config = configRef.current;
+    const expectedTotal = config ? buildChunkEnds(config.startDate, today(), config.chunkMonths).length : nextCheckpoints.length + 1;
+    const complete = nextCheckpoints.length >= expectedTotal;
     setStatus(complete ? 'DONE' : 'READY');
     setMessage(complete
-      ? `Replay auditado completado: ${nextCheckpoints.length}/${chunkEnds.length} tramos guardados.`
+      ? `Replay auditado completado: ${nextCheckpoints.length}/${expectedTotal} tramos guardados.`
       : `Tramo guardado hasta ${result.endDate}. ${newExecutions.length} operaciones nuevas. La interfaz queda libre antes del siguiente tramo.`);
-  };
-
-  const createWorker = (scan: AssetUniverseScanResult, capital: number) => {
-    workerRef.current?.terminate();
-    const worker = new Worker(new URL('../workers/historicalReplayAudit.worker.ts', import.meta.url), { type: 'module' });
-    workerRef.current = worker;
-    worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
-      const response = event.data;
-      if (response.type === 'READY') {
-        setStatus(checkpointsRef.current.length >= chunkEnds.length && chunkEnds.length > 0 ? 'DONE' : 'READY');
-        setMessage(checkpointsRef.current.length
-          ? `Dataset REAL preparado. Se reanuda desde ${checkpointsRef.current.length}/${chunkEnds.length} checkpoints guardados.`
-          : 'Dataset REAL preparado. Ejecuta el primer tramo cuando quieras.');
-      } else if (response.type === 'RESULT') {
-        finishWorkerResult(response.requestedEndDate, response.result);
-      } else if (response.type === 'ERROR') {
-        setError(`El tramo ${response.requestedEndDate ?? ''} no pudo completarse: ${response.error}`);
-        setStatus('READY');
-      }
-    };
-    worker.onerror = event => {
-      setError(`El proceso de cálculo aislado falló: ${event.message || 'WORKER_ERROR'}. La interfaz principal sigue operativa y los checkpoints anteriores permanecen guardados.`);
-      setStatus('IDLE');
-    };
-    worker.postMessage({
-      type: 'INIT',
-      dataset: scan.acceptedDataset,
-      catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
-      startDate,
-      frequency,
-      initialCapitalEur: capital,
-      riskProfile,
-      horizonYears,
-      cashBenchmarkAnnualPct: CashBenchmarkService.load(),
-      minimumBars: 252,
-      taxSettings: SpanishTaxSettingsService.load()
-    });
   };
 
   const prepare = async () => {
