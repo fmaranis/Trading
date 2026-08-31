@@ -1,5 +1,6 @@
 import type { AssetScanCandidate, AssetUniverseScanResult } from './assetUniverseScanner';
 import { assessAgainstCashBenchmark } from './cashBenchmark';
+import { EntryTimingEngine, type EntryTimingSetup, type EntryTimingState } from './entryTiming';
 import { StrategyConsensusEngine } from './strategyConsensusEngine';
 
 export type PortfolioCandidateGateStatus = 'ELIGIBLE' | 'REJECTED';
@@ -15,6 +16,10 @@ export interface PortfolioCandidateGateEntry {
   annualizedProxyPct: number | null;
   excessVsCashPctPoints: number | null;
   rankingScore: number | null;
+  timingState: EntryTimingState | null;
+  timingSetup: EntryTimingSetup | null;
+  timingScore: number | null;
+  suggestedInitialFraction: number | null;
 }
 
 export interface PortfolioCandidateGateResult {
@@ -25,8 +30,8 @@ export interface PortfolioCandidateGateResult {
   selectedCount: number;
 }
 
-function candidateRankingScore(candidate: AssetScanCandidate, consensusScore: number, excessVsCash: number): number {
-  return (candidate.score ?? -999) + consensusScore * 5 + Math.max(-20, Math.min(20, excessVsCash)) * 0.5;
+function candidateRankingScore(candidate: AssetScanCandidate, consensusScore: number, excessVsCash: number, timingScore: number): number {
+  return (candidate.score ?? -999) + consensusScore * 5 + Math.max(-20, Math.min(20, excessVsCash)) * 0.5 + timingScore * 0.1;
 }
 
 function buildDataset(scan: AssetUniverseScanResult, selected: AssetScanCandidate[]) {
@@ -37,11 +42,47 @@ function buildDataset(scan: AssetUniverseScanResult, selected: AssetScanCandidat
   };
 }
 
+function baseEntry(input: {
+  candidate: AssetScanCandidate;
+  status: PortfolioCandidateGateStatus;
+  reason: string;
+  consensusScore?: number | null;
+  favorableVotes?: number | null;
+  unfavorableVotes?: number | null;
+  annualizedProxyPct?: number | null;
+  excessVsCashPctPoints?: number | null;
+  rankingScore?: number | null;
+  timingState?: EntryTimingState | null;
+  timingSetup?: EntryTimingSetup | null;
+  timingScore?: number | null;
+  suggestedInitialFraction?: number | null;
+}): PortfolioCandidateGateEntry {
+  return {
+    assetId: input.candidate.asset.assetId,
+    ticker: input.candidate.asset.ticker,
+    status: input.status,
+    reason: input.reason,
+    consensusScore: input.consensusScore ?? null,
+    favorableVotes: input.favorableVotes ?? null,
+    unfavorableVotes: input.unfavorableVotes ?? null,
+    annualizedProxyPct: input.annualizedProxyPct ?? null,
+    excessVsCashPctPoints: input.excessVsCashPctPoints ?? null,
+    rankingScore: input.rankingScore ?? null,
+    timingState: input.timingState ?? null,
+    timingSetup: input.timingSetup ?? null,
+    timingScore: input.timingScore ?? null,
+    suggestedInitialFraction: input.suggestedInitialFraction ?? null
+  };
+}
+
 /**
  * New-money candidates must earn the right to enter the allocator.
- * Risk parity / inverse volatility / relative momentum only distribute capital
- * after the candidate has passed BOTH the explicit cash hurdle and the same
- * multi-signal consensus used elsewhere in the app.
+ *
+ * Selection quality and timing are separate checks in the same gate:
+ * REAL data + cash hurdle + BUY consensus decide whether an asset deserves
+ * consideration; EntryTimingEngine decides whether TODAY is an acceptable
+ * moment to deploy fresh cash. A strategic target therefore never reaches the
+ * allocator while timing says WAIT.
  */
 export class PortfolioCandidateGate {
   static apply(scan: AssetUniverseScanResult, cashBenchmarkAnnualPct: number, maxSelected = 12): PortfolioCandidateGateResult {
@@ -50,7 +91,7 @@ export class PortfolioCandidateGate {
 
     for (const candidate of scan.candidates) {
       if (candidate.status !== 'ACCEPTED') {
-        entries.push({ assetId: candidate.asset.assetId, ticker: candidate.asset.ticker, status: 'REJECTED', reason: candidate.reason ?? 'DATA_REJECTED', consensusScore: null, favorableVotes: null, unfavorableVotes: null, annualizedProxyPct: null, excessVsCashPctPoints: null, rankingScore: null });
+        entries.push(baseEntry({ candidate, status: 'REJECTED', reason: candidate.reason ?? 'DATA_REJECTED' }));
         continue;
       }
 
@@ -58,21 +99,54 @@ export class PortfolioCandidateGate {
       const consensus = StrategyConsensusEngine.assess(scan, candidate.asset.assetId, cashBenchmarkAnnualPct);
 
       if (!consensus) {
-        entries.push({ assetId: candidate.asset.assetId, ticker: candidate.asset.ticker, status: 'REJECTED', reason: 'CONSENSUS_UNAVAILABLE', consensusScore: null, favorableVotes: null, unfavorableVotes: null, annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints, rankingScore: null });
+        entries.push(baseEntry({ candidate, status: 'REJECTED', reason: 'CONSENSUS_UNAVAILABLE', annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints }));
         continue;
       }
       if (cash.passes !== true) {
-        entries.push({ assetId: candidate.asset.assetId, ticker: candidate.asset.ticker, status: 'REJECTED', reason: cash.passes === false ? 'DOES_NOT_BEAT_CASH' : 'CASH_COMPARISON_UNAVAILABLE', consensusScore: consensus.consensusScore, favorableVotes: consensus.favorableVotes, unfavorableVotes: consensus.unfavorableVotes, annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints, rankingScore: null });
+        entries.push(baseEntry({ candidate, status: 'REJECTED', reason: cash.passes === false ? 'DOES_NOT_BEAT_CASH' : 'CASH_COMPARISON_UNAVAILABLE', consensusScore: consensus.consensusScore, favorableVotes: consensus.favorableVotes, unfavorableVotes: consensus.unfavorableVotes, annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints }));
         continue;
       }
       if (consensus.newMoneyAction !== 'BUY' || consensus.structuralDowntrend) {
-        entries.push({ assetId: candidate.asset.assetId, ticker: candidate.asset.ticker, status: 'REJECTED', reason: consensus.structuralDowntrend ? 'STRUCTURAL_DOWNTREND' : `CONSENSUS_${consensus.newMoneyAction}`, consensusScore: consensus.consensusScore, favorableVotes: consensus.favorableVotes, unfavorableVotes: consensus.unfavorableVotes, annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints, rankingScore: null });
+        entries.push(baseEntry({ candidate, status: 'REJECTED', reason: consensus.structuralDowntrend ? 'STRUCTURAL_DOWNTREND' : `CONSENSUS_${consensus.newMoneyAction}`, consensusScore: consensus.consensusScore, favorableVotes: consensus.favorableVotes, unfavorableVotes: consensus.unfavorableVotes, annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints }));
         continue;
       }
 
-      const rankingScore = candidateRankingScore(candidate, consensus.consensusScore, cash.excessVsCashPctPoints ?? 0);
+      const timing = EntryTimingEngine.assess(scan, candidate.asset.assetId, consensus);
+      if (timing.state === 'WAIT') {
+        entries.push(baseEntry({
+          candidate,
+          status: 'REJECTED',
+          reason: 'ENTRY_TIMING_WAIT',
+          consensusScore: consensus.consensusScore,
+          favorableVotes: consensus.favorableVotes,
+          unfavorableVotes: consensus.unfavorableVotes,
+          annualizedProxyPct: cash.netAnnualizedProxyPct,
+          excessVsCashPctPoints: cash.excessVsCashPctPoints,
+          timingState: timing.state,
+          timingSetup: timing.setup,
+          timingScore: timing.score,
+          suggestedInitialFraction: timing.suggestedInitialFraction
+        }));
+        continue;
+      }
+
+      const rankingScore = candidateRankingScore(candidate, consensus.consensusScore, cash.excessVsCashPctPoints ?? 0, timing.score);
       eligible.push({ candidate, rankingScore });
-      entries.push({ assetId: candidate.asset.assetId, ticker: candidate.asset.ticker, status: 'ELIGIBLE', reason: 'BEATS_CASH_AND_CONSENSUS_BUY', consensusScore: consensus.consensusScore, favorableVotes: consensus.favorableVotes, unfavorableVotes: consensus.unfavorableVotes, annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints, rankingScore });
+      entries.push(baseEntry({
+        candidate,
+        status: 'ELIGIBLE',
+        reason: 'BEATS_CASH_CONSENSUS_AND_TIMING',
+        consensusScore: consensus.consensusScore,
+        favorableVotes: consensus.favorableVotes,
+        unfavorableVotes: consensus.unfavorableVotes,
+        annualizedProxyPct: cash.netAnnualizedProxyPct,
+        excessVsCashPctPoints: cash.excessVsCashPctPoints,
+        rankingScore,
+        timingState: timing.state,
+        timingSetup: timing.setup,
+        timingScore: timing.score,
+        suggestedInitialFraction: timing.suggestedInitialFraction
+      }));
     }
 
     eligible.sort((a, b) => b.rankingScore - a.rankingScore);
