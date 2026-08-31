@@ -152,7 +152,7 @@ test('980 real portfolio evolution is integrated inside Mi cartera real rather t
   assert.equal((decisionCenter.match(/type Workspace = 'PORTFOLIO' \| 'RESEARCH'/g) ?? []).length, 1);
 });
 
-test('981 unified progressive historical audit exposes selectable assets, exact hold comparison, position excursions and tax netting', () => {
+test('981 unified progressive historical audit exposes selectable assets, initial-signal hold comparison, position excursions and tax netting', () => {
   assert.match(researchLab, /<HistoricalReplayProgressivePanel/);
   assert.doesNotMatch(researchLab, /<HistoricalDecisionReplayPanel/);
   assert.match(historicalProgressive, /Replay histórico auditado · manual o automático/);
@@ -170,7 +170,11 @@ test('981 unified progressive historical audit exposes selectable assets, exact 
   assert.match(historicalProgressive, /selectedAssetId/);
   assert.match(historicalProgressive, /ASSET_COLORS/);
   assert.match(historicalProgressive, /function buildExactInitialHold/);
-  assert.match(historicalProgressive, /Resumen final del periodo · Motor vs comprar y mantener/);
+  assert.match(historicalProgressive, /operation\.signalDate === firstSignalDate/);
+  assert.match(historicalProgressive, /Resumen final del periodo · Motor vs mantener cohorte inicial/);
+  assert.match(historicalProgressive, /Diferencia total vs mantener cohorte inicial/);
+  assert.match(historicalProgressive, /no equivale por sí sola a “alpha por mover”/);
+  assert.doesNotMatch(historicalProgressive, /Valor aportado por mover la cartera/);
   assert.match(historicalProgressive, /function buildPositionSummaries/);
   assert.match(historicalProgressive, /Máx\. ganancia/);
   assert.match(historicalProgressive, /Máx\. caída/);
