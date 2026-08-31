@@ -122,13 +122,6 @@ const incumbentBars = bars(0.9998);
 const incumbentCandidate: any = candidate('INCUMBENT', 'INC.DE', 'EUROPE_EQUITY', incumbentBars, -8, 18, 4);
 const rotationScan: any = scanFrom([incumbentCandidate, candidates[0]], { INCUMBENT: incumbentBars, STRONG_TECH: techBars });
 const incumbentPrice = incumbentCandidate.lastClose;
-const rotationPortfolio: any = {
-  cashEur: 0,
-  holdings: [{ ticker: 'INC.DE', shares: 2000 / incumbentPrice }],
-  funds: [],
-  stagedCapitalPlan: { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' },
-  updatedAt: '2026-08-30T00:00:00Z'
-};
 const rotationHealth: any = {
   'INC.DE': {
     key: 'INC.DE', label: 'Incumbent', tickerOrIsin: 'INC.DE', action: 'WATCH',
@@ -138,18 +131,38 @@ const rotationHealth: any = {
   }
 };
 const rotationDecision: any = { cashWeight: 0.10, riskProfile: 'MEDIUM', horizonYears: 3, assets: [] };
+
+const freeSlotRotationPortfolio: any = {
+  cashEur: 0,
+  holdings: [{ ticker: 'INC.DE', shares: 2000 / incumbentPrice }],
+  funds: [],
+  stagedCapitalPlan: { availableEur: 1000, horizonMonths: 12, preferredMode: 'MONTHLY' },
+  updatedAt: '2026-08-30T00:00:00Z'
+};
+const freeSlotRotationResult = PortfolioDecisionEngine.evaluate({ portfolio: freeSlotRotationPortfolio, scan: rotationScan, decision: rotationDecision, positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5 });
+const freeSlotIncumbent = freeSlotRotationResult.existingPositions.find(row => row.assetId === 'INCUMBENT');
+check('951 a free portfolio slot lets a challenger enter without forcing a competitive sale', freeSlotRotationResult.availablePortfolioSlots === 11 && freeSlotRotationResult.plannedRotationProceedsEur === 0 && freeSlotIncumbent?.action === 'WATCH' && freeSlotRotationResult.contributions.some(row => row.assetId === 'STRONG_TECH' && row.positionStage === 'STARTER'));
+
+const rotationPortfolio: any = {
+  cashEur: 0,
+  holdings: [{ ticker: 'INC.DE', shares: 2000 / incumbentPrice }],
+  funds: Array.from({ length: 11 }, (_, i) => ({ id: `FILLER_${i}`, isin: `FILLER_${i}`, name: `Filler ${i}`, category: 'OTHER', investedEur: 100, currentValueEur: 100 })),
+  stagedCapitalPlan: { availableEur: 0, horizonMonths: 12, preferredMode: 'MONTHLY' },
+  updatedAt: '2026-08-30T00:00:00Z'
+};
 const rotationResult = PortfolioDecisionEngine.evaluate({ portfolio: rotationPortfolio, scan: rotationScan, decision: rotationDecision, positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5 });
 const rotatedIncumbent = rotationResult.existingPositions.find(row => row.assetId === 'INCUMBENT');
 const challengerEntry = rotationResult.contributions.find(row => row.assetId === 'STRONG_TECH');
-check('951 a materially weaker WATCH incumbent can be partially reduced for a clearly superior ENTRY_STRONG challenger', rotatedIncumbent?.action === 'REDUCE' && rotatedIncumbent.suggestedReductionPct === 50 && rotatedIncumbent.rotationChallengerAssetId === 'STRONG_TECH');
-check('952 rotation exposes the theoretical proceeds that can fund the challenger after the sell executes', Math.abs(rotationResult.plannedRotationProceedsEur - 1000) < 0.01 && rotationResult.deployableToAssetsEur >= 1000 - 0.01);
-check('953 the paired challenger is tagged as ROTATION_ENTRY rather than an unrelated starter', Boolean(challengerEntry) && challengerEntry?.positionStage === 'ROTATION_ENTRY');
-check('954 rotation is intentionally hysteretic: at most one incumbent is competitively reduced per evaluation', rotationResult.existingPositions.filter(row => row.rotationChallengerAssetId != null).length <= 1);
+check('952 a full portfolio rotates one-for-one: the weak incumbent must EXIT before the new challenger consumes its slot', rotationResult.availablePortfolioSlots === 0 && rotatedIncumbent?.action === 'EXIT' && rotatedIncumbent.suggestedReductionPct === 100 && rotatedIncumbent.rotationChallengerAssetId === 'STRONG_TECH');
+check('953 one-for-one rotation exposes the incumbent full value as theoretical proceeds', Math.abs(rotationResult.plannedRotationProceedsEur - 2000) < 0.01 && rotationResult.deployableToAssetsEur >= 2000 - 0.01);
+check('954 the paired challenger is tagged as ROTATION_ENTRY rather than an unrelated starter', Boolean(challengerEntry) && challengerEntry?.positionStage === 'ROTATION_ENTRY');
+check('955 projected active-position count cannot exceed the strict medium-risk slot limit after a paired rotation', rotationResult.occupiedPortfolioPositions - rotationResult.existingPositions.filter(row => row.rotationChallengerAssetId != null && row.action === 'EXIT').length + rotationResult.contributions.filter(row => row.positionStage === 'ROTATION_ENTRY').length <= rotationResult.maxPortfolioPositions);
+check('956 rotation remains hysteretic: at most one incumbent is competitively replaced per evaluation', rotationResult.existingPositions.filter(row => row.rotationChallengerAssetId != null).length <= 1);
 
 const weakOnlyScan: any = scanFrom([candidates[2]], { WEAK_BOND: weakBars });
 const weakOnlyDecision: any = { cashWeight: 0.10, riskProfile: 'MEDIUM', horizonYears: 3, assets: [{ assetId: 'WEAK_BOND', ticker: 'WEAKB.DE', name: 'Weak theoretical bond', weight: 0.90 }] };
 const noOpportunityResult = PortfolioDecisionEngine.evaluate({ portfolio, scan: weakOnlyScan, decision: weakOnlyDecision, cashBenchmarkAnnualPct: 2.5 });
-check('955 no-opportunity state never converts theoretical target gaps into fallback purchase orders', noOpportunityResult.contributions.length === 0 && noOpportunityResult.recommendedNewInvestmentEur === 0);
+check('957 no-opportunity state never converts theoretical target gaps into fallback purchase orders', noOpportunityResult.contributions.length === 0 && noOpportunityResult.recommendedNewInvestmentEur === 0);
 
 const addHealth: any = {
   'STRONGT.DE': {
@@ -161,7 +174,7 @@ const addHealth: any = {
 };
 const confirmedBuildResult = PortfolioDecisionEngine.evaluate({ portfolio: fullyExecutedPortfolio, scan, decision, positionHealth: addHealth, cashBenchmarkAnnualPct: 2.5 });
 const confirmedBuild = confirmedBuildResult.contributions.find(row => row.assetId === 'STRONG_TECH');
-check('956 a filled starter may grow only when position health independently confirms ADD while timing remains strong', Boolean(confirmedBuild) && confirmedBuild?.positionStage === 'BUILD' && (confirmedBuild.portfolioShareCapPct ?? 0) === 8);
-check('957 confirmed BUILD remains incremental and cannot jump beyond the eight-percent medium-risk build cap', Boolean(confirmedBuild) && (confirmedBuild?.executableTargetAssetValueEur ?? Infinity) <= 800 + 1e-6 && (confirmedBuild?.amountEur ?? Infinity) <= 300 + 1e-6);
+check('958 a filled starter may grow only when position health independently confirms ADD while timing remains strong', Boolean(confirmedBuild) && confirmedBuild?.positionStage === 'BUILD' && (confirmedBuild.portfolioShareCapPct ?? 0) === 8);
+check('959 confirmed BUILD remains incremental and cannot jump beyond the eight-percent medium-risk build cap', Boolean(confirmedBuild) && (confirmedBuild?.executableTargetAssetValueEur ?? Infinity) <= 800 + 1e-6 && (confirmedBuild?.amountEur ?? Infinity) <= 300 + 1e-6);
 
-console.log(`Current finite-capital allocation: ${passed}/27 invariants passed.`);
+console.log(`Current finite-capital allocation: ${passed}/29 invariants passed.`);
