@@ -97,7 +97,12 @@ async function loadAsset(asset: AssetUniverseItem, startDate: string, endDate: s
       metadata: { currency: fund.currency, providerId: 'eodhd_fund_nav', symbol: fund.symbol, cached: fund.cached }
     };
   }
-  const response = await HistoricalMarketDataService.getHistoricalBars({ symbol: asset.ticker, startDate, endDate, timeframe: '1d', adjusted: true }, { forceRefresh, maxRetries: 1 });
+  // Causal scanner basis: Yahoo Close is split-adjusted, while Adj Close also
+  // applies dividend multipliers retrospectively to earlier dates. Using the
+  // dividend-adjusted series made a replay prefix depend on the requested future
+  // end date. The scanner therefore uses split-adjusted Close (adjusted:false)
+  // for both current and historical decisions so the same prefix stays stable.
+  const response = await HistoricalMarketDataService.getHistoricalBars({ symbol: asset.ticker, startDate, endDate, timeframe: '1d', adjusted: false }, { forceRefresh, maxRetries: 1 });
   return response as ScannerResponse;
 }
 
