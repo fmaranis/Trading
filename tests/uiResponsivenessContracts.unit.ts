@@ -15,6 +15,7 @@ const marketDashboard = readFileSync('src/components/MarketUtilityDashboard.tsx'
 const currentOpportunity = readFileSync('src/components/CurrentOpportunityAlertsPanel.tsx', 'utf8');
 const historicalReplayPanel = readFileSync('src/components/HistoricalDecisionReplayPanel.tsx', 'utf8');
 const historicalProgressive = readFileSync('src/components/HistoricalReplayProgressivePanel.tsx', 'utf8');
+const historicalAuditJsonControls = readFileSync('src/components/HistoricalAuditJsonControls.tsx', 'utf8');
 const historicalAuditWorker = readFileSync('src/workers/historicalReplayAudit.worker.ts', 'utf8');
 const userPortfolio = readFileSync('src/components/UserPortfolioPanel.tsx', 'utf8');
 const portfolioEvolution = readFileSync('src/components/PortfolioEvolutionChart.tsx', 'utf8');
@@ -184,4 +185,20 @@ test('981 unified progressive historical audit exposes selectable assets, exact 
   assert.doesNotMatch(decisionCenter, /HistoricalReplayProgressivePanel/);
 });
 
-console.log(`UI responsiveness contracts: ${passed}/21 invariants passed.`);
+test('982 historical audit can be exported and re-imported as a complete versioned JSON session', () => {
+  assert.match(researchLab, /HistoricalAuditJsonControls/);
+  assert.match(researchLab, /historicalReplayMountKey/);
+  assert.match(historicalAuditJsonControls, /TRADING_HISTORICAL_REPLAY_AUDIT/);
+  assert.match(historicalAuditJsonControls, /Exportar prueba JSON/);
+  assert.match(historicalAuditJsonControls, /Importar prueba JSON/);
+  assert.match(historicalAuditJsonControls, /checkpoints/);
+  assert.match(historicalAuditJsonControls, /executions/);
+  assert.match(historicalAuditJsonControls, /path/);
+  assert.match(historicalAuditJsonControls, /signals/);
+  assert.match(historicalAuditJsonControls, /summary/);
+  assert.match(historicalAuditJsonControls, /positions/);
+  assert.match(historicalAuditJsonControls, /window\.confirm/);
+  assert.match(historicalAuditJsonControls, /Preparar \/ reanudar/);
+});
+
+console.log(`UI responsiveness contracts: ${passed}/22 invariants passed.`);
