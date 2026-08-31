@@ -408,6 +408,13 @@ export class PortfolioDecisionEngine {
     let plannedRotationProceedsEur = 0;
     let rotationActions = 0;
     const rotationChallengerIds = new Set<string>();
+    const rotationRestoreByChallenger = new Map<string, {
+      row: PortfolioPositionDecision;
+      action: PortfolioPositionAction;
+      reason: string;
+      suggestedReductionPct: number | null | undefined;
+      proceedsEur: number;
+    }>();
     outerRotation:
     for (const challenger of rotationChallengers) {
       for (const incumbent of rotationIncumbents) {
@@ -422,6 +429,13 @@ export class PortfolioDecisionEngine {
         if (advantageScore < rotationPriorityMargin(decision.riskProfile) - 1e-9) continue;
         if (!(challengerExcess >= incumbentExcess + requiredExcessMargin)) continue;
 
+        rotationRestoreByChallenger.set(challenger.assetId, {
+          row: incumbent.row,
+          action: incumbent.row.action,
+          reason: incumbent.row.reason,
+          suggestedReductionPct: incumbent.row.suggestedReductionPct,
+          proceedsEur: currentValue
+        });
         incumbent.row.action = 'EXIT';
         incumbent.row.suggestedReductionPct = 100;
         incumbent.row.rotationChallengerAssetId = challenger.assetId;
@@ -434,7 +448,7 @@ export class PortfolioDecisionEngine {
       }
     }
 
-    const deployableToAssetsEur = baseDeployableToAssetsEur + plannedRotationProceedsEur;
+    let deployableToAssetsEur = baseDeployableToAssetsEur + plannedRotationProceedsEur;
     const effectiveNewSlots = availablePortfolioSlots + rotationActions;
 
     let contributions: ContributionRecommendation[] = [];
@@ -455,7 +469,8 @@ export class PortfolioDecisionEngine {
       const stableOpportunityPoolEur = deployableToAssetsEur + currentOpportunityValueEur;
       const categoryAdded = new Map<AssetUniverseCategory, number>();
       const categoryLimit = totalPlannedCapitalEur * maxCategoryShare(decision.riskProfile);
-      let allocatedTotalEur = 0;
+      let allocatedBaseEur = 0;
+      let allocatedRotationEur = 0;
       let newPositionsAllocated = 0;
       const newPositionBudget = Math.min(effectiveNewSlots, maxNewPositionsPerDecision(decision.riskProfile));
 
@@ -464,7 +479,9 @@ export class PortfolioDecisionEngine {
         if (!asset) return null;
         const currentAssetValueEur = Math.max(0, currentByAsset.get(alert.assetId) ?? 0);
         const isExisting = currentAssetValueEur > 0.01;
+        const isRotationEntry = rotationChallengerIds.has(alert.assetId);
         if (!isExisting && newPositionsAllocated >= newPositionBudget) return null;
+        if (!isExisting && availablePortfolioSlots === 0 && !isRotationEntry) return null;
 
         const rawTargetValueEur = stableOpportunityPoolEur * Math.max(0.01, priority) / totalPriority;
         const assetCapValueEur = stableOpportunityPoolEur * maxAssetShare(decision.riskProfile, alert.level);
@@ -482,21 +499,30 @@ export class PortfolioDecisionEngine {
         const portfolioCapValueEur = totalPlannedCapitalEur * portfolioShareCap;
         const executableTargetAssetValueEur = Math.max(0, Math.min(timingAuthorizedTargetEur, portfolioCapValueEur));
         const targetGapEur = Math.max(0, executableTargetAssetValueEur - currentAssetValueEur);
-        const minimumMeaningfulGapEur = executionPolicy.minimumOrderNotionalEur;
+        const candidate = scan.candidates.find(row => row.asset.assetId === alert.assetId);
+        const lastClose = candidate?.lastClose ?? null;
+        const wholeShareFloorEur = instrumentType(asset) === 'ETF_ETC' && lastClose != null && lastClose > 0
+          ? lastClose + brokerCommission(lastClose)
+          : 0;
+        const minimumMeaningfulGapEur = Math.max(executionPolicy.minimumOrderNotionalEur, wholeShareFloorEur);
         if (targetGapEur < minimumMeaningfulGapEur - 1e-9) return null;
 
         const alreadyInCategory = currentByCategory.get(asset.category) ?? 0;
         const alreadyAdded = categoryAdded.get(asset.category) ?? 0;
         const categoryCapacity = Math.max(0, categoryLimit - alreadyInCategory - alreadyAdded);
-        const remainingDeployable = Math.max(0, deployableToAssetsEur - allocatedTotalEur);
-        const amountEur = Math.max(0, Math.min(targetGapEur, categoryCapacity, remainingDeployable));
+        const remainingBase = Math.max(0, baseDeployableToAssetsEur - allocatedBaseEur);
+        const remainingRotation = Math.max(0, plannedRotationProceedsEur - allocatedRotationEur);
+        const availableForRow = isRotationEntry ? remainingBase + remainingRotation : remainingBase;
+        const amountEur = Math.max(0, Math.min(targetGapEur, categoryCapacity, availableForRow));
         if (amountEur < minimumMeaningfulGapEur - 1e-9) return null;
 
+        const baseUse = Math.min(amountEur, remainingBase);
+        allocatedBaseEur += baseUse;
+        if (isRotationEntry) allocatedRotationEur += Math.max(0, amountEur - baseUse);
         categoryAdded.set(asset.category, alreadyAdded + amountEur);
-        allocatedTotalEur += amountEur;
         if (!isExisting) newPositionsAllocated++;
         const theoreticalGap = exposureByCategory.get(asset.category)?.gapEur ?? 0;
-        const positionStage: ContributionPositionStage = rotationChallengerIds.has(alert.assetId)
+        const positionStage: ContributionPositionStage = isRotationEntry
           ? 'ROTATION_ENTRY'
           : confirmedBuild
             ? 'BUILD'
@@ -523,6 +549,24 @@ export class PortfolioDecisionEngine {
       });
       contributions = allocated.filter((row): row is ContributionRecommendation => row != null);
     }
+
+    // A full-slot rotation is only valid if the paired challenger itself received an
+    // executable contribution. Otherwise restore the incumbent and do not treat the
+    // theoretical sale proceeds as deployable capital.
+    for (const [challengerAssetId, restore] of rotationRestoreByChallenger) {
+      const pairedContribution = contributions.find(row => row.assetId === challengerAssetId && row.positionStage === 'ROTATION_ENTRY');
+      if (pairedContribution) continue;
+      restore.row.action = restore.action;
+      restore.row.reason = restore.reason;
+      restore.row.suggestedReductionPct = restore.suggestedReductionPct;
+      restore.row.rotationChallengerAssetId = null;
+      restore.row.rotationChallengerTicker = null;
+      restore.row.rotationAdvantageScore = null;
+      plannedRotationProceedsEur = Math.max(0, plannedRotationProceedsEur - restore.proceedsEur);
+      rotationActions = Math.max(0, rotationActions - 1);
+      rotationChallengerIds.delete(challengerAssetId);
+    }
+    deployableToAssetsEur = baseDeployableToAssetsEur + plannedRotationProceedsEur;
 
     // No-opportunity means no operational new-money order. Theoretical target gaps remain
     // visible in exposures, but they must never be converted into a fallback purchase.
