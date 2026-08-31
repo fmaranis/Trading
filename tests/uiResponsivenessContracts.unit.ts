@@ -14,7 +14,7 @@ const decisionCenter = readFileSync('src/components/InteractiveInvestmentDecisio
 const marketDashboard = readFileSync('src/components/MarketUtilityDashboard.tsx', 'utf8');
 const currentOpportunity = readFileSync('src/components/CurrentOpportunityAlertsPanel.tsx', 'utf8');
 const historicalReplayPanel = readFileSync('src/components/HistoricalDecisionReplayPanel.tsx', 'utf8');
-const historicalRobustness = readFileSync('src/components/HistoricalReplayRobustnessPanel.tsx', 'utf8');
+const historicalProgressive = readFileSync('src/components/HistoricalReplayProgressivePanel.tsx', 'utf8');
 const historicalAuditWorker = readFileSync('src/workers/historicalReplayAudit.worker.ts', 'utf8');
 const userPortfolio = readFileSync('src/components/UserPortfolioPanel.tsx', 'utf8');
 const portfolioEvolution = readFileSync('src/components/PortfolioEvolutionChart.tsx', 'utf8');
@@ -149,18 +149,23 @@ test('980 real portfolio evolution is integrated inside Mi cartera real rather t
   assert.equal((decisionCenter.match(/type Workspace = 'PORTFOLIO' \| 'RESEARCH'/g) ?? []).length, 1);
 });
 
-test('981 historical robustness is checkpointed, auditable and isolated from the UI thread', () => {
-  assert.match(researchLab, /<HistoricalDecisionReplayPanel[\s\S]*<HistoricalReplayRobustnessPanel/);
-  assert.match(historicalRobustness, /Replay auditado por tramos/);
-  assert.match(historicalRobustness, /historical_progressive_audit_v1/);
-  assert.match(historicalRobustness, /new Worker\(new URL\('\.\.\/workers\/historicalReplayAudit\.worker\.ts'/);
-  assert.match(historicalRobustness, /INCONSISTENCIA DE AUDITORÍA/);
-  assert.match(historicalRobustness, /Ejecutar siguiente tramo/);
-  assert.match(historicalRobustness, /assetValuesEur/);
+test('981 progressive historical audit supports manual and automatic checkpoint chaining without changing decision frequency', () => {
+  assert.match(researchLab, /<HistoricalDecisionReplayPanel[\s\S]*<HistoricalReplayProgressivePanel/);
+  assert.match(historicalProgressive, /Replay histórico auditado · manual o automático/);
+  assert.match(historicalProgressive, /Duración total \(meses\)/);
+  assert.match(historicalProgressive, /Tramo de cálculo \(días\)/);
+  assert.match(historicalProgressive, /type="number" min="1" max="365"/);
+  assert.match(historicalProgressive, /Manual · revisar cada tramo/);
+  assert.match(historicalProgressive, /Automático · encadenar/);
+  assert.match(historicalProgressive, /Iniciar \/ continuar automático/);
+  assert.match(historicalProgressive, /Pausar automático/);
+  assert.match(historicalProgressive, /historical_progressive_audit_v2/);
+  assert.match(historicalProgressive, /INCONSISTENCIA DE AUDITORÍA/);
+  assert.match(historicalProgressive, /AUTO_PAUSE_MS/);
+  assert.match(historicalProgressive, /new Worker\(new URL\('\.\.\/workers\/historicalReplayAudit\.worker\.ts'/);
   assert.match(historicalAuditWorker, /DynamicHistoricalReplayEngine\.run/);
   assert.match(historicalAuditWorker, /truncateDataset/);
-  assert.doesNotMatch(historicalRobustness, /DynamicHistoricalReplayBatchEngine\.runAsync/);
-  assert.doesNotMatch(decisionCenter, /HistoricalReplayRobustnessPanel/);
+  assert.doesNotMatch(decisionCenter, /HistoricalReplayProgressivePanel/);
 });
 
 console.log(`UI responsiveness contracts: ${passed}/21 invariants passed.`);
