@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { HistoricalMarketDataService } from '../src/investment/data/marketData/historicalMarketDataService';
+import { AssetUniverseScanner } from '../src/investment/decision/assetUniverseScanner';
 import { DynamicHistoricalReplayEngine } from '../src/investment/decision/dynamicHistoricalReplay';
 import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse';
 import type { MultiAssetDataset } from '../src/investment/portfolioBacktesting/types';
@@ -150,4 +152,52 @@ const before = (result: typeof base) => result.signals
 assert.deepEqual(before(shocked), before(base), 'prices changed only after the cutoff must not alter earlier dynamic signals, timing diagnostics or targets');
 assert.notEqual(shocked.finalValueEur, base.finalValueEur, 'future prices may change final outcome while prior signals remain invariant');
 
-console.log('Dynamic Historical Replay: causal boundary, timing audit, staged deployment horizons, costs/tax accounting and future isolation passed.');
+// Reproduce the real 2022 short-vs-long failure mode at the scanner boundary.
+// A dividend-adjusted provider may revise the whole historical prefix when a later
+// dividend enters the requested range. The scanner must request split-adjusted
+// Close (adjusted:false), making the common prefix invariant to the future end date.
+const originalGetHistoricalBars = HistoricalMarketDataService.getHistoricalBars;
+const adjustedFlags: Array<boolean | undefined> = [];
+(HistoricalMarketDataService as any).getHistoricalBars = async (request: any) => {
+  adjustedFlags.push(request.adjusted);
+  const start = new Date(`${request.startDate}T00:00:00Z`);
+  const end = new Date(`${request.endDate}T00:00:00Z`);
+  const laterDividendIncluded = request.endDate >= '2023-10-01';
+  const bars: Array<{ timestamp: string; open: number; high: number; low: number; close: number; volume: number }> = [];
+  let i = 0;
+  for (let cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const rawClose = 100 + i * 0.05 + Math.sin(i / 17) * 0.2;
+    const hindsightDividendFactor = laterDividendIncluded && cursor < new Date('2023-10-01T00:00:00Z') ? 0.91 : 1;
+    const factor = request.adjusted === false ? 1 : hindsightDividendFactor;
+    const close = rawClose * factor;
+    bars.push({ timestamp: cursor.toISOString(), open: close * 0.999, high: close * 1.002, low: close * 0.998, close, volume: 1000 + i });
+    i++;
+  }
+  return {
+    bars,
+    provenance: { sourceType: 'REAL', provider: 'prefix-test', symbol: request.symbol, isReproducible: true, datasetFingerprint: `prefix-${request.endDate}-${String(request.adjusted)}` },
+    metadata: { providerId: 'prefix-test', providerName: 'Prefix Test', symbol: request.symbol, requestedStartDate: request.startDate, requestedEndDate: request.endDate, timeframe: '1d', adjusted: request.adjusted !== false, adjustmentStatus: request.adjusted === false ? 'UNADJUSTED' : 'ADJUSTED_DERIVED', fetchedAt: '2026-08-31T00:00:00.000Z', cached: false, currency: 'EUR' }
+  };
+};
+try {
+  const prefixUniverse: AssetUniverseItem[] = [
+    { assetId: 'PREFIX', ticker: 'PREFIX.DE', name: 'Prefix Invariance Asset', category: 'GLOBAL_EQUITY', currency: 'EUR', instrumentType: 'ETF_ETC' }
+  ];
+  const prefixStart = '2022-01-01';
+  const shortEnd = '2023-08-31';
+  const longEnd = '2024-02-29';
+  const shortScan = await AssetUniverseScanner.scan(prefixUniverse, prefixStart, shortEnd, { minimumBars: 200, maxDataAgeDays: 2, maxSelected: 1 });
+  const longScan = await AssetUniverseScanner.scan(prefixUniverse, prefixStart, longEnd, { minimumBars: 200, maxDataAgeDays: 2, maxSelected: 1 });
+  const shortBars = shortScan.acceptedDataset.assets[0].bars;
+  const longPrefix = longScan.acceptedDataset.assets[0].bars.filter(bar => bar.timestamp.slice(0, 10) <= shortEnd);
+  assert.ok(adjustedFlags.length >= 2 && adjustedFlags.every(flag => flag === false), 'universe scanner must request split-adjusted Close without retrospective dividend adjustment');
+  assert.deepEqual(
+    longPrefix.map(bar => [bar.timestamp, bar.open, bar.high, bar.low, bar.close]),
+    shortBars.map(bar => [bar.timestamp, bar.open, bar.high, bar.low, bar.close]),
+    'extending the requested end date must not rewrite the shared market-data prefix'
+  );
+} finally {
+  (HistoricalMarketDataService as any).getHistoricalBars = originalGetHistoricalBars;
+}
+
+console.log('Dynamic Historical Replay: causal boundary, timing audit, staged deployment horizons, market-data prefix invariance, costs/tax accounting and future isolation passed.');
