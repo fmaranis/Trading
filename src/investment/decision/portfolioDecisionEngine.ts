@@ -51,6 +51,9 @@ export interface ContributionRecommendation {
   priorityScore?: number;
   currentAssetValueEur?: number;
   targetAssetValueEur?: number;
+  executableTargetAssetValueEur?: number;
+  timingState?: CurrentOpportunityAlert['timingState'];
+  suggestedInitialFraction?: number;
   reason: string;
 }
 
@@ -322,10 +325,10 @@ export class PortfolioDecisionEngine {
       const priorities = shortlist.map(alert => ({ alert, priority: opportunityPriority(alert) }));
       const totalPriority = priorities.reduce((sum, row) => sum + Math.max(0.01, row.priority), 0);
       const currentOpportunityValueEur = shortlist.reduce((sum, alert) => sum + Math.max(0, currentByAsset.get(alert.assetId) ?? 0), 0);
-      // Stable opportunity book: after an execution, deployable cash falls by roughly the
-      // same amount that current exposure rises. Their sum therefore stays stable and the
-      // engine subtracts the purchase from the asset's target instead of redistributing the
-      // remaining cash across the same shortlist on every click.
+      // Stable strategic opportunity book: executions reduce available cash while increasing
+      // current exposure, so their sum remains approximately stable. Entry timing then caps
+      // how much of each strategic target may be built today (25% or 50%), instead of
+      // converting the full strategic target into an immediate order.
       const stableOpportunityPoolEur = deployableToAssetsEur + currentOpportunityValueEur;
       const categoryAdded = new Map<AssetUniverseCategory, number>();
       const categoryLimit = totalPlannedCapitalEur * maxCategoryShare(decision.riskProfile);
@@ -339,7 +342,9 @@ export class PortfolioDecisionEngine {
         const rawTargetValueEur = stableOpportunityPoolEur * Math.max(0.01, priority) / totalPriority;
         const assetCapValueEur = stableOpportunityPoolEur * maxAssetShare(decision.riskProfile, alert.level);
         const targetAssetValueEur = Math.max(0, Math.min(rawTargetValueEur, assetCapValueEur));
-        const targetGapEur = Math.max(0, targetAssetValueEur - currentAssetValueEur);
+        const suggestedInitialFraction = Math.max(0, Math.min(1, alert.suggestedInitialFraction));
+        const executableTargetAssetValueEur = targetAssetValueEur * suggestedInitialFraction;
+        const targetGapEur = Math.max(0, executableTargetAssetValueEur - currentAssetValueEur);
         const minimumMeaningfulGapEur = executionPolicy.minimumOrderNotionalEur;
         if (targetGapEur < minimumMeaningfulGapEur - 1e-9) return null;
 
@@ -365,7 +370,10 @@ export class PortfolioDecisionEngine {
           priorityScore: priority,
           currentAssetValueEur,
           targetAssetValueEur,
-          reason: `${alert.level === 'HIGH_CONVICTION' ? 'Entrada de ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'Buena oportunidad actual' : 'Entrada válida actual'}: consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Objetivo actual del activo ${targetAssetValueEur.toFixed(2)} €; ya hay ${currentAssetValueEur.toFixed(2)} € en cartera y quedan ${amountEur.toFixed(2)} € por cubrir. Una compra registrada reduce este pendiente; no se reinicia el reparto desde cero.`
+          executableTargetAssetValueEur,
+          timingState: alert.timingState,
+          suggestedInitialFraction,
+          reason: `${alert.level === 'HIGH_CONVICTION' ? 'Entrada de ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'Buena oportunidad actual' : 'Entrada válida actual'}: consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Objetivo estratégico del activo ${targetAssetValueEur.toFixed(2)} €; timing ${alert.timingState} autoriza ${(suggestedInitialFraction * 100).toFixed(0)}% (${executableTargetAssetValueEur.toFixed(2)} €). Ya hay ${currentAssetValueEur.toFixed(2)} € y el tramo ejecutable pendiente es ${amountEur.toFixed(2)} €.`
         };
       });
       contributions = allocated.filter((row): row is ContributionRecommendation => row != null);
@@ -399,7 +407,7 @@ export class PortfolioDecisionEngine {
     if (hasMissingValuation) warnings.push('Hay posiciones sin valoración REAL utilizable: se bloquea temporalmente la asignación de capital nuevo para no calcular el patrimonio como si esas posiciones valieran cero.');
     if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Una sobreponderación por sí sola NO genera una venta. REDUCE/EXIT proceden de salud; una rotación voluntaria adicional debe demostrar ventaja neta tras impuestos y costes.');
     if (existingPositions.some(x => x.category === 'UNKNOWN' && x.currentValueEur != null)) warnings.push('Hay posiciones fuera del universo clasificado que se valoran y vigilan individualmente; no se inventa una categoría para forzar su peso objetivo.');
-    if (opportunities.length > 0) warnings.push(`La asignación efectiva usa ${opportunities.length} oportunidad(es) actual(es) que pasan cash + consenso. Cada activo tiene un objetivo final estable: las compras ya registradas cuentan contra ese objetivo y no provocan un nuevo reparto desde cero.`);
+    if (opportunities.length > 0) warnings.push(`La asignación efectiva usa ${opportunities.length} oportunidad(es) actual(es) que pasan cash + consenso + timing. El objetivo estratégico se mantiene estable y el timing limita el tramo ejecutable al 25%/50% correspondiente; una compra registrada cuenta contra ese tramo.`);
     else warnings.push('No hay oportunidades actuales que pasen el gate; los pesos teóricos quedan solo como diagnóstico secundario y no son una orden de compra.');
 
     return {
