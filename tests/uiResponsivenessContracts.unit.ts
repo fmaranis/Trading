@@ -17,6 +17,7 @@ const historicalReplayPanel = readFileSync('src/components/HistoricalDecisionRep
 const historicalProgressive = readFileSync('src/components/HistoricalReplayProgressivePanel.tsx', 'utf8');
 const historicalAuditJsonControls = readFileSync('src/components/HistoricalAuditJsonControls.tsx', 'utf8');
 const historicalAuditWorker = readFileSync('src/workers/historicalReplayAudit.worker.ts', 'utf8');
+const server = readFileSync('server.ts', 'utf8');
 const userPortfolio = readFileSync('src/components/UserPortfolioPanel.tsx', 'utf8');
 const portfolioEvolution = readFileSync('src/components/PortfolioEvolutionChart.tsx', 'utf8');
 
@@ -201,4 +202,17 @@ test('982 historical audit can be exported and re-imported as a complete version
   assert.match(historicalAuditJsonControls, /Preparar \/ reanudar/);
 });
 
-console.log(`UI responsiveness contracts: ${passed}/22 invariants passed.`);
+test('983 historical audit can be saved into project files for later GitHub synchronization and direct review', () => {
+  assert.match(historicalAuditJsonControls, /Guardar prueba en proyecto/);
+  assert.match(historicalAuditJsonControls, /\/api\/validation\/historical-audit\/save/);
+  assert.match(historicalAuditJsonControls, /validation-runs\/latest\.json/);
+  assert.match(server, /app\.post\('\/api\/validation\/historical-audit\/save'/);
+  assert.match(server, /validation-runs/);
+  assert.match(server, /latest\.json/);
+  assert.match(server, /archive/);
+  assert.match(server, /MAX_HISTORICAL_AUDIT_BYTES/);
+  assert.match(server, /writeFile\(latestPath/);
+  assert.match(server, /writeFile\(archivePath/);
+});
+
+console.log(`UI responsiveness contracts: ${passed}/23 invariants passed.`);
