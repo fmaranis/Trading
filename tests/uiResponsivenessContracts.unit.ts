@@ -149,7 +149,7 @@ test('980 real portfolio evolution is integrated inside Mi cartera real rather t
   assert.equal((decisionCenter.match(/type Workspace = 'PORTFOLIO' \| 'RESEARCH'/g) ?? []).length, 1);
 });
 
-test('981 progressive historical audit supports manual and automatic checkpoint chaining without changing decision frequency', () => {
+test('981 progressive historical audit preserves full session trajectory and chronological decision trace', () => {
   assert.match(researchLab, /<HistoricalDecisionReplayPanel[\s\S]*<HistoricalReplayProgressivePanel/);
   assert.match(historicalProgressive, /Replay histórico auditado · manual o automático/);
   assert.match(historicalProgressive, /Duración total \(meses\)/);
@@ -159,7 +159,13 @@ test('981 progressive historical audit supports manual and automatic checkpoint 
   assert.match(historicalProgressive, /Automático · encadenar/);
   assert.match(historicalProgressive, /Iniciar \/ continuar automático/);
   assert.match(historicalProgressive, /Pausar automático/);
-  assert.match(historicalProgressive, /historical_progressive_audit_v2/);
+  assert.match(historicalProgressive, /historical_progressive_audit_v3/);
+  assert.match(historicalProgressive, /function buildPath/);
+  assert.match(historicalProgressive, /result\.equityPath/);
+  assert.match(historicalProgressive, /Evolución completa desde la fecha inicial/);
+  assert.match(historicalProgressive, /Decisiones y señales cronológicas/);
+  assert.match(historicalProgressive, /Ver también MANTENER \/ NO COMPRAR/);
+  assert.match(historicalProgressive, /Operaciones realmente ejecutadas/);
   assert.match(historicalProgressive, /INCONSISTENCIA DE AUDITORÍA/);
   assert.match(historicalProgressive, /AUTO_PAUSE_MS/);
   assert.match(historicalProgressive, /new Worker\(new URL\('\.\.\/workers\/historicalReplayAudit\.worker\.ts'/);
