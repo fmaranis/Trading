@@ -14,6 +14,8 @@ import { HistoricalReplayProgressivePanel } from './HistoricalReplayProgressiveP
 interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; requestedSymbol?: string | null; }
 type RankingMode = 'OPPORTUNITY' | 'MOMENTUM' | 'SAFETY' | 'PUNISHED';
 
+const HISTORICAL_AUDIT_STORAGE_KEY = 'historical_progressive_audit_v3';
+
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function fiveYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 5); return isoDate(d); }
 function scoreFor(candidate: AssetScanCandidate, mode: RankingMode): number {
@@ -28,8 +30,32 @@ function modeLabel(mode: RankingMode): string {
   if (mode === 'PUNISHED') return 'Más castigados';
   return 'Mejor equilibrio actual';
 }
+function migrateHistoricalAuditCache(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem(HISTORICAL_AUDIT_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.version !== 3 || !Array.isArray(parsed.executions)) return;
+    let changed = false;
+    parsed.executions = parsed.executions.map((execution: any) => {
+      const next = { ...execution };
+      for (const key of ['feeEur', 'realizedGainEur', 'estimatedTaxEur', 'taxDeferredTransferEur']) {
+        if (!Number.isFinite(Number(next[key]))) { next[key] = 0; changed = true; }
+      }
+      return next;
+    });
+    if (!Array.isArray(parsed.positions)) { parsed.positions = []; changed = true; }
+    if (!Object.prototype.hasOwnProperty.call(parsed, 'summary')) { parsed.summary = null; changed = true; }
+    if (changed) window.localStorage.setItem(HISTORICAL_AUDIT_STORAGE_KEY, JSON.stringify(parsed));
+  } catch {
+    // Never let a stale optional replay cache prevent the investment screen from rendering.
+    window.localStorage.removeItem(HISTORICAL_AUDIT_STORAGE_KEY);
+  }
+}
 
 export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision, requestedSymbol }) => {
+  migrateHistoricalAuditCache();
   const [rankingMode, setRankingMode] = useState<RankingMode>('OPPORTUNITY');
   const [showAll, setShowAll] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(requestedSymbol?.trim().toUpperCase() ?? null);
