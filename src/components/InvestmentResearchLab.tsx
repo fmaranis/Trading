@@ -10,6 +10,7 @@ import {
 } from '../investment/decision';
 import { SingleAssetResearchPanel } from './SingleAssetResearchPanel';
 import { HistoricalReplayProgressivePanel } from './HistoricalReplayProgressivePanel';
+import { HistoricalAuditJsonControls } from './HistoricalAuditJsonControls';
 
 interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; requestedSymbol?: string | null; }
 type RankingMode = 'OPPORTUNITY' | 'MOMENTUM' | 'SAFETY' | 'PUNISHED';
@@ -62,6 +63,7 @@ export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision, request
   const [externalScan, setExternalScan] = useState<AssetUniverseScanResult | null>(null);
   const [externalLoading, setExternalLoading] = useState(false);
   const [externalError, setExternalError] = useState<string | null>(null);
+  const [historicalReplayMountKey, setHistoricalReplayMountKey] = useState(0);
 
   const productionTickers = useMemo(() => new Set(EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(item => item.ticker.toUpperCase())), []);
   const researchCatalog = useMemo(() => {
@@ -155,6 +157,6 @@ export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision, request
       </div>
     </section>
 
-    <details className="rounded-2xl border border-indigo-500/20 bg-slate-900 p-4"><summary className="cursor-pointer list-none"><div className="font-bold text-white">Validación histórica auditada</div><div className="mt-1 text-[10px] text-slate-500">Una sola herramienta histórica: trayectoria, decisiones, operaciones, fiscalidad, comparación contra mantener y análisis por posición.</div></summary><div className="mt-4"><HistoricalReplayProgressivePanel capitalEur={decision.capitalEur} riskProfile={decision.riskProfile} horizonYears={decision.horizonYears}/></div></details>
+    <details className="rounded-2xl border border-indigo-500/20 bg-slate-900 p-4"><summary className="cursor-pointer list-none"><div className="font-bold text-white">Validación histórica auditada</div><div className="mt-1 text-[10px] text-slate-500">Una sola herramienta histórica: trayectoria, decisiones, operaciones, fiscalidad, comparación contra mantener y análisis por posición.</div></summary><div className="mt-4"><HistoricalAuditJsonControls onImported={() => setHistoricalReplayMountKey(value => value + 1)}/><HistoricalReplayProgressivePanel key={historicalReplayMountKey} capitalEur={decision.capitalEur} riskProfile={decision.riskProfile} horizonYears={decision.horizonYears}/></div></details>
   </div>;
 };
