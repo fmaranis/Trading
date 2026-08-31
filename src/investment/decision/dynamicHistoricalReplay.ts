@@ -555,13 +555,7 @@ export class DynamicHistoricalReplayEngine {
     for (const requestedDate of requestedDecisionDates(input.dataset, input.startDate, endDate, frequency)) {
       const fullScan = buildHistoricalFullScan({ dataset: input.dataset, catalog: input.catalog, date: requestedDate, minimumBars });
       if (fullScan.accepted < 1) continue;
-      const provisionalDate = fullScan.candidates.map(candidate => candidate.asOfDate).filter(Boolean).sort().at(-1) ?? requestedDate;
-      const provisionalValue = lastDecisionDate ? portfolioValue(input.dataset, holdings, cashEur, lastDecisionDate).equityEur : input.initialCapitalEur;
-      const gate = PortfolioCandidateGate.apply(fullScan, cashBenchmarkAnnualPct, 12);
-      const firstDecision = gate.scan.selected.length > 0
-        ? InvestmentDecisionEngine.decide(gate.scan.dataset, { capitalEur: Math.max(1, provisionalValue), riskProfile: input.riskProfile, horizonYears: input.horizonYears }, new Date(`${requestedDate}T23:59:59Z`))
-        : historicalCashOnlyDecision(fullScan, Math.max(1, provisionalValue), input.riskProfile, input.horizonYears);
-      const decisionDate = firstDecision.asOfDate || provisionalDate;
+      const decisionDate = requestedDate;
       if (decisionDate >= endDate || decisionDate === lastDecisionDate) continue;
       if (lastDecisionDate && decisionDate < lastDecisionDate) continue;
 
@@ -805,6 +799,7 @@ export class DynamicHistoricalReplayEngine {
       notes: [
         'Cada fecha reconstruye la misma cadena operativa in-universe que usa la pantalla actual: universo REAL → cash+consenso → PortfolioCandidateGate → InvestmentDecisionEngine → PortfolioDecisionEngine con objetivos estables → salud individual para REDUCE/EXIT.',
         'Cada decisión usa exclusivamente datos disponibles hasta esa fecha; nunca se eligen compras o ventas mirando el resultado futuro.',
+        'La fecha operativa de señal es siempre la fecha de decisión solicitada; el asOfDate de los datos puede ser anterior sin desplazar la señal fuera de la ventana del replay.',
         'DAILY revisa cada sesión disponible; WEEKLY/MONTHLY/QUARTERLY reducen la frecuencia de decisión. La ejecución siempre ocurre después de la señal.',
         'Una compra ejecutada cuenta contra el objetivo estable del activo en las decisiones posteriores; el replay no redistribuye desde cero el efectivo restante después de cada operación.',
         'ETFs usan títulos enteros, mínimo/drag de comisión de la política adaptativa y comisión MyInvestor modelada; fondos usan unidades fraccionarias.',
