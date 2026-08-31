@@ -25,7 +25,7 @@
 - `167791c35ceaddb5948ad34aac33877f9743d75a` — `Enforce entry timing fraction in capital allocation`.
 - `af6c955e91379ec4d150170c5101c21d28cb2ce2` — `Align existing-position test with staged entry semantics`.
 
-La corrección temporal, el comparador por cohorte inicial y el límite 25%/50% del Entry Timing están implementados y cubiertos por contratos/regresiones, pero **todavía no se consideran runtime-validados hasta ejecutar el gate local completo** después de estos commits. La última validación sincronizada es de 2026-08-30 sobre `512abce84509fc4b21d626216c2eed91226dccf7`, por lo que no valida los cambios actuales. No se ha usado GitHub Actions.
+La corrección temporal, el comparador por cohorte inicial y el límite 25%/50% del Entry Timing están implementados y **runtime-validados por el gate local completo ejecutado el 2026-08-31**. La ejecución alcanzó los tres marcadores finales (`AI_STUDIO_VALIDATION_RESULT`, `BROKER_BACKTEST_FEASIBILITY_RESULT`, `BROKER_AWARE_EXECUTION_SWEEP_RESULT`) dentro de la cadena `validate:aistudio:raw`, que está unida por `&&`; por tanto los tests anteriores también finalizaron correctamente. El único error posterior fue `VALIDATION_RESULTS_GIT_WARNING` al ejecutar `git add` porque el workspace de AI Studio no contiene un repositorio `.git`. Es un problema de persistencia/sincronización del entorno, no un fallo del gate. No se ha usado GitHub Actions.
 
 Stack: React 19 + TypeScript + Vite + Tailwind + Recharts + Motion. Aplicación de soporte a decisiones con datos REAL, replay causal, cartera real, radar de oportunidades, fiscalidad española y ejecución condicionada por broker/costes.
 
@@ -140,7 +140,7 @@ Contrato de `currentCapitalAllocation.unit.ts` exige que:
 - una ejecución parcial deje únicamente el resto del mismo tramo;
 - una posición existente por encima del tramo temporal no sea completada automáticamente por el new-money entry gate.
 
-**Pendiente crítico:** runtime-validar estas invariantes con `npm run validate:aistudio` y después medir su efecto real en replays.
+Estas invariantes han pasado el gate local completo del 2026-08-31. **Pendiente ahora:** medir su comportamiento real en replays históricos y no modificar umbrales hasta disponer de esa evidencia.
 
 ---
 
@@ -220,7 +220,7 @@ Lectura:
 - el sistema conserva bien grandes ganadores, por lo que no debe introducirse take-profit fijo;
 - sigue haciendo falta memoria de high-water mark y transición WATCH/REDUCE antes del deterioro severo.
 
-### Comparador de cohorte inicial — CORREGIDO EN CÓDIGO
+### Comparador de cohorte inicial — CORREGIDO EN CÓDIGO Y VALIDADO
 
 El helper `buildExactInitialHold(...)` antiguo definía “cartera inicial” como solo las compras positivas ejecutadas en la primera fecha de ejecución. Eso excluía operaciones nacidas de la misma decisión inicial cuando su ejecución se retrasaba uno o varios días.
 
@@ -237,9 +237,9 @@ La UI ya no muestra “Valor aportado por mover la cartera”. Ahora muestra:
 
 Semántica: `engineFinalEur - holdCohorteInicialFinalEur`. Si es positiva, el motor completo terminó con más patrimonio que mantener congelada la cohorte inicial. Incluye nuevas selecciones, ADD/REDUCE/EXIT y diferencias de liquidez; **no es alpha aislada de las operaciones de compraventa**.
 
-Contrato UI reforzado en `00835f55` para impedir volver a la semántica antigua.
+Contrato UI reforzado en `00835f55` para impedir volver a la semántica antigua. Gate local completo verde el 2026-08-31.
 
-### Límite temporal — CORREGIDO EN CÓDIGO
+### Límite temporal — CORREGIDO EN CÓDIGO Y VALIDADO
 
 La causa estaba en `DynamicHistoricalReplayEngine.run`: `requestedDate` respetaba `startDate`, pero luego `decisionDate` se sustituía por `firstDecision.asOfDate`, que podía ser anterior.
 
@@ -255,7 +255,7 @@ Regresión en `b13d6057` exige:
 - toda la `equityPath >= startDate`;
 - DAILY y MONTHLY respetan el mismo límite.
 
-**Pendiente:** ejecutar validación local completa. Hasta entonces los cambios están implementados pero no runtime-validados.
+Gate local completo verde el 2026-08-31.
 
 ---
 
@@ -309,7 +309,7 @@ Storage: `historical_progressive_audit_v3`.
 
 Export/import JSON completo disponible.
 
-Resultados del gate local sincronizados al proyecto:
+Resultados del gate local previstos en el workspace:
 - `validation-results/latest-aistudio-run.json`
 - `validation-results/latest-aistudio.json`
 - `validation-results/latest-broker-backtest-feasibility.json`
@@ -319,7 +319,7 @@ Flujo objetivo:
 
 > App/AI Studio ejecuta → registra resultado → sincroniza a GitHub → ChatGPT lee directamente GitHub.
 
-Problema abierto: AI Studio puede no detectar algunos archivos escritos en runtime como cambios sincronizables; el wrapper `runRecordedValidation.ts` intenta commit/push explícito de `validation-results`.
+Problema confirmado el 2026-08-31: el workspace de AI Studio puede ejecutar y escribir los JSON, pero no contiene `.git`; por ello `runRecordedValidation.ts` termina con `VALIDATION_RESULTS_GIT_WARNING Command failed: git add ...`. Los resultados runtime no se sincronizaron automáticamente a GitHub. No confundir este warning con un fallo del gate. Hasta resolver la persistencia, el usuario puede pegar la salida final y ChatGPT la audita sin pedir que AI Studio la interprete.
 
 ---
 
@@ -333,7 +333,7 @@ Estado:
 - [x] Corregir hold inicial por cohorte de primera señal.
 - [x] Cambiar etiqueta ambigua “valor aportado por mover la cartera”.
 - [x] Blindar semántica del comparador en contrato UI.
-- [ ] Ejecutar validación local completa de todos estos cambios.
+- [x] Ejecutar validación local completa de todos estos cambios — verde el 2026-08-31; warning posterior únicamente de persistencia Git.
 - [ ] Separar progresivamente:
   - diferencia total vs mantener cartera inicial;
   - valor por nuevas selecciones/recomposición posterior;
@@ -345,7 +345,7 @@ Estado:
 2. [ ] Medir WAIT / ENTRY_READY / ENTRY_STRONG.
 3. [ ] Medir % de capital desplegado en 1, 5, 20 y 60 sesiones.
 4. [ ] Confirmar que ya no entra 80–90% simplemente por empezar en una fecha arbitraria.
-5. [x] Hacer vinculante en código la fracción 25%/50% sobre la orden real; falta confirmación runtime/replay.
+5. [x] Hacer vinculante y runtime-validar la fracción 25%/50% sobre la orden real. Falta medir su efecto en replay real.
 6. [ ] No ajustar umbrales usando los mismos periodos que originaron el diagnóstico; usar holdout.
 
 ## Fase 2 — target estratégico vs tramo ejecutable
@@ -387,7 +387,11 @@ Objetivo: conducta más racional y robusta, no maximizar los mismos backtests us
 
 # Próxima acción concreta
 
-1. Ejecutar `npm run validate:aistudio` sobre el HEAD actual y comprobar que `validation-results/latest-aistudio-run.json` queda con `ok: true` y con `gitHeadBeforeRecord` posterior a `af6c955e`.
-2. Si queda verde, repetir un replay corto y uno largo con Entry Timing ya vinculante.
-3. Medir WAIT / ENTRY_READY / ENTRY_STRONG y capital desplegado en 1/5/20/60 sesiones.
-4. Solo después calibrar sizing/régimen o avanzar a construcción progresiva/ADD; no reajustar los umbrales de timing usando los mismos periodos de diagnóstico.
+Fase 0 cerrada. Repetir ahora un replay corto y uno largo con el Entry Timing ya vinculante y comparar contra los resultados anteriores. Medir especialmente:
+1. WAIT / ENTRY_READY / ENTRY_STRONG;
+2. capital realmente desplegado tras 1/5/20/60 sesiones;
+3. si desaparece el patrón de entrada inicial del 80–90%;
+4. retorno, drawdown, cash medio y turnover;
+5. BUY/ADD/REDUCE/EXIT y cualquier cambio en la cohorte inicial.
+
+No reajustar todavía los umbrales del Entry Timing. Primero obtener esta evidencia y después decidir si procede sizing sensible a volatilidad/régimen o avanzar a construcción progresiva/ADD.
