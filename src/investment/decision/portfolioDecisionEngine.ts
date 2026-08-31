@@ -378,14 +378,19 @@ export class PortfolioDecisionEngine {
     const opportunities = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct);
     const executionPolicy = executionPolicyForCapital(totalPlannedCapitalEur);
     const heldAssetIds = new Set(currentByAsset.keys());
+    const maxPortfolioPositions = maxPortfolioPositionsForRisk(decision.riskProfile);
+    const occupiedPortfolioPositions = existingPositions.filter(row => (row.currentValueEur ?? 0) > 0).length;
+    const availablePortfolioSlots = Math.max(0, maxPortfolioPositions - occupiedPortfolioPositions);
 
-    // Challenger vs incumbent: one partial rotation at most per evaluation. The incumbent
-    // must already be WATCH or weak HOLD, while the challenger must be ENTRY_STRONG and
-    // clearly superior after a cost buffer. Healthy ADD/HOLD winners are never displaced
-    // merely because another asset ranks slightly higher.
-    const rotationChallengers = opportunities
-      .filter(alert => !heldAssetIds.has(alert.assetId) && alert.timingState === 'ENTRY_STRONG' && alert.consensusScore >= 3 && alert.favorableVotes >= 4)
-      .sort((a, b) => b.rankingScore - a.rankingScore);
+    // Challenger vs incumbent is a true one-for-one replacement only when the portfolio
+    // is full. A partial reduction does not free a slot, so it must never authorize a new
+    // asset. If a slot is already free, the challenger can enter normally without forcing
+    // an incumbent sale. Healthy ADD/HOLD winners are never displaced for marginal rank.
+    const rotationChallengers = availablePortfolioSlots === 0
+      ? opportunities
+        .filter(alert => !heldAssetIds.has(alert.assetId) && alert.timingState === 'ENTRY_STRONG' && alert.consensusScore >= 3 && alert.favorableVotes >= 4)
+        .sort((a, b) => b.rankingScore - a.rankingScore)
+      : [];
     const rotationIncumbents = unresolvedPositions
       .map(unresolved => {
         const row = existingPositions[unresolved.index];
@@ -408,33 +413,28 @@ export class PortfolioDecisionEngine {
       for (const incumbent of rotationIncumbents) {
         if (rotationActions >= 1) break outerRotation;
         const currentValue = incumbent.row.currentValueEur ?? 0;
-        const reductionPct = 50;
-        const reductionNotional = currentValue * reductionPct / 100;
-        if (reductionNotional < executionPolicy.minimumOrderNotionalEur - 1e-9) continue;
+        if (currentValue < executionPolicy.minimumOrderNotionalEur - 1e-9) continue;
         const incumbentExcess = incumbent.unresolved.health?.excessVsCashPctPoints ?? 0;
         const challengerExcess = challenger.excessVsCashPctPoints ?? -Infinity;
-        const feeDrag = estimatedRotationRoundTripFeeDragPct(reductionNotional, incumbent.row.instrumentType);
+        const feeDrag = estimatedRotationRoundTripFeeDragPct(currentValue, incumbent.row.instrumentType);
         const advantageScore = challenger.rankingScore - (incumbent.score ?? challenger.rankingScore);
         const requiredExcessMargin = Math.max(2, feeDrag * 2);
         if (advantageScore < rotationPriorityMargin(decision.riskProfile) - 1e-9) continue;
         if (!(challengerExcess >= incumbentExcess + requiredExcessMargin)) continue;
 
-        incumbent.row.action = 'REDUCE';
-        incumbent.row.suggestedReductionPct = reductionPct;
+        incumbent.row.action = 'EXIT';
+        incumbent.row.suggestedReductionPct = 100;
         incumbent.row.rotationChallengerAssetId = challenger.assetId;
         incumbent.row.rotationChallengerTicker = challenger.ticker;
         incumbent.row.rotationAdvantageScore = advantageScore;
-        incumbent.row.reason = `Rotación competitiva parcial: ${challenger.ticker} aparece como ENTRY_STRONG y supera claramente a esta posición (${advantageScore.toFixed(1)} puntos de ranking; ventaja frente a cash ${challengerExcess.toFixed(1)} pp vs ${incumbentExcess.toFixed(1)} pp). Se propone reducir ${reductionPct}% y liberar aproximadamente ${reductionNotional.toFixed(2)} €. Coste ETF ida/vuelta estimado ~${feeDrag.toFixed(2)}% antes de fiscalidad; no se fuerza salida total ni se rota un ganador sano por una diferencia marginal.`;
-        plannedRotationProceedsEur += reductionNotional;
+        incumbent.row.reason = `Rotación competitiva 1:1: ${challenger.ticker} aparece como ENTRY_STRONG y supera claramente a esta posición (${advantageScore.toFixed(1)} puntos de ranking; ventaja frente a cash ${challengerExcess.toFixed(1)} pp vs ${incumbentExcess.toFixed(1)} pp). La cartera está llena, por lo que se propone liberar realmente esta plaza antes de introducir el challenger. Coste ETF ida/vuelta estimado ~${feeDrag.toFixed(2)}% antes de fiscalidad. No se rota un ganador sano por una diferencia marginal.`;
+        plannedRotationProceedsEur += currentValue;
         rotationChallengerIds.add(challenger.assetId);
         rotationActions++;
       }
     }
 
     const deployableToAssetsEur = baseDeployableToAssetsEur + plannedRotationProceedsEur;
-    const maxPortfolioPositions = maxPortfolioPositionsForRisk(decision.riskProfile);
-    const occupiedPortfolioPositions = existingPositions.filter(row => (row.currentValueEur ?? 0) > 0).length;
-    const availablePortfolioSlots = Math.max(0, maxPortfolioPositions - occupiedPortfolioPositions);
     const effectiveNewSlots = availablePortfolioSlots + rotationActions;
 
     let contributions: ContributionRecommendation[] = [];
@@ -535,7 +535,7 @@ export class PortfolioDecisionEngine {
     if (existingPositions.some(x => x.category === 'UNKNOWN' && x.currentValueEur != null)) warnings.push('Hay posiciones fuera del universo clasificado que se valoran y vigilan individualmente; no se inventa una categoría para forzar su peso objetivo.');
     warnings.push(`Cartera dinámica: máximo ${maxPortfolioPositions} plazas para riesgo ${decision.riskProfile}; ocupadas ${occupiedPortfolioPositions}, libres ${availablePortfolioSlots}. Nuevas plazas por evaluación: máximo ${maxNewPositionsPerDecision(decision.riskProfile)}.`);
     warnings.push(`Sizing por etapas: ENTRY_READY/ENTRY_STRONG abren starters pequeños; en riesgo ${decision.riskProfile} los caps son ${(starterPortfolioShare(decision.riskProfile, 'ENTRY_READY') * 100).toFixed(1)}% / ${(starterPortfolioShare(decision.riskProfile, 'ENTRY_STRONG') * 100).toFixed(1)}%. Sólo una posición ya confirmada como ADD y todavía ENTRY_STRONG puede construir hasta ${(buildPortfolioShare(decision.riskProfile) * 100).toFixed(1)}%.`);
-    if (rotationActions > 0) warnings.push(`Rotación competitiva activa: ${rotationActions} incumbent(s) se reducen parcialmente para challenger(s) claramente superiores. Proceeds teóricos liberados: ${plannedRotationProceedsEur.toFixed(2)} €; la ejecución real sigue sujeta a comisión, fiscalidad y efectivo realmente obtenido.`);
+    if (rotationActions > 0) warnings.push(`Rotación competitiva 1:1 activa: ${rotationActions} incumbent(s) liberan realmente su plaza para challenger(s) claramente superiores. Proceeds teóricos liberados: ${plannedRotationProceedsEur.toFixed(2)} €; la ejecución real sigue sujeta a comisión, fiscalidad y efectivo realmente obtenido.`);
     if (opportunities.length > 0) warnings.push(`La asignación efectiva usa oportunidades que pasan cash + consenso + timing. El 25%/50% sigue siendo techo por timing, pero ya no obliga a construir una posición grande: starter/build y plazas de cartera añaden límites más estrictos.`);
     else warnings.push('No hay oportunidades actuales que pasen el gate: no se genera ninguna compra fallback. Los pesos teóricos quedan sólo como diagnóstico.');
 
