@@ -12,20 +12,27 @@
 - Replay histórico causal: solo información disponible hasta la fecha evaluada; ejecución posterior a la señal; ningún lookahead.
 - Si el usuario dice “terminó, revisa la prueba”, buscar primero el resultado sincronizado en GitHub antes de pedir adjuntos.
 - A partir de 2026-08-31, cada cambio de código/arquitectura debe ir acompañado de actualización de `PROJECT_STATE.md`.
+- No usar un agente de AI Studio para vigilar periódicamente procesos largos. Ejecutar el proceso local sin monitorización de Gemini; el usuario avisa cuando termina y ChatGPT revisa el resultado una sola vez.
 
 ---
 
 # Estado actual — 2026-08-31
 
-Últimos cambios implementados:
+Últimos cambios relevantes:
 - `f1bb80d029f1904085e6a49db97577296086d6f9` — `Enforce requested replay decision boundary`.
 - `b13d60572f430387e3eafb5ca0585d6926e11326` — `Assert strict historical replay start boundary`.
 - `48de3171d6ff22682f27bf658e0fca7e9b1f0559` — `Fix initial cohort hold comparator semantics`.
 - `00835f5594ffb762d91eee1d37dbe40ecdcdfe90` — `Assert initial signal cohort comparator labels`.
 - `167791c35ceaddb5948ad34aac33877f9743d75a` — `Enforce entry timing fraction in capital allocation`.
 - `af6c955e91379ec4d150170c5101c21d28cb2ce2` — `Align existing-position test with staged entry semantics`.
+- `d265643037c026de3b095450b9d0dbfcc2f83a9c` — `Restore stable replay source and canonical project state` tras limpiar el incidente de escrituras provisionales del conector.
+- `d8dd1986c1c3e4bae5de5983d75f8fe3da91a0c3` — `Instrument historical replay entry timing`.
+- `c4d24fb538eee1249f37671efa257cfcfde759f2` — `Assert replay timing audit and deployment horizons`.
+- `38b563d86a3d30ac8a2405281bebe3546a24df66` — `Preserve timing audit in progressive replay exports`.
 
-La corrección temporal, el comparador por cohorte inicial y el límite 25%/50% del Entry Timing están implementados y **runtime-validados por el gate local completo ejecutado el 2026-08-31**. La ejecución alcanzó los tres marcadores finales (`AI_STUDIO_VALIDATION_RESULT`, `BROKER_BACKTEST_FEASIBILITY_RESULT`, `BROKER_AWARE_EXECUTION_SWEEP_RESULT`) dentro de la cadena `validate:aistudio:raw`, que está unida por `&&`; por tanto los tests anteriores también finalizaron correctamente. El único error posterior fue `VALIDATION_RESULTS_GIT_WARNING` al ejecutar `git add` porque el workspace de AI Studio no contiene un repositorio `.git`. Es un problema de persistencia/sincronización del entorno, no un fallo del gate. No se ha usado GitHub Actions.
+La corrección temporal, el comparador por cohorte inicial y el límite 25%/50% del Entry Timing fueron **runtime-validados por el gate local completo ejecutado el 2026-08-31**. La ejecución alcanzó los tres marcadores finales (`AI_STUDIO_VALIDATION_RESULT`, `BROKER_BACKTEST_FEASIBILITY_RESULT`, `BROKER_AWARE_EXECUTION_SWEEP_RESULT`) dentro de la cadena `validate:aistudio:raw`, unida por `&&`. El warning posterior de `git add validation-results/...` se debe a que el workspace de AI Studio no contiene `.git`; no fue un fallo del gate.
+
+La instrumentación nueva de Fase 1 (`d8dd1986` + `c4d24fb` + `38b563d8`) **todavía requiere un nuevo gate local completo** porque se implementó después del verde anterior. No usar el verde previo como validación de estos commits.
 
 Stack: React 19 + TypeScript + Vite + Tailwind + Recharts + Motion. Aplicación de soporte a decisiones con datos REAL, replay causal, cartera real, radar de oportunidades, fiscalidad española y ejecución condicionada por broker/costes.
 
@@ -86,16 +93,8 @@ Archivos principales:
 - `src/investment/decision/portfolioCandidateGate.ts`
 - `src/investment/decision/currentOpportunityAlerts.ts`
 - `src/investment/decision/portfolioDecisionEngine.ts`
-
-Commits relevantes:
-- `1952fb07...` — Add causal entry timing gate
-- `7ea0e87c...` — Gate current opportunities by entry timing
-- `53805ade...` — Export entry timing engine
-- `6b3b7223...` — Assert causal entry timing on alerts
-- `5a577907...` — Apply entry timing before new-money allocation
-- `9061b077...` — Assert timing gate before portfolio allocation
-- `167791c3...` — Enforce entry timing fraction in capital allocation
-- `af6c955e...` — Align existing-position test with staged entry semantics
+- `src/investment/decision/dynamicHistoricalReplay.ts`
+- `src/components/HistoricalReplayProgressivePanel.tsx`
 
 Estados:
 - `WAIT`
@@ -128,7 +127,7 @@ Reglas actuales:
 - una posición ya por encima del tramo autorizado no se completa automáticamente desde el flujo de entrada; un incremento posterior debe venir de lógica ADD/confirmación;
 - timing nunca autoriza 100% del target de una vez.
 
-`ContributionRecommendation` expone ahora:
+`ContributionRecommendation` expone:
 - `targetAssetValueEur` — target estratégico estable;
 - `executableTargetAssetValueEur` — target máximo autorizado por timing hoy;
 - `suggestedInitialFraction` — 0,25 o 0,50;
@@ -140,13 +139,35 @@ Contrato de `currentCapitalAllocation.unit.ts` exige que:
 - una ejecución parcial deje únicamente el resto del mismo tramo;
 - una posición existente por encima del tramo temporal no sea completada automáticamente por el new-money entry gate.
 
-Estas invariantes han pasado el gate local completo del 2026-08-31. **Pendiente ahora:** medir su comportamiento real en replays históricos y no modificar umbrales hasta disponer de esa evidencia.
+## Instrumentación histórica de Entry Timing — implementada, pendiente de gate runtime
+
+Desde `d8dd1986`:
+- cada `DynamicReplaySignal` conserva explícitamente `timingState`, `timingSetup`, `timingScore` y `suggestedInitialFraction`;
+- las señales BUY/ADD conservan el estado que autorizó el tramo real;
+- REDUCE/EXIT llevan timing de entrada a `null` porque es un concepto no aplicable a la salida;
+- todos los activos que alcanzan Entry Timing generan traza no operativa si no hay movimiento, de modo que `WAIT`, `ENTRY_READY` y `ENTRY_STRONG` quedan medibles en la misma cronología, sin crear un motor paralelo;
+- un `WAIT` se conserva como `AVOID/NO COMPRAR` con sus campos de timing explícitos;
+- el resultado devuelve `timingStateCounts` reconciliado con las señales de timing.
+
+El replay devuelve además `deploymentHorizons` para **1 / 5 / 20 / 60 sesiones transcurridas desde la fecha inicial**. Cada horizonte separa:
+- `netCommittedEur` y `%` sobre capital inicial: flujo neto realmente comprometido por operaciones hasta esa fecha;
+- `investedMarketValueEur` y `%` sobre equity: valor de mercado invertido, que puede diferir por rentabilidad.
+
+Desde `38b563d8`, `HistoricalReplayProgressivePanel` ya no recorta `DynamicReplaySignal` al persistir: conserva el objeto completo. Por tanto el JSON/ZIP exportado mantiene también consenso, votos y campos Entry Timing. El resumen persistido incorpora `timingStateCounts` y `deploymentHorizons` sin romper el envelope v3; los ficheros v3 anteriores siguen siendo importables.
+
+Regresión `c4d24fb` exige:
+- reconciliación exacta de WAIT + READY + STRONG con señales que contienen timing;
+- toda BUY/ADD financiada debe estar autorizada por READY o STRONG;
+- fracciones 0 / 0,25 / 0,50 coherentes con WAIT / READY / STRONG;
+- setup y score explícitos;
+- horizontes canónicos 1/5/20/60 y valores no negativos;
+- aislamiento causal futuro también para timing state/setup/score/fraction.
 
 ---
 
 # Evidencia histórica revisada
 
-## 2022-04-13 → 2023-04-12
+## 2022-04-13 → 2023-04-12 — replay antiguo
 
 - motor: -5,2383%
 - hold inicial mostrado: -5,2581%
@@ -159,7 +180,7 @@ Ejemplos:
 - WCOA: MFE +7,16%, MAE -17,07%, final ~-14,36%.
 - Sanofi llegó a ~-21,70% y terminó positiva: prueba de que un stop fijo puede destruir recuperaciones válidas.
 
-## 2023-04-13 → 2024-04-12
+## 2023-04-13 → 2024-04-12 — replay antiguo
 
 - motor: +7,1278%
 - hold inicial: +7,1208%
@@ -169,7 +190,7 @@ Ejemplos:
 
 Air Liquide y Vanguard Eurozone muestran que dejar correr ganadores es correcto; Deutsche Telekom e Iberdrola muestran que un drawdown aislado no debe obligar a vender.
 
-## 2024-07-12 → 2025-07-11
+## 2024-07-12 → 2025-07-11 — replay antiguo
 
 - motor: +7,7268%
 - hold inicial mostrado: +3,7679%
@@ -181,17 +202,58 @@ La cartera pasó de ~+12,79% en febrero de 2025 a ~-3,21% en abril sin reducció
 
 Parte importante de la ventaja mostrada proviene de Xetra-Gold, incorporado después de las primeras compras; por tanto la métrica antigua no equivalía a “alpha por gestionar posiciones”. Este caso debe repetirse con el comparador corregido.
 
-## 2025-03-27 → 2026-03-26
+## 2025-03-27 → 2026-03-26 — repetido tras Fase 0 / Entry Timing vinculante
 
-Se detectó anomalía temporal: el replay contenía señales/operaciones anteriores a la fecha inicial solicitada. La causa ya se ha corregido en `f1bb80d0`; este caso debe repetirse antes de usarlo para calibrar.
+Archivo revisado: `trading-replay-2025-03-27-2026-03-26 (2).zip`.
 
-Diagnóstico previo útil: Deutsche Börse llegó aprox. a MFE +8,23% y salió cerca de -23%, mostrando que EXIT existe pero puede llegar demasiado tarde.
+Resultado:
+- capital inicial: 1.000 €;
+- motor: 1.188,96 € / +18,90%;
+- DD máx.: ~5,49%;
+- mantener cohorte inicial corregida: 1.191,41 € / +19,14%;
+- diferencia total vs cohorte inicial: -2,45 € / -0,245 pp;
+- el límite temporal está correcto: no hay señales anteriores a 2025-03-27.
 
-## Replay largo — 2022-07-11 → 2025-07-10
+Despliegue medido manualmente sobre este export anterior a la instrumentación explícita:
+- ~39,18% tras 1 sesión;
+- ~39,18% tras 5;
+- ~39,67% tras 20;
+- ~39,67% tras 60.
 
-Archivo revisado: `trading-replay-2022-07-11-2025-07-10.zip`.
+Conclusión: desaparece el patrón de entrada inicial del 80–90%. El nuevo sizing mejora claramente la prudencia de entrada, pero este periodo **no demuestra mejora de rentabilidad**: el motor queda ligeramente por debajo de mantener la cohorte inicial. EXH1 salió rápidamente con deterioro fuerte (~-17,4% neto), mientras que Xetra-Gold, Enel, Eni, Ferrovial e Iberdrola fueron ganadores relevantes.
 
-Resumen del replay antiguo, previo a las correcciones de Fase 0:
+## 2022-07-11 → 2023-07-10 — repetido tras Fase 0 / Entry Timing vinculante
+
+Archivo revisado: `trading-replay-2022-07-11-2023-07-10.zip`. Es un replay de un año; **no sustituye** al replay largo 2022-07-11 → 2025-07-10 pendiente.
+
+Resultado:
+- capital inicial: 1.000 €;
+- motor: ~995,00 € / -0,50%;
+- DD máx.: ~3,94%;
+- mantener cohorte inicial corregida: ~1.011,23 € / +1,12%;
+- diferencia total: ~-16,23 € / -1,623 pp;
+- todo cash: ~+2,49%;
+- límite temporal correcto desde 2022-07-11.
+
+Despliegue manual:
+- ~14,07% tras 1 sesión;
+- ~14,07% tras 5;
+- ~25,35% tras 20;
+- ~40,68% tras 60.
+
+Conclusión: la entrada inicial deja de ser agresiva, pero la selección/timing de incorporaciones posteriores no compensó el cash ni la cohorte inicial en este periodo. El problema observable pasa de “invertir demasiado al empezar” a estudiar **dónde y cuándo se siguen añadiendo posiciones**.
+
+### Conclusión conjunta de los dos replays nuevos
+
+Con dos fechas de inicio muy diferentes, el patrón del 80–90% inicial ya no aparece. Se considera **evidencia suficiente para cerrar el defecto concreto de despliegue inicial excesivo**, no para afirmar que los umbrales actuales maximizan rentabilidad.
+
+No recalibrar todavía 25%/50% ni thresholds con estos mismos periodos: son periodos diagnósticos y no holdout de calibración.
+
+## Replay largo antiguo — 2022-07-11 → 2025-07-10
+
+Archivo revisado anteriormente: `trading-replay-2022-07-11-2025-07-10.zip`.
+
+Resumen previo a las correcciones de Fase 0:
 - capital inicial: 9.000 €
 - motor: 13.274,61 € / +47,4957%
 - hold inicial mostrado: 12.203,96 € / +35,5996%
@@ -222,8 +284,6 @@ Lectura:
 
 ### Comparador de cohorte inicial — CORREGIDO EN CÓDIGO Y VALIDADO
 
-El helper `buildExactInitialHold(...)` antiguo definía “cartera inicial” como solo las compras positivas ejecutadas en la primera fecha de ejecución. Eso excluía operaciones nacidas de la misma decisión inicial cuando su ejecución se retrasaba uno o varios días.
-
 Desde `48de3171`:
 - las compras iniciales se agrupan por **primera `signalDate`**;
 - todas las ejecuciones nacidas de esa señal se incluyen aunque tengan distintas `executionDate`;
@@ -231,31 +291,21 @@ Desde `48de3171`:
 - cada activo mantiene exactamente las unidades realmente compradas en esa cohorte;
 - no se incorporan selecciones posteriores.
 
-La UI ya no muestra “Valor aportado por mover la cartera”. Ahora muestra:
+La UI muestra:
 
 > **Diferencia total vs mantener cohorte inicial**
 
-Semántica: `engineFinalEur - holdCohorteInicialFinalEur`. Si es positiva, el motor completo terminó con más patrimonio que mantener congelada la cohorte inicial. Incluye nuevas selecciones, ADD/REDUCE/EXIT y diferencias de liquidez; **no es alpha aislada de las operaciones de compraventa**.
-
-Contrato UI reforzado en `00835f55` para impedir volver a la semántica antigua. Gate local completo verde el 2026-08-31.
+Semántica: `engineFinalEur - holdCohorteInicialFinalEur`. Incluye nuevas selecciones, ADD/REDUCE/EXIT y diferencias de liquidez; **no es alpha aislada de las operaciones de compraventa**.
 
 ### Límite temporal — CORREGIDO EN CÓDIGO Y VALIDADO
 
-La causa estaba en `DynamicHistoricalReplayEngine.run`: `requestedDate` respetaba `startDate`, pero luego `decisionDate` se sustituía por `firstDecision.asOfDate`, que podía ser anterior.
-
 Desde `f1bb80d0`:
 - `decisionDate = requestedDate`;
-- el `asOfDate` de los datos puede ser anterior y sigue representando solo la frescura de la información;
-- la señal nunca debe desplazarse hacia atrás por ese motivo;
-- NEXT_OPEN continúa ejecutando después de la señal.
+- el `asOfDate` de los datos puede ser anterior y representa solo la frescura de la información;
+- la señal nunca se desplaza hacia atrás por ese motivo;
+- NEXT_OPEN ejecuta después de la señal.
 
-Regresión en `b13d6057` exige:
-- `result.startDate >= requested startDate`;
-- todas las `signalDate >= startDate`;
-- toda la `equityPath >= startDate`;
-- DAILY y MONTHLY respetan el mismo límite.
-
-Gate local completo verde el 2026-08-31.
+Regresión `b13d6057` exige que `startDate`, señales y equity path no precedan la fecha solicitada en DAILY y MONTHLY.
 
 ---
 
@@ -289,9 +339,7 @@ No vender solo por overweight. No vender solo por perder contra cash. No vender 
 
 # Fiscalidad española — pendiente importante
 
-El replay todavía descuenta `estimatedTaxEur` de forma inmediata en ventas. El usuario quiere modelar disponibilidad del efectivo hasta la liquidación fiscal anual.
-
-Pendiente:
+El replay todavía descuenta `estimatedTaxEur` de forma inmediata en ventas. Pendiente modelar disponibilidad del efectivo hasta liquidación fiscal anual:
 - beneficio/pérdida realizable neta por año;
 - `pendingTaxLiabilityEur` vs `taxPaidEur`;
 - pago en fecha de simulación del año siguiente, no en cada venta;
@@ -307,7 +355,7 @@ UI: `HistoricalReplayProgressivePanel.tsx`.
 Worker: `src/workers/historicalReplayAudit.worker.ts`.
 Storage: `historical_progressive_audit_v3`.
 
-Export/import JSON completo disponible.
+Export/import JSON completo disponible. Desde `38b563d8`, las señales persistidas/exportadas conservan el `DynamicReplaySignal` completo, incluyendo consenso/votos y diagnóstico Entry Timing. El `summary` del mismo envelope v3 incorpora `timingStateCounts` y `deploymentHorizons`. Se mantiene compatibilidad de importación con v3 antiguos.
 
 Resultados del gate local previstos en el workspace:
 - `validation-results/latest-aistudio-run.json`
@@ -315,11 +363,7 @@ Resultados del gate local previstos en el workspace:
 - `validation-results/latest-broker-backtest-feasibility.json`
 - `validation-results/latest-broker-aware-execution-sweep.json`
 
-Flujo objetivo:
-
-> App/AI Studio ejecuta → registra resultado → sincroniza a GitHub → ChatGPT lee directamente GitHub.
-
-Problema confirmado el 2026-08-31: el workspace de AI Studio puede ejecutar y escribir los JSON, pero no contiene `.git`; por ello `runRecordedValidation.ts` termina con `VALIDATION_RESULTS_GIT_WARNING Command failed: git add ...`. Los resultados runtime no se sincronizaron automáticamente a GitHub. No confundir este warning con un fallo del gate. Hasta resolver la persistencia, el usuario puede pegar la salida final y ChatGPT la audita sin pedir que AI Studio la interprete.
+Problema de persistencia confirmado: AI Studio puede ejecutar y escribir los JSON, pero su workspace puede carecer de `.git`; `git add` falla después del gate. No confundir con fallo de tests. No usar monitorización periódica del agente para esperar procesos.
 
 ---
 
@@ -327,13 +371,12 @@ Problema confirmado el 2026-08-31: el workspace de AI Studio puede ejecutar y es
 
 ## Fase 0 — hacer fiable la auditoría antes de calibrar
 
-Estado:
 - [x] Corregir límite temporal en motor.
 - [x] Añadir regresión de límite temporal.
 - [x] Corregir hold inicial por cohorte de primera señal.
 - [x] Cambiar etiqueta ambigua “valor aportado por mover la cartera”.
 - [x] Blindar semántica del comparador en contrato UI.
-- [x] Ejecutar validación local completa de todos estos cambios — verde el 2026-08-31; warning posterior únicamente de persistencia Git.
+- [x] Ejecutar validación local completa — verde 2026-08-31; warning posterior sólo de persistencia Git.
 - [ ] Separar progresivamente:
   - diferencia total vs mantener cartera inicial;
   - valor por nuevas selecciones/recomposición posterior;
@@ -341,12 +384,14 @@ Estado:
 
 ## Fase 1 — validar Entry Timing actual
 
-1. [ ] Repetir replays después de Fase 0.
-2. [ ] Medir WAIT / ENTRY_READY / ENTRY_STRONG.
-3. [ ] Medir % de capital desplegado en 1, 5, 20 y 60 sesiones.
-4. [ ] Confirmar que ya no entra 80–90% simplemente por empezar en una fecha arbitraria.
-5. [x] Hacer vinculante y runtime-validar la fracción 25%/50% sobre la orden real. Falta medir su efecto en replay real.
-6. [ ] No ajustar umbrales usando los mismos periodos que originaron el diagnóstico; usar holdout.
+1. [x] Repetir dos replays después de Fase 0: 2025-03-27→2026-03-26 y 2022-07-11→2023-07-10.
+2. [x] Instrumentar WAIT / ENTRY_READY / ENTRY_STRONG de forma explícita en replay/export. **Pendiente validar runtime y volver a medir con export nuevo.**
+3. [x] Instrumentar %/€ de capital desplegado en 1, 5, 20 y 60 sesiones. **Pendiente validar runtime y volver a medir con export nuevo.**
+4. [x] Confirmar que ya no entra 80–90% simplemente por empezar en una fecha arbitraria: dos replays reales muestran ~39,2% y ~14,1% tras la primera sesión, respectivamente.
+5. [x] Hacer vinculante y runtime-validar la fracción 25%/50% sobre la orden real.
+6. [ ] Ejecutar `npm run validate:aistudio` después de la nueva instrumentación.
+7. [ ] Repetir con export instrumentado al menos un replay corto y el replay largo 2022-07-11→2025-07-10.
+8. [ ] No ajustar umbrales usando los mismos periodos diagnósticos; usar holdout para calibración.
 
 ## Fase 2 — target estratégico vs tramo ejecutable
 
@@ -387,11 +432,7 @@ Objetivo: conducta más racional y robusta, no maximizar los mismos backtests us
 
 # Próxima acción concreta
 
-Fase 0 cerrada. Repetir ahora un replay corto y uno largo con el Entry Timing ya vinculante y comparar contra los resultados anteriores. Medir especialmente:
-1. WAIT / ENTRY_READY / ENTRY_STRONG;
-2. capital realmente desplegado tras 1/5/20/60 sesiones;
-3. si desaparece el patrón de entrada inicial del 80–90%;
-4. retorno, drawdown, cash medio y turnover;
-5. BUY/ADD/REDUCE/EXIT y cualquier cambio en la cohorte inicial.
-
-No reajustar todavía los umbrales del Entry Timing. Primero obtener esta evidencia y después decidir si procede sizing sensible a volatilidad/régimen o avanzar a construcción progresiva/ADD.
+1. Ejecutar **una sola vez** `npm run validate:aistudio` sobre el HEAD que contiene `d8dd1986`, `c4d24fb` y `38b563d8`. No usar Scheduled Task/agent polling para vigilarlo.
+2. Si el gate queda verde, ejecutar un replay instrumentado corto y exportarlo. El JSON debe contener en cada señal aplicable `timingState`, `timingSetup`, `timingScore`, `suggestedInitialFraction`, y en `summary` los bloques `timingStateCounts` y `deploymentHorizons`.
+3. Después repetir el replay largo **2022-07-11 → 2025-07-10** con la instrumentación nueva.
+4. Con esos datos decidir si Fase 1 puede cerrarse y si el siguiente cambio debe ser sizing sensible a régimen/volatilidad o construcción progresiva/ADD. No recalibrar todavía los thresholds con los periodos diagnósticos.
