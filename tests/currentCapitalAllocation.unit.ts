@@ -60,8 +60,8 @@ const fullyExecutedPortfolio: any = {
 };
 const afterFullExecution = PortfolioDecisionEngine.evaluate({ portfolio: fullyExecutedPortfolio, scan, decision, cashBenchmarkAnnualPct: 2.5 });
 const euAfterFull = afterFullExecution.contributions.find(row => row.assetId === 'STRONG_EU');
-check('938 a fully executed asset target is not recommended again from the remaining cash', !afterFullExecution.contributions.some(row => row.assetId === 'STRONG_TECH'));
-check('939 buying one target does not inflate the untouched target by recursively redistributing remaining cash', Boolean(euAfterFull) && Math.abs((euAfterFull?.amountEur ?? 0) - euInitial.amountEur) < 0.01);
+check('938 a fully executed timing tranche is not recommended again while the timing state is unchanged', !afterFullExecution.contributions.some(row => row.assetId === 'STRONG_TECH'));
+check('939 buying one timing tranche does not inflate the untouched target by recursively redistributing remaining cash', Boolean(euAfterFull) && Math.abs((euAfterFull?.amountEur ?? 0) - euInitial.amountEur) < 0.01);
 
 const halfExecutedPortfolio: any = {
   ...portfolio,
@@ -71,8 +71,11 @@ const halfExecutedPortfolio: any = {
 };
 const afterHalfExecution = PortfolioDecisionEngine.evaluate({ portfolio: halfExecutedPortfolio, scan, decision, cashBenchmarkAnnualPct: 2.5 });
 const techRemaining = afterHalfExecution.contributions.find(row => row.assetId === 'STRONG_TECH');
-check('940 a partial execution leaves only the unfilled portion of that asset target', Boolean(techRemaining) && Math.abs((techRemaining?.amountEur ?? 0) - techInitial.amountEur / 2) < 0.01);
-check('941 recommendations expose final target and current exposure so the UI can explain the remaining amount', result.contributions.every(row => row.targetAssetValueEur != null && row.currentAssetValueEur != null));
+check('940 a partial execution leaves only the unfilled portion of the authorized timing tranche', Boolean(techRemaining) && Math.abs((techRemaining?.amountEur ?? 0) - techInitial.amountEur / 2) < 0.01);
+check('941 recommendations expose strategic target and current exposure so the UI can explain the remaining amount', result.contributions.every(row => row.targetAssetValueEur != null && row.currentAssetValueEur != null));
+check('942 timing fraction is propagated into every actionable contribution', result.contributions.every(row => row.timingState != null && row.suggestedInitialFraction != null && row.suggestedInitialFraction > 0 && row.suggestedInitialFraction <= 0.5));
+check('943 executable target never exceeds the timing-authorized fraction of the strategic target', result.contributions.every(row => row.executableTargetAssetValueEur != null && row.targetAssetValueEur != null && row.suggestedInitialFraction != null && (row.executableTargetAssetValueEur ?? Infinity) <= (row.targetAssetValueEur ?? 0) * (row.suggestedInitialFraction ?? 0) + 1e-6));
+check('944 immediate order never exceeds the remaining timing-authorized tranche', result.contributions.every(row => row.executableTargetAssetValueEur != null && row.currentAssetValueEur != null && row.amountEur <= Math.max(0, (row.executableTargetAssetValueEur ?? 0) - (row.currentAssetValueEur ?? 0)) + 1e-6));
 
 const fundBars = bars(1.0023);
 const fundCandidate: any = candidate('FUND_TEST', 'IE000000TEST', 'GLOBAL_EQUITY', fundBars, 24, 14, 20);
@@ -86,7 +89,7 @@ const nearTargetFundPortfolio: any = {
   stagedCapitalPlan: { availableEur: 5550, horizonMonths: 12, preferredMode: 'MONTHLY' }, updatedAt: '2026-08-30T00:00:00Z'
 };
 const nearTargetFundResult = PortfolioDecisionEngine.evaluate({ portfolio: nearTargetFundPortfolio, scan: fundScan, decision: fundDecision, cashBenchmarkAnnualPct: 2.5 });
-check('942 mutual funds do not create sub-minimum micro-orders merely because brokerage commission is zero', !nearTargetFundResult.contributions.some(row => row.assetId === 'FUND_TEST'));
+check('945 mutual funds do not create sub-minimum micro-orders merely because brokerage commission is zero', !nearTargetFundResult.contributions.some(row => row.assetId === 'FUND_TEST'));
 
 const materialGapFundPortfolio: any = {
   ...nearTargetFundPortfolio,
@@ -94,6 +97,6 @@ const materialGapFundPortfolio: any = {
   stagedCapitalPlan: { ...nearTargetFundPortfolio.stagedCapitalPlan, availableEur: 5700 }
 };
 const materialGapFundResult = PortfolioDecisionEngine.evaluate({ portfolio: materialGapFundPortfolio, scan: fundScan, decision: fundDecision, cashBenchmarkAnnualPct: 2.5 });
-check('943 mutual funds still execute a material gap above the adaptive minimum', (materialGapFundResult.contributions.find(row => row.assetId === 'FUND_TEST')?.amountEur ?? 0) >= 100);
+check('946 mutual funds still execute a material timing-authorized gap above the adaptive minimum', (materialGapFundResult.contributions.find(row => row.assetId === 'FUND_TEST')?.amountEur ?? 0) >= 100);
 
-console.log(`Current finite-capital allocation: ${passed}/13 invariants passed.`);
+console.log(`Current finite-capital allocation: ${passed}/16 invariants passed.`);
