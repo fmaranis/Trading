@@ -15,6 +15,7 @@ const marketDashboard = readFileSync('src/components/MarketUtilityDashboard.tsx'
 const currentOpportunity = readFileSync('src/components/CurrentOpportunityAlertsPanel.tsx', 'utf8');
 const historicalReplayPanel = readFileSync('src/components/HistoricalDecisionReplayPanel.tsx', 'utf8');
 const historicalRobustness = readFileSync('src/components/HistoricalReplayRobustnessPanel.tsx', 'utf8');
+const historicalAuditWorker = readFileSync('src/workers/historicalReplayAudit.worker.ts', 'utf8');
 const userPortfolio = readFileSync('src/components/UserPortfolioPanel.tsx', 'utf8');
 const portfolioEvolution = readFileSync('src/components/PortfolioEvolutionChart.tsx', 'utf8');
 
@@ -148,14 +149,16 @@ test('980 real portfolio evolution is integrated inside Mi cartera real rather t
   assert.equal((decisionCenter.match(/type Workspace = 'PORTFOLIO' \| 'RESEARCH'/g) ?? []).length, 1);
 });
 
-test('981 multi-date robustness stays explicit-run and executes in bounded compact chunks', () => {
+test('981 historical robustness is checkpointed, auditable and isolated from the UI thread', () => {
   assert.match(researchLab, /<HistoricalDecisionReplayPanel[\s\S]*<HistoricalReplayRobustnessPanel/);
-  assert.match(historicalRobustness, /Prueba masiva desde muchas fechas · modo por tramos/);
-  assert.match(historicalRobustness, /Preparar prueba por tramos/);
-  assert.match(historicalRobustness, /const MONTHLY_CHUNK_SIZE = 2/);
-  assert.match(historicalRobustness, /const DAILY_CHUNK_SIZE = 1/);
-  assert.match(historicalRobustness, /compactReplay\(result\)/);
-  assert.match(historicalRobustness, /DynamicHistoricalReplayEngine\.run/);
+  assert.match(historicalRobustness, /Replay auditado por tramos/);
+  assert.match(historicalRobustness, /historical_progressive_audit_v1/);
+  assert.match(historicalRobustness, /new Worker\(new URL\('\.\.\/workers\/historicalReplayAudit\.worker\.ts'/);
+  assert.match(historicalRobustness, /INCONSISTENCIA DE AUDITORÍA/);
+  assert.match(historicalRobustness, /Ejecutar siguiente tramo/);
+  assert.match(historicalRobustness, /assetValuesEur/);
+  assert.match(historicalAuditWorker, /DynamicHistoricalReplayEngine\.run/);
+  assert.match(historicalAuditWorker, /truncateDataset/);
   assert.doesNotMatch(historicalRobustness, /DynamicHistoricalReplayBatchEngine\.runAsync/);
   assert.doesNotMatch(decisionCenter, /HistoricalReplayRobustnessPanel/);
 });
