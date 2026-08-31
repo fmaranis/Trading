@@ -34,5 +34,7 @@ check('903 below-cash weak candidate never creates an entry alert', !alerts.some
 check('904 structural falling candidate never creates an entry alert', !alerts.some(a => a.assetId === 'FALL'));
 check('905 every emitted alert already has BUY-grade consensus', alerts.every(a => a.consensusScore >= 2 && a.favorableVotes >= 3));
 check('906 high conviction requires at least four favorable votes', alerts.filter(a => a.level === 'HIGH_CONVICTION').every(a => a.favorableVotes >= 4));
+check('907 every emitted alert has explicit causal timing approval', alerts.every(a => a.timingState === 'ENTRY_READY' || a.timingState === 'ENTRY_STRONG'));
+check('908 timing never authorizes the full strategic target as the initial tranche', alerts.every(a => a.suggestedInitialFraction > 0 && a.suggestedInitialFraction <= 0.5));
 
-console.log(`Current opportunity alerts: ${passed}/6 invariants passed.`);
+console.log(`Current opportunity alerts: ${passed}/8 invariants passed.`);
