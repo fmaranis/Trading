@@ -1,4 +1,5 @@
 import { DynamicHistoricalReplayEngine } from '../investment/decision/dynamicHistoricalReplay';
+import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
 import type { AssetUniverseItem } from '../investment/decision/assetUniverse';
 import type { DynamicReplayFrequency } from '../investment/decision/dynamicHistoricalReplay';
@@ -73,17 +74,21 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
 
   try {
     const dataset = truncateDataset(sourceDataset, message.endDate);
-    const result = DynamicHistoricalReplayEngine.run({
+    const result = appendRotationCounterfactualAudit({
+      result: DynamicHistoricalReplayEngine.run({
+        dataset,
+        catalog: configuration.catalog,
+        startDate: configuration.startDate,
+        frequency: configuration.frequency,
+        initialCapitalEur: configuration.initialCapitalEur,
+        riskProfile: configuration.riskProfile,
+        horizonYears: configuration.horizonYears,
+        cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
+        minimumBars: configuration.minimumBars,
+        taxSettings: configuration.taxSettings
+      }),
       dataset,
-      catalog: configuration.catalog,
-      startDate: configuration.startDate,
-      frequency: configuration.frequency,
-      initialCapitalEur: configuration.initialCapitalEur,
-      riskProfile: configuration.riskProfile,
-      horizonYears: configuration.horizonYears,
-      cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
-      minimumBars: configuration.minimumBars,
-      taxSettings: configuration.taxSettings
+      catalog: configuration.catalog
     });
     workerScope.postMessage({ type: 'RESULT', requestedEndDate: message.endDate, result });
   } catch (error: any) {
