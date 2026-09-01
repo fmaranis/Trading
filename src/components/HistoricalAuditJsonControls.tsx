@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Download, FileJson, Save, Upload } from 'lucide-react';
+import { Download, FileJson, Save, Trash2, Upload } from 'lucide-react';
 
 interface Props {
   onImported?: () => void;
@@ -105,6 +105,7 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savingProject, setSavingProject] = useState(false);
+  const [clearingArchive, setClearingArchive] = useState(false);
 
   const currentSession = () => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -150,7 +151,10 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
 
       const sync = body?.githubSync;
       if (sync?.published === true) {
-        setMessage(`Prueba guardada y publicada para ChatGPT en ${sync.repository}:${sync.branch}/${sync.path}. Ya no necesitas adjuntar el JSON/ZIP: puedes decir “revisa la última prueba”.`);
+        const archiveInfo = sync?.archived === true
+          ? ` También se ha guardado en el histórico de ChatGPT (${sync.archivePath}); se conservan como máximo ${sync.archiveLimit ?? 10} pruebas.`
+          : '';
+        setMessage(`Prueba guardada y publicada para ChatGPT en ${sync.repository}:${sync.branch}/${sync.path}.${archiveInfo} Puedes decir “revisa las últimas pruebas”.`);
       } else if (sync?.configured === false) {
         setMessage(`Prueba guardada localmente en ${body.latestPath}. La publicación automática para ChatGPT aún no está configurada: añade el secreto server-side GITHUB_REPLAY_SYNC_TOKEN una sola vez.`);
       } else if (sync?.blockedReason === 'PRODUCTION_SYNC_DISABLED') {
@@ -164,6 +168,26 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
       setError(`No se pudo guardar la prueba en el proyecto: ${e?.message || String(e)}`);
     } finally {
       setSavingProject(false);
+    }
+  };
+
+  const clearArchive = async () => {
+    const confirmed = window.confirm('Se borrarán las copias históricas de replay guardadas para ChatGPT, pero se conservará latest-chatgpt.json con la última prueba. ¿Continuar?');
+    if (!confirmed) return;
+    setError(null);
+    setMessage(null);
+    setClearingArchive(true);
+    try {
+      const response = await fetch('/api/validation/historical-audit/archive', { method: 'DELETE' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body?.detail || body?.error || `HTTP ${response.status}`);
+      const remote = body?.githubArchive;
+      if (remote?.error) throw new Error(String(remote.error));
+      setMessage(`Histórico limpiado: ${Number(body?.localDeleted ?? 0)} copias locales y ${Number(remote?.deleted ?? 0)} copias de GitHub eliminadas. latest-chatgpt.json se conserva.`);
+    } catch (e: any) {
+      setError(`No se pudo limpiar el histórico: ${e?.message || String(e)}`);
+    } finally {
+      setClearingArchive(false);
     }
   };
 
@@ -193,9 +217,10 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
 
   return <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar + publicar para ChatGPT” conserva el replay completo localmente y, en desarrollo/AI Studio con el secreto server-side configurado, actualiza automáticamente la copia canónica de lectura en la rama replay-results. No usa GitHub Actions y el token nunca llega al navegador.</div></div>
+      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">Los checkpoints actualizan automáticamente latest-chatgpt.json sin crear copias. “Guardar + publicar” añade una copia final al histórico, limitado automáticamente a 10 pruebas. “Borrar histórico” elimina sólo esas copias y conserva siempre la última prueba.</div></div>
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => void saveToProject()} disabled={savingProject} className="flex min-h-10 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 disabled:opacity-50"><Save className="h-3.5 w-3.5"/>{savingProject ? 'Guardando…' : 'Guardar + publicar para ChatGPT'}</button>
+        <button type="button" onClick={() => void clearArchive()} disabled={clearingArchive} className="flex min-h-10 items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[10px] font-bold text-rose-100 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5"/>{clearingArchive ? 'Borrando…' : 'Borrar histórico ChatGPT'}</button>
         <button type="button" onClick={exportSession} className="flex min-h-10 items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[10px] font-bold text-cyan-100"><Download className="h-3.5 w-3.5"/>Exportar prueba JSON</button>
         <button type="button" onClick={() => fileRef.current?.click()} className="flex min-h-10 items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-[10px] font-bold text-violet-100"><Upload className="h-3.5 w-3.5"/>Importar prueba JSON</button>
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={e => void importFile(e.target.files?.[0] ?? null)}/>
