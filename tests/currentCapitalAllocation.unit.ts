@@ -13,6 +13,21 @@ function bars(multiplier: number, count = 320) {
   }
   return out;
 }
+function transientStrongBars(count = 320) {
+  const out: any[] = []; let price = 100;
+  const trendBars = count - 10;
+  for (let i = 0; i < trendBars; i++) {
+    price *= 1.0012;
+    out.push({ timestamp: new Date(Date.UTC(2025, 0, 1 + i)).toISOString(), open: price * 0.999, high: price * 1.002, low: price * 0.998, close: price, volume: 1000 });
+  }
+  for (let i = trendBars; i < count - 1; i++) {
+    price *= 0.995;
+    out.push({ timestamp: new Date(Date.UTC(2025, 0, 1 + i)).toISOString(), open: price * 1.001, high: price * 1.002, low: price * 0.998, close: price, volume: 1000 });
+  }
+  price *= 1.055;
+  out.push({ timestamp: new Date(Date.UTC(2025, 0, count)).toISOString(), open: price * 0.999, high: price * 1.002, low: price * 0.998, close: price, volume: 1000 });
+  return out;
+}
 function candidate(assetId: string, ticker: string, category: string, series: any[], m120: number, vol: number, score: number): any {
   return {
     asset: { assetId, ticker, name: ticker, category, currency: 'EUR' }, status: 'ACCEPTED', bars: series.length,
@@ -153,23 +168,32 @@ const rotationPortfolio: any = {
 const rotationResult = PortfolioDecisionEngine.evaluate({ portfolio: rotationPortfolio, scan: rotationScan, decision: rotationDecision, positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5 });
 const rotatedIncumbent = rotationResult.existingPositions.find(row => row.assetId === 'INCUMBENT');
 const challengerEntry = rotationResult.contributions.find(row => row.assetId === 'STRONG_TECH');
-check('952 a full portfolio rotates one-for-one: the weak incumbent must EXIT before the new challenger consumes its slot', rotationResult.availablePortfolioSlots === 0 && rotatedIncumbent?.action === 'EXIT' && rotatedIncumbent.suggestedReductionPct === 100 && rotatedIncumbent.rotationChallengerAssetId === 'STRONG_TECH');
-check('953 one-for-one rotation exposes the incumbent full value as theoretical proceeds', Math.abs(rotationResult.plannedRotationProceedsEur - 2000) < 0.01 && rotationResult.deployableToAssetsEur >= 2000 - 0.01);
-check('954 the paired challenger is tagged as ROTATION_ENTRY rather than an unrelated starter', Boolean(challengerEntry) && challengerEntry?.positionStage === 'ROTATION_ENTRY');
-check('955 projected active-position count cannot exceed the strict medium-risk slot limit after a paired rotation', rotationResult.occupiedPortfolioPositions - rotationResult.existingPositions.filter(row => row.rotationChallengerAssetId != null && row.action === 'EXIT').length + rotationResult.contributions.filter(row => row.positionStage === 'ROTATION_ENTRY').length <= rotationResult.maxPortfolioPositions);
-check('956 rotation remains hysteretic: at most one incumbent is competitively replaced per evaluation', rotationResult.existingPositions.filter(row => row.rotationChallengerAssetId != null).length <= 1);
+check('952 a full portfolio rotates one-for-one only for a persistently strong challenger', rotationResult.availablePortfolioSlots === 0 && rotatedIncumbent?.action === 'EXIT' && rotatedIncumbent.suggestedReductionPct === 100 && rotatedIncumbent.rotationChallengerAssetId === 'STRONG_TECH');
+check('953 persistent rotation records at least two prior STRONG observations inside the ten-session lookback', (rotatedIncumbent?.rotationChallengerRecentStrongCount ?? 0) >= 2 && rotatedIncumbent?.rotationChallengerPersistenceLookbackSessions === 10);
+check('954 one-for-one rotation exposes the incumbent full value as theoretical proceeds', Math.abs(rotationResult.plannedRotationProceedsEur - 2000) < 0.01 && rotationResult.deployableToAssetsEur >= 2000 - 0.01);
+check('955 the paired persistent challenger is tagged as ROTATION_ENTRY rather than an unrelated starter', Boolean(challengerEntry) && challengerEntry?.positionStage === 'ROTATION_ENTRY');
+check('956 projected active-position count cannot exceed the strict medium-risk slot limit after a paired rotation', rotationResult.occupiedPortfolioPositions - rotationResult.existingPositions.filter(row => row.rotationChallengerAssetId != null && row.action === 'EXIT').length + rotationResult.contributions.filter(row => row.positionStage === 'ROTATION_ENTRY').length <= rotationResult.maxPortfolioPositions);
+check('957 rotation remains hysteretic: at most one incumbent is competitively replaced per evaluation', rotationResult.existingPositions.filter(row => row.rotationChallengerAssetId != null).length <= 1);
+
+const transientBars = transientStrongBars();
+const transientCandidate: any = candidate('TRANSIENT_STRONG', 'TRANSIENT.DE', 'TECHNOLOGY', transientBars, 26, 15, 24);
+const transientRotationScan: any = scanFrom([incumbentCandidate, transientCandidate], { INCUMBENT: incumbentBars, TRANSIENT_STRONG: transientBars });
+const transientAlerts = CurrentOpportunityAlertEngine.evaluate(transientRotationScan, 2.5);
+const transientRotationResult = PortfolioDecisionEngine.evaluate({ portfolio: rotationPortfolio, scan: transientRotationScan, decision: rotationDecision, positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5 });
+const transientPreservedIncumbent = transientRotationResult.existingPositions.find(row => row.assetId === 'INCUMBENT');
+check('958 a fresh isolated ENTRY_STRONG remains a valid opportunity today but cannot evict an incumbent without prior persistence', transientAlerts.some(row => row.assetId === 'TRANSIENT_STRONG' && row.timingState === 'ENTRY_STRONG') && transientPreservedIncumbent?.action === 'WATCH' && transientPreservedIncumbent.rotationChallengerAssetId == null && !transientRotationResult.contributions.some(row => row.assetId === 'TRANSIENT_STRONG'));
 
 const expensiveBars = techBars.map(bar => ({ ...bar, open: bar.open * 20, high: bar.high * 20, low: bar.low * 20, close: bar.close * 20 }));
 const expensiveCandidate: any = candidate('EXPENSIVE_CHALLENGER', 'EXP.DE', 'TECHNOLOGY', expensiveBars, 26, 15, 25);
 const expensiveRotationScan: any = scanFrom([incumbentCandidate, expensiveCandidate], { INCUMBENT: incumbentBars, EXPENSIVE_CHALLENGER: expensiveBars });
 const expensiveRotationResult = PortfolioDecisionEngine.evaluate({ portfolio: rotationPortfolio, scan: expensiveRotationScan, decision: rotationDecision, positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5 });
 const preservedIncumbent = expensiveRotationResult.existingPositions.find(row => row.assetId === 'INCUMBENT');
-check('957 a full-slot rotation is cancelled when the challenger allocation cannot buy even one whole ETF share', preservedIncumbent?.action === 'WATCH' && preservedIncumbent.rotationChallengerAssetId == null && expensiveRotationResult.plannedRotationProceedsEur === 0 && !expensiveRotationResult.contributions.some(row => row.assetId === 'EXPENSIVE_CHALLENGER'));
+check('959 a full-slot rotation is cancelled when the challenger allocation cannot buy even one whole ETF share', preservedIncumbent?.action === 'WATCH' && preservedIncumbent.rotationChallengerAssetId == null && expensiveRotationResult.plannedRotationProceedsEur === 0 && !expensiveRotationResult.contributions.some(row => row.assetId === 'EXPENSIVE_CHALLENGER'));
 
 const weakOnlyScan: any = scanFrom([candidates[2]], { WEAK_BOND: weakBars });
 const weakOnlyDecision: any = { cashWeight: 0.10, riskProfile: 'MEDIUM', horizonYears: 3, assets: [{ assetId: 'WEAK_BOND', ticker: 'WEAKB.DE', name: 'Weak theoretical bond', weight: 0.90 }] };
 const noOpportunityResult = PortfolioDecisionEngine.evaluate({ portfolio, scan: weakOnlyScan, decision: weakOnlyDecision, cashBenchmarkAnnualPct: 2.5 });
-check('958 no-opportunity state never converts theoretical target gaps into fallback purchase orders', noOpportunityResult.contributions.length === 0 && noOpportunityResult.recommendedNewInvestmentEur === 0);
+check('960 no-opportunity state never converts theoretical target gaps into fallback purchase orders', noOpportunityResult.contributions.length === 0 && noOpportunityResult.recommendedNewInvestmentEur === 0);
 
 const addHealth: any = {
   'STRONGT.DE': {
@@ -181,7 +205,7 @@ const addHealth: any = {
 };
 const confirmedBuildResult = PortfolioDecisionEngine.evaluate({ portfolio: fullyExecutedPortfolio, scan, decision, positionHealth: addHealth, cashBenchmarkAnnualPct: 2.5 });
 const confirmedBuild = confirmedBuildResult.contributions.find(row => row.assetId === 'STRONG_TECH');
-check('959 a filled starter may grow only when position health independently confirms ADD while timing remains strong', Boolean(confirmedBuild) && confirmedBuild?.positionStage === 'BUILD' && (confirmedBuild.portfolioShareCapPct ?? 0) === 8);
-check('960 confirmed BUILD remains incremental and cannot jump beyond the eight-percent medium-risk build cap', Boolean(confirmedBuild) && (confirmedBuild?.executableTargetAssetValueEur ?? Infinity) <= 800 + 1e-6 && (confirmedBuild?.amountEur ?? Infinity) <= 300 + 1e-6);
+check('961 a filled starter may grow only when position health independently confirms ADD while timing remains strong', Boolean(confirmedBuild) && confirmedBuild?.positionStage === 'BUILD' && (confirmedBuild.portfolioShareCapPct ?? 0) === 8);
+check('962 confirmed BUILD remains incremental and cannot jump beyond the eight-percent medium-risk build cap', Boolean(confirmedBuild) && (confirmedBuild?.executableTargetAssetValueEur ?? Infinity) <= 800 + 1e-6 && (confirmedBuild?.amountEur ?? Infinity) <= 300 + 1e-6);
 
-console.log(`Current finite-capital allocation: ${passed}/30 invariants passed.`);
+console.log(`Current finite-capital allocation: ${passed}/32 invariants passed.`);
