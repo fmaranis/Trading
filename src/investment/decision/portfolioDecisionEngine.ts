@@ -168,6 +168,8 @@ function rotationPriorityMargin(risk: InvestmentDecisionResult['riskProfile']): 
 
 const ROTATION_PERSISTENCE_LOOKBACK_SESSIONS = 10;
 const ROTATION_MIN_PRIOR_STRONG_OBSERVATIONS = 3;
+const SYSTEMIC_DISTRESS_MIN_POSITIONS = 3;
+const SYSTEMIC_DISTRESS_MIN_FRACTION = 0.50;
 
 function incumbentSelectionScore(candidate: AssetUniverseScanResult['candidates'][number] | undefined, health: PortfolioPositionHealthSnapshot | undefined): number | null {
   if (!candidate || candidate.score == null || !Number.isFinite(candidate.score)) return null;
@@ -283,6 +285,16 @@ export class PortfolioDecisionEngine {
     const currentCashEur = Math.max(0, portfolio.cashEur);
     const pendingCapitalEur = Math.max(0, portfolio.stagedCapitalPlan?.availableEur ?? 0);
     const totalPlannedCapitalEur = currentInvestedValueEur + currentCashEur + pendingCapitalEur;
+    const systemicHealthRows = unresolvedPositions
+      .map(unresolved => ({ row: existingPositions[unresolved.index], health: unresolved.health }))
+      .filter(item => (item.row.currentValueEur ?? 0) > 0 && Number.isFinite(item.health?.consensusScore) && Number.isFinite(item.health?.unfavorableVotes));
+    const systemicDistressedCount = systemicHealthRows.filter(item =>
+      (item.health?.consensusScore ?? Infinity) <= -3 && (item.health?.unfavorableVotes ?? 0) >= 3
+    ).length;
+    const systemicDistressFraction = systemicHealthRows.length > 0 ? systemicDistressedCount / systemicHealthRows.length : 0;
+    const systemicStress = systemicDistressedCount >= SYSTEMIC_DISTRESS_MIN_POSITIONS && systemicDistressFraction >= SYSTEMIC_DISTRESS_MIN_FRACTION;
+    const systemicCoreShare = starterPortfolioShare(decision.riskProfile, 'ENTRY_READY');
+    const systemicCoreValueEur = totalPlannedCapitalEur * systemicCoreShare;
 
     const targetWeightByCategory = new Map<AssetUniverseCategory, number>();
     const preferredByCategory = new Map<AssetUniverseCategory, InvestmentDecisionResult['assets'][number]>();
@@ -322,9 +334,23 @@ export class PortfolioDecisionEngine {
       if (health) {
         row.healthSource = health.source;
         if (health.action === 'EXIT') {
-          row.action = 'EXIT';
-          row.reason = health.reason;
-          row.suggestedReductionPct = 100;
+          if (systemicStress) {
+            const currentValue = Math.max(0, row.currentValueEur ?? 0);
+            if (currentValue > systemicCoreValueEur + 0.01 && systemicCoreValueEur > 0) {
+              const reductionPct = Math.max(0, Math.min(100, (1 - systemicCoreValueEur / currentValue) * 100));
+              row.action = 'REDUCE';
+              row.suggestedReductionPct = reductionPct;
+              row.reason = `Estrés sistémico detectado (${systemicDistressedCount}/${systemicHealthRows.length} posiciones con consenso ≤-3 y ≥3 señales adversas). La señal individual justificaría EXIT, pero no se liquida una posición junto con media cartera. Se reduce sólo hasta el núcleo ENTRY_READY del ${(systemicCoreShare * 100).toFixed(1)}% del patrimonio; el EXIT completo volverá a exigirse cuando el deterioro deje de ser sistémico y siga siendo específico del activo. Señal individual: ${health.reason}`;
+            } else {
+              row.action = 'WATCH';
+              row.suggestedReductionPct = null;
+              row.reason = `Estrés sistémico detectado (${systemicDistressedCount}/${systemicHealthRows.length} posiciones con consenso ≤-3 y ≥3 señales adversas). La posición ya está en o por debajo del núcleo ENTRY_READY del ${(systemicCoreShare * 100).toFixed(1)}% del patrimonio, por lo que no se cristaliza un EXIT 100% durante una venta sincronizada. Se mantiene en WATCH y recuperará la gestión individual normal cuando la amplitud se normalice. Señal individual: ${health.reason}`;
+            }
+          } else {
+            row.action = 'EXIT';
+            row.reason = health.reason;
+            row.suggestedReductionPct = 100;
+          }
           continue;
         }
         if (health.action === 'REDUCE') {
@@ -395,9 +421,10 @@ export class PortfolioDecisionEngine {
     // A full-slot competitive replacement requires evidence that the challenger was
     // already strong before today. ENTRY_STRONG remains a fast entry-timing signal for
     // ordinary cash/new-slot entries, but one isolated STRONG is not enough to evict an
-    // incumbent. The persistence is reconstructed causally from prior bars in this scan.
+    // incumbent. During broad systemic distress the engine does not churn one stressed
+    // incumbent into another asset; health protection takes precedence until breadth normalizes.
     const rotationPersistenceByAsset = new Map<string, EntryTimingPersistenceAssessment>();
-    const rotationChallengers = availablePortfolioSlots === 0
+    const rotationChallengers = availablePortfolioSlots === 0 && !systemicStress
       ? opportunities
         .filter(alert => !heldAssetIds.has(alert.assetId) && alert.timingState === 'ENTRY_STRONG' && alert.consensusScore >= 3 && alert.favorableVotes >= 4)
         .filter(alert => {
@@ -603,6 +630,7 @@ export class PortfolioDecisionEngine {
     const residualPlannedCashEur = Math.max(0, deployablePool + plannedRotationProceedsEur - recommendedNewInvestmentEur);
     const warnings: string[] = [];
     if (hasMissingValuation) warnings.push('Hay posiciones sin valoración REAL utilizable: se bloquea temporalmente la asignación de capital nuevo para no calcular el patrimonio como si esas posiciones valieran cero.');
+    if (systemicStress) warnings.push(`Estrés sistémico de cartera: ${systemicDistressedCount}/${systemicHealthRows.length} posiciones observadas tienen consenso ≤-3 y ≥3 señales adversas. Los EXIT estructurales se convierten temporalmente en WATCH o REDUCE hasta el núcleo ENTRY_READY (${(systemicCoreShare * 100).toFixed(1)}%); se bloquea la rotación competitiva mientras persista esta amplitud.`);
     if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Una sobreponderación por sí sola NO genera una venta. REDUCE/EXIT proceden de salud o de una rotación challenger/incumbent con ventaja material; nunca de peso aislado.');
     if (existingPositions.some(x => x.category === 'UNKNOWN' && x.currentValueEur != null)) warnings.push('Hay posiciones fuera del universo clasificado que se valoran y vigilan individualmente; no se inventa una categoría para forzar su peso objetivo.');
     warnings.push(`Cartera dinámica: máximo ${maxPortfolioPositions} plazas para riesgo ${decision.riskProfile}; ocupadas ${occupiedPortfolioPositions}, libres ${availablePortfolioSlots}. Nuevas plazas por evaluación: máximo ${maxNewPositionsPerDecision(decision.riskProfile)}.`);
