@@ -70,7 +70,9 @@ const REDUCE_MIN_MFE_PCT = 5;
 const REDUCE_MIN_GIVEBACK_PP = 15;
 const WATCH_MIN_GIVEBACK_PP = 8;
 const WATCH_MAX_CURRENT_RETURN_PCT = -3;
-const HEALTH_STREAK_LOOKBACK_SESSIONS = 10;
+// One extra session is intentional: 10 means the threshold is crossed now;
+// 11 means this is the same continuous episode after the one allowed tactical REDUCE.
+const HEALTH_STREAK_LOOKBACK_SESSIONS = 11;
 
 function isoDate(date: Date): string { return date.toISOString().slice(0, 10); }
 function barDate(bar: PriceBar): string { return bar.timestamp.slice(0, 10); }
@@ -119,6 +121,14 @@ export function classifyPositionHealth(
 ): Pick<PortfolioPositionHealthSnapshot, 'action' | 'reason' | 'suggestedReductionPct'> {
   if (!assessment) return { action: 'DATA_MISSING', reason: 'No hay evidencia causal suficiente para evaluar esta posición.', suggestedReductionPct: null };
 
+  // Normalize the audit/context classification from the actual instrument identity.
+  // This prevents a single stock such as EQ_FERROVIAL from inheriting broad-index
+  // protection merely because both happen to use the EUROPE_EQUITY category.
+  const instrumentIdentity = assessment.assetId || assessment.ticker;
+  if (context.category != null && instrumentIdentity) {
+    context.isDiversifiedCore = isDiversifiedCoreCategory(context.category, instrumentIdentity);
+  }
+
   if (assessment.structuralDowntrend && assessment.unfavorableVotes >= 4 && assessment.consensusScore <= -3) {
     return {
       action: 'EXIT',
@@ -135,7 +145,9 @@ export function classifyPositionHealth(
   const weakMultiSignal = assessment.consensusScore <= -1 && assessment.unfavorableVotes >= 2;
   const tacticalGivebackReduction = context.isDiversifiedCore === false
     && weakMultiSignal
-    && streak >= REDUCE_MIN_DETERIORATION_SESSIONS
+    // Edge-triggered at the tenth consecutive weak session. Once the same
+    // episode reaches 11+, it falls back to WATCH rather than selling again.
+    && streak === REDUCE_MIN_DETERIORATION_SESSIONS
     && mfe != null && mfe >= REDUCE_MIN_MFE_PCT
     && giveback != null && giveback >= REDUCE_MIN_GIVEBACK_PP
     && currentReturn != null && currentReturn < 0
@@ -144,7 +156,7 @@ export function classifyPositionHealth(
   if (tacticalGivebackReduction) {
     return {
       action: 'REDUCE',
-      reason: `Deterioro individual persistente en posición satélite: ${streak} sesiones consecutivas con evidencia débil, MFE ${mfe!.toFixed(1)}%, retorno actual ${currentReturn!.toFixed(1)}%, devolución ${giveback!.toFixed(1)} pp y momentum 20d ${momentum20!.toFixed(1)}%. Reducir 50% para proteger capital sin convertir el MFE en un stop automático.`,
+      reason: `Deterioro individual persistente en posición satélite: se alcanza la sesión ${streak} consecutiva con evidencia débil, MFE ${mfe!.toFixed(1)}%, retorno actual ${currentReturn!.toFixed(1)}%, devolución ${giveback!.toFixed(1)} pp y momentum 20d ${momentum20!.toFixed(1)}%. Reducir 50% una sola vez en este episodio; desde la siguiente sesión continua vuelve a WATCH salvo deterioro estructural posterior.`,
       suggestedReductionPct: 50
     };
   }
