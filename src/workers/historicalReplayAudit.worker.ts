@@ -1,5 +1,5 @@
-import { DynamicHistoricalReplayEngine } from '../investment/decision/dynamicHistoricalReplay';
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
+import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
 import type { AssetUniverseItem } from '../investment/decision/assetUniverse';
 import type { DynamicReplayFrequency } from '../investment/decision/dynamicHistoricalReplay';
@@ -34,6 +34,7 @@ interface WorkerScope {
 }
 
 const workerScope = self as unknown as WorkerScope;
+const REPLAY_ROTATION_EXPERIMENT = 'CORE_GATE_V1' as const;
 let configuration: Omit<InitMessage, 'type' | 'dataset'> | null = null;
 let sourceDataset: MultiAssetDataset | null = null;
 
@@ -63,7 +64,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
     const { dataset, type: _type, ...rest } = message;
     sourceDataset = dataset;
     configuration = rest;
-    workerScope.postMessage({ type: 'READY' });
+    workerScope.postMessage({ type: 'READY', rotationExperiment: REPLAY_ROTATION_EXPERIMENT });
     return;
   }
 
@@ -75,7 +76,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
   try {
     const dataset = truncateDataset(sourceDataset, message.endDate);
     const result = appendRotationCounterfactualAudit({
-      result: DynamicHistoricalReplayEngine.run({
+      result: runDynamicReplayWithRotationExperiment({
         dataset,
         catalog: configuration.catalog,
         startDate: configuration.startDate,
@@ -86,11 +87,11 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
         cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
         minimumBars: configuration.minimumBars,
         taxSettings: configuration.taxSettings
-      }),
+      }, REPLAY_ROTATION_EXPERIMENT),
       dataset,
       catalog: configuration.catalog
     });
-    workerScope.postMessage({ type: 'RESULT', requestedEndDate: message.endDate, result });
+    workerScope.postMessage({ type: 'RESULT', requestedEndDate: message.endDate, result, rotationExperiment: REPLAY_ROTATION_EXPERIMENT });
   } catch (error: any) {
     workerScope.postMessage({ type: 'ERROR', error: error?.message || String(error), requestedEndDate: message.endDate });
   }
