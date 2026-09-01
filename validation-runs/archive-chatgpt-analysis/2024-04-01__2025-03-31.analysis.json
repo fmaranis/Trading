@@ -3,8 +3,8 @@
     "format": "TRADING_HISTORICAL_REPLAY_AUDIT",
     "schemaVersion": 1,
     "analysisProjectionVersion": 2,
-    "exportedAt": "2026-09-01T16:43:52.162Z",
-    "source": "Local replay archive 2026-09-01T16-43-52-162Z-historical-replay.json",
+    "exportedAt": "2026-09-01T16:56:27.952Z",
+    "source": "Local replay archive 2026-09-01T16-56-27-952Z-historical-replay.json",
     "note": "Small directly-readable diagnostic projection. Full replay remains in .json.gz.b64."
   },
   "session": {
