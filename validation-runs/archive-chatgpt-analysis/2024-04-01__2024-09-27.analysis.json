@@ -2,9 +2,9 @@
   "metadata": {
     "format": "TRADING_HISTORICAL_REPLAY_AUDIT",
     "schemaVersion": 1,
-    "analysisProjectionVersion": 1,
+    "analysisProjectionVersion": 2,
     "exportedAt": "2026-09-01T15:55:43.285Z",
-    "source": "Local replay archive backfill",
+    "source": "Local replay archive 2026-09-01T15-55-43-285Z-historical-replay.json",
     "note": "Small directly-readable diagnostic projection. Full replay remains in .json.gz.b64."
   },
   "session": {
