@@ -167,7 +167,7 @@ function rotationPriorityMargin(risk: InvestmentDecisionResult['riskProfile']): 
 }
 
 const ROTATION_PERSISTENCE_LOOKBACK_SESSIONS = 10;
-const ROTATION_MIN_PRIOR_STRONG_OBSERVATIONS = 2;
+const ROTATION_MIN_PRIOR_STRONG_OBSERVATIONS = 3;
 
 function incumbentSelectionScore(candidate: AssetUniverseScanResult['candidates'][number] | undefined, health: PortfolioPositionHealthSnapshot | undefined): number | null {
   if (!candidate || candidate.score == null || !Number.isFinite(candidate.score)) return null;
