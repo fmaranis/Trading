@@ -1,3 +1,5 @@
+import { queueReplayAutoPublish } from './replaySessionStorageAutoPublish';
+
 const REPLAY_STORAGE_KEY = 'historical_progressive_audit_v3';
 
 let latestReplayJson: string | null = null;
@@ -8,8 +10,9 @@ let installed = false;
  * browser localStorage quota is exhausted. The normal localStorage write is
  * still attempted so small/medium sessions remain resumable after reload.
  *
- * This is intentionally an in-memory fallback only: it does not invent a new
- * persistent database and it does not change replay calculation semantics.
+ * The same live snapshot is also queued for server/GitHub audit publication
+ * before localStorage is attempted. Therefore publication does not depend on
+ * browser storage capacity and cannot interrupt replay calculation.
  */
 export function installReplaySessionStorageFallback(): void {
   if (installed || typeof window === 'undefined' || typeof Storage === 'undefined') return;
@@ -23,6 +26,7 @@ export function installReplaySessionStorageFallback(): void {
   storagePrototype.setItem = function patchedSetItem(key: string, value: string): void {
     if (this === window.localStorage && key === REPLAY_STORAGE_KEY) {
       latestReplayJson = String(value);
+      queueReplayAutoPublish(latestReplayJson);
     }
     nativeSetItem.call(this, key, value);
   };
