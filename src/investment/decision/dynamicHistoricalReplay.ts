@@ -904,6 +904,10 @@ export class DynamicHistoricalReplayEngine {
           if (holding.units <= 1e-12) {
             holdings.delete(holding.assetId);
             positionHealthStateByAsset.delete(holding.assetId);
+          } else if (plan.signal.action === 'REDUCE') {
+            // A partial sale starts a new health episode for the remaining tranche.
+            // Its old MFE must not be allowed to trigger another tactical reduction.
+            positionHealthStateByAsset.delete(holding.assetId);
           }
           totalFeesEur += fee;
           Object.assign(plan.signal, { executed: true, executionDate: isoDate(bar.timestamp), unitsDelta: -unitsToSell, notionalEur: gross, feeEur: fee, realizedGainEur: realizedGain, executionPriceEur: price });
@@ -1021,7 +1025,7 @@ export class DynamicHistoricalReplayEngine {
         'DAILY revisa cada sesión disponible; WEEKLY/MONTHLY/QUARTERLY reducen la frecuencia de decisión. La ejecución siempre ocurre después de la señal.',
         'Las señales conservan timingState, timingSetup, timingScore y suggestedInitialFraction; WAIT queda auditado como NO COMPRAR y READY/STRONG permanecen visibles aunque el candidato no reciba capital.',
         'Las posiciones existentes conservan auditoría causal de retorno, MFE, giveback, persistencia de deterioro y clasificación core/satélite. WATCH es explícito pero no operativo; REDUCE por giveback se reserva a satélites y requiere persistencia, MFE previo y momentum 20d no recuperado.',
-        'Tras un ADD se reinicia la referencia MFE de la posición ampliada para no mezclar el máximo de una posición más pequeña con la nueva base de coste.',
+        'Tras un ADD o un REDUCE ejecutado se reinicia la referencia MFE de la posición resultante para no mezclar el máximo de una exposición anterior con la nueva base/tramo restante.',
         'deploymentHorizons mide 1/5/20/60 sesiones transcurridas desde la fecha inicial: capital neto comprometido por flujos ejecutados y valor de mercado invertido se informan por separado.',
         'Una compra ejecutada cuenta contra el objetivo estable del activo en las decisiones posteriores; el replay no redistribuye desde cero el efectivo restante después de cada operación.',
         'ETFs usan títulos enteros, mínimo/drag de comisión de la política adaptativa y comisión MyInvestor modelada; fondos usan unidades fraccionarias.',
