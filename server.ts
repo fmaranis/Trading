@@ -14,8 +14,10 @@ const MAX_HISTORICAL_AUDIT_BYTES = 25 * 1024 * 1024;
 const DEFAULT_REPLAY_SYNC_REPOSITORY = 'fmaranis/Trading';
 const DEFAULT_REPLAY_SYNC_BRANCH = 'replay-results';
 const CHATGPT_REPLAY_SYNC_PATH = 'validation-runs/latest-chatgpt.json';
+const CHATGPT_REPLAY_FULL_PATH = 'validation-runs/latest-chatgpt-full.json';
 const CHATGPT_REPLAY_ARCHIVE_DIR = 'validation-runs/archive-chatgpt';
 const CHATGPT_REPLAY_ARCHIVE_LIMIT = 10;
+const CHATGPT_READABLE_TARGET_BYTES = 900_000;
 const GITHUB_REPLAY_SYNC_TIMEOUT_MS = 120_000;
 
 function redactSecrets(value: unknown): unknown {
@@ -61,6 +63,96 @@ function chatgptArchiveName(payload: any): string {
   const start = String(payload?.session?.startDate ?? 'start').replace(/[^0-9A-Za-z_-]/g, '-');
   const end = String(payload?.session?.summary?.endDate ?? payload?.session?.path?.at?.(-1)?.date ?? 'partial').replace(/[^0-9A-Za-z_-]/g, '-');
   return `${stamp}__${start}__${end}.json`;
+}
+
+function finiteOrNull(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function signalIsDiagnostic(signal: any, strict = false): boolean {
+  const action = String(signal?.action ?? '');
+  const reason = String(signal?.reason ?? '');
+  const marker = reason.includes('CORE_GATE_V1') || reason.includes('ROTATION_CF_V1');
+  if (signal?.executed === true || marker || action === 'REDUCE' || action === 'EXIT') return true;
+  if (strict) return false;
+  if (action === 'BUY' || action === 'ADD') return true;
+  if (action !== 'WATCH') return false;
+  const streak = finiteOrNull(signal?.positionDeteriorationStreakSessions) ?? 0;
+  const mfe = finiteOrNull(signal?.positionMfePct) ?? 0;
+  const giveback = finiteOrNull(signal?.positionGivebackFromMfePctPoints) ?? 0;
+  const currentReturn = finiteOrNull(signal?.positionCurrentReturnPct) ?? 0;
+  return streak >= 8 || (mfe >= 5 && giveback >= 12 && currentReturn < 0);
+}
+
+function buildReadableReplayAudit(payload: any, strict = false): any {
+  const session = payload?.session ?? {};
+  const checkpoints = Array.isArray(session.checkpoints) ? session.checkpoints : [];
+  const executions = Array.isArray(session.executions) ? session.executions : [];
+  const pathPoints = Array.isArray(session.path) ? session.path : [];
+  const signals = Array.isArray(session.signals) ? session.signals : [];
+  const positions = Array.isArray(session.positions) ? session.positions : [];
+  const {
+    checkpoints: _checkpoints,
+    executions: _executions,
+    path: _path,
+    signals: _signals,
+    positions: _positions,
+    ...sessionConfigAndSummary
+  } = session;
+
+  const actionCounts: Record<string, number> = {};
+  const executedActionCounts: Record<string, number> = {};
+  for (const signal of signals) {
+    const action = String(signal?.action ?? 'UNKNOWN');
+    actionCounts[action] = (actionCounts[action] ?? 0) + 1;
+    if (signal?.executed === true) executedActionCounts[action] = (executedActionCounts[action] ?? 0) + 1;
+  }
+
+  const diagnosticSignals = signals.filter((signal: any) => signalIsDiagnostic(signal, strict));
+  return {
+    metadata: {
+      ...payload?.metadata,
+      readableAuditVersion: 1,
+      generatedAt: new Date().toISOString(),
+      githubStorageFormat: 'plain-json',
+      sourceFullReplayPath: CHATGPT_REPLAY_FULL_PATH,
+      diagnosticSignalPolicy: strict
+        ? 'executed + REDUCE/EXIT + CORE_GATE_V1/ROTATION_CF_V1 markers'
+        : 'executed + BUY/ADD/REDUCE/EXIT + diagnostic WATCH + CORE_GATE_V1/ROTATION_CF_V1 markers',
+      note: 'JSON de auditoría directamente legible por ChatGPT. El replay completo se publica también como JSON normal en sourceFullReplayPath.'
+    },
+    session: {
+      ...sessionConfigAndSummary,
+      counts: {
+        checkpoints: checkpoints.length,
+        executions: executions.length,
+        path: pathPoints.length,
+        signals: signals.length,
+        positions: positions.length,
+        diagnosticSignals: diagnosticSignals.length,
+        actionCounts,
+        executedActionCounts
+      },
+      checkpoints: checkpoints.map((checkpoint: any) => ({
+        startDate: checkpoint?.startDate ?? null,
+        endDate: checkpoint?.endDate ?? checkpoint?.date ?? null,
+        summary: checkpoint?.summary ?? null
+      })),
+      executions,
+      positions,
+      path: pathPoints.map((point: any) => ({
+        date: point?.date ?? null,
+        equityEur: point?.equityEur ?? null,
+        cashEur: point?.cashEur ?? null,
+        investedEur: point?.investedEur ?? null,
+        cashBenchmarkEur: point?.cashBenchmarkEur ?? null,
+        regime: point?.regime ?? null,
+        method: point?.method ?? null
+      })),
+      signals: diagnosticSignals
+    }
+  };
 }
 
 function githubHeaders(token: string): Record<string, string> {
@@ -173,26 +265,42 @@ async function publishReplayProjectionToGithub(payload: any, archive: boolean): 
   validateReplaySyncTarget(repository, branch);
   const headers = githubHeaders(token);
 
-  // Publish the complete replay as ordinary pretty-printed JSON. This intentionally
-  // favors direct auditability/readability over transfer size: GitHub/ChatGPT can
-  // read it by line ranges without a gzip/base64 decoding step.
-  const publishedPayload = {
+  const fullPayload = {
     ...payload,
     metadata: {
       ...payload.metadata,
       publishedAt: new Date().toISOString(),
       githubStorageFormat: 'plain-json',
-      note: 'Replay completo en JSON normal y legible directamente desde GitHub. Sin gzip ni Base64 en el archivo almacenado.'
+      note: 'Replay completo en JSON normal. La auditoría directamente legible por ChatGPT está en validation-runs/latest-chatgpt.json.'
     }
   };
-  const serialized = JSON.stringify(publishedPayload, null, 2);
+  const fullSerialized = JSON.stringify(fullPayload, null, 2);
+
+  let readableAudit = buildReadableReplayAudit(fullPayload, false);
+  let readableSerialized = JSON.stringify(readableAudit, null, 2);
+  let reducedDiagnosticSet = false;
+  if (Buffer.byteLength(readableSerialized, 'utf8') > CHATGPT_READABLE_TARGET_BYTES) {
+    readableAudit = buildReadableReplayAudit(fullPayload, true);
+    readableAudit.metadata.reducedDiagnosticSet = true;
+    readableSerialized = JSON.stringify(readableAudit, null, 2);
+    reducedDiagnosticSet = true;
+  }
+
+  const fullCommitSha = await upsertGithubTextFile(
+    repository,
+    branch,
+    CHATGPT_REPLAY_FULL_PATH,
+    fullSerialized,
+    `Update full readable replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+    headers
+  );
 
   const latestCommitSha = await upsertGithubTextFile(
     repository,
     branch,
     CHATGPT_REPLAY_SYNC_PATH,
-    serialized,
-    `Update readable latest replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+    readableSerialized,
+    `Update ChatGPT-readable replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
     headers
   );
 
@@ -204,8 +312,8 @@ async function publishReplayProjectionToGithub(payload: any, archive: boolean): 
       repository,
       branch,
       archivePath,
-      serialized,
-      `Archive readable replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+      readableSerialized,
+      `Archive ChatGPT-readable replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
       headers
     );
     pruned = await pruneGithubArchive(repository, branch, headers);
@@ -218,14 +326,17 @@ async function publishReplayProjectionToGithub(payload: any, archive: boolean): 
     repository,
     branch,
     path: CHATGPT_REPLAY_SYNC_PATH,
+    fullPath: CHATGPT_REPLAY_FULL_PATH,
     archivePath,
     archiveLimit: CHATGPT_REPLAY_ARCHIVE_LIMIT,
     pruned,
-    bytes: Buffer.byteLength(serialized, 'utf8'),
-    githubPayloadBytes: Buffer.byteLength(serialized, 'utf8'),
+    bytes: Buffer.byteLength(readableSerialized, 'utf8'),
+    fullBytes: Buffer.byteLength(fullSerialized, 'utf8'),
     compression: 'none',
     storageFormat: 'plain-json',
-    commitSha: latestCommitSha
+    reducedDiagnosticSet,
+    commitSha: latestCommitSha,
+    fullCommitSha
   };
 }
 
