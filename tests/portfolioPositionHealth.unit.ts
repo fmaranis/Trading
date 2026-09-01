@@ -59,11 +59,22 @@ const tacticalReduce = classifyPositionHealth(weakSatellite, -10, {
   currentReturnPct: -10,
   mfePct: 8,
   givebackFromMfePctPoints: 18,
-  deteriorationStreakSessions: 12,
+  deteriorationStreakSessions: 10,
   momentum20Pct: -4
 });
-check('811 persistent satellite giveback can REDUCE before structural EXIT', tacticalReduce.action === 'REDUCE');
+check('811 satellite giveback REDUCE fires when the tenth consecutive weak session is reached', tacticalReduce.action === 'REDUCE');
 check('812 satellite giveback REDUCE remains partial at fifty percent', tacticalReduce.suggestedReductionPct === 50);
+
+const continuedEpisode = classifyPositionHealth(weakSatellite, -10, {
+  category: 'TECHNOLOGY',
+  isDiversifiedCore: false,
+  currentReturnPct: -11,
+  mfePct: 8,
+  givebackFromMfePctPoints: 19,
+  deteriorationStreakSessions: 11,
+  momentum20Pct: -5
+});
+check('813 the eleventh weak session in the same tactical episode returns to WATCH instead of issuing a second REDUCE', continuedEpisode.action === 'WATCH' && continuedEpisode.suggestedReductionPct == null);
 
 const coreProtected = classifyPositionHealth(weakSatellite, -10, {
   category: 'US_EQUITY',
@@ -71,10 +82,10 @@ const coreProtected = classifyPositionHealth(weakSatellite, -10, {
   currentReturnPct: -10,
   mfePct: 8,
   givebackFromMfePctPoints: 18,
-  deteriorationStreakSessions: 12,
+  deteriorationStreakSessions: 10,
   momentum20Pct: -4
 });
-check('813 diversified core never uses the MFE giveback REDUCE rule', coreProtected.action === 'WATCH');
+check('814 diversified core never uses the MFE giveback REDUCE rule', coreProtected.action === 'WATCH');
 
 const stagedWatch = classifyPositionHealth({ ...weakSatellite, newMoneyAction: 'WATCH' }, 2, {
   category: 'TECHNOLOGY',
@@ -85,7 +96,7 @@ const stagedWatch = classifyPositionHealth({ ...weakSatellite, newMoneyAction: '
   deteriorationStreakSessions: 3,
   momentum20Pct: -2
 });
-check('814 three weak sessions with material loss enter WATCH without selling', stagedWatch.action === 'WATCH' && stagedWatch.suggestedReductionPct == null);
+check('815 three weak sessions with material loss enter WATCH without selling', stagedWatch.action === 'WATCH' && stagedWatch.suggestedReductionPct == null);
 
 const shortWeakness = classifyPositionHealth({ ...weakSatellite, newMoneyAction: 'WATCH' }, 2, {
   category: 'TECHNOLOGY',
@@ -96,7 +107,7 @@ const shortWeakness = classifyPositionHealth({ ...weakSatellite, newMoneyAction:
   deteriorationStreakSessions: 2,
   momentum20Pct: -3
 });
-check('815 weakness shorter than three sessions does not enter the persistent WATCH state', shortWeakness.action === 'HOLD');
+check('816 weakness shorter than three sessions does not enter the persistent WATCH state', shortWeakness.action === 'HOLD');
 
 const recoveringSatellite = classifyPositionHealth(weakSatellite, -10, {
   category: 'TECHNOLOGY',
@@ -104,10 +115,34 @@ const recoveringSatellite = classifyPositionHealth(weakSatellite, -10, {
   currentReturnPct: -10,
   mfePct: 8,
   givebackFromMfePctPoints: 18,
-  deteriorationStreakSessions: 12,
+  deteriorationStreakSessions: 10,
   momentum20Pct: 2
 });
-check('816 positive short momentum blocks giveback REDUCE while recovery is underway', recoveringSatellite.action === 'WATCH');
-check('817 broad US equity is classified as diversified core while technology is tactical', isDiversifiedCoreCategory('US_EQUITY') && !isDiversifiedCoreCategory('TECHNOLOGY'));
+check('817 positive short momentum blocks giveback REDUCE while recovery is underway', recoveringSatellite.action === 'WATCH');
+check('818 broad US equity is classified as diversified core while technology is tactical', isDiversifiedCoreCategory('US_EQUITY') && !isDiversifiedCoreCategory('TECHNOLOGY'));
 
-console.log(`Portfolio position health: ${passed}/17 invariants passed.`);
+const singleEquityContext: any = {
+  category: 'EUROPE_EQUITY',
+  isDiversifiedCore: true,
+  currentReturnPct: -10,
+  mfePct: 8,
+  givebackFromMfePctPoints: 18,
+  deteriorationStreakSessions: 10,
+  momentum20Pct: -4
+};
+const singleEquityReduce = classifyPositionHealth({ ...weakSatellite, assetId: 'EQ_FERROVIAL', ticker: 'FER.MC', name: 'Ferrovial' }, -10, singleEquityContext);
+check('819 a single EQ_ stock cannot inherit broad EUROPE_EQUITY core protection from a stale context', singleEquityReduce.action === 'REDUCE' && singleEquityContext.isDiversifiedCore === false);
+
+const broadEuropeContext: any = {
+  category: 'EUROPE_EQUITY',
+  isDiversifiedCore: false,
+  currentReturnPct: -10,
+  mfePct: 8,
+  givebackFromMfePctPoints: 18,
+  deteriorationStreakSessions: 10,
+  momentum20Pct: -4
+};
+const broadEuropeProtected = classifyPositionHealth({ ...weakSatellite, assetId: 'EXSA', ticker: 'EXSA.DE', name: 'STOXX Europe 600' }, -10, broadEuropeContext);
+check('820 a broad Europe ETF remains core even if the incoming context was incorrectly marked tactical', broadEuropeProtected.action === 'WATCH' && broadEuropeContext.isDiversifiedCore === true);
+
+console.log(`Portfolio position health: ${passed}/20 invariants passed.`);
