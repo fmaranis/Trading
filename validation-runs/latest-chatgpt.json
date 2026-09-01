@@ -1,0 +1,10 @@
+{
+  "metadata": {
+    "format": "TRADING_HISTORICAL_REPLAY_AUDIT",
+    "schemaVersion": 1,
+    "chatgptProjectionVersion": 1,
+    "status": "NOT_PUBLISHED_YET",
+    "note": "This file is replaced automatically when the app saves a replay with GITHUB_REPLAY_SYNC_TOKEN configured server-side."
+  },
+  "session": null
+}
