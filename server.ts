@@ -1,6 +1,6 @@
 import express from 'express';
 import path from 'path';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { createServer as createViteServer } from 'vite';
 import { marketDataRouter } from './server/marketDataRoutes';
 import { alphaVantageRouter } from './server/alphaVantageRoutes';
@@ -15,6 +15,8 @@ const CHATGPT_REPLAY_PROJECTION_VERSION = 1;
 const DEFAULT_REPLAY_SYNC_REPOSITORY = 'fmaranis/Trading';
 const DEFAULT_REPLAY_SYNC_BRANCH = 'replay-results';
 const CHATGPT_REPLAY_SYNC_PATH = 'validation-runs/latest-chatgpt.json';
+const CHATGPT_REPLAY_ARCHIVE_DIR = 'validation-runs/archive-chatgpt';
+const CHATGPT_REPLAY_ARCHIVE_LIMIT = 10;
 
 function redactSecrets(value: unknown): unknown {
   const secrets = [
@@ -51,6 +53,14 @@ function validateHistoricalAuditPayload(payload: any): void {
 function auditArchiveName(exportedAt: string): string {
   const safe = exportedAt.replace(/[:.]/g, '-').replace(/[^0-9TZ-]/g, '');
   return `${safe || Date.now()}-historical-replay.json`;
+}
+
+function chatgptArchiveName(payload: any): string {
+  const exportedAt = String(payload?.metadata?.exportedAt || new Date().toISOString());
+  const stamp = exportedAt.replace(/[:.]/g, '-').replace(/[^0-9TZ-]/g, '') || String(Date.now());
+  const start = String(payload?.session?.startDate ?? 'start').replace(/[^0-9A-Za-z_-]/g, '-');
+  const end = String(payload?.session?.summary?.endDate ?? payload?.session?.path?.at?.(-1)?.date ?? 'partial').replace(/[^0-9A-Za-z_-]/g, '-');
+  return `${stamp}__${start}__${end}.json`;
 }
 
 function compactReplaySignal(signal: any): Record<string, unknown> {
@@ -99,7 +109,7 @@ function buildChatgptReplayProjection(payload: any): any {
       ...payload.metadata,
       chatgptProjectionVersion: CHATGPT_REPLAY_PROJECTION_VERSION,
       publishedAt: new Date().toISOString(),
-      note: 'Proyección canónica compacta del último replay para lectura directa por ChatGPT desde GitHub. Conserva configuración, resumen, checkpoints, operaciones, posiciones, path y campos diagnósticos esenciales de todas las señales.'
+      note: 'Proyección canónica compacta del replay para lectura directa por ChatGPT desde GitHub. Conserva configuración, resumen, checkpoints, operaciones, posiciones, path y campos diagnósticos esenciales de todas las señales.'
     },
     session: {
       ...session,
@@ -126,31 +136,13 @@ function replaySyncTarget() {
   };
 }
 
-async function publishReplayProjectionToGithub(payload: any): Promise<Record<string, unknown>> {
-  const token = process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim();
-  const target = replaySyncTarget();
-  if (!token) return { configured: false, published: false, ...target };
-
-  // This endpoint is intentionally development-only. The public SaaS must not expose
-  // a browser-triggerable route that can spend a repository write credential.
-  if (process.env.NODE_ENV === 'production') {
-    return {
-      configured: true,
-      published: false,
-      blockedReason: 'PRODUCTION_SYNC_DISABLED',
-      ...target
-    };
-  }
-
-  const repository = target.repository.trim();
-  const branch = target.branch.trim();
+function validateReplaySyncTarget(repository: string, branch: string): void {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error('INVALID_GITHUB_REPLAY_SYNC_REPOSITORY');
   if (!branch || branch.includes('..') || branch.startsWith('/') || branch.endsWith('/')) throw new Error('INVALID_GITHUB_REPLAY_SYNC_BRANCH');
+}
 
-  const projection = buildChatgptReplayProjection(payload);
-  const serialized = JSON.stringify(projection, null, 2);
-  const apiUrl = `https://api.github.com/repos/${repository}/contents/${CHATGPT_REPLAY_SYNC_PATH}`;
-  const headers = githubHeaders(token);
+async function upsertGithubTextFile(repository: string, branch: string, targetPath: string, content: string, message: string, headers: Record<string, string>): Promise<string | null> {
+  const apiUrl = `https://api.github.com/repos/${repository}/contents/${targetPath}`;
   const currentResponse = await fetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, { headers });
   let sha: string | undefined;
   if (currentResponse.ok) {
@@ -162,8 +154,8 @@ async function publishReplayProjectionToGithub(payload: any): Promise<Record<str
   }
 
   const body: Record<string, unknown> = {
-    message: `Update latest replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
-    content: Buffer.from(`${serialized}\n`, 'utf8').toString('base64'),
+    message,
+    content: Buffer.from(`${content}\n`, 'utf8').toString('base64'),
     branch
   };
   if (sha) body.sha = sha;
@@ -174,15 +166,113 @@ async function publishReplayProjectionToGithub(payload: any): Promise<Record<str
     throw new Error(`GITHUB_REPLAY_SYNC_WRITE_FAILED:${writeResponse.status}:${detail.slice(0, 500)}`);
   }
   const written = await writeResponse.json() as any;
+  return written?.commit?.sha ?? null;
+}
+
+async function listGithubArchive(repository: string, branch: string, headers: Record<string, string>): Promise<any[]> {
+  const apiUrl = `https://api.github.com/repos/${repository}/contents/${CHATGPT_REPLAY_ARCHIVE_DIR}?ref=${encodeURIComponent(branch)}`;
+  const response = await fetch(apiUrl, { headers });
+  if (response.status === 404) return [];
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`GITHUB_REPLAY_ARCHIVE_LIST_FAILED:${response.status}:${detail.slice(0, 500)}`);
+  }
+  const entries = await response.json() as any[];
+  return Array.isArray(entries) ? entries.filter(entry => entry?.type === 'file' && String(entry?.name ?? '').endsWith('.json')) : [];
+}
+
+async function deleteGithubArchiveFile(repository: string, branch: string, targetPath: string, sha: string, headers: Record<string, string>): Promise<void> {
+  const apiUrl = `https://api.github.com/repos/${repository}/contents/${targetPath}`;
+  const response = await fetch(apiUrl, {
+    method: 'DELETE',
+    headers,
+    body: JSON.stringify({ message: `Delete archived replay ${path.posix.basename(targetPath)}`, sha, branch })
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`GITHUB_REPLAY_ARCHIVE_DELETE_FAILED:${response.status}:${detail.slice(0, 500)}`);
+  }
+}
+
+async function pruneGithubArchive(repository: string, branch: string, headers: Record<string, string>): Promise<number> {
+  const entries = await listGithubArchive(repository, branch, headers);
+  const ordered = [...entries].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const excess = Math.max(0, ordered.length - CHATGPT_REPLAY_ARCHIVE_LIMIT);
+  for (const entry of ordered.slice(0, excess)) {
+    await deleteGithubArchiveFile(repository, branch, String(entry.path), String(entry.sha), headers);
+  }
+  return excess;
+}
+
+async function publishReplayProjectionToGithub(payload: any, archive: boolean): Promise<Record<string, unknown>> {
+  const token = process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim();
+  const target = replaySyncTarget();
+  if (!token) return { configured: false, published: false, archived: false, ...target };
+
+  if (process.env.NODE_ENV === 'production') {
+    return { configured: true, published: false, archived: false, blockedReason: 'PRODUCTION_SYNC_DISABLED', ...target };
+  }
+
+  const repository = target.repository.trim();
+  const branch = target.branch.trim();
+  validateReplaySyncTarget(repository, branch);
+  const headers = githubHeaders(token);
+  const projection = buildChatgptReplayProjection(payload);
+  const serialized = JSON.stringify(projection, null, 2);
+  const latestCommitSha = await upsertGithubTextFile(
+    repository,
+    branch,
+    CHATGPT_REPLAY_SYNC_PATH,
+    serialized,
+    `Update latest replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+    headers
+  );
+
+  let archivePath: string | null = null;
+  let pruned = 0;
+  if (archive) {
+    archivePath = `${CHATGPT_REPLAY_ARCHIVE_DIR}/${chatgptArchiveName(payload)}`;
+    await upsertGithubTextFile(
+      repository,
+      branch,
+      archivePath,
+      serialized,
+      `Archive replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+      headers
+    );
+    pruned = await pruneGithubArchive(repository, branch, headers);
+  }
+
   return {
     configured: true,
     published: true,
+    archived: archive,
     repository,
     branch,
     path: CHATGPT_REPLAY_SYNC_PATH,
+    archivePath,
+    archiveLimit: CHATGPT_REPLAY_ARCHIVE_LIMIT,
+    pruned,
     bytes: Buffer.byteLength(serialized, 'utf8'),
-    commitSha: written?.commit?.sha ?? null
+    commitSha: latestCommitSha
   };
+}
+
+async function clearGithubReplayArchive(): Promise<Record<string, unknown>> {
+  const token = process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim();
+  const target = replaySyncTarget();
+  if (!token) return { configured: false, deleted: 0, ...target };
+  if (process.env.NODE_ENV === 'production') return { configured: true, deleted: 0, blockedReason: 'PRODUCTION_SYNC_DISABLED', ...target };
+
+  const repository = target.repository.trim();
+  const branch = target.branch.trim();
+  validateReplaySyncTarget(repository, branch);
+  const headers = githubHeaders(token);
+  const entries = await listGithubArchive(repository, branch, headers);
+  for (const entry of entries) {
+    await deleteGithubArchiveFile(repository, branch, String(entry.path), String(entry.sha), headers);
+  }
+  return { configured: true, deleted: entries.length, repository, branch, preservedPath: CHATGPT_REPLAY_SYNC_PATH };
 }
 
 async function startServer() {
@@ -216,10 +306,12 @@ async function startServer() {
         return res.status(413).json({ error: 'HISTORICAL_AUDIT_TOO_LARGE' });
       }
 
+      const archiveRequested = String(req.query.archive ?? '1') !== '0';
       const root = path.resolve(process.cwd(), 'validation-runs');
       const archiveDir = path.resolve(root, 'archive');
       if (!archiveDir.startsWith(`${root}${path.sep}`)) throw new Error('INVALID_ARCHIVE_PATH');
-      await mkdir(archiveDir, { recursive: true });
+      await mkdir(root, { recursive: true });
+      if (archiveRequested) await mkdir(archiveDir, { recursive: true });
 
       const exportedAt = String(req.body?.metadata?.exportedAt || new Date().toISOString());
       const archiveName = auditArchiveName(exportedAt);
@@ -228,15 +320,16 @@ async function startServer() {
       if (!latestPath.startsWith(`${root}${path.sep}`) || !archivePath.startsWith(`${archiveDir}${path.sep}`)) throw new Error('INVALID_OUTPUT_PATH');
 
       await writeFile(latestPath, `${serialized}\n`, 'utf8');
-      await writeFile(archivePath, `${serialized}\n`, 'utf8');
+      if (archiveRequested) await writeFile(archivePath, `${serialized}\n`, 'utf8');
 
       let githubSync: Record<string, unknown>;
       try {
-        githubSync = await publishReplayProjectionToGithub(req.body);
+        githubSync = await publishReplayProjectionToGithub(req.body, archiveRequested);
       } catch (syncError: any) {
         githubSync = {
           configured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()),
           published: false,
+          archived: false,
           ...replaySyncTarget(),
           error: syncError?.message || String(syncError)
         };
@@ -245,12 +338,47 @@ async function startServer() {
       res.json({
         ok: true,
         latestPath: path.relative(process.cwd(), latestPath).replaceAll('\\', '/'),
-        archivePath: path.relative(process.cwd(), archivePath).replaceAll('\\', '/'),
+        archivePath: archiveRequested ? path.relative(process.cwd(), archivePath).replaceAll('\\', '/') : null,
+        archived: archiveRequested,
         bytes: Buffer.byteLength(serialized, 'utf8'),
         githubSync
       });
     } catch (error: any) {
       res.status(400).json({ error: 'HISTORICAL_AUDIT_SAVE_FAILED', detail: error?.message || String(error) });
+    }
+  });
+
+  app.delete('/api/validation/historical-audit/archive', async (_req, res) => {
+    try {
+      const root = path.resolve(process.cwd(), 'validation-runs');
+      const archiveDir = path.resolve(root, 'archive');
+      let localDeleted = 0;
+      try {
+        const entries = await readdir(archiveDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+          await unlink(path.resolve(archiveDir, entry.name));
+          localDeleted += 1;
+        }
+      } catch (error: any) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+
+      let githubArchive: Record<string, unknown>;
+      try {
+        githubArchive = await clearGithubReplayArchive();
+      } catch (syncError: any) {
+        githubArchive = {
+          configured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()),
+          deleted: 0,
+          ...replaySyncTarget(),
+          error: syncError?.message || String(syncError)
+        };
+      }
+
+      res.json({ ok: true, localDeleted, githubArchive, latestPreserved: true });
+    } catch (error: any) {
+      res.status(400).json({ error: 'HISTORICAL_AUDIT_ARCHIVE_CLEAR_FAILED', detail: error?.message || String(error) });
     }
   });
 
