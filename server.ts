@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { gzipSync } from 'node:zlib';
 import { createServer as createViteServer } from 'vite';
 import { marketDataRouter } from './server/marketDataRoutes';
 import { alphaVantageRouter } from './server/alphaVantageRoutes';
@@ -12,13 +11,12 @@ import { startDailyAlertScheduler } from './server/alertAutomation';
 const HISTORICAL_AUDIT_FORMAT = 'TRADING_HISTORICAL_REPLAY_AUDIT';
 const HISTORICAL_AUDIT_SCHEMA_VERSION = 1;
 const MAX_HISTORICAL_AUDIT_BYTES = 25 * 1024 * 1024;
-const CHATGPT_REPLAY_PROJECTION_VERSION = 1;
 const DEFAULT_REPLAY_SYNC_REPOSITORY = 'fmaranis/Trading';
 const DEFAULT_REPLAY_SYNC_BRANCH = 'replay-results';
-const CHATGPT_REPLAY_SYNC_PATH = 'validation-runs/latest-chatgpt.json.gz.b64';
+const CHATGPT_REPLAY_SYNC_PATH = 'validation-runs/latest-chatgpt.json';
 const CHATGPT_REPLAY_ARCHIVE_DIR = 'validation-runs/archive-chatgpt';
 const CHATGPT_REPLAY_ARCHIVE_LIMIT = 10;
-const GITHUB_REPLAY_SYNC_TIMEOUT_MS = 20_000;
+const GITHUB_REPLAY_SYNC_TIMEOUT_MS = 120_000;
 
 function redactSecrets(value: unknown): unknown {
   const secrets = [
@@ -62,63 +60,7 @@ function chatgptArchiveName(payload: any): string {
   const stamp = exportedAt.replace(/[:.]/g, '-').replace(/[^0-9TZ-]/g, '') || String(Date.now());
   const start = String(payload?.session?.startDate ?? 'start').replace(/[^0-9A-Za-z_-]/g, '-');
   const end = String(payload?.session?.summary?.endDate ?? payload?.session?.path?.at?.(-1)?.date ?? 'partial').replace(/[^0-9A-Za-z_-]/g, '-');
-  return `${stamp}__${start}__${end}.json.gz.b64`;
-}
-
-function compactReplaySignal(signal: any): Record<string, unknown> {
-  const action = String(signal?.action ?? '');
-  const keepReason = signal?.executed === true || ['BUY', 'ADD', 'REDUCE', 'EXIT', 'WATCH'].includes(action);
-  return {
-    id: signal?.id ?? null,
-    signalDate: signal?.signalDate ?? null,
-    executionDate: signal?.executionDate ?? null,
-    assetId: signal?.assetId ?? null,
-    ticker: signal?.ticker ?? null,
-    action,
-    recommendedAmountEur: signal?.recommendedAmountEur ?? 0,
-    targetWeight: signal?.targetWeight ?? 0,
-    currentWeight: signal?.currentWeight ?? 0,
-    consensusScore: signal?.consensusScore ?? null,
-    favorableVotes: signal?.favorableVotes ?? null,
-    unfavorableVotes: signal?.unfavorableVotes ?? null,
-    structuralDowntrend: signal?.structuralDowntrend ?? false,
-    buyTheDipCandidate: signal?.buyTheDipCandidate ?? false,
-    timingState: signal?.timingState ?? null,
-    timingSetup: signal?.timingSetup ?? null,
-    timingScore: signal?.timingScore ?? null,
-    suggestedInitialFraction: signal?.suggestedInitialFraction ?? null,
-    positionCurrentReturnPct: signal?.positionCurrentReturnPct ?? null,
-    positionMfePct: signal?.positionMfePct ?? null,
-    positionGivebackFromMfePctPoints: signal?.positionGivebackFromMfePctPoints ?? null,
-    positionDeteriorationStreakSessions: signal?.positionDeteriorationStreakSessions ?? null,
-    positionIsDiversifiedCore: signal?.positionIsDiversifiedCore ?? null,
-    executed: signal?.executed === true,
-    unitsDelta: signal?.unitsDelta ?? 0,
-    notionalEur: signal?.notionalEur ?? 0,
-    feeEur: signal?.feeEur ?? 0,
-    realizedGainEur: signal?.realizedGainEur ?? 0,
-    estimatedTaxEur: signal?.estimatedTaxEur ?? 0,
-    taxDeferredTransferEur: signal?.taxDeferredTransferEur ?? 0,
-    executionPriceEur: signal?.executionPriceEur ?? null,
-    ...(keepReason ? { reason: String(signal?.reason ?? '') } : {})
-  };
-}
-
-function buildChatgptReplayProjection(payload: any): any {
-  const session = payload.session;
-  return {
-    metadata: {
-      ...payload.metadata,
-      chatgptProjectionVersion: CHATGPT_REPLAY_PROJECTION_VERSION,
-      publishedAt: new Date().toISOString(),
-      compression: 'gzip+base64',
-      note: 'Proyección canónica compacta del replay. El archivo GitHub contiene este JSON comprimido con gzip y codificado en base64.'
-    },
-    session: {
-      ...session,
-      signals: session.signals.map(compactReplaySignal)
-    }
-  };
+  return `${stamp}__${start}__${end}.json`;
 }
 
 function githubHeaders(token: string): Record<string, string> {
@@ -185,7 +127,13 @@ async function listGithubArchive(repository: string, branch: string, headers: Re
     throw new Error(`GITHUB_REPLAY_ARCHIVE_LIST_FAILED:${response.status}:${detail.slice(0, 500)}`);
   }
   const entries = await response.json() as any[];
-  return Array.isArray(entries) ? entries.filter(entry => entry?.type === 'file' && String(entry?.name ?? '').endsWith('.json.gz.b64')) : [];
+  return Array.isArray(entries)
+    ? entries.filter(entry => {
+        if (entry?.type !== 'file') return false;
+        const name = String(entry?.name ?? '');
+        return name.endsWith('.json') || name.endsWith('.json.gz.b64');
+      })
+    : [];
 }
 
 async function deleteGithubArchiveFile(repository: string, branch: string, targetPath: string, sha: string, headers: Record<string, string>): Promise<void> {
@@ -224,15 +172,27 @@ async function publishReplayProjectionToGithub(payload: any, archive: boolean): 
   const branch = target.branch.trim();
   validateReplaySyncTarget(repository, branch);
   const headers = githubHeaders(token);
-  const projection = buildChatgptReplayProjection(payload);
-  const serialized = JSON.stringify(projection);
-  const compressedBase64 = gzipSync(Buffer.from(serialized, 'utf8')).toString('base64');
+
+  // Publish the complete replay as ordinary pretty-printed JSON. This intentionally
+  // favors direct auditability/readability over transfer size: GitHub/ChatGPT can
+  // read it by line ranges without a gzip/base64 decoding step.
+  const publishedPayload = {
+    ...payload,
+    metadata: {
+      ...payload.metadata,
+      publishedAt: new Date().toISOString(),
+      githubStorageFormat: 'plain-json',
+      note: 'Replay completo en JSON normal y legible directamente desde GitHub. Sin gzip ni Base64 en el archivo almacenado.'
+    }
+  };
+  const serialized = JSON.stringify(publishedPayload, null, 2);
+
   const latestCommitSha = await upsertGithubTextFile(
     repository,
     branch,
     CHATGPT_REPLAY_SYNC_PATH,
-    compressedBase64,
-    `Update compressed latest replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+    serialized,
+    `Update readable latest replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
     headers
   );
 
@@ -244,8 +204,8 @@ async function publishReplayProjectionToGithub(payload: any, archive: boolean): 
       repository,
       branch,
       archivePath,
-      compressedBase64,
-      `Archive compressed replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+      serialized,
+      `Archive readable replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
       headers
     );
     pruned = await pruneGithubArchive(repository, branch, headers);
@@ -262,8 +222,9 @@ async function publishReplayProjectionToGithub(payload: any, archive: boolean): 
     archiveLimit: CHATGPT_REPLAY_ARCHIVE_LIMIT,
     pruned,
     bytes: Buffer.byteLength(serialized, 'utf8'),
-    githubPayloadBytes: Buffer.byteLength(compressedBase64, 'utf8'),
-    compression: 'gzip+base64',
+    githubPayloadBytes: Buffer.byteLength(serialized, 'utf8'),
+    compression: 'none',
+    storageFormat: 'plain-json',
     commitSha: latestCommitSha
   };
 }
