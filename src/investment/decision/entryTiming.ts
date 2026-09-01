@@ -1,5 +1,5 @@
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
-import type { StrategyConsensusAssessment } from './strategyConsensusEngine';
+import { StrategyConsensusEngine, type StrategyConsensusAssessment } from './strategyConsensusEngine';
 
 export type EntryTimingState = 'WAIT' | 'ENTRY_READY' | 'ENTRY_STRONG';
 export type EntryTimingSetup = 'NONE' | 'BREAKOUT_CONFIRMATION' | 'PULLBACK_RECOVERY' | 'TREND_CONTINUATION';
@@ -24,6 +24,14 @@ export interface EntryTimingAssessment {
   reasons: string[];
 }
 
+export interface EntryTimingPersistenceAssessment {
+  assetId: string;
+  lookbackSessions: number;
+  observedSessions: number;
+  strongCount: number;
+  strongDates: string[];
+}
+
 function mean(values: number[]): number | null {
   if (!values.length) return null;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -36,6 +44,54 @@ function pct(base: number | null, current: number | null): number | null {
 
 function finitePositive(values: number[]): number[] {
   return values.filter(value => Number.isFinite(value) && value > 0);
+}
+
+function momentum(prices: number[], lookback: number): number | null {
+  if (prices.length <= lookback) return null;
+  return pct(prices[prices.length - 1 - lookback], prices.at(-1) ?? null);
+}
+
+function annualizedVolatility(prices: number[], lookback = 60): number | null {
+  const slice = prices.slice(-Math.min(prices.length, lookback + 1));
+  if (slice.length < 3) return null;
+  const returns: number[] = [];
+  for (let i = 1; i < slice.length; i++) returns.push(Math.log(slice[i] / slice[i - 1]));
+  const avg = returns.reduce((sum, value) => sum + value, 0) / returns.length;
+  const variance = returns.reduce((sum, value) => sum + (value - avg) ** 2, 0) / Math.max(1, returns.length - 1);
+  return Math.sqrt(variance) * Math.sqrt(252) * 100;
+}
+
+function historicalSingleAssetScan(scan: AssetUniverseScanResult, assetId: string, barIndexInclusive: number): AssetUniverseScanResult | null {
+  const candidate = scan.candidates.find(row => row.asset.assetId === assetId);
+  const series = scan.acceptedDataset.assets.find(row => row.assetId === assetId);
+  if (!candidate || !series || barIndexInclusive < 0 || barIndexInclusive >= series.bars.length) return null;
+  const bars = series.bars.slice(0, barIndexInclusive + 1);
+  const prices = finitePositive(bars.map(bar => bar.close));
+  if (!prices.length) return null;
+  const lastBar = bars.at(-1)!;
+  const historicalCandidate = {
+    ...candidate,
+    bars: bars.length,
+    asOfDate: lastBar.timestamp.slice(0, 10),
+    lastClose: prices.at(-1) ?? null,
+    momentum20Pct: momentum(prices, 20),
+    momentum60Pct: momentum(prices, 60),
+    momentum120Pct: momentum(prices, 120),
+    annualizedVolatilityPct: annualizedVolatility(prices, 60)
+  };
+  const historicalAsset = { ...series, bars };
+  const dataset = { ...scan.acceptedDataset, assets: [historicalAsset] };
+  return {
+    ...scan,
+    scanned: 1,
+    accepted: 1,
+    rejected: 0,
+    rejectionCounts: {},
+    selected: [historicalCandidate],
+    candidates: [historicalCandidate],
+    dataset,
+    acceptedDataset: dataset
+  };
 }
 
 /**
@@ -186,6 +242,52 @@ export class EntryTimingEngine {
       drawdownFrom60HighPct,
       tooExtended,
       reasons
+    };
+  }
+
+  /**
+   * Rebuilds prior timing states from the same causal bar prefix already present
+   * in the scan. The current session is excluded deliberately: persistence is
+   * evidence that existed before today's ENTRY_STRONG, not a duplicate count of
+   * the current signal. No local storage or replay-only state is required.
+   */
+  static assessRecentPersistence(
+    scan: AssetUniverseScanResult,
+    assetId: string,
+    cashBenchmarkAnnualPct: number,
+    lookbackSessions = 10
+  ): EntryTimingPersistenceAssessment {
+    const series = scan.acceptedDataset.assets.find(row => row.assetId === assetId);
+    const safeLookback = Math.max(0, Math.floor(lookbackSessions));
+    if (!series || safeLookback === 0 || series.bars.length < 2) {
+      return { assetId, lookbackSessions: safeLookback, observedSessions: 0, strongCount: 0, strongDates: [] };
+    }
+
+    const currentIndex = series.bars.length - 1;
+    const firstIndex = Math.max(0, currentIndex - safeLookback);
+    let observedSessions = 0;
+    const strongDates: string[] = [];
+
+    for (let barIndex = firstIndex; barIndex < currentIndex; barIndex++) {
+      const historicalScan = historicalSingleAssetScan(scan, assetId, barIndex);
+      if (!historicalScan) continue;
+      const consensus = StrategyConsensusEngine.assess(historicalScan, assetId, cashBenchmarkAnnualPct);
+      if (!consensus) continue;
+      observedSessions++;
+      const timing = this.assess(historicalScan, assetId, consensus);
+      if (timing.state === 'ENTRY_STRONG') {
+        const historicalSeries = historicalScan.acceptedDataset.assets[0];
+        const date = historicalSeries?.bars.at(-1)?.timestamp.slice(0, 10);
+        if (date) strongDates.push(date);
+      }
+    }
+
+    return {
+      assetId,
+      lookbackSessions: safeLookback,
+      observedSessions,
+      strongCount: strongDates.length,
+      strongDates
     };
   }
 }
