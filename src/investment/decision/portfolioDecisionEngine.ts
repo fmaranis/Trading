@@ -4,6 +4,7 @@ import { executionPolicyForCapital } from './adaptiveExecutionPolicy';
 import { CashBenchmarkService } from './cashBenchmark';
 import { brokerCommission } from './costAwareExecutionPolicy';
 import { CurrentOpportunityAlertEngine, type CurrentOpportunityAlert } from './currentOpportunityAlerts';
+import { EntryTimingEngine, type EntryTimingPersistenceAssessment } from './entryTiming';
 import type { InvestmentDecisionResult } from './types';
 import type { FundPosition } from './fundPortfolio';
 import type { PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
@@ -43,6 +44,8 @@ export interface PortfolioPositionDecision {
   rotationChallengerAssetId?: string | null;
   rotationChallengerTicker?: string | null;
   rotationAdvantageScore?: number | null;
+  rotationChallengerRecentStrongCount?: number | null;
+  rotationChallengerPersistenceLookbackSessions?: number | null;
 }
 
 export type ContributionPositionStage = 'STARTER' | 'BUILD' | 'ROTATION_ENTRY';
@@ -163,6 +166,9 @@ function rotationPriorityMargin(risk: InvestmentDecisionResult['riskProfile']): 
   return risk === 'LOW' ? 15 : risk === 'HIGH' ? 10 : 12;
 }
 
+const ROTATION_PERSISTENCE_LOOKBACK_SESSIONS = 10;
+const ROTATION_MIN_PRIOR_STRONG_OBSERVATIONS = 2;
+
 function incumbentSelectionScore(candidate: AssetUniverseScanResult['candidates'][number] | undefined, health: PortfolioPositionHealthSnapshot | undefined): number | null {
   if (!candidate || candidate.score == null || !Number.isFinite(candidate.score)) return null;
   const consensus = Number.isFinite(health?.consensusScore) ? Number(health?.consensusScore) : 0;
@@ -230,7 +236,9 @@ export class PortfolioDecisionEngine {
         relativeSelectionScore: null,
         rotationChallengerAssetId: null,
         rotationChallengerTicker: null,
-        rotationAdvantageScore: null
+        rotationAdvantageScore: null,
+        rotationChallengerRecentStrongCount: null,
+        rotationChallengerPersistenceLookbackSessions: null
       }) - 1;
       unresolvedPositions.push({ index, assetId: asset?.assetId ?? null, category, health });
     }
@@ -264,7 +272,9 @@ export class PortfolioDecisionEngine {
         relativeSelectionScore: null,
         rotationChallengerAssetId: null,
         rotationChallengerTicker: null,
-        rotationAdvantageScore: null
+        rotationAdvantageScore: null,
+        rotationChallengerRecentStrongCount: null,
+        rotationChallengerPersistenceLookbackSessions: null
       }) - 1;
       unresolvedPositions.push({ index, assetId: asset?.assetId ?? null, category, health });
     }
@@ -382,13 +392,25 @@ export class PortfolioDecisionEngine {
     const occupiedPortfolioPositions = existingPositions.filter(row => (row.currentValueEur ?? 0) > 0).length;
     const availablePortfolioSlots = Math.max(0, maxPortfolioPositions - occupiedPortfolioPositions);
 
-    // Challenger vs incumbent is a true one-for-one replacement only when the portfolio
-    // is full. A partial reduction does not free a slot, so it must never authorize a new
-    // asset. If a slot is already free, the challenger can enter normally without forcing
-    // an incumbent sale. Healthy ADD/HOLD winners are never displaced for marginal rank.
+    // A full-slot competitive replacement requires evidence that the challenger was
+    // already strong before today. ENTRY_STRONG remains a fast entry-timing signal for
+    // ordinary cash/new-slot entries, but one isolated STRONG is not enough to evict an
+    // incumbent. The persistence is reconstructed causally from prior bars in this scan.
+    const rotationPersistenceByAsset = new Map<string, EntryTimingPersistenceAssessment>();
     const rotationChallengers = availablePortfolioSlots === 0
       ? opportunities
         .filter(alert => !heldAssetIds.has(alert.assetId) && alert.timingState === 'ENTRY_STRONG' && alert.consensusScore >= 3 && alert.favorableVotes >= 4)
+        .filter(alert => {
+          const persistence = EntryTimingEngine.assessRecentPersistence(
+            scan,
+            alert.assetId,
+            cashBenchmarkAnnualPct,
+            ROTATION_PERSISTENCE_LOOKBACK_SESSIONS
+          );
+          rotationPersistenceByAsset.set(alert.assetId, persistence);
+          return persistence.observedSessions >= ROTATION_PERSISTENCE_LOOKBACK_SESSIONS
+            && persistence.strongCount >= ROTATION_MIN_PRIOR_STRONG_OBSERVATIONS;
+        })
         .sort((a, b) => b.rankingScore - a.rankingScore)
       : [];
     const rotationIncumbents = unresolvedPositions
@@ -428,6 +450,8 @@ export class PortfolioDecisionEngine {
         const requiredExcessMargin = Math.max(2, feeDrag * 2);
         if (advantageScore < rotationPriorityMargin(decision.riskProfile) - 1e-9) continue;
         if (!(challengerExcess >= incumbentExcess + requiredExcessMargin)) continue;
+        const persistence = rotationPersistenceByAsset.get(challenger.assetId);
+        if (!persistence) continue;
 
         rotationRestoreByChallenger.set(challenger.assetId, {
           row: incumbent.row,
@@ -441,7 +465,9 @@ export class PortfolioDecisionEngine {
         incumbent.row.rotationChallengerAssetId = challenger.assetId;
         incumbent.row.rotationChallengerTicker = challenger.ticker;
         incumbent.row.rotationAdvantageScore = advantageScore;
-        incumbent.row.reason = `Rotación competitiva 1:1: ${challenger.ticker} aparece como ENTRY_STRONG y supera claramente a esta posición (${advantageScore.toFixed(1)} puntos de ranking; ventaja frente a cash ${challengerExcess.toFixed(1)} pp vs ${incumbentExcess.toFixed(1)} pp). La cartera está llena, por lo que se propone liberar realmente esta plaza antes de introducir el challenger. Coste ETF ida/vuelta estimado ~${feeDrag.toFixed(2)}% antes de fiscalidad. No se rota un ganador sano por una diferencia marginal.`;
+        incumbent.row.rotationChallengerRecentStrongCount = persistence.strongCount;
+        incumbent.row.rotationChallengerPersistenceLookbackSessions = persistence.lookbackSessions;
+        incumbent.row.reason = `Rotación competitiva persistente 1:1: ${challenger.ticker} aparece como ENTRY_STRONG hoy y ya había sido ENTRY_STRONG ${persistence.strongCount}/${persistence.lookbackSessions} sesiones previas. Además supera claramente a esta posición (${advantageScore.toFixed(1)} puntos de ranking; ventaja frente a cash ${challengerExcess.toFixed(1)} pp vs ${incumbentExcess.toFixed(1)} pp). La cartera está llena, por lo que se libera realmente esta plaza antes de introducir el challenger. Coste ETF ida/vuelta estimado ~${feeDrag.toFixed(2)}% antes de fiscalidad. Un STRONG aislado no puede expulsar un incumbent.`;
         plannedRotationProceedsEur += currentValue;
         rotationChallengerIds.add(challenger.assetId);
         rotationActions++;
@@ -544,7 +570,7 @@ export class PortfolioDecisionEngine {
           suggestedInitialFraction,
           positionStage,
           portfolioShareCapPct: portfolioShareCap * 100,
-          reason: `${positionStage === 'ROTATION_ENTRY' ? 'Entrada por rotación' : positionStage === 'BUILD' ? 'Construcción confirmada' : 'Starter'}: ${alert.level === 'HIGH_CONVICTION' ? 'ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'buena oportunidad' : 'entrada válida'}, consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Objetivo estratégico ${targetAssetValueEur.toFixed(2)} €; timing ${alert.timingState} autoriza hasta ${(suggestedInitialFraction * 100).toFixed(0)}%, pero la etapa ${positionStage} limita la posición al ${portfolioShareCap * 100}% del patrimonio (${portfolioCapValueEur.toFixed(2)} €). Ya hay ${currentAssetValueEur.toFixed(2)} €; orden pendiente ${amountEur.toFixed(2)} €.`
+          reason: `${positionStage === 'ROTATION_ENTRY' ? 'Entrada por rotación persistente' : positionStage === 'BUILD' ? 'Construcción confirmada' : 'Starter'}: ${alert.level === 'HIGH_CONVICTION' ? 'ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'buena oportunidad' : 'entrada válida'}, consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Objetivo estratégico ${targetAssetValueEur.toFixed(2)} €; timing ${alert.timingState} autoriza hasta ${(suggestedInitialFraction * 100).toFixed(0)}%, pero la etapa ${positionStage} limita la posición al ${portfolioShareCap * 100}% del patrimonio (${portfolioCapValueEur.toFixed(2)} €). Ya hay ${currentAssetValueEur.toFixed(2)} €; orden pendiente ${amountEur.toFixed(2)} €.`
         };
       });
       contributions = allocated.filter((row): row is ContributionRecommendation => row != null);
@@ -562,6 +588,8 @@ export class PortfolioDecisionEngine {
       restore.row.rotationChallengerAssetId = null;
       restore.row.rotationChallengerTicker = null;
       restore.row.rotationAdvantageScore = null;
+      restore.row.rotationChallengerRecentStrongCount = null;
+      restore.row.rotationChallengerPersistenceLookbackSessions = null;
       plannedRotationProceedsEur = Math.max(0, plannedRotationProceedsEur - restore.proceedsEur);
       rotationActions = Math.max(0, rotationActions - 1);
       rotationChallengerIds.delete(challengerAssetId);
@@ -579,7 +607,8 @@ export class PortfolioDecisionEngine {
     if (existingPositions.some(x => x.category === 'UNKNOWN' && x.currentValueEur != null)) warnings.push('Hay posiciones fuera del universo clasificado que se valoran y vigilan individualmente; no se inventa una categoría para forzar su peso objetivo.');
     warnings.push(`Cartera dinámica: máximo ${maxPortfolioPositions} plazas para riesgo ${decision.riskProfile}; ocupadas ${occupiedPortfolioPositions}, libres ${availablePortfolioSlots}. Nuevas plazas por evaluación: máximo ${maxNewPositionsPerDecision(decision.riskProfile)}.`);
     warnings.push(`Sizing por etapas: ENTRY_READY/ENTRY_STRONG abren starters pequeños; en riesgo ${decision.riskProfile} los caps son ${(starterPortfolioShare(decision.riskProfile, 'ENTRY_READY') * 100).toFixed(1)}% / ${(starterPortfolioShare(decision.riskProfile, 'ENTRY_STRONG') * 100).toFixed(1)}%. Sólo una posición ya confirmada como ADD y todavía ENTRY_STRONG puede construir hasta ${(buildPortfolioShare(decision.riskProfile) * 100).toFixed(1)}%.`);
-    if (rotationActions > 0) warnings.push(`Rotación competitiva 1:1 activa: ${rotationActions} incumbent(s) liberan realmente su plaza para challenger(s) claramente superiores. Proceeds teóricos liberados: ${plannedRotationProceedsEur.toFixed(2)} €; la ejecución real sigue sujeta a comisión, fiscalidad y efectivo realmente obtenido.`);
+    warnings.push(`Persistencia de rotación: un challenger que quiera expulsar un incumbent debe ser ENTRY_STRONG hoy y haber sido ENTRY_STRONG al menos ${ROTATION_MIN_PRIOR_STRONG_OBSERVATIONS} veces en las ${ROTATION_PERSISTENCE_LOOKBACK_SESSIONS} sesiones previas. Esta exigencia no se aplica a entradas normales con cash/plaza libre.`);
+    if (rotationActions > 0) warnings.push(`Rotación competitiva persistente 1:1 activa: ${rotationActions} incumbent(s) liberan realmente su plaza para challenger(s) con fuerza reciente repetida y ventaja material. Proceeds teóricos liberados: ${plannedRotationProceedsEur.toFixed(2)} €; la ejecución real sigue sujeta a comisión, fiscalidad y efectivo realmente obtenido.`);
     if (opportunities.length > 0) warnings.push(`La asignación efectiva usa oportunidades que pasan cash + consenso + timing. El 25%/50% sigue siendo techo por timing, pero ya no obliga a construir una posición grande: starter/build y plazas de cartera añaden límites más estrictos.`);
     else warnings.push('No hay oportunidades actuales que pasen el gate: no se genera ninguna compra fallback. Los pesos teóricos quedan sólo como diagnóstico.');
 
