@@ -821,3 +821,112 @@ Criterios principales:
 3. no debe repetirse DTE vendido sin SXR8;
 4. READY/STARTER/BUILD deben seguir presentes;
 5. comparar retorno, DD, turnover y comisiones con el replay anterior sin recalibrar todavía thresholds.
+
+---
+
+# ACTUALIZACIÓN VIGENTE — 2026-09-01 — PERSISTENCIA DEL CHALLENGER PARA ROTAR
+
+> Esta sección sustituye como plan vigente la rotación basada únicamente en `ENTRY_STRONG` del día. No añade ninguna pantalla, pestaña ni módulo experimental a la web. El análisis comparativo se hizo fuera de la UI sobre los ZIP de replay ya generados y sólo la regla acordada pasa al motor existente.
+
+## Evidencia offline sobre las gráficas ya generadas
+
+Se analizaron conjuntamente las trayectorias y señales de tres ventanas ya conocidas:
+- 2021-11-01 → 2022-10-31;
+- 2022-07-11 → 2023-07-10;
+- 2024-04-01 → 2024-10-28.
+
+Resultado de los challengers que entraron por `ROTATION_ENTRY` en las versiones previas:
+- 2021: 6 challengers, resultado agregado aproximado **-197 €**; cash equivalente aproximado **+31 €**;
+- 2022: 12 challengers, resultado agregado aproximado **-122 €**; cash equivalente aproximado **+43 €**;
+- 2024: 8 challengers, resultado agregado aproximado **+355 €**; cash equivalente aproximado **+16 €**.
+
+Conclusión: **no eliminar toda rotación**. Fue destructiva en 2021/22 pero aportó valor material en 2024. Tampoco introducir un cooldown fijo de 5/10/20 sesiones: retrasar entradas reducía pérdidas en periodos malos, pero también recortaba de forma importante el beneficio de 2024.
+
+### MFE/high-water
+
+Se probó diagnósticamente una regla de salida basada en MFE + giveback + deterioro. En 2022 adelantaba correctamente algunas salidas como ZPRV, AIGC e IQQH, pero la misma regla aplicada a 2024 producía falsas salidas en posiciones que después recuperaban. Por tanto:
+
+> **MFE/high-water debe incorporarse más adelante a WATCH/salud, no como stop automático universal.**
+
+No se implementa todavía ningún stop por porcentaje fijo ni take-profit.
+
+### Hallazgo más robusto: persistencia previa de ENTRY_STRONG
+
+Número medio aproximado de observaciones `ENTRY_STRONG` en las 10 sesiones **anteriores** a una rotación:
+- 2021: **0,17**;
+- 2022: **0,08**;
+- 2024: **3,00**.
+
+Prueba diagnóstica con requisito experimental `ENTRY_STRONG hoy + ≥2 ENTRY_STRONG en las 10 sesiones anteriores`:
+- 2021: pasan 0 de 6 rotaciones;
+- 2022: pasan 0 de 12 rotaciones;
+- 2024: pasan 5 de 8 rotaciones;
+- de esas 5 de 2024, 4 terminaron positivas; retorno medio aproximado **+4,85%**.
+
+Sobre las 26 rotaciones observadas en las tres ventanas, el resultado local aproximado de challengers fue:
+- rotación previa sin persistencia: **+35 €** agregados;
+- no rotar y dejar ese capital en cash: **+89 €** aproximados;
+- aplicar el filtro de persistencia y dejar en cash las sustituciones rechazadas: **+288 €** aproximados.
+
+Esto no equivale a un replay completo contrafactual porque cancelar una operación altera decisiones futuras. Es evidencia de selección suficiente para justificar una prueba integrada del motor, no una garantía de rentabilidad.
+
+## Implementación — rama `chatgpt/persistent-rotation-challengers`
+
+Commits:
+- `2662bfa7308ed86d0b3cbaaaa3a603a4b771b48c` — `Add causal entry timing persistence audit`;
+- `b85171b7db87e49e82d0c21d0ce3752de32f44ca` — `Require persistent strong evidence for rotation`;
+- `e75b80eaa9dab0f8e39ff2291a348beb2d5a0b0f` — `Assert persistent challenger rotation gate`.
+
+### Regla exacta implementada
+
+`EntryTimingEngine.assessRecentPersistence()` reconstruye causalmente los estados de las sesiones anteriores usando **las mismas barras ya presentes en el scan actual**:
+- no usa localStorage nuevo;
+- no crea una base histórica paralela;
+- no depende de información exclusiva del replay;
+- recalcula momentum 20/60/120, volatilidad, consenso y Entry Timing para cada prefijo histórico;
+- excluye expresamente la sesión actual.
+
+La regla de sustitución con cartera llena exige ahora simultáneamente:
+- challenger no existente;
+- `ENTRY_STRONG` hoy;
+- consenso ≥ +3;
+- ≥4/5 votos favorables;
+- **10 sesiones previas observables**;
+- **≥2 observaciones `ENTRY_STRONG` dentro de esas 10 sesiones previas**;
+- ventaja mínima de ranking ya existente;
+- ventaja frente a cash suficiente para costes ya existente;
+- incumbent `WATCH` o `HOLD` débil;
+- ejecución 1:1 atómica y económicamente posible.
+
+Un `ENTRY_STRONG` aislado **sigue siendo válido para una entrada normal si hay cash y una plaza libre**, pero no puede causar la venta de una posición existente.
+
+Si una posición debe salir por su propia salud y no existe challenger persistente que cumpla las reglas, el capital puede quedar en **cash**; 12 sigue siendo techo de plazas, no obligación de tener 12 posiciones permanentemente.
+
+Los metadatos de decisión exponen para auditoría:
+- `rotationChallengerRecentStrongCount`;
+- `rotationChallengerPersistenceLookbackSessions`.
+
+No se añade UI nueva.
+
+### Regresiones
+
+`currentCapitalAllocation.unit.ts` pasa a **32 invariantes** y añade:
+- un challenger persistentemente STRONG puede rotar una cartera 12/12 y debe registrar el contador previo;
+- un challenger que aparece STRONG sólo en la sesión actual sigue apareciendo como oportunidad, pero no puede expulsar al incumbent;
+- se mantienen los tests de 12 plazas, atomicidad y ETF demasiado caro para comprar un título.
+
+## Estado
+
+**IMPLEMENTADO EN RAMA, NO RUNTIME-VALIDADO.**
+
+No se han ejecutado tests por parte de ChatGPT. El verde anterior no valida estos commits.
+
+## Próximo paso vigente
+
+1. Revisar que la rama sea fast-forward limpia respecto de `main` y, si lo es, mover `main` sin force-push.
+2. Sincronizar el nuevo `main` en el entorno local.
+3. Ejecutar manualmente `npm run validate:aistudio`; no usar GitHub Actions ni agente de Gemini para monitorizarlo.
+4. Si el gate queda verde, repetir primero **2022-07-11, 12 meses, DAILY, 13.000 €**.
+5. Medir especialmente número de `ROTATION_ENTRY`, EXIT competitivos, retorno, DD, fees y cash. Se espera una caída material de rotaciones respecto a la versión anterior; no asumir de antemano que el resultado final mejorará.
+6. Si el comportamiento 2022 es coherente, repetir 2021 y 2024 para comprobar que reduce la sobre-rotación mala sin destruir las rotaciones útiles de 2024.
+7. No recalibrar todavía `2/10`, 3/5/8%, 12 plazas ni márgenes de ranking con estas mismas ventanas; si la arquitectura funciona, la calibración debe usar holdout independiente.
