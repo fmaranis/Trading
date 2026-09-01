@@ -1,4 +1,4 @@
-import { classifyPositionHealth } from '../src/investment/decision';
+import { classifyPositionHealth, isDiversifiedCoreCategory } from '../src/investment/decision';
 
 let passed = 0;
 function check(name: string, condition: boolean) {
@@ -15,6 +15,7 @@ const base: any = {
   favorableVotes: 1,
   neutralVotes: 3,
   consensusScore: 0,
+  momentum20Pct: 0,
   explanation: 'Neutral'
 };
 
@@ -42,4 +43,71 @@ check('809 neutral healthy position stays HOLD', hold.action === 'HOLD');
 const missing = classifyPositionHealth(null, null);
 check('810 insufficient causal evidence stays DATA_MISSING', missing.action === 'DATA_MISSING');
 
-console.log(`Portfolio position health: ${passed}/10 invariants passed.`);
+const weakSatellite: any = {
+  ...base,
+  existingPositionAction: 'HOLD',
+  newMoneyAction: 'AVOID',
+  unfavorableVotes: 2,
+  favorableVotes: 0,
+  neutralVotes: 3,
+  consensusScore: -2,
+  momentum20Pct: -4
+};
+const tacticalReduce = classifyPositionHealth(weakSatellite, -10, {
+  category: 'TECHNOLOGY',
+  isDiversifiedCore: false,
+  currentReturnPct: -10,
+  mfePct: 8,
+  givebackFromMfePctPoints: 18,
+  deteriorationStreakSessions: 12,
+  momentum20Pct: -4
+});
+check('811 persistent satellite giveback can REDUCE before structural EXIT', tacticalReduce.action === 'REDUCE');
+check('812 satellite giveback REDUCE remains partial at fifty percent', tacticalReduce.suggestedReductionPct === 50);
+
+const coreProtected = classifyPositionHealth(weakSatellite, -10, {
+  category: 'US_EQUITY',
+  isDiversifiedCore: true,
+  currentReturnPct: -10,
+  mfePct: 8,
+  givebackFromMfePctPoints: 18,
+  deteriorationStreakSessions: 12,
+  momentum20Pct: -4
+});
+check('813 diversified core never uses the MFE giveback REDUCE rule', coreProtected.action === 'WATCH');
+
+const stagedWatch = classifyPositionHealth({ ...weakSatellite, newMoneyAction: 'WATCH' }, 2, {
+  category: 'TECHNOLOGY',
+  isDiversifiedCore: false,
+  currentReturnPct: -4,
+  mfePct: 3,
+  givebackFromMfePctPoints: 7,
+  deteriorationStreakSessions: 3,
+  momentum20Pct: -2
+});
+check('814 three weak sessions with material loss enter WATCH without selling', stagedWatch.action === 'WATCH' && stagedWatch.suggestedReductionPct == null);
+
+const shortWeakness = classifyPositionHealth({ ...weakSatellite, newMoneyAction: 'WATCH' }, 2, {
+  category: 'TECHNOLOGY',
+  isDiversifiedCore: false,
+  currentReturnPct: -6,
+  mfePct: 4,
+  givebackFromMfePctPoints: 10,
+  deteriorationStreakSessions: 2,
+  momentum20Pct: -3
+});
+check('815 weakness shorter than three sessions does not enter the persistent WATCH state', shortWeakness.action === 'HOLD');
+
+const recoveringSatellite = classifyPositionHealth(weakSatellite, -10, {
+  category: 'TECHNOLOGY',
+  isDiversifiedCore: false,
+  currentReturnPct: -10,
+  mfePct: 8,
+  givebackFromMfePctPoints: 18,
+  deteriorationStreakSessions: 12,
+  momentum20Pct: 2
+});
+check('816 positive short momentum blocks giveback REDUCE while recovery is underway', recoveringSatellite.action === 'WATCH');
+check('817 broad US equity is classified as diversified core while technology is tactical', isDiversifiedCoreCategory('US_EQUITY') && !isDiversifiedCoreCategory('TECHNOLOGY'));
+
+console.log(`Portfolio position health: ${passed}/17 invariants passed.`);
