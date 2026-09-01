@@ -147,7 +147,17 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.detail || body?.error || `HTTP ${response.status}`);
-      setMessage(`Prueba guardada en el proyecto: ${body.latestPath}. También archivada en ${body.archivePath}. Sincroniza esos cambios con GitHub y podré leer directamente latest.json.`);
+
+      const sync = body?.githubSync;
+      if (sync?.published === true) {
+        setMessage(`Prueba guardada y publicada para ChatGPT en ${sync.repository}:${sync.branch}/${sync.path}. Ya no necesitas adjuntar el JSON/ZIP: puedes decir “revisa la última prueba”.`);
+      } else if (sync?.configured === false) {
+        setMessage(`Prueba guardada localmente en ${body.latestPath}. La publicación automática para ChatGPT aún no está configurada: añade el secreto server-side GITHUB_REPLAY_SYNC_TOKEN una sola vez.`);
+      } else if (sync?.error) {
+        setMessage(`Prueba guardada localmente en ${body.latestPath}, pero la publicación automática a GitHub falló: ${String(sync.error)}`);
+      } else {
+        setMessage(`Prueba guardada en el proyecto: ${body.latestPath}. También archivada en ${body.archivePath}.`);
+      }
     } catch (e: any) {
       setError(`No se pudo guardar la prueba en el proyecto: ${e?.message || String(e)}`);
     } finally {
@@ -181,9 +191,9 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
 
   return <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar prueba en proyecto” escribe la sesión en validation-runs/latest.json y conserva una copia histórica. Después de sincronizar el proyecto con GitHub, ChatGPT puede leer directamente ese latest.json sin que tengas que adjuntar nada.</div></div>
+      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar + publicar para ChatGPT” conserva el replay completo localmente y, si está configurado el secreto server-side, actualiza automáticamente la copia canónica de lectura en la rama replay-results. No usa GitHub Actions y el token nunca llega al navegador.</div></div>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => void saveToProject()} disabled={savingProject} className="flex min-h-10 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 disabled:opacity-50"><Save className="h-3.5 w-3.5"/>{savingProject ? 'Guardando…' : 'Guardar prueba en proyecto'}</button>
+        <button type="button" onClick={() => void saveToProject()} disabled={savingProject} className="flex min-h-10 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 disabled:opacity-50"><Save className="h-3.5 w-3.5"/>{savingProject ? 'Guardando…' : 'Guardar + publicar para ChatGPT'}</button>
         <button type="button" onClick={exportSession} className="flex min-h-10 items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[10px] font-bold text-cyan-100"><Download className="h-3.5 w-3.5"/>Exportar prueba JSON</button>
         <button type="button" onClick={() => fileRef.current?.click()} className="flex min-h-10 items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-[10px] font-bold text-violet-100"><Upload className="h-3.5 w-3.5"/>Importar prueba JSON</button>
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={e => void importFile(e.target.files?.[0] ?? null)}/>
