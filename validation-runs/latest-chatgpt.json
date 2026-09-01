@@ -3,11 +3,11 @@
     "format": "TRADING_HISTORICAL_REPLAY_AUDIT",
     "schemaVersion": 1,
     "replayStorageVersion": 3,
-    "exportedAt": "2026-09-01T16:42:51.746Z",
+    "exportedAt": "2026-09-01T16:43:52.162Z",
     "source": "fmaranis/Trading · Replay histórico auditado",
     "note": "Proyección canónica compacta del último replay para lectura directa por ChatGPT desde GitHub. Conserva configuración, resumen, checkpoints, operaciones, posiciones, path y campos diagnósticos esenciales de todas las señales.",
     "chatgptProjectionVersion": 1,
-    "publishedAt": "2026-09-01T16:42:50.113Z"
+    "publishedAt": "2026-09-01T16:43:50.505Z"
   },
   "session": {
     "version": 3,
