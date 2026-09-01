@@ -153,6 +153,8 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
         setMessage(`Prueba guardada y publicada para ChatGPT en ${sync.repository}:${sync.branch}/${sync.path}. Ya no necesitas adjuntar el JSON/ZIP: puedes decir “revisa la última prueba”.`);
       } else if (sync?.configured === false) {
         setMessage(`Prueba guardada localmente en ${body.latestPath}. La publicación automática para ChatGPT aún no está configurada: añade el secreto server-side GITHUB_REPLAY_SYNC_TOKEN una sola vez.`);
+      } else if (sync?.blockedReason === 'PRODUCTION_SYNC_DISABLED') {
+        setMessage(`Prueba guardada localmente en ${body.latestPath}. La escritura automática a GitHub está bloqueada deliberadamente en producción; este canal de auditoría sólo se habilita en desarrollo/AI Studio para no exponer una credencial de escritura desde la web pública.`);
       } else if (sync?.error) {
         setMessage(`Prueba guardada localmente en ${body.latestPath}, pero la publicación automática a GitHub falló: ${String(sync.error)}`);
       } else {
@@ -191,7 +193,7 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
 
   return <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar + publicar para ChatGPT” conserva el replay completo localmente y, si está configurado el secreto server-side, actualiza automáticamente la copia canónica de lectura en la rama replay-results. No usa GitHub Actions y el token nunca llega al navegador.</div></div>
+      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar + publicar para ChatGPT” conserva el replay completo localmente y, en desarrollo/AI Studio con el secreto server-side configurado, actualiza automáticamente la copia canónica de lectura en la rama replay-results. No usa GitHub Actions y el token nunca llega al navegador.</div></div>
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => void saveToProject()} disabled={savingProject} className="flex min-h-10 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 disabled:opacity-50"><Save className="h-3.5 w-3.5"/>{savingProject ? 'Guardando…' : 'Guardar + publicar para ChatGPT'}</button>
         <button type="button" onClick={exportSession} className="flex min-h-10 items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[10px] font-bold text-cyan-100"><Download className="h-3.5 w-3.5"/>Exportar prueba JSON</button>
