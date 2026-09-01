@@ -9,7 +9,7 @@ import { HistoricalDecisionReplayEngine } from './historicalDecisionReplay';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
 import { PortfolioCandidateGate } from './portfolioCandidateGate';
 import { PortfolioDecisionEngine, type PortfolioPositionDecision } from './portfolioDecisionEngine';
-import { classifyPositionHealth, type PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
+import { assessDeteriorationStreak, classifyPositionHealth, isDiversifiedCoreCategory, type PortfolioPositionHealthSnapshot, type PositionHealthContext } from './portfolioPositionHealth';
 import { accrueRemuneratedCash, allCashBenchmark } from './remuneratedCash';
 import { estimateSpanishTaxOnRealizedGain, type SpanishTaxSettings } from './spanishTaxModel';
 import { StrategyConsensusEngine, type StrategyConsensusAssessment } from './strategyConsensusEngine';
@@ -18,7 +18,7 @@ import type { InvestmentDecisionResult, InvestmentHorizonYears, InvestorRiskProf
 import type { UserPortfolioState } from './userPortfolio';
 
 export type DynamicReplayFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY';
-export type DynamicReplaySignalAction = 'BUY' | 'ADD' | 'HOLD' | 'AVOID' | 'REDUCE' | 'EXIT';
+export type DynamicReplaySignalAction = 'BUY' | 'ADD' | 'HOLD' | 'WATCH' | 'AVOID' | 'REDUCE' | 'EXIT';
 export type DynamicReplayEventType = 'BUY' | 'ADD' | 'REDUCE' | 'EXIT' | 'TRANSFER';
 export type DynamicReplayDeploymentSession = 1 | 5 | 20 | 60;
 
@@ -41,6 +41,11 @@ export interface DynamicReplaySignal {
   timingSetup: EntryTimingSetup | null;
   timingScore: number | null;
   suggestedInitialFraction: number | null;
+  positionCurrentReturnPct?: number | null;
+  positionMfePct?: number | null;
+  positionGivebackFromMfePctPoints?: number | null;
+  positionDeteriorationStreakSessions?: number | null;
+  positionIsDiversifiedCore?: boolean | null;
   executed: boolean;
   unitsDelta: number;
   notionalEur: number;
@@ -164,6 +169,10 @@ interface DecisionState {
   date: string;
   regime: string;
   method: string;
+}
+
+interface ReplayPositionHealthState {
+  mfePct: number;
 }
 
 const DEFAULT_TAX_SETTINGS: SpanishTaxSettings = { priorSavingsTaxableBaseEur: 0, contextConfirmed: false };
@@ -433,16 +442,34 @@ function buildHistoricalHealthMap(input: {
   catalog: AssetUniverseItem[];
   date: string;
   cashBenchmarkAnnualPct: number;
+  stateByAsset: Map<string, ReplayPositionHealthState>;
 }): Record<string, PortfolioPositionHealthSnapshot> {
   const out: Record<string, PortfolioPositionHealthSnapshot> = {};
+  const activeIds = new Set(input.holdings.keys());
+  for (const assetId of [...input.stateByAsset.keys()]) if (!activeIds.has(assetId)) input.stateByAsset.delete(assetId);
   for (const holding of input.holdings.values()) {
     const item = catalogItem(input.catalog, holding.assetId);
     const candidate = input.scan.candidates.find(row => row.asset.assetId === holding.assetId);
     if (!item || !candidate) continue;
     const assessment = StrategyConsensusEngine.assess(input.scan, holding.assetId, input.cashBenchmarkAnnualPct);
     const cash = assessAgainstCashBenchmark({ momentum120Pct: candidate.momentum120Pct, benchmarkAnnualPct: input.cashBenchmarkAnnualPct, notionalEur: 0, estimatedFeeEur: 0 });
-    const classification = classifyPositionHealth(assessment, cash.excessVsCashPctPoints);
     const price = closeOnOrBefore(input.dataset, holding.assetId, input.date);
+    const currentValueEur = price == null ? null : price * holding.units;
+    const basisEur = basisOf(holding);
+    const currentReturnPct = currentValueEur != null && basisEur > 0 ? (currentValueEur / basisEur - 1) * 100 : null;
+    const previous = input.stateByAsset.get(holding.assetId);
+    const mfePct = currentReturnPct == null ? previous?.mfePct ?? 0 : Math.max(previous?.mfePct ?? 0, currentReturnPct, 0);
+    input.stateByAsset.set(holding.assetId, { mfePct });
+    const context: PositionHealthContext = {
+      category: item.category,
+      isDiversifiedCore: isDiversifiedCoreCategory(item.category),
+      currentReturnPct,
+      mfePct,
+      givebackFromMfePctPoints: currentReturnPct == null ? null : Math.max(0, mfePct - currentReturnPct),
+      deteriorationStreakSessions: assessDeteriorationStreak(input.scan, holding.assetId, input.cashBenchmarkAnnualPct),
+      momentum20Pct: candidate.momentum20Pct
+    };
+    const classification = classifyPositionHealth(assessment, cash.excessVsCashPctPoints, context);
     const snapshot: PortfolioPositionHealthSnapshot = {
       key: holding.instrumentType === 'MUTUAL_FUND' ? holding.assetId : item.ticker.toUpperCase(),
       label: item.name,
@@ -452,19 +479,35 @@ function buildHistoricalHealthMap(input: {
       source: 'UNIVERSE_SCAN',
       currency: 'EUR',
       currentUnitPrice: price,
-      currentValueEur: price == null ? null : price * holding.units,
+      currentValueEur,
       consensusScore: assessment?.consensusScore ?? null,
       favorableVotes: assessment?.favorableVotes ?? null,
       unfavorableVotes: assessment?.unfavorableVotes ?? null,
       structuralDowntrend: assessment?.structuralDowntrend ?? null,
       excessVsCashPctPoints: cash.excessVsCashPctPoints,
-      suggestedReductionPct: classification.suggestedReductionPct
+      suggestedReductionPct: classification.suggestedReductionPct,
+      category: context.category,
+      isDiversifiedCore: context.isDiversifiedCore,
+      currentReturnPct: context.currentReturnPct,
+      mfePct: context.mfePct,
+      givebackFromMfePctPoints: context.givebackFromMfePctPoints,
+      deteriorationStreakSessions: context.deteriorationStreakSessions,
+      momentum20Pct: context.momentum20Pct
     };
     out[snapshot.key] = snapshot;
     out[snapshot.tickerOrIsin.toUpperCase()] = snapshot;
     out[holding.assetId] = snapshot;
   }
   return out;
+}
+function healthAuditFields(snapshot: PortfolioPositionHealthSnapshot | undefined) {
+  return {
+    positionCurrentReturnPct: snapshot?.currentReturnPct ?? null,
+    positionMfePct: snapshot?.mfePct ?? null,
+    positionGivebackFromMfePctPoints: snapshot?.givebackFromMfePctPoints ?? null,
+    positionDeteriorationStreakSessions: snapshot?.deteriorationStreakSessions ?? null,
+    positionIsDiversifiedCore: snapshot?.isDiversifiedCore ?? null
+  };
 }
 function findHoldingForPosition(position: PortfolioPositionDecision, holdings: Map<string, Holding>, catalog: AssetUniverseItem[]): Holding | null {
   for (const holding of holdings.values()) {
@@ -602,6 +645,7 @@ export class DynamicHistoricalReplayEngine {
     if (input.startDate >= endDate) throw new Error('La fecha inicial debe ser anterior al último dato REAL.');
 
     const holdings = new Map<string, Holding>();
+    const positionHealthStateByAsset = new Map<string, ReplayPositionHealthState>();
     const signals: DynamicReplaySignal[] = [];
     const events: DynamicReplayEvent[] = [];
     const decisionStates: DecisionState[] = [];
@@ -639,7 +683,7 @@ export class DynamicHistoricalReplayEngine {
       decisionStates.push({ date: decisionDate, regime: liveDecision.marketRegime, method: liveDecision.recommendedMethod });
 
       const simulated = buildSimulatedPortfolio({ holdings, cashEur, dataset: input.dataset, catalog: input.catalog, date: decisionDate });
-      const healthMap = buildHistoricalHealthMap({ holdings, scan: dateGate.scan, dataset: input.dataset, catalog: input.catalog, date: decisionDate, cashBenchmarkAnnualPct });
+      const healthMap = buildHistoricalHealthMap({ holdings, scan: dateGate.scan, dataset: input.dataset, catalog: input.catalog, date: decisionDate, cashBenchmarkAnnualPct, stateByAsset: positionHealthStateByAsset });
       const portfolioDecision = PortfolioDecisionEngine.evaluate({
         portfolio: simulated.portfolio,
         scan: dateGate.scan,
@@ -664,6 +708,7 @@ export class DynamicHistoricalReplayEngine {
         const targetValue = contribution.targetAssetValueEur ?? heldValue + contribution.amountEur;
         const assessment = ensureAssessment(contribution.assetId);
         const gateEntry = gateEntryByAsset.get(contribution.assetId);
+        const health = holding ? healthMap[contribution.assetId] : undefined;
         plannedByAsset.set(contribution.assetId, {
           assessment,
           rotationPairAssetId: rotationIncumbentByChallenger.get(contribution.assetId) ?? null,
@@ -686,6 +731,7 @@ export class DynamicHistoricalReplayEngine {
             timingSetup: gateEntry?.timingSetup ?? null,
             timingScore: gateEntry?.timingScore ?? null,
             suggestedInitialFraction: gateEntry?.suggestedInitialFraction ?? contribution.suggestedInitialFraction ?? null,
+            ...healthAuditFields(health),
             executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
             reason: contribution.reason
           }
@@ -713,6 +759,7 @@ export class DynamicHistoricalReplayEngine {
             consensusScore: assessment?.consensusScore ?? null, favorableVotes: assessment?.favorableVotes ?? null, unfavorableVotes: assessment?.unfavorableVotes ?? null,
             structuralDowntrend: assessment?.structuralDowntrend ?? false, buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
             timingState: null, timingSetup: null, timingScore: null, suggestedInitialFraction: null,
+            ...healthAuditFields(healthMap[holding.assetId]),
             executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
             reason: position.reason
           }
@@ -720,7 +767,7 @@ export class DynamicHistoricalReplayEngine {
       }
 
       // Keep non-operational traces for holdings, selected candidates and every asset that reached Entry Timing.
-      // This makes WAIT/READY/STRONG measurable without inventing a second replay path.
+      // This makes WAIT/READY/STRONG and HOLD/WATCH measurable without inventing a second replay path.
       const timingTraceIds = dateGate.entries.filter(entry => entry.timingState != null).map(entry => entry.assetId);
       const traceIds = new Set<string>([
         ...timingTraceIds,
@@ -734,10 +781,12 @@ export class DynamicHistoricalReplayEngine {
         const assessment = ensureAssessment(assetId);
         const holding = holdings.get(assetId);
         const gateEntry = gateEntryByAsset.get(assetId);
+        const health = holding ? healthMap[assetId] : undefined;
         const heldValue = holding ? holdingValue(input.dataset, holding, decisionDate) : 0;
         const currentWeight = current.equityEur > 0 ? heldValue / current.equityEur : 0;
+        const traceAction: DynamicReplaySignalAction = holding ? (health?.action === 'WATCH' ? 'WATCH' : 'HOLD') : 'AVOID';
         const traceReason = holding
-          ? 'La cadena operativa actual no exige mover esta posición en esta fecha.'
+          ? health?.reason ?? 'La cadena operativa actual no exige mover esta posición en esta fecha.'
           : gateEntry?.timingState === 'WAIT'
             ? `Entrada no financiada: Entry Timing = WAIT (${gateEntry.timingSetup ?? 'NONE'}, score ${gateEntry.timingScore ?? 'N/D'}).`
             : 'Candidato sin una compra financiada por la cadena operativa actual en esta fecha.';
@@ -745,9 +794,9 @@ export class DynamicHistoricalReplayEngine {
           assessment,
           rotationPairAssetId: null,
           signal: {
-            id: `${decisionDate}_${assetId}_${holding ? 'HOLD' : 'AVOID'}`,
+            id: `${decisionDate}_${assetId}_${traceAction}`,
             signalDate: decisionDate, executionDate: null, assetId, ticker: item.ticker,
-            action: holding ? 'HOLD' : 'AVOID', targetWeight: currentWeight, currentWeight, recommendedAmountEur: 0,
+            action: traceAction, targetWeight: currentWeight, currentWeight, recommendedAmountEur: 0,
             consensusScore: assessment?.consensusScore ?? gateEntry?.consensusScore ?? null,
             favorableVotes: assessment?.favorableVotes ?? gateEntry?.favorableVotes ?? null,
             unfavorableVotes: assessment?.unfavorableVotes ?? gateEntry?.unfavorableVotes ?? null,
@@ -757,6 +806,7 @@ export class DynamicHistoricalReplayEngine {
             timingSetup: gateEntry?.timingSetup ?? null,
             timingScore: gateEntry?.timingScore ?? null,
             suggestedInitialFraction: gateEntry?.suggestedInitialFraction ?? null,
+            ...healthAuditFields(health),
             executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
             reason: traceReason
           }
@@ -851,7 +901,10 @@ export class DynamicHistoricalReplayEngine {
           const realizedGain = gross - fee - basis;
           cashEur += Math.max(0, gross - fee);
           holding.units = Math.max(0, holding.units - unitsToSell);
-          if (holding.units <= 1e-12) holdings.delete(holding.assetId);
+          if (holding.units <= 1e-12) {
+            holdings.delete(holding.assetId);
+            positionHealthStateByAsset.delete(holding.assetId);
+          }
           totalFeesEur += fee;
           Object.assign(plan.signal, { executed: true, executionDate: isoDate(bar.timestamp), unitsDelta: -unitsToSell, notionalEur: gross, feeEur: fee, realizedGainEur: realizedGain, executionPriceEur: price });
           executedSales.push({ plan, holdingType: holding.instrumentType, grossEur: gross, feeEur: fee, costBasisEur: basis, realizedGainEur: realizedGain, transferPlannedEur: 0, transferRemainingEur: 0 });
@@ -904,6 +957,7 @@ export class DynamicHistoricalReplayEngine {
           cashEur = Math.max(0, cashEur - spend);
           const nextHolding: Holding = existing ?? { assetId: plan.signal.assetId, ticker: plan.signal.ticker, instrumentType: type, units: 0, lots: [] };
           nextHolding.units += unitsToBuy; addLot(nextHolding, unitsToBuy, spend, commonExecutionDate); holdings.set(nextHolding.assetId, nextHolding);
+          if (plan.signal.action === 'ADD') positionHealthStateByAsset.delete(plan.signal.assetId);
           totalFeesEur += fee;
           Object.assign(plan.signal, { executed: true, executionDate: isoDate(bar.timestamp), unitsDelta: unitsToBuy, notionalEur: unitsToBuy * price, feeEur: fee, executionPriceEur: price });
 
@@ -961,11 +1015,13 @@ export class DynamicHistoricalReplayEngine {
       operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN',
       signals, events: events.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)), equityPath,
       notes: [
-        'Cada fecha reconstruye la misma cadena operativa in-universe que usa la pantalla actual: universo REAL → cash+consenso → PortfolioCandidateGate → InvestmentDecisionEngine → PortfolioDecisionEngine con objetivos estables → salud individual para REDUCE/EXIT.',
+        'Cada fecha reconstruye la misma cadena operativa in-universe que usa la pantalla actual: universo REAL → cash+consenso → PortfolioCandidateGate → InvestmentDecisionEngine → PortfolioDecisionEngine con objetivos estables → salud individual para WATCH/REDUCE/EXIT.',
         'Cada decisión usa exclusivamente datos disponibles hasta esa fecha; nunca se eligen compras o ventas mirando el resultado futuro.',
         'La fecha operativa de señal es siempre la fecha de decisión solicitada; el asOfDate de los datos puede ser anterior sin desplazar la señal fuera de la ventana del replay.',
         'DAILY revisa cada sesión disponible; WEEKLY/MONTHLY/QUARTERLY reducen la frecuencia de decisión. La ejecución siempre ocurre después de la señal.',
         'Las señales conservan timingState, timingSetup, timingScore y suggestedInitialFraction; WAIT queda auditado como NO COMPRAR y READY/STRONG permanecen visibles aunque el candidato no reciba capital.',
+        'Las posiciones existentes conservan auditoría causal de retorno, MFE, giveback, persistencia de deterioro y clasificación core/satélite. WATCH es explícito pero no operativo; REDUCE por giveback se reserva a satélites y requiere persistencia, MFE previo y momentum 20d no recuperado.',
+        'Tras un ADD se reinicia la referencia MFE de la posición ampliada para no mezclar el máximo de una posición más pequeña con la nueva base de coste.',
         'deploymentHorizons mide 1/5/20/60 sesiones transcurridas desde la fecha inicial: capital neto comprometido por flujos ejecutados y valor de mercado invertido se informan por separado.',
         'Una compra ejecutada cuenta contra el objetivo estable del activo en las decisiones posteriores; el replay no redistribuye desde cero el efectivo restante después de cada operación.',
         'ETFs usan títulos enteros, mínimo/drag de comisión de la política adaptativa y comisión MyInvestor modelada; fondos usan unidades fraccionarias.',
