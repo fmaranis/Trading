@@ -1,3 +1,5 @@
+import { postJsonCompressed } from './compressedJsonTransport';
+
 const REPLAY_AUDIT_FORMAT = 'TRADING_HISTORICAL_REPLAY_AUDIT';
 const REPLAY_AUDIT_SCHEMA_VERSION = 1;
 
@@ -27,11 +29,10 @@ async function publishLatest(): Promise<void> {
       const current = pendingReplayJson;
       pendingReplayJson = null;
       try {
-        await fetch('/api/validation/historical-audit/save?archive=0', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: buildAuditEnvelope(current)
-        });
+        await postJsonCompressed(
+          '/api/validation/historical-audit/save?archive=0',
+          buildAuditEnvelope(current)
+        );
       } catch {
         // Best-effort audit publication must never interrupt replay calculation.
       }
@@ -47,6 +48,7 @@ async function publishLatest(): Promise<void> {
  * If several checkpoints finish while a publication is in flight, only the
  * newest waiting snapshot is sent next. Automatic checkpoint publication only
  * updates latest; archive copies are created explicitly at the end of a replay.
+ * The browser compresses the request before sending it when supported.
  */
 export function queueReplayAutoPublish(sessionJson: string): void {
   pendingReplayJson = sessionJson;
