@@ -1,11 +1,13 @@
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { gunzipSync } from 'node:zlib';
 
 const FORMAT = 'TRADING_HISTORICAL_REPLAY_AUDIT';
 const REPOSITORY = process.env.GITHUB_REPLAY_SYNC_REPOSITORY || 'fmaranis/Trading';
 const BRANCH = process.env.GITHUB_REPLAY_SYNC_BRANCH || 'replay-results';
 const TOKEN = process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim();
 const LOCAL_ARCHIVE = path.resolve(process.cwd(), 'validation-runs', 'archive');
+const REMOTE_SOURCE_DIR = 'validation-runs/archive-chatgpt';
 const REMOTE_DIR = 'validation-runs/archive-chatgpt-analysis';
 const LATEST_PATH = 'validation-runs/latest-chatgpt-analysis.json';
 const BEST_EFFORT = process.argv.includes('--best-effort');
@@ -84,7 +86,7 @@ function keepDiagnosticSignal(raw) {
     || (Number.isFinite(mfe) && mfe >= 5 && Number.isFinite(giveback) && giveback >= 12 && Number.isFinite(currentReturn) && currentReturn < 0);
 }
 
-function buildAnalysis(payload) {
+function buildAnalysis(payload, source) {
   if (payload?.metadata?.format !== FORMAT || !payload?.session) throw new Error('Invalid replay payload.');
   const s = payload.session;
   const pathPoints = Array.isArray(s.path) ? s.path : [];
@@ -101,9 +103,9 @@ function buildAnalysis(payload) {
     metadata: {
       format: FORMAT,
       schemaVersion: payload?.metadata?.schemaVersion ?? 1,
-      analysisProjectionVersion: 1,
+      analysisProjectionVersion: 2,
       exportedAt: payload?.metadata?.exportedAt ?? null,
-      source: 'Local replay archive backfill',
+      source,
       note: 'Small directly-readable diagnostic projection. Full replay remains in .json.gz.b64.'
     },
     session: {
@@ -156,6 +158,12 @@ function headers() {
   };
 }
 
+async function githubJson(url) {
+  const response = await fetch(url, { headers: headers() });
+  if (!response.ok) throw new Error(`GitHub read failed ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  return response.json();
+}
+
 async function upsert(targetPath, text, message) {
   const api = `https://api.github.com/repos/${REPOSITORY}/contents/${targetPath}`;
   const current = await fetch(`${api}?ref=${encodeURIComponent(BRANCH)}`, { headers: headers() });
@@ -165,7 +173,7 @@ async function upsert(targetPath, text, message) {
     sha = existing?.sha;
     if (typeof existing?.content === 'string') {
       const decoded = Buffer.from(existing.content.replace(/\s/g, ''), 'base64').toString('utf8').trimEnd();
-      if (decoded === text) return false;
+      if (decoded === text.trimEnd()) return false;
     }
   } else if (current.status !== 404) {
     throw new Error(`GitHub read failed ${current.status}: ${(await current.text()).slice(0, 300)}`);
@@ -176,6 +184,39 @@ async function upsert(targetPath, text, message) {
   return true;
 }
 
+async function loadRemotePayloads() {
+  const listUrl = `https://api.github.com/repos/${REPOSITORY}/contents/${REMOTE_SOURCE_DIR}?ref=${encodeURIComponent(BRANCH)}`;
+  const entries = await githubJson(listUrl);
+  if (!Array.isArray(entries)) return [];
+  const files = entries
+    .filter(entry => entry?.type === 'file' && String(entry?.name ?? '').endsWith('.json.gz.b64'))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const out = [];
+  for (const entry of files) {
+    const file = await githubJson(`${entry.url}?ref=${encodeURIComponent(BRANCH)}`);
+    const storedText = Buffer.from(String(file?.content ?? '').replace(/\s/g, ''), 'base64').toString('utf8').trim();
+    const gzipBytes = Buffer.from(storedText.replace(/\s/g, ''), 'base64');
+    const payload = JSON.parse(gunzipSync(gzipBytes).toString('utf8'));
+    out.push({ payload, source: `GitHub replay archive ${entry.name}` });
+  }
+  return out;
+}
+
+async function loadLocalPayloads() {
+  let names;
+  try {
+    names = (await readdir(LOCAL_ARCHIVE)).filter(name => name.endsWith('.json')).sort();
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const name of names) {
+    const payload = JSON.parse(await readFile(path.join(LOCAL_ARCHIVE, name), 'utf8'));
+    out.push({ payload, source: `Local replay archive ${name}` });
+  }
+  return out;
+}
+
 async function main() {
   if (!TOKEN) {
     console.log('[Replay analysis] skipped: GITHUB_REPLAY_SYNC_TOKEN is not configured.');
@@ -183,26 +224,22 @@ async function main() {
   }
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(REPOSITORY)) throw new Error('Invalid repository.');
 
-  let names;
+  let sources = [];
   try {
-    names = (await readdir(LOCAL_ARCHIVE)).filter(name => name.endsWith('.json')).sort();
+    sources = await loadRemotePayloads();
   } catch (error) {
-    if (error?.code === 'ENOENT') {
-      console.log('[Replay analysis] skipped: no local replay archive directory yet.');
-      return;
-    }
-    throw error;
+    console.warn(`[Replay analysis] remote archive read failed: ${error?.message || error}`);
   }
-  if (!names.length) {
-    console.log('[Replay analysis] skipped: no local replay archives found.');
+  if (!sources.length) sources = await loadLocalPayloads();
+  if (!sources.length) {
+    console.log('[Replay analysis] skipped: no replay archives available locally or on replay-results.');
     return;
   }
 
   const generated = [];
   let changed = 0;
-  for (const name of names) {
-    const payload = JSON.parse(await readFile(path.join(LOCAL_ARCHIVE, name), 'utf8'));
-    const analysis = buildAnalysis(payload);
+  for (const { payload, source } of sources) {
+    const analysis = buildAnalysis(payload, source);
     const start = safeName(analysis.session.startDate, 'start');
     const end = safeName(analysis.session.endDate, 'partial');
     const target = `${REMOTE_DIR}/${start}__${end}.analysis.json`;
