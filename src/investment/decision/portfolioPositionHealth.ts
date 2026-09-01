@@ -70,8 +70,9 @@ const REDUCE_MIN_MFE_PCT = 5;
 const REDUCE_MIN_GIVEBACK_PP = 15;
 const WATCH_MIN_GIVEBACK_PP = 8;
 const WATCH_MAX_CURRENT_RETURN_PCT = -3;
-// One extra session is intentional: 10 means the threshold is crossed now;
-// 11 means this is the same continuous episode after the one allowed tactical REDUCE.
+// Eleven observations are enough to distinguish a fresh threshold crossing from
+// longer persistent weakness in audit output. Tactical eligibility itself begins
+// at session 10 and remains available until a REDUCE actually executes/rebases MFE.
 const HEALTH_STREAK_LOOKBACK_SESSIONS = 11;
 
 function isoDate(date: Date): string { return date.toISOString().slice(0, 10); }
@@ -145,9 +146,9 @@ export function classifyPositionHealth(
   const weakMultiSignal = assessment.consensusScore <= -1 && assessment.unfavorableVotes >= 2;
   const tacticalGivebackReduction = context.isDiversifiedCore === false
     && weakMultiSignal
-    // Edge-triggered at the tenth consecutive weak session. Once the same
-    // episode reaches 11+, it falls back to WATCH rather than selling again.
-    && streak === REDUCE_MIN_DETERIORATION_SESSIONS
+    // First eligible session at or after 10. The replay rebases MFE only after an
+    // actually executed REDUCE, so a still-ineligible day 10 can wait for day 11+.
+    && streak >= REDUCE_MIN_DETERIORATION_SESSIONS
     && mfe != null && mfe >= REDUCE_MIN_MFE_PCT
     && giveback != null && giveback >= REDUCE_MIN_GIVEBACK_PP
     && currentReturn != null && currentReturn < 0
@@ -156,7 +157,7 @@ export function classifyPositionHealth(
   if (tacticalGivebackReduction) {
     return {
       action: 'REDUCE',
-      reason: `Deterioro individual persistente en posición satélite: se alcanza la sesión ${streak} consecutiva con evidencia débil, MFE ${mfe!.toFixed(1)}%, retorno actual ${currentReturn!.toFixed(1)}%, devolución ${giveback!.toFixed(1)} pp y momentum 20d ${momentum20!.toFixed(1)}%. Reducir 50% una sola vez en este episodio; desde la siguiente sesión continua vuelve a WATCH salvo deterioro estructural posterior.`,
+      reason: `Deterioro individual persistente en posición satélite: ${streak} sesiones consecutivas con evidencia débil, MFE ${mfe!.toFixed(1)}%, retorno actual ${currentReturn!.toFixed(1)}%, devolución ${giveback!.toFixed(1)} pp y momentum 20d ${momentum20!.toFixed(1)}%. Reducir 50% en la primera sesión realmente elegible a partir de la décima; tras ejecución el replay rebasa MFE para no vender otra vez por el mismo máximo previo.`,
       suggestedReductionPct: 50
     };
   }
