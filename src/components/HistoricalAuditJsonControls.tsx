@@ -152,10 +152,11 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
 
       const sync = body?.githubSync;
       if (sync?.published === true) {
+        const fullInfo = sync?.fullPath ? ` Replay completo: ${sync.fullPath}.` : '';
         const archiveInfo = sync?.archived === true
-          ? ` También se ha guardado en el histórico de ChatGPT (${sync.archivePath}); se conservan como máximo ${sync.archiveLimit ?? 10} pruebas.`
+          ? ` Histórico legible: ${sync.archivePath}; se conservan como máximo ${sync.archiveLimit ?? 10} pruebas.`
           : '';
-        setMessage(`Prueba guardada y publicada como JSON normal para ChatGPT en ${sync.repository}:${sync.branch}/${sync.path}.${archiveInfo} Puedes decir “revisa las últimas pruebas”.`);
+        setMessage(`Prueba publicada para ChatGPT como JSON normal en ${sync.repository}:${sync.branch}/${sync.path}.${fullInfo}${archiveInfo} Puedes decir “revisa las últimas pruebas”.`);
       } else if (sync?.configured === false) {
         setMessage(`Prueba guardada localmente en ${body.latestPath}. La publicación automática para ChatGPT aún no está configurada: añade el secreto server-side GITHUB_REPLAY_SYNC_TOKEN una sola vez.`);
       } else if (sync?.blockedReason === 'PRODUCTION_SYNC_DISABLED') {
@@ -218,7 +219,7 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
 
   return <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar + publicar” envía y guarda el replay completo como JSON normal y legible directamente desde GitHub. Se conserva latest-chatgpt.json y un histórico máximo de 10 pruebas.</div></div>
+      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar + publicar” genera dos JSON normales: latest-chatgpt.json, preparado para lectura directa, y latest-chatgpt-full.json con el replay completo. Sin gzip ni archivos Base64.</div></div>
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => void saveToProject()} disabled={savingProject} className="flex min-h-10 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 disabled:opacity-50"><Save className="h-3.5 w-3.5"/>{savingProject ? 'Publicando JSON…' : 'Guardar + publicar para ChatGPT'}</button>
         <button type="button" onClick={() => void clearArchive()} disabled={clearingArchive} className="flex min-h-10 items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[10px] font-bold text-rose-100 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5"/>{clearingArchive ? 'Borrando…' : 'Borrar histórico ChatGPT'}</button>
