@@ -8,6 +8,11 @@ coverage/
 !.env.example
 .runtime/
 
+# Historical replay runtime artifacts. The compact ChatGPT projection is published
+# separately to the dedicated replay-results branch.
+validation-runs/latest.json
+validation-runs/archive/
+
 # Python local/runtime artifacts
 .venv/
 venv/
