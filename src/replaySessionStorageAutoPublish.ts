@@ -27,7 +27,7 @@ async function publishLatest(): Promise<void> {
       const current = pendingReplayJson;
       pendingReplayJson = null;
       try {
-        await fetch('/api/validation/historical-audit/save', {
+        await fetch('/api/validation/historical-audit/save?archive=0', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: buildAuditEnvelope(current)
@@ -45,7 +45,8 @@ async function publishLatest(): Promise<void> {
 /**
  * Queues the newest live replay snapshot for server/GitHub publication.
  * If several checkpoints finish while a publication is in flight, only the
- * newest waiting snapshot is sent next.
+ * newest waiting snapshot is sent next. Automatic checkpoint publication only
+ * updates latest; archive copies are created explicitly at the end of a replay.
  */
 export function queueReplayAutoPublish(sessionJson: string): void {
   pendingReplayJson = sessionJson;
