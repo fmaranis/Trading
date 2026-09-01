@@ -4,6 +4,7 @@ import { FundMarketDataService } from '../data/marketData/fundMarketData';
 import type { AssetUniverseCategory } from './assetUniverse';
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import { assessAgainstCashBenchmark } from './cashBenchmark';
+import { isPortfolioEquityTicker } from './portfolioDiscoveryUniverse';
 import { SingleAssetResearchEngine } from './singleAssetResearch';
 import { StrategyConsensusEngine, type StrategyConsensusAssessment } from './strategyConsensusEngine';
 import type { UserPortfolioState } from './userPortfolio';
@@ -69,7 +70,7 @@ const REDUCE_MIN_MFE_PCT = 5;
 const REDUCE_MIN_GIVEBACK_PP = 15;
 const WATCH_MIN_GIVEBACK_PP = 8;
 const WATCH_MAX_CURRENT_RETURN_PCT = -3;
-const HEALTH_STREAK_LOOKBACK_SESSIONS = 30;
+const HEALTH_STREAK_LOOKBACK_SESSIONS = 10;
 
 function isoDate(date: Date): string { return date.toISOString().slice(0, 10); }
 function barDate(bar: PriceBar): string { return bar.timestamp.slice(0, 10); }
@@ -103,7 +104,11 @@ function maxDrawdown(prices: number[], lookback = 252): number | null {
   return maximum;
 }
 
-export function isDiversifiedCoreCategory(category: AssetUniverseCategory | 'UNKNOWN' | null | undefined): boolean {
+export function isDiversifiedCoreCategory(
+  category: AssetUniverseCategory | 'UNKNOWN' | null | undefined,
+  tickerOrAssetId?: string | null
+): boolean {
+  if (tickerOrAssetId && (tickerOrAssetId.toUpperCase().startsWith('EQ_') || isPortfolioEquityTicker(tickerOrAssetId))) return false;
   return category != null && category !== 'UNKNOWN' && DIVERSIFIED_CORE_CATEGORIES.has(category);
 }
 
@@ -255,12 +260,13 @@ function positionPathContext(input: {
   investedEur: number | null | undefined;
   units: number | null | undefined;
   category: AssetUniverseCategory | 'UNKNOWN' | null | undefined;
+  tickerOrAssetId?: string | null;
   deteriorationStreakSessions: number;
   momentum20Pct: number | null | undefined;
 }): PositionHealthContext {
   const base: PositionHealthContext = {
     category: input.category ?? 'UNKNOWN',
-    isDiversifiedCore: isDiversifiedCoreCategory(input.category),
+    isDiversifiedCore: isDiversifiedCoreCategory(input.category, input.tickerOrAssetId),
     deteriorationStreakSessions: input.deteriorationStreakSessions,
     momentum20Pct: input.momentum20Pct ?? null,
     currentReturnPct: null,
@@ -372,7 +378,7 @@ export class PortfolioPositionHealthService {
         const price = candidate.lastClose ?? null;
         const context: PositionHealthContext = {
           category: candidate.asset.category,
-          isDiversifiedCore: isDiversifiedCoreCategory(candidate.asset.category),
+          isDiversifiedCore: isDiversifiedCoreCategory(candidate.asset.category, candidate.asset.ticker),
           deteriorationStreakSessions: assessDeteriorationStreak(scan, candidate.asset.assetId, cashBenchmarkAnnualPct),
           momentum20Pct: candidate.momentum20Pct,
           currentReturnPct: null,
@@ -416,6 +422,7 @@ export class PortfolioPositionHealthService {
           investedEur: fund.investedEur,
           units: fund.units,
           category: candidate.asset.category,
+          tickerOrAssetId: candidate.asset.ticker,
           deteriorationStreakSessions: assessDeteriorationStreak(scan, candidate.asset.assetId, cashBenchmarkAnnualPct),
           momentum20Pct: candidate.momentum20Pct
         });
