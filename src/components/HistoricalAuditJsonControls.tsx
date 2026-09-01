@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Download, FileJson, Save, Trash2, Upload } from 'lucide-react';
+import { postJsonCompressed } from '../compressedJsonTransport';
 
 interface Props {
   onImported?: () => void;
@@ -86,6 +87,10 @@ function safePart(value: unknown, fallback: string): string {
   return clean || fallback;
 }
 
+function formatMiB(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 function buildPayload(session: any) {
   return {
     metadata: {
@@ -141,28 +146,29 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
     setSavingProject(true);
     try {
       const session = currentSession();
-      const response = await fetch('/api/validation/historical-audit/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildPayload(session))
-      });
+      const serialized = JSON.stringify(buildPayload(session));
+      const transport = await postJsonCompressed('/api/validation/historical-audit/save', serialized);
+      const response = transport.response;
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body?.detail || body?.error || `HTTP ${response.status}`);
 
+      const transferInfo = transport.compressed
+        ? ` Envío comprimido: ${formatMiB(transport.originalBytes)} → ${formatMiB(transport.transferredBytes)}.`
+        : '';
       const sync = body?.githubSync;
       if (sync?.published === true) {
         const archiveInfo = sync?.archived === true
           ? ` También se ha guardado en el histórico de ChatGPT (${sync.archivePath}); se conservan como máximo ${sync.archiveLimit ?? 10} pruebas.`
           : '';
-        setMessage(`Prueba guardada y publicada para ChatGPT en ${sync.repository}:${sync.branch}/${sync.path}.${archiveInfo} Puedes decir “revisa las últimas pruebas”.`);
+        setMessage(`Prueba guardada y publicada para ChatGPT en ${sync.repository}:${sync.branch}/${sync.path}.${archiveInfo}${transferInfo} Puedes decir “revisa las últimas pruebas”.`);
       } else if (sync?.configured === false) {
-        setMessage(`Prueba guardada localmente en ${body.latestPath}. La publicación automática para ChatGPT aún no está configurada: añade el secreto server-side GITHUB_REPLAY_SYNC_TOKEN una sola vez.`);
+        setMessage(`Prueba guardada localmente en ${body.latestPath}. La publicación automática para ChatGPT aún no está configurada: añade el secreto server-side GITHUB_REPLAY_SYNC_TOKEN una sola vez.${transferInfo}`);
       } else if (sync?.blockedReason === 'PRODUCTION_SYNC_DISABLED') {
-        setMessage(`Prueba guardada localmente en ${body.latestPath}. La escritura automática a GitHub está bloqueada deliberadamente en producción; este canal de auditoría sólo se habilita en desarrollo/AI Studio para no exponer una credencial de escritura desde la web pública.`);
+        setMessage(`Prueba guardada localmente en ${body.latestPath}. La escritura automática a GitHub está bloqueada deliberadamente en producción; este canal de auditoría sólo se habilita en desarrollo/AI Studio para no exponer una credencial de escritura desde la web pública.${transferInfo}`);
       } else if (sync?.error) {
-        setMessage(`Prueba guardada localmente en ${body.latestPath}, pero la publicación automática a GitHub falló: ${String(sync.error)}`);
+        setMessage(`Prueba guardada localmente en ${body.latestPath}, pero la publicación automática a GitHub falló: ${String(sync.error)}${transferInfo}`);
       } else {
-        setMessage(`Prueba guardada en el proyecto: ${body.latestPath}. También archivada en ${body.archivePath}.`);
+        setMessage(`Prueba guardada en el proyecto: ${body.latestPath}. También archivada en ${body.archivePath}.${transferInfo}`);
       }
     } catch (e: any) {
       setError(`No se pudo guardar la prueba en el proyecto: ${e?.message || String(e)}`);
@@ -217,9 +223,9 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
 
   return <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">Los checkpoints actualizan automáticamente latest-chatgpt.json sin crear copias. “Guardar + publicar” añade una copia final al histórico, limitado automáticamente a 10 pruebas. “Borrar histórico” elimina sólo esas copias y conserva siempre la última prueba.</div></div>
+      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">Los replays se comprimen en el navegador antes de enviarse para reducir tiempo y tráfico. Los checkpoints actualizan latest-chatgpt.json sin crear copias; “Guardar + publicar” añade una copia final al histórico, limitado a 10 pruebas.</div></div>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => void saveToProject()} disabled={savingProject} className="flex min-h-10 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 disabled:opacity-50"><Save className="h-3.5 w-3.5"/>{savingProject ? 'Guardando…' : 'Guardar + publicar para ChatGPT'}</button>
+        <button type="button" onClick={() => void saveToProject()} disabled={savingProject} className="flex min-h-10 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 disabled:opacity-50"><Save className="h-3.5 w-3.5"/>{savingProject ? 'Comprimiendo y publicando…' : 'Guardar + publicar para ChatGPT'}</button>
         <button type="button" onClick={() => void clearArchive()} disabled={clearingArchive} className="flex min-h-10 items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[10px] font-bold text-rose-100 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5"/>{clearingArchive ? 'Borrando…' : 'Borrar histórico ChatGPT'}</button>
         <button type="button" onClick={exportSession} className="flex min-h-10 items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[10px] font-bold text-cyan-100"><Download className="h-3.5 w-3.5"/>Exportar prueba JSON</button>
         <button type="button" onClick={() => fileRef.current?.click()} className="flex min-h-10 items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-[10px] font-bold text-violet-100"><Upload className="h-3.5 w-3.5"/>Importar prueba JSON</button>
