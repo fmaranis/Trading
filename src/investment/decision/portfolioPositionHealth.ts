@@ -1,6 +1,7 @@
 import type { PriceBar } from '../backtesting/types';
 import { HistoricalMarketDataService } from '../data/marketData/historicalMarketDataService';
 import { FundMarketDataService } from '../data/marketData/fundMarketData';
+import type { AssetUniverseCategory } from './assetUniverse';
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import { assessAgainstCashBenchmark } from './cashBenchmark';
 import { SingleAssetResearchEngine } from './singleAssetResearch';
@@ -8,6 +9,16 @@ import { StrategyConsensusEngine, type StrategyConsensusAssessment } from './str
 import type { UserPortfolioState } from './userPortfolio';
 
 export type PortfolioPositionHealthAction = 'ADD' | 'HOLD' | 'WATCH' | 'REDUCE' | 'EXIT' | 'DATA_MISSING';
+
+export interface PositionHealthContext {
+  category?: AssetUniverseCategory | 'UNKNOWN' | null;
+  isDiversifiedCore?: boolean | null;
+  currentReturnPct?: number | null;
+  mfePct?: number | null;
+  givebackFromMfePctPoints?: number | null;
+  deteriorationStreakSessions?: number | null;
+  momentum20Pct?: number | null;
+}
 
 export interface PortfolioPositionHealthSnapshot {
   key: string;
@@ -25,6 +36,13 @@ export interface PortfolioPositionHealthSnapshot {
   structuralDowntrend: boolean | null;
   excessVsCashPctPoints: number | null;
   suggestedReductionPct: number | null;
+  category?: AssetUniverseCategory | 'UNKNOWN' | null;
+  isDiversifiedCore?: boolean | null;
+  currentReturnPct?: number | null;
+  mfePct?: number | null;
+  givebackFromMfePctPoints?: number | null;
+  deteriorationStreakSessions?: number | null;
+  momentum20Pct?: number | null;
 }
 
 export interface PortfolioPositionHealthResult {
@@ -34,14 +52,65 @@ export interface PortfolioPositionHealthResult {
   warnings: string[];
 }
 
+const DIVERSIFIED_CORE_CATEGORIES = new Set<AssetUniverseCategory>([
+  'GLOBAL_EQUITY',
+  'US_EQUITY',
+  'EUROPE_EQUITY',
+  'JAPAN_EQUITY',
+  'EMERGING_EQUITY',
+  'GOV_BONDS',
+  'CORP_BONDS',
+  'AGG_BONDS',
+  'MONEY_MARKET'
+]);
+const WATCH_MIN_DETERIORATION_SESSIONS = 3;
+const REDUCE_MIN_DETERIORATION_SESSIONS = 10;
+const REDUCE_MIN_MFE_PCT = 5;
+const REDUCE_MIN_GIVEBACK_PP = 15;
+const WATCH_MIN_GIVEBACK_PP = 8;
+const WATCH_MAX_CURRENT_RETURN_PCT = -3;
+const HEALTH_STREAK_LOOKBACK_SESSIONS = 30;
+
 function isoDate(date: Date): string { return date.toISOString().slice(0, 10); }
+function barDate(bar: PriceBar): string { return bar.timestamp.slice(0, 10); }
 function twoYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 2); return isoDate(d); }
 function oneYearAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 1); return isoDate(d); }
 function looksLikeIsin(value: string): boolean { return /^[A-Z]{2}[A-Z0-9]{10}$/.test(value.toUpperCase()); }
+function pctReturn(prices: number[], lookback: number): number | null {
+  if (prices.length <= lookback) return null;
+  const start = prices[prices.length - 1 - lookback];
+  const end = prices.at(-1)!;
+  return start > 0 ? (end / start - 1) * 100 : null;
+}
+function annualizedVolatility(prices: number[], lookback = 60): number | null {
+  const slice = prices.slice(-Math.min(prices.length, lookback + 1));
+  if (slice.length < 3) return null;
+  const returns: number[] = [];
+  for (let i = 1; i < slice.length; i++) returns.push(Math.log(slice[i] / slice[i - 1]));
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+  const variance = returns.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, returns.length - 1);
+  return Math.sqrt(variance) * Math.sqrt(252) * 100;
+}
+function maxDrawdown(prices: number[], lookback = 252): number | null {
+  const slice = prices.slice(-Math.min(prices.length, lookback));
+  if (!slice.length) return null;
+  let peak = slice[0];
+  let maximum = 0;
+  for (const price of slice) {
+    peak = Math.max(peak, price);
+    if (peak > 0) maximum = Math.max(maximum, (peak - price) / peak * 100);
+  }
+  return maximum;
+}
+
+export function isDiversifiedCoreCategory(category: AssetUniverseCategory | 'UNKNOWN' | null | undefined): boolean {
+  return category != null && category !== 'UNKNOWN' && DIVERSIFIED_CORE_CATEGORIES.has(category);
+}
 
 export function classifyPositionHealth(
   assessment: StrategyConsensusAssessment | null,
-  excessVsCashPctPoints: number | null
+  excessVsCashPctPoints: number | null,
+  context: PositionHealthContext = {}
 ): Pick<PortfolioPositionHealthSnapshot, 'action' | 'reason' | 'suggestedReductionPct'> {
   if (!assessment) return { action: 'DATA_MISSING', reason: 'No hay evidencia causal suficiente para evaluar esta posición.', suggestedReductionPct: null };
 
@@ -52,6 +121,29 @@ export function classifyPositionHealth(
       suggestedReductionPct: 100
     };
   }
+
+  const streak = Math.max(0, context.deteriorationStreakSessions ?? 0);
+  const currentReturn = context.currentReturnPct;
+  const mfe = context.mfePct;
+  const giveback = context.givebackFromMfePctPoints;
+  const momentum20 = context.momentum20Pct ?? assessment.momentum20Pct;
+  const weakMultiSignal = assessment.consensusScore <= -1 && assessment.unfavorableVotes >= 2;
+  const tacticalGivebackReduction = context.isDiversifiedCore === false
+    && weakMultiSignal
+    && streak >= REDUCE_MIN_DETERIORATION_SESSIONS
+    && mfe != null && mfe >= REDUCE_MIN_MFE_PCT
+    && giveback != null && giveback >= REDUCE_MIN_GIVEBACK_PP
+    && currentReturn != null && currentReturn < 0
+    && momentum20 != null && momentum20 <= 0;
+
+  if (tacticalGivebackReduction) {
+    return {
+      action: 'REDUCE',
+      reason: `Deterioro individual persistente en posición satélite: ${streak} sesiones consecutivas con evidencia débil, MFE ${mfe!.toFixed(1)}%, retorno actual ${currentReturn!.toFixed(1)}%, devolución ${giveback!.toFixed(1)} pp y momentum 20d ${momentum20!.toFixed(1)}%. Reducir 50% para proteger capital sin convertir el MFE en un stop automático.`,
+      suggestedReductionPct: 50
+    };
+  }
+
   if (assessment.existingPositionAction === 'REDUCE_REVIEW') {
     return {
       action: 'REDUCE',
@@ -59,6 +151,24 @@ export function classifyPositionHealth(
       suggestedReductionPct: 50
     };
   }
+
+  const materialLossOrGiveback = (currentReturn != null && currentReturn <= WATCH_MAX_CURRENT_RETURN_PCT)
+    || (giveback != null && giveback >= WATCH_MIN_GIVEBACK_PP);
+  if (weakMultiSignal && streak >= WATCH_MIN_DETERIORATION_SESSIONS && materialLossOrGiveback) {
+    const details = [
+      `${streak} sesiones consecutivas de deterioro`,
+      currentReturn == null ? null : `retorno ${currentReturn.toFixed(1)}%`,
+      mfe == null ? null : `MFE ${mfe.toFixed(1)}%`,
+      giveback == null ? null : `giveback ${giveback.toFixed(1)} pp`,
+      momentum20 == null ? null : `momentum 20d ${momentum20.toFixed(1)}%`
+    ].filter(Boolean).join(' · ');
+    return {
+      action: 'WATCH',
+      reason: `WATCH por deterioro persistente (${details}). Todavía no se reduce: WATCH es una zona intermedia y una recuperación corta debe poder devolver la posición a HOLD.`,
+      suggestedReductionPct: null
+    };
+  }
+
   if (assessment.existingPositionAction === 'ADD' && (excessVsCashPctPoints ?? -Infinity) > 0) {
     return {
       action: 'ADD',
@@ -87,6 +197,90 @@ function candidateFor(scan: AssetUniverseScanResult, key: string) {
   return scan.candidates.find(c => c.asset.assetId === key || c.asset.ticker.toUpperCase() === normalized || c.asset.isin?.toUpperCase() === normalized);
 }
 
+function prefixAssessment(scan: AssetUniverseScanResult, assetId: string, endIndex: number, cashBenchmarkAnnualPct: number): StrategyConsensusAssessment | null {
+  const candidate = scan.candidates.find(c => c.asset.assetId === assetId);
+  const series = scan.acceptedDataset.assets.find(a => a.assetId === assetId);
+  if (!candidate || !series || endIndex < 59) return null;
+  const bars = series.bars.slice(0, endIndex + 1);
+  const prices = bars.map(bar => bar.close).filter(price => Number.isFinite(price) && price > 0);
+  if (prices.length < 60) return null;
+  const prefixCandidate = {
+    ...candidate,
+    bars: bars.length,
+    asOfDate: barDate(bars.at(-1)!),
+    lastClose: prices.at(-1) ?? null,
+    momentum20Pct: pctReturn(prices, 20),
+    momentum60Pct: pctReturn(prices, 60),
+    momentum120Pct: pctReturn(prices, 120),
+    annualizedVolatilityPct: annualizedVolatility(prices, 60),
+    maxDrawdownPct: maxDrawdown(prices, 252)
+  };
+  const prefixSeries = { ...series, bars };
+  const prefixScan: AssetUniverseScanResult = {
+    ...scan,
+    scanned: 1,
+    accepted: 1,
+    rejected: 0,
+    selected: [prefixCandidate],
+    candidates: [prefixCandidate],
+    dataset: { ...scan.acceptedDataset, assets: [prefixSeries] },
+    acceptedDataset: { ...scan.acceptedDataset, assets: [prefixSeries] },
+    rejectionCounts: {}
+  };
+  return StrategyConsensusEngine.assess(prefixScan, assetId, cashBenchmarkAnnualPct);
+}
+
+export function assessDeteriorationStreak(
+  scan: AssetUniverseScanResult,
+  assetId: string,
+  cashBenchmarkAnnualPct: number,
+  lookbackSessions = HEALTH_STREAK_LOOKBACK_SESSIONS
+): number {
+  const series = scan.acceptedDataset.assets.find(a => a.assetId === assetId);
+  if (!series?.bars.length) return 0;
+  let streak = 0;
+  const lastIndex = series.bars.length - 1;
+  const firstIndex = Math.max(0, lastIndex - Math.max(1, lookbackSessions) + 1);
+  for (let index = lastIndex; index >= firstIndex; index--) {
+    const assessment = prefixAssessment(scan, assetId, index, cashBenchmarkAnnualPct);
+    if (!assessment || assessment.consensusScore > -1 || assessment.unfavorableVotes < 2) break;
+    streak++;
+  }
+  return streak;
+}
+
+function positionPathContext(input: {
+  bars: PriceBar[];
+  acquisitionDate: string | null | undefined;
+  investedEur: number | null | undefined;
+  units: number | null | undefined;
+  category: AssetUniverseCategory | 'UNKNOWN' | null | undefined;
+  deteriorationStreakSessions: number;
+  momentum20Pct: number | null | undefined;
+}): PositionHealthContext {
+  const base: PositionHealthContext = {
+    category: input.category ?? 'UNKNOWN',
+    isDiversifiedCore: isDiversifiedCoreCategory(input.category),
+    deteriorationStreakSessions: input.deteriorationStreakSessions,
+    momentum20Pct: input.momentum20Pct ?? null,
+    currentReturnPct: null,
+    mfePct: null,
+    givebackFromMfePctPoints: null
+  };
+  if (!input.acquisitionDate || !(input.investedEur != null && input.investedEur > 0) || !(input.units != null && input.units > 0)) return base;
+  const heldBars = input.bars.filter(bar => barDate(bar) >= input.acquisitionDate! && Number.isFinite(bar.close) && bar.close > 0);
+  if (!heldBars.length) return base;
+  const returns = heldBars.map(bar => (bar.close * input.units! / input.investedEur! - 1) * 100);
+  const currentReturnPct = returns.at(-1) ?? null;
+  const mfePct = returns.length ? Math.max(...returns) : null;
+  return {
+    ...base,
+    currentReturnPct,
+    mfePct,
+    givebackFromMfePctPoints: currentReturnPct == null || mfePct == null ? null : Math.max(0, mfePct - currentReturnPct)
+  };
+}
+
 function assessmentSnapshot(input: {
   key: string;
   label: string;
@@ -98,9 +292,11 @@ function assessmentSnapshot(input: {
   currentValueEur: number | null;
   momentum120Pct: number | null | undefined;
   cashBenchmarkAnnualPct: number;
+  context?: PositionHealthContext;
 }): PortfolioPositionHealthSnapshot {
   const cash = assessAgainstCashBenchmark({ momentum120Pct: input.momentum120Pct, benchmarkAnnualPct: input.cashBenchmarkAnnualPct, notionalEur: 0, estimatedFeeEur: 0 });
-  const classification = classifyPositionHealth(input.assessment, cash.excessVsCashPctPoints);
+  const context = input.context ?? {};
+  const classification = classifyPositionHealth(input.assessment, cash.excessVsCashPctPoints, context);
   return {
     key: input.key,
     label: input.label,
@@ -116,7 +312,14 @@ function assessmentSnapshot(input: {
     unfavorableVotes: input.assessment?.unfavorableVotes ?? null,
     structuralDowntrend: input.assessment?.structuralDowntrend ?? null,
     excessVsCashPctPoints: cash.excessVsCashPctPoints,
-    suggestedReductionPct: classification.suggestedReductionPct
+    suggestedReductionPct: classification.suggestedReductionPct,
+    category: context.category ?? null,
+    isDiversifiedCore: context.isDiversifiedCore ?? null,
+    currentReturnPct: context.currentReturnPct ?? null,
+    mfePct: context.mfePct ?? null,
+    givebackFromMfePctPoints: context.givebackFromMfePctPoints ?? null,
+    deteriorationStreakSessions: context.deteriorationStreakSessions ?? null,
+    momentum20Pct: context.momentum20Pct ?? input.assessment?.momentum20Pct ?? null
   };
 }
 
@@ -167,6 +370,15 @@ export class PortfolioPositionHealthService {
       if (candidate?.status === 'ACCEPTED') {
         const assessment = StrategyConsensusEngine.assess(scan, candidate.asset.assetId, cashBenchmarkAnnualPct);
         const price = candidate.lastClose ?? null;
+        const context: PositionHealthContext = {
+          category: candidate.asset.category,
+          isDiversifiedCore: isDiversifiedCoreCategory(candidate.asset.category),
+          deteriorationStreakSessions: assessDeteriorationStreak(scan, candidate.asset.assetId, cashBenchmarkAnnualPct),
+          momentum20Pct: candidate.momentum20Pct,
+          currentReturnPct: null,
+          mfePct: null,
+          givebackFromMfePctPoints: null
+        };
         positions.push(assessmentSnapshot({
           key: holding.ticker.toUpperCase(),
           label: candidate.asset.name,
@@ -177,7 +389,8 @@ export class PortfolioPositionHealthService {
           currentUnitPrice: price,
           currentValueEur: price != null ? price * holding.shares : null,
           momentum120Pct: candidate.momentum120Pct,
-          cashBenchmarkAnnualPct
+          cashBenchmarkAnnualPct,
+          context
         }));
         continue;
       }
@@ -196,6 +409,16 @@ export class PortfolioPositionHealthService {
         const assessment = StrategyConsensusEngine.assess(scan, candidate.asset.assetId, cashBenchmarkAnnualPct);
         const nav = candidate.lastClose ?? null;
         const value = nav != null && fund.units != null ? nav * fund.units : fund.currentValueEur ?? null;
+        const series = scan.acceptedDataset.assets.find(asset => asset.assetId === candidate.asset.assetId);
+        const context = positionPathContext({
+          bars: series?.bars ?? [],
+          acquisitionDate: fund.acquisitionDate,
+          investedEur: fund.investedEur,
+          units: fund.units,
+          category: candidate.asset.category,
+          deteriorationStreakSessions: assessDeteriorationStreak(scan, candidate.asset.assetId, cashBenchmarkAnnualPct),
+          momentum20Pct: candidate.momentum20Pct
+        });
         positions.push(assessmentSnapshot({
           key: fund.id,
           label: fund.name,
@@ -206,7 +429,8 @@ export class PortfolioPositionHealthService {
           currentUnitPrice: nav,
           currentValueEur: value,
           momentum120Pct: candidate.momentum120Pct,
-          cashBenchmarkAnnualPct
+          cashBenchmarkAnnualPct,
+          context
         }));
         continue;
       }
