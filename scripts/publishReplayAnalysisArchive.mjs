@@ -8,9 +8,7 @@ const TOKEN = process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim();
 const LOCAL_ARCHIVE = path.resolve(process.cwd(), 'validation-runs', 'archive');
 const REMOTE_DIR = 'validation-runs/archive-chatgpt-analysis';
 const LATEST_PATH = 'validation-runs/latest-chatgpt-analysis.json';
-
-if (!TOKEN) throw new Error('GITHUB_REPLAY_SYNC_TOKEN is not configured.');
-if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(REPOSITORY)) throw new Error('Invalid repository.');
+const BEST_EFFORT = process.argv.includes('--best-effort');
 
 function finiteOrNull(value) {
   const n = Number(value);
@@ -105,7 +103,6 @@ function buildAnalysis(payload) {
       schemaVersion: payload?.metadata?.schemaVersion ?? 1,
       analysisProjectionVersion: 1,
       exportedAt: payload?.metadata?.exportedAt ?? null,
-      generatedAt: new Date().toISOString(),
       source: 'Local replay archive backfill',
       note: 'Small directly-readable diagnostic projection. Full replay remains in .json.gz.b64.'
     },
@@ -163,30 +160,67 @@ async function upsert(targetPath, text, message) {
   const api = `https://api.github.com/repos/${REPOSITORY}/contents/${targetPath}`;
   const current = await fetch(`${api}?ref=${encodeURIComponent(BRANCH)}`, { headers: headers() });
   let sha;
-  if (current.ok) sha = (await current.json())?.sha;
-  else if (current.status !== 404) throw new Error(`GitHub read failed ${current.status}: ${(await current.text()).slice(0, 300)}`);
+  if (current.ok) {
+    const existing = await current.json();
+    sha = existing?.sha;
+    if (typeof existing?.content === 'string') {
+      const decoded = Buffer.from(existing.content.replace(/\s/g, ''), 'base64').toString('utf8').trimEnd();
+      if (decoded === text) return false;
+    }
+  } else if (current.status !== 404) {
+    throw new Error(`GitHub read failed ${current.status}: ${(await current.text()).slice(0, 300)}`);
+  }
   const body = { message, content: Buffer.from(`${text}\n`, 'utf8').toString('base64'), branch: BRANCH, ...(sha ? { sha } : {}) };
   const written = await fetch(api, { method: 'PUT', headers: headers(), body: JSON.stringify(body) });
   if (!written.ok) throw new Error(`GitHub write failed ${written.status}: ${(await written.text()).slice(0, 300)}`);
+  return true;
 }
 
-const names = (await readdir(LOCAL_ARCHIVE)).filter(name => name.endsWith('.json')).sort();
-if (!names.length) throw new Error(`No local replay archives found in ${LOCAL_ARCHIVE}`);
+async function main() {
+  if (!TOKEN) {
+    console.log('[Replay analysis] skipped: GITHUB_REPLAY_SYNC_TOKEN is not configured.');
+    return;
+  }
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(REPOSITORY)) throw new Error('Invalid repository.');
 
-const generated = [];
-for (const name of names) {
-  const payload = JSON.parse(await readFile(path.join(LOCAL_ARCHIVE, name), 'utf8'));
-  const analysis = buildAnalysis(payload);
-  const start = safeName(analysis.session.startDate, 'start');
-  const end = safeName(analysis.session.endDate, 'partial');
-  const target = `${REMOTE_DIR}/${start}__${end}.analysis.json`;
-  const text = JSON.stringify(analysis, null, 2);
-  await upsert(target, text, `Publish replay analysis ${start} ${end}`);
-  generated.push({ target, exportedAt: analysis.metadata.exportedAt, text, bytes: Buffer.byteLength(text, 'utf8') });
-  console.log(`Published ${target} (${generated.at(-1).bytes} bytes)`);
+  let names;
+  try {
+    names = (await readdir(LOCAL_ARCHIVE)).filter(name => name.endsWith('.json')).sort();
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      console.log('[Replay analysis] skipped: no local replay archive directory yet.');
+      return;
+    }
+    throw error;
+  }
+  if (!names.length) {
+    console.log('[Replay analysis] skipped: no local replay archives found.');
+    return;
+  }
+
+  const generated = [];
+  let changed = 0;
+  for (const name of names) {
+    const payload = JSON.parse(await readFile(path.join(LOCAL_ARCHIVE, name), 'utf8'));
+    const analysis = buildAnalysis(payload);
+    const start = safeName(analysis.session.startDate, 'start');
+    const end = safeName(analysis.session.endDate, 'partial');
+    const target = `${REMOTE_DIR}/${start}__${end}.analysis.json`;
+    const text = JSON.stringify(analysis, null, 2);
+    if (await upsert(target, text, `Publish replay analysis ${start} ${end}`)) changed += 1;
+    generated.push({ target, exportedAt: analysis.metadata.exportedAt, text });
+  }
+
+  generated.sort((a, b) => String(a.exportedAt ?? '').localeCompare(String(b.exportedAt ?? '')));
+  const latest = generated.at(-1);
+  if (latest && await upsert(LATEST_PATH, latest.text, 'Update latest replay analysis')) changed += 1;
+  console.log(`[Replay analysis] ${generated.length} archive(s) checked; ${changed} GitHub file(s) updated.`);
 }
 
-generated.sort((a, b) => String(a.exportedAt ?? '').localeCompare(String(b.exportedAt ?? '')));
-const latest = generated.at(-1);
-if (latest) await upsert(LATEST_PATH, latest.text, 'Update latest replay analysis');
-console.log(`Done: ${generated.length} replay analysis file(s) published to ${REPOSITORY}:${BRANCH}.`);
+try {
+  await main();
+} catch (error) {
+  const detail = error?.message || String(error);
+  if (!BEST_EFFORT) throw error;
+  console.warn(`[Replay analysis] best-effort sync failed and will not block app startup: ${detail}`);
+}
