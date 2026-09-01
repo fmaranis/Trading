@@ -978,3 +978,94 @@ ChatGPT no ha ejecutado tests. No usar el verde anterior como validación de est
 3. Si queda verde, repetir las mismas tres ventanas con 13.000 € y DAILY para comparar contra 2/10.
 4. Criterio clave: 2021 debería bloquear prácticamente las rotaciones competitivas; 2022 reducirlas mucho; 2024 debería conservar sólo challengers con persistencia fuerte.
 5. No subir a 4/10 ni cambiar otros parámetros antes de ver esos tres replays; 4/10 sería una restricción mucho más agresiva y todavía no está respaldada por evidencia suficiente.
+
+---
+
+# ACTUALIZACIÓN VIGENTE — 2026-09-01 — PROTECCIÓN DE NÚCLEO EN ESTRÉS SISTÉMICO
+
+> Esta sección sustituye como siguiente bloque de trabajo la calibración adicional de rotación. El filtro `3/10` queda congelado. No se añade UI ni almacenamiento nuevo: la amplitud de estrés se deriva en cada evaluación de las mismas señales de salud ya disponibles.
+
+## Holdouts 3/10
+
+Se validó `3/10` fuera de las tres ventanas usadas para elegirlo:
+
+- `2023-04-13 → 2024-01-08` (replay parcial de una configuración 12m): motor **+2,24%**, cohorte inicial **+2,35%**, cash **+1,84%**, DD **4,31%**; 8 rotaciones, 5 positivas / 3 negativas, resultado agregado de challengers ~**+78,8 €**.
+- `2020-02-03 → 2021-02-02`: motor **+1,49%**, cohorte inicial **+3,19%**, cash **+2,50%**, DD **12,45%**; 4 rotaciones y **4/4 positivas**, resultado agregado de challengers ~**+164,5 €**.
+
+Conclusión: no seguir calibrando 3/10. El holdout COVID demuestra que el problema residual no es la calidad de las rotaciones, sino la gestión de deterioro sincronizado y la reconstrucción posterior de exposición.
+
+## Diagnóstico COVID
+
+Entre 13 y 19 de marzo de 2020 el motor ejecutó 8 EXIT estructurales completos cerca del shock:
+- EUNL ~-25%;
+- IE00B5456744 ~-22,5%;
+- Vanguard Global `IE00B03HD191` ~-23,2%;
+- `IE0032126645` ~-24,2%;
+- Deutsche Börse ~-34%;
+- Ferrovial ~-39%;
+- SXR8 ~-27,7%;
+- VUSA ~-27,5%.
+
+Las pérdidas realizadas de esas ocho salidas fueron aproximadamente **-997 €**. El cash llegó a ~87–88% alrededor del 19–23 de marzo y permaneció ~78% todavía a finales de abril / junio. La reentrada de varios activos se produjo meses después y a precios materialmente superiores al de salida.
+
+Diagnóstico local sobre cinco activos que sí fueron recomprados después: mantener sólo la mitad desde la salida hasta la reentrada habría capturado aproximadamente **+274 €** de recuperación bruta frente a cash. No es un replay contrafactual completo, pero la magnitud es mayor que el déficit motor-vs-hold del periodo (~221 €).
+
+QDVE y Schneider Electric, en cambio, soportaron MAE fuertes durante el shock y acabaron alrededor de +26% y +34%, reforzando que no debe introducirse un stop universal por porcentaje.
+
+## Detector causal de amplitud sistémica
+
+Se analizaron las señales de los **22 ZIP de replay disponibles** en la sesión. Se considera posición deteriorada para medir amplitud cuando:
+- `consensusScore <= -3`;
+- `unfavorableVotes >= 3`.
+
+Se activa estrés sistémico sólo si simultáneamente:
+- existen al menos **3 posiciones deterioradas**;
+- representan al menos **50% de las posiciones activas con salud observable**.
+
+Con ese umbral, entre los 22 exports analizados la condición sólo apareció en el replay COVID, en fechas como:
+- 2020-03-12: 7/12 = 58,3%;
+- 2020-03-16: 5/9 = 55,6%;
+- 2020-03-18: 6/8 = 75%;
+- 2020-03-23: 3/4 = 75%.
+
+No se activó en los replays montados de 2021, 2022, 2023, 2024 ni 2025. Este resultado es evidencia diagnóstica, no garantía estadística; el detector deberá validarse runtime en replay completo tras integrar el código.
+
+## Regla implementada — rama `chatgpt/systemic-stress-core`
+
+Commits:
+- `9c103d07f6b44024f1c700bc38607d84ca4ddd93` — `Protect starter cores during systemic stress`;
+- `f1fe1375412a81ca71c1de7d71b2b73ff21fed17` — `Assert systemic stress core protection`.
+
+Durante estrés sistémico:
+- una señal individual `EXIT` **no liquida automáticamente** una posición junto con media cartera;
+- se reutiliza el cap `ENTRY_READY` como núcleo defensivo: LOW 2%, MEDIUM 3%, HIGH 4% del patrimonio;
+- si la posición está por encima del núcleo, se emite `REDUCE` sólo hasta dicho núcleo;
+- si ya está en o por debajo del núcleo, se emite `WATCH` y no se vuelve a reducir cada día;
+- se bloquea la rotación competitiva challenger/incumbent mientras la amplitud siga sistémica;
+- cuando la amplitud se normaliza, la salud individual vuelve a mandar: una posición que siga estructuralmente rota puede hacer `EXIT 100%`;
+- la recuperación/reconstrucción usa el flujo existente: una posición retenida puede volver a completar starter con READY/STRONG y sólo pasar a BUILD con ADD independiente + STRONG.
+
+No se crea nuevo estado persistente, localStorage, motor paralelo ni pantalla.
+
+### Regresiones
+
+`currentCapitalAllocation.unit.ts` pasa de 32 a **35 invariantes** y exige:
+- amplitud 6/12 + posición ya pequeña: una salud `EXIT` se convierte en `WATCH`, sin rotación competitiva;
+- amplitud 6/12 + posición grande de 500 € en patrimonio 10.000 € MEDIUM: `REDUCE` aproximadamente 40% para quedar en núcleo READY 3% = 300 €;
+- deterioro aislado 1/12: se conserva el `EXIT 100%` normal.
+
+## Estado
+
+**IMPLEMENTADO EN RAMA, NO RUNTIME-VALIDADO.**
+
+ChatGPT no ha ejecutado tests. El gate verde anterior no valida estos commits.
+
+## Próxima comprobación
+
+1. Revisar diff final de `chatgpt/systemic-stress-core` y hacer fast-forward a `main` sólo si está 0 commits por detrás.
+2. Ejecutar manualmente `npm run validate:aistudio`; sin GitHub Actions ni monitorización de Gemini.
+3. Si queda verde, repetir primero `2020-02-03`, 12 meses, DAILY, 13.000 €.
+4. Verificar especialmente marzo de 2020: los ocho EXIT sincronizados anteriores deben transformarse en WATCH/REDUCE al núcleo cuando la amplitud sea sistémica; no debe haber reducciones repetidas una vez alcanzado el core.
+5. Comparar retorno y DD con la referencia 3/10 previa (+1,49% / 12,45%), cash máximo (~87–88%), número de EXIT/REDUCE y velocidad de reconstrucción tras marzo.
+6. Confirmar que, una vez normalizada la amplitud, posiciones individualmente rotas pueden seguir haciendo EXIT y no quedan “eternizadas”.
+7. Después ejecutar una ventana de control no sistémica, preferentemente `2021-11-01`, 12 meses, DAILY, 13.000 €. Al no activarse el detector en el análisis offline, el comportamiento debería permanecer esencialmente sin cambios.
