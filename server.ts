@@ -11,10 +11,21 @@ import { startDailyAlertScheduler } from './server/alertAutomation';
 const HISTORICAL_AUDIT_FORMAT = 'TRADING_HISTORICAL_REPLAY_AUDIT';
 const HISTORICAL_AUDIT_SCHEMA_VERSION = 1;
 const MAX_HISTORICAL_AUDIT_BYTES = 25 * 1024 * 1024;
+const CHATGPT_REPLAY_PROJECTION_VERSION = 1;
+const DEFAULT_REPLAY_SYNC_REPOSITORY = 'fmaranis/Trading';
+const DEFAULT_REPLAY_SYNC_BRANCH = 'replay-results';
+const CHATGPT_REPLAY_SYNC_PATH = 'validation-runs/latest-chatgpt.json';
 
 function redactSecrets(value: unknown): unknown {
-  const secrets = [process.env.ALPHA_VANTAGE_API_KEY, process.env.EODHD_API_KEY, process.env.MARKET_DATA_API_KEY, process.env.GEMINI_API_KEY, process.env.ALERT_WEBHOOK_URL, process.env.ALERT_ADMIN_TOKEN]
-    .filter((v): v is string => Boolean(v && v.trim()));
+  const secrets = [
+    process.env.ALPHA_VANTAGE_API_KEY,
+    process.env.EODHD_API_KEY,
+    process.env.MARKET_DATA_API_KEY,
+    process.env.GEMINI_API_KEY,
+    process.env.ALERT_WEBHOOK_URL,
+    process.env.ALERT_ADMIN_TOKEN,
+    process.env.GITHUB_REPLAY_SYNC_TOKEN
+  ].filter((v): v is string => Boolean(v && v.trim()));
   if (!secrets.length) return value;
   const scrub = (input: unknown): unknown => {
     if (typeof input === 'string') return secrets.reduce((text, secret) => text.split(secret).join('[REDACTED]'), input);
@@ -40,6 +51,126 @@ function validateHistoricalAuditPayload(payload: any): void {
 function auditArchiveName(exportedAt: string): string {
   const safe = exportedAt.replace(/[:.]/g, '-').replace(/[^0-9TZ-]/g, '');
   return `${safe || Date.now()}-historical-replay.json`;
+}
+
+function compactReplaySignal(signal: any): Record<string, unknown> {
+  const action = String(signal?.action ?? '');
+  const keepReason = signal?.executed === true || ['BUY', 'ADD', 'REDUCE', 'EXIT', 'WATCH'].includes(action);
+  return {
+    id: signal?.id ?? null,
+    signalDate: signal?.signalDate ?? null,
+    executionDate: signal?.executionDate ?? null,
+    assetId: signal?.assetId ?? null,
+    ticker: signal?.ticker ?? null,
+    action,
+    recommendedAmountEur: signal?.recommendedAmountEur ?? 0,
+    targetWeight: signal?.targetWeight ?? 0,
+    currentWeight: signal?.currentWeight ?? 0,
+    consensusScore: signal?.consensusScore ?? null,
+    favorableVotes: signal?.favorableVotes ?? null,
+    unfavorableVotes: signal?.unfavorableVotes ?? null,
+    structuralDowntrend: signal?.structuralDowntrend ?? false,
+    buyTheDipCandidate: signal?.buyTheDipCandidate ?? false,
+    timingState: signal?.timingState ?? null,
+    timingSetup: signal?.timingSetup ?? null,
+    timingScore: signal?.timingScore ?? null,
+    suggestedInitialFraction: signal?.suggestedInitialFraction ?? null,
+    positionCurrentReturnPct: signal?.positionCurrentReturnPct ?? null,
+    positionMfePct: signal?.positionMfePct ?? null,
+    positionGivebackFromMfePctPoints: signal?.positionGivebackFromMfePctPoints ?? null,
+    positionDeteriorationStreakSessions: signal?.positionDeteriorationStreakSessions ?? null,
+    positionIsDiversifiedCore: signal?.positionIsDiversifiedCore ?? null,
+    executed: signal?.executed === true,
+    unitsDelta: signal?.unitsDelta ?? 0,
+    notionalEur: signal?.notionalEur ?? 0,
+    feeEur: signal?.feeEur ?? 0,
+    realizedGainEur: signal?.realizedGainEur ?? 0,
+    estimatedTaxEur: signal?.estimatedTaxEur ?? 0,
+    taxDeferredTransferEur: signal?.taxDeferredTransferEur ?? 0,
+    executionPriceEur: signal?.executionPriceEur ?? null,
+    ...(keepReason ? { reason: String(signal?.reason ?? '') } : {})
+  };
+}
+
+function buildChatgptReplayProjection(payload: any): any {
+  const session = payload.session;
+  return {
+    metadata: {
+      ...payload.metadata,
+      chatgptProjectionVersion: CHATGPT_REPLAY_PROJECTION_VERSION,
+      publishedAt: new Date().toISOString(),
+      note: 'Proyección canónica compacta del último replay para lectura directa por ChatGPT desde GitHub. Conserva configuración, resumen, checkpoints, operaciones, posiciones, path y campos diagnósticos esenciales de todas las señales.'
+    },
+    session: {
+      ...session,
+      signals: session.signals.map(compactReplaySignal)
+    }
+  };
+}
+
+function githubHeaders(token: string): Record<string, string> {
+  return {
+    Accept: 'application/vnd.github+json',
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    'User-Agent': 'fmaranis-trading-replay-sync',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+}
+
+async function publishReplayProjectionToGithub(payload: any): Promise<Record<string, unknown>> {
+  const token = process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim();
+  if (!token) {
+    return {
+      configured: false,
+      published: false,
+      repository: process.env.GITHUB_REPLAY_SYNC_REPOSITORY || DEFAULT_REPLAY_SYNC_REPOSITORY,
+      branch: process.env.GITHUB_REPLAY_SYNC_BRANCH || DEFAULT_REPLAY_SYNC_BRANCH,
+      path: CHATGPT_REPLAY_SYNC_PATH
+    };
+  }
+
+  const repository = (process.env.GITHUB_REPLAY_SYNC_REPOSITORY || DEFAULT_REPLAY_SYNC_REPOSITORY).trim();
+  const branch = (process.env.GITHUB_REPLAY_SYNC_BRANCH || DEFAULT_REPLAY_SYNC_BRANCH).trim();
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error('INVALID_GITHUB_REPLAY_SYNC_REPOSITORY');
+  if (!branch || branch.includes('..') || branch.startsWith('/') || branch.endsWith('/')) throw new Error('INVALID_GITHUB_REPLAY_SYNC_BRANCH');
+
+  const projection = buildChatgptReplayProjection(payload);
+  const serialized = JSON.stringify(projection, null, 2);
+  const apiUrl = `https://api.github.com/repos/${repository}/contents/${CHATGPT_REPLAY_SYNC_PATH}`;
+  const headers = githubHeaders(token);
+  const currentResponse = await fetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, { headers });
+  let sha: string | undefined;
+  if (currentResponse.ok) {
+    const current = await currentResponse.json() as any;
+    sha = typeof current?.sha === 'string' ? current.sha : undefined;
+  } else if (currentResponse.status !== 404) {
+    const detail = await currentResponse.text();
+    throw new Error(`GITHUB_REPLAY_SYNC_READ_FAILED:${currentResponse.status}:${detail.slice(0, 500)}`);
+  }
+
+  const body: Record<string, unknown> = {
+    message: `Update latest replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+    content: Buffer.from(`${serialized}\n`, 'utf8').toString('base64'),
+    branch
+  };
+  if (sha) body.sha = sha;
+
+  const writeResponse = await fetch(apiUrl, { method: 'PUT', headers, body: JSON.stringify(body) });
+  if (!writeResponse.ok) {
+    const detail = await writeResponse.text();
+    throw new Error(`GITHUB_REPLAY_SYNC_WRITE_FAILED:${writeResponse.status}:${detail.slice(0, 500)}`);
+  }
+  const written = await writeResponse.json() as any;
+  return {
+    configured: true,
+    published: true,
+    repository,
+    branch,
+    path: CHATGPT_REPLAY_SYNC_PATH,
+    bytes: Buffer.byteLength(serialized, 'utf8'),
+    commitSha: written?.commit?.sha ?? null
+  };
 }
 
 async function startServer() {
@@ -87,11 +218,26 @@ async function startServer() {
       await writeFile(latestPath, `${serialized}\n`, 'utf8');
       await writeFile(archivePath, `${serialized}\n`, 'utf8');
 
+      let githubSync: Record<string, unknown>;
+      try {
+        githubSync = await publishReplayProjectionToGithub(req.body);
+      } catch (syncError: any) {
+        githubSync = {
+          configured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()),
+          published: false,
+          repository: process.env.GITHUB_REPLAY_SYNC_REPOSITORY || DEFAULT_REPLAY_SYNC_REPOSITORY,
+          branch: process.env.GITHUB_REPLAY_SYNC_BRANCH || DEFAULT_REPLAY_SYNC_BRANCH,
+          path: CHATGPT_REPLAY_SYNC_PATH,
+          error: syncError?.message || String(syncError)
+        };
+      }
+
       res.json({
         ok: true,
         latestPath: path.relative(process.cwd(), latestPath).replaceAll('\\', '/'),
         archivePath: path.relative(process.cwd(), archivePath).replaceAll('\\', '/'),
-        bytes: Buffer.byteLength(serialized, 'utf8')
+        bytes: Buffer.byteLength(serialized, 'utf8'),
+        githubSync
       });
     } catch (error: any) {
       res.status(400).json({ error: 'HISTORICAL_AUDIT_SAVE_FAILED', detail: error?.message || String(error) });
