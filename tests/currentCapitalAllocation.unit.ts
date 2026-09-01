@@ -190,10 +190,43 @@ const expensiveRotationResult = PortfolioDecisionEngine.evaluate({ portfolio: ro
 const preservedIncumbent = expensiveRotationResult.existingPositions.find(row => row.assetId === 'INCUMBENT');
 check('959 a full-slot rotation is cancelled when the challenger allocation cannot buy even one whole ETF share', preservedIncumbent?.action === 'WATCH' && preservedIncumbent.rotationChallengerAssetId == null && expensiveRotationResult.plannedRotationProceedsEur === 0 && !expensiveRotationResult.contributions.some(row => row.assetId === 'EXPENSIVE_CHALLENGER'));
 
+const systemicHealth: any = Object.fromEntries(Array.from({ length: 12 }, (_, i) => {
+  const distressed = i < 6;
+  return [`UNKNOWN_${i}`, {
+    key: `UNKNOWN_${i}`, label: `Existing ${i}`, tickerOrIsin: `UNKNOWN_${i}`,
+    action: distressed ? 'EXIT' : 'HOLD', reason: distressed ? 'Deterioro estructural individual severo.' : 'Posición sana.',
+    source: 'UNIVERSE_SCAN', currency: 'EUR', currentUnitPrice: 1, currentValueEur: 100,
+    consensusScore: distressed ? -4 : 2, favorableVotes: distressed ? 0 : 3, unfavorableVotes: distressed ? 4 : 1,
+    structuralDowntrend: distressed, excessVsCashPctPoints: distressed ? -10 : 5, suggestedReductionPct: distressed ? 100 : null
+  }];
+}));
+const systemicSmallResult = PortfolioDecisionEngine.evaluate({ portfolio: fullSlotPortfolio, scan, decision, positionHealth: systemicHealth, cashBenchmarkAnnualPct: 2.5 });
+const systemicSmall = systemicSmallResult.existingPositions.find(row => row.id === 'UNKNOWN_0');
+check('960 systemic breadth does not liquidate an already-small position: an EXIT health signal becomes WATCH at or below the medium READY core', systemicSmall?.action === 'WATCH' && systemicSmall.suggestedReductionPct == null && systemicSmallResult.existingPositions.every(row => row.rotationChallengerAssetId == null));
+
+const systemicLargePortfolio: any = {
+  ...fullSlotPortfolio,
+  funds: fullSlotPortfolio.funds.map((fund: any, i: number) => ({ ...fund, investedEur: i === 0 ? 500 : 100, currentValueEur: i === 0 ? 500 : 100 })),
+  stagedCapitalPlan: { availableEur: 8400, horizonMonths: 12, preferredMode: 'MONTHLY' }
+};
+const systemicLargeHealth: any = { ...systemicHealth, UNKNOWN_0: { ...systemicHealth.UNKNOWN_0, currentValueEur: 500 } };
+const systemicLargeResult = PortfolioDecisionEngine.evaluate({ portfolio: systemicLargePortfolio, scan, decision, positionHealth: systemicLargeHealth, cashBenchmarkAnnualPct: 2.5 });
+const systemicLarge = systemicLargeResult.existingPositions.find(row => row.id === 'UNKNOWN_0');
+check('961 systemic breadth trims a large EXIT candidate toward the medium three-percent READY core instead of liquidating it', systemicLarge?.action === 'REDUCE' && Math.abs((systemicLarge.suggestedReductionPct ?? 0) - 40) < 0.01);
+
+const idiosyncraticHealth: any = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`UNKNOWN_${i}`, {
+  ...systemicHealth[`UNKNOWN_${i}`],
+  action: i === 0 ? 'EXIT' : 'HOLD', consensusScore: i === 0 ? -4 : 2, unfavorableVotes: i === 0 ? 4 : 1,
+  structuralDowntrend: i === 0, reason: i === 0 ? 'Deterioro estructural individual severo.' : 'Posición sana.'
+}]));
+const idiosyncraticResult = PortfolioDecisionEngine.evaluate({ portfolio: systemicLargePortfolio, scan, decision, positionHealth: idiosyncraticHealth, cashBenchmarkAnnualPct: 2.5 });
+const idiosyncraticExit = idiosyncraticResult.existingPositions.find(row => row.id === 'UNKNOWN_0');
+check('962 an isolated structural failure remains a full EXIT when portfolio breadth is not systemic', idiosyncraticExit?.action === 'EXIT' && idiosyncraticExit.suggestedReductionPct === 100);
+
 const weakOnlyScan: any = scanFrom([candidates[2]], { WEAK_BOND: weakBars });
 const weakOnlyDecision: any = { cashWeight: 0.10, riskProfile: 'MEDIUM', horizonYears: 3, assets: [{ assetId: 'WEAK_BOND', ticker: 'WEAKB.DE', name: 'Weak theoretical bond', weight: 0.90 }] };
 const noOpportunityResult = PortfolioDecisionEngine.evaluate({ portfolio, scan: weakOnlyScan, decision: weakOnlyDecision, cashBenchmarkAnnualPct: 2.5 });
-check('960 no-opportunity state never converts theoretical target gaps into fallback purchase orders', noOpportunityResult.contributions.length === 0 && noOpportunityResult.recommendedNewInvestmentEur === 0);
+check('963 no-opportunity state never converts theoretical target gaps into fallback purchase orders', noOpportunityResult.contributions.length === 0 && noOpportunityResult.recommendedNewInvestmentEur === 0);
 
 const addHealth: any = {
   'STRONGT.DE': {
@@ -205,7 +238,7 @@ const addHealth: any = {
 };
 const confirmedBuildResult = PortfolioDecisionEngine.evaluate({ portfolio: fullyExecutedPortfolio, scan, decision, positionHealth: addHealth, cashBenchmarkAnnualPct: 2.5 });
 const confirmedBuild = confirmedBuildResult.contributions.find(row => row.assetId === 'STRONG_TECH');
-check('961 a filled starter may grow only when position health independently confirms ADD while timing remains strong', Boolean(confirmedBuild) && confirmedBuild?.positionStage === 'BUILD' && (confirmedBuild.portfolioShareCapPct ?? 0) === 8);
-check('962 confirmed BUILD remains incremental and cannot jump beyond the eight-percent medium-risk build cap', Boolean(confirmedBuild) && (confirmedBuild?.executableTargetAssetValueEur ?? Infinity) <= 800 + 1e-6 && (confirmedBuild?.amountEur ?? Infinity) <= 300 + 1e-6);
+check('964 a filled starter may grow only when position health independently confirms ADD while timing remains strong', Boolean(confirmedBuild) && confirmedBuild?.positionStage === 'BUILD' && (confirmedBuild.portfolioShareCapPct ?? 0) === 8);
+check('965 confirmed BUILD remains incremental and cannot jump beyond the eight-percent medium-risk build cap', Boolean(confirmedBuild) && (confirmedBuild?.executableTargetAssetValueEur ?? Infinity) <= 800 + 1e-6 && (confirmedBuild?.amountEur ?? Infinity) <= 300 + 1e-6);
 
-console.log(`Current finite-capital allocation: ${passed}/32 invariants passed.`);
+console.log(`Current finite-capital allocation: ${passed}/35 invariants passed.`);
