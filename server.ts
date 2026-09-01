@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
+import { gzipSync } from 'node:zlib';
 import { createServer as createViteServer } from 'vite';
 import { marketDataRouter } from './server/marketDataRoutes';
 import { alphaVantageRouter } from './server/alphaVantageRoutes';
@@ -14,9 +15,10 @@ const MAX_HISTORICAL_AUDIT_BYTES = 25 * 1024 * 1024;
 const CHATGPT_REPLAY_PROJECTION_VERSION = 1;
 const DEFAULT_REPLAY_SYNC_REPOSITORY = 'fmaranis/Trading';
 const DEFAULT_REPLAY_SYNC_BRANCH = 'replay-results';
-const CHATGPT_REPLAY_SYNC_PATH = 'validation-runs/latest-chatgpt.json';
+const CHATGPT_REPLAY_SYNC_PATH = 'validation-runs/latest-chatgpt.json.gz.b64';
 const CHATGPT_REPLAY_ARCHIVE_DIR = 'validation-runs/archive-chatgpt';
 const CHATGPT_REPLAY_ARCHIVE_LIMIT = 10;
+const GITHUB_REPLAY_SYNC_TIMEOUT_MS = 20_000;
 
 function redactSecrets(value: unknown): unknown {
   const secrets = [
@@ -60,7 +62,7 @@ function chatgptArchiveName(payload: any): string {
   const stamp = exportedAt.replace(/[:.]/g, '-').replace(/[^0-9TZ-]/g, '') || String(Date.now());
   const start = String(payload?.session?.startDate ?? 'start').replace(/[^0-9A-Za-z_-]/g, '-');
   const end = String(payload?.session?.summary?.endDate ?? payload?.session?.path?.at?.(-1)?.date ?? 'partial').replace(/[^0-9A-Za-z_-]/g, '-');
-  return `${stamp}__${start}__${end}.json`;
+  return `${stamp}__${start}__${end}.json.gz.b64`;
 }
 
 function compactReplaySignal(signal: any): Record<string, unknown> {
@@ -109,7 +111,8 @@ function buildChatgptReplayProjection(payload: any): any {
       ...payload.metadata,
       chatgptProjectionVersion: CHATGPT_REPLAY_PROJECTION_VERSION,
       publishedAt: new Date().toISOString(),
-      note: 'Proyección canónica compacta del replay para lectura directa por ChatGPT desde GitHub. Conserva configuración, resumen, checkpoints, operaciones, posiciones, path y campos diagnósticos esenciales de todas las señales.'
+      compression: 'gzip+base64',
+      note: 'Proyección canónica compacta del replay. El archivo GitHub contiene este JSON comprimido con gzip y codificado en base64.'
     },
     session: {
       ...session,
@@ -141,9 +144,13 @@ function validateReplaySyncTarget(repository: string, branch: string): void {
   if (!branch || branch.includes('..') || branch.startsWith('/') || branch.endsWith('/')) throw new Error('INVALID_GITHUB_REPLAY_SYNC_BRANCH');
 }
 
+async function githubFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(GITHUB_REPLAY_SYNC_TIMEOUT_MS) });
+}
+
 async function upsertGithubTextFile(repository: string, branch: string, targetPath: string, content: string, message: string, headers: Record<string, string>): Promise<string | null> {
   const apiUrl = `https://api.github.com/repos/${repository}/contents/${targetPath}`;
-  const currentResponse = await fetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, { headers });
+  const currentResponse = await githubFetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, { headers });
   let sha: string | undefined;
   if (currentResponse.ok) {
     const current = await currentResponse.json() as any;
@@ -160,7 +167,7 @@ async function upsertGithubTextFile(repository: string, branch: string, targetPa
   };
   if (sha) body.sha = sha;
 
-  const writeResponse = await fetch(apiUrl, { method: 'PUT', headers, body: JSON.stringify(body) });
+  const writeResponse = await githubFetch(apiUrl, { method: 'PUT', headers, body: JSON.stringify(body) });
   if (!writeResponse.ok) {
     const detail = await writeResponse.text();
     throw new Error(`GITHUB_REPLAY_SYNC_WRITE_FAILED:${writeResponse.status}:${detail.slice(0, 500)}`);
@@ -171,19 +178,19 @@ async function upsertGithubTextFile(repository: string, branch: string, targetPa
 
 async function listGithubArchive(repository: string, branch: string, headers: Record<string, string>): Promise<any[]> {
   const apiUrl = `https://api.github.com/repos/${repository}/contents/${CHATGPT_REPLAY_ARCHIVE_DIR}?ref=${encodeURIComponent(branch)}`;
-  const response = await fetch(apiUrl, { headers });
+  const response = await githubFetch(apiUrl, { headers });
   if (response.status === 404) return [];
   if (!response.ok) {
     const detail = await response.text();
     throw new Error(`GITHUB_REPLAY_ARCHIVE_LIST_FAILED:${response.status}:${detail.slice(0, 500)}`);
   }
   const entries = await response.json() as any[];
-  return Array.isArray(entries) ? entries.filter(entry => entry?.type === 'file' && String(entry?.name ?? '').endsWith('.json')) : [];
+  return Array.isArray(entries) ? entries.filter(entry => entry?.type === 'file' && String(entry?.name ?? '').endsWith('.json.gz.b64')) : [];
 }
 
 async function deleteGithubArchiveFile(repository: string, branch: string, targetPath: string, sha: string, headers: Record<string, string>): Promise<void> {
   const apiUrl = `https://api.github.com/repos/${repository}/contents/${targetPath}`;
-  const response = await fetch(apiUrl, {
+  const response = await githubFetch(apiUrl, {
     method: 'DELETE',
     headers,
     body: JSON.stringify({ message: `Delete archived replay ${path.posix.basename(targetPath)}`, sha, branch })
@@ -218,13 +225,14 @@ async function publishReplayProjectionToGithub(payload: any, archive: boolean): 
   validateReplaySyncTarget(repository, branch);
   const headers = githubHeaders(token);
   const projection = buildChatgptReplayProjection(payload);
-  const serialized = JSON.stringify(projection, null, 2);
+  const serialized = JSON.stringify(projection);
+  const compressedBase64 = gzipSync(Buffer.from(serialized, 'utf8')).toString('base64');
   const latestCommitSha = await upsertGithubTextFile(
     repository,
     branch,
     CHATGPT_REPLAY_SYNC_PATH,
-    serialized,
-    `Update latest replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+    compressedBase64,
+    `Update compressed latest replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
     headers
   );
 
@@ -236,8 +244,8 @@ async function publishReplayProjectionToGithub(payload: any, archive: boolean): 
       repository,
       branch,
       archivePath,
-      serialized,
-      `Archive replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+      compressedBase64,
+      `Archive compressed replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
       headers
     );
     pruned = await pruneGithubArchive(repository, branch, headers);
@@ -254,6 +262,8 @@ async function publishReplayProjectionToGithub(payload: any, archive: boolean): 
     archiveLimit: CHATGPT_REPLAY_ARCHIVE_LIMIT,
     pruned,
     bytes: Buffer.byteLength(serialized, 'utf8'),
+    githubPayloadBytes: Buffer.byteLength(compressedBase64, 'utf8'),
+    compression: 'gzip+base64',
     commitSha: latestCommitSha
   };
 }
@@ -301,7 +311,7 @@ async function startServer() {
   app.post('/api/validation/historical-audit/save', async (req, res) => {
     try {
       validateHistoricalAuditPayload(req.body);
-      const serialized = JSON.stringify(req.body, null, 2);
+      const serialized = JSON.stringify(req.body);
       if (Buffer.byteLength(serialized, 'utf8') > MAX_HISTORICAL_AUDIT_BYTES) {
         return res.status(413).json({ error: 'HISTORICAL_AUDIT_TOO_LARGE' });
       }
