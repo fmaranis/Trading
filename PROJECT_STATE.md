@@ -930,3 +930,51 @@ No se han ejecutado tests por parte de ChatGPT. El verde anterior no valida esto
 5. Medir especialmente número de `ROTATION_ENTRY`, EXIT competitivos, retorno, DD, fees y cash. Se espera una caída material de rotaciones respecto a la versión anterior; no asumir de antemano que el resultado final mejorará.
 6. Si el comportamiento 2022 es coherente, repetir 2021 y 2024 para comprobar que reduce la sobre-rotación mala sin destruir las rotaciones útiles de 2024.
 7. No recalibrar todavía `2/10`, 3/5/8%, 12 plazas ni márgenes de ranking con estas mismas ventanas; si la arquitectura funciona, la calibración debe usar holdout independiente.
+
+---
+
+# ACTUALIZACIÓN VIGENTE — 2026-09-01 — PERSISTENCIA 3/10 PARA ROTACIÓN
+
+> Esta sección sustituye el umbral experimental `2/10` anterior. El cambio es deliberadamente único: no se alteran Entry Timing, sizing 3/5/8%, máximo de 12 plazas, ranking, atomicidad ni UI.
+
+## Evidencia runtime con 2/10
+
+Se repitieron las tres ventanas conocidas con el filtro integrado `ENTRY_STRONG hoy + ≥2 STRONG en las 10 sesiones previas`, capital 13.000 € y DAILY:
+
+- 2021-11-01 → 2022-10-31: retorno pasó aproximadamente de **-0,92% a +0,60%** y DD de **7,08% a 5,18%**; las rotaciones bajaron de 6 a 4.
+- 2022-07-11 → 2023-06-06: retorno pasó aproximadamente de **-1,17% a -0,35%** y DD de **3,78% a 3,23%**; las rotaciones bajaron de 10 a 6.
+- 2024-04-01 → 2024-10-28: retorno pasó aproximadamente de **+6,25% a +5,86%** y DD de **5,72% a 5,06%**; las rotaciones bajaron de 8 a 6.
+
+Lectura: 2/10 mejora claramente estabilidad y los periodos adversos, pero sigue dejando pasar falsos challengers en 2021. Las cuatro rotaciones de 2021 tenían exactamente **2/10**; tres acabaron negativas, con IBCI alrededor de -15,4% e ISPA alrededor de -12,5%.
+
+Al revisar el contador causal generado por el propio motor:
+- ninguna rotación 2021 tenía 3 STRONG previos;
+- en 2022, la observación 3/10 identificada fue Vanguard Japan y terminó positiva (~+4,1%);
+- en 2024, los challengers con 3+ previos incluyeron Iberdrola (4/10, ~+9,9%) y Deutsche Börse (3/10, ~+7,3%).
+
+En la muestra observada, las rotaciones con **≥3/10** fueron 3/3 positivas y rentabilidad media aproximada +7,1%. Es una muestra pequeña y no constituye prueba estadística suficiente; se adopta como **hipótesis de siguiente replay**, no como umbral definitivo ni optimizado.
+
+## Cambio implementado
+
+`ROTATION_MIN_PRIOR_STRONG_OBSERVATIONS` cambia de **2 a 3** manteniendo `ROTATION_PERSISTENCE_LOOKBACK_SESSIONS = 10`.
+
+La semántica queda:
+- con cash/plaza libre, un `ENTRY_STRONG` actual puede seguir abriendo STARTER normalmente;
+- para expulsar un incumbent con cartera llena, el challenger debe ser STRONG hoy **y haber sido STRONG al menos 3 veces en las 10 sesiones anteriores**, además de todos los gates ya existentes;
+- un 2/10 ya no es suficiente para causar una venta competitiva.
+
+`currentCapitalAllocation.unit.ts` mantiene 32 invariantes y la regresión de persistencia exige ahora explícitamente **≥3/10**.
+
+## Estado
+
+**IMPLEMENTADO EN RAMA `chatgpt/rotation-persistence-3of10`, NO RUNTIME-VALIDADO.**
+
+ChatGPT no ha ejecutado tests. No usar el verde anterior como validación de este cambio.
+
+## Próximo paso
+
+1. Fast-forward limpio a `main` si la rama sigue 0 commits por detrás.
+2. Ejecutar manualmente `npm run validate:aistudio`.
+3. Si queda verde, repetir las mismas tres ventanas con 13.000 € y DAILY para comparar contra 2/10.
+4. Criterio clave: 2021 debería bloquear prácticamente las rotaciones competitivas; 2022 reducirlas mucho; 2024 debería conservar sólo challengers con persistencia fuerte.
+5. No subir a 4/10 ni cambiar otros parámetros antes de ver esos tres replays; 4/10 sería una restricción mucho más agresiva y todavía no está respaldada por evidencia suficiente.
