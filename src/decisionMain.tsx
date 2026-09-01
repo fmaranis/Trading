@@ -1,6 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import { InteractiveInvestmentDecisionCenter } from './components/InteractiveInvestmentDecisionCenter';
+import { installReplaySessionStorageFallback } from './replaySessionStorageFallback';
 import './index.css';
+
+installReplaySessionStorageFallback();
 
 function DecisionApp() {
   return (
