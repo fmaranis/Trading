@@ -118,20 +118,32 @@ function githubHeaders(token: string): Record<string, string> {
   };
 }
 
+function replaySyncTarget() {
+  return {
+    repository: process.env.GITHUB_REPLAY_SYNC_REPOSITORY || DEFAULT_REPLAY_SYNC_REPOSITORY,
+    branch: process.env.GITHUB_REPLAY_SYNC_BRANCH || DEFAULT_REPLAY_SYNC_BRANCH,
+    path: CHATGPT_REPLAY_SYNC_PATH
+  };
+}
+
 async function publishReplayProjectionToGithub(payload: any): Promise<Record<string, unknown>> {
   const token = process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim();
-  if (!token) {
+  const target = replaySyncTarget();
+  if (!token) return { configured: false, published: false, ...target };
+
+  // This endpoint is intentionally development-only. The public SaaS must not expose
+  // a browser-triggerable route that can spend a repository write credential.
+  if (process.env.NODE_ENV === 'production') {
     return {
-      configured: false,
+      configured: true,
       published: false,
-      repository: process.env.GITHUB_REPLAY_SYNC_REPOSITORY || DEFAULT_REPLAY_SYNC_REPOSITORY,
-      branch: process.env.GITHUB_REPLAY_SYNC_BRANCH || DEFAULT_REPLAY_SYNC_BRANCH,
-      path: CHATGPT_REPLAY_SYNC_PATH
+      blockedReason: 'PRODUCTION_SYNC_DISABLED',
+      ...target
     };
   }
 
-  const repository = (process.env.GITHUB_REPLAY_SYNC_REPOSITORY || DEFAULT_REPLAY_SYNC_REPOSITORY).trim();
-  const branch = (process.env.GITHUB_REPLAY_SYNC_BRANCH || DEFAULT_REPLAY_SYNC_BRANCH).trim();
+  const repository = target.repository.trim();
+  const branch = target.branch.trim();
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error('INVALID_GITHUB_REPLAY_SYNC_REPOSITORY');
   if (!branch || branch.includes('..') || branch.startsWith('/') || branch.endsWith('/')) throw new Error('INVALID_GITHUB_REPLAY_SYNC_BRANCH');
 
@@ -225,9 +237,7 @@ async function startServer() {
         githubSync = {
           configured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()),
           published: false,
-          repository: process.env.GITHUB_REPLAY_SYNC_REPOSITORY || DEFAULT_REPLAY_SYNC_REPOSITORY,
-          branch: process.env.GITHUB_REPLAY_SYNC_BRANCH || DEFAULT_REPLAY_SYNC_BRANCH,
-          path: CHATGPT_REPLAY_SYNC_PATH,
+          ...replaySyncTarget(),
           error: syncError?.message || String(syncError)
         };
       }
