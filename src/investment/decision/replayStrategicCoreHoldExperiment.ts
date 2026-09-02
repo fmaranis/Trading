@@ -1,10 +1,10 @@
 import { PortfolioDecisionEngine, type PortfolioDecisionResult, type PortfolioPositionDecision } from './portfolioDecisionEngine';
 import type { PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
+import { STRATEGIC_GROWTH_CORE_ASSET_IDS } from './portfolioAssetRole';
 import {
-  STRATEGIC_GROWTH_CORE_ASSET_IDS,
-  isStrategicGrowthCoreAssetId,
-  portfolioAssetRole
-} from './portfolioAssetRole';
+  applyStrategicCoreShortTermProtection,
+  strategicCoreBlocksTacticalRotation
+} from './strategicCorePolicy';
 import { runDynamicReplayWithTrendProtectionV2Experiment } from './replayTrendProtectionV2Experiment';
 import type { DynamicHistoricalReplayResult } from './dynamicHistoricalReplay';
 
@@ -12,6 +12,7 @@ type PortfolioEvaluationInput = Parameters<typeof PortfolioDecisionEngine.evalua
 type ReplayRunInput = Parameters<typeof runDynamicReplayWithTrendProtectionV2Experiment>[0];
 
 export { isStrategicGrowthCoreAssetId } from './portfolioAssetRole';
+export { applyStrategicCoreShortTermProtection as adaptStrategicCoreHoldHealth } from './strategicCorePolicy';
 
 function candidateForSnapshot(input: PortfolioEvaluationInput, snapshot: PortfolioPositionHealthSnapshot) {
   const keys = new Set([snapshot.key?.toUpperCase(), snapshot.tickerOrIsin?.toUpperCase()].filter(Boolean));
@@ -26,26 +27,6 @@ function candidateAssetIdForSnapshot(input: PortfolioEvaluationInput, snapshot: 
   return candidateForSnapshot(input, snapshot)?.asset.assetId ?? null;
 }
 
-export function adaptStrategicCoreHoldHealth(
-  assetId: string | null | undefined,
-  snapshot: PortfolioPositionHealthSnapshot
-): PortfolioPositionHealthSnapshot {
-  if (!isStrategicGrowthCoreAssetId(assetId)) return snapshot;
-
-  const v2SellAuthorized = snapshot.reason.includes('[TREND_PROTECTION_V2:REDUCE]')
-    || snapshot.reason.includes('[TREND_PROTECTION_V2:EXIT]')
-    || snapshot.action === 'REDUCE'
-    || snapshot.action === 'EXIT';
-  if (!v2SellAuthorized) return snapshot;
-
-  return {
-    ...snapshot,
-    action: 'WATCH',
-    suggestedReductionPct: null,
-    reason: `[PORTFOLIO_ROLE:STRATEGIC_GROWTH_CORE] [STRATEGIC_CORE_HOLD_V1] Core estratégico de crecimiento a largo plazo: la señal V2 se conserva como diagnóstico, pero no se materializa REDUCE/EXIT por deterioro de corto plazo. El capital existente permanece invertido; las reglas ordinarias de nuevas aportaciones siguen intactas. Señal observada: ${snapshot.reason}`
-  };
-}
-
 function adaptStrategicCoreHealth(input: PortfolioEvaluationInput): PortfolioEvaluationInput {
   const transformed = new Map<PortfolioPositionHealthSnapshot, PortfolioPositionHealthSnapshot>();
   const next: Record<string, PortfolioPositionHealthSnapshot> = {};
@@ -54,21 +35,21 @@ function adaptStrategicCoreHealth(input: PortfolioEvaluationInput): PortfolioEva
     const cached = transformed.get(snapshot);
     if (cached) { next[key] = cached; continue; }
     const assetId = candidateAssetIdForSnapshot(input, snapshot);
-    const adapted = adaptStrategicCoreHoldHealth(assetId, snapshot);
+    const adapted = applyStrategicCoreShortTermProtection(assetId, snapshot);
     transformed.set(snapshot, adapted);
     next[key] = adapted;
   }
   return { ...input, positionHealth: next };
 }
 
-function strategicAssetForPosition(input: PortfolioEvaluationInput, position: PortfolioPositionDecision) {
-  if (position.assetId) return input.scan.candidates.find(row => row.asset.assetId === position.assetId)?.asset ?? null;
+function strategicAssetIdForPosition(input: PortfolioEvaluationInput, position: PortfolioPositionDecision): string | null {
+  if (position.assetId) return position.assetId;
   const normalized = position.id?.toUpperCase();
   if (!normalized) return null;
   return input.scan.candidates.find(row =>
     row.asset.ticker.toUpperCase() === normalized
     || row.asset.isin?.toUpperCase() === normalized
-  )?.asset ?? null;
+  )?.asset.assetId ?? null;
 }
 
 function refreshPlanningTotals(result: PortfolioDecisionResult, oldRotationProceeds: number, oldRecommended: number): void {
@@ -89,8 +70,8 @@ function blockStrategicCoreRotations(input: PortfolioEvaluationInput, result: Po
 
   for (const position of result.existingPositions) {
     if (!position.rotationChallengerAssetId) continue;
-    const asset = strategicAssetForPosition(input, position);
-    if (!asset || portfolioAssetRole(asset) !== 'STRATEGIC_GROWTH_CORE') continue;
+    const assetId = strategicAssetIdForPosition(input, position);
+    if (!strategicCoreBlocksTacticalRotation(assetId)) continue;
 
     const challengerAssetId = position.rotationChallengerAssetId;
     result.contributions = result.contributions.filter(row => !(row.assetId === challengerAssetId && row.positionStage === 'ROTATION_ENTRY'));
@@ -120,7 +101,7 @@ export function runDynamicReplayWithStrategicCoreHoldExperiment(input: ReplayRun
 
     const result = runDynamicReplayWithTrendProtectionV2Experiment(input);
     result.notes.push(
-      'STRATEGIC_CORE_HOLD_V1: validación causal del rol canónico STRATEGIC_GROWTH_CORE sobre TREND_PROTECTION_V2. CORE_GATE_V1 permanece intacto como destino de capital: las posiciones débiles pueden seguir rotando hacia el core global. La única diferencia es que el core estratégico ya acumulado no ejecuta REDUCE/EXIT ni rotación competitiva por deterioro de corto plazo.',
+      'STRATEGIC_CORE_HOLD_V1: replay de validación de una semántica de cartera reutilizable, no definición local del experimento. CORE_GATE_V1 permanece intacto como destino de capital: las posiciones débiles pueden seguir rotando hacia el core global. La única diferencia es que el core estratégico ya acumulado no ejecuta REDUCE/EXIT ni rotación competitiva por deterioro de corto plazo.',
       `Core estratégico canónico: ${STRATEGIC_GROWTH_CORE_ASSET_IDS.join(', ')}. Regionales, bonos y satélites mantienen exactamente la lógica V2 vigente. No se ha modificado ningún threshold de MFE, giveback, streak, Entry Timing, STARTER/BUILD o challenger.`
     );
     return result;
