@@ -38,7 +38,7 @@ Cartera real de referencia:
 
 La concentración posterior hacia Vanguard Global/core es deliberada:
 - si una posición mediocre/deteriorada libera capital y el challenger no es excepcional, se prefiere un core global diversificado antes que perseguir otra apuesta táctica o acumular cash innecesario;
-- prioridad: Vanguard Global → ESG Developed → EUNL/IWDA → SXR8/VUSA;
+- prioridad vigente: Vanguard Global → ESG Developed → EUNL/IWDA → SXR8/VUSA;
 - no modificar CORE_GATE por el hecho de que concentre capital en el core.
 
 La observación de grandes aportaciones a partir de meses 7-9 se conserva para la futura fase `ReliabilityScore / OpportunityScore / sizing`: parte procede de consolidar rotaciones en el core y no necesariamente de una nueva señal de oportunidad extrema.
@@ -77,31 +77,44 @@ V2 puro no se promociona como política global.
 
 ---
 
-# STRATEGIC_CORE_HOLD_V1
+# Strategic growth core — rol canónico
 
-Implementación experimental: `src/investment/decision/replayStrategicCoreHoldExperiment.ts`.
-Export: `summary.trendProtectionV2Counterfactual.strategicCoreHoldExperiment`.
+Principio arquitectónico validado: el **strategic growth core no debe venderse por deterioro corto ordinario ni utilizarse como fuente de rotación táctica competitiva**. Esto no significa “nunca vender”: una futura salida requerirá una tesis estructural independiente.
 
-Strategic core:
+Rol canónico implementado en:
+- `src/investment/decision/portfolioAssetRole.ts`
+- `src/investment/decision/strategicCorePolicy.ts`
+
+Roles explícitos:
+- `STRATEGIC_GROWTH_CORE`
+- `DIVERSIFIED_SLEEVE`
+- `TACTICAL_SATELLITE`
+
+Strategic core explícito:
 - `FUND_VANGUARD_GLOBAL`
 - `FUND_VANGUARD_ESG_DEVELOPED`
 - `FUND_VANGUARD_US500`
 - `VWCE`, `EUNL`, `IWDA`, `SXR8`, `VUSA`.
 
-No incluye regionales, emerging, bonos ni tácticos.
+La categoría amplia por sí sola NO concede rol estratégico. Por ejemplo Vanguard Emerging o un holdout GLOBAL_EQUITY siguen siendo sleeve, y EQQQ sigue siendo satélite táctico.
 
-Semántica experimental:
-- V2 sigue diagnosticando el core;
-- REDUCE/EXIT por deterioro corto se degradan a WATCH;
-- el strategic core tampoco se usa como fuente de una rotación competitiva táctica ordinaria;
-- ADD/entrada, CORE_GATE y thresholds siguen iguales;
-- satélites/sleeves usan V2 sin cambios.
+Semántica reutilizable en `strategicCorePolicy.ts`:
+- una señal REDUCE/EXIT táctica del strategic core se conserva como diagnóstico pero se convierte en WATCH sin venta;
+- el strategic core bloquea uso como fuente de rotación táctica;
+- una futura salida estructural deberá vivir en una política separada y explícita.
 
-Backup previo: `backup/main-pre-strategic-core-hold-2026-09-02` → `7c5a77b237d576c4bc3949350229c4c138e7fc71`.
+`replayStrategicCoreHoldExperiment.ts` queda como arnés de validación causal que consume la semántica anterior; ya no contiene una definición local independiente del rol.
 
-## Validaciones independientes — no usadas para diseñar la regla
+Backup previo a esta refactorización:
+`backup/main-pre-portfolio-role-core-2026-09-02` → `1e3f0ab22b868fe608b11e0aaac92c52fb289070`.
 
-### 2019-01-02 → 2019-12-31
+Estado de validación del refactor: **PENDIENTE de gates AI Studio**. No se ha cambiado ningún threshold ni se pretende cambiar los resultados económicos ya validados.
+
+---
+
+# Validaciones independientes del strategic core
+
+## 2019-01-02 → 2019-12-31
 - CURRENT: +15,045%, final 14.955,86 €.
 - V2: +15,225%, final 14.979,25 €.
 - CORE HOLD: +15,225%, final 14.979,25 €.
@@ -109,12 +122,11 @@ Backup previo: `backup/main-pre-strategic-core-hold-2026-09-02` → `7c5a77b237d
 - CORE HOLD = V2 al último decimal: no hubo venta de strategic core que interceptar.
 - V2/CORE HOLD superan CURRENT en +23,39 € / +0,180 pp.
 
-### 2017-01-02 → 2018-12-31 — 24 meses
+## 2017-01-02 → 2018-12-31 — 24 meses
 CURRENT:
 - final 12.871,64 €;
 - retorno -0,9874%;
-- DD 14,8945%;
-- fees 104,22 €; tax 194,75 €.
+- DD 14,8945%.
 
 V2:
 - final 12.770,34 €;
@@ -134,40 +146,27 @@ STRATEGIC_CORE_HOLD_V1:
 CORE HOLD vs V2:
 - **+238,19 € / +1,8323 pp**;
 - DD sólo +0,0459 pp peor;
-- turnover **-7.528,88 €**;
-- fees -18,78 €;
-- tax -12,81 €.
+- turnover -7.528,88 €.
 
 CORE HOLD vs CURRENT:
 - **+136,90 € / +1,0530 pp**;
-- DD **0,7200 pp mejor**;
-- turnover -11.386,93 €;
-- fees -15,70 €;
-- tax -72,47 €.
+- DD **0,7200 pp mejor**.
 
 Hallazgo causal principal:
 - la divergencia empieza 2017-08-08/09;
-- V2 permite vender `SXR8` (S&P 500) a ~-2,73% para rotar hacia Intesa y vender `EUNL` (MSCI World) a ~+0,35% para rotar hacia Repsol;
+- V2 permite vender `SXR8` (S&P 500) para rotar hacia Intesa y `EUNL` (MSCI World) para rotar hacia Repsol;
 - CORE HOLD conserva ambos strategic cores;
 - Intesa termina posteriormente con REDUCE alrededor de -18,8% y EXIT alrededor de -21,3%;
-- a final de 2017 CORE HOLD ya aventaja V2 ~185 €; a septiembre de 2018 ~279 €; tras la caída de Q4 2018 termina todavía +238 € por encima;
 - el beneficio no procede sólo de impedir REDUCE V2: también de impedir que un core estructural sea vaciado para perseguir challengers tácticos.
 
-Exact initial hold 2017-18 termina +6,2247%, muy por encima incluso de CORE HOLD (+0,0657%). Por tanto, proteger el core corrige una pieza importante, pero **no resuelve el problema principal de selección/composición/rotaciones**.
-
-## Conclusión tras validación independiente
-
-La hipótesis queda reforzada fuera de las ventanas de diseño:
-- 2019: CORE HOLD es neutro frente a V2 cuando no debe intervenir;
-- 2017-18: CORE HOLD mejora materialmente retorno con coste de DD casi nulo frente a V2 y además supera CURRENT con menor DD.
-
-Esto justifica adoptar como principio arquitectónico que el **strategic growth core no debe venderse por deterioro corto ordinario ni utilizarse como fuente de rotación táctica competitiva**. Esto NO significa “nunca vender bajo ninguna circunstancia”: una futura salida del core requerirá una tesis estructural/objetivo de cartera distinta de las señales tácticas actuales.
+Exact initial hold 2017-18 termina +6,2247%, muy por encima incluso de CORE HOLD (+0,0657%). Proteger el core corrige una pieza real, pero **no resuelve el problema principal de selección/composición/rotaciones**.
 
 ---
 
 # Próxima acción
 
-1. No calibrar thresholds con las ventanas anteriores.
-2. Convertir `STRATEGIC_CORE_HOLD_V1` de experimento de replay a rol explícito de cartera/semántica base, conservando una vía futura para fallo estructural distinto de la tendencia corta.
-3. Ejecutar regresiones dirigidas para demostrar que satélites/sleeves no cambian y que CURRENT histórico queda auditable.
-4. Después volver al bloque de mayor impacto: **selección/composición/rotaciones + ReliabilityScore / OpportunityScore / sizing**, porque incluso en 2017-18 el exact hold (+6,22%) queda muy por encima de CORE HOLD (+0,07%).
+1. Sincronizar `main` y ejecutar `npm run lint`.
+2. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
+3. Si falla, ejecutar sólo el test dirigido hasta corregirlo; no lanzar replays históricos.
+4. Si ambos pasan, marcar el refactor de rol como cerrado sin repetir los replays largos, porque no se cambió semántica económica.
+5. Inmediatamente después iniciar el bloque de mayor impacto: **ReliabilityScore / OpportunityScore + selección + sizing/concentración**, manteniendo congelados los thresholds ya diagnosticados.
