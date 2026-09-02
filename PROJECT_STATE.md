@@ -100,32 +100,19 @@ Implementación:
 
 ZIP revisado: `trading-replay-2022-07-11-2023-07-10 (4).zip`.
 
-## CURRENT_POLICY
+CURRENT_POLICY:
+- final **12.873,999 €**;
+- retorno **-0,969238%**;
+- DD máx. **3,230298%**;
+- fees **46,6343 €**.
 
-- inicial: 13.000 €;
-- final: **12.873,999 €**;
-- retorno: **-0,969238%**;
-- DD máx.: **3,230298%**;
-- fees: **46,6343 €**;
-- tax estimado: **13,2774 €**;
-- ejecuciones: 24 BUY / 17 ADD / 3 REDUCE / 12 EXIT;
-- cash final ~30,93%; exposición final ~69,07%.
-
-## TREND_PROTECTION_V2 FULL_CAUSAL
-
-- `methodology=FULL_CAUSAL_REPLAY_SAME_DECISION_ENGINE`;
-- `valid=true`;
-- cash nunca negativo;
-- máximo observado **12/12 posiciones**;
-- final: **12.814,424 €**;
-- retorno: **-1,427509%**;
-- DD máx.: **3,202818%**;
-- fees: **40,3981 €**;
-- tax estimado: **13,6444 €**;
-- turnover total: **18.495,19 €**;
-- turnover de gestión: **5.232,86 €**;
-- 20 BUY / 19 ADD / 2 REDUCE / 8 EXIT;
-- cash final ~39,70%; exposición final ~60,30%.
+TREND_PROTECTION_V2:
+- `valid=true`; cash nunca negativo; máximo **12/12 posiciones**;
+- final **12.814,424 €**;
+- retorno **-1,427509%**;
+- DD máx. **3,202818%**;
+- fees **40,3981 €**;
+- turnover total **18.495,19 €**.
 
 Delta V2 vs baseline:
 - final **-59,58 €**;
@@ -134,48 +121,83 @@ Delta V2 vs baseline:
 - fees **-6,24 €**;
 - turnover **-3.725,44 €**.
 
-Conclusión de esta ventana: **V2 no mejora económicamente al baseline en 12m**, aunque reduce ligeramente DD, fees y turnover. No ajustar thresholds usando esta misma ventana.
+Conclusión: V2 no mejora económicamente este 12m. No ajustar thresholds con esta ventana.
 
-La divergencia de entradas aparece ya después de las primeras diferencias de gestión y es esperada en FULL_CAUSAL_REPLAY: 41 entradas baseline, 39 entradas V2, sólo 20 firmas exactamente coincidentes. No es fallo de validez.
-
-Operaciones V2 directamente atribuibles a protección observadas:
-- AIGC: REDUCE 25% ejecutado ~2022-12-09 con retorno de posición ~-9,0%;
-- DTE: REDUCE 25% ejecutado ~2023-06-02 con retorno ~+6,24% tras MFE ~17,9%;
-- IQQH: hard EXIT ~2023-03-28 con retorno ~-20,72%.
-
-El resto de EXIT del brazo V2 observado en el ledger procede principalmente de rotación/core existente, no de hard EXIT V2.
+Operaciones V2 directamente atribuibles observadas:
+- AIGC: REDUCE 25% ~-9,0%;
+- DTE: REDUCE 25% ~+6,24% tras MFE ~17,9%;
+- IQQH: hard EXIT ~-20,72%.
 
 ---
 
-# Nuevo defecto de ejecución descubierto y corregido
+# Corrección de REDUCE no materializable en ETF
 
-El A/B REAL devolvió `actionCounts.REDUCE=202` pero sólo **2 REDUCE ejecutados**. La causa es que V2 podía insistir diariamente en REDUCE25 sobre ETFs con muy pocos títulos cuando `floor(units × 25%) = 0`; el broker no podía materializar la orden, por lo que nunca se consumía la idempotencia y la señal reaparecía.
+El replay 2022/23 mostró muchos `REDUCE` diagnósticos frente a pocas reducciones ejecutadas. Se corrigió el caso inequívoco de ETF/ETC donde `floor(units × 25%) = 0`:
+- se degrada a PROTECT;
+- no se declara venta ficticia;
+- fondos fraccionarios mantienen REDUCE válido.
 
-Esto es un defecto de ejecución/auditoría, no una calibración económica.
+No se cambió ningún threshold V2.
 
-Corrección implementada en `replayTrendProtectionV2Experiment.ts`:
-- si V2 decide REDUCE sobre ETF/ETC y el 25% equivale a menos de 1 título entero, la decisión operativa se degrada a **PROTECT**;
-- no se declara una venta ficticia;
-- no se reserva cash/plaza teórica por una reducción imposible;
-- `pendingReduction` sólo se arma para REDUCE realmente materializable por número entero de títulos;
-- fondos siguen permitiendo reducción fraccionaria.
+---
 
-Regresión añadida en `trendProtectionCounterfactual.unit.ts`:
-- 3 títulos ETF + REDUCE25 → PROTECT;
-- 4 títulos ETF + REDUCE25 → REDUCE;
-- fondo fraccionario → REDUCE permanece válido.
+# Holdout COVID FULL_CAUSAL — 2020-02-03 → 2021-02-02
 
-No se han cambiado MFE, giveback, streak, hard EXIT ni ningún threshold V2.
+ZIP revisado: `trading-replay-2020-02-03-2021-02-02 (2).zip`.
+
+## CURRENT_POLICY
+
+- inicial 13.000 €;
+- final **13.474,575 €**;
+- retorno **+3,650577%**;
+- DD máx. **13,533982%**;
+- fees **30,1908 €**;
+- tax estimado **1,8152 €**;
+- exact hold **+3,189422%**.
+
+## TREND_PROTECTION_V2
+
+- metodología `FULL_CAUSAL_REPLAY_SAME_DECISION_ENGINE`;
+- `valid=true`;
+- cash nunca negativo;
+- máximo observado **12/12 posiciones**;
+- final **13.717,150 €**;
+- retorno **+5,516541%**;
+- DD máx. **13,625680%**;
+- fees **24,00 €**;
+- tax estimado **9,9034 €**;
+- turnover total **15.024,59 €**;
+- 4 REDUCE y 5 EXIT ejecutados.
+
+Delta V2 vs baseline:
+- final **+242,58 €**;
+- retorno **+1,865964 pp**;
+- DD **+0,09170 pp** (ligeramente peor);
+- fees **-6,19 €**;
+- turnover **+317,05 €**.
+
+Lectura causal:
+- en el trough del 2020-03-23 V2 no evita la caída: ~11.399,69 € frente a ~11.411,79 € baseline;
+- la ventaja aparece durante la recuperación: diferencia V2-baseline ~+14 € a 2020-04-30, +90 € a 2020-06-30, +186 € a 2020-09-01 y +243 € al final;
+- V2 recupera 13.000 € el **2020-08-26**, mientras baseline no lo hace hasta **2020-11-16**;
+- por tanto la mejora COVID procede principalmente de conservar/reconstruir exposición durante el rebote, no de reducir el drawdown inicial.
+
+Operaciones V2 relevantes alrededor del shock:
+- 2020-03-16: REDUCE parcial de Vanguard US500 ~-19,5%;
+- 2020-03-16: REDUCE parcial de Vanguard ESG Developed ~-22,5%;
+- 2020-03-16: REDUCE parcial de Vanguard Global ~-23,2%;
+- V2 no replica el EXIT completo de EUNL que CURRENT_POLICY ejecuta el mismo 2020-03-16.
+
+El campo `actionCounts.REDUCE=139` NO significa 139 ventas: son observaciones/decisiones V2 etiquetadas durante el replay; sólo **4 REDUCE** se ejecutaron económicamente. Mantener separados conteos diagnósticos y operaciones reales al interpretar el JSON.
+
+Conclusión holdout COVID: **evidencia favorable a V2 en retorno y velocidad de recuperación, pero no en DD**. No tocar thresholds: debe contrastarse en las otras ventanas independientes antes de decidir.
 
 ---
 
 # Próxima acción
 
-1. Sincronizar `main` al HEAD actual.
-2. Ejecutar sólo:
-   - `npm run lint`
-   - si PASS: `npm run test:trend-protection-counterfactual`
-3. Confirmar que el test devuelve `wholeShareBlockedAction=PROTECT`, `valid=true`, cash no negativo y máximo MEDIUM <=12.
-4. No repetir aún 12m sólo para mejorar su resultado: el cambio corrige una orden imposible, no calibra la estrategia.
-5. Si los gates pasan, siguiente evidencia debe venir de una ventana independiente/holdout antes de tocar thresholds V2.
-6. Comparar en holdout retorno, DD, turnover, cash/exposición, REDUCE/EXIT realmente ejecutables y número de PROTECT por whole-share blocking.
+1. No recalibrar V2 con 2022/23 ni con COVID.
+2. Ejecutar siguiente holdout: **2024-04-01 → 2025-03-31**, DAILY, 12 meses, 13.000 €.
+3. Objetivo principal: comprobar que V2 no recorta ganadores en un entorno alcista y comparar retorno, DD, turnover, cash/exposición y ventas V2.
+4. Después ejecutar **2021-11-01 → 2022-10-31** con la misma configuración.
+5. Sólo después de las tres ventanas (2022/23 + COVID + 2024/25 + 2021/22 como estrés adverso adicional) decidir si V2 merece 24/36m y calibración independiente.
