@@ -37,4 +37,8 @@ check('906 high conviction requires at least four favorable votes', alerts.filte
 check('907 every emitted alert has explicit causal timing approval', alerts.every(a => a.timingState === 'ENTRY_READY' || a.timingState === 'ENTRY_STRONG'));
 check('908 timing never authorizes the full strategic target as the initial tranche', alerts.every(a => a.suggestedInitialFraction > 0 && a.suggestedInitialFraction <= 0.5));
 
-console.log(`Current opportunity alerts: ${passed}/8 invariants passed.`);
+const qualityAlerts = CurrentOpportunityAlertEngine.evaluate(scan, 2.5, 'QUALITY_V1');
+check('909 QUALITY_V1 alerts expose finite causal Reliability/Opportunity scores', qualityAlerts.length > 0 && qualityAlerts.every(a => Number.isFinite(a.reliabilityScore) && Number.isFinite(a.opportunityScore)));
+check('910 QUALITY_V1 cannot re-admit below-cash or structural candidates', !qualityAlerts.some(a => a.assetId === 'WEAK') && !qualityAlerts.some(a => a.assetId === 'FALL'));
+
+console.log(`Current opportunity alerts: ${passed}/10 invariants passed.`);
