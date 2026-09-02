@@ -52,6 +52,23 @@ function portfolioUnits(input: PortfolioEvaluationInput, assetId: string, ticker
   return Math.max(0, fund?.units ?? 0);
 }
 
+export function adaptTrendProtectionV2ForWholeShareExecution(
+  decision: TrendProtectionV2Decision,
+  instrumentType: 'ETF_ETC' | 'MUTUAL_FUND',
+  units: number
+): TrendProtectionV2Decision {
+  if (decision.action !== 'REDUCE' || instrumentType !== 'ETF_ETC') return decision;
+  const reductionPct = Math.max(0, Math.min(100, decision.suggestedReductionPct ?? 25));
+  const wholeUnitsToSell = Math.floor(Math.max(0, units) * reductionPct / 100 + 1e-9);
+  if (wholeUnitsToSell >= 1) return decision;
+  return {
+    ...decision,
+    action: 'PROTECT',
+    suggestedReductionPct: null,
+    reason: `${decision.reason} REDUCE ${reductionPct.toFixed(0)}% no ejecutable con ${Math.max(0, units).toFixed(4)} títulos enteros; mantener PROTECT en lugar de declarar una venta que el broker no puede materializar.`
+  };
+}
+
 function operationalAction(base: PortfolioPositionHealthAction, decision: TrendProtectionV2Decision): PortfolioPositionHealthAction {
   if (decision.action === 'REDUCE' || decision.action === 'EXIT') return decision.action;
   if (decision.action === 'PROTECT' || decision.action === 'WATCH') return 'WATCH';
@@ -106,7 +123,7 @@ function applyTrendProtectionV2(input: PortfolioEvaluationInput, states: Map<str
     const observationsForDecision = state.armed ? state.observations + 1 : 1;
     const referenceForDecision = state.armed ? state.referenceReturnPct : currentReturnPct;
     const assessment = StrategyConsensusEngine.assess(input.scan, assetId, input.cashBenchmarkAnnualPct);
-    const decision = classifyTrendProtectionV2(assessment, {
+    const rawDecision = classifyTrendProtectionV2(assessment, {
       currentReturnPct,
       mfePct: state.mfePct,
       givebackFromMfePctPoints: giveback,
@@ -117,6 +134,7 @@ function applyTrendProtectionV2(input: PortfolioEvaluationInput, states: Map<str
       protectionReferenceReturnPct: referenceForDecision,
       protectionReductionExecuted: state.reductionExecuted
     });
+    const decision = adaptTrendProtectionV2ForWholeShareExecution(rawDecision, candidate.asset.instrumentType, units);
 
     if (decision.reclaimDetected) {
       resetEpisode(state, false);
@@ -216,7 +234,7 @@ export function runDynamicReplayWithTrendProtectionV2Experiment(input: ReplayRun
     const result = runDynamicReplayWithRotationExperiment(input, 'CORE_GATE_V1');
     result.notes.push(
       'TREND_PROTECTION_V2 full causal replay: mismo universo, scanner, Entry Timing, sizing, rotación CORE_GATE_V1, cash y límites de plazas; sólo se sustituye la protección REDUCE/EXIT de salud por V2. Las entradas posteriores pueden divergir causalmente si cambia el cash o la ocupación de plazas.',
-      'PROTECT es no operativo: no vende por salud ni puede convertirse indirectamente en una rotación competitiva. Un REDUCE V2 consume la idempotencia sólo cuando la siguiente evaluación confirma una caída real de unidades; una señal no ejecutable no consume el único REDUCE del episodio.'
+      'PROTECT es no operativo: no vende por salud ni puede convertirse indirectamente en una rotación competitiva. Un REDUCE V2 consume la idempotencia sólo cuando la siguiente evaluación confirma una caída real de unidades; si el 25% de un ETF equivale a menos de un título entero, se degrada a PROTECT y no se declara una venta ficticia.'
     );
     return result;
   } finally {
