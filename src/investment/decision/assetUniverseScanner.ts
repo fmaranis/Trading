@@ -1,6 +1,7 @@
 import { HistoricalMarketDataService } from '../data/marketData/historicalMarketDataService';
 import { FundMarketDataService } from '../data/marketData/fundMarketData';
 import { MultiAssetDataset, computeAssetDatasetFingerprint } from '../portfolioBacktesting';
+import { assessAssetSelectionQuality } from './assetSelectionQuality';
 import { AssetUniverseItem } from './assetUniverse';
 
 interface ScannerResponse {
@@ -21,6 +22,11 @@ export interface AssetScanCandidate {
   momentum120Pct: number | null;
   annualizedVolatilityPct: number | null;
   maxDrawdownPct: number | null;
+  reliabilityScore?: number | null;
+  opportunityScore?: number | null;
+  currentDrawdownPct?: number | null;
+  positiveRolling60Pct?: number | null;
+  positiveRolling120Pct?: number | null;
   score: number | null;
   response?: ScannerResponse;
 }
@@ -62,6 +68,27 @@ function scoreCandidate(m20: number | null, m60: number | null, m120: number | n
   const momentum = (m20 ?? 0) * 0.20 + (m60 ?? 0) * 0.35 + (m120 ?? 0) * 0.45;
   const riskPenalty = (vol ?? 30) * 0.30 + (dd ?? 25) * 0.25;
   return momentum - riskPenalty + (defensive ? 2.5 : 0);
+}
+function rejectedCandidate(asset: AssetUniverseItem, input: { reason: string; bars: number; asOfDate: string | null; lastClose: number | null }): AssetScanCandidate {
+  return {
+    asset,
+    status: 'REJECTED',
+    reason: input.reason,
+    bars: input.bars,
+    asOfDate: input.asOfDate,
+    lastClose: input.lastClose,
+    momentum20Pct: null,
+    momentum60Pct: null,
+    momentum120Pct: null,
+    annualizedVolatilityPct: null,
+    maxDrawdownPct: null,
+    reliabilityScore: null,
+    opportunityScore: null,
+    currentDrawdownPct: null,
+    positiveRolling60Pct: null,
+    positiveRolling120Pct: null,
+    score: null
+  };
 }
 function daysBetween(a: string, b: string): number { return Math.abs(Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000; }
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -113,23 +140,40 @@ export class AssetUniverseScanner {
       try {
         const response = await loadAsset(asset, startDate, endDate, options.forceRefresh ?? false);
         const providerCurrency = response.metadata.currency;
-        if (providerCurrency && providerCurrency !== 'EUR') return { asset, status: 'REJECTED' as const, reason: `NON_EUR:${providerCurrency}`, bars: response.bars.length, asOfDate: response.bars.at(-1)?.timestamp.slice(0,10) ?? null, lastClose: response.bars.at(-1)?.close ?? null, momentum20Pct:null,momentum60Pct:null,momentum120Pct:null,annualizedVolatilityPct:null,maxDrawdownPct:null,score:null };
-        if (response.bars.length < minimumBars) return { asset, status:'REJECTED' as const, reason:'INSUFFICIENT_HISTORY', bars:response.bars.length, asOfDate:response.bars.at(-1)?.timestamp.slice(0,10)??null,lastClose:response.bars.at(-1)?.close??null,momentum20Pct:null,momentum60Pct:null,momentum120Pct:null,annualizedVolatilityPct:null,maxDrawdownPct:null,score:null };
-        const asOfDate=response.bars.at(-1)!.timestamp.slice(0,10);
-        if(daysBetween(asOfDate,endDate)>maxDataAgeDays)return{asset,status:'REJECTED' as const,reason:'STALE_DATA',bars:response.bars.length,asOfDate,lastClose:response.bars.at(-1)!.close,momentum20Pct:null,momentum60Pct:null,momentum120Pct:null,annualizedVolatilityPct:null,maxDrawdownPct:null,score:null};
-        const prices=response.bars.map(b=>b.close); const m20=pctReturn(prices,20),m60=pctReturn(prices,60),m120=pctReturn(prices,120),vol=annualizedVolatility(prices,60),dd=maxDrawdown(prices,252);
-        return {asset,status:'ACCEPTED' as const,bars:response.bars.length,asOfDate,lastClose:prices.at(-1)??null,momentum20Pct:m20,momentum60Pct:m60,momentum120Pct:m120,annualizedVolatilityPct:vol,maxDrawdownPct:dd,score:scoreCandidate(m20,m60,m120,vol,dd,Boolean(asset.defensive)),response};
-      } catch(error:any){
+        const asOfDate = response.bars.at(-1)?.timestamp.slice(0, 10) ?? null;
+        const lastClose = response.bars.at(-1)?.close ?? null;
+        if (providerCurrency && providerCurrency !== 'EUR') return rejectedCandidate(asset, { reason: `NON_EUR:${providerCurrency}`, bars: response.bars.length, asOfDate, lastClose });
+        if (response.bars.length < minimumBars) return rejectedCandidate(asset, { reason: 'INSUFFICIENT_HISTORY', bars: response.bars.length, asOfDate, lastClose });
+        if (!asOfDate) return rejectedCandidate(asset, { reason: 'EMPTY_HISTORY', bars: response.bars.length, asOfDate: null, lastClose });
+        if (daysBetween(asOfDate, endDate) > maxDataAgeDays) return rejectedCandidate(asset, { reason: 'STALE_DATA', bars: response.bars.length, asOfDate, lastClose });
+        const prices = response.bars.map(b => b.close);
+        const m20 = pctReturn(prices, 20), m60 = pctReturn(prices, 60), m120 = pctReturn(prices, 120), vol = annualizedVolatility(prices, 60), dd = maxDrawdown(prices, 252);
+        const quality = assessAssetSelectionQuality({ prices, momentum20Pct: m20, momentum60Pct: m60, momentum120Pct: m120, annualizedVolatilityPct: vol, maxDrawdownPct: dd });
+        return {
+          asset,
+          status: 'ACCEPTED' as const,
+          bars: response.bars.length,
+          asOfDate,
+          lastClose: prices.at(-1) ?? null,
+          momentum20Pct: m20,
+          momentum60Pct: m60,
+          momentum120Pct: m120,
+          annualizedVolatilityPct: vol,
+          maxDrawdownPct: dd,
+          ...quality,
+          score: scoreCandidate(m20, m60, m120, vol, dd, Boolean(asset.defensive)),
+          response
+        };
+      } catch (error: any) {
         const message = typeof error?.message === 'string' && error.message.trim() ? error.message.trim() : null;
         const name = typeof error?.name === 'string' && error.name.trim() && error.name !== 'Error' ? error.name.trim() : null;
-        const reason = message ?? name ?? 'LOAD_ERROR';
-        return{asset,status:'REJECTED' as const,reason,bars:0,asOfDate:null,lastClose:null,momentum20Pct:null,momentum60Pct:null,momentum120Pct:null,annualizedVolatilityPct:null,maxDrawdownPct:null,score:null};
+        return rejectedCandidate(asset, { reason: message ?? name ?? 'LOAD_ERROR', bars: 0, asOfDate: null, lastClose: null });
       }
     });
-    const acceptedCandidates=candidates.filter(c=>c.status==='ACCEPTED');
-    const selected=chooseDiversified(candidates,Math.min(options.maxSelected??8,10));
-    if(selected.length<1)throw new Error('El escáner no encontró ninguna exposición REAL válida.');
-    const rejectionCounts:Record<string,number>={}; for(const c of candidates.filter(c=>c.status==='REJECTED')) rejectionCounts[c.reason??'UNKNOWN']=(rejectionCounts[c.reason??'UNKNOWN']??0)+1;
-    return{scanned:candidates.length,accepted:acceptedCandidates.length,rejected:candidates.length-acceptedCandidates.length,selected,candidates,dataset:toDataset(selected),acceptedDataset:toDataset(acceptedCandidates),rejectionCounts};
+    const acceptedCandidates = candidates.filter(c => c.status === 'ACCEPTED');
+    const selected = chooseDiversified(candidates, Math.min(options.maxSelected ?? 8, 10));
+    if (selected.length < 1) throw new Error('El escáner no encontró ninguna exposición REAL válida.');
+    const rejectionCounts: Record<string, number> = {}; for (const c of candidates.filter(c => c.status === 'REJECTED')) rejectionCounts[c.reason ?? 'UNKNOWN'] = (rejectionCounts[c.reason ?? 'UNKNOWN'] ?? 0) + 1;
+    return { scanned: candidates.length, accepted: acceptedCandidates.length, rejected: candidates.length - acceptedCandidates.length, selected, candidates, dataset: toDataset(selected), acceptedDataset: toDataset(acceptedCandidates), rejectionCounts };
   }
 }
