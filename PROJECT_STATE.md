@@ -1,17 +1,17 @@
 # Trading — Estado Canónico del Proyecto
 
-> Leer este archivo primero al retomar el proyecto desde otra conversación, equipo o dispositivo. Repositorio canónico: `fmaranis/Trading`. El detalle histórico anterior permanece en Git.
+> Leer este archivo primero al retomar el proyecto desde otra conversación, equipo o dispositivo. Repositorio canónico y línea viva de trabajo: `fmaranis/Trading/main`. El detalle histórico anterior permanece en Git.
 
 ## Reglas de trabajo no negociables
 
 - Nunca añadir ni depender de GitHub Actions. Validaciones en local/AI Studio.
 - ChatGPT inspecciona y modifica GitHub directamente cuando sea posible.
-- AI Studio se usa para ejecución/Preview/validación; no delegar arquitectura ni correcciones amplias en Gemini salvo petición expresa.
+- AI Studio trabaja sobre `main` y se usa para ejecución/Preview/validación; no pedirle que gestione ramas experimentales.
+- Antes de un cambio sustancial en `main`, conservar un branch de backup del HEAD anterior cuando sea útil; si AI Studio introduce cambios incorrectos, revertir sólo el delta concreto en vez de volver a una versión antigua completa.
 - No usar datos sintéticos como fallback silencioso. Procedencia REAL / STATIC_REFERENCE / SYNTHETIC siempre explícita.
 - Replay causal: sólo información disponible hasta la fecha evaluada; ejecución posterior a señal; ningún lookahead.
 - Si el usuario dice “terminó”, revisar una sola vez el resultado disponible. No agentes de monitorización ni polling.
 - Cada cambio de código/arquitectura debe actualizar este archivo.
-- No promover cambios experimentales a `main` antes de validarlos.
 
 ---
 
@@ -106,8 +106,6 @@ Primero se mejora gestión de las mismas posiciones. Selección/ReliabilityScore
 
 # TREND_PROTECTION_V1 — referencia experimental
 
-Rama: `chatgpt/trend-protection-v1`.
-
 `strategyConsensusEngine.ts` añade diagnóstico causal:
 - regresión logarítmica anualizada 20/60/120;
 - aceleración slope20-slope60;
@@ -171,10 +169,7 @@ Aplicación diagnóstica al ZIP 12m, todavía sobre trayectoria baseline:
 
 # A/B contrafactual CURRENT_POLICY vs TREND_PROTECTION_V2
 
-Implementación iniciada después del PASS de idempotencia.
-
-Archivo principal nuevo:
-- `src/investment/decision/trendProtectionCounterfactual.ts`.
+Archivo principal: `src/investment/decision/trendProtectionCounterfactual.ts`.
 
 Metodología:
 - primero se ejecuta el replay baseline vigente;
@@ -183,9 +178,9 @@ Metodología:
 - las decisiones V2 se recalculan causalmente sobre las posiciones, lotes, basis, MFE y efectivo del propio camino contrafactual;
 - ETFs siguen títulos enteros + gate mínimo/fee-drag; fondos admiten fracciones;
 - fiscalidad y traspaso fondo→fondo se vuelven a calcular para el camino V2;
-- si el camino V2 no dispone de efectivo para reproducir alguna entrada baseline exacta, **no se inventa financiación ni se parcializa la entrada**: `entryParity.exact=false`, `valid=false` y el A/B económico queda invalidado.
+- si V2 no dispone de efectivo para reproducir alguna entrada baseline exacta, `entryParity.exact=false`, `valid=false` y el A/B queda invalidado.
 
-Métricas A/B añadidas:
+Métricas A/B:
 - finalValue / totalReturn;
 - max drawdown;
 - fees / tax / transferred / cash interest;
@@ -194,18 +189,21 @@ Métricas A/B añadidas:
 - profit capture medio de ventas con MFE positivo;
 - pérdida realizada de gestión y conteos <=-10/-20/-30%;
 - deltas en € / pp frente a CURRENT_POLICY;
-- ledger completo de operaciones del camino V2;
-- equityPath V2.
+- ledger completo y equityPath V2.
 
 Integración:
-- `historicalReplayAudit.worker.ts` adjunta el contrafactual **sólo en el checkpoint final**, para no duplicar el coste en cada tramo intermedio;
-- `dynamicHistoricalReplay.trendProtectionV2.d.ts` expone el bloque opcional sin alterar el contrato runtime baseline;
+- `historicalReplayAudit.worker.ts` adjunta el contrafactual sólo en el checkpoint final;
+- `dynamicHistoricalReplay.trendProtectionV2.d.ts` expone el bloque opcional;
 - `tests/trendProtectionCounterfactual.unit.ts` comprueba causalidad, no mutación del baseline, reconciliación del ledger y `entryParity`;
 - `package.json` incorpora `test:trend-protection-counterfactual`.
 
-Estado:
-
-> **A/B V2 IMPLEMENTADO EN CÁLCULO/WORKER, PENDIENTE DE LINT + UNIT TEST. TODAVÍA NO SE HA AÑADIDO AL GATE COMPLETO NI A LA TARJETA/EXPORT PERSISTENTE DE UI.**
+Estado de validación actual:
+- `npm run lint` ejecutado en AI Studio sobre el primer `main` integrado: FAIL por tres errores de integración/tipado, no por lógica económica.
+- Corregidos en GitHub:
+  - `replayRotationPolicyExperiment.ts`: `PortfolioPositionDecision` no tiene `ticker`; los textos de auditoría usan ahora `incumbent.label`.
+  - `dynamicHistoricalReplayBatch.unit.ts`: fixture actualizado con `timingStateCounts`, `trendProtectionV1Counts` y `deploymentHorizons` obligatorios.
+- Ningún threshold, orden, sizing ni regla económica se modificó en estas correcciones.
+- Falta repetir `npm run lint`; sólo si queda PASS ejecutar `npm run test:trend-protection-counterfactual`.
 
 No interpretar todavía ninguna cifra económica de V2 hasta que el test nuevo pase y `entryParity.exact=true` en el replay REAL.
 
@@ -213,8 +211,10 @@ No interpretar todavía ninguna cifra económica de V2 hasta que el test nuevo p
 
 # Persistencia / GitHub
 
-- `main` debe permanecer en el estable `d77f2f4`; experimentos sólo en `chatgpt/trend-protection-v1`.
-- Gemini volvió a escribir V1/V2 directamente en `main` mediante `b1e9a3d`; se conservó en `backup/main-gemini-2026-09-02-1120` y `main` se restauró a `d77f2f4`.
+- `main` es ahora la línea viva de trabajo para mantener integradas las últimas mejoras y evitar remezclas al volver atrás.
+- Antes de integrar V2 en `main`, el estado anterior `d77f2f4` quedó preservado en `backup/main-pre-trend-v2-2026-09-02`.
+- También existen backups de escrituras previas de Gemini para trazabilidad; no restaurarlos salvo necesidad explícita.
+- AI Studio sincroniza `main`; ChatGPT revisa cualquier delta posterior y revierte sólo cambios incorrectos concretos.
 - No GitHub Actions.
 - Si publicación de replay falla por `GITHUB_REPLAY_SYNC_WRITE_FAILED:401`, no repetir replay; reutilizar resultado local.
 - Nunca pegar tokens en chat ni cliente.
@@ -223,8 +223,8 @@ No interpretar todavía ninguna cifra económica de V2 hasta que el test nuevo p
 
 # Próxima acción concreta
 
-1. Sincronizar `chatgpt/trend-protection-v1` al HEAD actual.
-2. Ejecutar `npm run lint`.
+1. Sincronizar `main` al HEAD actual.
+2. Ejecutar únicamente `npm run lint`.
 3. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
-4. Corregir sólo el primer fallo exacto si aparece; no ejecutar el gate completo todavía.
+4. Si falla, corregir sólo el primer fallo exacto; no ejecutar el gate completo todavía.
 5. Si ambos pasan, integrar el bloque A/B en resumen/export/UI y después ejecutar un replay REAL 12m único para obtener cifras económicas con `entryParity.exact=true` antes de probar 24/36m.
