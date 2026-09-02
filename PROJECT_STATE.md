@@ -121,7 +121,7 @@ V1 es audit-only y no modifica órdenes/equity path.
 Validaciones ejecutadas:
 - `test:current-capital-allocation`: 35/35 PASS tras corregir únicamente fixture 951 para respetar whole-share STARTER cap.
 - `test:strategy-consensus`: 13/13 PASS.
-- `test:trend-protection` V1/V2 anterior a idempotencia: PASS.
+- `test:trend-protection`: PASS para V1 y V2 incluida idempotencia (`repeatWinner=PROTECT`, `repeatLoser=PROTECT`).
 
 Replay REAL 12m aportado por el usuario: 2022-07-11 → 2023-07-10, DAILY, 13.000 €.
 Resultado baseline aproximado: 12.874 € / -0,97%, DD máx. ~3,23%; exact hold ~+2,06%.
@@ -133,9 +133,9 @@ Hallazgos V1:
 
 ---
 
-# TREND_PROTECTION_V2 — implementación actual
+# TREND_PROTECTION_V2 — política actual
 
-V2 se implementa **en el mismo `trendProtectionPolicy.ts`**, conservando V1 intacta. No hay motor paralelo.
+V2 vive **en el mismo `trendProtectionPolicy.ts`**, conservando V1 intacta. No hay un segundo motor de selección.
 
 Flujo experimental: **HEALTHY → WATCH → PROTECT → REDUCE → EXIT**.
 
@@ -145,10 +145,11 @@ Principios:
 - perdedores usan racha causal multiseñal;
 - ganadores pueden deteriorarse con consenso todavía positivo, por lo que se conserva estado desde el punto de armado;
 - REDUCE inicial = 25%;
+- cada episodio puede ejecutar como máximo un REDUCE 25%; después queda PROTECT hasta reclaim o hard EXIT;
 - reclaim de pendiente corta desarma protección;
 - EXIT sólo para fallo satélite profundo y persistente.
 
-Hipótesis V2 actuales, todavía NO calibradas:
+Hipótesis V2 todavía NO calibradas:
 - ganador: MFE >=8% y giveback >=6 pp + deterioro corto;
 - ganador puede REDUCE 25% tras >=3 observaciones protegidas si empeora >=2 pp desde el retorno de armado, aunque consenso siga positivo;
 - tesis fallida necesita >=5 sesiones de deterioro multiseñal para REDUCE 25%;
@@ -156,60 +157,64 @@ Hipótesis V2 actuales, todavía NO calibradas:
 - core no usa hard EXIT de satélite;
 - `HEALTHY_UPTREND` + slope20>0 + SMA20 slope>0 + sin breakdown → HOLD/reclaim.
 
-## Hallazgo secuencial sobre el ZIP 12m
+Aplicación diagnóstica al ZIP 12m, todavía sobre trayectoria baseline:
+- DTE: REDUCE 25% alrededor de +6,2% frente a EXIT baseline posterior alrededor de -3,3%;
+- ZPRV: REDUCE sólo por episodios separados por reclaim; primer caso alrededor de -1,2% frente a EXIT baseline ~-8,3%;
+- AIGC: un REDUCE 25% alrededor de -9,0%;
+- WCOA: un REDUCE 25% alrededor de -9,7%;
+- IQQH: REDUCE 25% alrededor de -16,0% y posible hard EXIT posterior ~-21,8%;
+- Sanofi: ruptura reciente PROTECT, no EXIT inmediato; como máximo un REDUCE por episodio;
+- EXH1: no REDUCE en el episodio observado;
+- TotalEnergies: puede REDUCE una vez, por lo que necesita contraste económico/holdout y no más calibración sobre esta misma ventana.
 
-Al aplicar V2 sobre las 2.929 observaciones de posiciones del replay ya calculado, la primera versión escalonada reducía falsos EXIT, pero podía emitir `REDUCE 25%` repetidamente en días sucesivos durante el mismo episodio. Eso habría convertido una protección parcial en una liquidación de facto y se considera un defecto de ejecución, no una señal económica válida.
+---
 
-Corrección añadida:
-- nuevo contexto `protectionReductionExecuted`;
-- **cada episodio de protección puede ejecutar como máximo un REDUCE 25%**;
-- tras ese REDUCE, si persiste la misma ruptura queda en PROTECT y no encadena ventas diarias;
-- sólo un reclaim resetea el episodio para una futura protección nueva;
-- hard EXIT sigue permitido aunque ya haya existido una reducción parcial.
+# A/B contrafactual CURRENT_POLICY vs TREND_PROTECTION_V2
 
-Aplicación diagnóstica de esta regla al mismo ZIP, sin recalcular replay:
-- DTE: un REDUCE 25% alrededor de +6,2% frente a EXIT baseline posterior alrededor de -3,3%;
-- ZPRV: puede generar varios REDUCE, pero sólo en episodios distintos separados por reclaim; el primero aparece alrededor de -1,2% frente a EXIT baseline posterior alrededor de -8,3%;
-- AIGC: un único REDUCE 25% alrededor de -9,0%, sin ventas diarias repetidas;
-- WCOA: un único REDUCE 25% alrededor de -9,7% antes del EXIT baseline posterior;
-- IQQH: REDUCE 25% alrededor de -16,0% y hard EXIT posterior alrededor de -21,8%;
-- Sanofi: primera ruptura queda PROTECT; si la debilidad persiste llega a un único REDUCE 25%, no EXIT inmediato, y un reclaim posterior desarma el episodio;
-- EXH1: no genera REDUCE en el episodio observado;
-- TotalEnergies: puede reducir una vez tras deterioro posterior, pero ya no encadena reducciones.
+Implementación iniciada después del PASS de idempotencia.
 
-Esto es diagnóstico sobre la trayectoria baseline; todavía NO estima rentabilidad contrafactual porque ejecutar REDUCE cambia pesos, basis, cash, fees y trayectoria posterior.
+Archivo principal nuevo:
+- `src/investment/decision/trendProtectionCounterfactual.ts`.
 
-## Tests V2
+Metodología:
+- primero se ejecuta el replay baseline vigente;
+- el contrafactual reproduce **exactamente los BUY/ADD realmente ejecutados por baseline**: mismas fechas, unidades, precios y comisiones;
+- se ignoran REDUCE/EXIT baseline y sólo la gestión de posiciones usa V2;
+- las decisiones V2 se recalculan causalmente sobre las posiciones, lotes, basis, MFE y efectivo del propio camino contrafactual;
+- ETFs siguen títulos enteros + gate mínimo/fee-drag; fondos admiten fracciones;
+- fiscalidad y traspaso fondo→fondo se vuelven a calcular para el camino V2;
+- si el camino V2 no dispone de efectivo para reproducir alguna entrada baseline exacta, **no se inventa financiación ni se parcializa la entrada**: `entryParity.exact=false`, `valid=false` y el A/B económico queda invalidado.
 
-`tests/trendProtectionPolicy.unit.ts` cubre:
-- ganador recién roto → PROTECT;
-- ganador que empeora tras armado → REDUCE 25%;
-- ganador ya reducido en el mismo episodio → PROTECT, no segundo REDUCE;
-- ganador que mejora desde armado → no venta automática;
-- reclaim claro → HOLD;
-- Sanofi-like reciente → PROTECT, no EXIT;
-- perdedor persistente → REDUCE 25%;
-- perdedor ya reducido → PROTECT, no segundo REDUCE;
-- hard loser puede EXIT incluso si ya hubo reducción parcial;
-- core fallido persistente → REDUCE 25%.
+Métricas A/B añadidas:
+- finalValue / totalReturn;
+- max drawdown;
+- fees / tax / transferred / cash interest;
+- turnover total y turnover de gestión;
+- REDUCE / EXIT ejecutados;
+- profit capture medio de ventas con MFE positivo;
+- pérdida realizada de gestión y conteos <=-10/-20/-30%;
+- deltas en € / pp frente a CURRENT_POLICY;
+- ledger completo de operaciones del camino V2;
+- equityPath V2.
 
-Commits V2 relevantes:
-- `fd6090c` — staged V2;
-- `4549ccd` — V2 regressions;
-- `62617f6` — winner persistence desde estado armado;
-- `6b65ff7` — empeoramiento vs recuperación tras PROTECT;
-- `1b5dda1` — idempotencia: un REDUCE por episodio;
-- `c122809` — regresiones de idempotencia.
+Integración:
+- `historicalReplayAudit.worker.ts` adjunta el contrafactual **sólo en el checkpoint final**, para no duplicar el coste en cada tramo intermedio;
+- `dynamicHistoricalReplay.trendProtectionV2.d.ts` expone el bloque opcional sin alterar el contrato runtime baseline;
+- `tests/trendProtectionCounterfactual.unit.ts` comprueba causalidad, no mutación del baseline, reconciliación del ledger y `entryParity`;
+- `package.json` incorpora `test:trend-protection-counterfactual`.
 
-Estado actual:
+Estado:
 
-> **V2 IMPLEMENTADO EN POLÍTICA + TESTS; EL CAMBIO DE IDEMPOTENCIA NECESITA SU UNIT TEST LOCAL. NO ESTÁ INTEGRADO EN ÓRDENES NI PROMOVIDO A `main`.**
+> **A/B V2 IMPLEMENTADO EN CÁLCULO/WORKER, PENDIENTE DE LINT + UNIT TEST. TODAVÍA NO SE HA AÑADIDO AL GATE COMPLETO NI A LA TARJETA/EXPORT PERSISTENTE DE UI.**
+
+No interpretar todavía ninguna cifra económica de V2 hasta que el test nuevo pase y `entryParity.exact=true` en el replay REAL.
 
 ---
 
 # Persistencia / GitHub
 
 - `main` debe permanecer en el estable `d77f2f4`; experimentos sólo en `chatgpt/trend-protection-v1`.
+- Gemini volvió a escribir V1/V2 directamente en `main` mediante `b1e9a3d`; se conservó en `backup/main-gemini-2026-09-02-1120` y `main` se restauró a `d77f2f4`.
 - No GitHub Actions.
 - Si publicación de replay falla por `GITHUB_REPLAY_SYNC_WRITE_FAILED:401`, no repetir replay; reutilizar resultado local.
 - Nunca pegar tokens en chat ni cliente.
@@ -218,8 +223,8 @@ Estado actual:
 
 # Próxima acción concreta
 
-1. Sincronizar `chatgpt/trend-protection-v1` en AI Studio.
-2. Ejecutar únicamente `npm run test:trend-protection` sobre el HEAD actual.
-3. No modificar archivos automáticamente.
-4. Si PASS, integrar el **estado V2** (armed/reference/observations/reductionExecuted) dentro del replay contrafactual A/B, manteniendo exactamente las mismas entradas y fechas de entrada del baseline.
-5. Medir retorno, max DD, fees/turnover, MFE cedido, profit capture y pérdidas de cola antes de probar 24/36m.
+1. Sincronizar `chatgpt/trend-protection-v1` al HEAD actual.
+2. Ejecutar `npm run lint`.
+3. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
+4. Corregir sólo el primer fallo exacto si aparece; no ejecutar el gate completo todavía.
+5. Si ambos pasan, integrar el bloque A/B en resumen/export/UI y después ejecutar un replay REAL 12m único para obtener cifras económicas con `entryParity.exact=true` antes de probar 24/36m.
