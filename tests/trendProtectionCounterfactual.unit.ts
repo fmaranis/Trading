@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse';
 import { runDynamicReplayWithRotationExperiment } from '../src/investment/decision/replayRotationPolicyExperiment';
-import { runDynamicReplayWithTrendProtectionV2Experiment } from '../src/investment/decision/replayTrendProtectionV2Experiment';
+import { adaptTrendProtectionV2ForWholeShareExecution, runDynamicReplayWithTrendProtectionV2Experiment } from '../src/investment/decision/replayTrendProtectionV2Experiment';
 import { buildTrendProtectionV2ReplayComparison } from '../src/investment/decision/trendProtectionReplayComparison';
+import type { TrendProtectionV2Decision } from '../src/investment/decision/trendProtectionPolicy';
 import type { MultiAssetDataset } from '../src/investment/portfolioBacktesting/types';
 
 function dateAt(i: number): string { return new Date(Date.UTC(2021, 0, 1 + i)).toISOString(); }
@@ -43,6 +44,24 @@ const replayInput = {
   minimumBars: 252,
   taxSettings: { priorSavingsTaxableBaseEur: 0, contextConfirmed: false }
 };
+
+const reduceDecision: TrendProtectionV2Decision = {
+  policy: 'TREND_PROTECTION_V2',
+  action: 'REDUCE',
+  suggestedReductionPct: 25,
+  reason: 'fixture reduction',
+  winnerProtectionArmed: true,
+  loserFailureArmed: false,
+  confirmationStage: 'CONFIRMED',
+  reclaimDetected: false,
+  trendState: 'BREAKDOWN_RISK'
+};
+const blockedWholeShare = adaptTrendProtectionV2ForWholeShareExecution(reduceDecision, 'ETF_ETC', 3);
+assert.equal(blockedWholeShare.action, 'PROTECT', '25% of three whole ETF shares cannot execute and must remain PROTECT');
+assert.equal(blockedWholeShare.suggestedReductionPct, null);
+assert.match(blockedWholeShare.reason, /no ejecutable/i);
+assert.equal(adaptTrendProtectionV2ForWholeShareExecution(reduceDecision, 'ETF_ETC', 4).action, 'REDUCE', 'four ETF shares can execute one-share REDUCE25');
+assert.equal(adaptTrendProtectionV2ForWholeShareExecution(reduceDecision, 'MUTUAL_FUND', 0.25).action, 'REDUCE', 'fractional mutual-fund reductions remain executable');
 
 const baseline = runDynamicReplayWithRotationExperiment(replayInput, 'CORE_GATE_V1');
 const baselineSnapshot = {
@@ -98,5 +117,6 @@ console.log('TREND_PROTECTION_COUNTERFACTUAL_RESULT', JSON.stringify({
   baselineMaxDrawdownPct: baseline.decisionPathMaxDrawdownPct,
   v2MaxDrawdownPct: ab.maxDrawdownPct,
   v2Reductions: ab.executedReductions,
-  v2Exits: ab.executedExits
+  v2Exits: ab.executedExits,
+  wholeShareBlockedAction: blockedWholeShare.action
 }));
