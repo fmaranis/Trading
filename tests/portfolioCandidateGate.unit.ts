@@ -1,7 +1,9 @@
 import {
   EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   EUR_VALIDATION_HOLDOUT_UNIVERSE,
+  assessSlopeSelectionQuality,
   candidateQualityAdjustment,
+  candidateSlopeAdjustment,
   isValidIsin,
   PortfolioCandidateGate
 } from '../src/investment/decision';
@@ -88,4 +90,37 @@ check('712 QUALITY_V1 is explicit and auditable', qualityResult.selectionPolicy 
 check('713 QUALITY_V1 computes causal Reliability/Opportunity for historical-prefix candidates', qualityResult.entries.filter(e => e.status === 'ELIGIBLE').every(e => Number.isFinite(e.reliabilityScore) && Number.isFinite(e.opportunityScore)));
 check('714 quality adjustment rewards stronger Reliability/Opportunity without bypassing gates', candidateQualityAdjustment(80, 80) > candidateQualityAdjustment(40, 40) && !qualityResult.scan.selected.some(c => c.asset.assetId === 'WEAK') && !qualityResult.scan.selected.some(c => c.asset.assetId === 'FALLING'));
 
-console.log(`Portfolio candidate gate: ${passed}/14 invariants passed.`);
+const strongSlope = assessSlopeSelectionQuality({
+  regressionSlope20AnnualizedPct: 30,
+  regressionSlope60AnnualizedPct: 20,
+  regressionSlope120AnnualizedPct: 14,
+  slopeAcceleration20vs60PctPoints: 10,
+  sma20Slope20AnnualizedPct: 18,
+  sma50Slope20AnnualizedPct: 12,
+  prior20High: null,
+  prior20Low: null,
+  breakout20: false,
+  breakdown20: false,
+  state: 'HEALTHY_UPTREND'
+});
+const weakSlope = assessSlopeSelectionQuality({
+  regressionSlope20AnnualizedPct: -15,
+  regressionSlope60AnnualizedPct: -8,
+  regressionSlope120AnnualizedPct: -4,
+  slopeAcceleration20vs60PctPoints: -7,
+  sma20Slope20AnnualizedPct: -10,
+  sma50Slope20AnnualizedPct: -5,
+  prior20High: null,
+  prior20Low: null,
+  breakout20: false,
+  breakdown20: false,
+  state: 'DOWNTREND'
+});
+check('715 slope quality rewards coherent positive multi-horizon structure', strongSlope.slopeQualityScore > 70 && strongSlope.slopeQualityScore > weakSlope.slopeQualityScore);
+check('716 slope ranking adjustment is symmetric and bounded', candidateSlopeAdjustment(100) === 10 && candidateSlopeAdjustment(0) === -10 && candidateSlopeAdjustment(50) === 0);
+
+const slopeResult = PortfolioCandidateGate.apply(scan, 2.5, 12, 'SLOPE_V1');
+check('717 SLOPE_V1 is explicit and computes finite causal slope quality for eligible candidates', slopeResult.selectionPolicy === 'SLOPE_V1' && slopeResult.entries.filter(e => e.status === 'ELIGIBLE').every(e => Number.isFinite(e.slopeQualityScore)));
+check('718 SLOPE_V1 changes ranking evidence only and cannot bypass cash or structural gates', !slopeResult.scan.selected.some(c => c.asset.assetId === 'WEAK') && !slopeResult.scan.selected.some(c => c.asset.assetId === 'FALLING'));
+
+console.log(`Portfolio candidate gate: ${passed}/18 invariants passed.`);
