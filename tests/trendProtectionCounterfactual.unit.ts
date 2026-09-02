@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse';
-import { DynamicHistoricalReplayEngine } from '../src/investment/decision/dynamicHistoricalReplay';
-import { appendTrendProtectionV2Counterfactual } from '../src/investment/decision/trendProtectionCounterfactual';
+import { runDynamicReplayWithRotationExperiment } from '../src/investment/decision/replayRotationPolicyExperiment';
+import { runDynamicReplayWithTrendProtectionV2Experiment } from '../src/investment/decision/replayTrendProtectionV2Experiment';
+import { buildTrendProtectionV2ReplayComparison } from '../src/investment/decision/trendProtectionReplayComparison';
 import type { MultiAssetDataset } from '../src/investment/portfolioBacktesting/types';
 
 function dateAt(i: number): string { return new Date(Date.UTC(2021, 0, 1 + i)).toISOString(); }
@@ -25,23 +26,25 @@ const catalog: AssetUniverseItem[] = [
 const dataset: MultiAssetDataset = {
   timeframe: '1d',
   assets: [
-    { assetId: 'EQ_RISK_TEST', ticker: 'RISK.DE', name: 'Risk Test', currency: 'EUR', bars: trendBars('risk'), provenance: { sourceType: 'REAL', provider: 'test', symbol: 'RISK.DE', isReproducible: true, datasetFingerprint: 'risk-v2-ab' } },
-    { assetId: 'DEF_TEST', ticker: 'DEF.DE', name: 'Defensive Test', currency: 'EUR', bars: trendBars('defensive'), provenance: { sourceType: 'REAL', provider: 'test', symbol: 'DEF.DE', isReproducible: true, datasetFingerprint: 'def-v2-ab' } }
+    { assetId: 'EQ_RISK_TEST', ticker: 'RISK.DE', name: 'Risk Test', currency: 'EUR', bars: trendBars('risk'), provenance: { sourceType: 'REAL', provider: 'test', symbol: 'RISK.DE', isReproducible: true, datasetFingerprint: 'risk-v2-full-ab' } },
+    { assetId: 'DEF_TEST', ticker: 'DEF.DE', name: 'Defensive Test', currency: 'EUR', bars: trendBars('defensive'), provenance: { sourceType: 'REAL', provider: 'test', symbol: 'DEF.DE', isReproducible: true, datasetFingerprint: 'def-v2-full-ab' } }
   ]
 };
 const startDate = dateAt(330).slice(0, 10);
-const baseline = DynamicHistoricalReplayEngine.run({
+const replayInput = {
   dataset,
   catalog,
   startDate,
-  frequency: 'WEEKLY',
+  frequency: 'WEEKLY' as const,
   initialCapitalEur: 10_000,
-  riskProfile: 'MEDIUM',
-  horizonYears: 3,
+  riskProfile: 'MEDIUM' as const,
+  horizonYears: 3 as const,
   cashBenchmarkAnnualPct: 2.5,
-  minimumBars: 252
-});
+  minimumBars: 252,
+  taxSettings: { priorSavingsTaxableBaseEur: 0, contextConfirmed: false }
+};
 
+const baseline = runDynamicReplayWithRotationExperiment(replayInput, 'CORE_GATE_V1');
 const baselineSnapshot = {
   finalValueEur: baseline.finalValueEur,
   totalReturnPct: baseline.totalReturnPct,
@@ -52,31 +55,23 @@ const baselineSnapshot = {
   signalCount: baseline.signals.length
 };
 
-appendTrendProtectionV2Counterfactual({
-  result: baseline,
-  dataset,
-  catalog,
-  cashBenchmarkAnnualPct: 2.5,
-  minimumBars: 252,
-  taxSettings: { priorSavingsTaxableBaseEur: 0, contextConfirmed: false }
-});
+const v2 = runDynamicReplayWithTrendProtectionV2Experiment(replayInput);
+const ab = buildTrendProtectionV2ReplayComparison({ baseline, v2, riskProfile: 'MEDIUM' });
 
-const ab = baseline.trendProtectionV2Counterfactual;
-assert.ok(ab, 'V2 counterfactual must be attached to the baseline replay result');
 assert.equal(ab.policy, 'TREND_PROTECTION_V2');
-assert.equal(ab.methodology, 'FIXED_BASELINE_ENTRIES');
+assert.equal(ab.methodology, 'FULL_CAUSAL_REPLAY_SAME_DECISION_ENGINE');
+assert.equal(ab.valid, true, 'the executable V2 path must respect cash and slot constraints');
+assert.equal(ab.portfolioConstraints.cashNeverNegative, true, 'V2 must never use negative cash/debt');
+assert.ok(ab.portfolioConstraints.maxObservedPositions <= 12, 'MEDIUM V2 path must never close a day above 12 active positions');
 assert.equal(ab.entryParity.baselineExecutedEntries, baseline.signals.filter(signal => signal.executed && (signal.action === 'BUY' || signal.action === 'ADD')).length);
-assert.equal(ab.entryParity.reproducedEntries, ab.trades.filter(trade => trade.source === 'BASELINE_ENTRY').length);
-assert.equal(ab.valid, ab.entryParity.exact, 'economic A/B validity must be identical to exact entry parity');
 assert.ok(ab.entryParity.reproducedEntries <= ab.entryParity.baselineExecutedEntries);
 assert.ok(Number.isFinite(ab.finalValueEur) && Number.isFinite(ab.totalReturnPct) && Number.isFinite(ab.maxDrawdownPct));
 assert.ok(ab.totalFeesEur >= 0 && ab.totalEstimatedTaxEur >= 0 && ab.turnoverEur >= 0);
-assert.ok(ab.equityPath.length > 0 && ab.equityPath.every(point => Number.isFinite(point.equityEur)));
-assert.ok(ab.trades.filter(trade => trade.source === 'TREND_PROTECTION_V2').every(trade => trade.executionDate > trade.signalDate), 'V2 management must execute strictly after its causal signal');
-assert.equal(
-  ab.executedReductions + ab.executedExits,
-  ab.trades.filter(trade => trade.source === 'TREND_PROTECTION_V2').length,
-  'all V2 management executions must reconcile with the trade ledger'
+assert.ok(ab.equityPath.length > 0 && ab.equityPath.every(point => Number.isFinite(point.equityEur) && point.cashEur >= -1e-6));
+assert.ok(
+  v2.signals.filter(signal => signal.executed && (signal.action === 'REDUCE' || signal.action === 'EXIT') && signal.reason.includes('[TREND_PROTECTION_V2:'))
+    .every(signal => signal.executionDate != null && signal.executionDate > signal.signalDate),
+  'V2 management must execute strictly after its causal signal'
 );
 assert.deepEqual(
   {
@@ -89,12 +84,14 @@ assert.deepEqual(
     signalCount: baseline.signals.length
   },
   baselineSnapshot,
-  'attaching the A/B audit must not mutate baseline economics or baseline signals'
+  'running the V2 arm must not mutate baseline economics or signals'
 );
 
 console.log('TREND_PROTECTION_COUNTERFACTUAL_RESULT', JSON.stringify({
   valid: ab.valid,
+  methodology: ab.methodology,
   entryParity: ab.entryParity,
+  portfolioConstraints: ab.portfolioConstraints,
   baselineReturnPct: baseline.totalReturnPct,
   v2ReturnPct: ab.totalReturnPct,
   deltaReturnPctPoints: ab.deltaVsCurrentPolicy.returnPctPoints,
