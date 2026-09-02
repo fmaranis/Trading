@@ -36,13 +36,12 @@ Cartera real de referencia:
 
 # CORE_GATE_V1 — intención preservada
 
-La concentración de capital hacia Vanguard Global/core es deliberada, no un defecto por sí misma:
+La concentración posterior hacia Vanguard Global/core es deliberada:
 - si una posición mediocre/deteriorada libera capital y el challenger no es excepcional, se prefiere un core global diversificado antes que perseguir otra apuesta táctica o acumular cash innecesario;
 - prioridad: Vanguard Global → ESG Developed → EUNL/IWDA → SXR8/VUSA;
-- challenger excepcional requiere persistencia STRONG fuerte y ventajas claras de consenso/score/cash;
-- no modificar CORE_GATE durante el experimento actual.
+- no modificar CORE_GATE durante el cierre del experimento actual.
 
-La observación del usuario de que el motor suele destacar más a partir de meses 7-9 se mantiene aparcada para la futura fase `ReliabilityScore / OpportunityScore / sizing`: parte de esas grandes aportaciones tardías procede de la consolidación deliberada de rotaciones en el core.
+La observación del usuario de grandes aportaciones a partir de meses 7-9 se mantiene para la futura fase `ReliabilityScore / OpportunityScore / sizing`: parte de esas aportaciones procede de consolidar rotaciones en el core y no necesariamente de una nueva señal de oportunidad extrema.
 
 ---
 
@@ -50,18 +49,16 @@ La observación del usuario de que el motor suele destacar más a partir de mese
 
 Flujo: **HEALTHY → WATCH → PROTECT → REDUCE → EXIT**.
 
-Thresholds actuales congelados y NO promocionados:
+Thresholds congelados y NO promocionados:
 - ganador: MFE >=8% + giveback >=6 pp + deterioro corto;
 - REDUCE inicial 25%, máximo uno por episodio realmente ejecutado;
 - perdedor requiere persistencia causal;
 - hard EXIT sólo para satélite profundo/persistente;
 - reclaim desarma episodio;
 - ETF con REDUCE25 <1 título entero se degrada a PROTECT;
-- WATCH/PROTECT significan NO vender.
+- WATCH/PROTECT significan NO vender y bloquean también rotación/CORE_GATE.
 
-Corrección cerrada: WATCH/PROTECT bloquean también rotación/CORE_GATE; sólo REDUCE/EXIT autorizan venta V2.
-
-Cuatro ventanas FULL_CAUSAL actuales:
+Cuatro ventanas FULL_CAUSAL de referencia:
 
 | Ventana | CURRENT_POLICY | V2 | Δ retorno V2 | Δ DD V2 | Δ final € |
 |---|---:|---:|---:|---:|---:|
@@ -70,13 +67,16 @@ Cuatro ventanas FULL_CAUSAL actuales:
 | 2022-07-11 → 2023-07-10 | -0,9692% | -1,4275% | -0,4583 pp | -0,0275 pp mejor | -59,58 € |
 | 2024-04-01 → 2025-03-31 | +6,8119% | +5,1721% | -1,6398 pp | +0,4060 pp peor | -213,18 € |
 
-Agregado: V2 gana 1/4; suma Δ final -97,22 €; media Δ retorno -0,187 pp. No promocionar ni recalibrar thresholds.
+Agregado V2 vs CURRENT: suma Δ final -97,22 €; media Δ retorno -0,187 pp. V2 no se promociona ni se recalibran thresholds con estas ventanas.
 
 ---
 
-# Tercer brazo — STRATEGIC_CORE_HOLD_V1
+# STRATEGIC_CORE_HOLD_V1 — tercer brazo experimental
 
-Objetivo: conservar CORE_GATE_V1 intacto, pero probar si el core de crecimiento ya acumulado debe evitar ventas por deterioro de corto plazo.
+Implementación: `src/investment/decision/replayStrategicCoreHoldExperiment.ts`.
+Export: `summary.trendProtectionV2Counterfactual.strategicCoreHoldExperiment`.
+
+Objetivo: conservar CORE_GATE_V1 intacto, pero comprobar si el core de crecimiento ya acumulado debe evitar ventas por deterioro de corto plazo.
 
 Strategic core experimental:
 - `FUND_VANGUARD_GLOBAL`
@@ -84,71 +84,55 @@ Strategic core experimental:
 - `FUND_VANGUARD_US500`
 - `VWCE`, `EUNL`, `IWDA`, `SXR8`, `VUSA`.
 
-No incluye regionales, emerging, bonos ni activos tácticos.
+No incluye regionales, emerging, bonos ni tácticos.
 
 Semántica:
 - V2 sigue diagnosticando el core;
 - REDUCE/EXIT V2 del strategic core se degradan a WATCH;
-- el core tampoco se usa como fuente de rotación táctica por esa señal corta;
-- reglas de ADD/entrada, CORE_GATE y todos los thresholds siguen iguales;
+- el core no se usa como fuente de rotación táctica por esa señal corta;
+- ADD/entrada, CORE_GATE y todos los thresholds siguen iguales;
 - satélites/sleeves usan V2 sin cambios.
-
-Implementación: `src/investment/decision/replayStrategicCoreHoldExperiment.ts`.
-Export: `summary.trendProtectionV2Counterfactual.strategicCoreHoldExperiment`.
 
 Backup previo: `backup/main-pre-strategic-core-hold-2026-09-02` → `7c5a77b237d576c4bc3949350229c4c138e7fc71`.
 
-## Replay 2021-11-01 → 2022-10-31 — primer resultado
+## Cuatro ventanas cerradas — CURRENT vs V2 vs CORE HOLD
 
-Archivo revisado: `trading-replay-2021-11-01-2022-10-31 (4).zip`.
+| Ventana | CURRENT | V2 | CORE HOLD | CORE vs V2 € | CORE vs V2 retorno | CORE vs V2 DD |
+|---|---:|---:|---:|---:|---:|---:|
+| 2020-02-03 → 2021-02-02 | +3,6506% | +5,5133% | **+6,2181%** | **+91,63 €** | **+0,7048 pp** | +0,0578 pp peor |
+| 2021-11-01 → 2022-10-31 | +0,2208% | -0,2916% | **+0,0060%** | **+38,69 €** | **+0,2976 pp** | +0,4226 pp peor |
+| 2022-07-11 → 2023-07-10 | -0,9692% | -1,4275% | **-1,4275%** | **0,00 €** | **0,0000 pp** | 0,0000 pp |
+| 2024-04-01 → 2025-03-31 | +6,8119% | +5,1721% | **+5,2982%** | **+16,40 €** | **+0,1261 pp** | 0,0000 pp |
 
-CURRENT_POLICY:
-- final 13.028,71 €;
-- retorno +0,22083%;
-- DD 5,93938%;
-- exact initial hold +3,24161%.
+Agregado CORE HOLD vs V2:
+- mejora en retorno en 3/4 ventanas y queda exactamente neutro en 1/4;
+- suma Δ final: **+146,72 €**;
+- suma Δ retorno: **+1,1286 pp**, media **+0,2821 pp por ventana**;
+- suma Δ DD: **+0,4805 pp**, media **+0,1201 pp peor por ventana**;
+- el coste de DD se concentra casi por completo en 2021/22 (+0,4226 pp); COVID sólo +0,0578 pp y 2022/23 y 2024/25 son neutras.
 
-TREND_PROTECTION_V2:
-- final 12.962,09 €;
-- retorno -0,29160%;
-- DD 5,51634%;
-- turnover 12.731,54 €;
-- 6 REDUCE / 4 EXIT;
-- final cash 5.644,54 €;
-- Δ vs CURRENT: -66,62 € / -0,51243 pp; DD mejora 0,42304 pp.
+Agregado CORE HOLD vs CURRENT:
+- suma Δ final: **+49,50 €**;
+- suma Δ retorno: **+0,3808 pp**, media **+0,0952 pp por ventana**;
+- sólo supera a CURRENT claramente en COVID; queda por debajo en las otras tres.
 
-STRATEGIC_CORE_HOLD_V1:
-- `valid=true`; cash nunca negativo; máximo 12/12 posiciones;
-- final **13.000,78 €**;
-- retorno **+0,00603%**;
-- DD **5,93898%**;
-- turnover **12.038,05 €**;
-- 2 REDUCE / 4 EXIT;
-- final cash **4.945,07 €**;
-- Δ vs V2: **+38,69 € / +0,29763 pp**;
-- turnover vs V2: **-693,49 €**;
-- Δ DD vs V2: **+0,42264 pp peor**;
-- Δ vs CURRENT: **-27,92 € / -0,21480 pp**; DD prácticamente igual a CURRENT (-0,00040 pp).
+Lectura por régimen:
+- **COVID:** V2 reducía US500/ESG Developed/Global una semana antes del suelo. CORE HOLD mejora +91,63 € frente a V2 con sólo +0,0578 pp de DD; conserva el rebote.
+- **2021/22:** CORE HOLD mejora +38,69 € frente a V2, pero pierde casi toda la amortiguación de DD de V2. Mercado bajista lento/persistente: aquí las reducciones sí protegían caída.
+- **2022/23:** CORE HOLD es idéntico a V2 hasta el último decimal. No había venta de strategic core que interceptar; esto confirma ausencia de efectos laterales del experimento.
+- **2024/25:** elimina únicamente el REDUCE de Vanguard Global del 12/03/2025 (~908 €). Mejora +16,40 € sin cambiar el DD; demuestra que esa venta tardía no protegía el riesgo máximo de la ventana.
 
-Ventas de core eliminadas respecto a V2:
-- 2022-05-12 ESG Developed REDUCE ~139,02 € a retorno ~-14,22%;
-- 2022-06-15 Vanguard Global REDUCE ~232,45 € a ~-12,32%;
-- 2022-06-17 Vanguard US500 REDUCE ~219,01 € a ~-14,40%;
-- 2022-10-10 ESG Developed REDUCE ~103,01 € a ~-15,67%.
-
-Lectura:
-- impedir ventas del core recupera una parte importante de la pérdida V2: mejora +38,69 €;
-- pero sacrifica casi toda la mejora de drawdown de V2: el DD vuelve prácticamente al baseline;
-- confirma la hipótesis de que V2 estaba reduciendo demasiado core antes de rebotes, pero también confirma que esas reducciones sí aportaban amortiguación de caída;
-- STRATEGIC_CORE_HOLD aún queda 27,92 € por debajo de CURRENT y muy por debajo de exact hold (+3,24%), por lo que no se promociona;
-- este resultado favorece una solución más matizada que “core nunca se vende” si las siguientes ventanas muestran el mismo trade-off.
+Conclusión del mecanismo:
+- la evidencia favorece **no vender el strategic core por una señal corta ordinaria** frente a V2 puro;
+- sin embargo, CORE HOLD total no resuelve la inferioridad frente a CURRENT en 2021/22, 2022/23 y 2024/25;
+- el gran déficit de 2024/25 ocurre antes del REDUCE tardío del core y pertenece principalmente a selección/composición/rotaciones, no a esta protección;
+- no promocionar todavía CORE HOLD a producción: estas cuatro ventanas ya han servido para diseñar/diagnosticar el mecanismo.
 
 ---
 
 # Próxima acción
 
-1. No cambiar código ni thresholds con este único resultado.
-2. Ejecutar la misma comparación de tres brazos en **COVID 2020-02-03 → 2021-02-02** para comprobar qué pasa cuando V2 ya ganaba claramente y las ventas del core ocurrieron cerca del suelo.
-3. Después ejecutar **2024-04-01 → 2025-03-31** para medir el único REDUCE tardío de Vanguard Global en mercado alcista.
-4. 2022/23 puede quedar para el final: se espera efecto pequeño/nulo porque no tuvo las reducciones principales del strategic core.
-5. Sólo después decidir si conviene HOLD total del core, protección parcial más suave o una regla explícita de reentrada/reconstrucción tras REDUCE.
+1. Congelar código y thresholds de CURRENT, V2 y STRATEGIC_CORE_HOLD_V1.
+2. Validar STRATEGIC_CORE_HOLD_V1 en **ventanas independientes no usadas para diseñarlo**, preferiblemente incluyendo un periodo lateral/alcista normal y una validación 24-36m.
+3. Si confirma la ventaja, decidir si el strategic core adopta HOLD estructural o una defensa más matizada sólo ante deterioro prolongado/sistémico; no calibrar esta decisión sobre las cuatro ventanas anteriores.
+4. Después volver al problema de mayor impacto: selección/composición/rotaciones y la hipótesis `ReliabilityScore / OpportunityScore / sizing`, especialmente porque 2024/25 sigue ~1,51 pp por debajo de CURRENT incluso tras conservar Vanguard Global.
