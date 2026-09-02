@@ -198,12 +198,10 @@ Integración:
 - `package.json` incorpora `test:trend-protection-counterfactual`.
 
 Estado de validación actual:
-- `npm run lint` ejecutado en AI Studio sobre el primer `main` integrado: FAIL por tres errores de integración/tipado, no por lógica económica.
-- Corregidos en GitHub:
-  - `replayRotationPolicyExperiment.ts`: `PortfolioPositionDecision` no tiene `ticker`; los textos de auditoría usan ahora `incumbent.label`.
-  - `dynamicHistoricalReplayBatch.unit.ts`: fixture actualizado con `timingStateCounts`, `trendProtectionV1Counts` y `deploymentHorizons` obligatorios.
-- Ningún threshold, orden, sizing ni regla económica se modificó en estas correcciones.
-- Falta repetir `npm run lint`; sólo si queda PASS ejecutar `npm run test:trend-protection-counterfactual`.
+- `npm run lint`: **PASS** en AI Studio el 2026-09-02 después de corregir los tres errores de integración/tipado detectados en la ejecución anterior; `tsc --noEmit` termina con exit code 0 y sin warnings.
+- Las correcciones fueron sólo de integración/tipado: textos de auditoría con `incumbent.label` y fixture batch con `timingStateCounts`, `trendProtectionV1Counts` y `deploymentHorizons`.
+- Ningún threshold, orden, sizing ni regla económica se modificó.
+- Siguiente gate dirigido: `npm run test:trend-protection-counterfactual`.
 
 No interpretar todavía ninguna cifra económica de V2 hasta que el test nuevo pase y `entryParity.exact=true` en el replay REAL.
 
@@ -224,7 +222,6 @@ No interpretar todavía ninguna cifra económica de V2 hasta que el test nuevo p
 # Próxima acción concreta
 
 1. Sincronizar `main` al HEAD actual.
-2. Ejecutar únicamente `npm run lint`.
-3. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
-4. Si falla, corregir sólo el primer fallo exacto; no ejecutar el gate completo todavía.
-5. Si ambos pasan, integrar el bloque A/B en resumen/export/UI y después ejecutar un replay REAL 12m único para obtener cifras económicas con `entryParity.exact=true` antes de probar 24/36m.
+2. Ejecutar únicamente `npm run test:trend-protection-counterfactual`.
+3. Si falla, corregir sólo el primer fallo exacto; no ejecutar el gate completo todavía.
+4. Si PASS, integrar el bloque A/B en resumen/export/UI y después ejecutar un replay REAL 12m único para obtener cifras económicas con `entryParity.exact=true` antes de probar 24/36m.
