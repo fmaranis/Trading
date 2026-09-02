@@ -1,13 +1,15 @@
 import { PortfolioDecisionEngine, type PortfolioDecisionResult, type PortfolioPositionDecision } from './portfolioDecisionEngine';
 import type { PortfolioPositionHealthAction, PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
 import { isDiversifiedCoreCategory } from './portfolioPositionHealth';
-import { StrategyConsensusEngine } from './strategyConsensusEngine';
-import { classifyTrendProtectionV2, type TrendProtectionV2Decision } from './trendProtectionPolicy';
+import { StrategyConsensusEngine, type StrategyConsensusAssessment } from './strategyConsensusEngine';
+import { classifyTrendProtectionV2, type TrendProtectionContext, type TrendProtectionV2Decision } from './trendProtectionPolicy';
+import { classifyTrendProtectionV2WithMediumTermWinnerConfirm } from './trendProtectionV2MediumTermConfirm';
 import { runDynamicReplayWithRotationExperiment } from './replayRotationPolicyExperiment';
 import type { DynamicHistoricalReplayResult } from './dynamicHistoricalReplay';
 
 type PortfolioEvaluationInput = Parameters<typeof PortfolioDecisionEngine.evaluate>[0];
 type ReplayRunInput = Parameters<typeof runDynamicReplayWithRotationExperiment>[0];
+type TrendProtectionV2Classifier = (assessment: StrategyConsensusAssessment | null, context: TrendProtectionContext) => TrendProtectionV2Decision;
 
 interface V2EpisodeState {
   mfePct: number;
@@ -77,13 +79,15 @@ export function isTrendProtectionV2RotationBlockedReason(reason: string | null |
 function operationalAction(base: PortfolioPositionHealthAction, decision: TrendProtectionV2Decision): PortfolioPositionHealthAction {
   if (decision.action === 'REDUCE' || decision.action === 'EXIT') return decision.action;
   if (decision.action === 'PROTECT' || decision.action === 'WATCH') return 'WATCH';
-  // V2 replaces baseline protective sales but preserves healthy ADD and pre-existing
-  // WATCH semantics when V2 itself sees no protective break.
   if (base === 'REDUCE' || base === 'EXIT') return 'HOLD';
   return base;
 }
 
-function applyTrendProtectionV2(input: PortfolioEvaluationInput, states: Map<string, V2EpisodeState>): PortfolioEvaluationInput {
+function applyTrendProtectionV2(
+  input: PortfolioEvaluationInput,
+  states: Map<string, V2EpisodeState>,
+  classifier: TrendProtectionV2Classifier
+): PortfolioEvaluationInput {
   const health = input.positionHealth ?? {};
   const transformed = new Map<PortfolioPositionHealthSnapshot, PortfolioPositionHealthSnapshot>();
   const active = new Set<string>();
@@ -107,15 +111,12 @@ function applyTrendProtectionV2(input: PortfolioEvaluationInput, states: Map<str
 
     if (state.lastUnits != null) {
       if (units > state.lastUnits + 1e-9) {
-        // ADD changes the basis/exposure and starts a fresh protection episode.
         resetEpisode(state, true);
       } else if (units < state.lastUnits - 1e-9) {
         if (state.pendingReduction) {
-          // Idempotence is consumed only by an actually executed partial sale.
           state.reductionExecuted = true;
           state.pendingReduction = false;
         } else {
-          // A non-V2 reduction/rotation creates a fresh remaining tranche.
           resetEpisode(state, true);
         }
       }
@@ -128,7 +129,7 @@ function applyTrendProtectionV2(input: PortfolioEvaluationInput, states: Map<str
     const observationsForDecision = state.armed ? state.observations + 1 : 1;
     const referenceForDecision = state.armed ? state.referenceReturnPct : currentReturnPct;
     const assessment = StrategyConsensusEngine.assess(input.scan, assetId, input.cashBenchmarkAnnualPct);
-    const rawDecision = classifyTrendProtectionV2(assessment, {
+    const rawDecision = classifier(assessment, {
       currentReturnPct,
       mfePct: state.mfePct,
       givebackFromMfePctPoints: giveback,
@@ -227,12 +228,16 @@ function blockRotationsDuringWatchOrProtect(input: PortfolioEvaluationInput, res
   return result;
 }
 
-export function runDynamicReplayWithTrendProtectionV2Experiment(input: ReplayRunInput): DynamicHistoricalReplayResult {
+function runDynamicReplayWithTrendProtectionV2Classifier(
+  input: ReplayRunInput,
+  classifier: TrendProtectionV2Classifier,
+  methodologyNote: string
+): DynamicHistoricalReplayResult {
   const originalEvaluate = PortfolioDecisionEngine.evaluate;
   const states = new Map<string, V2EpisodeState>();
   try {
     PortfolioDecisionEngine.evaluate = ((evaluationInput: PortfolioEvaluationInput) => {
-      const transformed = applyTrendProtectionV2(evaluationInput, states);
+      const transformed = applyTrendProtectionV2(evaluationInput, states, classifier);
       const result = originalEvaluate.call(PortfolioDecisionEngine, transformed);
       return blockRotationsDuringWatchOrProtect(transformed, result);
     }) as typeof PortfolioDecisionEngine.evaluate;
@@ -240,10 +245,27 @@ export function runDynamicReplayWithTrendProtectionV2Experiment(input: ReplayRun
     const result = runDynamicReplayWithRotationExperiment(input, 'CORE_GATE_V1');
     result.notes.push(
       'TREND_PROTECTION_V2 full causal replay: mismo universo, scanner, Entry Timing, sizing, rotación CORE_GATE_V1, cash y límites de plazas; sólo se sustituye la protección REDUCE/EXIT de salud por V2. Las entradas posteriores pueden divergir causalmente si cambia el cash o la ocupación de plazas.',
-      'WATCH y PROTECT son estados no-vendibles: no venden por salud y bloquean cualquier rotación competitiva antes de que CORE_GATE_V1 pueda redirigirla. Sólo REDUCE o EXIT de V2 autorizan una venta protectora. Un REDUCE V2 consume la idempotencia sólo cuando la siguiente evaluación confirma una caída real de unidades; si el 25% de un ETF equivale a menos de un título entero, se degrada a PROTECT y no se declara una venta ficticia.'
+      'WATCH y PROTECT son estados no-vendibles: no venden por salud y bloquean cualquier rotación competitiva antes de que CORE_GATE_V1 pueda redirigirla. Sólo REDUCE o EXIT autorizan una venta protectora. Un REDUCE consume la idempotencia sólo cuando la siguiente evaluación confirma una caída real de unidades; si el 25% de un ETF equivale a menos de un título entero, se degrada a PROTECT y no se declara una venta ficticia.',
+      methodologyNote
     );
     return result;
   } finally {
     PortfolioDecisionEngine.evaluate = originalEvaluate;
   }
+}
+
+export function runDynamicReplayWithTrendProtectionV2Experiment(input: ReplayRunInput): DynamicHistoricalReplayResult {
+  return runDynamicReplayWithTrendProtectionV2Classifier(
+    input,
+    classifyTrendProtectionV2,
+    'TREND_PROTECTION_V2 base: confirmación vigente sin requisito adicional de horizonte medio para REDUCE de ganadores.'
+  );
+}
+
+export function runDynamicReplayWithTrendProtectionV2MediumTermWinnerConfirmExperiment(input: ReplayRunInput): DynamicHistoricalReplayResult {
+  return runDynamicReplayWithTrendProtectionV2Classifier(
+    input,
+    classifyTrendProtectionV2WithMediumTermWinnerConfirm,
+    'MEDIUM_TERM_WINNER_CONFIRM experimental: sólo los REDUCE de winner-protection requieren además slope60 <= 0, consenso <= 0 o al menos 2 votos adversos. LOSER_FAILURE, hard EXIT, tamaño 25%, reclaim y resto de V2 permanecen idénticos.'
+  );
 }
