@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse';
 import { runDynamicReplayWithRotationExperiment } from '../src/investment/decision/replayRotationPolicyExperiment';
-import { adaptTrendProtectionV2ForWholeShareExecution, runDynamicReplayWithTrendProtectionV2Experiment } from '../src/investment/decision/replayTrendProtectionV2Experiment';
+import { adaptTrendProtectionV2ForWholeShareExecution, isTrendProtectionV2RotationBlockedReason, runDynamicReplayWithTrendProtectionV2Experiment } from '../src/investment/decision/replayTrendProtectionV2Experiment';
 import { buildTrendProtectionV2ReplayComparison } from '../src/investment/decision/trendProtectionReplayComparison';
 import type { TrendProtectionV2Decision } from '../src/investment/decision/trendProtectionPolicy';
 import type { MultiAssetDataset } from '../src/investment/portfolioBacktesting/types';
@@ -63,6 +63,12 @@ assert.match(blockedWholeShare.reason, /no ejecutable/i);
 assert.equal(adaptTrendProtectionV2ForWholeShareExecution(reduceDecision, 'ETF_ETC', 4).action, 'REDUCE', 'four ETF shares can execute one-share REDUCE25');
 assert.equal(adaptTrendProtectionV2ForWholeShareExecution(reduceDecision, 'MUTUAL_FUND', 0.25).action, 'REDUCE', 'fractional mutual-fund reductions remain executable');
 
+assert.equal(isTrendProtectionV2RotationBlockedReason('[TREND_PROTECTION_V2:WATCH] fixture'), true, 'V2 WATCH must block competitive/core rotation');
+assert.equal(isTrendProtectionV2RotationBlockedReason('[TREND_PROTECTION_V2:PROTECT] fixture'), true, 'V2 PROTECT must block competitive/core rotation');
+assert.equal(isTrendProtectionV2RotationBlockedReason('[TREND_PROTECTION_V2:HOLD] fixture'), false, 'V2 HOLD keeps normal rotation semantics');
+assert.equal(isTrendProtectionV2RotationBlockedReason('[TREND_PROTECTION_V2:REDUCE] fixture'), false, 'V2 REDUCE is a sell-authorized state');
+assert.equal(isTrendProtectionV2RotationBlockedReason('[TREND_PROTECTION_V2:EXIT] fixture'), false, 'V2 EXIT is a sell-authorized state');
+
 const baseline = runDynamicReplayWithRotationExperiment(replayInput, 'CORE_GATE_V1');
 const baselineSnapshot = {
   finalValueEur: baseline.finalValueEur,
@@ -92,6 +98,11 @@ assert.ok(
     .every(signal => signal.executionDate != null && signal.executionDate > signal.signalDate),
   'V2 management must execute strictly after its causal signal'
 );
+assert.ok(
+  v2.signals.filter(signal => signal.executed && (signal.action === 'REDUCE' || signal.action === 'EXIT'))
+    .every(signal => !isTrendProtectionV2RotationBlockedReason(signal.reason)),
+  'V2 WATCH/PROTECT must never appear on an executed sale after rotation/core processing'
+);
 assert.deepEqual(
   {
     finalValueEur: baseline.finalValueEur,
@@ -118,5 +129,7 @@ console.log('TREND_PROTECTION_COUNTERFACTUAL_RESULT', JSON.stringify({
   v2MaxDrawdownPct: ab.maxDrawdownPct,
   v2Reductions: ab.executedReductions,
   v2Exits: ab.executedExits,
-  wholeShareBlockedAction: blockedWholeShare.action
+  wholeShareBlockedAction: blockedWholeShare.action,
+  watchRotationBlocked: isTrendProtectionV2RotationBlockedReason('[TREND_PROTECTION_V2:WATCH]'),
+  protectRotationBlocked: isTrendProtectionV2RotationBlockedReason('[TREND_PROTECTION_V2:PROTECT]')
 }));
