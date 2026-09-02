@@ -19,11 +19,16 @@ export interface ReplayDivergenceRow {
   assetId: string;
   ticker: string;
   action: 'BUY' | 'ADD' | 'REDUCE' | 'EXIT';
-  currentNotionalEur: number;
-  coreNotionalEur: number;
-  deltaCoreMinusCurrentEur: number;
-  currentUnitsDelta: number;
-  coreUnitsDelta: number;
+  referenceNotionalEur: number;
+  candidateNotionalEur: number;
+  deltaCandidateMinusReferenceEur: number;
+  referenceUnitsDelta: number;
+  candidateUnitsDelta: number;
+}
+
+export interface ReplayFirstExecutionDivergence {
+  date: string | null;
+  rows: ReplayDivergenceRow[];
 }
 
 export interface CurrentVsCoreCausalAttribution {
@@ -45,10 +50,9 @@ export interface CurrentVsCoreCausalAttribution {
     reconstructedCoreVsCurrentReturnPctPoints: number;
     residualReturnPctPoints: number;
   };
-  firstExecutionDivergence: {
-    date: string | null;
-    rows: ReplayDivergenceRow[];
-  };
+  firstCurrentVsCoreDivergence: ReplayFirstExecutionDivergence;
+  firstTrendProtectionV2Divergence: ReplayFirstExecutionDivergence;
+  firstStrategicCoreHoldDivergence: ReplayFirstExecutionDivergence;
   pathExposure: {
     matchedDates: number;
     averageCashCurrentEur: number | null;
@@ -91,49 +95,49 @@ function actionCounts(result: DynamicHistoricalReplayResult): Record<MaterialAct
   return counts;
 }
 
-function firstExecutionDivergence(current: DynamicHistoricalReplayResult, core: DynamicHistoricalReplayResult) {
-  const currentSignals = materialExecutedSignals(current);
-  const coreSignals = materialExecutedSignals(core);
+function firstExecutionDivergence(reference: DynamicHistoricalReplayResult, candidate: DynamicHistoricalReplayResult): ReplayFirstExecutionDivergence {
+  const referenceSignals = materialExecutedSignals(reference);
+  const candidateSignals = materialExecutedSignals(candidate);
   const dates = [...new Set([
-    ...currentSignals.map(signal => signal.executionDate!),
-    ...coreSignals.map(signal => signal.executionDate!)
+    ...referenceSignals.map(signal => signal.executionDate!),
+    ...candidateSignals.map(signal => signal.executionDate!)
   ])].sort();
 
   for (const date of dates) {
     const aggregate = new Map<string, ReplayDivergenceRow>();
-    const add = (signal: DynamicReplaySignal, side: 'current' | 'core') => {
+    const add = (signal: DynamicReplaySignal, side: 'reference' | 'candidate') => {
       const action = signal.action as MaterialAction;
       const key = `${signal.assetId}|${action}`;
       const row = aggregate.get(key) ?? {
         assetId: signal.assetId,
         ticker: signal.ticker,
         action,
-        currentNotionalEur: 0,
-        coreNotionalEur: 0,
-        deltaCoreMinusCurrentEur: 0,
-        currentUnitsDelta: 0,
-        coreUnitsDelta: 0
+        referenceNotionalEur: 0,
+        candidateNotionalEur: 0,
+        deltaCandidateMinusReferenceEur: 0,
+        referenceUnitsDelta: 0,
+        candidateUnitsDelta: 0
       };
-      if (side === 'current') {
-        row.currentNotionalEur += signal.notionalEur;
-        row.currentUnitsDelta += signal.unitsDelta;
+      if (side === 'reference') {
+        row.referenceNotionalEur += signal.notionalEur;
+        row.referenceUnitsDelta += signal.unitsDelta;
       } else {
-        row.coreNotionalEur += signal.notionalEur;
-        row.coreUnitsDelta += signal.unitsDelta;
+        row.candidateNotionalEur += signal.notionalEur;
+        row.candidateUnitsDelta += signal.unitsDelta;
       }
       aggregate.set(key, row);
     };
 
-    for (const signal of currentSignals.filter(signal => signal.executionDate === date)) add(signal, 'current');
-    for (const signal of coreSignals.filter(signal => signal.executionDate === date)) add(signal, 'core');
+    for (const signal of referenceSignals.filter(signal => signal.executionDate === date)) add(signal, 'reference');
+    for (const signal of candidateSignals.filter(signal => signal.executionDate === date)) add(signal, 'candidate');
 
     const rows = [...aggregate.values()]
-      .map(row => ({ ...row, deltaCoreMinusCurrentEur: row.coreNotionalEur - row.currentNotionalEur }))
-      .filter(row => Math.abs(row.deltaCoreMinusCurrentEur) > 0.01 || Math.abs(row.coreUnitsDelta - row.currentUnitsDelta) > 1e-8)
-      .sort((a, b) => Math.abs(b.deltaCoreMinusCurrentEur) - Math.abs(a.deltaCoreMinusCurrentEur));
+      .map(row => ({ ...row, deltaCandidateMinusReferenceEur: row.candidateNotionalEur - row.referenceNotionalEur }))
+      .filter(row => Math.abs(row.deltaCandidateMinusReferenceEur) > 0.01 || Math.abs(row.candidateUnitsDelta - row.referenceUnitsDelta) > 1e-8)
+      .sort((a, b) => Math.abs(b.deltaCandidateMinusReferenceEur) - Math.abs(a.deltaCandidateMinusReferenceEur));
     if (rows.length) return { date, rows: rows.slice(0, 12) };
   }
-  return { date: null, rows: [] as ReplayDivergenceRow[] };
+  return { date: null, rows: [] };
 }
 
 function assetAllocationDifferences(current: DynamicHistoricalReplayResult, core: DynamicHistoricalReplayResult): ReplayAssetAllocationDelta[] {
@@ -298,7 +302,9 @@ export function buildCurrentVsCoreCausalAttribution(input: {
       reconstructedCoreVsCurrentReturnPctPoints,
       residualReturnPctPoints
     },
-    firstExecutionDivergence: firstExecutionDivergence(current, strategicCore),
+    firstCurrentVsCoreDivergence: firstExecutionDivergence(current, strategicCore),
+    firstTrendProtectionV2Divergence: firstExecutionDivergence(current, trendProtectionV2),
+    firstStrategicCoreHoldDivergence: firstExecutionDivergence(trendProtectionV2, strategicCore),
     pathExposure: exposure,
     executedActionCounts: {
       current: currentCounts,
@@ -309,8 +315,9 @@ export function buildCurrentVsCoreCausalAttribution(input: {
     notes: [
       'Atribución integrada, no un séptimo brazo: reutiliza CURRENT, TREND_PROTECTION_V2 y STRATEGIC_CORE_HOLD ya calculados y no ejecuta ningún replay adicional.',
       'Identidad causal exacta: CORE−CURRENT = (V2−CURRENT) + (CORE−V2). El primer término mide sustituir la gestión CURRENT por TREND_PROTECTION_V2; el segundo mide únicamente añadir STRATEGIC_CORE_HOLD sobre V2.',
+      'Se registran por separado la primera divergencia CURRENT→V2, V2→CORE y CURRENT→CORE para localizar qué capa origina el cambio económico antes de que cash/plazas hagan divergir el resto del camino.',
       'Las diferencias por activo y cash describen cómo divergen las trayectorias después de la primera decisión distinta. No se presentan como una descomposición contrafactual exacta del P&L por activo: una operación distinta cambia cash, plazas y decisiones posteriores.',
-      'Signo de los deltas: positivo significa que CORE/HOLD tiene más valor, entrada, venta o cash que CURRENT; negativo significa que CURRENT tiene más.'
+      'Signo de los deltas CURRENT/CORE: positivo significa que CORE/HOLD tiene más valor, entrada, venta o cash que CURRENT; negativo significa que CURRENT tiene más.'
     ]
   };
 }
