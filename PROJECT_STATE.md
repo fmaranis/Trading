@@ -102,6 +102,7 @@ Semántica:
 Validación independiente:
 - 2019: CORE HOLD = V2 al último decimal; no hubo intervención.
 - 2017-01-02 → 2018-12-31 (24m): CORE HOLD +0,0657%, V2 -1,7666%, CURRENT -0,9874%; CORE HOLD mejora V2 +238,19 € / +1,8323 pp con DD sólo +0,0459 pp peor; también supera CURRENT +136,90 € con DD 0,72 pp mejor.
+- 2015-01-02 → 2015-12-31: CURRENT +4,164%, V2 +4,317%, CORE HOLD +4,505%; CORE HOLD mejora V2 +24,41 € / +0,188 pp con el mismo DD 8,286%. El REDUCE de EUNL del 2015-08-25 desaparece bajo CORE HOLD.
 - Hallazgo 2017: V2 vendía SXR8/EUNL para rotar a Intesa/Repsol; CORE HOLD conserva el núcleo. Intesa terminó posteriormente con REDUCE ~-18,8% y EXIT ~-21,3%.
 
 Refactor de rol validado en AI Studio el 2026-09-02: `npm run lint` PASS y `npm run test:trend-protection-counterfactual` PASS, cero errores.
@@ -113,7 +114,7 @@ Backup previo al refactor de rol:
 
 # SELECTION_QUALITY_V1 — cuarto brazo causal
 
-Objetivo: atacar **selección/composición** sin mezclar todavía sizing.
+Objetivo: atacar **selección/composición** sin mezclar sizing.
 
 Implementación:
 - `src/investment/decision/assetSelectionQuality.ts`
@@ -137,34 +138,71 @@ Implementación:
 - 10% aceleración simple corto/medio plazo;
 - 10% drawdown actual.
 
-QUALITY_V1 no salta ningún gate: REAL + cash + consenso BUY + Entry Timing siguen obligatorios. Sólo modifica ranking relativo entre elegibles. **Todavía NO cambia sizing**.
+QUALITY_V1 no salta ningún gate: REAL + cash + consenso BUY + Entry Timing siguen obligatorios. Sólo modifica ranking relativo entre elegibles. No cambia sizing.
 
 Backup previo:
 `backup/main-pre-selection-quality-v1-2026-09-02` → `a04905336a96a0056b81836a914672f8e58756cf`.
 
 Gates AI Studio 2026-09-02: `lint`, `test:portfolio-candidate-gate`, `test:current-opportunity-alerts` y `test:trend-protection-counterfactual` PASS, cero errores.
 
-## Primera prueba 2017-01-02 → 2018-12-31 — 24 meses
-- CURRENT: final 12.871,64 €; retorno -0,9874%; DD 14,8945%.
-- V2: final 12.770,34 €; retorno -1,7666%; DD 14,1286%.
-- CORE HOLD: final 13.008,53 €; retorno +0,0657%; DD 14,1745%; turnover 28.774,22 €.
-- SELECTION_QUALITY_V1: final **13.081,09 €**; retorno **+0,6238%**; DD **14,3187%**; turnover 32.116,64 €.
+## Evidencia QUALITY vs CORE HOLD
 
-QUALITY_V1 vs CORE HOLD:
-- **+72,56 € / +0,5581 pp** de retorno;
-- DD +0,1442 pp peor;
-- turnover +3.342,42 €;
-- management turnover +2.264,58 €;
-- fees +5,16 €;
-- fiscalidad estimada +128,65 €.
+### 2017-01-02 → 2018-12-31 — 24m
+- CORE HOLD +0,0657%; QUALITY +0,6238%.
+- QUALITY: **+72,56 € / +0,5581 pp**.
+- DD +0,1442 pp peor; turnover +3.342,42 €; fiscalidad estimada +128,65 €.
 
-QUALITY_V1 vs CURRENT:
-- **+209,45 € / +1,6112 pp**;
-- DD **0,5758 pp mejor**.
+### 2025-04-01 → 2026-03-31 — holdout independiente
+- CURRENT +11,457%; CORE HOLD +11,154%; QUALITY +11,149%.
+- QUALITY vs CORE HOLD: **-0,77 € / -0,0059 pp**, prácticamente empate.
+- DD ~0,053 pp mejor y turnover ~103 € menor.
+- Cambios principales: orden inicial Allianz/Deutsche Telekom y ausencia de un ADD posterior a IS3N.
 
-Exact initial hold sigue en +6,2247%, aproximadamente **5,601 pp por encima de QUALITY_V1**. La mejora de selección es material pero todavía no explica todo el gap.
+### 2015-01-02 → 2015-12-31 — holdout independiente
+- CORE HOLD +4,505%; QUALITY +4,505%.
+- **Igualdad económica exacta**: mismo final 13.585,60 €, retorno, DD 8,286%, turnover, REDUCE/EXIT y trayectoria.
+- Sólo cambia un objetivo teórico interno de un ADD de SXR8; la orden ejecutable acaba siendo la misma.
 
-Lectura provisional: primera señal favorable a QUALITY_V1, pero no promocionar ni tocar sizing con una sola ventana; además el incremento de turnover/fiscalidad debe vigilarse.
+Lectura: QUALITY ranking mejora una ventana y queda esencialmente neutro en dos holdouts independientes. No se promociona todavía como ranking productivo. Los scores permanecen útiles y auditables como posible señal de sizing.
+
+---
+
+# QUALITY_SIZING_V1 — quinto brazo causal
+
+Objetivo: aislar **CUÁNTO** de **DÓNDE**. Se prueba si Reliability/Opportunity sirven mejor para modular tamaño que para cambiar el ranking.
+
+Implementación:
+- `src/investment/decision/qualitySizingPolicy.ts`
+- `src/investment/decision/replayQualitySizingExperiment.ts`
+- `tests/qualitySizingPolicy.unit.ts`
+- `historicalReplayAudit.worker.ts` exporta `trendProtectionV2Counterfactual.qualitySizingExperiment`.
+
+Arquitectura del brazo:
+- selección vuelve a **LEGACY**; no usa `SELECTION_QUALITY_V1`;
+- gestión = `STRATEGIC_CORE_HOLD_V1`;
+- Entry Timing, cash, slots, CORE_GATE, Trend Protection y caps STARTER/BUILD permanecen sin ampliar;
+- el overlay actúa sólo después de que el allocator haya decidido candidato, etapa e importe base;
+- `ROTATION_ENTRY` queda sin cambios para no mezclar sizing con semántica de rotación.
+
+Composite causal: **45% ReliabilityScore + 55% OpportunityScore**.
+
+Sizing conservador sobre el importe ya autorizado:
+- composite >=80 → 100% del importe/cap anterior;
+- >=70 → 90%;
+- >=60 → 80%;
+- <60 → 65%.
+
+Reglas de seguridad:
+- nunca aumenta un importe o cap preexistente;
+- nunca crea deuda ni cash negativo;
+- si la reducción deja una orden por debajo del mínimo económicamente ejecutable, se elimina la orden y el capital queda en cash;
+- quality no disponible conserva explícitamente LEGACY y emite warning: no hay fallback silencioso;
+- los thresholds anteriores son tiers de diseño del experimento, no optimizados con resultados históricos.
+
+Backup previo:
+`backup/main-pre-quality-sizing-v1-2026-09-02` → `fddeb14755f889ed9229d61a15051e71f1174cb0`.
+
+Estado: implementación terminada en `main`; **gates AI Studio pendientes**. No ejecutar replay hasta que pasen `lint`, unit de quality sizing y regresiones de cartera/trend protection.
 
 ---
 
@@ -178,15 +216,16 @@ El motor ya calcula causalmente:
 
 Hoy estas pendientes se usan en diagnóstico/estructura de tendencia y Trend Protection. `OpportunityScore` usa por ahora momentum y una aceleración simple basada en momentum, no un peso explícito de las pendientes de regresión.
 
-Plan: probar una variante aislada posterior que añada **slope quality / slope acceleration** al score de selección u oportunidad, sin mezclarla simultáneamente con cambios de sizing. Sólo se integrará si mejora evidencia causal/OOS y no aumenta churn de forma injustificada.
+Plan posterior: probar una variante aislada que añada **slope quality / slope acceleration** a selección/oportunidad, sin mezclarla con el primer A/B de sizing.
 
 ---
 
 # Próxima acción
 
-1. Mantener thresholds y sizing congelados.
-2. Validar SELECTION_QUALITY_V1 en otra ventana independiente antes de promoverlo.
-3. Después decidir entre:
-   - experimento de slopes dentro de selección;
-   - experimento `QUALITY_SIZING_V1` de concentración/sizing.
-4. No combinar slopes y sizing en el mismo primer A/B: atribución antes que optimización conjunta.
+1. Sincronizar `main`.
+2. Ejecutar `npm run lint`.
+3. Si PASS, ejecutar `npx tsx tests/qualitySizingPolicy.unit.ts`.
+4. Si PASS, ejecutar `npm run test:current-capital-allocation`.
+5. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
+6. Si falla alguno, parar y corregir sólo el gate concreto.
+7. Si todos pasan, ejecutar replay con quinto brazo y comparar **CORE HOLD vs QUALITY_SIZING_V1** antes de tocar slopes.
