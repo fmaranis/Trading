@@ -1,4 +1,4 @@
-import { PortfolioDecisionEngine } from './portfolioDecisionEngine';
+import { PortfolioDecisionEngine, type PortfolioDecisionResult, type PortfolioPositionDecision } from './portfolioDecisionEngine';
 import type { PortfolioPositionHealthAction, PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
 import { isDiversifiedCoreCategory } from './portfolioPositionHealth';
 import { StrategyConsensusEngine } from './strategyConsensusEngine';
@@ -20,15 +20,7 @@ interface V2EpisodeState {
 }
 
 function emptyState(): V2EpisodeState {
-  return {
-    mfePct: 0,
-    armed: false,
-    observations: 0,
-    referenceReturnPct: null,
-    reductionExecuted: false,
-    pendingReduction: false,
-    lastUnits: null
-  };
+  return { mfePct: 0, armed: false, observations: 0, referenceReturnPct: null, reductionExecuted: false, pendingReduction: false, lastUnits: null };
 }
 
 function resetEpisode(state: V2EpisodeState, resetMfe = false): void {
@@ -41,10 +33,7 @@ function resetEpisode(state: V2EpisodeState, resetMfe = false): void {
 }
 
 function candidateForSnapshot(input: PortfolioEvaluationInput, snapshot: PortfolioPositionHealthSnapshot) {
-  const keys = new Set([
-    snapshot.key?.toUpperCase(),
-    snapshot.tickerOrIsin?.toUpperCase()
-  ].filter(Boolean));
+  const keys = new Set([snapshot.key?.toUpperCase(), snapshot.tickerOrIsin?.toUpperCase()].filter(Boolean));
   return input.scan.candidates.find(row =>
     keys.has(row.asset.assetId.toUpperCase())
     || keys.has(row.asset.ticker.toUpperCase())
@@ -66,27 +55,21 @@ function portfolioUnits(input: PortfolioEvaluationInput, assetId: string, ticker
 function operationalAction(base: PortfolioPositionHealthAction, decision: TrendProtectionV2Decision): PortfolioPositionHealthAction {
   if (decision.action === 'REDUCE' || decision.action === 'EXIT') return decision.action;
   if (decision.action === 'PROTECT' || decision.action === 'WATCH') return 'WATCH';
-  // V2 replaces baseline protective sales, but does not disable healthy ADD or the
-  // existing WATCH channel used by challenger competition when V2 sees no break.
+  // V2 replaces baseline protective sales but preserves healthy ADD and pre-existing
+  // WATCH semantics when V2 itself sees no protective break.
   if (base === 'REDUCE' || base === 'EXIT') return 'HOLD';
   return base;
 }
 
-function applyTrendProtectionV2(
-  input: PortfolioEvaluationInput,
-  states: Map<string, V2EpisodeState>
-): PortfolioEvaluationInput {
+function applyTrendProtectionV2(input: PortfolioEvaluationInput, states: Map<string, V2EpisodeState>): PortfolioEvaluationInput {
   const health = input.positionHealth ?? {};
   const transformed = new Map<PortfolioPositionHealthSnapshot, PortfolioPositionHealthSnapshot>();
   const active = new Set<string>();
-
   const nextHealth: Record<string, PortfolioPositionHealthSnapshot> = {};
+
   for (const [key, snapshot] of Object.entries(health)) {
     const cached = transformed.get(snapshot);
-    if (cached) {
-      nextHealth[key] = cached;
-      continue;
-    }
+    if (cached) { nextHealth[key] = cached; continue; }
 
     const candidate = candidateForSnapshot(input, snapshot);
     if (!candidate) {
@@ -97,7 +80,7 @@ function applyTrendProtectionV2(
 
     const assetId = candidate.asset.assetId;
     active.add(assetId);
-    let state = states.get(assetId) ?? emptyState();
+    const state = states.get(assetId) ?? emptyState();
     const units = portfolioUnits(input, assetId, candidate.asset.ticker, candidate.asset.isin);
 
     if (state.lastUnits != null) {
@@ -106,11 +89,11 @@ function applyTrendProtectionV2(
         resetEpisode(state, true);
       } else if (units < state.lastUnits - 1e-9) {
         if (state.pendingReduction) {
-          // Idempotence is tied to an actually executed partial sale, not merely a signal.
+          // Idempotence is consumed only by an actually executed partial sale.
           state.reductionExecuted = true;
           state.pendingReduction = false;
         } else {
-          // A non-V2 reduction/rotation creates a new remaining tranche.
+          // A non-V2 reduction/rotation creates a fresh remaining tranche.
           resetEpisode(state, true);
         }
       }
@@ -150,9 +133,7 @@ function applyTrendProtectionV2(
           state.referenceReturnPct = currentReturnPct;
           state.reductionExecuted = false;
           state.pendingReduction = false;
-        } else {
-          state.observations = observationsForDecision;
-        }
+        } else state.observations = observationsForDecision;
       }
     }
     if (decision.action === 'REDUCE') state.pendingReduction = true;
@@ -175,18 +156,67 @@ function applyTrendProtectionV2(
   return { ...input, positionHealth: nextHealth };
 }
 
+function healthFor(input: PortfolioEvaluationInput, position: PortfolioPositionDecision): PortfolioPositionHealthSnapshot | undefined {
+  const map = input.positionHealth ?? {};
+  for (const key of [position.assetId, position.id]) {
+    if (!key) continue;
+    const found = map[key] ?? map[key.toUpperCase()];
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function refreshPlanningTotals(result: PortfolioDecisionResult, oldRotationProceeds: number, oldRecommended: number): void {
+  const newRotationProceeds = result.existingPositions
+    .filter(position => position.action === 'EXIT' && position.rotationChallengerAssetId)
+    .reduce((sum, position) => sum + Math.max(0, position.currentValueEur ?? 0), 0);
+  const newRecommended = result.contributions.reduce((sum, row) => sum + Math.max(0, row.amountEur), 0);
+  result.plannedRotationProceedsEur = newRotationProceeds;
+  result.deployableToAssetsEur = Math.max(0, result.deployableToAssetsEur + newRotationProceeds - oldRotationProceeds);
+  result.recommendedNewInvestmentEur = newRecommended;
+  result.residualPlannedCashEur = Math.max(0, result.residualPlannedCashEur + (newRotationProceeds - oldRotationProceeds) - (newRecommended - oldRecommended));
+}
+
+function blockRotationsDuringProtect(input: PortfolioEvaluationInput, result: PortfolioDecisionResult): PortfolioDecisionResult {
+  const oldRotationProceeds = result.plannedRotationProceedsEur;
+  const oldRecommended = result.recommendedNewInvestmentEur;
+  let changed = false;
+
+  for (const position of result.existingPositions) {
+    if (!position.rotationChallengerAssetId) continue;
+    const health = healthFor(input, position);
+    if (!health?.reason.includes('[TREND_PROTECTION_V2:PROTECT]')) continue;
+    const challengerAssetId = position.rotationChallengerAssetId;
+    result.contributions = result.contributions.filter(row => !(row.assetId === challengerAssetId && row.positionStage === 'ROTATION_ENTRY'));
+    position.action = 'HOLD';
+    position.suggestedReductionPct = null;
+    position.rotationChallengerAssetId = null;
+    position.rotationChallengerTicker = null;
+    position.rotationAdvantageScore = null;
+    position.rotationChallengerRecentStrongCount = null;
+    position.rotationChallengerPersistenceLookbackSessions = null;
+    position.reason = `${health.reason} [TREND_PROTECTION_V2:PROTECT] No se permite que una ruptura recién armada se convierta indirectamente en venta por rotación competitiva.`;
+    changed = true;
+  }
+
+  if (changed) refreshPlanningTotals(result, oldRotationProceeds, oldRecommended);
+  return result;
+}
+
 export function runDynamicReplayWithTrendProtectionV2Experiment(input: ReplayRunInput): DynamicHistoricalReplayResult {
   const originalEvaluate = PortfolioDecisionEngine.evaluate;
   const states = new Map<string, V2EpisodeState>();
   try {
     PortfolioDecisionEngine.evaluate = ((evaluationInput: PortfolioEvaluationInput) => {
-      return originalEvaluate.call(PortfolioDecisionEngine, applyTrendProtectionV2(evaluationInput, states));
+      const transformed = applyTrendProtectionV2(evaluationInput, states);
+      const result = originalEvaluate.call(PortfolioDecisionEngine, transformed);
+      return blockRotationsDuringProtect(transformed, result);
     }) as typeof PortfolioDecisionEngine.evaluate;
 
     const result = runDynamicReplayWithRotationExperiment(input, 'CORE_GATE_V1');
     result.notes.push(
       'TREND_PROTECTION_V2 full causal replay: mismo universo, scanner, Entry Timing, sizing, rotación CORE_GATE_V1, cash y límites de plazas; sólo se sustituye la protección REDUCE/EXIT de salud por V2. Las entradas posteriores pueden divergir causalmente si cambia el cash o la ocupación de plazas.',
-      'PROTECT se traduce operacionalmente a WATCH. Un REDUCE V2 se marca como ejecutado para idempotencia sólo cuando la siguiente evaluación confirma una caída real de unidades; una señal no ejecutable no consume el único REDUCE del episodio.'
+      'PROTECT es no operativo: no vende por salud ni puede convertirse indirectamente en una rotación competitiva. Un REDUCE V2 consume la idempotencia sólo cuando la siguiente evaluación confirma una caída real de unidades; una señal no ejecutable no consume el único REDUCE del episodio.'
     );
     return result;
   } finally {
