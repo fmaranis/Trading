@@ -1,4 +1,5 @@
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
+import { buildCurrentVsCoreCausalAttribution } from '../investment/decision/causalReplayAttribution';
 import { runDynamicReplayWithQualitySizingExperiment } from '../investment/decision/replayQualitySizingExperiment';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
 import { runDynamicReplayWithSelectionQualityExperiment } from '../investment/decision/replaySelectionQualityExperiment';
@@ -152,6 +153,11 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
 
       const strategicCoreReplay = runDynamicReplayWithStrategicCoreHoldExperiment(input);
       const strategicCoreComparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: strategicCoreReplay, riskProfile: configuration.riskProfile });
+      const currentVsCoreAttribution = buildCurrentVsCoreCausalAttribution({
+        current: result,
+        trendProtectionV2: v2Replay,
+        strategicCore: strategicCoreReplay
+      });
 
       const selectionQualityReplay = runDynamicReplayWithSelectionQualityExperiment(input);
       const selectionQualityComparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: selectionQualityReplay, riskProfile: configuration.riskProfile });
@@ -164,6 +170,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
 
       result.trendProtectionV2Counterfactual = {
         ...v2Comparison,
+        currentVsCoreAttribution,
         strategicCoreHoldExperiment: {
           ...strategicCoreComparison,
           policy: 'STRATEGIC_CORE_HOLD_V1',
@@ -213,6 +220,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       } as any;
       result.notes.push(
         'A/B principal basado en FULL_CAUSAL_REPLAY: todos los brazos son carteras ejecutables y la divergencia posterior es una consecuencia económica causal.',
+        'CURRENT_VS_CORE_CAUSAL_ATTRIBUTION_V1 no añade otro brazo: descompone exactamente CORE−CURRENT en efecto V2 + efecto incremental STRATEGIC_CORE_HOLD y registra primera divergencia, diferencias por activo y uso de cash.',
         'Tercer brazo STRATEGIC_CORE_HOLD_V1: conserva el core estratégico acumulado frente a ventas/rotaciones tácticas cortas.',
         'Cuarto brazo SELECTION_QUALITY_V1: ReliabilityScore + OpportunityScore sólo para ranking.',
         'Quinto brazo QUALITY_SIZING_V1: ranking LEGACY con sizing conservador por quality; permanece diagnóstico tras resultados OOS mixtos.',
