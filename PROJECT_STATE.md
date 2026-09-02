@@ -34,7 +34,7 @@ Cartera real de referencia:
 
 # Strategic growth core
 
-Principio validado: el **strategic growth core no debe venderse por deterioro corto ordinario ni utilizarse como fuente de rotación táctica competitiva**. Una futura salida requiere tesis estructural independiente.
+Principio validado: el strategic growth core no debe venderse por deterioro corto ordinario ni utilizarse como fuente de rotación táctica competitiva. Una futura salida requiere tesis estructural independiente.
 
 Roles canónicos: `STRATEGIC_GROWTH_CORE`, `DIVERSIFIED_SLEEVE`, `TACTICAL_SATELLITE`.
 Strategic core explícito: `FUND_VANGUARD_GLOBAL`, `FUND_VANGUARD_ESG_DEVELOPED`, `FUND_VANGUARD_US500`, `VWCE`, `EUNL`, `IWDA`, `SXR8`, `VUSA`.
@@ -60,7 +60,7 @@ Thresholds congelados/no promocionados: MFE ganador >=8%, giveback >=6 pp; REDUC
 
 # SELECTION_QUALITY_V1 — cuarto brazo
 
-Objetivo: probar Reliability/Opportunity en **DÓNDE** sin tocar sizing.
+Objetivo: probar Reliability/Opportunity en DÓNDE sin tocar sizing.
 
 ReliabilityScore: persistencia rolling 60/120 + calidad DD + volatilidad.
 OpportunityScore: Reliability + momentum 120/60/20 + aceleración simple + DD actual.
@@ -78,10 +78,10 @@ Conclusión: **no promocionar**; conservar scores auditables.
 
 # QUALITY_SIZING_V1 — quinto brazo
 
-Objetivo: aislar **CUÁNTO**. Selección LEGACY + STRATEGIC_CORE_HOLD; ROTATION_ENTRY intacto.
+Objetivo: aislar CUÁNTO. Selección LEGACY + STRATEGIC_CORE_HOLD; ROTATION_ENTRY intacto.
 Composite 45% Reliability +55% Opportunity; tiers experimentales 100/90/80/65% del cap LEGACY.
 
-Corrección importante: la primera versión reducía la orden diaria y generaba reintentos. La versión válida usa **cap persistente por calidad**.
+Corrección importante: la primera versión reducía la orden diaria y generaba reintentos. La versión válida usa cap persistente por calidad.
 
 Evidencia válida:
 - 2017-18: +0,1051 pp vs CORE; turnover -654 €.
@@ -94,7 +94,7 @@ Conclusión: **no robusto; no promocionar ni recalibrar tiers con estas ventanas
 
 # SELECTION_SLOPE_V1 — sexto brazo causal
 
-Objetivo: probar si la **forma, continuidad y aceleración de la tendencia** mejoran DÓNDE, aislado del sizing.
+Objetivo: probar si la forma, continuidad y aceleración de la tendencia mejoran DÓNDE, aislado del sizing.
 
 Arquitectura:
 - base económica `STRATEGIC_CORE_HOLD_V1`;
@@ -124,60 +124,60 @@ Backup previo: `backup/main-pre-selection-slope-v1-2026-09-02` → `aaaaa51a1f03
 
 Gates AI Studio previos al replay: lint, candidate gate, current opportunity alerts y trend-protection-counterfactual PASS.
 
-## Primera evidencia — 2013-01-02 → 2013-12-31
+## Evidencia 1 — 2013-01-02 → 2013-12-31
+- CORE HOLD: 13.721,83 €, +5,5525%, DD 6,6968%, turnover 21.571,31 €.
+- SLOPE: 13.784,28 €, +6,0329%, DD 7,4902%, turnover 23.229,91 €.
+- SLOPE vs CORE: **+62,45 € / +0,4804 pp**, pero DD +0,7934 pp y turnover +1.658,61 €.
+- CURRENT sigue por encima de SLOPE (~+66,70 €).
+- Mecanismo: más despliegue y cambio de composición, especialmente +EUNL/+Siemens; menos LVMH/Inditex/Airbus.
 
-CURRENT: final 13.850,98 €; +6,5460%; DD 6,7436%.
-CORE HOLD: final 13.721,83 €; +5,5525%; DD 6,6968%; turnover 21.571,31 €; cash final 2.574,30 €.
-SLOPE: final **13.784,28 €**; **+6,0329%**; DD **7,4902%**; turnover **23.229,91 €**; cash final **1.745,65 €**.
+## Evidencia 2 — 2012-01-03 → 2013-01-02
+- CORE HOLD: 14.449,52 €, +11,1502%, DD 5,3374%, turnover 19.786,74 €.
+- SLOPE: 14.375,44 €, +10,5803%, DD 4,5491%, turnover 19.105,24 €.
+- SLOPE vs CORE: **-74,08 € / -0,5699 pp**, pero DD -0,7883 pp y turnover -681,49 €.
+- Primera divergencia: CORE compra 4GLD y SLOPE prioriza Repsol; Repsol termina EXIT ~-25,4%. Después SLOPE compensa parcialmente con más L'Oréal pero reduce mucho EUNL.
 
-SLOPE vs CORE:
-- **+62,45 € / +0,4804 pp**;
-- DD **+0,7934 pp peor**;
-- turnover **+1.658,61 €**.
-
-Mecanismo: termina más invertido y cambia composición: aproximadamente +789 € de entradas EUNL, +412 € Siemens, más SXRV/L'Oréal; evita LVMH y reduce Inditex/Airbus. Señal favorable vs CORE, pero no supera CURRENT y puede estar ligada al régimen alcista.
-
-## Segunda evidencia — 2012-01-03 → 2013-01-02
-
-CURRENT:
-- final **14.464,48 €**; retorno **+11,2652%**; DD **5,5113%**; turnover ~20.154,22 €.
-
-CORE HOLD:
-- final **14.449,52 €**; retorno **+11,1502%**; DD **5,3374%**; turnover **19.786,74 €**; cash final **2.862,48 €**.
-
-SELECTION_SLOPE_V1:
-- final **14.375,44 €**; retorno **+10,5803%**; DD **4,5491%**; turnover **19.105,24 €**; cash final **3.262,75 €**.
-- valid=true; cash nunca negativo; restricciones de cartera respetadas.
+## Evidencia 3 — 2025-04-01 → 2026-03-31
+- CURRENT: 14.489,42 €, +11,4571%, DD 6,5053%.
+- CORE HOLD = V2: 14.450,08 €, +11,1545%, DD 6,7131%, turnover 14.062,42 €.
+- QUALITY: 14.449,32 €, +11,1486%.
+- SIZING: 14.354,40 €, +10,4185%.
+- SLOPE: **14.465,05 €, +11,2696%, DD 6,6920%, turnover 13.987,70 €**.
 
 SLOPE vs CORE:
-- **-74,08 € / -0,5699 pp** de retorno;
-- DD **-0,7883 pp mejor**;
-- turnover **-681,49 €**;
-- tax estimado ~-2,21 €; fees ~+2,05 €.
+- **+14,97 € / +0,1151 pp**;
+- DD **-0,0211 pp mejor**;
+- turnover **-74,72 €**;
+- fees +1 €, fiscalidad prácticamente idéntica;
+- cash nunca negativo; máximo 12/12 posiciones.
 
 SLOPE vs CURRENT:
-- ~**-89,04 € / -0,6849 pp**;
-- DD ~**-0,9622 pp mejor**.
+- ~**-24,37 € / -0,1874 pp**;
+- DD ~+0,1867 pp peor.
 
-Composición causal destacada vs CORE:
-- +927,79 € de entradas en L'Oréal;
-- +387,04 € en Repsol;
-- -746,99 € en EUNL;
-- -390 € Airbus;
-- -371,91 € 4GLD.
+Mecanismo 2025-26:
+- primera divergencia 01/04/2025: CORE prioriza Deutsche Telekom como segunda entrada; SLOPE prioriza Allianz y compra DTE al día siguiente;
+- en septiembre SLOPE sustituye el bloque Vanguard ESG Developed (~331,70 € de entradas en CORE) por IUSN (~401,72 €), y omite un ADD posterior de IS3N (~151,32 €);
+- Vanguard Emerging recibe ~7,62 € más de entradas; resto del camino es casi idéntico;
+- equity SLOPE vs CORE oscila aproximadamente entre -14,94 € y +20,40 €, cerrando +14,97 €.
 
-La primera divergencia es inmediata: CORE compra 4GLD el 04/01/2012 mientras SLOPE prioriza Repsol; Repsol acaba en EXIT con ~-25,4%. SLOPE compensa parcialmente más adelante con L'Oréal, pero reduce de forma material EUNL. La diferencia frente a CORE es negativa durante prácticamente todo el año (~-50 € fin de enero, -173 € fin de marzo, -190 € fin de abril, -155 € fin de agosto, -74 € al cierre).
+## Lectura conjunta de SLOPE
+- 2013: +0,4804 pp vs CORE, con más DD/turnover.
+- 2012: -0,5699 pp vs CORE, con menos DD/turnover.
+- 2025-26: +0,1151 pp vs CORE, con DD y turnover ligeramente mejores.
 
-Lectura acumulada de SLOPE: **2013 mejora retorno vs CORE pero empeora DD/turnover; 2012 reduce claramente DD/turnover pero pierde retorno.** Hay evidencia de que el score aporta una señal real y cambia composición, pero todavía no demuestra edge robusto de rentabilidad. Mantener pesos congelados; no recalibrar con estas dos ventanas.
+Agregado nominal de las tres ventanas vs CORE: aproximadamente **+3,34 € y +0,0256 pp de retorno**, esencialmente neutro; DD agregado prácticamente neutro. CURRENT supera a SLOPE en las tres ventanas.
+
+Conclusión: `SELECTION_SLOPE_V1` **sí aporta una señal causal real y cambia composición de manera explicable, pero no demuestra un edge robusto de rentabilidad**. No promocionarlo como ranking productivo global y no recalibrar pesos con estas ventanas. Conservar `SlopeQuality` como diagnóstico auditable y posible tie-breaker futuro, no como política principal por ahora.
 
 ---
 
 # UX / gráficas — pendiente posterior al motor
 
-Cuando el motor quede cerrado, revisar la UX de gráficas:
+Cuando el motor quede cerrado:
 - zoom/rango temporal y selector 1M/3M/6M/1A/Todo;
 - mostrar/ocultar slope20/60/120, SMA20/SMA50 y señales;
-- al pulsar una operación/posición comprada, abrir gráfica del activo centrada en la ejecución, por defecto 6 meses antes + 6 meses después, con BUY/ADD/REDUCE/EXIT, precio, timing, consenso, quality y slopes;
+- al pulsar una operación/posición comprada, abrir gráfica del activo centrada en ejecución, por defecto 6 meses antes + 6 meses después, con BUY/ADD/REDUCE/EXIT, precio, timing, consenso, quality y slopes;
 - opción de trayectoria completa.
 
 No implementar esta UI hasta cerrar políticas del motor.
@@ -186,4 +186,4 @@ No implementar esta UI hasta cerrar políticas del motor.
 
 # Próxima acción
 
-No tocar pesos de `SELECTION_SLOPE_V1`. Ejecutar un tercer holdout independiente antes de decidir. Preferencia: **2025-04-01 → 2026-03-31**, DAILY, 13.000 €, automático, tramo 30 días. Aunque esa ventana se utilizó como holdout de QUALITY, no se utilizó para diseñar ni ajustar SLOPE y ofrece un régimen reciente muy distinto de 2012/2013. Comparación principal CORE HOLD vs SLOPE V1; CURRENT como referencia secundaria.
+Cerrar el bloque de experimentos de `SELECTION_SLOPE_V1` sin modificar pesos. El motor conserva CORE HOLD como hallazgo estructural validado; QUALITY ranking, QUALITY_SIZING y SLOPE quedan como diagnósticos experimentales no promocionados. El siguiente paso debe centrarse en consolidar el motor y atacar la brecha que sigue mostrando CURRENT frente a los brazos experimentales, sin añadir otra capa de scoring desconectada.
