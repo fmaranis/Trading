@@ -124,34 +124,51 @@ Backup previo: `backup/main-pre-selection-slope-v1-2026-09-02` → `aaaaa51a1f03
 
 Gates AI Studio previos al replay: lint, candidate gate, current opportunity alerts y trend-protection-counterfactual PASS.
 
-## Primera evidencia — 2013-01-02 → 2013-12-31 — holdout no usado previamente
+## Primera evidencia — 2013-01-02 → 2013-12-31
+
+CURRENT: final 13.850,98 €; +6,5460%; DD 6,7436%.
+CORE HOLD: final 13.721,83 €; +5,5525%; DD 6,6968%; turnover 21.571,31 €; cash final 2.574,30 €.
+SLOPE: final **13.784,28 €**; **+6,0329%**; DD **7,4902%**; turnover **23.229,91 €**; cash final **1.745,65 €**.
+
+SLOPE vs CORE:
+- **+62,45 € / +0,4804 pp**;
+- DD **+0,7934 pp peor**;
+- turnover **+1.658,61 €**.
+
+Mecanismo: termina más invertido y cambia composición: aproximadamente +789 € de entradas EUNL, +412 € Siemens, más SXRV/L'Oréal; evita LVMH y reduce Inditex/Airbus. Señal favorable vs CORE, pero no supera CURRENT y puede estar ligada al régimen alcista.
+
+## Segunda evidencia — 2012-01-03 → 2013-01-02
 
 CURRENT:
-- final 13.850,98 €; retorno +6,5460%; DD 6,7436%.
+- final **14.464,48 €**; retorno **+11,2652%**; DD **5,5113%**; turnover ~20.154,22 €.
 
 CORE HOLD:
-- final 13.721,83 €; retorno +5,5525%; DD 6,6968%; turnover 21.571,31 €; cash final 2.574,30 €.
+- final **14.449,52 €**; retorno **+11,1502%**; DD **5,3374%**; turnover **19.786,74 €**; cash final **2.862,48 €**.
 
 SELECTION_SLOPE_V1:
-- final **13.784,28 €**; retorno **+6,0329%**; DD **7,4902%**; turnover **23.229,91 €**; cash final **1.745,65 €**.
-- valid=true; cash nunca negativo; max posiciones 12/12.
+- final **14.375,44 €**; retorno **+10,5803%**; DD **4,5491%**; turnover **19.105,24 €**; cash final **3.262,75 €**.
+- valid=true; cash nunca negativo; restricciones de cartera respetadas.
 
-SLOPE vs CORE HOLD:
-- **+62,45 € / +0,4804 pp** de retorno;
-- DD **+0,7934 pp peor**;
-- turnover **+1.658,61 €**;
-- fees -1,59 €, tax estimado +3,98 €;
-- mismos 24 BUY y 35 ADD; 12 EXIT; REDUCE 3 → 1.
+SLOPE vs CORE:
+- **-74,08 € / -0,5699 pp** de retorno;
+- DD **-0,7883 pp mejor**;
+- turnover **-681,49 €**;
+- tax estimado ~-2,21 €; fees ~+2,05 €.
 
 SLOPE vs CURRENT:
-- **-66,70 € / -0,5130 pp** aproximadamente;
-- DD ~+0,7466 pp peor.
+- ~**-89,04 € / -0,6849 pp**;
+- DD ~**-0,9622 pp mejor**.
 
-Mecanismo observado: el ranking slope cambia composición/orden y termina más invertido. Frente a CORE, acumuló aproximadamente +789 € de entradas en EUNL y +412 € en Siemens, además de más SXRV/L'Oréal; evitó LVMH y redujo entradas en Inditex/Airbus. Cash final baja ~829 € vs CORE. El resultado favorable contra CORE puede estar parcialmente ligado al régimen alcista y a mayor despliegue de capital, por lo que **una sola ventana no justifica promoción**.
+Composición causal destacada vs CORE:
+- +927,79 € de entradas en L'Oréal;
+- +387,04 € en Repsol;
+- -746,99 € en EUNL;
+- -390 € Airbus;
+- -371,91 € 4GLD.
 
-Exact initial hold 2013: +3,3364%; todos los brazos dinámicos principales lo superan.
+La primera divergencia es inmediata: CORE compra 4GLD el 04/01/2012 mientras SLOPE prioriza Repsol; Repsol acaba en EXIT con ~-25,4%. SLOPE compensa parcialmente más adelante con L'Oréal, pero reduce de forma material EUNL. La diferencia frente a CORE es negativa durante prácticamente todo el año (~-50 € fin de enero, -173 € fin de marzo, -190 € fin de abril, -155 € fin de agosto, -74 € al cierre).
 
-Conclusión provisional: primera señal favorable vs CORE, pero con mayor DD/turnover y sin superar CURRENT. **Mantener pesos congelados y validar en otro holdout independiente antes de decidir.**
+Lectura acumulada de SLOPE: **2013 mejora retorno vs CORE pero empeora DD/turnover; 2012 reduce claramente DD/turnover pero pierde retorno.** Hay evidencia de que el score aporta una señal real y cambia composición, pero todavía no demuestra edge robusto de rentabilidad. Mantener pesos congelados; no recalibrar con estas dos ventanas.
 
 ---
 
@@ -169,4 +186,4 @@ No implementar esta UI hasta cerrar políticas del motor.
 
 # Próxima acción
 
-Validar `SELECTION_SLOPE_V1` en un segundo holdout independiente sin cambiar pesos/escalas. Preferencia: **2012-01-03 → 2012-12-31**, DAILY, 13.000 €, automático, tramo 30 días, si el dataset dispone de cobertura suficiente. Comparación principal CORE HOLD vs SLOPE V1; CURRENT sigue siendo referencia secundaria.
+No tocar pesos de `SELECTION_SLOPE_V1`. Ejecutar un tercer holdout independiente antes de decidir. Preferencia: **2025-04-01 → 2026-03-31**, DAILY, 13.000 €, automático, tramo 30 días. Aunque esa ventana se utilizó como holdout de QUALITY, no se utilizó para diseñar ni ajustar SLOPE y ofrece un régimen reciente muy distinto de 2012/2013. Comparación principal CORE HOLD vs SLOPE V1; CURRENT como referencia secundaria.
