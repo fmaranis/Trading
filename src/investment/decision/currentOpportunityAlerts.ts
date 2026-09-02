@@ -1,5 +1,5 @@
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
-import { PortfolioCandidateGate } from './portfolioCandidateGate';
+import { PortfolioCandidateGate, type CandidateSelectionPolicy } from './portfolioCandidateGate';
 import { CashBenchmarkService } from './cashBenchmark';
 import { StrategyConsensusEngine } from './strategyConsensusEngine';
 import { EntryTimingEngine, type EntryTimingSetup, type EntryTimingState } from './entryTiming';
@@ -14,6 +14,8 @@ export interface CurrentOpportunityAlert {
   asOfDate: string | null;
   rankingScore: number;
   scannerScore: number | null;
+  reliabilityScore: number | null;
+  opportunityScore: number | null;
   momentum20Pct: number | null;
   momentum60Pct: number | null;
   momentum120Pct: number | null;
@@ -40,12 +42,16 @@ function levelRank(level: CurrentOpportunityLevel): number {
  *
  * Candidate quality and entry timing are deliberately separate. An asset can
  * pass REAL data + cash hurdle + BUY consensus and still emit no alert today
- * when the causal timing layer says WAIT. This prevents the allocator from
- * treating every strategically attractive asset as an immediate order.
+ * when the causal timing layer says WAIT. QUALITY_V1 only changes relative
+ * ranking/sizing evidence; it never bypasses these gates.
  */
 export class CurrentOpportunityAlertEngine {
-  static evaluate(scan: AssetUniverseScanResult, cashBenchmarkAnnualPct = CashBenchmarkService.load()): CurrentOpportunityAlert[] {
-    const gate = PortfolioCandidateGate.apply(scan, cashBenchmarkAnnualPct, 1000);
+  static evaluate(
+    scan: AssetUniverseScanResult,
+    cashBenchmarkAnnualPct = CashBenchmarkService.load(),
+    selectionPolicy: CandidateSelectionPolicy = 'LEGACY'
+  ): CurrentOpportunityAlert[] {
+    const gate = PortfolioCandidateGate.apply(scan, cashBenchmarkAnnualPct, 1000, selectionPolicy);
     const alerts: CurrentOpportunityAlert[] = [];
 
     for (const entry of gate.entries) {
@@ -90,11 +96,13 @@ export class CurrentOpportunityAlertEngine {
         entry.annualizedProxyPct == null || entry.excessVsCashPctPoints == null
           ? `Supera el filtro de efectivo de ${cashBenchmarkAnnualPct.toFixed(2)}%`
           : `Proxy anual ${entry.annualizedProxyPct.toFixed(1)}% · +${entry.excessVsCashPctPoints.toFixed(1)} pp frente al efectivo`,
+        `Reliability ${entry.reliabilityScore?.toFixed(1) ?? 'N/D'}/100 · Opportunity ${entry.opportunityScore?.toFixed(1) ?? 'N/D'}/100`,
         `Momentum 20/60/120: ${m20?.toFixed(1) ?? 'N/D'}% / ${m60?.toFixed(1) ?? 'N/D'}% / ${m120?.toFixed(1) ?? 'N/D'}%`,
         `Volatilidad ${vol?.toFixed(1) ?? 'N/D'}% · drawdown actual ${dd?.toFixed(1) ?? 'N/D'}%`,
         ...timing.reasons
       ];
       if (longTrendHealthy) reasons.push('Tendencia larga positiva y precio por encima de SMA200');
+      if (selectionPolicy === 'QUALITY_V1') reasons.push('Ranking QUALITY_V1: la persistencia histórica y la oportunidad actual modulan la prioridad sin saltarse cash, consenso ni timing.');
 
       alerts.push({
         assetId: entry.assetId,
@@ -104,6 +112,8 @@ export class CurrentOpportunityAlertEngine {
         asOfDate: candidate.asOfDate,
         rankingScore: entry.rankingScore ?? candidate.score ?? -999,
         scannerScore: candidate.score,
+        reliabilityScore: entry.reliabilityScore,
+        opportunityScore: entry.opportunityScore,
         momentum20Pct: m20,
         momentum60Pct: m60,
         momentum120Pct: m120,
