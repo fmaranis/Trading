@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { classifyTrendProtectionV1, profitCaptureRatioPct } from '../src/investment/decision/trendProtectionPolicy';
+import { classifyTrendProtectionV1, classifyTrendProtectionV2, profitCaptureRatioPct } from '../src/investment/decision/trendProtectionPolicy';
 import type { StrategyConsensusAssessment, TrendStructureState } from '../src/investment/decision/strategyConsensusEngine';
 
 function assessment(state: TrendStructureState, overrides: Partial<StrategyConsensusAssessment> = {}): StrategyConsensusAssessment {
@@ -53,7 +53,7 @@ assert.equal(winner.action, 'REDUCE');
 assert.equal(winner.suggestedReductionPct, 50);
 assert.equal(winner.winnerProtectionArmed, true);
 
-const healthyWinner = classifyTrendProtectionV1(assessment('HEALTHY_UPTREND', {
+const healthyAssessment = assessment('HEALTHY_UPTREND', {
   trendStructure: {
     ...assessment('HEALTHY_UPTREND').trendStructure,
     regressionSlope20AnnualizedPct: 18,
@@ -62,7 +62,8 @@ const healthyWinner = classifyTrendProtectionV1(assessment('HEALTHY_UPTREND', {
     breakdown20: false,
     state: 'HEALTHY_UPTREND'
   }
-}), {
+});
+const healthyWinner = classifyTrendProtectionV1(healthyAssessment, {
   currentReturnPct: 22,
   mfePct: 25,
   givebackFromMfePctPoints: 3,
@@ -70,11 +71,12 @@ const healthyWinner = classifyTrendProtectionV1(assessment('HEALTHY_UPTREND', {
 });
 assert.equal(healthyWinner.action, 'HOLD');
 
-const failedSatellite = classifyTrendProtectionV1(assessment('DOWNTREND', {
+const failedAssessment = assessment('DOWNTREND', {
   consensusScore: -3,
   unfavorableVotes: 4,
   favorableVotes: 0
-}), {
+});
+const failedSatellite = classifyTrendProtectionV1(failedAssessment, {
   currentReturnPct: -16,
   mfePct: 1,
   givebackFromMfePctPoints: 17,
@@ -96,13 +98,109 @@ const failedCore = classifyTrendProtectionV1(assessment('BREAKDOWN_RISK', {
 assert.equal(failedCore.action, 'REDUCE');
 assert.equal(failedCore.suggestedReductionPct, 50);
 
+// V2: a first break is protection state, not an immediate trade.
+const v2FreshWinner = classifyTrendProtectionV2(assessment('BREAKDOWN_RISK', {
+  consensusScore: -1,
+  unfavorableVotes: 2
+}), {
+  currentReturnPct: 10,
+  mfePct: 20,
+  givebackFromMfePctPoints: 10,
+  isDiversifiedCore: false,
+  deteriorationStreakSessions: 1
+});
+assert.equal(v2FreshWinner.action, 'PROTECT');
+assert.equal(v2FreshWinner.suggestedReductionPct, null);
+assert.equal(v2FreshWinner.confirmationStage, 'ARMED');
+
+const v2ConfirmedWinner = classifyTrendProtectionV2(assessment('BREAKDOWN_RISK', {
+  consensusScore: -2,
+  unfavorableVotes: 3
+}), {
+  currentReturnPct: 9,
+  mfePct: 20,
+  givebackFromMfePctPoints: 11,
+  isDiversifiedCore: false,
+  deteriorationStreakSessions: 3
+});
+assert.equal(v2ConfirmedWinner.action, 'REDUCE');
+assert.equal(v2ConfirmedWinner.suggestedReductionPct, 25);
+assert.equal(v2ConfirmedWinner.confirmationStage, 'CONFIRMED');
+
+const v2HealthyWinner = classifyTrendProtectionV2(healthyAssessment, {
+  currentReturnPct: 18,
+  mfePct: 25,
+  givebackFromMfePctPoints: 7,
+  isDiversifiedCore: false,
+  deteriorationStreakSessions: 0
+});
+assert.equal(v2HealthyWinner.action, 'HOLD');
+assert.equal(v2HealthyWinner.reclaimDetected, true);
+
+// Sanofi-like case: deep loss + downtrend on a fresh break must not liquidate 100%.
+const v2FreshLoser = classifyTrendProtectionV2(failedAssessment, {
+  currentReturnPct: -16.4,
+  mfePct: 0,
+  givebackFromMfePctPoints: 16.4,
+  isDiversifiedCore: false,
+  deteriorationStreakSessions: 2
+});
+assert.equal(v2FreshLoser.action, 'PROTECT');
+assert.equal(v2FreshLoser.suggestedReductionPct, null);
+
+const v2ConfirmedLoser = classifyTrendProtectionV2(failedAssessment, {
+  currentReturnPct: -16.4,
+  mfePct: 0,
+  givebackFromMfePctPoints: 16.4,
+  isDiversifiedCore: false,
+  deteriorationStreakSessions: 6
+});
+assert.equal(v2ConfirmedLoser.action, 'REDUCE');
+assert.equal(v2ConfirmedLoser.suggestedReductionPct, 25);
+
+const v2HardLoser = classifyTrendProtectionV2(failedAssessment, {
+  currentReturnPct: -20,
+  mfePct: 0,
+  givebackFromMfePctPoints: 20,
+  isDiversifiedCore: false,
+  deteriorationStreakSessions: 10
+});
+assert.equal(v2HardLoser.action, 'EXIT');
+assert.equal(v2HardLoser.suggestedReductionPct, 100);
+assert.equal(v2HardLoser.confirmationStage, 'PERSISTENT');
+
+const v2Core = classifyTrendProtectionV2(assessment('BREAKDOWN_RISK', {
+  consensusScore: -2,
+  unfavorableVotes: 3,
+  favorableVotes: 1
+}), {
+  currentReturnPct: -13,
+  mfePct: 2,
+  givebackFromMfePctPoints: 15,
+  isDiversifiedCore: true,
+  deteriorationStreakSessions: 6
+});
+assert.equal(v2Core.action, 'REDUCE');
+assert.equal(v2Core.suggestedReductionPct, 25);
+
 assert.equal(profitCaptureRatioPct(10, 20), 50);
 assert.equal(profitCaptureRatioPct(-3, 20), null);
 assert.equal(profitCaptureRatioPct(5, 0), null);
 
 console.log('TREND_PROTECTION_POLICY_RESULT', JSON.stringify({
-  winner: winner.action,
-  healthyWinner: healthyWinner.action,
-  failedSatellite: failedSatellite.action,
-  failedCore: failedCore.action
+  v1: {
+    winner: winner.action,
+    healthyWinner: healthyWinner.action,
+    failedSatellite: failedSatellite.action,
+    failedCore: failedCore.action
+  },
+  v2: {
+    freshWinner: v2FreshWinner.action,
+    confirmedWinner: v2ConfirmedWinner.action,
+    healthyWinner: v2HealthyWinner.action,
+    freshLoser: v2FreshLoser.action,
+    confirmedLoser: v2ConfirmedLoser.action,
+    hardLoser: v2HardLoser.action,
+    failedCore: v2Core.action
+  }
 }));
