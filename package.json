@@ -29,6 +29,7 @@
     "test:single-asset-research": "tsx tests/singleAssetResearch.unit.ts",
     "test:strategy-consensus": "tsx tests/strategyConsensus.unit.ts",
     "test:trend-protection": "tsx tests/trendProtectionPolicy.unit.ts",
+    "test:trend-protection-counterfactual": "tsx tests/trendProtectionCounterfactual.unit.ts",
     "test:broker-execution": "tsx tests/brokerExecution.unit.ts",
     "test:broker-backtest-feasibility": "tsx tests/brokerBacktestFeasibility.unit.ts",
     "test:broker-backtest-feasibility:live": "tsx scripts/brokerBacktestFeasibilityLive.ts",
