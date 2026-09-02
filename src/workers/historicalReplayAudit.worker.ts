@@ -1,5 +1,6 @@
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import { buildCurrentVsCoreCausalAttribution } from '../investment/decision/causalReplayAttribution';
+import { buildV2ReductionOutcomeAudit } from '../investment/decision/v2ReductionOutcomeAudit';
 import { runDynamicReplayWithQualitySizingExperiment } from '../investment/decision/replayQualitySizingExperiment';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
 import { runDynamicReplayWithSelectionQualityExperiment } from '../investment/decision/replaySelectionQualityExperiment';
@@ -150,6 +151,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
     if (isFinalCheckpoint) {
       const v2Replay = runDynamicReplayWithTrendProtectionV2Experiment(input);
       const v2Comparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: v2Replay, riskProfile: configuration.riskProfile });
+      const v2ReductionOutcomeAudit = buildV2ReductionOutcomeAudit({ dataset, v2Comparison });
 
       const strategicCoreReplay = runDynamicReplayWithStrategicCoreHoldExperiment(input);
       const strategicCoreComparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: strategicCoreReplay, riskProfile: configuration.riskProfile });
@@ -171,6 +173,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       result.trendProtectionV2Counterfactual = {
         ...v2Comparison,
         currentVsCoreAttribution,
+        v2ReductionOutcomeAudit,
         strategicCoreHoldExperiment: {
           ...strategicCoreComparison,
           policy: 'STRATEGIC_CORE_HOLD_V1',
@@ -221,6 +224,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       result.notes.push(
         'A/B principal basado en FULL_CAUSAL_REPLAY: todos los brazos son carteras ejecutables y la divergencia posterior es una consecuencia económica causal.',
         'CURRENT_VS_CORE_CAUSAL_ATTRIBUTION_V1 no añade otro brazo: descompone exactamente CORE−CURRENT en efecto V2 + efecto incremental STRATEGIC_CORE_HOLD y registra primera divergencia, diferencias por activo y uso de cash.',
+        'V2_REDUCTION_OUTCOME_AUDIT_V1 es exclusivamente ex post: usa precios posteriores para auditar REDUCE ya ejecutados (20/60 sesiones y fin de replay) y está prohibido usarlo como input causal del motor.',
         'Tercer brazo STRATEGIC_CORE_HOLD_V1: conserva el core estratégico acumulado frente a ventas/rotaciones tácticas cortas.',
         'Cuarto brazo SELECTION_QUALITY_V1: ReliabilityScore + OpportunityScore sólo para ranking.',
         'Quinto brazo QUALITY_SIZING_V1: ranking LEGACY con sizing conservador por quality; permanece diagnóstico tras resultados OOS mixtos.',
