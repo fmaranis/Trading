@@ -6,11 +6,11 @@
 
 - Nunca usar GitHub Actions. Validaciones en local/AI Studio.
 - ChatGPT modifica GitHub; AI Studio trabaja sobre `main` para ejecutar/Preview/validar.
-- Antes de cambios sustanciales, conservar backup cuando sea útil; revertir sólo deltas concretos, no volver atrás todo el proyecto.
 - REAL / STATIC_REFERENCE / SYNTHETIC siempre explícito; sin fallback sintético silencioso.
 - Replay causal: sólo información disponible hasta la fecha; ejecución posterior a señal; sin lookahead.
 - No polling/agentes para procesos largos. El usuario avisa al terminar y ChatGPT revisa una vez.
-- No calibrar thresholds sobre una ventana usada ya para diagnóstico.
+- No calibrar thresholds sobre ventanas usadas ya para diagnóstico.
+- Mantener `PROJECT_STATE.md` como memoria canónica del proyecto.
 
 ---
 
@@ -43,14 +43,12 @@ Integridad cerrada:
 
 # TREND_PROTECTION_V2
 
-V2 vive en `trendProtectionPolicy.ts`; V1 queda como referencia diagnóstica.
-
 Flujo: **HEALTHY → WATCH → PROTECT → REDUCE → EXIT**.
 
-Hipótesis actuales, todavía no promocionadas:
+Hipótesis actuales, NO promocionadas:
 - ganador: MFE >=8% + giveback >=6 pp + deterioro corto;
 - REDUCE inicial 25%, máximo uno por episodio realmente ejecutado;
-- perdedor necesita persistencia causal antes de REDUCE;
+- perdedor requiere persistencia causal antes de REDUCE;
 - hard EXIT sólo para fallo satélite profundo/persistente;
 - reclaim claro desarma episodio;
 - ETF con REDUCE25 inferior a 1 título entero se degrada a PROTECT;
@@ -62,59 +60,58 @@ A/B principal: `FULL_CAUSAL_REPLAY_SAME_DECISION_ENGINE`.
 - divergencia posterior de entradas por cash/plazas es causal y no invalida el A/B;
 - `valid=true` exige cash no negativo, trayectoria finita y plazas respetadas.
 
----
+Corrección semántica cerrada:
+- `[TREND_PROTECTION_V2:WATCH]` y `:PROTECT` bloquean rotación competitiva/CORE_GATE;
+- sólo REDUCE/EXIT autorizan venta por V2;
+- el cambio mejoró materialmente 2024/25 y fue prácticamente neutro en COVID y 2021/22.
 
-# Evidencia FULL_CAUSAL 12 meses acumulada
-
-| Ventana | Baseline | V2 | Δ retorno V2 | Δ DD V2 |
-|---|---:|---:|---:|---:|
-| 2020-02-03 → 2021-02-02 | +3,651% | +5,517% | **+1,866 pp** | +0,092 pp peor |
-| 2021-11-01 → 2022-10-31 | +0,221% | -0,292% | **-0,512 pp** | **-0,423 pp mejor** |
-| 2022-07-11 → 2023-07-10 | -0,969% | -1,428% | **-0,458 pp** | **-0,027 pp mejor** |
-| 2024-04-01 → 2025-03-31 | +6,812% | +4,723% | **-2,089 pp** | +1,425 pp peor |
-
-Lectura:
-- V2 gana claramente sólo en COVID, principalmente por conservar/reconstruir exposición durante el rebote; no mejora el trough inicial.
-- En 2021/22 reduce DD ~0,42 pp pero acaba ~66,6 € peor; reduce varios cores diversificados durante mayo-junio y queda con más cash durante rebotes.
-- En 2022/23 queda ~59,6 € peor aunque DD/fees/turnover mejoran ligeramente.
-- En 2024/25 queda ~271,6 € peor y DD también empeora; la divergencia comienza antes del REDUCE de marzo de 2025 por cambios de rotación/composición.
-- Resultado agregado: V2 no es todavía robusto y **no debe promocionarse ni ajustarse por thresholds con estas ventanas**.
+Backup previo: `backup/main-pre-v2-watch-protect-rotation-2026-09-02` → `dbe5a1ebd5e8f8cec8dedcb25cda518e0168bb6c`.
 
 ---
 
-# Defecto arquitectónico detectado: prioridad WATCH/PROTECT vs rotación
+# Cuatro ventanas FULL_CAUSAL cerradas con arquitectura actual
 
-Los replays 2024/25 y 2021/22 muestran que una posición etiquetada por V2 como WATCH podía seguir entrando en la lista de incumbents rotables del motor base. CORE_GATE_V1 se ejecuta después sobre esa rotación.
+| Ventana | CURRENT_POLICY | V2 actual | Δ retorno V2 | Δ DD V2 | Δ final € |
+|---|---:|---:|---:|---:|---:|
+| 2020-02-03 → 2021-02-02 | +3,6506% | +5,5133% | **+1,8627 pp** | +0,0917 pp peor | **+242,15 €** |
+| 2021-11-01 → 2022-10-31 | +0,2208% | -0,2916% | **-0,5124 pp** | **-0,4230 pp mejor** | **-66,62 €** |
+| 2022-07-11 → 2023-07-10 | -0,9692% | -1,4275% | **-0,4583 pp** | **-0,0275 pp mejor** | **-59,58 €** |
+| 2024-04-01 → 2025-03-31 | +6,8119% | +5,1721% | **-1,6398 pp** | +0,4060 pp peor | **-213,18 €** |
 
-Eso contradice la semántica definida: **WATCH/PROTECT = observar/proteger, pero NO vender aún**.
+Agregado de las cuatro ventanas de 12 meses:
+- V2 gana en retorno sólo **1 de 4** ventanas;
+- suma de diferencias finales: **-97,22 €** sobre cuatro pruebas de 13.000 €;
+- suma de Δ retorno: **-0,7478 pp**, media **-0,1870 pp por ventana**;
+- DD mejora en 2/4 y empeora en 2/4;
+- V2 no muestra robustez suficiente para sustituir CURRENT_POLICY.
 
-Corrección implementada en `replayTrendProtectionV2Experiment.ts`:
-- nueva función `isTrendProtectionV2RotationBlockedReason()` reconoce `[TREND_PROTECTION_V2:WATCH]` y `[TREND_PROTECTION_V2:PROTECT]`;
-- cualquier rotación competitiva generada para esos estados se elimina antes de que CORE_GATE_V1 pueda procesarla;
-- se elimina también la `ROTATION_ENTRY` pareja y se recalculan proceeds/deployable/recommended/residual cash;
-- sólo `V2:REDUCE` o `V2:EXIT` autorizan una venta protectora;
-- baseline no cambia porque esas etiquetas sólo existen en el brazo V2.
+Lectura por régimen:
+- COVID: V2 gana por conservar/reconstruir exposición durante el rebote; no evita mejor el trough.
+- 2021/22: mejora DD pero reduce cores diversificados durante la caída y queda demasiado defensivo durante rebotes.
+- 2022/23: el bloqueo WATCH/PROTECT no cambia ninguna decisión; el replay nuevo es legítimamente idéntico al anterior. V2 queda ~59,6 € peor.
+- 2024/25: el bloqueo WATCH/PROTECT corrige varias rotaciones indebidas y mejora V2 de +4,723% a +5,172%, pero sigue -1,640 pp por debajo del baseline.
 
-Regresión añadida en `tests/trendProtectionCounterfactual.unit.ts`:
-- WATCH → rotationBlocked=true;
-- PROTECT → rotationBlocked=true;
-- HOLD/REDUCE/EXIT → false;
-- ninguna venta ejecutada del replay V2 puede conservar una etiqueta WATCH/PROTECT;
-- se mantienen gates de cash no negativo y máximo MEDIUM <=12.
+Conclusión: **TREND_PROTECTION_V2 no se promociona y no se reajustan sus thresholds con estas mismas ventanas**.
 
-Backup previo al cambio:
-`backup/main-pre-v2-watch-protect-rotation-2026-09-02` → `dbe5a1ebd5e8f8cec8dedcb25cda518e0168bb6c`.
+---
 
-No se ha cambiado ningún threshold MFE/giveback/streak/hard EXIT ni ninguna regla de entrada.
+# Hipótesis observada sobre generación de alfa — aparcada para fase posterior
+
+El usuario observa que la estrategia suele empezar a destacar frente a mantener la cohorte inicial cuando, tras varios meses, detecta una oportunidad persistente y concentra mucho capital en ella.
+
+Lectura provisional:
+- el motor ya despliega bastante capital temprano, pero muy repartido entre STARTER pequeños;
+- cuando genera alfa de forma clara, con frecuencia coincide con concentraciones posteriores de alta convicción y múltiples ADD/rotaciones hacia una posición dominante;
+- no es una regla universal de “mes 7-8”, pero sí una hipótesis fuerte sobre selección + sizing;
+- conservar esta observación para el bloque futuro de `ReliabilityScore / OpportunityScore / sizing`, sin actuar sobre ella durante el cierre de V2.
 
 ---
 
 # Próxima acción
 
-1. Sincronizar `main` al HEAD actual.
-2. Ejecutar `npm run lint`.
-3. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
-4. El test debe devolver `valid=true`, cash no negativo, max positions <=12, `wholeShareBlockedAction=PROTECT`, `watchRotationBlocked=true` y `protectRotationBlocked=true`.
-5. Si ambos gates pasan, repetir **sólo** la ventana contaminada por este defecto: `2024-04-01 → 2025-03-31`, DAILY, 12 meses, 13.000 €.
-6. No tocar thresholds antes de ver ese replay corregido.
-7. Si la pérdida de 2024/25 se reduce materialmente, repetir después 2021/22 y COVID para comprobar que el bloqueo semántico no destruye la mejora previa.
+1. Dar por cerrada la validación de mecanismo de TREND_PROTECTION_V2 en estas cuatro ventanas.
+2. No tocar thresholds MFE/giveback/streak/hard EXIT.
+3. No promocionar V2 como política global.
+4. Siguiente bloque del plan: analizar la separación de gestión entre **core diversificado** y **posiciones tácticas/satélite**, porque los datos muestran que reducir cores durante shocks puede proteger DD pero perder recuperación.
+5. Diseñar la siguiente hipótesis de forma arquitectónica y causal antes de escribir código; no optimizarla contra estas cuatro ventanas.
+6. Después volver a validar con holdouts independientes/24-36m antes de cualquier promoción.
