@@ -20,6 +20,7 @@ export * from './remuneratedCash';
 export * from './causalUniverseBacktestEngine';
 export * from './causalReplayAttribution';
 export * from './v2ReductionOutcomeAudit';
+export * from './trendProtectionV2MediumTermConfirm';
 export * from './historicalDecisionReplay';
 export * from './dynamicHistoricalReplay';
 export * from './dynamicHistoricalReplayBatch';
