@@ -85,8 +85,8 @@ Objetivo: probar si Reliability/Opportunity mejoran **DÓNDE** sin tocar sizing.
 
 Implementación:
 - `src/investment/decision/assetSelectionQuality.ts`
-- `PortfolioCandidateGate`: `LEGACY | QUALITY_V1`
-- `CurrentOpportunityAlertEngine` expone ambos scores.
+- `PortfolioCandidateGate`: `LEGACY | QUALITY_V1 | SLOPE_V1`.
+- `CurrentOpportunityAlertEngine` expone Reliability/Opportunity.
 - `replaySelectionQualityExperiment.ts`.
 
 ReliabilityScore 0–100:
@@ -156,34 +156,61 @@ SIZING vs CORE HOLD:
 - **-226,61 € / -1,7431 pp**.
 - DD mejora de 2,8523% a **1,9354%** (-0,9169 pp).
 - turnover baja de 11.078,71 € a **8.884,72 €** (-2.193,98 €).
-- fiscalidad estimada -4,14 €.
-- fees +3 €.
 - cash final: 6.593,34 € vs 5.139,89 € en CORE; exposición final ~52,1% invertida vs ~63,3% en CORE.
 
-Mecanismo causal 2016:
-- el coste aparece progresivamente al mantener más cash durante la recuperación de la segunda mitad del año;
-- diferencia de equity vs CORE: ~-72 € fin de junio, -123 € fin de julio, -117 € fin de septiembre, -155 € fin de noviembre y -227 € al cierre;
-- se infraponderan, entre otros, EUNL (~-472 € de entradas), EQQQ (~-419 €), IS3N (~-361 €), 4GLD (~-241 €), SAP (~-236 €), además de Adidas; el cash remunerado no compensa el coste de oportunidad.
+Mecanismo causal 2016: el coste aparece progresivamente al mantener más cash durante la recuperación de la segunda mitad del año. El cash remunerado no compensa el coste de oportunidad.
 
-Conclusión: **QUALITY_SIZING_V1 no es robusto y no debe promocionarse**. Ayuda en 2014 y ligeramente en 2017-18, pero falla materialmente en 2016 al ser demasiado conservador en un régimen de recuperación. No recalibrar los tiers usando estas ventanas; conservar el experimento como evidencia negativa/diagnóstica.
+Conclusión: **QUALITY_SIZING_V1 no es robusto y no debe promocionarse**. No recalibrar los tiers usando estas ventanas; conservar el experimento como evidencia negativa/diagnóstica.
 
 ---
 
-# Pendientes / slopes — siguiente bloque
+# SELECTION_SLOPE_V1 — sexto brazo causal
 
-El motor ya calcula causalmente:
-- pendiente de regresión log-precio 20/60/120 sesiones;
-- aceleración de pendiente 20 vs 60;
-- pendiente de SMA20 y SMA50;
-- breakout/breakdown 20.
+Objetivo: probar si la **forma, continuidad y aceleración de la tendencia** mejoran DÓNDE sin repetir el experimento de sizing.
 
-Actualmente estas pendientes se usan en diagnóstico de tendencia y Trend Protection, pero **no tienen peso explícito propio dentro del score de selección/oportunidad**.
+Arquitectura:
+- base económica = `STRATEGIC_CORE_HOLD_V1`;
+- sizing = **LEGACY** completo; no usa QUALITY_SIZING_V1;
+- caps STARTER/BUILD, slots, cash, Entry Timing, CORE_GATE y Trend Protection no cambian;
+- REAL + cash + consenso BUY + Entry Timing siguen siendo gates obligatorios;
+- `SLOPE_V1` sólo modifica el ranking relativo entre candidatos ya elegibles.
 
-Próximo experimento recomendado: `SELECTION_SLOPE_V1`, aislado de sizing.
-- mantener LEGACY/CORE HOLD como base;
-- no cambiar STARTER/BUILD, caps, slots, cash, CORE_GATE ni Trend Protection;
-- añadir únicamente una capa causal de slope quality / slope acceleration al ranking u OpportunityScore;
-- evitar duplicar momentum: la pendiente debe aportar forma/continuidad/aceleración de tendencia, no repetir el retorno 20/60/120;
-- validar en holdouts no usados para calibrar thresholds.
+Implementación:
+- `StrategyConsensusEngine.assessTrendStructure()` sigue siendo la única fuente de pendientes; no se duplica cálculo.
+- `assetSelectionQuality.ts` añade `assessSlopeSelectionQuality()`.
+- `PortfolioCandidateGate` añade política explícita `SLOPE_V1` y `slopeQualityScore` auditable.
+- `replaySlopeSelectionExperiment.ts` fuerza SLOPE_V1 sobre STRATEGIC_CORE_HOLD_V1.
+- `historicalReplayAudit.worker.ts` exporta `trendProtectionV2Counterfactual.slopeSelectionExperiment` como sexto brazo.
 
-No combinar slopes y sizing en el mismo primer A/B.
+SlopeQuality 0–100:
+- 25% regresión log-precio 120 sesiones;
+- 25% regresión 60;
+- 15% regresión 20;
+- 15% pendiente SMA20;
+- 10% pendiente SMA50;
+- 10% aceleración slope20 - slope60.
+
+Normalización:
+- transformación suave y acotada `50 + 50*tanh(slope/scale)`;
+- valores extremos saturan y no dominan el ranking;
+- missing = neutral 50/100, no se inventa pendiente;
+- el ajuste final de ranking queda limitado a **±10 puntos**: `(SlopeQuality - 50) × 0,20` con clamp.
+
+Rationale: no usar breakout/breakdown como peso adicional en este primer A/B para evitar mezclar slopes con otro trigger discreto; tampoco se reutiliza el momentum 20/60/120 dentro de SlopeQuality.
+
+Backup previo:
+`backup/main-pre-selection-slope-v1-2026-09-02` → `aaaaa51a1f03c02e7887e889a3f1daa1b8b12a9b`.
+
+Estado: implementación terminada; **gates AI Studio pendientes**. Los pesos/escalas son diseño ex ante y no se han calibrado con los resultados históricos ya observados.
+
+---
+
+# Próxima acción
+
+1. Sincronizar `main`.
+2. Ejecutar `npm run lint`.
+3. Si PASS, ejecutar `npm run test:portfolio-candidate-gate`.
+4. Si PASS, ejecutar `npm run test:current-opportunity-alerts`.
+5. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
+6. Detenerse en el primer fallo y corregir sólo ese gate.
+7. Si todos pasan, ejecutar una primera ventana de replay con el sexto brazo y comparar principalmente **CORE HOLD vs SELECTION_SLOPE_V1**.
