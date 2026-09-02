@@ -1,4 +1,5 @@
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
+import { runDynamicReplayWithQualitySizingExperiment } from '../investment/decision/replayQualitySizingExperiment';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
 import { runDynamicReplayWithSelectionQualityExperiment } from '../investment/decision/replaySelectionQualityExperiment';
 import { runDynamicReplayWithStrategicCoreHoldExperiment } from '../investment/decision/replayStrategicCoreHoldExperiment';
@@ -168,6 +169,13 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
         riskProfile: configuration.riskProfile
       });
 
+      const qualitySizingReplay = runDynamicReplayWithQualitySizingExperiment(input);
+      const qualitySizingComparison = buildTrendProtectionV2ReplayComparison({
+        baseline: result,
+        v2: qualitySizingReplay,
+        riskProfile: configuration.riskProfile
+      });
+
       result.trendProtectionV2Counterfactual = {
         ...v2Comparison,
         strategicCoreHoldExperiment: {
@@ -188,14 +196,27 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
           deltaVsTrendProtectionV2: armDelta(v2Comparison, selectionQualityComparison),
           notes: [
             ...selectionQualityComparison.notes,
-            'SELECTION_QUALITY_V1 es el cuarto brazo. Parte de STRATEGIC_CORE_HOLD_V1 y cambia únicamente el ranking relativo de candidatos ya elegibles mediante ReliabilityScore + OpportunityScore causales. STARTER/BUILD, Entry Timing, cash, slots, CORE_GATE y protección permanecen congelados; sizing basado en calidad se probará sólo después si esta capa demuestra valor.'
+            'SELECTION_QUALITY_V1 cambia únicamente el ranking relativo de candidatos ya elegibles mediante ReliabilityScore + OpportunityScore causales. STARTER/BUILD, Entry Timing, cash, slots, CORE_GATE y protección permanecen congelados.'
+          ]
+        },
+        qualitySizingExperiment: {
+          ...qualitySizingComparison,
+          policy: 'QUALITY_SIZING_V1',
+          methodology: 'FULL_CAUSAL_REPLAY_STRATEGIC_CORE_HOLD_PLUS_CAUSAL_QUALITY_SIZING_LEGACY_SELECTION',
+          deltaVsStrategicCoreHold: armDelta(strategicCoreComparison, qualitySizingComparison),
+          deltaVsSelectionQuality: armDelta(selectionQualityComparison, qualitySizingComparison),
+          deltaVsTrendProtectionV2: armDelta(v2Comparison, qualitySizingComparison),
+          notes: [
+            ...qualitySizingComparison.notes,
+            'QUALITY_SIZING_V1 es un brazo separado de selección: mantiene ranking LEGACY y STRATEGIC_CORE_HOLD_V1, y sólo reduce importes STARTER/BUILD según un composite causal Reliability/Opportunity. Los caps originales nunca aumentan y ROTATION_ENTRY queda sin cambios.'
           ]
         }
       } as any;
       result.notes.push(
         'A/B V2 principal sustituido por FULL_CAUSAL_REPLAY: todos los brazos son carteras ejecutables y la divergencia posterior de entradas es una consecuencia económica causal.',
         'Tercer brazo STRATEGIC_CORE_HOLD_V1: conserva el core estratégico acumulado frente a ventas/rotaciones tácticas cortas.',
-        'Cuarto brazo SELECTION_QUALITY_V1: añade ReliabilityScore + OpportunityScore sólo al ranking de candidatos ya aprobados. No cambia todavía sizing ni thresholds de entrada/protección.'
+        'Cuarto brazo SELECTION_QUALITY_V1: añade ReliabilityScore + OpportunityScore sólo al ranking de candidatos ya aprobados.',
+        'Quinto brazo QUALITY_SIZING_V1: vuelve al ranking LEGACY y usa ReliabilityScore + OpportunityScore sólo para reducir de forma conservadora STARTER/BUILD; no amplifica caps ni modifica entradas por rotación.'
       );
       persistCounterfactualInAuditSignal(result);
     }
