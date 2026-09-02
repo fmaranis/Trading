@@ -2,6 +2,7 @@ import { appendRotationCounterfactualAudit } from '../investment/decision/rotati
 import { runDynamicReplayWithQualitySizingExperiment } from '../investment/decision/replayQualitySizingExperiment';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
 import { runDynamicReplayWithSelectionQualityExperiment } from '../investment/decision/replaySelectionQualityExperiment';
+import { runDynamicReplayWithSlopeSelectionExperiment } from '../investment/decision/replaySlopeSelectionExperiment';
 import { runDynamicReplayWithStrategicCoreHoldExperiment } from '../investment/decision/replayStrategicCoreHoldExperiment';
 import { runDynamicReplayWithTrendProtectionV2Experiment } from '../investment/decision/replayTrendProtectionV2Experiment';
 import { buildTrendProtectionV2ReplayComparison } from '../investment/decision/trendProtectionReplayComparison';
@@ -81,8 +82,6 @@ function persistCounterfactualInAuditSignal(result: any): void {
   const counterfactual = result?.trendProtectionV2Counterfactual;
   if (!counterfactual) return;
 
-  // HistoricalReplayProgressivePanel preserves the complete signal object in v3.
-  // One audit extension therefore persists the complete multi-arm comparison.
   const auditSignal = result.signals?.[0];
   if (auditSignal) {
     auditSignal.auditExtensions = {
@@ -149,32 +148,19 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
     const isFinalCheckpoint = sourceEndDate != null && message.endDate >= sourceEndDate;
     if (isFinalCheckpoint) {
       const v2Replay = runDynamicReplayWithTrendProtectionV2Experiment(input);
-      const v2Comparison = buildTrendProtectionV2ReplayComparison({
-        baseline: result,
-        v2: v2Replay,
-        riskProfile: configuration.riskProfile
-      });
+      const v2Comparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: v2Replay, riskProfile: configuration.riskProfile });
 
       const strategicCoreReplay = runDynamicReplayWithStrategicCoreHoldExperiment(input);
-      const strategicCoreComparison = buildTrendProtectionV2ReplayComparison({
-        baseline: result,
-        v2: strategicCoreReplay,
-        riskProfile: configuration.riskProfile
-      });
+      const strategicCoreComparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: strategicCoreReplay, riskProfile: configuration.riskProfile });
 
       const selectionQualityReplay = runDynamicReplayWithSelectionQualityExperiment(input);
-      const selectionQualityComparison = buildTrendProtectionV2ReplayComparison({
-        baseline: result,
-        v2: selectionQualityReplay,
-        riskProfile: configuration.riskProfile
-      });
+      const selectionQualityComparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: selectionQualityReplay, riskProfile: configuration.riskProfile });
 
       const qualitySizingReplay = runDynamicReplayWithQualitySizingExperiment(input);
-      const qualitySizingComparison = buildTrendProtectionV2ReplayComparison({
-        baseline: result,
-        v2: qualitySizingReplay,
-        riskProfile: configuration.riskProfile
-      });
+      const qualitySizingComparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: qualitySizingReplay, riskProfile: configuration.riskProfile });
+
+      const slopeSelectionReplay = runDynamicReplayWithSlopeSelectionExperiment(input);
+      const slopeSelectionComparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: slopeSelectionReplay, riskProfile: configuration.riskProfile });
 
       result.trendProtectionV2Counterfactual = {
         ...v2Comparison,
@@ -208,15 +194,29 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
           deltaVsTrendProtectionV2: armDelta(v2Comparison, qualitySizingComparison),
           notes: [
             ...qualitySizingComparison.notes,
-            'QUALITY_SIZING_V1 es un brazo separado de selección: mantiene ranking LEGACY y STRATEGIC_CORE_HOLD_V1, y sólo reduce importes STARTER/BUILD según un composite causal Reliability/Opportunity. Los caps originales nunca aumentan y ROTATION_ENTRY queda sin cambios.'
+            'QUALITY_SIZING_V1 mantiene ranking LEGACY y STRATEGIC_CORE_HOLD_V1, y sólo modula caps STARTER/BUILD según un composite causal Reliability/Opportunity. Se conserva como experimento diagnóstico; no está promocionado.'
+          ]
+        },
+        slopeSelectionExperiment: {
+          ...slopeSelectionComparison,
+          policy: 'SELECTION_SLOPE_V1',
+          methodology: 'FULL_CAUSAL_REPLAY_STRATEGIC_CORE_HOLD_PLUS_BOUNDED_MULTI_HORIZON_SLOPE_RANKING_LEGACY_SIZING',
+          deltaVsStrategicCoreHold: armDelta(strategicCoreComparison, slopeSelectionComparison),
+          deltaVsSelectionQuality: armDelta(selectionQualityComparison, slopeSelectionComparison),
+          deltaVsQualitySizing: armDelta(qualitySizingComparison, slopeSelectionComparison),
+          deltaVsTrendProtectionV2: armDelta(v2Comparison, slopeSelectionComparison),
+          notes: [
+            ...slopeSelectionComparison.notes,
+            'SELECTION_SLOPE_V1 es un brazo aislado de DÓNDE: sizing LEGACY y gestión STRATEGIC_CORE_HOLD_V1 permanecen congelados. Sólo añade al ranking un ajuste acotado por pendientes 20/60/120, aceleración y SMA20/SMA50 ya calculadas causalmente.'
           ]
         }
       } as any;
       result.notes.push(
-        'A/B V2 principal sustituido por FULL_CAUSAL_REPLAY: todos los brazos son carteras ejecutables y la divergencia posterior de entradas es una consecuencia económica causal.',
+        'A/B principal basado en FULL_CAUSAL_REPLAY: todos los brazos son carteras ejecutables y la divergencia posterior es una consecuencia económica causal.',
         'Tercer brazo STRATEGIC_CORE_HOLD_V1: conserva el core estratégico acumulado frente a ventas/rotaciones tácticas cortas.',
-        'Cuarto brazo SELECTION_QUALITY_V1: añade ReliabilityScore + OpportunityScore sólo al ranking de candidatos ya aprobados.',
-        'Quinto brazo QUALITY_SIZING_V1: vuelve al ranking LEGACY y usa ReliabilityScore + OpportunityScore sólo para reducir de forma conservadora STARTER/BUILD; no amplifica caps ni modifica entradas por rotación.'
+        'Cuarto brazo SELECTION_QUALITY_V1: ReliabilityScore + OpportunityScore sólo para ranking.',
+        'Quinto brazo QUALITY_SIZING_V1: ranking LEGACY con sizing conservador por quality; permanece diagnóstico tras resultados OOS mixtos.',
+        'Sexto brazo SELECTION_SLOPE_V1: ranking LEGACY + ajuste de slope quality acotado; sizing LEGACY sin cambios.'
       );
       persistCounterfactualInAuditSignal(result);
     }
