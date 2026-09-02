@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Download, FileJson, Save, Trash2, Upload } from 'lucide-react';
 
 interface Props {
@@ -9,6 +9,7 @@ const STORAGE_KEY = 'historical_progressive_audit_v3';
 const LEGACY_STORAGE_KEY = 'historical_progressive_audit_v2';
 const FORMAT = 'TRADING_HISTORICAL_REPLAY_AUDIT';
 const EXPORT_SCHEMA_VERSION = 1;
+const AUDIT_BROADCAST_CHANNEL = 'historical-replay-audit-v3';
 
 function finite(value: unknown, fallback = 0): number {
   const parsed = Number(value);
@@ -49,6 +50,28 @@ function normalizePathPoint(raw: any): any {
   };
 }
 
+function extractTrendProtectionV2Counterfactual(session: any): any | null {
+  const direct = session?.summary?.trendProtectionV2Counterfactual;
+  if (direct && typeof direct === 'object') return direct;
+  for (const signal of Array.isArray(session?.signals) ? session.signals : []) {
+    const candidate = signal?.auditExtensions?.trendProtectionV2Counterfactual;
+    if (candidate && typeof candidate === 'object') return candidate;
+  }
+  return null;
+}
+
+function attachCounterfactualToSummary(session: any): any {
+  const counterfactual = extractTrendProtectionV2Counterfactual(session);
+  if (!counterfactual) return session;
+  return {
+    ...session,
+    summary: {
+      ...(session.summary ?? {}),
+      trendProtectionV2Counterfactual: counterfactual
+    }
+  };
+}
+
 function normalizeSession(raw: any): any {
   if (!raw || typeof raw !== 'object') throw new Error('El JSON no contiene una sesión histórica válida.');
   if (Number(raw.version) !== 3) throw new Error(`Versión de replay no compatible: ${String(raw.version ?? 'desconocida')}. Se esperaba v3.`);
@@ -58,7 +81,7 @@ function normalizeSession(raw: any): any {
   if (!(finite(raw.durationMonths) > 0) || !(finite(raw.chunkDays) > 0) || !(finite(raw.initialCapitalEur) > 0)) throw new Error('La configuración numérica de la prueba está incompleta.');
   for (const field of ['checkpoints', 'executions', 'path', 'signals']) if (!Array.isArray(raw[field])) throw new Error(`El JSON no contiene el bloque obligatorio “${field}”.`);
 
-  return {
+  return attachCounterfactualToSummary({
     ...raw,
     version: 3,
     durationMonths: finite(raw.durationMonths),
@@ -70,7 +93,7 @@ function normalizeSession(raw: any): any {
     signals: raw.signals,
     summary: raw.summary ?? null,
     positions: Array.isArray(raw.positions) ? raw.positions : []
-  };
+  });
 }
 
 function unwrapImport(parsed: any): any {
@@ -96,7 +119,7 @@ function buildPayload(session: any) {
       source: 'fmaranis/Trading · Replay histórico auditado',
       note: 'Archivo autocontenido para auditoría, comparación, reimportación y lectura directa desde GitHub tras sincronizar el proyecto.'
     },
-    session
+    session: attachCounterfactualToSummary(session)
   };
 }
 
@@ -106,12 +129,31 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
   const [error, setError] = useState<string | null>(null);
   const [savingProject, setSavingProject] = useState(false);
   const [clearingArchive, setClearingArchive] = useState(false);
+  const [counterfactual, setCounterfactual] = useState<any | null>(null);
 
   const currentSession = () => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) throw new Error('No hay ninguna prueba histórica guardada. Ejecuta o importa una prueba primero.');
     return normalizeSession(JSON.parse(raw));
   };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setCounterfactual(extractTrendProtectionV2Counterfactual(normalizeSession(JSON.parse(raw))));
+    } catch {
+      setCounterfactual(null);
+    }
+
+    if (typeof BroadcastChannel === 'undefined') return;
+    const channel = new BroadcastChannel(AUDIT_BROADCAST_CHANNEL);
+    channel.onmessage = event => {
+      if (event.data?.type === 'TREND_PROTECTION_V2_COUNTERFACTUAL' && event.data?.counterfactual) {
+        setCounterfactual(event.data.counterfactual);
+      }
+    };
+    return () => channel.close();
+  }, []);
 
   const exportSession = () => {
     setError(null);
@@ -208,6 +250,7 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
       localStorage.removeItem(LEGACY_STORAGE_KEY);
+      setCounterfactual(extractTrendProtectionV2Counterfactual(session));
       setMessage(`Prueba importada: ${session.checkpoints.length} checkpoints · ${session.executions.length} operaciones · ${session.path.length} sesiones. Los resultados ya están disponibles; para continuar calculando, usa “Preparar / reanudar”.`);
       onImported?.();
     } catch (e: any) {
@@ -217,9 +260,18 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
     }
   };
 
+  const baselineCounterfactualReturn = counterfactual == null
+    ? null
+    : finite(counterfactual.totalReturnPct) - finite(counterfactual.deltaVsCurrentPolicy?.returnPctPoints);
+  const baselineCounterfactualDrawdown = counterfactual == null
+    ? null
+    : finite(counterfactual.maxDrawdownPct) - finite(counterfactual.deltaVsCurrentPolicy?.maxDrawdownPctPoints);
+  const parityExact = counterfactual?.entryParity?.exact === true;
+  const counterfactualValid = counterfactual?.valid === true && parityExact;
+
   return <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar + publicar” genera dos JSON normales: latest-chatgpt.json, preparado para lectura directa, y latest-chatgpt-full.json con el replay completo. Sin gzip ni archivos Base64.</div></div>
+      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar + publicar” genera dos JSON normales: latest-chatgpt.json, preparado para lectura directa, y latest-chatgpt-full.json con el replay completo. El A/B CURRENT_POLICY vs TREND_PROTECTION_V2 queda incluido en summary cuando existe.</div></div>
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => void saveToProject()} disabled={savingProject} className="flex min-h-10 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 disabled:opacity-50"><Save className="h-3.5 w-3.5"/>{savingProject ? 'Publicando JSON…' : 'Guardar + publicar para ChatGPT'}</button>
         <button type="button" onClick={() => void clearArchive()} disabled={clearingArchive} className="flex min-h-10 items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[10px] font-bold text-rose-100 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5"/>{clearingArchive ? 'Borrando…' : 'Borrar histórico ChatGPT'}</button>
@@ -228,6 +280,21 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={e => void importFile(e.target.files?.[0] ?? null)}/>
       </div>
     </div>
+
+    {counterfactual && <div className={`mt-3 rounded-xl border p-3 ${counterfactualValid ? 'border-violet-500/25 bg-violet-500/5' : 'border-rose-500/30 bg-rose-500/10'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><b className="text-xs text-white">A/B gestión de posiciones · CURRENT_POLICY vs TREND_PROTECTION_V2</b><div className="mt-1 text-[9px] text-slate-500">Entradas congeladas: mismas compras/ADD del baseline. Sólo cambia REDUCE/EXIT. La comparación económica sólo es válida con paridad exacta.</div></div>
+        <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${counterfactualValid ? 'border-emerald-500/30 text-emerald-200' : 'border-rose-500/30 text-rose-200'}`}>{counterfactualValid ? 'PARIDAD EXACTA · VÁLIDO' : 'A/B INVÁLIDO'}</span>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        <div className="rounded-lg bg-slate-950/70 p-2"><div className="text-[8px] uppercase text-slate-500">Retorno baseline → V2</div><b className="text-xs text-white">{baselineCounterfactualReturn?.toFixed(2)}% → {finite(counterfactual.totalReturnPct).toFixed(2)}%</b><div className={finite(counterfactual.deltaVsCurrentPolicy?.returnPctPoints) >= 0 ? 'text-[9px] text-emerald-300' : 'text-[9px] text-rose-300'}>{finite(counterfactual.deltaVsCurrentPolicy?.returnPctPoints) >= 0 ? '+' : ''}{finite(counterfactual.deltaVsCurrentPolicy?.returnPctPoints).toFixed(2)} pp</div></div>
+        <div className="rounded-lg bg-slate-950/70 p-2"><div className="text-[8px] uppercase text-slate-500">DD máx. baseline → V2</div><b className="text-xs text-white">{baselineCounterfactualDrawdown?.toFixed(2)}% → {finite(counterfactual.maxDrawdownPct).toFixed(2)}%</b><div className={finite(counterfactual.deltaVsCurrentPolicy?.maxDrawdownPctPoints) <= 0 ? 'text-[9px] text-emerald-300' : 'text-[9px] text-rose-300'}>{finite(counterfactual.deltaVsCurrentPolicy?.maxDrawdownPctPoints) >= 0 ? '+' : ''}{finite(counterfactual.deltaVsCurrentPolicy?.maxDrawdownPctPoints).toFixed(2)} pp</div></div>
+        <div className="rounded-lg bg-slate-950/70 p-2"><div className="text-[8px] uppercase text-slate-500">Gestión V2</div><b className="text-xs text-white">{finite(counterfactual.executedReductions)} REDUCE · {finite(counterfactual.executedExits)} EXIT</b><div className="text-[9px] text-slate-500">Turnover gestión {finite(counterfactual.managementTurnoverEur).toFixed(2)} € · fees {finite(counterfactual.totalFeesEur).toFixed(2)} €</div></div>
+        <div className="rounded-lg bg-slate-950/70 p-2"><div className="text-[8px] uppercase text-slate-500">Paridad de entradas</div><b className="text-xs text-white">{finite(counterfactual.entryParity?.reproducedEntries)}/{finite(counterfactual.entryParity?.baselineExecutedEntries)}</b><div className="text-[9px] text-slate-500">Shortfalls {finite(counterfactual.entryParity?.shortfallCount)} · {finite(counterfactual.entryParity?.shortfallEur).toFixed(2)} €</div></div>
+      </div>
+      <div className="mt-2 text-[9px] text-slate-500">Capture ratio medio: {counterfactual.averageProfitCaptureRatioPct == null ? 'N/D' : `${finite(counterfactual.averageProfitCaptureRatioPct).toFixed(1)}%`} · pérdidas realizadas ≤-10%: {finite(counterfactual.lossSaleCounts?.atOrBelowMinus10Pct)} · ≤-20%: {finite(counterfactual.lossSaleCounts?.atOrBelowMinus20Pct)} · ≤-30%: {finite(counterfactual.lossSaleCounts?.atOrBelowMinus30Pct)}.</div>
+    </div>}
+
     {message && <div className="mt-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 text-[10px] text-emerald-100">{message}</div>}
     {error && <div className="mt-2 rounded-lg border border-rose-500/25 bg-rose-500/10 p-2 text-[10px] text-rose-100">{error}</div>}
   </div>;
