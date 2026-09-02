@@ -73,7 +73,7 @@ V2 = CORE HOLD: 14.450,08 €, +11,1545%, DD 6,7131%.
 - `V2 − CURRENT = -39,3362 € / -0,302586 pp`.
 - `CORE − V2 = 0,00 €`.
 - residual = 0.
-Toda la pérdida nace de V2. Primera divergencia 03/03/2026: REDUCE Intesa. Después V2 reduce Vanguard Eurozone, Vanguard Europe y Ferrovial. Total reducido en marzo ~626,25 €. Respecto a CURRENT esas ventas añaden ~28,20 € de impuesto, 2 € de comisión y ~9,62 € de coste de oportunidad bruto hasta 31/03. No aportaron mejora de DD en esta ventana.
+Toda la pérdida nace de V2. Primera divergencia 03/03/2026: REDUCE Intesa. Después V2 reduce Vanguard Eurozone, Vanguard Europe y Ferrovial. Total reducido en marzo ~626,25 €.
 
 ## Atribución 2015-01-02 → 2015-12-31
 CURRENT: 13.541,2879 €, +4,163753%, DD 10,206783%.
@@ -106,27 +106,56 @@ Gates: `lint` PASS; test dirigido corregido por tolerancia IEEE-754 y PASS repor
 ## Resultado audit 2015
 7 REDUCE V2: 6 `WINNER_PROTECTION`, 1 `LOSER_FAILURE`. Notional total reducido: **1.328,59 €**; fricción realizada: **31,42 €**.
 
-Resultado agregado de la **proxy estática de la porción vendida**:
-- 20 sesiones: **-27,99 €** (5 operaciones con horizonte completo).
-- 60 sesiones: **-41,15 €** (5 operaciones).
-- hasta fin del replay: **-46,36 €** (7 operaciones).
+Proxy estática de la porción vendida:
+- 20 sesiones: **-27,99 €**.
+- 60 sesiones: **-41,15 €**.
+- hasta fin: **-46,36 €**.
 
-Esto NO contradice que el replay V2 completo gane +19,90 € a CURRENT: la proxy mantiene fija sólo la porción vendida y no reproduce los cambios causales posteriores de cash, plazas, rotaciones, ventas y nuevas entradas. Por tanto **no puede usarse como atribución exacta del P&L de la política** ni como criterio directo para filtrar REDUCE.
+No contradice que V2 completo gane +19,90 € a CURRENT: la proxy no reproduce cambios posteriores de cash, plazas, rotaciones y entradas.
 
-REDUCE 2015 destacados:
-- **ISPA 05/06** — winner protection, +2,42% en señal tras MFE +12,56%. Proxy: -2,94 € a 20 sesiones, **+13,09 € a 60**, **+4,97 € a fin**. CURRENT termina reduciendo una posición mayor mucho más tarde con pérdida; es el caso más claro de protección temprana útil dentro de la trayectoria completa.
-- **Inditex 07/07** — winner protection, +1,86% tras MFE +11,28%. Proxy: **-22,45 € a 20**, -7,78 € a 60, -21,55 € a fin: reducción prematura ex post.
-- **4GLD 21/07** — winner protection, -0,60% tras MFE +11,35%. Proxy casi neutra a 20/60 (+0,40/-2,05 €) y **+8,38 € a fin**. CURRENT había hecho EXIT total el 17/07 y redirigido capital; no comparar como una simple venta aislada.
-- **EUNL 26/08** — winner protection, -1,53% tras MFE +15,46%. El activo sube +3,45% a 20 y +15,24% a 60; proxy **-8,02 / -32,02 / -25,66 €**. CORE HOLD acierta al bloquear esta venta de strategic core.
-- **Air Liquide 27/08** — loser failure, -9,87%. Evita caída a 20 sesiones (+5,02 € proxy), pero la recuperación a 60 vuelve la proxy -12,40 €; a fin casi neutral (-0,36 €).
-- **4GLD 04/12** — winner protection tardía; poca muestra hasta cierre; proxy fin -1,50 €.
-- **Ferrovial 09/12** — winner protection con +15,28% aún retenido tras MFE +24,86%; fricción 19,87 € y proxy hasta cierre -10,64 €. Horizonte demasiado corto para inferir una regla robusta.
+Casos destacados:
+- ISPA 05/06: slope60 ~**-14,4% anualizada**; proxy **+13,09 € a 60 sesiones**. Protección temprana útil.
+- Inditex 07/07: slope60 ~**+4,49%**; proxy **-22,45 € a 20**. Prematura.
+- EUNL 26/08: proxy **-32,02 € a 60**; CORE HOLD bloquea correctamente esa venta.
+- Ferrovial 09/12: slope60 ~**+10,03%**; reducción tardía/prematura con horizonte corto.
 
-Lectura conjunta:
-1. El audit confirma heterogeneidad real entre REDUCE: algunos evitan deterioro, otros cortan recuperaciones.
-2. `strategicCoreHold` ya corrige el caso EUNL, que es uno de los REDUCE claramente desfavorables ex post.
-3. No existe todavía un separador causal simple y robusto entre “REDUCE bueno” y “REDUCE malo”. Señales como retorno actual, MFE/giveback u observaciones no bastan por sí solas: hay contraejemplos dentro de 2015.
-4. La comparación relevante para cambiar la política debe seguir siendo el **replay completo causal**, usando el outcome audit sólo para formular hipótesis, nunca para optimizar directamente con datos futuros.
+## Resultado audit 2025-04-01 → 2026-03-31
+4 REDUCE V2, todos `WINNER_PROTECTION`, total **626,25 €**. Fricción total ~**30,20 €**.
+
+Todos muestran ruptura corta fuerte pero **pendiente 60d todavía positiva y consenso claramente constructivo**:
+- Intesa: slope60 ~+9,31%, consenso +4, proxy fin ~+0,78 €.
+- Vanguard Eurozone: slope60 ~+1,43%, consenso +5, proxy fin ~-6,89 €.
+- Vanguard Europe: slope60 ~+4,69%, consenso +4, proxy fin ~-3,87 €.
+- Ferrovial: slope60 ~+12,49%, consenso +4, proxy fin ~-29,84 €.
+
+Proxy agregada hasta final ~**-39,83 €**, prácticamente igual a la pérdida real de V2 vs CURRENT (**-39,34 €**) en esta ventana.
+
+Hipótesis causal surgida del contraste 2015/2025-26: una ruptura 20d debe poder armar `PROTECT`, pero un `REDUCE` de ganador parece necesitar confirmación adicional de horizonte medio o consenso. El rasgo más consistente observado es slope60 <=0 en el caso útil ISPA, frente a slope60 >0 en varios recortes prematuros; EUNL es excepción cubierta por Strategic Core Hold.
+
+---
+
+# TREND_PROTECTION_V2_MEDIUM_TERM_WINNER_CONFIRM — experimento dirigido
+
+**Implementado, todavía NO validado ni promocionado.** No modifica `classifyTrendProtectionV2` productivo.
+
+Regla experimental: cuando V2 base intenta `REDUCE` por `WINNER_PROTECTION`, mantener `PROTECT` si simultáneamente:
+- `regressionSlope60AnnualizedPct > 0`;
+- `consensusScore > 0`;
+- `unfavorableVotes < 2`.
+
+El REDUCE se conserva si hay al menos una evidencia adicional causal: slope60 <=0, consenso <=0 o >=2 votos adversos.
+
+No toca `LOSER_FAILURE`, hard EXIT, reclaim, MFE/giveback, tamaño 25%, selección, sizing, Entry Timing, cash ni CORE_GATE.
+
+Implementación integrada:
+- `trendProtectionV2MediumTermConfirm.ts`: wrapper causal sobre V2 base.
+- `replayTrendProtectionV2Experiment.ts`: mismo motor/estado reutilizado mediante clasificador inyectado; sin duplicar replay.
+- `historicalReplayAudit.worker.ts`: brazo `mediumTermWinnerConfirmExperiment` con delta vs V2 y CORE HOLD.
+- `tests/trendProtectionV2MediumTermConfirm.unit.ts`: invariantes de confirmación y preservación de LOSER_FAILURE.
+
+Backup previo: `backup/main-pre-v2-medium-term-confirm-2026-09-02` → `a6d68dd4fcdb71a93955a4c3b2780bd06f95e58d`.
+
+Estado: implementación terminada; gates locales pendientes. No interpretar económicamente hasta PASS.
 
 ---
 
@@ -142,4 +171,7 @@ Pendiente cuando se cierre el motor:
 
 # Próxima acción
 
-No modificar todavía thresholds de V2. Repetir **2025-04-01 → 2026-03-31** con `V2_REDUCTION_OUTCOME_AUDIT_V1` ya presente, para obtener la misma tabla 20/60/ex-post de las cuatro reducciones que hicieron perder a V2. Comparar 2015 vs 2025 con métricas homogéneas y buscar una hipótesis causal ex ante que pueda probarse en un nuevo A/B completo sin calibrarla con el futuro.
+1. Validar el experimento dirigido: `lint`, test específico `trendProtectionV2MediumTermConfirm.unit.ts` y regresión `test:trend-protection-counterfactual`.
+2. Si PASS, ejecutar primero replay 2015-01-02 → 2015-12-31 y después 2025-04-01 → 2026-03-31 sin tocar parámetros entre ambos.
+3. Comparar `mediumTermWinnerConfirmExperiment` principalmente contra V2; CORE HOLD como referencia secundaria.
+4. Sólo si la hipótesis sobrevive esas dos ventanas, usar una tercera ventana independiente antes de considerar promoción.
