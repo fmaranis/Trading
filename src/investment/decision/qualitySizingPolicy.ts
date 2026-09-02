@@ -82,10 +82,28 @@ function minimumMeaningfulOrderEur(input: {
   return Math.max(policy.minimumOrderNotionalEur, wholeShareFloor);
 }
 
+function qualityAdjustedStageTargetEur(input: {
+  result: PortfolioDecisionResult;
+  contribution: ContributionRecommendation;
+  multiplier: number;
+}): number | null {
+  const capPct = input.contribution.portfolioShareCapPct;
+  if (!Number.isFinite(capPct) || Number(capPct) <= 0) return null;
+  const originalStageCapEur = input.result.totalPlannedCapitalEur * Number(capPct) / 100;
+  return Math.max(0, originalStageCapEur * input.multiplier);
+}
+
 /**
  * Apply QUALITY_SIZING_V1 after the normal allocator has selected candidates and
  * stages. Rotation entries remain unchanged so the experiment isolates STARTER /
  * BUILD sizing from competitive-rotation semantics.
+ *
+ * The quality multiplier is applied to the absolute stage cap, not to the order
+ * remainder. This is essential: applying 80% to today's remainder would cause the
+ * allocator to try to fill the remaining 20% again on later sessions and would
+ * turn a conservative sizing rule into repeated micro-builds. The adjusted cap is
+ * recomputed causally each evaluation; quality can later authorize more capital if
+ * it genuinely improves, but a stable score does not repeatedly refill the old cap.
  */
 export function applyQualitySizingOverlay(input: {
   result: PortfolioDecisionResult;
@@ -94,8 +112,10 @@ export function applyQualitySizingOverlay(input: {
   const result = input.result;
   const beforeRecommended = result.recommendedNewInvestmentEur;
   let missingQuality = 0;
+  let missingStageCap = 0;
   let reducedRows = 0;
   let droppedRows = 0;
+  let alreadyAtAdjustedCap = 0;
 
   const contributions = result.contributions.flatMap(row => {
     if (row.positionStage === 'ROTATION_ENTRY') return [row];
@@ -109,19 +129,37 @@ export function applyQualitySizingOverlay(input: {
       }];
     }
 
-    const adjustedAmount = row.amountEur * sizing.multiplier;
+    const adjustedStageTargetEur = qualityAdjustedStageTargetEur({ result, contribution: row, multiplier: sizing.multiplier });
+    if (adjustedStageTargetEur == null) {
+      missingStageCap++;
+      return [{
+        ...row,
+        reason: `${row.reason} QUALITY_SIZING_V1: falta portfolioShareCapPct auditable; se conserva sizing LEGACY en lugar de inventar un cap.`
+      }];
+    }
+
+    const currentValue = Math.max(0, row.currentAssetValueEur ?? 0);
+    const remainingToAdjustedCap = Math.max(0, adjustedStageTargetEur - currentValue);
+    const adjustedAmount = Math.min(Math.max(0, row.amountEur), remainingToAdjustedCap);
+
+    if (adjustedAmount <= 1e-9) {
+      alreadyAtAdjustedCap++;
+      return [];
+    }
+
     const minimum = minimumMeaningfulOrderEur({ result, scan: input.scan, contribution: row });
     if (adjustedAmount < minimum - 1e-9) {
       droppedRows++;
       return [];
     }
-    if (sizing.multiplier < 1 - 1e-9) reducedRows++;
-    const currentValue = Math.max(0, row.currentAssetValueEur ?? 0);
+    if (adjustedAmount < row.amountEur - 1e-9) reducedRows++;
+
     return [{
       ...row,
       amountEur: adjustedAmount,
       executableTargetAssetValueEur: currentValue + adjustedAmount,
-      reason: `${row.reason} QUALITY_SIZING_V1: Reliability ${sizing.reliabilityScore?.toFixed(1)}/100 · Opportunity ${sizing.opportunityScore?.toFixed(1)}/100 · composite ${sizing.compositeScore?.toFixed(1)}/100 (${sizing.tier}); se utiliza ${(sizing.multiplier * 100).toFixed(0)}% del importe previamente autorizado. El cap STARTER/BUILD original no aumenta.`
+      portfolioShareCapPct: Number(row.portfolioShareCapPct) * sizing.multiplier,
+      reason: `${row.reason} QUALITY_SIZING_V1: Reliability ${sizing.reliabilityScore?.toFixed(1)}/100 · Opportunity ${sizing.opportunityScore?.toFixed(1)}/100 · composite ${sizing.compositeScore?.toFixed(1)}/100 (${sizing.tier}); cap persistente de etapa ${(Number(row.portfolioShareCapPct) * sizing.multiplier).toFixed(2)}% del patrimonio frente a ${Number(row.portfolioShareCapPct).toFixed(2)}% LEGACY. Nunca se aumenta el cap original.`
     }];
   });
 
@@ -130,8 +168,9 @@ export function applyQualitySizingOverlay(input: {
   const releasedBySizing = Math.max(0, beforeRecommended - result.recommendedNewInvestmentEur);
   result.residualPlannedCashEur = Math.max(0, result.residualPlannedCashEur + releasedBySizing);
   result.warnings.push(
-    `QUALITY_SIZING_V1 experimental: ${reducedRows} STARTER/BUILD reducidos y ${droppedRows} órdenes descartadas por quedar bajo el mínimo ejecutable. Ningún cap aumenta; ROTATION_ENTRY conserva sizing original.`
+    `QUALITY_SIZING_V1 experimental: ${reducedRows} STARTER/BUILD reducidos, ${alreadyAtAdjustedCap} ya cubrían el cap quality y ${droppedRows} órdenes quedaron bajo el mínimo ejecutable. El cap quality es persistente por etapa; ROTATION_ENTRY conserva sizing original.`
   );
   if (missingQuality > 0) result.warnings.push(`QUALITY_SIZING_V1: ${missingQuality} contribuciones no tenían quality causal utilizable y conservaron explícitamente sizing LEGACY.`);
+  if (missingStageCap > 0) result.warnings.push(`QUALITY_SIZING_V1: ${missingStageCap} contribuciones no exponían portfolioShareCapPct y conservaron explícitamente sizing LEGACY.`);
   return result;
 }
