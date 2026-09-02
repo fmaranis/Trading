@@ -1,5 +1,6 @@
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
+import { runDynamicReplayWithSelectionQualityExperiment } from '../investment/decision/replaySelectionQualityExperiment';
 import { runDynamicReplayWithStrategicCoreHoldExperiment } from '../investment/decision/replayStrategicCoreHoldExperiment';
 import { runDynamicReplayWithTrendProtectionV2Experiment } from '../investment/decision/replayTrendProtectionV2Experiment';
 import { buildTrendProtectionV2ReplayComparison } from '../investment/decision/trendProtectionReplayComparison';
@@ -80,7 +81,7 @@ function persistCounterfactualInAuditSignal(result: any): void {
   if (!counterfactual) return;
 
   // HistoricalReplayProgressivePanel preserves the complete signal object in v3.
-  // One audit extension therefore persists the complete A/B without a second store.
+  // One audit extension therefore persists the complete multi-arm comparison.
   const auditSignal = result.signals?.[0];
   if (auditSignal) {
     auditSignal.auditExtensions = {
@@ -100,14 +101,14 @@ function persistCounterfactualInAuditSignal(result: any): void {
   }
 }
 
-function strategicCoreDelta(currentV2: ReturnType<typeof buildTrendProtectionV2ReplayComparison>, strategic: ReturnType<typeof buildTrendProtectionV2ReplayComparison>) {
+function armDelta(reference: ReturnType<typeof buildTrendProtectionV2ReplayComparison>, candidate: ReturnType<typeof buildTrendProtectionV2ReplayComparison>) {
   return {
-    finalValueEur: strategic.finalValueEur - currentV2.finalValueEur,
-    returnPctPoints: strategic.totalReturnPct - currentV2.totalReturnPct,
-    maxDrawdownPctPoints: strategic.maxDrawdownPct - currentV2.maxDrawdownPct,
-    feesEur: strategic.totalFeesEur - currentV2.totalFeesEur,
-    estimatedTaxEur: strategic.totalEstimatedTaxEur - currentV2.totalEstimatedTaxEur,
-    turnoverEur: strategic.turnoverEur - currentV2.turnoverEur
+    finalValueEur: candidate.finalValueEur - reference.finalValueEur,
+    returnPctPoints: candidate.totalReturnPct - reference.totalReturnPct,
+    maxDrawdownPctPoints: candidate.maxDrawdownPct - reference.maxDrawdownPct,
+    feesEur: candidate.totalFeesEur - reference.totalFeesEur,
+    estimatedTaxEur: candidate.totalEstimatedTaxEur - reference.totalEstimatedTaxEur,
+    turnoverEur: candidate.turnoverEur - reference.turnoverEur
   };
 }
 
@@ -160,22 +161,41 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
         riskProfile: configuration.riskProfile
       });
 
+      const selectionQualityReplay = runDynamicReplayWithSelectionQualityExperiment(input);
+      const selectionQualityComparison = buildTrendProtectionV2ReplayComparison({
+        baseline: result,
+        v2: selectionQualityReplay,
+        riskProfile: configuration.riskProfile
+      });
+
       result.trendProtectionV2Counterfactual = {
         ...v2Comparison,
         strategicCoreHoldExperiment: {
           ...strategicCoreComparison,
           policy: 'STRATEGIC_CORE_HOLD_V1',
           methodology: 'FULL_CAUSAL_REPLAY_SAME_ENGINE_V2_WITH_STRATEGIC_CORE_NO_SELL',
-          deltaVsTrendProtectionV2: strategicCoreDelta(v2Comparison, strategicCoreComparison),
+          deltaVsTrendProtectionV2: armDelta(v2Comparison, strategicCoreComparison),
           notes: [
             ...strategicCoreComparison.notes,
-            'STRATEGIC_CORE_HOLD_V1 es un tercer brazo experimental. Conserva CURRENT_POLICY y TREND_PROTECTION_V2 sin cambios y modifica una sola semántica: el core estratégico de crecimiento ya acumulado no se vende ni rota por deterioro de corto plazo. CORE_GATE_V1 sigue enviando capital desde posiciones débiles hacia ese core.'
+            'STRATEGIC_CORE_HOLD_V1 conserva CURRENT_POLICY y TREND_PROTECTION_V2 sin cambios y modifica una sola semántica: el core estratégico de crecimiento ya acumulado no se vende ni rota por deterioro de corto plazo. CORE_GATE_V1 sigue enviando capital desde posiciones débiles hacia ese core.'
+          ]
+        },
+        selectionQualityExperiment: {
+          ...selectionQualityComparison,
+          policy: 'SELECTION_QUALITY_V1',
+          methodology: 'FULL_CAUSAL_REPLAY_STRATEGIC_CORE_HOLD_PLUS_CAUSAL_SELECTION_QUALITY_RANKING',
+          deltaVsStrategicCoreHold: armDelta(strategicCoreComparison, selectionQualityComparison),
+          deltaVsTrendProtectionV2: armDelta(v2Comparison, selectionQualityComparison),
+          notes: [
+            ...selectionQualityComparison.notes,
+            'SELECTION_QUALITY_V1 es el cuarto brazo. Parte de STRATEGIC_CORE_HOLD_V1 y cambia únicamente el ranking relativo de candidatos ya elegibles mediante ReliabilityScore + OpportunityScore causales. STARTER/BUILD, Entry Timing, cash, slots, CORE_GATE y protección permanecen congelados; sizing basado en calidad se probará sólo después si esta capa demuestra valor.'
           ]
         }
       } as any;
       result.notes.push(
-        'A/B V2 principal sustituido por FULL_CAUSAL_REPLAY: ambos brazos son carteras ejecutables con el mismo motor de selección/timing; la paridad de entradas queda como diagnóstico, no como requisito de validez.',
-        'Tercer brazo experimental STRATEGIC_CORE_HOLD_V1 añadido en trendProtectionV2Counterfactual.strategicCoreHoldExperiment. No cambia CORE_GATE_V1 ni thresholds; sólo prueba si conservar el core estratégico acumulado mejora la robustez frente a venderlo por tendencia corta.'
+        'A/B V2 principal sustituido por FULL_CAUSAL_REPLAY: todos los brazos son carteras ejecutables y la divergencia posterior de entradas es una consecuencia económica causal.',
+        'Tercer brazo STRATEGIC_CORE_HOLD_V1: conserva el core estratégico acumulado frente a ventas/rotaciones tácticas cortas.',
+        'Cuarto brazo SELECTION_QUALITY_V1: añade ReliabilityScore + OpportunityScore sólo al ranking de candidatos ya aprobados. No cambia todavía sizing ni thresholds de entrada/protección.'
       );
       persistCounterfactualInAuditSignal(result);
     }
