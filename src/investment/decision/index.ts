@@ -20,6 +20,7 @@ export * from './causalUniverseBacktestEngine';
 export * from './historicalDecisionReplay';
 export * from './dynamicHistoricalReplay';
 export * from './dynamicHistoricalReplayBatch';
+export * from './replaySelectionQualityExperiment';
 export * from './strategyConsensusEngine';
 export * from './entryTiming';
 export * from './singleAssetResearch';
