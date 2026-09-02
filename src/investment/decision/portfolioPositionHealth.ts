@@ -7,6 +7,7 @@ import { assessAgainstCashBenchmark } from './cashBenchmark';
 import { isPortfolioEquityTicker } from './portfolioDiscoveryUniverse';
 import { SingleAssetResearchEngine } from './singleAssetResearch';
 import { StrategyConsensusEngine, type StrategyConsensusAssessment } from './strategyConsensusEngine';
+import { classifyTrendProtectionV1, type TrendProtectionDecision } from './trendProtectionPolicy';
 import type { UserPortfolioState } from './userPortfolio';
 
 export type PortfolioPositionHealthAction = 'ADD' | 'HOLD' | 'WATCH' | 'REDUCE' | 'EXIT' | 'DATA_MISSING';
@@ -44,6 +45,7 @@ export interface PortfolioPositionHealthSnapshot {
   givebackFromMfePctPoints?: number | null;
   deteriorationStreakSessions?: number | null;
   momentum20Pct?: number | null;
+  trendProtectionV1?: TrendProtectionDecision | null;
 }
 
 export interface PortfolioPositionHealthResult {
@@ -316,6 +318,14 @@ function assessmentSnapshot(input: {
   const cash = assessAgainstCashBenchmark({ momentum120Pct: input.momentum120Pct, benchmarkAnnualPct: input.cashBenchmarkAnnualPct, notionalEur: 0, estimatedFeeEur: 0 });
   const context = input.context ?? {};
   const classification = classifyPositionHealth(input.assessment, cash.excessVsCashPctPoints, context);
+  const trendProtectionV1 = input.assessment
+    ? classifyTrendProtectionV1(input.assessment, {
+        currentReturnPct: context.currentReturnPct ?? null,
+        mfePct: context.mfePct ?? null,
+        givebackFromMfePctPoints: context.givebackFromMfePctPoints ?? null,
+        isDiversifiedCore: context.isDiversifiedCore ?? false
+      })
+    : null;
   return {
     key: input.key,
     label: input.label,
@@ -338,7 +348,8 @@ function assessmentSnapshot(input: {
     mfePct: context.mfePct ?? null,
     givebackFromMfePctPoints: context.givebackFromMfePctPoints ?? null,
     deteriorationStreakSessions: context.deteriorationStreakSessions ?? null,
-    momentum20Pct: context.momentum20Pct ?? input.assessment?.momentum20Pct ?? null
+    momentum20Pct: context.momentum20Pct ?? input.assessment?.momentum20Pct ?? null,
+    trendProtectionV1
   };
 }
 
