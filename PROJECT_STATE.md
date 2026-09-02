@@ -23,13 +23,15 @@ Arquitectura:
 2. CUÁNDO — Entry Timing causal.
 3. CUÁNTO HOY — STARTER/BUILD/sizing.
 4. CÓMO GESTIONAR — HOLD/ADD/WATCH/PROTECT/REDUCE/EXIT/ROTATE.
+5. CASH — alternativa remunerada explícita: no invertir también puede ser la decisión correcta.
 
 Perfil MEDIUM: STARTER READY 3% / STRONG 5%; BUILD 8%; máximo 12 posiciones; máximo 2 nuevas/evaluación. Rotación 1:1 estricta y atómica. Sin deuda/cash negativo.
 
 Cartera real de referencia:
 - Vanguard Global `IE00B03HD191`: 12.600 €.
 - Vanguard Emerging `IE0031786696`: 1.400 €.
-- Capital pendiente: 13.000 €; horizonte 12 meses; cash hurdle 2,5% anual.
+- Capital pendiente: 13.000 €; horizonte 12 meses.
+- Cuenta operativa remunerada: **2,5% TAE por defecto, editable** mediante `CashBenchmarkService`; no tratar 2,5% como constante económica permanente.
 
 ---
 
@@ -48,6 +50,39 @@ Flujo: **HEALTHY → WATCH → PROTECT → REDUCE → EXIT**.
 Winner: MFE >=8%, giveback >=6 pp; REDUCE 25%, uno por episodio. Perdedor exige persistencia. Hard EXIT sólo satélite profundo/persistente. Reclaim desarma. WATCH/PROTECT no venden y bloquean rotación/CORE_GATE.
 
 La política sigue siendo causal y ejecutable. Su valor económico es mixto; no se modifica todavía.
+
+---
+
+# CASH REMUNERADO COMO ACTIVO DEFENSIVO — CASH_FIRST_CLASS_V1
+
+Hallazgo: el motor **ya remuneraba realmente el cash** y ya lo usaba como hurdle, pero la interfaz lo mostraba como si fuese principalmente liquidez residual. Esta fase corrige representación/auditoría sin cambiar decisiones productivas.
+
+## Comportamiento que ya existía y se conserva
+- `CashBenchmarkService`: TAE por defecto 2,5%, editable/persistente; los candidatos deben superar esta referencia antes de recibir dinero nuevo.
+- `remuneratedCash.ts`: el saldo libre acumula rendimiento entre fechas por días naturales; `cashInterestEur` entra en el patrimonio final del replay.
+- El replay compara además contra `allCashBenchmark`: mantener todo el capital en cash remunerado.
+- `InvestmentDecisionEngine` ya usa cash deliberadamente por perfil y régimen, no sólo como sobrante.
+- Base por perfil: LOW 25%, MEDIUM 12%, HIGH 5%.
+- Overlay de régimen: BEAR_HIGH_VOL 35%, BEAR_LOW_VOL 25%, SIDEWAYS_HIGH_VOL 20%, BULL_HIGH_VOL 12%, SIDEWAYS_LOW_VOL 8%, BULL_LOW_VOL 3%, UNKNOWN 30%.
+- Si el asignador no encuentra activos adecuados puede devolver 100% cash; en otro caso el cash final queda limitado por la lógica vigente del asignador.
+
+## Integración nueva — implementada, pendiente de gates
+Backup previo: `backup/main-pre-cash-first-class-2026-09-03` → `176ab1465d6c267e664b59d802a0e74f220b400b`.
+
+Cambios:
+- `InteractiveInvestmentDecisionCenter.tsx`: editor visible **Cuenta operativa remunerada · % TAE** junto a capital/riesgo/horizonte.
+- Nueva tarjeta **Decisión CASH**: muestra euros y peso objetivo del asignador, TAE configurada, equivalencia de interés a un año y rol descriptivo `CASH PRIORITARIO / REFUGIO DEFENSIVO / REFUGIO POR FALTA DE OPORTUNIDAD / RESERVA ESTRATÉGICA / BUFFER OPERATIVO`.
+- La tarjeta es descriptiva: usa `cashWeight`, régimen y gates ya existentes; no añade score, threshold ni orden nueva.
+- `DecisionGuardrailsPanel.tsx`: los controles de TAE quedan sincronizados por `CASH_BENCHMARK_UPDATED_EVENT`; cambiar uno actualiza el resto y recalcula gates.
+- La comparación histórica simple identifica explícitamente que usa **TAE constante configurada**, no remuneración bancaria histórica reconstruida.
+- `InvestmentResearchLab.tsx`: la validación histórica auditada muestra la TAE constante activa y ofrece **Reiniciar replay con esta TAE** para borrar checkpoints v2/v3 antes de comparar otro escenario y evitar mezclar sesiones antiguas con una TAE distinta.
+- `tests/cashRemuneration.unit.ts`: contrato numérico de 2,5% TAE, 365 días, capitalización, benchmark 100% cash y sanitización del rango configurable.
+
+Importante:
+- Esta fase **NO cambia** `InvestmentDecisionEngine`, V2, CORE, Entry Timing, sizing, selección, rotaciones ni thresholds.
+- Los replays antiguos `historical_progressive_audit_v3` no almacenaban la TAE dentro de su configuración; antes de comparar otra TAE se debe reiniciar la sesión con el nuevo control.
+- La curva histórica de tipos (`cashRate(date)`) queda pendiente. Hasta entonces, un replay de 2015 con 2,5% significa “escenario contrafactual con 2,5% constante”, no “la cuenta pagaba 2,5% en 2015”.
+- La remuneración del cash se contabiliza actualmente **bruta**; la fiscalidad/retención de los intereses bancarios todavía no está integrada en `cashInterestEur`. No mezclar este pendiente con la fiscalidad ya modelada de plusvalías de ventas.
 
 ---
 
@@ -179,8 +214,7 @@ Cuando el motor quede cerrado:
 
 # Próxima acción
 
-No crear otro score ni retocar `MEDIUM_TERM_WINNER_CONFIRM`.
-
-La evidencia actual apunta a que la principal mejora estructural validada sigue siendo `STRATEGIC_CORE_HOLD`, mientras que los intentos de ranking, sizing, slope y confirmación media no muestran robustez suficiente.
-
-Siguiente bloque recomendado: **consolidar el motor y decidir si V2 debe permanecer como política experimental de gestión o si conviene comparar directamente CURRENT + STRATEGIC_CORE_HOLD sin la semántica V2 completa**, usando un A/B causal limpio antes de tocar UX.
+1. Validar `CASH_FIRST_CLASS_V1` en local/AI Studio: `npm run lint` y `npx tsx tests/cashRemuneration.unit.ts`.
+2. Si PASS, comprobar visualmente que editar la TAE superior sincroniza el control técnico, recalcula gates y actualiza la tarjeta `Decisión CASH`.
+3. No repetir todavía replays económicos: esta fase no cambia el motor productivo.
+4. Después decidir el siguiente bloque económico por separado: curva histórica de `cashRate(date)` + fiscalidad del interés, o el A/B causal limpio `CURRENT + STRATEGIC_CORE_HOLD` frente a CURRENT/V2.
