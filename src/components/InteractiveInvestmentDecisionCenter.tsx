@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart3, Radar, RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
+import { BarChart3, CircleDollarSign, Radar, RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
 import {
   AssetUniverseScanResult,
   AssetUniverseScanner,
@@ -45,6 +45,41 @@ function portfolioDeployableCapital(): number {
 function methodFor(profile: InvestorRiskProfile): InvestmentDecisionResult['recommendedMethod'] {
   return profile === 'LOW' ? 'INVERSE_VOLATILITY' : profile === 'MEDIUM' ? 'RISK_PARITY_ERC' : 'RELATIVE_MOMENTUM';
 }
+function cashRole(result: InvestmentDecisionResult, eligibleCount: number | null): { label: string; reason: string; className: string } {
+  if (result.cashWeight >= 0.999999) {
+    return {
+      label: 'CASH PRIORITARIO',
+      reason: 'El motor no encuentra una asignación de riesgo que justifique sacar dinero de la cuenta remunerada. Mantener 100% cash es una decisión explícita, no un fallo de asignación.',
+      className: 'border-sky-500/35 bg-sky-500/10 text-sky-100'
+    };
+  }
+  if (result.marketRegime === 'BEAR_HIGH_VOL' || result.marketRegime === 'BEAR_LOW_VOL' || result.marketRegime === 'SIDEWAYS_HIGH_VOL') {
+    return {
+      label: 'REFUGIO DEFENSIVO',
+      reason: `El régimen ${result.marketRegime} eleva deliberadamente el peso de efectivo. El cash compite con los activos, cobra la TAE configurada y reduce exposición mientras el entorno sea adverso.`,
+      className: 'border-cyan-500/35 bg-cyan-500/10 text-cyan-100'
+    };
+  }
+  if (eligibleCount === 0) {
+    return {
+      label: 'REFUGIO POR FALTA DE OPORTUNIDAD',
+      reason: 'Ningún candidato supera simultáneamente la cuenta remunerada y el consenso mínimo. No invertir el capital disponible es, por tanto, la alternativa económica preferida hoy.',
+      className: 'border-amber-500/35 bg-amber-500/10 text-amber-100'
+    };
+  }
+  if (result.cashWeight >= 0.12) {
+    return {
+      label: 'RESERVA ESTRATÉGICA',
+      reason: 'El perfil de riesgo y el régimen mantienen una reserva deliberada en efectivo aunque existan oportunidades. Esa reserva sigue remunerada y disponible para futuras entradas.',
+      className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+    };
+  }
+  return {
+    label: 'BUFFER OPERATIVO',
+    reason: 'El motor mantiene una fracción pequeña de efectivo por disciplina de cartera. No se interpreta como dinero ocioso: sigue remunerado y conserva opcionalidad para nuevas entradas.',
+    className: 'border-slate-700 bg-slate-900 text-slate-200'
+  };
+}
 function cashOnlyDecision(scan: AssetUniverseScanResult, capitalEur: number, riskProfile: InvestorRiskProfile, horizonYears: InvestmentHorizonYears): InvestmentDecisionResult {
   const asOfDate = scan.candidates.filter(c => c.status === 'ACCEPTED' && c.asOfDate).map(c => c.asOfDate!).sort().at(-1) ?? isoDate(new Date());
   return {
@@ -86,6 +121,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   const [alphaValidation, setAlphaValidation] = useState<AlphaVantageCrossValidationResult | null>(null);
   const [alphaLoading, setAlphaLoading] = useState(false);
   const [alphaError, setAlphaError] = useState<string | null>(null);
+  const cashBenchmarkAnnualPct = CashBenchmarkService.load();
 
   const inspectAsset = (symbolOrIsin: string) => {
     const clean = symbolOrIsin.trim().toUpperCase();
@@ -195,7 +231,10 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
         : cashOnlyDecision(scan, capital, riskProfile, horizon);
       setResult(next); setLocalRevision(v => v + 1); setError(null);
     } catch (e: any) { setResult(null); setError(e?.message || String(e)); }
-  }, [scan, capital, riskProfile, horizon]);
+  }, [scan, capital, riskProfile, horizon, cashRevision]);
+
+  const cashDecision = result ? cashRole(result, candidateGate?.eligibleCount ?? null) : null;
+  const oneYearCashInterestEur = result ? result.cashAmountEur * cashBenchmarkAnnualPct / 100 : 0;
 
   return <div className="space-y-5">
     <nav className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-700 bg-slate-950 p-2">
@@ -209,10 +248,16 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
     {workspace === 'PORTFOLIO' && <>
       <section className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/35 via-slate-900 to-slate-950 p-5 sm:p-6">
         <div className="max-w-3xl"><div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-emerald-300"/><h1 className="text-xl sm:text-2xl font-bold text-white">Mi cartera real</h1></div><p className="mt-2 text-sm text-slate-300">La pantalla responde primero si hay que mover dinero hoy. Después puedes abrir las razones, controles y metodología.</p></div>
-        <div className="mt-5 grid gap-3 md:grid-cols-3"><div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3"><span className="text-[10px] uppercase text-emerald-300">Liquidez para nuevas operaciones</span><div className="mt-1 text-xl font-mono font-bold">{capital.toFixed(2)} €</div></div><label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Riesgo</span><select value={riskProfile} onChange={e=>setRiskProfile(e.target.value as InvestorRiskProfile)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value="LOW">Bajo</option><option className="bg-slate-900" value="MEDIUM">Medio</option><option className="bg-slate-900" value="HIGH">Alto</option></select></label><label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Horizonte</span><select value={horizon} onChange={e=>setHorizon(Number(e.target.value) as InvestmentHorizonYears)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value={1}>1 año</option><option className="bg-slate-900" value={3}>3 años</option><option className="bg-slate-900" value={5}>5 años</option></select></label></div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3"><span className="text-[10px] uppercase text-emerald-300">Liquidez para nuevas operaciones</span><div className="mt-1 text-xl font-mono font-bold">{capital.toFixed(2)} €</div></div><label className="rounded-xl border border-sky-500/25 bg-sky-500/5 p-3"><span className="text-[10px] uppercase text-sky-300">Cuenta operativa remunerada</span><div className="mt-1 flex items-center gap-2"><input type="number" min="0" max="50" step="0.1" value={cashBenchmarkAnnualPct} onChange={e => CashBenchmarkService.set(Number(e.target.value))} className="w-24 rounded-lg border border-sky-500/30 bg-slate-950 px-2 py-1.5 text-right font-mono text-sm font-bold text-white"/><span className="text-xs font-bold text-sky-200">% TAE</span></div><span className="mt-1 block text-[9px] text-slate-500">Editable. Se usa como hurdle y remunera el cash no invertido.</span></label><label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Riesgo</span><select value={riskProfile} onChange={e=>setRiskProfile(e.target.value as InvestorRiskProfile)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value="LOW">Bajo</option><option className="bg-slate-900" value="MEDIUM">Medio</option><option className="bg-slate-900" value="HIGH">Alto</option></select></label><label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Horizonte</span><select value={horizon} onChange={e=>setHorizon(Number(e.target.value) as InvestmentHorizonYears)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value={1}>1 año</option><option className="bg-slate-900" value={3}>3 años</option><option className="bg-slate-900" value={5}>5 años</option></select></label></div>
         <button onClick={()=>void refreshMarket(true)} disabled={marketLoading} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${marketLoading?'animate-spin':''}`}/>{marketLoading?'Actualizando mercado…':'Actualizar mercado y recomendación'}</button>
         <div className="mt-2 flex flex-wrap gap-2 text-[9px] text-slate-500"><span>Mercado: {lastMarketRefresh ?? 'pendiente'} · recalculo #{localRevision}</span>{candidateGate && <><span>· descubrimiento {rawScan?.accepted ?? 0} válidos</span><span>· superan cash+consenso {candidateGate.eligibleCount}</span><span>· asignador {candidateGate.selectedCount}</span></>}{positionHealthLoading && <span>· vigilando posiciones…</span>}</div>
       </section>
+
+      {result && cashDecision && <section className={`rounded-2xl border p-5 ${cashDecision.className}`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div className="max-w-3xl"><div className="flex items-center gap-2"><CircleDollarSign className="h-5 w-5"/><h2 className="font-bold">Decisión CASH · {cashDecision.label}</h2></div><p className="mt-2 text-xs opacity-80">{cashDecision.reason}</p></div><div className="rounded-full border border-current/20 px-3 py-1 text-[10px] font-black">CASH ES UNA ASIGNACIÓN, NO UN SOBRANTE</div></div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-xs"><div className="rounded-xl bg-slate-950/45 p-3"><div className="text-[9px] uppercase opacity-60">Objetivo cash del asignador</div><div className="mt-1 font-mono text-lg font-bold">{result.cashAmountEur.toFixed(2)} €</div></div><div className="rounded-xl bg-slate-950/45 p-3"><div className="text-[9px] uppercase opacity-60">Peso sobre liquidez analizada</div><div className="mt-1 font-mono text-lg font-bold">{pct(result.cashWeight)}</div></div><div className="rounded-xl bg-slate-950/45 p-3"><div className="text-[9px] uppercase opacity-60">Remuneración configurada</div><div className="mt-1 font-mono text-lg font-bold">{cashBenchmarkAnnualPct.toFixed(2)}% TAE</div></div><div className="rounded-xl bg-slate-950/45 p-3"><div className="text-[9px] uppercase opacity-60">Interés 1 año si no cambiara</div><div className="mt-1 font-mono text-lg font-bold">+{oneYearCashInterestEur.toFixed(2)} €</div></div></div>
+        <div className="mt-3 text-[10px] opacity-70">El motor ya eleva el cash por perfil/régimen y exige que una nueva inversión supere esta alternativa remunerada. El interés mostrado a 1 año es sólo una equivalencia de la TAE sobre el cash objetivo si permaneciera inmóvil; la cartera real puede mover ese saldo antes.</div>
+      </section>}
 
       {scan && result && <MarketUtilityDashboard scan={scan} decision={result} eodhdValidation={eodhdValidation} positionHealth={positionHealth} onInspectAsset={inspectAsset}/>}
 
