@@ -41,7 +41,7 @@ La concentración posterior hacia Vanguard Global/core es deliberada:
 - prioridad vigente: Vanguard Global → ESG Developed → EUNL/IWDA → SXR8/VUSA;
 - no modificar CORE_GATE por el hecho de que concentre capital en el core.
 
-La observación de grandes aportaciones a partir de meses 7-9 se conserva para la futura fase `ReliabilityScore / OpportunityScore / sizing`: parte procede de consolidar rotaciones en el core y no necesariamente de una nueva señal de oportunidad extrema.
+Las grandes aportaciones tardías al Global pueden proceder de consolidar rotaciones en el core y no necesariamente de una nueva señal extrema de compra.
 
 ---
 
@@ -67,25 +67,19 @@ Cuatro ventanas de diseño/diagnóstico:
 | 2022-07-11 → 2023-07-10 | -0,9692% | -1,4275% | **-1,4275%** |
 | 2024-04-01 → 2025-03-31 | +6,8119% | +5,1721% | **+5,2982%** |
 
-CORE HOLD vs V2 en estas cuatro:
-- mejora 3/4 y queda exactamente neutro en 1/4;
-- suma Δ final +146,72 €;
-- suma Δ retorno +1,1286 pp;
-- coste agregado DD +0,4805 pp, concentrado casi totalmente en 2021/22.
-
-V2 puro no se promociona como política global.
+CORE HOLD vs V2 en estas cuatro: +146,72 € y +1,1286 pp agregados; coste DD +0,4805 pp concentrado casi totalmente en 2021/22. V2 puro no se promociona como política global.
 
 ---
 
 # Strategic growth core — rol canónico
 
-Principio arquitectónico validado: el **strategic growth core no debe venderse por deterioro corto ordinario ni utilizarse como fuente de rotación táctica competitiva**. Esto no significa “nunca vender”: una futura salida requerirá una tesis estructural independiente.
+Principio arquitectónico validado: el **strategic growth core no debe venderse por deterioro corto ordinario ni utilizarse como fuente de rotación táctica competitiva**. Una futura salida requerirá una tesis estructural independiente.
 
-Rol canónico implementado en:
+Implementación:
 - `src/investment/decision/portfolioAssetRole.ts`
 - `src/investment/decision/strategicCorePolicy.ts`
 
-Roles explícitos:
+Roles:
 - `STRATEGIC_GROWTH_CORE`
 - `DIVERSIFIED_SLEEVE`
 - `TACTICAL_SATELLITE`
@@ -96,77 +90,76 @@ Strategic core explícito:
 - `FUND_VANGUARD_US500`
 - `VWCE`, `EUNL`, `IWDA`, `SXR8`, `VUSA`.
 
-La categoría amplia por sí sola NO concede rol estratégico. Por ejemplo Vanguard Emerging o un holdout GLOBAL_EQUITY siguen siendo sleeve, y EQQQ sigue siendo satélite táctico.
+La categoría amplia por sí sola NO concede rol estratégico. Vanguard Emerging y holdouts GLOBAL_EQUITY son sleeves; EQQQ es táctico.
 
-Semántica reutilizable en `strategicCorePolicy.ts`:
-- una señal REDUCE/EXIT táctica del strategic core se conserva como diagnóstico pero se convierte en WATCH sin venta;
-- el strategic core bloquea uso como fuente de rotación táctica;
-- una futura salida estructural deberá vivir en una política separada y explícita.
+Semántica:
+- REDUCE/EXIT táctico del strategic core → WATCH sin venta;
+- el strategic core no financia una rotación táctica ordinaria;
+- salida estructural futura deberá ser una política distinta.
 
-`replayStrategicCoreHoldExperiment.ts` queda como arnés de validación causal que consume la semántica anterior; ya no contiene una definición local independiente del rol.
+`replayStrategicCoreHoldExperiment.ts` es arnés de validación de esta semántica.
 
-Backup previo a esta refactorización:
+Validación independiente:
+- 2019: CORE HOLD = V2 al último decimal; no hubo intervención.
+- 2017-01-02 → 2018-12-31 (24m): CORE HOLD +0,0657%, V2 -1,7666%, CURRENT -0,9874%; CORE HOLD mejora V2 +238,19 € / +1,8323 pp con DD sólo +0,0459 pp peor; también supera CURRENT +136,90 € con DD 0,72 pp mejor.
+- Hallazgo 2017: V2 vendía SXR8/EUNL para rotar a Intesa/Repsol; CORE HOLD conserva el núcleo. Intesa terminó posteriormente con REDUCE ~-18,8% y EXIT ~-21,3%.
+
+Refactor de rol validado en AI Studio el 2026-09-02: `npm run lint` PASS y `npm run test:trend-protection-counterfactual` PASS, cero errores. No se repitieron replays largos porque el refactor no cambió la semántica económica.
+
+Backup previo al refactor de rol:
 `backup/main-pre-portfolio-role-core-2026-09-02` → `1e3f0ab22b868fe608b11e0aaac92c52fb289070`.
-
-Estado de validación del refactor: **PENDIENTE de gates AI Studio**. No se ha cambiado ningún threshold ni se pretende cambiar los resultados económicos ya validados.
 
 ---
 
-# Validaciones independientes del strategic core
+# SELECTION_QUALITY_V1 — nuevo cuarto brazo
 
-## 2019-01-02 → 2019-12-31
-- CURRENT: +15,045%, final 14.955,86 €.
-- V2: +15,225%, final 14.979,25 €.
-- CORE HOLD: +15,225%, final 14.979,25 €.
-- DD de V2 y CORE HOLD idéntico: 2,261%.
-- CORE HOLD = V2 al último decimal: no hubo venta de strategic core que interceptar.
-- V2/CORE HOLD superan CURRENT en +23,39 € / +0,180 pp.
+Objetivo: atacar el problema de mayor impacto observado: **selección/composición**. Se separa deliberadamente de sizing para poder atribuir el resultado.
 
-## 2017-01-02 → 2018-12-31 — 24 meses
-CURRENT:
-- final 12.871,64 €;
-- retorno -0,9874%;
-- DD 14,8945%.
+Implementación base:
+- `src/investment/decision/assetSelectionQuality.ts`
+- `AssetUniverseScanner` expone `reliabilityScore`, `opportunityScore`, `currentDrawdownPct`, `positiveRolling60Pct`, `positiveRolling120Pct`.
+- `PortfolioCandidateGate` incorpora política explícita `LEGACY | QUALITY_V1`.
+- `CurrentOpportunityAlertEngine` expone ambos scores.
+- `replaySelectionQualityExperiment.ts` fuerza QUALITY_V1 sobre el mismo replay causal con `STRATEGIC_CORE_HOLD_V1` ya fijado.
+- `historicalReplayAudit.worker.ts` exporta un cuarto brazo en `trendProtectionV2Counterfactual.selectionQualityExperiment`.
 
-V2:
-- final 12.770,34 €;
-- retorno -1,7666%;
-- DD 14,1286%;
-- turnover 36.303,10 €;
-- 10 REDUCE / 17 EXIT.
+## ReliabilityScore 0–100
+Sólo usa el prefijo disponible en la fecha:
+- 45% persistencia de retornos rolling 60 positivos;
+- 25% persistencia rolling 120 positiva;
+- 20% calidad de drawdown histórico;
+- 10% calidad de volatilidad.
 
-STRATEGIC_CORE_HOLD_V1:
-- final **13.008,53 €**;
-- retorno **+0,0657%**;
-- DD **14,1745%**;
-- turnover **28.774,22 €**;
-- 9 REDUCE / 12 EXIT;
-- cash nunca negativo; máximo 12/12 posiciones.
+Pregunta: **¿este activo ha mostrado un camino persistentemente rentable/tolerable o depende de un tramo aislado?**
 
-CORE HOLD vs V2:
-- **+238,19 € / +1,8323 pp**;
-- DD sólo +0,0459 pp peor;
-- turnover -7.528,88 €.
+## OpportunityScore 0–100
+También causal:
+- 30% ReliabilityScore;
+- 25% momentum 120;
+- 15% momentum 60;
+- 10% momentum 20;
+- 10% aceleración de corto vs medio plazo;
+- 10% drawdown actual.
 
-CORE HOLD vs CURRENT:
-- **+136,90 € / +1,0530 pp**;
-- DD **0,7200 pp mejor**.
+Pregunta: **¿hay una oportunidad atractiva ahora en un activo que además tiene suficiente calidad histórica?**
 
-Hallazgo causal principal:
-- la divergencia empieza 2017-08-08/09;
-- V2 permite vender `SXR8` (S&P 500) para rotar hacia Intesa y `EUNL` (MSCI World) para rotar hacia Repsol;
-- CORE HOLD conserva ambos strategic cores;
-- Intesa termina posteriormente con REDUCE alrededor de -18,8% y EXIT alrededor de -21,3%;
-- el beneficio no procede sólo de impedir REDUCE V2: también de impedir que un core estructural sea vaciado para perseguir challengers tácticos.
+QUALITY_V1 no salta ningún gate: REAL + cash + consenso BUY + Entry Timing siguen siendo obligatorios. Sólo añade un ajuste relativo al ranking de candidatos ya elegibles. El cálculo histórico se reconstruye desde `acceptedDataset` si el replay no trae scores precalculados, evitando fallback neutral silencioso.
 
-Exact initial hold 2017-18 termina +6,2247%, muy por encima incluso de CORE HOLD (+0,0657%). Proteger el core corrige una pieza real, pero **no resuelve el problema principal de selección/composición/rotaciones**.
+Importante: **todavía NO cambia sizing**. STARTER/BUILD, caps, Entry Timing, slots, CORE_GATE y protección quedan congelados. Si selección demuestra valor, el siguiente experimento será `QUALITY_SIZING_V1` y se evaluará por separado.
+
+Backup previo a esta fase:
+`backup/main-pre-selection-quality-v1-2026-09-02` → `a04905336a96a0056b81836a914672f8e58756cf`.
+
+Estado: implementación terminada; **gates AI Studio pendientes**.
 
 ---
 
 # Próxima acción
 
-1. Sincronizar `main` y ejecutar `npm run lint`.
-2. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
-3. Si falla, ejecutar sólo el test dirigido hasta corregirlo; no lanzar replays históricos.
-4. Si ambos pasan, marcar el refactor de rol como cerrado sin repetir los replays largos, porque no se cambió semántica económica.
-5. Inmediatamente después iniciar el bloque de mayor impacto: **ReliabilityScore / OpportunityScore + selección + sizing/concentración**, manteniendo congelados los thresholds ya diagnosticados.
+1. Sincronizar `main`.
+2. Ejecutar `npm run lint`.
+3. Si PASS, ejecutar `npm run test:portfolio-candidate-gate`.
+4. Si PASS, ejecutar `npm run test:current-opportunity-alerts`.
+5. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
+6. No ejecutar replays si alguno falla; corregir sólo el gate concreto.
+7. Si los cuatro pasan, ejecutar una primera ventana histórica con el nuevo cuarto brazo para medir **CORE HOLD vs SELECTION_QUALITY_V1** antes de introducir sizing/concentración.
