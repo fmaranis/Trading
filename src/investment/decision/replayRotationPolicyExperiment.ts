@@ -131,13 +131,13 @@ function routeToCore(input: PortfolioEvaluationInput, result: PortfolioDecisionR
     executableTargetAssetValueEur: currentCoreValue + mergedAmount,
     positionStage: 'ROTATION_ENTRY',
     portfolioShareCapPct: undefined,
-    reason: `[CORE_GATE_V1:CORE] Se libera ${incumbent.ticker} y el capital se dirige al core diversificado ${core.asset.ticker}, no al challenger táctico original ${baselineContribution.ticker}. ${detail} El core es una base de mercado, no un activo libre de riesgo.`
+    reason: `[CORE_GATE_V1:CORE] Se libera ${incumbent.label} y el capital se dirige al core diversificado ${core.asset.ticker}, no al challenger táctico original ${baselineContribution.ticker}. ${detail} El core es una base de mercado, no un activo libre de riesgo.`
   };
   result.contributions.push(replacement);
 
   incumbent.rotationChallengerAssetId = core.asset.assetId;
   incumbent.rotationChallengerTicker = core.asset.ticker;
-  incumbent.reason = `[CORE_GATE_V1:CORE] Rotación experimental de ${incumbent.ticker} hacia core diversificado ${core.asset.ticker}. Challenger baseline rechazado: ${baselineContribution.ticker}. ${detail}`;
+  incumbent.reason = `[CORE_GATE_V1:CORE] Rotación experimental de ${incumbent.label} hacia core diversificado ${core.asset.ticker}. Challenger baseline rechazado: ${baselineContribution.ticker}. ${detail}`;
 }
 
 function applyCoreGateV1(input: PortfolioEvaluationInput, result: PortfolioDecisionResult, counters: Record<'KEEP' | 'CORE' | 'CHALLENGER', number>): PortfolioDecisionResult {
