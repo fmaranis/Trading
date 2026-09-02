@@ -135,7 +135,12 @@ check('950 a full 12-slot medium-risk portfolio cannot open another unrelated st
 
 const incumbentBars = bars(0.9998);
 const incumbentCandidate: any = candidate('INCUMBENT', 'INC.DE', 'EUROPE_EQUITY', incumbentBars, -8, 18, 4);
-const rotationScan: any = scanFrom([incumbentCandidate, candidates[0]], { INCUMBENT: incumbentBars, STRONG_TECH: techBars });
+// The slot/rotation invariants must use a challenger that is actually executable under
+// the 5% MEDIUM starter cap. Scaling the price leaves all return/timing history intact
+// while preventing the whole-share gate from masking the slot semantics being tested.
+const rotationTechBars = techBars.map(bar => ({ ...bar, open: bar.open * 0.25, high: bar.high * 0.25, low: bar.low * 0.25, close: bar.close * 0.25 }));
+const rotationTechCandidate: any = candidate('STRONG_TECH', 'STRONGT.DE', 'TECHNOLOGY', rotationTechBars, 26, 15, 21);
+const rotationScan: any = scanFrom([incumbentCandidate, rotationTechCandidate], { INCUMBENT: incumbentBars, STRONG_TECH: rotationTechBars });
 const incumbentPrice = incumbentCandidate.lastClose;
 const rotationHealth: any = {
   'INC.DE': {
@@ -183,7 +188,7 @@ const transientRotationResult = PortfolioDecisionEngine.evaluate({ portfolio: ro
 const transientPreservedIncumbent = transientRotationResult.existingPositions.find(row => row.assetId === 'INCUMBENT');
 check('958 a fresh isolated ENTRY_STRONG remains a valid opportunity today but cannot evict an incumbent without prior persistence', transientAlerts.some(row => row.assetId === 'TRANSIENT_STRONG' && row.timingState === 'ENTRY_STRONG') && transientPreservedIncumbent?.action === 'WATCH' && transientPreservedIncumbent.rotationChallengerAssetId == null && !transientRotationResult.contributions.some(row => row.assetId === 'TRANSIENT_STRONG'));
 
-const expensiveBars = techBars.map(bar => ({ ...bar, open: bar.open * 20, high: bar.high * 20, low: bar.low * 20, close: bar.close * 20 }));
+const expensiveBars = rotationTechBars.map(bar => ({ ...bar, open: bar.open * 20, high: bar.high * 20, low: bar.low * 20, close: bar.close * 20 }));
 const expensiveCandidate: any = candidate('EXPENSIVE_CHALLENGER', 'EXP.DE', 'TECHNOLOGY', expensiveBars, 26, 15, 25);
 const expensiveRotationScan: any = scanFrom([incumbentCandidate, expensiveCandidate], { INCUMBENT: incumbentBars, EXPENSIVE_CHALLENGER: expensiveBars });
 const expensiveRotationResult = PortfolioDecisionEngine.evaluate({ portfolio: rotationPortfolio, scan: expensiveRotationScan, decision: rotationDecision, positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5 });
