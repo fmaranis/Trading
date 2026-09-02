@@ -69,7 +69,7 @@ Backup previo: `backup/main-pre-v2-watch-protect-rotation-2026-09-02` → `dbe5a
 
 ---
 
-# Cuatro ventanas FULL_CAUSAL cerradas con arquitectura actual
+# Cuatro ventanas FULL_CAUSAL cerradas con arquitectura V2 actual
 
 | Ventana | CURRENT_POLICY | V2 actual | Δ retorno V2 | Δ DD V2 | Δ final € |
 |---|---:|---:|---:|---:|---:|
@@ -78,20 +78,94 @@ Backup previo: `backup/main-pre-v2-watch-protect-rotation-2026-09-02` → `dbe5a
 | 2022-07-11 → 2023-07-10 | -0,9692% | -1,4275% | **-0,4583 pp** | **-0,0275 pp mejor** | **-59,58 €** |
 | 2024-04-01 → 2025-03-31 | +6,8119% | +5,1721% | **-1,6398 pp** | +0,4060 pp peor | **-213,18 €** |
 
-Agregado de las cuatro ventanas de 12 meses:
+Agregado:
 - V2 gana en retorno sólo **1 de 4** ventanas;
 - suma de diferencias finales: **-97,22 €** sobre cuatro pruebas de 13.000 €;
 - suma de Δ retorno: **-0,7478 pp**, media **-0,1870 pp por ventana**;
 - DD mejora en 2/4 y empeora en 2/4;
 - V2 no muestra robustez suficiente para sustituir CURRENT_POLICY.
 
-Lectura por régimen:
-- COVID: V2 gana por conservar/reconstruir exposición durante el rebote; no evita mejor el trough.
-- 2021/22: mejora DD pero reduce cores diversificados durante la caída y queda demasiado defensivo durante rebotes.
-- 2022/23: el bloqueo WATCH/PROTECT no cambia ninguna decisión; el replay nuevo es legítimamente idéntico al anterior. V2 queda ~59,6 € peor.
-- 2024/25: el bloqueo WATCH/PROTECT corrige varias rotaciones indebidas y mejora V2 de +4,723% a +5,172%, pero sigue -1,640 pp por debajo del baseline.
-
 Conclusión: **TREND_PROTECTION_V2 no se promociona y no se reajustan sus thresholds con estas mismas ventanas**.
+
+---
+
+# CORE_GATE_V1 — intención estratégica preservada
+
+La concentración posterior hacia Vanguard Global no se considera por sí misma un defecto. Fue una decisión deliberada:
+- cuando una posición mediocre/deteriorada libera capital y el challenger no es excepcional, se prefiere mantener exposición de largo plazo en un core global diversificado antes que perseguir otra apuesta táctica o acumular cash innecesario;
+- `CORE_GATE_V1` sigue siendo el embudo deliberado hacia ese núcleo;
+- no se modifica su lógica ni sus thresholds en el siguiente experimento.
+
+La observación del usuario sobre grandes aportaciones a partir de meses 7-9 se interpreta parcialmente por este mecanismo: varias rotaciones terminan consolidando capital en Vanguard Global. Esto puede ser comportamiento deseado y se evaluará aparte en la futura fase de selección/sizing.
+
+---
+
+# Diagnóstico específico — vender el core acumulado
+
+Se aislaron las REDUCE V2 directas sobre el núcleo estratégico de crecimiento (Vanguard Global, ESG Developed, US500 y equivalentes amplios).
+
+Evidencia observada:
+- 8 REDUCE directas de core en las cuatro ventanas;
+- en 6 de 8, el activo terminó recuperando más que el cash desde el precio de venta hasta el final de la ventana;
+- COVID 2020-03-16: US500, ESG Developed y Vanguard Global se redujeron cerca del suelo; un mes después habían recuperado aprox. +20,6%, +18,2% y +18,7% desde el precio de venta; al final de la ventana estaban aprox. +50,0%, +53,9% y +50,5%;
+- 2021/22: tras las reducciones de junio, Vanguard Global recuperó aprox. +5,5% hasta final de ventana y US500 +11,9%; ESG Developed de mayo fue el contraejemplo, terminando ~-3,6% desde la venta;
+- 2024/25: el REDUCE de Vanguard Global del 2025-03-12 sólo explica una parte pequeña del déficit total; a 2025-03-31 el fondo estaba ~+0,85% sobre el precio de venta.
+
+Diagnóstico simple hold-vs-cash sobre los importes vendidos, sin pretender sustituir el replay FULL_CAUSAL:
+- COVID: conservar esas tres fracciones de core habría aportado aprox. +136 € frente a dejarlas en cash hasta final;
+- 2021/22: aprox. +27 € netos en conjunto, con dos reducciones ESG parcialmente favorables al cash pero Global/US500 desfavorables;
+- 2024/25: aprox. +6,5 €;
+- suma diagnóstica aproximada: +169 € a favor de conservar las fracciones de core frente a cash.
+
+Este cálculo NO es evidencia económica final porque los proceeds pueden ser reutilizados de forma causal. Sólo justifica probar la hipótesis con un tercer replay completo.
+
+---
+
+# Nuevo tercer brazo — STRATEGIC_CORE_HOLD_V1
+
+Implementado como experimento, no como política productiva.
+
+Archivo: `src/investment/decision/replayStrategicCoreHoldExperiment.ts`.
+
+Hipótesis exacta:
+- conservar `CORE_GATE_V1` intacto como destino de capital;
+- conservar TREND_PROTECTION_V2 intacto para satélites y sleeves;
+- no cambiar ningún threshold de MFE/giveback/streak, Entry Timing, STARTER/BUILD o challenger;
+- una vez que el capital está en el **core estratégico de crecimiento**, las señales de corto plazo pueden seguir diagnosticándose, pero REDUCE/EXIT se degradan a WATCH y no se ejecutan;
+- el core estratégico tampoco puede convertirse en fuente de una rotación competitiva de corto plazo;
+- las reglas normales de ADD/entrada siguen vigentes.
+
+Core estratégico experimental:
+- `FUND_VANGUARD_GLOBAL`
+- `FUND_VANGUARD_ESG_DEVELOPED`
+- `FUND_VANGUARD_US500`
+- `VWCE`
+- `EUNL`
+- `IWDA` (compatibilidad futura si entra en universo)
+- `SXR8`
+- `VUSA`
+
+Regionales, emerging, bonos y activos tácticos NO se convierten en strategic core por este experimento.
+
+El worker ejecuta en el checkpoint final tres brazos causales:
+1. CURRENT_POLICY + CORE_GATE_V1.
+2. TREND_PROTECTION_V2 actual.
+3. `STRATEGIC_CORE_HOLD_V1` = mismo V2, pero sin ventas/rotaciones de corto plazo del core estratégico acumulado.
+
+El tercer resultado se exporta en:
+`summary.trendProtectionV2Counterfactual.strategicCoreHoldExperiment`
+con `deltaVsCurrentPolicy` y `deltaVsTrendProtectionV2`.
+
+Regresión añadida a `test:trend-protection-counterfactual`:
+- Global/US500/EUNL reconocidos como strategic core;
+- EQQQ y Vanguard Emerging no lo son;
+- REDUCE de strategic core se convierte en WATCH sin venta;
+- satélite conserva REDUCE;
+- fixture sin strategic core debe producir economía exactamente idéntica entre V2 y STRATEGIC_CORE_HOLD_V1;
+- siguen vigentes cash no negativo y máximo 12 posiciones.
+
+Backup previo:
+`backup/main-pre-strategic-core-hold-2026-09-02` → `7c5a77b237d576c4bc3949350229c4c138e7fc71`.
 
 ---
 
@@ -102,16 +176,17 @@ El usuario observa que la estrategia suele empezar a destacar frente a mantener 
 Lectura provisional:
 - el motor ya despliega bastante capital temprano, pero muy repartido entre STARTER pequeños;
 - cuando genera alfa de forma clara, con frecuencia coincide con concentraciones posteriores de alta convicción y múltiples ADD/rotaciones hacia una posición dominante;
-- no es una regla universal de “mes 7-8”, pero sí una hipótesis fuerte sobre selección + sizing;
-- conservar esta observación para el bloque futuro de `ReliabilityScore / OpportunityScore / sizing`, sin actuar sobre ella durante el cierre de V2.
+- no es una regla universal de “mes 7-8”;
+- conservar esta observación para `ReliabilityScore / OpportunityScore / sizing`, sin mezclarla con el experimento actual de gestión del core.
 
 ---
 
 # Próxima acción
 
-1. Dar por cerrada la validación de mecanismo de TREND_PROTECTION_V2 en estas cuatro ventanas.
-2. No tocar thresholds MFE/giveback/streak/hard EXIT.
-3. No promocionar V2 como política global.
-4. Siguiente bloque del plan: analizar la separación de gestión entre **core diversificado** y **posiciones tácticas/satélite**, porque los datos muestran que reducir cores durante shocks puede proteger DD pero perder recuperación.
-5. Diseñar la siguiente hipótesis de forma arquitectónica y causal antes de escribir código; no optimizarla contra estas cuatro ventanas.
-6. Después volver a validar con holdouts independientes/24-36m antes de cualquier promoción.
+1. Sincronizar `main` y ejecutar `npm run lint`.
+2. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
+3. No ejecutar aún las cuatro ventanas si falla alguno de esos gates.
+4. Si ambos pasan, probar primero **2021-11-01 → 2022-10-31**, porque contiene varias REDUCE de core y es la mejor ventana para comprobar la hipótesis sin usar COVID como único caso favorable.
+5. Comparar los tres brazos: CURRENT_POLICY vs V2 actual vs STRATEGIC_CORE_HOLD_V1.
+6. Si STRATEGIC_CORE_HOLD mejora 2021/22 sin romper DD/cash/plazas, probar COVID y 2024/25; 2022/23 debería ser casi/necesariamente neutra porque no tuvo REDUCE directas del core estratégico.
+7. No promocionar el tercer brazo ni cambiar thresholds hasta completar esa validación.
