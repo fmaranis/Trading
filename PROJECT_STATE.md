@@ -153,32 +153,40 @@ Hallazgos V1:
 
 V2 se implementa **en el mismo `trendProtectionPolicy.ts`**, conservando V1 intacta como referencia. No se crea otro motor.
 
-Nuevo flujo experimental:
+Flujo experimental:
 
 > **HEALTHY → WATCH → PROTECT → REDUCE → EXIT**
 
 Principios:
 - separar detección de deterioro y ejecución;
-- usar la racha causal de deterioro ya existente;
 - una ruptura reciente arma `PROTECT` sin vender;
-- exigir persistencia antes de `REDUCE`;
-- reducción inicial pequeña para conservar participación ante posible recuperación;
-- `EXIT` queda reservado para fallo profundo, multiseñal y persistente;
-- un reclaim de pendiente 20d + SMA20 positiva sin breakdown desarma protección.
+- perdedores usan la racha causal de deterioro multiseñal ya existente;
+- ganadores pueden mantener consenso positivo mientras la estructura corta se rompe, por lo que V2 también conserva estado de protección armado;
+- exigir confirmación antes de `REDUCE`;
+- reducción inicial pequeña para conservar participación ante recuperación;
+- `EXIT` reservado para fallo profundo, multiseñal y persistente;
+- reclaim de tendencia corta desarma protección.
 
 Hipótesis V2 actuales, todavía NO calibradas:
 - ganador: MFE >=8% y giveback >=6 pp + deterioro corto;
-- ruptura fuerte de ganador necesita >=3 sesiones de deterioro para REDUCE;
-- tesis fallida necesita >=5 sesiones para REDUCE;
-- REDUCE experimental inicial = 25%;
+- primera ruptura fuerte → PROTECT;
+- ganador pasa a REDUCE 25% si existe racha multiseñal suficiente **o** tras al menos 3 observaciones protegidas sigue empeorando >=2 pp respecto al retorno donde se armó PROTECT;
+- esta segunda vía permite detectar DTE/ZPRV aun con consenso todavía positivo y evita usar la racha de consenso como único criterio;
+- tesis fallida necesita >=5 sesiones de deterioro multiseñal para REDUCE 25%;
 - satélite sólo puede EXIT alrededor de <=-18% con DOWNTREND, >=10 sesiones, >=4 votos adversos y consenso <=-3;
 - core nunca usa ese hard EXIT de satélite;
-- recuperación causal `HEALTHY_UPTREND` + slope20>0 + SMA20 slope>0 + sin breakdown → HOLD/reclaim.
+- `HEALTHY_UPTREND` + slope20>0 + SMA20 slope>0 + sin breakdown → HOLD/reclaim.
 
-Tests V2 añadidos en `tests/trendProtectionPolicy.unit.ts`:
+Aplicación diagnóstica preliminar sobre el ZIP 12m mostró por qué era necesaria esta refinación:
+- DTE/ZPRV presentaban ruptura estructural útil con `deteriorationStreakSessions=0` porque el consenso seguía favorable;
+- TotalEnergies/EXH1 mostraban rupturas pero después mejoraban respecto al punto de armado;
+- por ello V2 no debe convertir automáticamente “3 días” en venta: compara también la evolución desde el punto donde se armó PROTECT.
+
+Tests V2 añadidos/actualizados en `tests/trendProtectionPolicy.unit.ts`:
 - ganador recién roto → PROTECT;
-- ganador con ruptura persistente → REDUCE 25%;
-- ganador recuperado → HOLD/reclaim;
+- ganador protegido que sigue empeorando >=2 pp tras 3 observaciones → REDUCE 25% aunque consenso siga positivo;
+- ganador protegido que mejora desde el punto de armado → sigue PROTECT, no reduce por tiempo solamente;
+- ganador recuperado con reclaim → HOLD;
 - caso tipo Sanofi -16,4% con ruptura reciente → PROTECT, no EXIT;
 - fallo persistente → REDUCE 25%;
 - fallo satélite profundo y persistente → EXIT;
@@ -186,30 +194,31 @@ Tests V2 añadidos en `tests/trendProtectionPolicy.unit.ts`:
 
 Commits V2:
 - `fd6090c` — staged trend protection V2;
-- `4549ccd` — V2 policy regressions.
+- `4549ccd` — V2 policy regressions;
+- `62617f6` — winner protection persistence desde estado armado;
+- `6b65ff7` — regresiones para empeoramiento vs recuperación tras PROTECT.
 
 Estado V2:
 
 > **IMPLEMENTADO EN POLÍTICA + TESTS, TODAVÍA NO RUNTIME-VALIDADO Y NO INTEGRADO EN ÓRDENES.**
 
-No hace falta repetir todavía el replay histórico: el ZIP 12m ya contiene retorno, MFE, giveback, racha, consenso y pendientes suficientes para aplicar V2 de forma diagnóstica una vez pase su unit test.
+No repetir todavía el replay histórico: el ZIP 12m ya contiene retorno, MFE, giveback, consenso y pendientes. Una vez pase el unit test, se puede aplicar V2 secuencialmente al replay existente antes de construir el A/B económico.
 
 ---
 
 # Persistencia / GitHub
 
-- `main` debe permanecer estable hasta promoción explícita.
-- La rama experimental conserva cambios de trend protection.
+- `main` restaurado al estable `d77f2f4`; experimentos sólo en la rama `chatgpt/trend-protection-v1`.
 - No GitHub Actions.
-- Si la publicación de replay falla por `GITHUB_REPLAY_SYNC_WRITE_FAILED:401`, no repetir el replay; corregir publicación/token y reutilizar resultado local.
+- Si publicación de replay falla por `GITHUB_REPLAY_SYNC_WRITE_FAILED:401`, no repetir replay; reutilizar resultado local.
 - Nunca pegar tokens en chat ni cliente.
 
 ---
 
 # Próxima acción concreta
 
-1. Sincronizar `chatgpt/trend-protection-v1` en AI Studio.
+1. Sincronizar `chatgpt/trend-protection-v1` en AI Studio; HEAD esperado posterior a esta actualización.
 2. Ejecutar únicamente `npm run test:trend-protection`.
 3. No modificar archivos automáticamente.
-4. Si PASS, aplicar V2 diagnósticamente al replay 12m ya calculado y comparar V1 vs V2 sin repetir el replay.
-5. Sólo si V2 reduce falsos positivos conservando los casos útiles, construir después el replay contrafactual A/B económico con mismas entradas/fechas.
+4. Si PASS, aplicar V2 secuencialmente al replay 12m ya calculado y comparar los activos que pasan PROTECT→REDUCE frente a los que se recuperan.
+5. Sólo si esa separación es coherente, integrar estado V2 en un replay contrafactual A/B económico con mismas entradas/fechas.
