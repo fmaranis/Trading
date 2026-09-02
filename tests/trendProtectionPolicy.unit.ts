@@ -100,39 +100,65 @@ assert.equal(failedCore.suggestedReductionPct, 50);
 
 // V2: a first break is protection state, not an immediate trade.
 const v2FreshWinner = classifyTrendProtectionV2(assessment('BREAKDOWN_RISK', {
-  consensusScore: -1,
-  unfavorableVotes: 2
+  consensusScore: 5,
+  unfavorableVotes: 0
 }), {
   currentReturnPct: 10,
   mfePct: 20,
   givebackFromMfePctPoints: 10,
   isDiversifiedCore: false,
-  deteriorationStreakSessions: 1
+  deteriorationStreakSessions: 0,
+  protectionObservations: 1,
+  protectionReferenceReturnPct: 10
 });
 assert.equal(v2FreshWinner.action, 'PROTECT');
 assert.equal(v2FreshWinner.suggestedReductionPct, null);
 assert.equal(v2FreshWinner.confirmationStage, 'ARMED');
 
+// Winner can confirm deterioration even while broad consensus remains positive:
+// after PROTECT has been observed repeatedly, another >=2 pp loss from the armed
+// reference is enough for a small partial reduction.
 const v2ConfirmedWinner = classifyTrendProtectionV2(assessment('BREAKDOWN_RISK', {
-  consensusScore: -2,
-  unfavorableVotes: 3
+  consensusScore: 5,
+  unfavorableVotes: 0
 }), {
-  currentReturnPct: 9,
+  currentReturnPct: 7.5,
   mfePct: 20,
-  givebackFromMfePctPoints: 11,
+  givebackFromMfePctPoints: 12.5,
   isDiversifiedCore: false,
-  deteriorationStreakSessions: 3
+  deteriorationStreakSessions: 0,
+  protectionObservations: 3,
+  protectionReferenceReturnPct: 10
 });
 assert.equal(v2ConfirmedWinner.action, 'REDUCE');
 assert.equal(v2ConfirmedWinner.suggestedReductionPct, 25);
 assert.equal(v2ConfirmedWinner.confirmationStage, 'CONFIRMED');
+
+// A protected winner that rebounds from the armed reference must not be reduced
+// merely because the current trend snapshot is still classified as a break.
+const v2RecoveringProtectedWinner = classifyTrendProtectionV2(assessment('DOWNTREND', {
+  consensusScore: 3,
+  unfavorableVotes: 0
+}), {
+  currentReturnPct: 7,
+  mfePct: 20,
+  givebackFromMfePctPoints: 13,
+  isDiversifiedCore: false,
+  deteriorationStreakSessions: 0,
+  protectionObservations: 3,
+  protectionReferenceReturnPct: 4
+});
+assert.equal(v2RecoveringProtectedWinner.action, 'PROTECT');
+assert.equal(v2RecoveringProtectedWinner.suggestedReductionPct, null);
 
 const v2HealthyWinner = classifyTrendProtectionV2(healthyAssessment, {
   currentReturnPct: 18,
   mfePct: 25,
   givebackFromMfePctPoints: 7,
   isDiversifiedCore: false,
-  deteriorationStreakSessions: 0
+  deteriorationStreakSessions: 0,
+  protectionObservations: 4,
+  protectionReferenceReturnPct: 10
 });
 assert.equal(v2HealthyWinner.action, 'HOLD');
 assert.equal(v2HealthyWinner.reclaimDetected, true);
@@ -197,6 +223,7 @@ console.log('TREND_PROTECTION_POLICY_RESULT', JSON.stringify({
   v2: {
     freshWinner: v2FreshWinner.action,
     confirmedWinner: v2ConfirmedWinner.action,
+    recoveringWinner: v2RecoveringProtectedWinner.action,
     healthyWinner: v2HealthyWinner.action,
     freshLoser: v2FreshLoser.action,
     confirmedLoser: v2ConfirmedLoser.action,
