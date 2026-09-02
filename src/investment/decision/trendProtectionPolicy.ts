@@ -13,6 +13,7 @@ export interface TrendProtectionContext {
   momentum20Pct?: number | null;
   protectionObservations?: number | null;
   protectionReferenceReturnPct?: number | null;
+  protectionReductionExecuted?: boolean | null;
 }
 
 export interface TrendProtectionDecision {
@@ -47,7 +48,8 @@ const SATELLITE_HARD_FAILURE_RETURN_PCT = -15;
 // V2 keeps V1 as the diagnostic reference but separates detection from execution.
 // First break => PROTECT. REDUCE requires either persistent weak consensus (losers)
 // or continued deterioration after protection was armed (winners). EXIT is reserved
-// for a much deeper and persistent satellite failure.
+// for a much deeper and persistent satellite failure. One protection episode may
+// execute at most one partial REDUCE before reclaim or hard EXIT.
 const V2_WINNER_CONFIRM_STREAK = 3;
 const V2_WINNER_CONFIRM_PROTECTION_OBSERVATIONS = 3;
 const V2_WINNER_MIN_WORSENING_AFTER_ARM_PP = 2;
@@ -189,6 +191,7 @@ export function classifyTrendProtectionV2(
   const streak = Math.max(0, context.deteriorationStreakSessions ?? 0);
   const protectionObservations = Math.max(0, context.protectionObservations ?? 0);
   const protectionReferenceReturn = context.protectionReferenceReturnPct ?? null;
+  const reductionExecuted = context.protectionReductionExecuted === true;
   const weakening = trend.state === 'WEAKENING_UPTREND' || trend.state === 'BREAKDOWN_RISK' || trend.state === 'DOWNTREND';
   const confirmedBreak = trend.breakdown20 || trend.state === 'BREAKDOWN_RISK' || trend.state === 'DOWNTREND';
   const shortTrendNegative = negativeOrZero(trend.regressionSlope20AnnualizedPct) && negativeOrZero(trend.sma20Slope20AnnualizedPct);
@@ -252,12 +255,25 @@ export function classifyTrendProtectionV2(
   }
 
   if (loserFailureArmed) {
+    if (reductionExecuted) {
+      return {
+        policy: 'TREND_PROTECTION_V2',
+        action: 'PROTECT',
+        suggestedReductionPct: null,
+        reason: `La tesis sigue deteriorada, pero este episodio ya ejecutó un REDUCE ${V2_PARTIAL_REDUCTION_PCT}%. No repetir ventas por la misma ruptura; esperar reclaim o hard EXIT.`,
+        winnerProtectionArmed,
+        loserFailureArmed: true,
+        confirmationStage: streak >= V2_HARD_EXIT_STREAK ? 'PERSISTENT' : 'CONFIRMED',
+        reclaimDetected: false,
+        trendState: trend.state
+      };
+    }
     if (streak >= V2_LOSER_CONFIRM_STREAK) {
       return {
         policy: 'TREND_PROTECTION_V2',
         action: 'REDUCE',
         suggestedReductionPct: V2_PARTIAL_REDUCTION_PCT,
-        reason: `Tesis fallida confirmada pero no terminal: retorno ${currentReturn!.toFixed(1)}%, ruptura corta y ${streak} sesiones de deterioro. Reducir ${V2_PARTIAL_REDUCTION_PCT}% y exigir nueva confirmación antes de una salida mayor.`,
+        reason: `Tesis fallida confirmada pero no terminal: retorno ${currentReturn!.toFixed(1)}%, ruptura corta y ${streak} sesiones de deterioro. Reducir ${V2_PARTIAL_REDUCTION_PCT}% una sola vez y exigir nueva fase antes de una venta adicional.`,
         winnerProtectionArmed,
         loserFailureArmed: true,
         confirmationStage: streak >= V2_HARD_EXIT_STREAK ? 'PERSISTENT' : 'CONFIRMED',
@@ -280,6 +296,19 @@ export function classifyTrendProtectionV2(
 
   if (winnerProtectionArmed) {
     if (confirmedBreak && giveback != null && giveback >= WINNER_STRONG_GIVEBACK_PP) {
+      if (reductionExecuted) {
+        return {
+          policy: 'TREND_PROTECTION_V2',
+          action: 'PROTECT',
+          suggestedReductionPct: null,
+          reason: `La protección de beneficio sigue activa, pero este episodio ya ejecutó un REDUCE ${V2_PARTIAL_REDUCTION_PCT}%. No encadenar reducciones diarias; conservar el resto hasta reclaim o deterioro terminal.`,
+          winnerProtectionArmed: true,
+          loserFailureArmed,
+          confirmationStage: 'CONFIRMED',
+          reclaimDetected: false,
+          trendState: trend.state
+        };
+      }
       if (streak >= V2_WINNER_CONFIRM_STREAK || winnerStillWorseningAfterArm) {
         const confirmation = winnerStillWorseningAfterArm
           ? `${protectionObservations} observaciones desde PROTECT y empeoramiento de ${(protectionReferenceReturn! - currentReturn!).toFixed(1)} pp desde el armado`
@@ -288,7 +317,7 @@ export function classifyTrendProtectionV2(
           policy: 'TREND_PROTECTION_V2',
           action: 'REDUCE',
           suggestedReductionPct: V2_PARTIAL_REDUCTION_PCT,
-          reason: `Protección de beneficio confirmada: MFE ${mfe!.toFixed(1)}%, devolución ${giveback.toFixed(1)} pp y ${confirmation}. Reducir sólo ${V2_PARTIAL_REDUCTION_PCT}% para conservar participación si la tendencia se recupera.`,
+          reason: `Protección de beneficio confirmada: MFE ${mfe!.toFixed(1)}%, devolución ${giveback.toFixed(1)} pp y ${confirmation}. Reducir sólo ${V2_PARTIAL_REDUCTION_PCT}% una vez para conservar participación si la tendencia se recupera.`,
           winnerProtectionArmed: true,
           loserFailureArmed,
           confirmationStage: streak >= V2_HARD_EXIT_STREAK ? 'PERSISTENT' : 'CONFIRMED',
