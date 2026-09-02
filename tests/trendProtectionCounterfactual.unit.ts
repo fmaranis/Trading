@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse';
 import type { PortfolioPositionHealthSnapshot } from '../src/investment/decision/portfolioPositionHealth';
+import { isStrategicGrowthCoreAssetId, portfolioAssetRole } from '../src/investment/decision/portfolioAssetRole';
 import { runDynamicReplayWithRotationExperiment } from '../src/investment/decision/replayRotationPolicyExperiment';
-import { adaptStrategicCoreHoldHealth, isStrategicGrowthCoreAssetId, runDynamicReplayWithStrategicCoreHoldExperiment } from '../src/investment/decision/replayStrategicCoreHoldExperiment';
+import { adaptStrategicCoreHoldHealth, runDynamicReplayWithStrategicCoreHoldExperiment } from '../src/investment/decision/replayStrategicCoreHoldExperiment';
 import { adaptTrendProtectionV2ForWholeShareExecution, isTrendProtectionV2RotationBlockedReason, runDynamicReplayWithTrendProtectionV2Experiment } from '../src/investment/decision/replayTrendProtectionV2Experiment';
 import { buildTrendProtectionV2ReplayComparison } from '../src/investment/decision/trendProtectionReplayComparison';
 import type { TrendProtectionV2Decision } from '../src/investment/decision/trendProtectionPolicy';
@@ -76,6 +77,11 @@ assert.equal(isStrategicGrowthCoreAssetId('FUND_VANGUARD_US500'), true);
 assert.equal(isStrategicGrowthCoreAssetId('EUNL'), true);
 assert.equal(isStrategicGrowthCoreAssetId('EQQQ'), false);
 assert.equal(isStrategicGrowthCoreAssetId('FUND_VANGUARD_EMERGING'), false, 'regional/diversified sleeves are not silently promoted to strategic core');
+assert.equal(portfolioAssetRole({ assetId: 'FUND_VANGUARD_GLOBAL', category: 'GLOBAL_EQUITY' }), 'STRATEGIC_GROWTH_CORE');
+assert.equal(portfolioAssetRole({ assetId: 'FUND_VANGUARD_EMERGING', category: 'EMERGING_EQUITY' }), 'DIVERSIFIED_SLEEVE');
+assert.equal(portfolioAssetRole({ assetId: 'IBCI', category: 'GOV_BONDS' }), 'DIVERSIFIED_SLEEVE');
+assert.equal(portfolioAssetRole({ assetId: 'EQQQ', category: 'TECHNOLOGY' }), 'TACTICAL_SATELLITE');
+assert.equal(portfolioAssetRole({ assetId: 'HOLDOUT_XDEM', category: 'GLOBAL_EQUITY' }), 'DIVERSIFIED_SLEEVE', 'broad category alone must not silently grant strategic-core protection');
 
 const strategicReduceSnapshot: PortfolioPositionHealthSnapshot = {
   key: 'FUND_VANGUARD_GLOBAL',
@@ -99,6 +105,7 @@ const strategicReduceSnapshot: PortfolioPositionHealthSnapshot = {
 const strategicHeld = adaptStrategicCoreHoldHealth('FUND_VANGUARD_GLOBAL', strategicReduceSnapshot);
 assert.equal(strategicHeld.action, 'WATCH', 'strategic core must retain the diagnostic but not execute REDUCE');
 assert.equal(strategicHeld.suggestedReductionPct, null);
+assert.match(strategicHeld.reason, /PORTFOLIO_ROLE:STRATEGIC_GROWTH_CORE/);
 assert.match(strategicHeld.reason, /STRATEGIC_CORE_HOLD_V1/);
 assert.equal(adaptStrategicCoreHoldHealth('EQQQ', strategicReduceSnapshot), strategicReduceSnapshot, 'satellite behavior must be unchanged');
 
@@ -142,7 +149,7 @@ const strategicAb = buildTrendProtectionV2ReplayComparison({ baseline, v2: strat
 assert.equal(strategicAb.valid, true, 'strategic core hold path must remain executable');
 assert.equal(strategicAb.portfolioConstraints.cashNeverNegative, true);
 assert.ok(strategicAb.portfolioConstraints.maxObservedPositions <= 12);
-assert.equal(strategicCoreHold.finalValueEur, v2.finalValueEur, 'synthetic fixture contains no strategic-core asset, so the experiment must be economically identical to V2');
+assert.equal(strategicCoreHold.finalValueEur, v2.finalValueEur, 'synthetic fixture contains no strategic-core asset, so the role policy must be economically identical to V2');
 assert.equal(strategicCoreHold.totalReturnPct, v2.totalReturnPct);
 assert.equal(strategicCoreHold.executedReductions, v2.executedReductions);
 assert.equal(strategicCoreHold.executedExits, v2.executedExits);
@@ -176,6 +183,7 @@ console.log('TREND_PROTECTION_COUNTERFACTUAL_RESULT', JSON.stringify({
   wholeShareBlockedAction: blockedWholeShare.action,
   watchRotationBlocked: isTrendProtectionV2RotationBlockedReason('[TREND_PROTECTION_V2:WATCH]'),
   protectRotationBlocked: isTrendProtectionV2RotationBlockedReason('[TREND_PROTECTION_V2:PROTECT]'),
+  strategicCoreRole: portfolioAssetRole({ assetId: 'FUND_VANGUARD_GLOBAL', category: 'GLOBAL_EQUITY' }),
   strategicCoreReduceBlocked: strategicHeld.action === 'WATCH',
   nonStrategicReplayUnchanged: strategicCoreHold.finalValueEur === v2.finalValueEur
 }));
