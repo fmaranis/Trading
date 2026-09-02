@@ -115,9 +115,14 @@ assert.equal(result.accountingIdentity.totalCoreVsCurrentEur, -20);
 assert.equal(result.accountingIdentity.reconstructedCoreVsCurrentEur, -20);
 assert.ok(Math.abs(result.accountingIdentity.residualEur) <= 1e-9);
 assert.equal(result.accountingIdentity.reconcilesWithinOneCent, true);
-assert.equal(result.firstExecutionDivergence.date, '2020-01-03');
-assert.ok(result.firstExecutionDivergence.rows.some(row => row.assetId === 'B' && row.deltaCoreMinusCurrentEur === -300));
-assert.ok(result.firstExecutionDivergence.rows.some(row => row.assetId === 'C' && row.deltaCoreMinusCurrentEur === 250));
+
+assert.equal(result.firstCurrentVsCoreDivergence.date, '2020-01-03');
+assert.ok(result.firstCurrentVsCoreDivergence.rows.some(row => row.assetId === 'B' && row.deltaCandidateMinusReferenceEur === -300));
+assert.ok(result.firstCurrentVsCoreDivergence.rows.some(row => row.assetId === 'C' && row.deltaCandidateMinusReferenceEur === 250));
+assert.equal(result.firstTrendProtectionV2Divergence.date, '2020-01-03');
+assert.equal(result.firstStrategicCoreHoldDivergence.date, '2020-01-15');
+assert.ok(result.firstStrategicCoreHoldDivergence.rows.some(row => row.assetId === 'A' && row.action === 'ADD' && row.deltaCandidateMinusReferenceEur === 100));
+
 assert.equal(result.executedActionCounts.current.BUY, 2);
 assert.equal(result.executedActionCounts.core.ADD, 1);
 assert.ok(result.largestAssetAllocationDifferences.some(row => row.assetId === 'B' && row.deltaEntryEur === -300));
@@ -129,7 +134,9 @@ assert.ok((result.pathExposure.maxCurrentEquityAdvantageEur ?? 0) > 0, 'current 
 console.log('CURRENT_CORE_CAUSAL_ATTRIBUTION_RESULT', JSON.stringify({
   valid: result.valid,
   identity: result.accountingIdentity,
-  firstExecutionDivergence: result.firstExecutionDivergence,
+  firstCurrentVsCoreDivergence: result.firstCurrentVsCoreDivergence,
+  firstTrendProtectionV2Divergence: result.firstTrendProtectionV2Divergence,
+  firstStrategicCoreHoldDivergence: result.firstStrategicCoreHoldDivergence,
   actionDelta: result.executedActionCounts.deltaCoreMinusCurrent,
   finalCashDeltaCoreMinusCurrentEur: result.pathExposure.finalCashDeltaCoreMinusCurrentEur
 }));
