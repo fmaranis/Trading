@@ -4,6 +4,21 @@ import { assessAgainstCashBenchmark, CashBenchmarkService } from './cashBenchmar
 export type SignalDirection = 'FAVORABLE' | 'NEUTRAL' | 'UNFAVORABLE';
 export type NewMoneyAction = 'BUY' | 'WATCH' | 'AVOID';
 export type ExistingPositionAction = 'HOLD' | 'ADD' | 'REDUCE_REVIEW';
+export type TrendStructureState = 'HEALTHY_UPTREND' | 'WEAKENING_UPTREND' | 'BREAKDOWN_RISK' | 'DOWNTREND' | 'NEUTRAL';
+
+export interface TrendStructureDiagnostics {
+  regressionSlope20AnnualizedPct: number | null;
+  regressionSlope60AnnualizedPct: number | null;
+  regressionSlope120AnnualizedPct: number | null;
+  slopeAcceleration20vs60PctPoints: number | null;
+  sma20Slope20AnnualizedPct: number | null;
+  sma50Slope20AnnualizedPct: number | null;
+  prior20High: number | null;
+  prior20Low: number | null;
+  breakout20: boolean;
+  breakdown20: boolean;
+  state: TrendStructureState;
+}
 
 export interface StrategySignalVote {
   id: 'LONG_TREND' | 'MOMENTUM_120' | 'MEAN_REVERSION' | 'RISK' | 'CASH_HURDLE';
@@ -26,6 +41,7 @@ export interface StrategyConsensusAssessment {
   distanceToSma200Pct: number | null;
   currentDrawdownPct: number | null;
   annualizedVolatilityPct: number | null;
+  trendStructure: TrendStructureDiagnostics;
   favorableVotes: number;
   unfavorableVotes: number;
   neutralVotes: number;
@@ -62,6 +78,75 @@ function currentDrawdown(prices: number[], lookback = 252): number | null {
 function direction(score: number): SignalDirection { return score > 0 ? 'FAVORABLE' : score < 0 ? 'UNFAVORABLE' : 'NEUTRAL'; }
 function vote(id: StrategySignalVote['id'], label: string, score: -1 | 0 | 1, detail: string): StrategySignalVote { return { id, label, score, direction: direction(score), detail }; }
 
+function regressionSlopeAnnualizedPct(values: number[], lookback: number): number | null {
+  if (values.length < lookback || lookback < 2) return null;
+  const slice = values.slice(-lookback);
+  if (slice.some(value => !Number.isFinite(value) || value <= 0)) return null;
+  const logs = slice.map(value => Math.log(value));
+  const n = logs.length;
+  const meanX = (n - 1) / 2;
+  const meanY = logs.reduce((sum, value) => sum + value, 0) / n;
+  let numerator = 0;
+  let denominator = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = i - meanX;
+    numerator += dx * (logs[i] - meanY);
+    denominator += dx * dx;
+  }
+  if (denominator <= 0) return null;
+  const dailyLogSlope = numerator / denominator;
+  return (Math.exp(dailyLogSlope * 252) - 1) * 100;
+}
+
+function rollingMeanSeries(values: number[], window: number): number[] {
+  if (values.length < window) return [];
+  const result: number[] = [];
+  let sum = 0;
+  for (let i = 0; i < values.length; i++) {
+    sum += values[i];
+    if (i >= window) sum -= values[i - window];
+    if (i >= window - 1) result.push(sum / window);
+  }
+  return result;
+}
+
+export function assessTrendStructure(prices: number[]): TrendStructureDiagnostics {
+  const slope20 = regressionSlopeAnnualizedPct(prices, 20);
+  const slope60 = regressionSlopeAnnualizedPct(prices, 60);
+  const slope120 = regressionSlopeAnnualizedPct(prices, 120);
+  const sma20Series = rollingMeanSeries(prices, 20);
+  const sma50Series = rollingMeanSeries(prices, 50);
+  const sma20Slope = regressionSlopeAnnualizedPct(sma20Series, 20);
+  const sma50Slope = regressionSlopeAnnualizedPct(sma50Series, 20);
+  const current = prices.at(-1) ?? null;
+  const prior20 = prices.length >= 21 ? prices.slice(-21, -1) : [];
+  const prior20High = prior20.length ? Math.max(...prior20) : null;
+  const prior20Low = prior20.length ? Math.min(...prior20) : null;
+  const breakout20 = current != null && prior20High != null && current > prior20High;
+  const breakdown20 = current != null && prior20Low != null && current < prior20Low;
+  const slopeAcceleration20vs60PctPoints = slope20 != null && slope60 != null ? slope20 - slope60 : null;
+
+  let state: TrendStructureState = 'NEUTRAL';
+  if (breakdown20 && (slope20 ?? 0) < 0 && (sma20Slope ?? 0) < 0) state = 'BREAKDOWN_RISK';
+  else if ((slope20 ?? 0) < 0 && (slope60 ?? 0) < 0 && (sma50Slope ?? 0) < 0) state = 'DOWNTREND';
+  else if ((slope60 ?? 0) > 0 && (slope20 ?? 0) <= 0) state = 'WEAKENING_UPTREND';
+  else if ((slope60 ?? 0) > 0 && (slope20 ?? 0) > 0 && (sma20Slope ?? 0) > 0) state = 'HEALTHY_UPTREND';
+
+  return {
+    regressionSlope20AnnualizedPct: slope20,
+    regressionSlope60AnnualizedPct: slope60,
+    regressionSlope120AnnualizedPct: slope120,
+    slopeAcceleration20vs60PctPoints,
+    sma20Slope20AnnualizedPct: sma20Slope,
+    sma50Slope20AnnualizedPct: sma50Slope,
+    prior20High,
+    prior20Low,
+    breakout20,
+    breakdown20,
+    state
+  };
+}
+
 export class StrategyConsensusEngine {
   static assess(scan: AssetUniverseScanResult, assetId: string, cashBenchmarkAnnualPct = CashBenchmarkService.load()): StrategyConsensusAssessment | null {
     const candidate = scan.candidates.find(c => c.asset.assetId === assetId);
@@ -80,6 +165,7 @@ export class StrategyConsensusEngine {
     const m60 = candidate.momentum60Pct;
     const m20 = candidate.momentum20Pct;
     const vol = candidate.annualizedVolatilityPct;
+    const trendStructure = assessTrendStructure(prices);
 
     const longTrendScore: -1 | 0 | 1 =
       (longReturnPct ?? 0) > 5 && (distanceToSma200Pct ?? 0) > 0 ? 1 :
@@ -142,6 +228,7 @@ export class StrategyConsensusEngine {
       distanceToSma200Pct,
       currentDrawdownPct: dd,
       annualizedVolatilityPct: vol,
+      trendStructure,
       favorableVotes,
       unfavorableVotes,
       neutralVotes,
