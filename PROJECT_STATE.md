@@ -68,65 +68,31 @@ Exporta primera divergencia CURRENT→V2, V2→CORE y CURRENT→CORE; acciones/e
 Backup previo: `backup/main-pre-current-core-attribution-2026-09-02` → `f99120829df6db078519c5b02d82e1abb403430e`.
 
 ## Atribución 2025-04-01 → 2026-03-31
-
 CURRENT: 14.489,42 €, +11,4571%, DD 6,5053%.
 V2 = CORE HOLD: 14.450,08 €, +11,1545%, DD 6,7131%.
-
 - `V2 − CURRENT = -39,3362 € / -0,302586 pp`.
 - `CORE − V2 = 0,00 €`.
 - residual = 0.
-
 Toda la pérdida nace de V2. Primera divergencia 03/03/2026: REDUCE Intesa. Después V2 reduce Vanguard Eurozone, Vanguard Europe y Ferrovial. Total reducido en marzo ~626,25 €. Respecto a CURRENT esas ventas añaden ~28,20 € de impuesto, 2 € de comisión y ~9,62 € de coste de oportunidad bruto hasta 31/03. No aportaron mejora de DD en esta ventana.
 
-Conclusión: en este caso V2 cristaliza ganadores demasiado tarde/cerca del final y el ahorro de riesgo no compensa fricción + recuperación posterior. No cambiar thresholds con una sola ventana.
-
 ## Atribución 2015-01-02 → 2015-12-31
-
-CURRENT:
-- final **13.541,2879 €**; retorno **+4,163753%**; DD **10,206783%**; fees 36,51 €; tax 8,77 €.
-
-V2:
-- final **13.561,1879 €**; retorno **+4,316830%**; DD **8,286265%**; turnover 10.235,66 €; tax 24,42 €.
-
-CORE HOLD:
-- final **13.585,5963 €**; retorno **+4,504587%**; DD **8,286265%**; turnover 10.005,50 €; tax 24,42 €.
-
-Atribución exacta:
+CURRENT: 13.541,2879 €, +4,163753%, DD 10,206783%.
+V2: 13.561,1879 €, +4,316830%, DD 8,286265%.
+CORE HOLD: 13.585,5963 €, +4,504587%, DD 8,286265%.
 - `V2 − CURRENT = +19,8999 € / +0,153076 pp`.
 - `CORE − V2 = +24,4084 € / +0,187757 pp`.
 - `CORE − CURRENT = +44,3084 € / +0,340834 pp`.
-- residual = 0; `valid=true`.
-
-Primera divergencia CURRENT→V2: **05/06/2015**, V2 ejecuta REDUCE 25% de ISPA (~188,30 €) cuando la posición todavía estaba +2,42% tras MFE +12,56%; CURRENT espera y termina reduciendo más tarde con retorno ~-9,06%. Esto es un ejemplo de protección temprana potencialmente útil.
-
-Primera divergencia V2→CORE: **26/08/2015**, V2 reduce 6 EUNL (~203,52 €) con retorno ~-1,53% tras MFE +15,46%; CORE HOLD bloquea esa venta. Es la intervención strategic-core que explica el incremento principal de CORE sobre V2; después sólo aparece una pequeña diferencia causal de ADD en Iberdrola.
-
-Otras diferencias relevantes CURRENT vs CORE:
-- CORE ejecuta menos entrada en EUNL (~-884,50 € acumulados) por la trayectoria de cash/plazas;
-- CURRENT rota completamente 4GLD el 17/07; V2/CORE gestionan esa exposición mediante reducciones parciales, evitando parte de la trayectoria posterior de CURRENT;
-- V2 paga ~15,65 € más de impuesto que CURRENT y aun así mejora +19,90 € y reduce DD ~1,92 pp: la fricción fiscal por sí sola no invalida una reducción cuando evita deterioro suficiente.
-
-Lectura conjunta 2015 vs 2025-26:
-- no es correcto bloquear genéricamente todos los REDUCE de ganadores;
-- en 2015 varias reducciones tempranas/pequeñas ayudan a contener deterioro;
-- en 2025-26 cuatro reducciones de ganadores en marzo no compensan impuestos/comisiones/recuperación posterior;
-- necesitamos medir el resultado posterior de cada REDUCE antes de diseñar un guard causal nuevo.
+- residual = 0.
+Primera divergencia CURRENT→V2: 05/06/2015, REDUCE 25% ISPA (~188,30 €) aún en +2,42% tras MFE +12,56%; CURRENT espera y termina reduciendo más tarde alrededor de -9,06%.
+Primera divergencia V2→CORE: 26/08/2015, V2 reduce EUNL (~203,52 €) con retorno ~-1,53% tras MFE +15,46%; CORE HOLD bloquea esa venta.
 
 ---
 
 # V2_REDUCTION_OUTCOME_AUDIT_V1
 
-Implementado como **auditoría ex post exclusivamente diagnóstica**. No cambia V2 ni ejecuta otro brazo.
+Auditoría **ex post exclusivamente diagnóstica**. No cambia V2 ni ejecuta otro brazo. Usa precios futuros sólo para evaluar decisiones pasadas y está prohibido usar sus salidas como input del motor causal.
 
-Para cada REDUCE V2 registra:
-- causa `WINNER_PROTECTION / LOSER_FAILURE / OTHER`;
-- retorno de la posición, MFE y giveback en señal;
-- comisión + impuesto realizado;
-- retorno del activo 20 y 60 sesiones después y hasta fin de replay;
-- máxima caída y máxima recuperación posteriores;
-- proxy mark-to-market del beneficio/coste de vender el notional reducido frente a mantenerlo.
-
-Regla crítica: usa precios futuros deliberadamente para auditoría histórica, por lo que **está prohibido usar cualquier salida de este audit como input del motor causal**.
+Para cada REDUCE registra causa, retorno/MFE/giveback en señal, comisión+impuesto, retorno posterior 20/60 sesiones y hasta fin de replay, máxima caída/recuperación posteriores y una proxy mark-to-market de vender el notional reducido frente a mantenerlo.
 
 Archivos:
 - `src/investment/decision/v2ReductionOutcomeAudit.ts`
@@ -135,7 +101,32 @@ Archivos:
 
 Backup: `backup/main-pre-v2-reduction-outcome-audit-2026-09-02` → `389533a97f769767f438169a67d372c1b7795698`.
 
-Estado: implementación terminada; gates locales/AI Studio pendientes.
+Gates: `lint` PASS; test dirigido corregido por tolerancia IEEE-754 y PASS reportado por usuario; regresión counterfactual ejecutada antes del replay sin incidencias reportadas.
+
+## Resultado audit 2015
+7 REDUCE V2: 6 `WINNER_PROTECTION`, 1 `LOSER_FAILURE`. Notional total reducido: **1.328,59 €**; fricción realizada: **31,42 €**.
+
+Resultado agregado de la **proxy estática de la porción vendida**:
+- 20 sesiones: **-27,99 €** (5 operaciones con horizonte completo).
+- 60 sesiones: **-41,15 €** (5 operaciones).
+- hasta fin del replay: **-46,36 €** (7 operaciones).
+
+Esto NO contradice que el replay V2 completo gane +19,90 € a CURRENT: la proxy mantiene fija sólo la porción vendida y no reproduce los cambios causales posteriores de cash, plazas, rotaciones, ventas y nuevas entradas. Por tanto **no puede usarse como atribución exacta del P&L de la política** ni como criterio directo para filtrar REDUCE.
+
+REDUCE 2015 destacados:
+- **ISPA 05/06** — winner protection, +2,42% en señal tras MFE +12,56%. Proxy: -2,94 € a 20 sesiones, **+13,09 € a 60**, **+4,97 € a fin**. CURRENT termina reduciendo una posición mayor mucho más tarde con pérdida; es el caso más claro de protección temprana útil dentro de la trayectoria completa.
+- **Inditex 07/07** — winner protection, +1,86% tras MFE +11,28%. Proxy: **-22,45 € a 20**, -7,78 € a 60, -21,55 € a fin: reducción prematura ex post.
+- **4GLD 21/07** — winner protection, -0,60% tras MFE +11,35%. Proxy casi neutra a 20/60 (+0,40/-2,05 €) y **+8,38 € a fin**. CURRENT había hecho EXIT total el 17/07 y redirigido capital; no comparar como una simple venta aislada.
+- **EUNL 26/08** — winner protection, -1,53% tras MFE +15,46%. El activo sube +3,45% a 20 y +15,24% a 60; proxy **-8,02 / -32,02 / -25,66 €**. CORE HOLD acierta al bloquear esta venta de strategic core.
+- **Air Liquide 27/08** — loser failure, -9,87%. Evita caída a 20 sesiones (+5,02 € proxy), pero la recuperación a 60 vuelve la proxy -12,40 €; a fin casi neutral (-0,36 €).
+- **4GLD 04/12** — winner protection tardía; poca muestra hasta cierre; proxy fin -1,50 €.
+- **Ferrovial 09/12** — winner protection con +15,28% aún retenido tras MFE +24,86%; fricción 19,87 € y proxy hasta cierre -10,64 €. Horizonte demasiado corto para inferir una regla robusta.
+
+Lectura conjunta:
+1. El audit confirma heterogeneidad real entre REDUCE: algunos evitan deterioro, otros cortan recuperaciones.
+2. `strategicCoreHold` ya corrige el caso EUNL, que es uno de los REDUCE claramente desfavorables ex post.
+3. No existe todavía un separador causal simple y robusto entre “REDUCE bueno” y “REDUCE malo”. Señales como retorno actual, MFE/giveback u observaciones no bastan por sí solas: hay contraejemplos dentro de 2015.
+4. La comparación relevante para cambiar la política debe seguir siendo el **replay completo causal**, usando el outcome audit sólo para formular hipótesis, nunca para optimizar directamente con datos futuros.
 
 ---
 
@@ -151,7 +142,4 @@ Pendiente cuando se cierre el motor:
 
 # Próxima acción
 
-1. Validar `V2_REDUCTION_OUTCOME_AUDIT_V1` con `lint`, test dirigido y regresión counterfactual.
-2. Si PASS, repetir una ventana conocida con el nuevo audit. Preferencia inicial: **2015-01-02 → 2015-12-31**, DAILY, 13.000 €, automático, tramo 30 días, para caracterizar las reducciones que sí aportaron valor.
-3. Después contrastar sólo si es necesario contra 2025-04-01 → 2026-03-31.
-4. No modificar todavía thresholds de V2.
+No modificar todavía thresholds de V2. Repetir **2025-04-01 → 2026-03-31** con `V2_REDUCTION_OUTCOME_AUDIT_V1` ya presente, para obtener la misma tabla 20/60/ex-post de las cuatro reducciones que hicieron perder a V2. Comparar 2015 vs 2025 con métricas homogéneas y buscar una hipótesis causal ex ante que pueda probarse en un nuevo A/B completo sin calibrarla con el futuro.
