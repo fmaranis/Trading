@@ -47,7 +47,11 @@ function result(input: {
     excessFinalEurVsStatic: input.staticExcess, excessReturnVsStaticPctPoints: input.staticPp,
     excessFinalEurVsCash: input.cashExcess, excessReturnVsCashPctPoints: input.ret - 2,
     decisionPathMaxDrawdownPct: input.dd, decisions: 12, materialSignals: 1, executedBuys: 2, executedAdds: 0,
-    executedReductions: input.executedDefensive ? 1 : 0, executedExits: 0, totalFeesEur: 0, totalEstimatedTaxEur: 0, totalTransferredEur: 0, cashInterestEur: 10,
+    executedReductions: input.executedDefensive ? 1 : 0, executedExits: 0,
+    timingStateCounts: { WAIT: 0, ENTRY_READY: 0, ENTRY_STRONG: 0 },
+    trendProtectionV1Counts: { HOLD: 0, WATCH: 0, REDUCE: 0, EXIT: 0, winnerProtectionArmed: 0, loserFailureArmed: 0, earlierProtectionCandidates: 0 },
+    deploymentHorizons: [],
+    totalFeesEur: 0, totalEstimatedTaxEur: 0, totalTransferredEur: 0, cashInterestEur: 10,
     taxMethod: 'CONSERVATIVE_MAX_RATE', operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN',
     signals: input.defensive ? [{ action: 'REDUCE' } as any] : [], events: [], equityPath: [], notes: []
   };
