@@ -1,17 +1,16 @@
 # Trading — Estado Canónico del Proyecto
 
-> Leer este archivo primero al retomar el proyecto desde otra conversación, equipo o dispositivo. Repositorio canónico y línea viva de trabajo: `fmaranis/Trading/main`. El detalle histórico anterior permanece en Git.
+> Leer este archivo primero al retomar el proyecto. Repositorio canónico y línea viva: `fmaranis/Trading/main`. El detalle histórico anterior permanece en Git.
 
-## Reglas de trabajo no negociables
+## Reglas no negociables
 
-- Nunca añadir ni depender de GitHub Actions. Validaciones en local/AI Studio.
-- ChatGPT inspecciona y modifica GitHub directamente cuando sea posible.
-- AI Studio trabaja sobre `main` y se usa para ejecución/Preview/validación; no pedirle que gestione ramas experimentales.
-- Antes de un cambio sustancial en `main`, conservar un branch de backup del HEAD anterior cuando sea útil; si AI Studio introduce cambios incorrectos, revertir sólo el delta concreto en vez de volver a una versión antigua completa.
-- No usar datos sintéticos como fallback silencioso. Procedencia REAL / STATIC_REFERENCE / SYNTHETIC siempre explícita.
-- Replay causal: sólo información disponible hasta la fecha evaluada; ejecución posterior a señal; ningún lookahead.
-- Si el usuario dice “terminó”, revisar una sola vez el resultado disponible. No agentes de monitorización ni polling.
-- Cada cambio de código/arquitectura debe actualizar este archivo.
+- Nunca usar GitHub Actions. Validaciones en local/AI Studio.
+- ChatGPT modifica GitHub; AI Studio trabaja sobre `main` para ejecutar/Preview/validar.
+- Antes de cambios sustanciales, conservar backup cuando sea útil; revertir sólo deltas incorrectos, no volver atrás todo el proyecto.
+- REAL / STATIC_REFERENCE / SYNTHETIC siempre explícito; sin fallback sintético silencioso.
+- Replay causal: sólo información disponible hasta la fecha, ejecución posterior a señal y sin lookahead.
+- No polling/agentes para procesos largos. El usuario avisa al terminar y ChatGPT revisa una vez.
+- Cada cambio de código/arquitectura actualiza este archivo.
 
 ---
 
@@ -21,217 +20,143 @@ Stack: React 19 + TypeScript + Vite + Tailwind + Recharts + Motion.
 
 Pregunta central: **¿Muevo dinero hoy o no?**
 
-Salida objetivo: **ACCIÓN → IMPORTE → ACTIVO → POR QUÉ → DETALLE TÉCNICO**.
-
 Arquitectura:
-1. DÓNDE — ranking / calidad / consenso.
+1. DÓNDE — ranking/calidad/consenso.
 2. CUÁNDO — Entry Timing causal.
-3. CUÁNTO HOY — STARTER / BUILD / sizing.
-4. CÓMO GESTIONAR — HOLD / ADD / WATCH / REDUCE / EXIT / ROTATE.
+3. CUÁNTO HOY — STARTER/BUILD/sizing.
+4. CÓMO GESTIONAR — HOLD/ADD/WATCH/PROTECT/REDUCE/EXIT/ROTATE.
 
-Máquina vigente: **CANDIDATE → STARTER → BUILD → CORE/HOLD → WATCH → ROTATE/REDUCE → EXIT**.
+Máquina: **CANDIDATE → STARTER → BUILD → CORE/HOLD → WATCH/PROTECT → ROTATE/REDUCE → EXIT**.
 
-No usar take-profit fijo universal ni stop rígido universal.
+No take-profit fijo ni stop rígido universal.
 
----
+## Cartera real de referencia
 
-# Cartera real de referencia
-
-- Vanguard Global Stock Index Fund EUR Acc — `IE00B03HD191` — 12.600 € — adquisición 2026-08-11 — 196,59 participaciones — MyInvestor — traspasable.
-- Vanguard Emerging Markets Stock Index Fund EUR Acc — `IE0031786696` — 1.400 € — adquisición 2026-08-12 — 4,61 participaciones — MyInvestor — traspasable.
+- Vanguard Global Stock Index Fund EUR Acc — `IE00B03HD191` — 12.600 € — 196,59 participaciones — MyInvestor — traspasable.
+- Vanguard Emerging Markets Stock Index Fund EUR Acc — `IE0031786696` — 1.400 € — 4,61 participaciones — MyInvestor — traspasable.
 - Capital pendiente: 13.000 €.
-- Horizonte de despliegue: 12 meses.
+- Horizonte: 12 meses.
 - Cash hurdle: 2,5% anual salvo cambio explícito.
 
-Constantes: `USER_REAL_FUND_POSITIONS`, `USER_REAL_STAGED_CAPITAL_PLAN`.
+## Integridad causal ya cerrada
+
+- Yahoo listados: `adjusted:false` para evitar reescritura retrospectiva por dividendos.
+- Fondos: NAV REAL por ISIN.
+- Invariancia REAL short-vs-long confirmada.
+- STARTER MEDIUM READY 3% / STRONG 5%; BUILD MEDIUM 8%; máximo 12 posiciones; máximo 2 nuevas plazas/evaluación.
+- Rotación 1:1 estricta y atómica; persistencia challenger congelada 3/10.
+- Estrés sistémico conserva core READY y bloquea rotación competitiva mientras la amplitud sea sistémica.
 
 ---
 
-# Integridad causal y datos
+# TREND_PROTECTION_V2
 
-- Yahoo listados usa `adjusted:false` para evitar reescritura retrospectiva del prefijo.
-- Fondos usan NAV REAL directo por ISIN.
-- Invariancia REAL short-vs-long confirmada para mismo prefijo temporal.
-- No añadir total return salvo dividendos/distribuciones como eventos causales explícitos.
-- REAL / STATIC_REFERENCE / SYNTHETIC visible siempre.
+V2 vive en `trendProtectionPolicy.ts`; V1 queda como referencia diagnóstica.
 
----
+Flujo: **HEALTHY → WATCH → PROTECT → REDUCE → EXIT**.
 
-# Entry Timing y cartera dinámica
+Hipótesis actuales, todavía no calibradas definitivamente:
+- ganador: MFE >=8% + giveback >=6 pp + deterioro corto;
+- REDUCE inicial 25%; máximo un REDUCE por episodio realmente ejecutado;
+- ganador puede confirmar REDUCE tras persistencia/empeoramiento desde armado;
+- perdedor necesita >=5 sesiones de deterioro para REDUCE 25%;
+- hard EXIT satélite aproximadamente <=-18% + DOWNTREND + >=10 sesiones + consenso/votos adversos fuertes;
+- reclaim claro desarma episodio;
+- PROTECT no debe vender ni convertirse indirectamente en una rotación competitiva.
 
-Estados: `WAIT / ENTRY_READY / ENTRY_STRONG`.
-
-STARTER sobre patrimonio total:
-- LOW: READY 2%, STRONG 3,5%.
-- MEDIUM: READY 3%, STRONG 5%.
-- HIGH: READY 4%, STRONG 7%.
-
-BUILD máximo: LOW 6% / MEDIUM 8% / HIGH 12%.
-Máximo posiciones: LOW 8 / MEDIUM 12 / HIGH 16.
-Nuevas plazas por evaluación: LOW 1 / MEDIUM 2 / HIGH 3.
-
-BUILD exige posición existente + ENTRY_STRONG + salud ADD + starter suficientemente construido. Sin compra fallback.
-
-Rotación 1:1 estricta y atómica. Challenger debe ser ejecutable. Persistencia congelada: ENTRY_STRONG hoy + al menos 3 observaciones STRONG en las 10 sesiones anteriores + consenso/ranking suficientes.
+Tests previos:
+- `test:trend-protection`: PASS, incluida idempotencia (`repeatWinner=PROTECT`, `repeatLoser=PROTECT`).
+- `lint`: PASS antes del último rediseño A/B.
 
 ---
 
-# Estrés sistémico / core
+# Replay REAL 12m recibido — hallazgo metodológico crítico
 
-Detector: al menos 3 posiciones deterioradas, al menos 50% de posiciones observables deterioradas y deterioro fuerte de consenso/votos.
+ZIP revisado: `trading-replay-2022-07-11-2023-07-10 (3).zip`.
 
-Durante estrés:
-- no liquidar automáticamente media cartera por EXIT individuales;
-- conservar core READY: LOW 2%, MEDIUM 3%, HIGH 4%;
-- sobre-core → REDUCE; en/bajo core → WATCH;
-- bloquear rotación competitiva;
-- al normalizarse, vuelve a mandar salud individual.
+Baseline CURRENT_POLICY:
+- 13.000 € iniciales;
+- final 12.873,999 €;
+- retorno **-0,969238%**;
+- DD máx. **3,230298%**;
+- fees **46,6343 €**;
+- exact hold **+2,064928%**;
+- 56 ejecuciones, 7.923 señales, 257 sesiones.
 
----
+El antiguo A/B `FIXED_BASELINE_ENTRIES` se calculó, pero quedó **inválido**:
+- `valid=false`;
+- entradas baseline 41 / reproducidas 39;
+- dos divergencias de cash:
+  - 2023-07-03 `FUND_VANGUARD_GLOBAL` ADD: shortfall ~963,87 €;
+  - 2023-07-05 `VVSM` BUY: shortfall ~53,57 €.
 
-# Problema detectado en replays largos
+Causa exacta: el baseline vende Xetra-Gold el 2023-07-03 por ~1.018,44 € y usa ese capital para añadir ~1.017,09 € al Vanguard Global. V2 conserva Xetra-Gold, por lo que no puede copiar simultáneamente esa entrada sin inventar financiación.
 
-Observaciones del usuario y diagnóstico de código:
-- ganancias de +15/+20% que se devuelven en exceso;
-- pérdidas que llegan demasiado lejos antes de EXIT;
-- dependencia excesiva de pocos refugios;
-- selección con pocos contribuidores positivos;
-- la reducción táctica baseline exige demasiadas condiciones y puede proteger tarde un ganador;
-- un mal starter sin MFE suficiente puede esperar demasiado para activar protección;
-- momentum no equivale a pendiente/estructura.
+Además el camino de entradas fijas llegó diagnósticamente a **21 posiciones activas**, mientras la arquitectura MEDIUM permite 12. Por tanto el problema no es sólo cash: copiar todas las nuevas entradas baseline mientras V2 conserva incumbents viola también las plazas.
 
-Primero se mejora gestión de las mismas posiciones. Selección/ReliabilityScore se abordará después, para no cambiar entradas y salidas simultáneamente.
+Antes de la primera divergencia (hasta 2023-06-30), cuando las entradas todavía eran idénticas:
+- baseline equity ~13.122,58 € / **+0,943%**;
+- V2 fixed-entry equity ~13.218,63 € / **+1,682%**;
+- ventaja provisional V2 ~**+0,739 pp / +96,05 €**;
+- DD baseline 3,2303% vs V2 3,1625%.
 
----
-
-# TREND_PROTECTION_V1 — referencia experimental
-
-`strategyConsensusEngine.ts` añade diagnóstico causal:
-- regresión logarítmica anualizada 20/60/120;
-- aceleración slope20-slope60;
-- pendiente SMA20/SMA50;
-- máximo/mínimo previo 20;
-- breakout/breakdown 20;
-- estado `HEALTHY_UPTREND / WEAKENING_UPTREND / BREAKDOWN_RISK / DOWNTREND / NEUTRAL`.
-
-V1 es audit-only y no modifica órdenes/equity path.
-
-Validaciones ejecutadas:
-- `test:current-capital-allocation`: 35/35 PASS tras corregir únicamente fixture 951 para respetar whole-share STARTER cap.
-- `test:strategy-consensus`: 13/13 PASS.
-- `test:trend-protection`: PASS para V1 y V2 incluida idempotencia (`repeatWinner=PROTECT`, `repeatLoser=PROTECT`).
-
-Replay REAL 12m aportado por el usuario: 2022-07-11 → 2023-07-10, DAILY, 13.000 €.
-Resultado baseline aproximado: 12.874 € / -0,97%, DD máx. ~3,23%; exact hold ~+2,06%.
-
-Hallazgos V1:
-- detecta deterioro temprano útil en DTE, ZPRV, AIGC e IQQH;
-- pero era demasiado agresivo en recuperaciones como Sanofi, TotalEnergies y EXH1;
-- conclusión: pendiente/estructura aporta valor, pero “ruptura detectada” no debe equivaler a “vender inmediatamente”.
+Esto es evidencia útil de dirección, pero no se acepta como resultado final porque el método deja de ser una cartera ejecutable al divergir cash/plazas.
 
 ---
 
-# TREND_PROTECTION_V2 — política actual
+# Nuevo A/B económico principal — FULL_CAUSAL_REPLAY
 
-V2 vive **en el mismo `trendProtectionPolicy.ts`**, conservando V1 intacta. No hay un segundo motor de selección.
+Se sustituye la comparación económica principal por dos replays completos y ejecutables:
 
-Flujo experimental: **HEALTHY → WATCH → PROTECT → REDUCE → EXIT**.
+**CURRENT_POLICY vs TREND_PROTECTION_V2**, ambos con exactamente:
+- mismo universo y datos REAL;
+- mismo scanner/ranking;
+- mismo Entry Timing;
+- mismo STARTER/BUILD/sizing;
+- mismo CORE_GATE_V1 / rotación 3/10;
+- mismo cash inicial;
+- mismas reglas de comisiones/fiscalidad;
+- mismo máximo de posiciones y atomicidad.
 
-Principios:
-- separar detección y ejecución;
-- primera ruptura reciente → PROTECT sin venta;
-- perdedores usan racha causal multiseñal;
-- ganadores pueden deteriorarse con consenso todavía positivo, por lo que se conserva estado desde el punto de armado;
-- REDUCE inicial = 25%;
-- cada episodio puede ejecutar como máximo un REDUCE 25%; después queda PROTECT hasta reclaim o hard EXIT;
-- reclaim de pendiente corta desarma protección;
-- EXIT sólo para fallo satélite profundo y persistente.
+Única diferencia: la política protectora de posición.
 
-Hipótesis V2 todavía NO calibradas:
-- ganador: MFE >=8% y giveback >=6 pp + deterioro corto;
-- ganador puede REDUCE 25% tras >=3 observaciones protegidas si empeora >=2 pp desde el retorno de armado, aunque consenso siga positivo;
-- tesis fallida necesita >=5 sesiones de deterioro multiseñal para REDUCE 25%;
-- hard EXIT satélite: aproximadamente <=-18% + DOWNTREND + >=10 sesiones + >=4 votos adversos + consenso <=-3;
-- core no usa hard EXIT de satélite;
-- `HEALTHY_UPTREND` + slope20>0 + SMA20 slope>0 + sin breakdown → HOLD/reclaim.
+Consecuencia metodológica deliberada: después de una diferencia de gestión, cash/plazas pueden cambiar y las entradas posteriores pueden divergir. Esa divergencia ya **no invalida** el A/B; es una consecuencia económica real de la política. La paridad de entradas queda como diagnóstico.
 
-Aplicación diagnóstica al ZIP 12m, todavía sobre trayectoria baseline:
-- DTE: REDUCE 25% alrededor de +6,2% frente a EXIT baseline posterior alrededor de -3,3%;
-- ZPRV: REDUCE sólo por episodios separados por reclaim; primer caso alrededor de -1,2% frente a EXIT baseline ~-8,3%;
-- AIGC: un REDUCE 25% alrededor de -9,0%;
-- WCOA: un REDUCE 25% alrededor de -9,7%;
-- IQQH: REDUCE 25% alrededor de -16,0% y posible hard EXIT posterior ~-21,8%;
-- Sanofi: ruptura reciente PROTECT, no EXIT inmediato; como máximo un REDUCE por episodio;
-- EXH1: no REDUCE en el episodio observado;
-- TotalEnergies: puede REDUCE una vez, por lo que necesita contraste económico/holdout y no más calibración sobre esta misma ventana.
+Implementación añadida:
+- `src/investment/decision/replayTrendProtectionV2Experiment.ts`
+  - inyecta V2 dentro del mismo `PortfolioDecisionEngine` usado por el replay;
+  - mantiene estado causal armed/observations/reference/MFE/reductionExecuted;
+  - un REDUCE consume idempotencia sólo cuando la siguiente evaluación confirma caída real de unidades;
+  - ADD o reducción no-V2 reinician el episodio/tramo correspondiente;
+  - PROTECT no puede causar venta por salud ni rotación competitiva indirecta.
+- `src/investment/decision/trendProtectionReplayComparison.ts`
+  - compara los dos replays completos;
+  - validez exige cash nunca negativo, trayectoria finita y máximo de plazas respetado;
+  - entrada exacta queda sólo como diagnóstico;
+  - calcula retorno, DD, fees/tax, turnover, REDUCE/EXIT, capture ratio, pérdidas de cola, ledger y restricciones.
+- `historicalReplayAudit.worker.ts`
+  - baseline sigue siendo el actual;
+  - sólo en checkpoint final ejecuta el segundo replay V2 completo y adjunta el A/B.
+- `HistoricalAuditJsonControls.tsx`
+  - distingue FULL_CAUSAL_REPLAY del antiguo fixed-entry;
+  - un A/B full causal puede ser válido aunque las entradas diverjan;
+  - muestra plazas máximas y cash no negativo.
+- `tests/trendProtectionCounterfactual.unit.ts`
+  - ahora valida el replay A/B completo, no sólo el fixed-entry.
 
----
-
-# A/B contrafactual CURRENT_POLICY vs TREND_PROTECTION_V2
-
-Archivo principal: `src/investment/decision/trendProtectionCounterfactual.ts`.
-
-Metodología:
-- primero se ejecuta el replay baseline vigente;
-- el contrafactual reproduce **exactamente los BUY/ADD realmente ejecutados por baseline**: mismas fechas, unidades, precios y comisiones;
-- se ignoran REDUCE/EXIT baseline y sólo la gestión de posiciones usa V2;
-- las decisiones V2 se recalculan causalmente sobre las posiciones, lotes, basis, MFE y efectivo del propio camino contrafactual;
-- ETFs siguen títulos enteros + gate mínimo/fee-drag; fondos admiten fracciones;
-- fiscalidad y traspaso fondo→fondo se vuelven a calcular para el camino V2;
-- si V2 no dispone de efectivo para reproducir alguna entrada baseline exacta, `entryParity.exact=false`, `valid=false` y el A/B queda invalidado.
-
-Métricas A/B:
-- finalValue / totalReturn;
-- max drawdown;
-- fees / tax / transferred / cash interest;
-- turnover total y turnover de gestión;
-- REDUCE / EXIT ejecutados;
-- profit capture medio de ventas con MFE positivo;
-- pérdida realizada de gestión y conteos <=-10/-20/-30%;
-- deltas en € / pp frente a CURRENT_POLICY;
-- ledger completo y equityPath V2.
-
-Integración de auditoría:
-- `historicalReplayAudit.worker.ts` calcula el contrafactual sólo en el checkpoint final;
-- el worker adjunta el bloque completo como `auditExtensions.trendProtectionV2Counterfactual` a una única señal ya existente; `HistoricalReplayProgressivePanel` conserva el objeto completo de señal, por lo que el A/B queda persistido automáticamente dentro del storage/export v3 sin crear otro almacenamiento;
-- el mismo worker emite por `BroadcastChannel` sólo para refresco visual; la persistencia no depende de ese canal;
-- `HistoricalAuditJsonControls.tsx` extrae el bloque de las señales, lo eleva a `session.summary.trendProtectionV2Counterfactual` al exportar/importar/publicar y muestra una tarjeta A/B con retorno, DD, paridad de entradas, turnover, REDUCE/EXIT, capture ratio y pérdidas de cola;
-- ficheros v3 antiguos siguen siendo válidos porque el bloque es opcional.
-
-Validación:
-- `npm run lint`: PASS antes de la integración visual/persistente, con `tsc --noEmit` exit code 0.
-- `npm run test:trend-protection-counterfactual`: **PASS**. Resultado del fixture causal:
-  - `valid=true`;
-  - entradas baseline 3 / reproducidas 3;
-  - `entryParity.exact=true`, 0 shortfalls;
-  - retorno baseline 1,7948% vs V2 2,0280%, delta +0,23325 pp;
-  - DD baseline 2,4398% vs V2 2,9259%, delta +0,4861 pp (peor DD en el fixture);
-  - V2: 1 REDUCE, 0 EXIT.
-- Estas cifras son sólo del fixture unitario; demuestran funcionamiento del A/B, no superioridad económica de V2.
-- Tras integrar UI/export hay que repetir lint y el unit test dirigido antes del replay REAL.
-
-No interpretar V2 como mejora hasta disponer del replay REAL con `entryParity.exact=true` y comparar conjuntamente retorno, DD, turnover, capture y pérdidas de cola.
+El antiguo `trendProtectionCounterfactual.ts` se conserva como diagnóstico histórico de entradas fijas, pero **ya no alimenta el A/B económico principal**.
 
 ---
 
-# Persistencia / GitHub
-
-- `main` es ahora la línea viva de trabajo para mantener integradas las últimas mejoras y evitar remezclas al volver atrás.
-- Antes de integrar V2 en `main`, el estado anterior `d77f2f4` quedó preservado en `backup/main-pre-trend-v2-2026-09-02`.
-- También existen backups de escrituras previas de Gemini para trazabilidad; no restaurarlos salvo necesidad explícita.
-- AI Studio sincroniza `main`; ChatGPT revisa cualquier delta posterior y revierte sólo cambios incorrectos concretos.
-- No GitHub Actions.
-- Si publicación de replay falla por `GITHUB_REPLAY_SYNC_WRITE_FAILED:401`, no repetir replay; reutilizar resultado local.
-- Nunca pegar tokens en chat ni cliente.
-
----
-
-# Próxima acción concreta
+# Próxima acción
 
 1. Sincronizar `main` al HEAD actual.
-2. Ejecutar `npm run lint`.
-3. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
-4. Si ambos pasan, ejecutar una sola sesión REAL: `2022-07-11`, 12 meses, DAILY, 13.000 €.
-5. Al terminar, usar `Guardar + publicar para ChatGPT` o exportar el JSON. Verificar primero `summary.trendProtectionV2Counterfactual.valid=true` y `entryParity.exact=true`.
-6. Comparar CURRENT_POLICY vs V2 en retorno, DD, fees/turnover, capture ratio, pérdidas de cola y operaciones por activo. No recalibrar thresholds todavía.
-7. Sólo después decidir si V2 merece validación 24/36m y holdouts independientes.
+2. Ejecutar únicamente:
+   - `npm run lint`
+   - si PASS: `npm run test:trend-protection-counterfactual`
+3. El test debe devolver metodología `FULL_CAUSAL_REPLAY_SAME_DECISION_ENGINE`, `valid=true`, cash no negativo y máximo MEDIUM <=12.
+4. Si falla, corregir sólo el primer fallo exacto; no lanzar replay todavía.
+5. Si ambos pasan, repetir una sola sesión REAL: `2022-07-11`, 12 meses, DAILY, 13.000 €.
+6. En el JSON nuevo, interpretar `valid` por restricciones del full causal replay; `entryParity.exact` será diagnóstico y puede ser false.
+7. Comparar retorno, DD, turnover, fees, número/timing de REDUCE/EXIT, capture ratio, pérdidas de cola, plazas/cash y entradas divergentes.
+8. No recalibrar thresholds con este mismo 12m. Después usar 24/36m y holdouts independientes.
