@@ -1,11 +1,15 @@
 import type { AssetScanCandidate, AssetUniverseScanResult } from './assetUniverseScanner';
-import { assessAssetSelectionQuality, type AssetSelectionQualityMetrics } from './assetSelectionQuality';
+import {
+  assessAssetSelectionQuality,
+  assessSlopeSelectionQuality,
+  type AssetSelectionQualityMetrics
+} from './assetSelectionQuality';
 import { assessAgainstCashBenchmark } from './cashBenchmark';
 import { EntryTimingEngine, type EntryTimingSetup, type EntryTimingState } from './entryTiming';
 import { StrategyConsensusEngine } from './strategyConsensusEngine';
 
 export type PortfolioCandidateGateStatus = 'ELIGIBLE' | 'REJECTED';
-export type CandidateSelectionPolicy = 'LEGACY' | 'QUALITY_V1';
+export type CandidateSelectionPolicy = 'LEGACY' | 'QUALITY_V1' | 'SLOPE_V1';
 
 export interface PortfolioCandidateGateEntry {
   assetId: string;
@@ -19,6 +23,7 @@ export interface PortfolioCandidateGateEntry {
   excessVsCashPctPoints: number | null;
   reliabilityScore: number | null;
   opportunityScore: number | null;
+  slopeQualityScore: number | null;
   rankingScore: number | null;
   timingState: EntryTimingState | null;
   timingSetup: EntryTimingSetup | null;
@@ -67,18 +72,24 @@ export function candidateQualityAdjustment(reliabilityScore: number | null | und
   return (reliability - 50) * 0.10 + (opportunity - 50) * 0.20;
 }
 
+export function candidateSlopeAdjustment(slopeQualityScore: number | null | undefined): number {
+  const slope = Number.isFinite(slopeQualityScore) ? Number(slopeQualityScore) : 50;
+  return Math.max(-10, Math.min(10, (slope - 50) * 0.20));
+}
+
 function candidateRankingScore(
   candidate: AssetScanCandidate,
   consensusScore: number,
   excessVsCash: number,
   timingScore: number,
   quality: AssetSelectionQualityMetrics | null,
+  slopeQualityScore: number | null,
   policy: CandidateSelectionPolicy
 ): number {
   const legacy = (candidate.score ?? -999) + consensusScore * 5 + Math.max(-20, Math.min(20, excessVsCash)) * 0.5 + timingScore * 0.1;
-  return policy === 'QUALITY_V1'
-    ? legacy + candidateQualityAdjustment(quality?.reliabilityScore, quality?.opportunityScore)
-    : legacy;
+  if (policy === 'QUALITY_V1') return legacy + candidateQualityAdjustment(quality?.reliabilityScore, quality?.opportunityScore);
+  if (policy === 'SLOPE_V1') return legacy + candidateSlopeAdjustment(slopeQualityScore);
+  return legacy;
 }
 
 function buildDataset(scan: AssetUniverseScanResult, selected: AssetScanCandidate[]) {
@@ -100,6 +111,7 @@ function baseEntry(input: {
   excessVsCashPctPoints?: number | null;
   reliabilityScore?: number | null;
   opportunityScore?: number | null;
+  slopeQualityScore?: number | null;
   rankingScore?: number | null;
   timingState?: EntryTimingState | null;
   timingSetup?: EntryTimingSetup | null;
@@ -118,6 +130,7 @@ function baseEntry(input: {
     excessVsCashPctPoints: input.excessVsCashPctPoints ?? null,
     reliabilityScore: input.reliabilityScore ?? null,
     opportunityScore: input.opportunityScore ?? null,
+    slopeQualityScore: input.slopeQualityScore ?? null,
     rankingScore: input.rankingScore ?? null,
     timingState: input.timingState ?? null,
     timingSetup: input.timingSetup ?? null,
@@ -129,12 +142,12 @@ function baseEntry(input: {
 /**
  * New-money candidates must earn the right to enter the allocator.
  *
- * Selection quality and timing are separate checks in the same gate:
  * REAL data + cash hurdle + BUY consensus decide whether an asset deserves
- * consideration; EntryTimingEngine decides whether TODAY is an acceptable
- * moment to deploy fresh cash. QUALITY_V1 changes only relative ranking among
- * already-eligible assets by adding causal Reliability/Opportunity diagnostics;
- * it does not bypass any gate or timing requirement.
+ * consideration; EntryTimingEngine decides whether TODAY is acceptable.
+ * Experimental selection policies can only change relative ranking among those
+ * already-eligible assets. QUALITY_V1 uses Reliability/Opportunity; SLOPE_V1
+ * uses the bounded multi-horizon slope structure already calculated by the
+ * consensus engine. Neither policy can bypass a gate or change sizing.
  */
 export class PortfolioCandidateGate {
   static apply(
@@ -164,12 +177,16 @@ export class PortfolioCandidateGate {
         entries.push(baseEntry({ candidate, status: 'REJECTED', reason: 'CONSENSUS_UNAVAILABLE', annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints, ...qualityFields }));
         continue;
       }
+
+      const slopeQualityScore = assessSlopeSelectionQuality(consensus.trendStructure).slopeQualityScore;
+      const slopeFields = { slopeQualityScore };
+
       if (cash.passes !== true) {
-        entries.push(baseEntry({ candidate, status: 'REJECTED', reason: cash.passes === false ? 'DOES_NOT_BEAT_CASH' : 'CASH_COMPARISON_UNAVAILABLE', consensusScore: consensus.consensusScore, favorableVotes: consensus.favorableVotes, unfavorableVotes: consensus.unfavorableVotes, annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints, ...qualityFields }));
+        entries.push(baseEntry({ candidate, status: 'REJECTED', reason: cash.passes === false ? 'DOES_NOT_BEAT_CASH' : 'CASH_COMPARISON_UNAVAILABLE', consensusScore: consensus.consensusScore, favorableVotes: consensus.favorableVotes, unfavorableVotes: consensus.unfavorableVotes, annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints, ...qualityFields, ...slopeFields }));
         continue;
       }
       if (consensus.newMoneyAction !== 'BUY' || consensus.structuralDowntrend) {
-        entries.push(baseEntry({ candidate, status: 'REJECTED', reason: consensus.structuralDowntrend ? 'STRUCTURAL_DOWNTREND' : `CONSENSUS_${consensus.newMoneyAction}`, consensusScore: consensus.consensusScore, favorableVotes: consensus.favorableVotes, unfavorableVotes: consensus.unfavorableVotes, annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints, ...qualityFields }));
+        entries.push(baseEntry({ candidate, status: 'REJECTED', reason: consensus.structuralDowntrend ? 'STRUCTURAL_DOWNTREND' : `CONSENSUS_${consensus.newMoneyAction}`, consensusScore: consensus.consensusScore, favorableVotes: consensus.favorableVotes, unfavorableVotes: consensus.unfavorableVotes, annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints, ...qualityFields, ...slopeFields }));
         continue;
       }
 
@@ -188,17 +205,23 @@ export class PortfolioCandidateGate {
           timingSetup: timing.setup,
           timingScore: timing.score,
           suggestedInitialFraction: timing.suggestedInitialFraction,
-          ...qualityFields
+          ...qualityFields,
+          ...slopeFields
         }));
         continue;
       }
 
-      const rankingScore = candidateRankingScore(candidate, consensus.consensusScore, cash.excessVsCashPctPoints ?? 0, timing.score, quality, selectionPolicy);
+      const rankingScore = candidateRankingScore(candidate, consensus.consensusScore, cash.excessVsCashPctPoints ?? 0, timing.score, quality, slopeQualityScore, selectionPolicy);
       eligible.push({ candidate, rankingScore });
+      const reason = selectionPolicy === 'QUALITY_V1'
+        ? 'BEATS_CASH_CONSENSUS_TIMING_AND_QUALITY_RANKED'
+        : selectionPolicy === 'SLOPE_V1'
+          ? 'BEATS_CASH_CONSENSUS_TIMING_AND_SLOPE_RANKED'
+          : 'BEATS_CASH_CONSENSUS_AND_TIMING';
       entries.push(baseEntry({
         candidate,
         status: 'ELIGIBLE',
-        reason: selectionPolicy === 'QUALITY_V1' ? 'BEATS_CASH_CONSENSUS_TIMING_AND_QUALITY_RANKED' : 'BEATS_CASH_CONSENSUS_AND_TIMING',
+        reason,
         consensusScore: consensus.consensusScore,
         favorableVotes: consensus.favorableVotes,
         unfavorableVotes: consensus.unfavorableVotes,
@@ -209,7 +232,8 @@ export class PortfolioCandidateGate {
         timingSetup: timing.setup,
         timingScore: timing.score,
         suggestedInitialFraction: timing.suggestedInitialFraction,
-        ...qualityFields
+        ...qualityFields,
+        ...slopeFields
       }));
     }
 
