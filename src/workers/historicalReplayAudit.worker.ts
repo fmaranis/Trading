@@ -36,6 +36,7 @@ interface WorkerScope {
 
 const workerScope = self as unknown as WorkerScope;
 const REPLAY_ROTATION_EXPERIMENT = 'CORE_GATE_V1' as const;
+const AUDIT_BROADCAST_CHANNEL = 'historical-replay-audit-v3';
 let configuration: Omit<InitMessage, 'type' | 'dataset'> | null = null;
 let sourceDataset: MultiAssetDataset | null = null;
 
@@ -54,6 +55,34 @@ function truncateDataset(dataset: MultiAssetDataset, endDate: string): MultiAsse
 function latestDatasetDate(dataset: MultiAssetDataset): string | null {
   const dates = dataset.assets.flatMap(asset => asset.bars.slice(-1).map(bar => bar.timestamp.slice(0, 10))).sort();
   return dates.at(-1) ?? null;
+}
+
+function persistCounterfactualInAuditSignal(result: any): void {
+  const counterfactual = result?.trendProtectionV2Counterfactual;
+  if (!counterfactual) return;
+
+  // HistoricalReplayProgressivePanel intentionally preserves the complete signal
+  // object in storage/export. Attaching one audit extension to one signal keeps the
+  // existing v3 envelope compatible while avoiding a second persistence system.
+  const auditSignal = result.signals?.[0];
+  if (auditSignal) {
+    auditSignal.auditExtensions = {
+      ...(auditSignal.auditExtensions ?? {}),
+      trendProtectionV2Counterfactual: counterfactual
+    };
+  }
+
+  // UI side-channel only. Persistence does not depend on BroadcastChannel; the
+  // signal extension above remains the source used by exported/reloaded audits.
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel(AUDIT_BROADCAST_CHANNEL);
+      channel.postMessage({ type: 'TREND_PROTECTION_V2_COUNTERFACTUAL', counterfactual });
+      channel.close();
+    }
+  } catch {
+    // A missing BroadcastChannel must never invalidate the replay itself.
+  }
 }
 
 workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
@@ -109,6 +138,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
         minimumBars: configuration.minimumBars,
         taxSettings: configuration.taxSettings
       });
+      persistCounterfactualInAuditSignal(result);
     }
 
     workerScope.postMessage({
