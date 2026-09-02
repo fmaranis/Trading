@@ -66,47 +66,12 @@ Hipótesis actuales, todavía no calibradas definitivamente:
 
 Tests previos:
 - `test:trend-protection`: PASS, incluida idempotencia (`repeatWinner=PROTECT`, `repeatLoser=PROTECT`).
-- `lint`: PASS antes del último rediseño A/B.
 
 ---
 
-# Replay REAL 12m recibido — hallazgo metodológico crítico
+# A/B económico principal — FULL_CAUSAL_REPLAY
 
-ZIP revisado: `trading-replay-2022-07-11-2023-07-10 (3).zip`.
-
-Baseline CURRENT_POLICY:
-- 13.000 € iniciales;
-- final 12.873,999 €;
-- retorno **-0,969238%**;
-- DD máx. **3,230298%**;
-- fees **46,6343 €**;
-- exact hold **+2,064928%**;
-- 56 ejecuciones, 7.923 señales, 257 sesiones.
-
-El antiguo A/B `FIXED_BASELINE_ENTRIES` se calculó, pero quedó **inválido**:
-- `valid=false`;
-- entradas baseline 41 / reproducidas 39;
-- dos divergencias de cash:
-  - 2023-07-03 `FUND_VANGUARD_GLOBAL` ADD: shortfall ~963,87 €;
-  - 2023-07-05 `VVSM` BUY: shortfall ~53,57 €.
-
-Causa exacta: el baseline vende Xetra-Gold el 2023-07-03 por ~1.018,44 € y usa ese capital para añadir ~1.017,09 € al Vanguard Global. V2 conserva Xetra-Gold, por lo que no puede copiar simultáneamente esa entrada sin inventar financiación.
-
-Además el camino de entradas fijas llegó diagnósticamente a **21 posiciones activas**, mientras la arquitectura MEDIUM permite 12. Por tanto el problema no es sólo cash: copiar todas las nuevas entradas baseline mientras V2 conserva incumbents viola también las plazas.
-
-Antes de la primera divergencia (hasta 2023-06-30), cuando las entradas todavía eran idénticas:
-- baseline equity ~13.122,58 € / **+0,943%**;
-- V2 fixed-entry equity ~13.218,63 € / **+1,682%**;
-- ventaja provisional V2 ~**+0,739 pp / +96,05 €**;
-- DD baseline 3,2303% vs V2 3,1625%.
-
-Esto es evidencia útil de dirección, pero no se acepta como resultado final porque el método deja de ser una cartera ejecutable al divergir cash/plazas.
-
----
-
-# Nuevo A/B económico principal — FULL_CAUSAL_REPLAY
-
-Se sustituye la comparación económica principal por dos replays completos y ejecutables:
+Se comparan dos replays completos y ejecutables:
 
 **CURRENT_POLICY vs TREND_PROTECTION_V2**, ambos con exactamente:
 - mismo universo y datos REAL;
@@ -120,43 +85,97 @@ Se sustituye la comparación económica principal por dos replays completos y ej
 
 Única diferencia: la política protectora de posición.
 
-Consecuencia metodológica deliberada: después de una diferencia de gestión, cash/plazas pueden cambiar y las entradas posteriores pueden divergir. Esa divergencia ya **no invalida** el A/B; es una consecuencia económica real de la política. La paridad de entradas queda como diagnóstico.
+La paridad de entradas es diagnóstica, no requisito de validez. Después de una diferencia de gestión, cash/plazas pueden cambiar y las entradas posteriores divergir causalmente.
 
-Implementación añadida:
-- `src/investment/decision/replayTrendProtectionV2Experiment.ts`
-  - inyecta V2 dentro del mismo `PortfolioDecisionEngine` usado por el replay;
-  - mantiene estado causal armed/observations/reference/MFE/reductionExecuted;
-  - un REDUCE consume idempotencia sólo cuando la siguiente evaluación confirma caída real de unidades;
-  - ADD o reducción no-V2 reinician el episodio/tramo correspondiente;
-  - PROTECT no puede causar venta por salud ni rotación competitiva indirecta.
-- `src/investment/decision/trendProtectionReplayComparison.ts`
-  - compara los dos replays completos;
-  - validez exige cash nunca negativo, trayectoria finita y máximo de plazas respetado;
-  - entrada exacta queda sólo como diagnóstico;
-  - calcula retorno, DD, fees/tax, turnover, REDUCE/EXIT, capture ratio, pérdidas de cola, ledger y restricciones.
-- `historicalReplayAudit.worker.ts`
-  - baseline sigue siendo el actual;
-  - sólo en checkpoint final ejecuta el segundo replay V2 completo y adjunta el A/B.
-- `HistoricalAuditJsonControls.tsx`
-  - distingue FULL_CAUSAL_REPLAY del antiguo fixed-entry;
-  - un A/B full causal puede ser válido aunque las entradas diverjan;
-  - muestra plazas máximas y cash no negativo.
-- `tests/trendProtectionCounterfactual.unit.ts`
-  - ahora valida el replay A/B completo, no sólo el fixed-entry.
+Implementación:
+- `replayTrendProtectionV2Experiment.ts`: inyecta V2 dentro del mismo `PortfolioDecisionEngine` y mantiene estado armed/observations/reference/MFE/reductionExecuted.
+- `trendProtectionReplayComparison.ts`: compara ambos caminos; `valid=true` exige trayectoria finita, cash nunca negativo y máximo de plazas respetado.
+- `historicalReplayAudit.worker.ts`: ejecuta el brazo V2 sólo en el checkpoint final.
+- `HistoricalAuditJsonControls.tsx`: exporta/muestra el A/B FULL_CAUSAL_REPLAY.
+- `trendProtectionCounterfactual.ts`: fixed-entry antiguo queda sólo como diagnóstico histórico.
 
-El antiguo `trendProtectionCounterfactual.ts` se conserva como diagnóstico histórico de entradas fijas, pero **ya no alimenta el A/B económico principal**.
+---
+
+# Replay REAL FULL_CAUSAL 12m — 2022-07-11 → 2023-07-10
+
+ZIP revisado: `trading-replay-2022-07-11-2023-07-10 (4).zip`.
+
+## CURRENT_POLICY
+
+- inicial: 13.000 €;
+- final: **12.873,999 €**;
+- retorno: **-0,969238%**;
+- DD máx.: **3,230298%**;
+- fees: **46,6343 €**;
+- tax estimado: **13,2774 €**;
+- ejecuciones: 24 BUY / 17 ADD / 3 REDUCE / 12 EXIT;
+- cash final ~30,93%; exposición final ~69,07%.
+
+## TREND_PROTECTION_V2 FULL_CAUSAL
+
+- `methodology=FULL_CAUSAL_REPLAY_SAME_DECISION_ENGINE`;
+- `valid=true`;
+- cash nunca negativo;
+- máximo observado **12/12 posiciones**;
+- final: **12.814,424 €**;
+- retorno: **-1,427509%**;
+- DD máx.: **3,202818%**;
+- fees: **40,3981 €**;
+- tax estimado: **13,6444 €**;
+- turnover total: **18.495,19 €**;
+- turnover de gestión: **5.232,86 €**;
+- 20 BUY / 19 ADD / 2 REDUCE / 8 EXIT;
+- cash final ~39,70%; exposición final ~60,30%.
+
+Delta V2 vs baseline:
+- final **-59,58 €**;
+- retorno **-0,45827 pp**;
+- DD **-0,02748 pp** (ligeramente mejor);
+- fees **-6,24 €**;
+- turnover **-3.725,44 €**.
+
+Conclusión de esta ventana: **V2 no mejora económicamente al baseline en 12m**, aunque reduce ligeramente DD, fees y turnover. No ajustar thresholds usando esta misma ventana.
+
+La divergencia de entradas aparece ya después de las primeras diferencias de gestión y es esperada en FULL_CAUSAL_REPLAY: 41 entradas baseline, 39 entradas V2, sólo 20 firmas exactamente coincidentes. No es fallo de validez.
+
+Operaciones V2 directamente atribuibles a protección observadas:
+- AIGC: REDUCE 25% ejecutado ~2022-12-09 con retorno de posición ~-9,0%;
+- DTE: REDUCE 25% ejecutado ~2023-06-02 con retorno ~+6,24% tras MFE ~17,9%;
+- IQQH: hard EXIT ~2023-03-28 con retorno ~-20,72%.
+
+El resto de EXIT del brazo V2 observado en el ledger procede principalmente de rotación/core existente, no de hard EXIT V2.
+
+---
+
+# Nuevo defecto de ejecución descubierto y corregido
+
+El A/B REAL devolvió `actionCounts.REDUCE=202` pero sólo **2 REDUCE ejecutados**. La causa es que V2 podía insistir diariamente en REDUCE25 sobre ETFs con muy pocos títulos cuando `floor(units × 25%) = 0`; el broker no podía materializar la orden, por lo que nunca se consumía la idempotencia y la señal reaparecía.
+
+Esto es un defecto de ejecución/auditoría, no una calibración económica.
+
+Corrección implementada en `replayTrendProtectionV2Experiment.ts`:
+- si V2 decide REDUCE sobre ETF/ETC y el 25% equivale a menos de 1 título entero, la decisión operativa se degrada a **PROTECT**;
+- no se declara una venta ficticia;
+- no se reserva cash/plaza teórica por una reducción imposible;
+- `pendingReduction` sólo se arma para REDUCE realmente materializable por número entero de títulos;
+- fondos siguen permitiendo reducción fraccionaria.
+
+Regresión añadida en `trendProtectionCounterfactual.unit.ts`:
+- 3 títulos ETF + REDUCE25 → PROTECT;
+- 4 títulos ETF + REDUCE25 → REDUCE;
+- fondo fraccionario → REDUCE permanece válido.
+
+No se han cambiado MFE, giveback, streak, hard EXIT ni ningún threshold V2.
 
 ---
 
 # Próxima acción
 
 1. Sincronizar `main` al HEAD actual.
-2. Ejecutar únicamente:
+2. Ejecutar sólo:
    - `npm run lint`
    - si PASS: `npm run test:trend-protection-counterfactual`
-3. El test debe devolver metodología `FULL_CAUSAL_REPLAY_SAME_DECISION_ENGINE`, `valid=true`, cash no negativo y máximo MEDIUM <=12.
-4. Si falla, corregir sólo el primer fallo exacto; no lanzar replay todavía.
-5. Si ambos pasan, repetir una sola sesión REAL: `2022-07-11`, 12 meses, DAILY, 13.000 €.
-6. En el JSON nuevo, interpretar `valid` por restricciones del full causal replay; `entryParity.exact` será diagnóstico y puede ser false.
-7. Comparar retorno, DD, turnover, fees, número/timing de REDUCE/EXIT, capture ratio, pérdidas de cola, plazas/cash y entradas divergentes.
-8. No recalibrar thresholds con este mismo 12m. Después usar 24/36m y holdouts independientes.
+3. Confirmar que el test devuelve `wholeShareBlockedAction=PROTECT`, `valid=true`, cash no negativo y máximo MEDIUM <=12.
+4. No repetir aún 12m sólo para mejorar su resultado: el cambio corrige una orden imposible, no calibra la estrategia.
+5. Si los gates pasan, siguiente evidencia debe venir de una ventana independiente/holdout antes de tocar thresholds V2.
+6. Comparar en holdout retorno, DD, turnover, cash/exposición, REDUCE/EXIT realmente ejecutables y número de PROTECT por whole-share blocking.
