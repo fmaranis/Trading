@@ -3,6 +3,7 @@ import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse
 import type { PortfolioPositionHealthSnapshot } from '../src/investment/decision/portfolioPositionHealth';
 import { isStrategicGrowthCoreAssetId, portfolioAssetRole } from '../src/investment/decision/portfolioAssetRole';
 import { runDynamicReplayWithRotationExperiment } from '../src/investment/decision/replayRotationPolicyExperiment';
+import { runDynamicReplayWithSelectionQualityExperiment } from '../src/investment/decision/replaySelectionQualityExperiment';
 import { adaptStrategicCoreHoldHealth, runDynamicReplayWithStrategicCoreHoldExperiment } from '../src/investment/decision/replayStrategicCoreHoldExperiment';
 import { adaptTrendProtectionV2ForWholeShareExecution, isTrendProtectionV2RotationBlockedReason, runDynamicReplayWithTrendProtectionV2Experiment } from '../src/investment/decision/replayTrendProtectionV2Experiment';
 import { buildTrendProtectionV2ReplayComparison } from '../src/investment/decision/trendProtectionReplayComparison';
@@ -154,6 +155,13 @@ assert.equal(strategicCoreHold.totalReturnPct, v2.totalReturnPct);
 assert.equal(strategicCoreHold.executedReductions, v2.executedReductions);
 assert.equal(strategicCoreHold.executedExits, v2.executedExits);
 
+const selectionQuality = runDynamicReplayWithSelectionQualityExperiment(replayInput);
+const selectionAb = buildTrendProtectionV2ReplayComparison({ baseline, v2: selectionQuality, riskProfile: 'MEDIUM' });
+assert.equal(selectionAb.valid, true, 'selection quality arm must remain fully executable');
+assert.equal(selectionAb.portfolioConstraints.cashNeverNegative, true, 'selection quality may not create leverage/negative cash');
+assert.ok(selectionAb.portfolioConstraints.maxObservedPositions <= 12, 'selection quality must preserve MEDIUM slot cap');
+assert.ok(selectionQuality.notes.some(note => note.includes('SELECTION_QUALITY_V1')), 'selection quality replay must identify its methodology in audit notes');
+
 assert.deepEqual(
   {
     finalValueEur: baseline.finalValueEur,
@@ -165,7 +173,7 @@ assert.deepEqual(
     signalCount: baseline.signals.length
   },
   baselineSnapshot,
-  'running the V2 arms must not mutate baseline economics or signals'
+  'running the experimental arms must not mutate baseline economics or signals'
 );
 
 console.log('TREND_PROTECTION_COUNTERFACTUAL_RESULT', JSON.stringify({
@@ -175,6 +183,7 @@ console.log('TREND_PROTECTION_COUNTERFACTUAL_RESULT', JSON.stringify({
   portfolioConstraints: ab.portfolioConstraints,
   baselineReturnPct: baseline.totalReturnPct,
   v2ReturnPct: ab.totalReturnPct,
+  selectionQualityReturnPct: selectionAb.totalReturnPct,
   deltaReturnPctPoints: ab.deltaVsCurrentPolicy.returnPctPoints,
   baselineMaxDrawdownPct: baseline.decisionPathMaxDrawdownPct,
   v2MaxDrawdownPct: ab.maxDrawdownPct,
@@ -185,5 +194,6 @@ console.log('TREND_PROTECTION_COUNTERFACTUAL_RESULT', JSON.stringify({
   protectRotationBlocked: isTrendProtectionV2RotationBlockedReason('[TREND_PROTECTION_V2:PROTECT]'),
   strategicCoreRole: portfolioAssetRole({ assetId: 'FUND_VANGUARD_GLOBAL', category: 'GLOBAL_EQUITY' }),
   strategicCoreReduceBlocked: strategicHeld.action === 'WATCH',
-  nonStrategicReplayUnchanged: strategicCoreHold.finalValueEur === v2.finalValueEur
+  nonStrategicReplayUnchanged: strategicCoreHold.finalValueEur === v2.finalValueEur,
+  selectionQualityValid: selectionAb.valid
 }));
