@@ -69,6 +69,11 @@ export function adaptTrendProtectionV2ForWholeShareExecution(
   };
 }
 
+export function isTrendProtectionV2RotationBlockedReason(reason: string | null | undefined): boolean {
+  if (!reason) return false;
+  return reason.includes('[TREND_PROTECTION_V2:WATCH]') || reason.includes('[TREND_PROTECTION_V2:PROTECT]');
+}
+
 function operationalAction(base: PortfolioPositionHealthAction, decision: TrendProtectionV2Decision): PortfolioPositionHealthAction {
   if (decision.action === 'REDUCE' || decision.action === 'EXIT') return decision.action;
   if (decision.action === 'PROTECT' || decision.action === 'WATCH') return 'WATCH';
@@ -195,7 +200,7 @@ function refreshPlanningTotals(result: PortfolioDecisionResult, oldRotationProce
   result.residualPlannedCashEur = Math.max(0, result.residualPlannedCashEur + (newRotationProceeds - oldRotationProceeds) - (newRecommended - oldRecommended));
 }
 
-function blockRotationsDuringProtect(input: PortfolioEvaluationInput, result: PortfolioDecisionResult): PortfolioDecisionResult {
+function blockRotationsDuringWatchOrProtect(input: PortfolioEvaluationInput, result: PortfolioDecisionResult): PortfolioDecisionResult {
   const oldRotationProceeds = result.plannedRotationProceedsEur;
   const oldRecommended = result.recommendedNewInvestmentEur;
   let changed = false;
@@ -203,8 +208,9 @@ function blockRotationsDuringProtect(input: PortfolioEvaluationInput, result: Po
   for (const position of result.existingPositions) {
     if (!position.rotationChallengerAssetId) continue;
     const health = healthFor(input, position);
-    if (!health?.reason.includes('[TREND_PROTECTION_V2:PROTECT]')) continue;
+    if (!isTrendProtectionV2RotationBlockedReason(health?.reason)) continue;
     const challengerAssetId = position.rotationChallengerAssetId;
+    const state = health!.reason.includes('[TREND_PROTECTION_V2:PROTECT]') ? 'PROTECT' : 'WATCH';
     result.contributions = result.contributions.filter(row => !(row.assetId === challengerAssetId && row.positionStage === 'ROTATION_ENTRY'));
     position.action = 'HOLD';
     position.suggestedReductionPct = null;
@@ -213,7 +219,7 @@ function blockRotationsDuringProtect(input: PortfolioEvaluationInput, result: Po
     position.rotationAdvantageScore = null;
     position.rotationChallengerRecentStrongCount = null;
     position.rotationChallengerPersistenceLookbackSessions = null;
-    position.reason = `${health.reason} [TREND_PROTECTION_V2:PROTECT] No se permite que una ruptura recién armada se convierta indirectamente en venta por rotación competitiva.`;
+    position.reason = `${health!.reason} [TREND_PROTECTION_V2:ROTATION_BLOCK] Estado ${state}: vigilar/proteger significa no vender todavía; se bloquea la rotación competitiva y, al eliminarse la pareja antes de CORE_GATE_V1, tampoco puede convertirse indirectamente en una rotación a core.`;
     changed = true;
   }
 
@@ -228,13 +234,13 @@ export function runDynamicReplayWithTrendProtectionV2Experiment(input: ReplayRun
     PortfolioDecisionEngine.evaluate = ((evaluationInput: PortfolioEvaluationInput) => {
       const transformed = applyTrendProtectionV2(evaluationInput, states);
       const result = originalEvaluate.call(PortfolioDecisionEngine, transformed);
-      return blockRotationsDuringProtect(transformed, result);
+      return blockRotationsDuringWatchOrProtect(transformed, result);
     }) as typeof PortfolioDecisionEngine.evaluate;
 
     const result = runDynamicReplayWithRotationExperiment(input, 'CORE_GATE_V1');
     result.notes.push(
       'TREND_PROTECTION_V2 full causal replay: mismo universo, scanner, Entry Timing, sizing, rotación CORE_GATE_V1, cash y límites de plazas; sólo se sustituye la protección REDUCE/EXIT de salud por V2. Las entradas posteriores pueden divergir causalmente si cambia el cash o la ocupación de plazas.',
-      'PROTECT es no operativo: no vende por salud ni puede convertirse indirectamente en una rotación competitiva. Un REDUCE V2 consume la idempotencia sólo cuando la siguiente evaluación confirma una caída real de unidades; si el 25% de un ETF equivale a menos de un título entero, se degrada a PROTECT y no se declara una venta ficticia.'
+      'WATCH y PROTECT son estados no-vendibles: no venden por salud y bloquean cualquier rotación competitiva antes de que CORE_GATE_V1 pueda redirigirla. Sólo REDUCE o EXIT de V2 autorizan una venta protectora. Un REDUCE V2 consume la idempotencia sólo cuando la siguiente evaluación confirma una caída real de unidades; si el 25% de un ETF equivale a menos de un título entero, se degrada a PROTECT y no se declara una venta ficticia.'
     );
     return result;
   } finally {
