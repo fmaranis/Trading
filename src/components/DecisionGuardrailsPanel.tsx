@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, Calculator, CircleDollarSign, ShieldAlert } from 'lucide-react';
 import {
   assessAgainstCashBenchmark,
   AssetUniverseScanResult,
+  CASH_BENCHMARK_UPDATED_EVENT,
   CashBenchmarkService,
   CausalUniverseBacktestEngine,
   EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
@@ -37,6 +38,12 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
   const failCount = rows.filter(r => r.assessment.passes === false).length;
   const pendingBroker = rows.filter(r => r.broker.status !== 'CONFIRMED_MYINVESTOR').length;
   const updateBenchmark = (value: number) => { setBenchmark(CashBenchmarkService.set(value)); setHistorical(null); };
+
+  useEffect(() => {
+    const syncBenchmark = () => { setBenchmark(CashBenchmarkService.load()); setHistorical(null); };
+    window.addEventListener(CASH_BENCHMARK_UPDATED_EVENT, syncBenchmark as EventListener);
+    return () => window.removeEventListener(CASH_BENCHMARK_UPDATED_EVENT, syncBenchmark as EventListener);
+  }, []);
 
   const calculateHistorical = () => {
     if (historicalLoading) return;
