@@ -98,7 +98,6 @@ const failedCore = classifyTrendProtectionV1(assessment('BREAKDOWN_RISK', {
 assert.equal(failedCore.action, 'REDUCE');
 assert.equal(failedCore.suggestedReductionPct, 50);
 
-// V2: a first break is protection state, not an immediate trade.
 const v2FreshWinner = classifyTrendProtectionV2(assessment('BREAKDOWN_RISK', {
   consensusScore: 5,
   unfavorableVotes: 0
@@ -115,9 +114,6 @@ assert.equal(v2FreshWinner.action, 'PROTECT');
 assert.equal(v2FreshWinner.suggestedReductionPct, null);
 assert.equal(v2FreshWinner.confirmationStage, 'ARMED');
 
-// Winner can confirm deterioration even while broad consensus remains positive:
-// after PROTECT has been observed repeatedly, another >=2 pp loss from the armed
-// reference is enough for a small partial reduction.
 const v2ConfirmedWinner = classifyTrendProtectionV2(assessment('BREAKDOWN_RISK', {
   consensusScore: 5,
   unfavorableVotes: 0
@@ -134,8 +130,22 @@ assert.equal(v2ConfirmedWinner.action, 'REDUCE');
 assert.equal(v2ConfirmedWinner.suggestedReductionPct, 25);
 assert.equal(v2ConfirmedWinner.confirmationStage, 'CONFIRMED');
 
-// A protected winner that rebounds from the armed reference must not be reduced
-// merely because the current trend snapshot is still classified as a break.
+const v2RepeatWinner = classifyTrendProtectionV2(assessment('BREAKDOWN_RISK', {
+  consensusScore: 5,
+  unfavorableVotes: 0
+}), {
+  currentReturnPct: 6.5,
+  mfePct: 20,
+  givebackFromMfePctPoints: 13.5,
+  isDiversifiedCore: false,
+  deteriorationStreakSessions: 0,
+  protectionObservations: 4,
+  protectionReferenceReturnPct: 10,
+  protectionReductionExecuted: true
+});
+assert.equal(v2RepeatWinner.action, 'PROTECT');
+assert.equal(v2RepeatWinner.suggestedReductionPct, null);
+
 const v2RecoveringProtectedWinner = classifyTrendProtectionV2(assessment('DOWNTREND', {
   consensusScore: 3,
   unfavorableVotes: 0
@@ -163,7 +173,6 @@ const v2HealthyWinner = classifyTrendProtectionV2(healthyAssessment, {
 assert.equal(v2HealthyWinner.action, 'HOLD');
 assert.equal(v2HealthyWinner.reclaimDetected, true);
 
-// Sanofi-like case: deep loss + downtrend on a fresh break must not liquidate 100%.
 const v2FreshLoser = classifyTrendProtectionV2(failedAssessment, {
   currentReturnPct: -16.4,
   mfePct: 0,
@@ -184,12 +193,24 @@ const v2ConfirmedLoser = classifyTrendProtectionV2(failedAssessment, {
 assert.equal(v2ConfirmedLoser.action, 'REDUCE');
 assert.equal(v2ConfirmedLoser.suggestedReductionPct, 25);
 
+const v2RepeatLoser = classifyTrendProtectionV2(failedAssessment, {
+  currentReturnPct: -17,
+  mfePct: 0,
+  givebackFromMfePctPoints: 17,
+  isDiversifiedCore: false,
+  deteriorationStreakSessions: 8,
+  protectionReductionExecuted: true
+});
+assert.equal(v2RepeatLoser.action, 'PROTECT');
+assert.equal(v2RepeatLoser.suggestedReductionPct, null);
+
 const v2HardLoser = classifyTrendProtectionV2(failedAssessment, {
   currentReturnPct: -20,
   mfePct: 0,
   givebackFromMfePctPoints: 20,
   isDiversifiedCore: false,
-  deteriorationStreakSessions: 10
+  deteriorationStreakSessions: 10,
+  protectionReductionExecuted: true
 });
 assert.equal(v2HardLoser.action, 'EXIT');
 assert.equal(v2HardLoser.suggestedReductionPct, 100);
@@ -223,10 +244,12 @@ console.log('TREND_PROTECTION_POLICY_RESULT', JSON.stringify({
   v2: {
     freshWinner: v2FreshWinner.action,
     confirmedWinner: v2ConfirmedWinner.action,
+    repeatWinner: v2RepeatWinner.action,
     recoveringWinner: v2RecoveringProtectedWinner.action,
     healthyWinner: v2HealthyWinner.action,
     freshLoser: v2FreshLoser.action,
     confirmedLoser: v2ConfirmedLoser.action,
+    repeatLoser: v2RepeatLoser.action,
     hardLoser: v2HardLoser.action,
     failedCore: v2Core.action
   }
