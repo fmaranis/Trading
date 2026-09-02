@@ -36,10 +36,16 @@ assert.equal(dip.structuralDowntrend, false);
 assert.equal(dip.buyTheDipCandidate, true, 'healthy long trend plus controlled oversold drawdown should be detected as buy-the-dip candidate');
 assert.notEqual(dip.existingPositionAction, 'REDUCE_REVIEW', 'a recent weak window alone must not trigger an existing-position reduction');
 assert.ok(dip.votes.some(v => v.id === 'MEAN_REVERSION' && v.score === 1));
+assert.ok(Number.isFinite(dip.trendStructure.regressionSlope20AnnualizedPct));
+assert.ok(Number.isFinite(dip.trendStructure.regressionSlope60AnnualizedPct));
+assert.equal(typeof dip.trendStructure.breakdown20, 'boolean');
 
 const broken = StrategyConsensusEngine.assess(scan, 'FALL', 2.5)!;
 assert.equal(broken.structuralDowntrend, true);
 assert.equal(broken.existingPositionAction, 'REDUCE_REVIEW', 'structural deterioration confirmed by several signals may trigger reduction review');
 assert.ok(broken.unfavorableVotes >= 3);
+assert.ok((broken.trendStructure.regressionSlope20AnnualizedPct ?? 0) < 0);
+assert.ok((broken.trendStructure.regressionSlope60AnnualizedPct ?? 0) < 0);
+assert.ok(['DOWNTREND', 'BREAKDOWN_RISK'].includes(broken.trendStructure.state));
 
-console.log('Strategy Consensus: 7/7 trend/mean-reversion/sell-protection invariants passed.');
+console.log('Strategy Consensus: 13/13 trend/mean-reversion/sell-protection invariants passed.');

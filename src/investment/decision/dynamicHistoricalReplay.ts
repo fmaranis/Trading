@@ -12,7 +12,8 @@ import { PortfolioDecisionEngine, type PortfolioPositionDecision } from './portf
 import { assessDeteriorationStreak, classifyPositionHealth, isDiversifiedCoreCategory, type PortfolioPositionHealthSnapshot, type PositionHealthContext } from './portfolioPositionHealth';
 import { accrueRemuneratedCash, allCashBenchmark } from './remuneratedCash';
 import { estimateSpanishTaxOnRealizedGain, type SpanishTaxSettings } from './spanishTaxModel';
-import { StrategyConsensusEngine, type StrategyConsensusAssessment } from './strategyConsensusEngine';
+import { StrategyConsensusEngine, type StrategyConsensusAssessment, type TrendStructureState } from './strategyConsensusEngine';
+import { classifyTrendProtectionV1, type TrendProtectionAction } from './trendProtectionPolicy';
 import type { FundPosition } from './fundPortfolio';
 import type { InvestmentDecisionResult, InvestmentHorizonYears, InvestorRiskProfile } from './types';
 import type { UserPortfolioState } from './userPortfolio';
@@ -46,6 +47,17 @@ export interface DynamicReplaySignal {
   positionGivebackFromMfePctPoints?: number | null;
   positionDeteriorationStreakSessions?: number | null;
   positionIsDiversifiedCore?: boolean | null;
+  trendProtectionV1Action?: TrendProtectionAction | null;
+  trendProtectionV1SuggestedReductionPct?: number | null;
+  trendProtectionV1WinnerProtectionArmed?: boolean | null;
+  trendProtectionV1LoserFailureArmed?: boolean | null;
+  trendProtectionV1Reason?: string | null;
+  trendStructureState?: TrendStructureState | null;
+  trendSlope20AnnualizedPct?: number | null;
+  trendSlope60AnnualizedPct?: number | null;
+  trendSlopeAccelerationPctPoints?: number | null;
+  trendSma20SlopeAnnualizedPct?: number | null;
+  trendBreakdown20?: boolean | null;
   executed: boolean;
   unitsDelta: number;
   notionalEur: number;
@@ -97,6 +109,16 @@ export interface DynamicReplayTimingStateCounts {
   ENTRY_STRONG: number;
 }
 
+export interface DynamicReplayTrendProtectionV1Counts {
+  HOLD: number;
+  WATCH: number;
+  REDUCE: number;
+  EXIT: number;
+  winnerProtectionArmed: number;
+  loserFailureArmed: number;
+  earlierProtectionCandidates: number;
+}
+
 export interface DynamicHistoricalReplayResult {
   requestedStartDate: string;
   startDate: string;
@@ -121,6 +143,7 @@ export interface DynamicHistoricalReplayResult {
   executedReductions: number;
   executedExits: number;
   timingStateCounts: DynamicReplayTimingStateCounts;
+  trendProtectionV1Counts: DynamicReplayTrendProtectionV1Counts;
   deploymentHorizons: DynamicReplayDeploymentHorizon[];
   totalFeesEur: number;
   totalEstimatedTaxEur: number;
@@ -470,6 +493,14 @@ function buildHistoricalHealthMap(input: {
       momentum20Pct: candidate.momentum20Pct
     };
     const classification = classifyPositionHealth(assessment, cash.excessVsCashPctPoints, context);
+    const trendProtectionV1 = assessment
+      ? classifyTrendProtectionV1(assessment, {
+          currentReturnPct: context.currentReturnPct ?? null,
+          mfePct: context.mfePct ?? null,
+          givebackFromMfePctPoints: context.givebackFromMfePctPoints ?? null,
+          isDiversifiedCore: context.isDiversifiedCore ?? false
+        })
+      : null;
     const snapshot: PortfolioPositionHealthSnapshot = {
       key: holding.instrumentType === 'MUTUAL_FUND' ? holding.assetId : item.ticker.toUpperCase(),
       label: item.name,
@@ -492,7 +523,8 @@ function buildHistoricalHealthMap(input: {
       mfePct: context.mfePct,
       givebackFromMfePctPoints: context.givebackFromMfePctPoints,
       deteriorationStreakSessions: context.deteriorationStreakSessions,
-      momentum20Pct: context.momentum20Pct
+      momentum20Pct: context.momentum20Pct,
+      trendProtectionV1
     };
     out[snapshot.key] = snapshot;
     out[snapshot.tickerOrIsin.toUpperCase()] = snapshot;
@@ -501,12 +533,29 @@ function buildHistoricalHealthMap(input: {
   return out;
 }
 function healthAuditFields(snapshot: PortfolioPositionHealthSnapshot | undefined) {
+  const trend = snapshot?.trendProtectionV1;
   return {
     positionCurrentReturnPct: snapshot?.currentReturnPct ?? null,
     positionMfePct: snapshot?.mfePct ?? null,
     positionGivebackFromMfePctPoints: snapshot?.givebackFromMfePctPoints ?? null,
     positionDeteriorationStreakSessions: snapshot?.deteriorationStreakSessions ?? null,
-    positionIsDiversifiedCore: snapshot?.isDiversifiedCore ?? null
+    positionIsDiversifiedCore: snapshot?.isDiversifiedCore ?? null,
+    trendProtectionV1Action: trend?.action ?? null,
+    trendProtectionV1SuggestedReductionPct: trend?.suggestedReductionPct ?? null,
+    trendProtectionV1WinnerProtectionArmed: trend?.winnerProtectionArmed ?? null,
+    trendProtectionV1LoserFailureArmed: trend?.loserFailureArmed ?? null,
+    trendProtectionV1Reason: trend?.reason ?? null
+  };
+}
+function trendAuditFields(assessment: StrategyConsensusAssessment | null) {
+  const trend = assessment?.trendStructure;
+  return {
+    trendStructureState: trend?.state ?? null,
+    trendSlope20AnnualizedPct: trend?.regressionSlope20AnnualizedPct ?? null,
+    trendSlope60AnnualizedPct: trend?.regressionSlope60AnnualizedPct ?? null,
+    trendSlopeAccelerationPctPoints: trend?.slopeAcceleration20vs60PctPoints ?? null,
+    trendSma20SlopeAnnualizedPct: trend?.sma20Slope20AnnualizedPct ?? null,
+    trendBreakdown20: trend?.breakdown20 ?? null
   };
 }
 function findHoldingForPosition(position: PortfolioPositionDecision, holdings: Map<string, Holding>, catalog: AssetUniverseItem[]): Holding | null {
@@ -622,6 +671,25 @@ function timingCounts(signals: DynamicReplaySignal[]): DynamicReplayTimingStateC
   for (const signal of signals) if (signal.timingState) counts[signal.timingState] += 1;
   return counts;
 }
+function trendProtectionCounts(signals: DynamicReplaySignal[]): DynamicReplayTrendProtectionV1Counts {
+  const counts: DynamicReplayTrendProtectionV1Counts = {
+    HOLD: 0,
+    WATCH: 0,
+    REDUCE: 0,
+    EXIT: 0,
+    winnerProtectionArmed: 0,
+    loserFailureArmed: 0,
+    earlierProtectionCandidates: 0
+  };
+  for (const signal of signals) {
+    const action = signal.trendProtectionV1Action;
+    if (action) counts[action] += 1;
+    if (signal.trendProtectionV1WinnerProtectionArmed) counts.winnerProtectionArmed += 1;
+    if (signal.trendProtectionV1LoserFailureArmed) counts.loserFailureArmed += 1;
+    if ((action === 'REDUCE' || action === 'EXIT') && signal.action !== 'REDUCE' && signal.action !== 'EXIT') counts.earlierProtectionCandidates += 1;
+  }
+  return counts;
+}
 
 export class DynamicHistoricalReplayEngine {
   static run(input: {
@@ -732,6 +800,7 @@ export class DynamicHistoricalReplayEngine {
             timingScore: gateEntry?.timingScore ?? null,
             suggestedInitialFraction: gateEntry?.suggestedInitialFraction ?? contribution.suggestedInitialFraction ?? null,
             ...healthAuditFields(health),
+            ...trendAuditFields(assessment),
             executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
             reason: contribution.reason
           }
@@ -760,6 +829,7 @@ export class DynamicHistoricalReplayEngine {
             structuralDowntrend: assessment?.structuralDowntrend ?? false, buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
             timingState: null, timingSetup: null, timingScore: null, suggestedInitialFraction: null,
             ...healthAuditFields(healthMap[holding.assetId]),
+            ...trendAuditFields(assessment),
             executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
             reason: position.reason
           }
@@ -807,6 +877,7 @@ export class DynamicHistoricalReplayEngine {
             timingScore: gateEntry?.timingScore ?? null,
             suggestedInitialFraction: gateEntry?.suggestedInitialFraction ?? null,
             ...healthAuditFields(health),
+            ...trendAuditFields(assessment),
             executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
             reason: traceReason
           }
@@ -999,6 +1070,7 @@ export class DynamicHistoricalReplayEngine {
     const material = signals.filter(signal => ['BUY', 'ADD', 'REDUCE', 'EXIT'].includes(signal.action));
     const equityPath = buildDailyEquityPath({ dataset: input.dataset, signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: firstDecisionDate, endDate, decisionStates });
     const timingStateCounts = timingCounts(signals);
+    const trendProtectionV1Counts = trendProtectionCounts(signals);
     const deploymentHorizons = buildDeploymentHorizons({ path: equityPath, signals, initialCapitalEur: input.initialCapitalEur });
 
     return {
@@ -1013,7 +1085,7 @@ export class DynamicHistoricalReplayEngine {
       executedAdds: signals.filter(signal => signal.action === 'ADD' && signal.executed).length,
       executedReductions: signals.filter(signal => signal.action === 'REDUCE' && signal.executed).length,
       executedExits: signals.filter(signal => signal.action === 'EXIT' && signal.executed).length,
-      timingStateCounts, deploymentHorizons,
+      timingStateCounts, trendProtectionV1Counts, deploymentHorizons,
       totalFeesEur, totalEstimatedTaxEur, totalTransferredEur, cashInterestEur,
       taxMethod: taxSettings.contextConfirmed ? 'CONFIGURED_PROGRESSIVE' : 'CONSERVATIVE_MAX_RATE',
       operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN',
@@ -1025,6 +1097,8 @@ export class DynamicHistoricalReplayEngine {
         'DAILY revisa cada sesión disponible; WEEKLY/MONTHLY/QUARTERLY reducen la frecuencia de decisión. La ejecución siempre ocurre después de la señal.',
         'Las señales conservan timingState, timingSetup, timingScore y suggestedInitialFraction; WAIT queda auditado como NO COMPRAR y READY/STRONG permanecen visibles aunque el candidato no reciba capital.',
         'Las posiciones existentes conservan auditoría causal de retorno, MFE, giveback, persistencia de deterioro y clasificación core/satélite. WATCH es explícito pero no operativo; REDUCE por giveback se reserva a satélites y requiere persistencia, MFE previo y momentum 20d no recuperado.',
+        'TREND_PROTECTION_V1 es sólo diagnóstico en este replay: registra pendientes 20/60, aceleración, ruptura, protección de ganador y fallo de tesis, pero NO altera ninguna orden ni la trayectoria patrimonial baseline.',
+        'trendProtectionV1Counts.earlierProtectionCandidates cuenta observaciones donde V1 habría propuesto REDUCE/EXIT antes que la política vigente; no es una estimación de beneficio y debe validarse después con replay contrafactual separado.',
         'Tras un ADD o un REDUCE ejecutado se reinicia la referencia MFE de la posición resultante para no mezclar el máximo de una exposición anterior con la nueva base/tramo restante.',
         'deploymentHorizons mide 1/5/20/60 sesiones transcurridas desde la fecha inicial: capital neto comprometido por flujos ejecutados y valor de mercado invertido se informan por separado.',
         'Una compra ejecutada cuenta contra el objetivo estable del activo en las decisiones posteriores; el replay no redistribuye desde cero el efectivo restante después de cada operación.',
