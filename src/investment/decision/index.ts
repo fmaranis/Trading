@@ -18,6 +18,7 @@ export * from './brokerAvailability';
 export * from './cashBenchmark';
 export * from './remuneratedCash';
 export * from './causalUniverseBacktestEngine';
+export * from './causalReplayAttribution';
 export * from './historicalDecisionReplay';
 export * from './dynamicHistoricalReplay';
 export * from './dynamicHistoricalReplayBatch';
