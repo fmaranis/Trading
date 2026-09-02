@@ -1,5 +1,6 @@
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
+import { appendTrendProtectionV2Counterfactual } from '../investment/decision/trendProtectionCounterfactual';
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
 import type { AssetUniverseItem } from '../investment/decision/assetUniverse';
 import type { DynamicReplayFrequency } from '../investment/decision/dynamicHistoricalReplay';
@@ -50,6 +51,11 @@ function truncateDataset(dataset: MultiAssetDataset, endDate: string): MultiAsse
   };
 }
 
+function latestDatasetDate(dataset: MultiAssetDataset): string | null {
+  const dates = dataset.assets.flatMap(asset => asset.bars.slice(-1).map(bar => bar.timestamp.slice(0, 10))).sort();
+  return dates.at(-1) ?? null;
+}
+
 workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
   const message = event.data;
 
@@ -75,7 +81,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
 
   try {
     const dataset = truncateDataset(sourceDataset, message.endDate);
-    const result = appendRotationCounterfactualAudit({
+    let result = appendRotationCounterfactualAudit({
       result: runDynamicReplayWithRotationExperiment({
         dataset,
         catalog: configuration.catalog,
@@ -91,7 +97,27 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       dataset,
       catalog: configuration.catalog
     });
-    workerScope.postMessage({ type: 'RESULT', requestedEndDate: message.endDate, result, rotationExperiment: REPLAY_ROTATION_EXPERIMENT });
+
+    const sourceEndDate = latestDatasetDate(sourceDataset);
+    const isFinalCheckpoint = sourceEndDate != null && message.endDate >= sourceEndDate;
+    if (isFinalCheckpoint) {
+      result = appendTrendProtectionV2Counterfactual({
+        result,
+        dataset,
+        catalog: configuration.catalog,
+        cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
+        minimumBars: configuration.minimumBars,
+        taxSettings: configuration.taxSettings
+      });
+    }
+
+    workerScope.postMessage({
+      type: 'RESULT',
+      requestedEndDate: message.endDate,
+      result,
+      rotationExperiment: REPLAY_ROTATION_EXPERIMENT,
+      trendProtectionV2Counterfactual: isFinalCheckpoint
+    });
   } catch (error: any) {
     workerScope.postMessage({ type: 'ERROR', error: error?.message || String(error), requestedEndDate: message.endDate });
   }
