@@ -191,19 +191,26 @@ Métricas A/B:
 - deltas en € / pp frente a CURRENT_POLICY;
 - ledger completo y equityPath V2.
 
-Integración:
-- `historicalReplayAudit.worker.ts` adjunta el contrafactual sólo en el checkpoint final;
-- `dynamicHistoricalReplay.trendProtectionV2.d.ts` expone el bloque opcional;
-- `tests/trendProtectionCounterfactual.unit.ts` comprueba causalidad, no mutación del baseline, reconciliación del ledger y `entryParity`;
-- `package.json` incorpora `test:trend-protection-counterfactual`.
+Integración de auditoría:
+- `historicalReplayAudit.worker.ts` calcula el contrafactual sólo en el checkpoint final;
+- el worker adjunta el bloque completo como `auditExtensions.trendProtectionV2Counterfactual` a una única señal ya existente; `HistoricalReplayProgressivePanel` conserva el objeto completo de señal, por lo que el A/B queda persistido automáticamente dentro del storage/export v3 sin crear otro almacenamiento;
+- el mismo worker emite por `BroadcastChannel` sólo para refresco visual; la persistencia no depende de ese canal;
+- `HistoricalAuditJsonControls.tsx` extrae el bloque de las señales, lo eleva a `session.summary.trendProtectionV2Counterfactual` al exportar/importar/publicar y muestra una tarjeta A/B con retorno, DD, paridad de entradas, turnover, REDUCE/EXIT, capture ratio y pérdidas de cola;
+- ficheros v3 antiguos siguen siendo válidos porque el bloque es opcional.
 
-Estado de validación actual:
-- `npm run lint`: **PASS** en AI Studio el 2026-09-02 después de corregir los tres errores de integración/tipado detectados en la ejecución anterior; `tsc --noEmit` termina con exit code 0 y sin warnings.
-- Las correcciones fueron sólo de integración/tipado: textos de auditoría con `incumbent.label` y fixture batch con `timingStateCounts`, `trendProtectionV1Counts` y `deploymentHorizons`.
-- Ningún threshold, orden, sizing ni regla económica se modificó.
-- Siguiente gate dirigido: `npm run test:trend-protection-counterfactual`.
+Validación:
+- `npm run lint`: PASS antes de la integración visual/persistente, con `tsc --noEmit` exit code 0.
+- `npm run test:trend-protection-counterfactual`: **PASS**. Resultado del fixture causal:
+  - `valid=true`;
+  - entradas baseline 3 / reproducidas 3;
+  - `entryParity.exact=true`, 0 shortfalls;
+  - retorno baseline 1,7948% vs V2 2,0280%, delta +0,23325 pp;
+  - DD baseline 2,4398% vs V2 2,9259%, delta +0,4861 pp (peor DD en el fixture);
+  - V2: 1 REDUCE, 0 EXIT.
+- Estas cifras son sólo del fixture unitario; demuestran funcionamiento del A/B, no superioridad económica de V2.
+- Tras integrar UI/export hay que repetir lint y el unit test dirigido antes del replay REAL.
 
-No interpretar todavía ninguna cifra económica de V2 hasta que el test nuevo pase y `entryParity.exact=true` en el replay REAL.
+No interpretar V2 como mejora hasta disponer del replay REAL con `entryParity.exact=true` y comparar conjuntamente retorno, DD, turnover, capture y pérdidas de cola.
 
 ---
 
@@ -222,6 +229,9 @@ No interpretar todavía ninguna cifra económica de V2 hasta que el test nuevo p
 # Próxima acción concreta
 
 1. Sincronizar `main` al HEAD actual.
-2. Ejecutar únicamente `npm run test:trend-protection-counterfactual`.
-3. Si falla, corregir sólo el primer fallo exacto; no ejecutar el gate completo todavía.
-4. Si PASS, integrar el bloque A/B en resumen/export/UI y después ejecutar un replay REAL 12m único para obtener cifras económicas con `entryParity.exact=true` antes de probar 24/36m.
+2. Ejecutar `npm run lint`.
+3. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
+4. Si ambos pasan, ejecutar una sola sesión REAL: `2022-07-11`, 12 meses, DAILY, 13.000 €.
+5. Al terminar, usar `Guardar + publicar para ChatGPT` o exportar el JSON. Verificar primero `summary.trendProtectionV2Counterfactual.valid=true` y `entryParity.exact=true`.
+6. Comparar CURRENT_POLICY vs V2 en retorno, DD, fees/turnover, capture ratio, pérdidas de cola y operaciones por activo. No recalibrar thresholds todavía.
+7. Sólo después decidir si V2 merece validación 24/36m y holdouts independientes.
