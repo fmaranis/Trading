@@ -6,7 +6,10 @@ import { runDynamicReplayWithRotationExperiment } from '../investment/decision/r
 import { runDynamicReplayWithSelectionQualityExperiment } from '../investment/decision/replaySelectionQualityExperiment';
 import { runDynamicReplayWithSlopeSelectionExperiment } from '../investment/decision/replaySlopeSelectionExperiment';
 import { runDynamicReplayWithStrategicCoreHoldExperiment } from '../investment/decision/replayStrategicCoreHoldExperiment';
-import { runDynamicReplayWithTrendProtectionV2Experiment } from '../investment/decision/replayTrendProtectionV2Experiment';
+import {
+  runDynamicReplayWithTrendProtectionV2Experiment,
+  runDynamicReplayWithTrendProtectionV2MediumTermWinnerConfirmExperiment
+} from '../investment/decision/replayTrendProtectionV2Experiment';
 import { buildTrendProtectionV2ReplayComparison } from '../investment/decision/trendProtectionReplayComparison';
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
 import type { AssetUniverseItem } from '../investment/decision/assetUniverse';
@@ -153,6 +156,13 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       const v2Comparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: v2Replay, riskProfile: configuration.riskProfile });
       const v2ReductionOutcomeAudit = buildV2ReductionOutcomeAudit({ dataset, v2Comparison });
 
+      const mediumTermWinnerConfirmReplay = runDynamicReplayWithTrendProtectionV2MediumTermWinnerConfirmExperiment(input);
+      const mediumTermWinnerConfirmComparison = buildTrendProtectionV2ReplayComparison({
+        baseline: result,
+        v2: mediumTermWinnerConfirmReplay,
+        riskProfile: configuration.riskProfile
+      });
+
       const strategicCoreReplay = runDynamicReplayWithStrategicCoreHoldExperiment(input);
       const strategicCoreComparison = buildTrendProtectionV2ReplayComparison({ baseline: result, v2: strategicCoreReplay, riskProfile: configuration.riskProfile });
       const currentVsCoreAttribution = buildCurrentVsCoreCausalAttribution({
@@ -174,6 +184,17 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
         ...v2Comparison,
         currentVsCoreAttribution,
         v2ReductionOutcomeAudit,
+        mediumTermWinnerConfirmExperiment: {
+          ...mediumTermWinnerConfirmComparison,
+          policy: 'TREND_PROTECTION_V2_MEDIUM_TERM_WINNER_CONFIRM',
+          methodology: 'FULL_CAUSAL_REPLAY_V2_PLUS_MEDIUM_TERM_CONFIRM_FOR_WINNER_REDUCE_ONLY',
+          deltaVsTrendProtectionV2: armDelta(v2Comparison, mediumTermWinnerConfirmComparison),
+          deltaVsStrategicCoreHold: armDelta(strategicCoreComparison, mediumTermWinnerConfirmComparison),
+          notes: [
+            ...mediumTermWinnerConfirmComparison.notes,
+            'Experimento dirigido: sólo intercepta REDUCE de winner-protection. Si slope60 sigue positiva y el consenso sigue constructivo (consenso >0 y <2 votos adversos), conserva PROTECT. LOSER_FAILURE, hard EXIT, reclaim, sizing, selección, cash y CORE_GATE permanecen idénticos.'
+          ]
+        },
         strategicCoreHoldExperiment: {
           ...strategicCoreComparison,
           policy: 'STRATEGIC_CORE_HOLD_V1',
@@ -225,6 +246,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
         'A/B principal basado en FULL_CAUSAL_REPLAY: todos los brazos son carteras ejecutables y la divergencia posterior es una consecuencia económica causal.',
         'CURRENT_VS_CORE_CAUSAL_ATTRIBUTION_V1 no añade otro brazo: descompone exactamente CORE−CURRENT en efecto V2 + efecto incremental STRATEGIC_CORE_HOLD y registra primera divergencia, diferencias por activo y uso de cash.',
         'V2_REDUCTION_OUTCOME_AUDIT_V1 es exclusivamente ex post: usa precios posteriores para auditar REDUCE ya ejecutados (20/60 sesiones y fin de replay) y está prohibido usarlo como input causal del motor.',
+        'TREND_PROTECTION_V2_MEDIUM_TERM_WINNER_CONFIRM es un único A/B dirigido: el corto plazo puede armar PROTECT, pero un REDUCE de ganador exige también deterioro 60d o del consenso.',
         'Tercer brazo STRATEGIC_CORE_HOLD_V1: conserva el core estratégico acumulado frente a ventas/rotaciones tácticas cortas.',
         'Cuarto brazo SELECTION_QUALITY_V1: ReliabilityScore + OpportunityScore sólo para ranking.',
         'Quinto brazo QUALITY_SIZING_V1: ranking LEGACY con sizing conservador por quality; permanece diagnóstico tras resultados OOS mixtos.',
