@@ -23,6 +23,7 @@ export * from './dynamicHistoricalReplay';
 export * from './dynamicHistoricalReplayBatch';
 export * from './replaySelectionQualityExperiment';
 export * from './replayQualitySizingExperiment';
+export * from './replaySlopeSelectionExperiment';
 export * from './strategyConsensusEngine';
 export * from './entryTiming';
 export * from './singleAssetResearch';
