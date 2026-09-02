@@ -59,7 +59,7 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
       </div>
       <label className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3 text-xs text-emerald-100">
         <div className="font-bold">Cuenta remunerada</div>
-        <div className="mt-2 flex items-center gap-2"><input type="number" min="0" max="50" step="0.1" value={benchmark} onChange={e => updateBenchmark(Number(e.target.value))} className="w-24 rounded-lg border border-emerald-500/30 bg-slate-950 px-2 py-1.5 text-right font-mono text-white"/><span>% anual</span></div>
+        <div className="mt-2 flex items-center gap-2"><input type="number" min="0" max="50" step="0.1" value={benchmark} onChange={e => updateBenchmark(Number(e.target.value))} className="w-24 rounded-lg border border-emerald-500/30 bg-slate-950 px-2 py-1.5 text-right font-mono text-white"/><span>% TAE</span></div>
         <div className="mt-1 text-[9px] text-emerald-200/70">Cambiarlo recalcula los candidatos de cartera.</div>
       </label>
     </div>
@@ -86,7 +86,7 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
 
     <div className="mt-5 rounded-xl border border-emerald-500/20 bg-slate-950/55 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div><div className="font-bold text-emerald-100">Estrategia histórica vs todo en efectivo remunerado</div><div className="mt-1 text-[10px] text-slate-500">Replay causal con {capitalEur.toFixed(2)} €, riesgo {riskProfile}, horizonte {horizonYears} años. El efectivo residual dentro de la estrategia también devenga {benchmark.toFixed(2)}% anual por días naturales.</div></div>
+        <div><div className="font-bold text-emerald-100">Estrategia histórica vs todo en efectivo remunerado</div><div className="mt-1 text-[10px] text-slate-500">Replay causal con {capitalEur.toFixed(2)} €, riesgo {riskProfile}, horizonte {horizonYears} años. El efectivo residual dentro de la estrategia también devenga {benchmark.toFixed(2)}% TAE por días naturales.</div><div className="mt-1 text-[9px] text-amber-300/80">Escenario de TAE constante: este replay aplica la TAE configurada durante toda la ventana. No reconstruye la remuneración bancaria histórica de cada año.</div></div>
         <button onClick={calculateHistorical} disabled={historicalLoading} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><Calculator className="h-3.5 w-3.5"/>{historicalLoading ? 'Calculando…' : historical ? 'Recalcular' : 'Calcular comparación'}</button>
       </div>
       {historicalError && <div className="mt-3 rounded-lg border border-rose-500/25 bg-rose-500/10 p-3 text-xs text-rose-200">{historicalError}</div>}
@@ -99,6 +99,6 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
       </div>}
     </div>
 
-    <div className="mt-3 text-[10px] text-slate-500">El proxy superior anualiza el momentum REAL de 120 sesiones. La comparación histórica inferior es un replay causal ejecutable con costes y remuneración del efectivo residual. Ninguno de los dos es una previsión o garantía.</div>
+    <div className="mt-3 text-[10px] text-slate-500">El proxy superior anualiza el momentum REAL de 120 sesiones. La comparación histórica inferior es un replay causal ejecutable con costes y remuneración del efectivo residual bajo una TAE constante configurada. Ninguno de los dos es una previsión o garantía.</div>
   </section>;
 };
