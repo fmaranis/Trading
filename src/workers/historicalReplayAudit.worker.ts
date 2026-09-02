@@ -1,6 +1,7 @@
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
-import { appendTrendProtectionV2Counterfactual } from '../investment/decision/trendProtectionCounterfactual';
+import { runDynamicReplayWithTrendProtectionV2Experiment } from '../investment/decision/replayTrendProtectionV2Experiment';
+import { buildTrendProtectionV2ReplayComparison } from '../investment/decision/trendProtectionReplayComparison';
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
 import type { AssetUniverseItem } from '../investment/decision/assetUniverse';
 import type { DynamicReplayFrequency } from '../investment/decision/dynamicHistoricalReplay';
@@ -57,13 +58,28 @@ function latestDatasetDate(dataset: MultiAssetDataset): string | null {
   return dates.at(-1) ?? null;
 }
 
+function replayInput(dataset: MultiAssetDataset) {
+  if (!configuration) throw new Error('AUDIT_WORKER_NOT_INITIALIZED');
+  return {
+    dataset,
+    catalog: configuration.catalog,
+    startDate: configuration.startDate,
+    frequency: configuration.frequency,
+    initialCapitalEur: configuration.initialCapitalEur,
+    riskProfile: configuration.riskProfile,
+    horizonYears: configuration.horizonYears,
+    cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
+    minimumBars: configuration.minimumBars,
+    taxSettings: configuration.taxSettings
+  };
+}
+
 function persistCounterfactualInAuditSignal(result: any): void {
   const counterfactual = result?.trendProtectionV2Counterfactual;
   if (!counterfactual) return;
 
-  // HistoricalReplayProgressivePanel intentionally preserves the complete signal
-  // object in storage/export. Attaching one audit extension to one signal keeps the
-  // existing v3 envelope compatible while avoiding a second persistence system.
+  // HistoricalReplayProgressivePanel preserves the complete signal object in v3.
+  // One audit extension therefore persists the complete A/B without a second store.
   const auditSignal = result.signals?.[0];
   if (auditSignal) {
     auditSignal.auditExtensions = {
@@ -72,8 +88,6 @@ function persistCounterfactualInAuditSignal(result: any): void {
     };
   }
 
-  // UI side-channel only. Persistence does not depend on BroadcastChannel; the
-  // signal extension above remains the source used by exported/reloaded audits.
   try {
     if (typeof BroadcastChannel !== 'undefined') {
       const channel = new BroadcastChannel(AUDIT_BROADCAST_CHANNEL);
@@ -81,7 +95,7 @@ function persistCounterfactualInAuditSignal(result: any): void {
       channel.close();
     }
   } catch {
-    // A missing BroadcastChannel must never invalidate the replay itself.
+    // UI refresh is optional; persistence above is authoritative.
   }
 }
 
@@ -110,19 +124,9 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
 
   try {
     const dataset = truncateDataset(sourceDataset, message.endDate);
+    const input = replayInput(dataset);
     let result = appendRotationCounterfactualAudit({
-      result: runDynamicReplayWithRotationExperiment({
-        dataset,
-        catalog: configuration.catalog,
-        startDate: configuration.startDate,
-        frequency: configuration.frequency,
-        initialCapitalEur: configuration.initialCapitalEur,
-        riskProfile: configuration.riskProfile,
-        horizonYears: configuration.horizonYears,
-        cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
-        minimumBars: configuration.minimumBars,
-        taxSettings: configuration.taxSettings
-      }, REPLAY_ROTATION_EXPERIMENT),
+      result: runDynamicReplayWithRotationExperiment(input, REPLAY_ROTATION_EXPERIMENT),
       dataset,
       catalog: configuration.catalog
     });
@@ -130,14 +134,13 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
     const sourceEndDate = latestDatasetDate(sourceDataset);
     const isFinalCheckpoint = sourceEndDate != null && message.endDate >= sourceEndDate;
     if (isFinalCheckpoint) {
-      result = appendTrendProtectionV2Counterfactual({
-        result,
-        dataset,
-        catalog: configuration.catalog,
-        cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
-        minimumBars: configuration.minimumBars,
-        taxSettings: configuration.taxSettings
+      const v2Replay = runDynamicReplayWithTrendProtectionV2Experiment(input);
+      result.trendProtectionV2Counterfactual = buildTrendProtectionV2ReplayComparison({
+        baseline: result,
+        v2: v2Replay,
+        riskProfile: configuration.riskProfile
       });
+      result.notes.push('A/B V2 principal sustituido por FULL_CAUSAL_REPLAY: ambos brazos son carteras ejecutables con el mismo motor de selección/timing; la paridad de entradas queda como diagnóstico, no como requisito de validez.');
       persistCounterfactualInAuditSignal(result);
     }
 
