@@ -1,9 +1,21 @@
+import type { TrendStructureDiagnostics } from './strategyConsensusEngine';
+
 export interface AssetSelectionQualityMetrics {
   reliabilityScore: number;
   opportunityScore: number;
   currentDrawdownPct: number | null;
   positiveRolling60Pct: number | null;
   positiveRolling120Pct: number | null;
+}
+
+export interface SlopeSelectionQualityMetrics {
+  slopeQualityScore: number;
+  regression20Quality: number;
+  regression60Quality: number;
+  regression120Quality: number;
+  accelerationQuality: number;
+  sma20Quality: number;
+  sma50Quality: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -101,5 +113,50 @@ export function assessAssetSelectionQuality(input: {
     currentDrawdownPct: currentDd,
     positiveRolling60Pct: positive60,
     positiveRolling120Pct: positive120
+  };
+}
+
+function smoothSignedQuality(value: number | null, scalePctPoints: number): number {
+  if (value == null || !Number.isFinite(value) || !(scalePctPoints > 0)) return 50;
+  return clamp(50 + 50 * Math.tanh(value / scalePctPoints), 0, 100);
+}
+
+/**
+ * SELECTION_SLOPE_V1 consumes the trend diagnostics already calculated by
+ * StrategyConsensusEngine. It deliberately uses smooth, bounded transforms
+ * rather than fitted cut-offs: extreme annualized slopes saturate instead of
+ * dominating the rank, and missing diagnostics remain neutral at 50/100.
+ *
+ * The score rewards multi-horizon trend coherence and positive acceleration:
+ * 25% slope120, 25% slope60, 15% slope20, 15% SMA20 slope, 10% SMA50 slope,
+ * 10% acceleration 20-vs-60. It is descriptive evidence, never an entry gate.
+ */
+export function assessSlopeSelectionQuality(trend: TrendStructureDiagnostics): SlopeSelectionQualityMetrics {
+  const regression20Quality = smoothSignedQuality(trend.regressionSlope20AnnualizedPct, 25);
+  const regression60Quality = smoothSignedQuality(trend.regressionSlope60AnnualizedPct, 20);
+  const regression120Quality = smoothSignedQuality(trend.regressionSlope120AnnualizedPct, 15);
+  const accelerationQuality = smoothSignedQuality(trend.slopeAcceleration20vs60PctPoints, 20);
+  const sma20Quality = smoothSignedQuality(trend.sma20Slope20AnnualizedPct, 20);
+  const sma50Quality = smoothSignedQuality(trend.sma50Slope20AnnualizedPct, 15);
+
+  const slopeQualityScore = clamp(
+    regression120Quality * 0.25
+      + regression60Quality * 0.25
+      + regression20Quality * 0.15
+      + sma20Quality * 0.15
+      + sma50Quality * 0.10
+      + accelerationQuality * 0.10,
+    0,
+    100
+  );
+
+  return {
+    slopeQualityScore,
+    regression20Quality,
+    regression60Quality,
+    regression120Quality,
+    accelerationQuality,
+    sma20Quality,
+    sma50Quality
   };
 }
