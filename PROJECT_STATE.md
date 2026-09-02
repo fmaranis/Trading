@@ -104,62 +104,89 @@ Validación independiente:
 - 2017-01-02 → 2018-12-31 (24m): CORE HOLD +0,0657%, V2 -1,7666%, CURRENT -0,9874%; CORE HOLD mejora V2 +238,19 € / +1,8323 pp con DD sólo +0,0459 pp peor; también supera CURRENT +136,90 € con DD 0,72 pp mejor.
 - Hallazgo 2017: V2 vendía SXR8/EUNL para rotar a Intesa/Repsol; CORE HOLD conserva el núcleo. Intesa terminó posteriormente con REDUCE ~-18,8% y EXIT ~-21,3%.
 
-Refactor de rol validado en AI Studio el 2026-09-02: `npm run lint` PASS y `npm run test:trend-protection-counterfactual` PASS, cero errores. No se repitieron replays largos porque el refactor no cambió la semántica económica.
+Refactor de rol validado en AI Studio el 2026-09-02: `npm run lint` PASS y `npm run test:trend-protection-counterfactual` PASS, cero errores.
 
 Backup previo al refactor de rol:
 `backup/main-pre-portfolio-role-core-2026-09-02` → `1e3f0ab22b868fe608b11e0aaac92c52fb289070`.
 
 ---
 
-# SELECTION_QUALITY_V1 — nuevo cuarto brazo
+# SELECTION_QUALITY_V1 — cuarto brazo causal
 
-Objetivo: atacar el problema de mayor impacto observado: **selección/composición**. Se separa deliberadamente de sizing para poder atribuir el resultado.
+Objetivo: atacar **selección/composición** sin mezclar todavía sizing.
 
-Implementación base:
+Implementación:
 - `src/investment/decision/assetSelectionQuality.ts`
 - `AssetUniverseScanner` expone `reliabilityScore`, `opportunityScore`, `currentDrawdownPct`, `positiveRolling60Pct`, `positiveRolling120Pct`.
-- `PortfolioCandidateGate` incorpora política explícita `LEGACY | QUALITY_V1`.
+- `PortfolioCandidateGate` incorpora `LEGACY | QUALITY_V1`.
 - `CurrentOpportunityAlertEngine` expone ambos scores.
-- `replaySelectionQualityExperiment.ts` fuerza QUALITY_V1 sobre el mismo replay causal con `STRATEGIC_CORE_HOLD_V1` ya fijado.
-- `historicalReplayAudit.worker.ts` exporta un cuarto brazo en `trendProtectionV2Counterfactual.selectionQualityExperiment`.
+- `replaySelectionQualityExperiment.ts` ejecuta QUALITY_V1 sobre STRATEGIC_CORE_HOLD_V1.
+- `historicalReplayAudit.worker.ts` exporta `trendProtectionV2Counterfactual.selectionQualityExperiment`.
 
 ## ReliabilityScore 0–100
-Sólo usa el prefijo disponible en la fecha:
-- 45% persistencia de retornos rolling 60 positivos;
+- 45% persistencia rolling 60 positiva;
 - 25% persistencia rolling 120 positiva;
 - 20% calidad de drawdown histórico;
 - 10% calidad de volatilidad.
 
-Pregunta: **¿este activo ha mostrado un camino persistentemente rentable/tolerable o depende de un tramo aislado?**
-
 ## OpportunityScore 0–100
-También causal:
 - 30% ReliabilityScore;
 - 25% momentum 120;
 - 15% momentum 60;
 - 10% momentum 20;
-- 10% aceleración de corto vs medio plazo;
+- 10% aceleración simple corto/medio plazo;
 - 10% drawdown actual.
 
-Pregunta: **¿hay una oportunidad atractiva ahora en un activo que además tiene suficiente calidad histórica?**
+QUALITY_V1 no salta ningún gate: REAL + cash + consenso BUY + Entry Timing siguen obligatorios. Sólo modifica ranking relativo entre elegibles. **Todavía NO cambia sizing**.
 
-QUALITY_V1 no salta ningún gate: REAL + cash + consenso BUY + Entry Timing siguen siendo obligatorios. Sólo añade un ajuste relativo al ranking de candidatos ya elegibles. El cálculo histórico se reconstruye desde `acceptedDataset` si el replay no trae scores precalculados, evitando fallback neutral silencioso.
-
-Importante: **todavía NO cambia sizing**. STARTER/BUILD, caps, Entry Timing, slots, CORE_GATE y protección quedan congelados. Si selección demuestra valor, el siguiente experimento será `QUALITY_SIZING_V1` y se evaluará por separado.
-
-Backup previo a esta fase:
+Backup previo:
 `backup/main-pre-selection-quality-v1-2026-09-02` → `a04905336a96a0056b81836a914672f8e58756cf`.
 
-Estado: implementación terminada; **gates AI Studio pendientes**.
+Gates AI Studio 2026-09-02: `lint`, `test:portfolio-candidate-gate`, `test:current-opportunity-alerts` y `test:trend-protection-counterfactual` PASS, cero errores.
+
+## Primera prueba 2017-01-02 → 2018-12-31 — 24 meses
+- CURRENT: final 12.871,64 €; retorno -0,9874%; DD 14,8945%.
+- V2: final 12.770,34 €; retorno -1,7666%; DD 14,1286%.
+- CORE HOLD: final 13.008,53 €; retorno +0,0657%; DD 14,1745%; turnover 28.774,22 €.
+- SELECTION_QUALITY_V1: final **13.081,09 €**; retorno **+0,6238%**; DD **14,3187%**; turnover 32.116,64 €.
+
+QUALITY_V1 vs CORE HOLD:
+- **+72,56 € / +0,5581 pp** de retorno;
+- DD +0,1442 pp peor;
+- turnover +3.342,42 €;
+- management turnover +2.264,58 €;
+- fees +5,16 €;
+- fiscalidad estimada +128,65 €.
+
+QUALITY_V1 vs CURRENT:
+- **+209,45 € / +1,6112 pp**;
+- DD **0,5758 pp mejor**.
+
+Exact initial hold sigue en +6,2247%, aproximadamente **5,601 pp por encima de QUALITY_V1**. La mejora de selección es material pero todavía no explica todo el gap.
+
+Lectura provisional: primera señal favorable a QUALITY_V1, pero no promocionar ni tocar sizing con una sola ventana; además el incremento de turnover/fiscalidad debe vigilarse.
+
+---
+
+# Pendientes / slopes — estado
+
+El motor ya calcula causalmente:
+- pendiente de regresión log-precio 20/60/120 sesiones;
+- aceleración de pendiente 20 vs 60;
+- pendiente de SMA20 y SMA50;
+- breakout/breakdown 20.
+
+Hoy estas pendientes se usan en diagnóstico/estructura de tendencia y Trend Protection. `OpportunityScore` usa por ahora momentum y una aceleración simple basada en momentum, no un peso explícito de las pendientes de regresión.
+
+Plan: probar una variante aislada posterior que añada **slope quality / slope acceleration** al score de selección u oportunidad, sin mezclarla simultáneamente con cambios de sizing. Sólo se integrará si mejora evidencia causal/OOS y no aumenta churn de forma injustificada.
 
 ---
 
 # Próxima acción
 
-1. Sincronizar `main`.
-2. Ejecutar `npm run lint`.
-3. Si PASS, ejecutar `npm run test:portfolio-candidate-gate`.
-4. Si PASS, ejecutar `npm run test:current-opportunity-alerts`.
-5. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
-6. No ejecutar replays si alguno falla; corregir sólo el gate concreto.
-7. Si los cuatro pasan, ejecutar una primera ventana histórica con el nuevo cuarto brazo para medir **CORE HOLD vs SELECTION_QUALITY_V1** antes de introducir sizing/concentración.
+1. Mantener thresholds y sizing congelados.
+2. Validar SELECTION_QUALITY_V1 en otra ventana independiente antes de promoverlo.
+3. Después decidir entre:
+   - experimento de slopes dentro de selección;
+   - experimento `QUALITY_SIZING_V1` de concentración/sizing.
+4. No combinar slopes y sizing en el mismo primer A/B: atribución antes que optimización conjunta.
