@@ -1,6 +1,7 @@
 import {
   EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   EUR_VALIDATION_HOLDOUT_UNIVERSE,
+  candidateQualityAdjustment,
   isValidIsin,
   PortfolioCandidateGate
 } from '../src/investment/decision';
@@ -82,4 +83,9 @@ check('709 validation holdout remains isolated from production discovery univers
 check('710 production discovery universe is broader than the original small allocator shortlist', EUR_PORTFOLIO_DISCOVERY_UNIVERSE.length > 50);
 check('711 every production discovery candidate exposes a checksum-valid operational ISIN', EUR_PORTFOLIO_DISCOVERY_UNIVERSE.every(item => isValidIsin(item.isin)));
 
-console.log(`Portfolio candidate gate: ${passed}/11 invariants passed.`);
+const qualityResult = PortfolioCandidateGate.apply(scan, 2.5, 12, 'QUALITY_V1');
+check('712 QUALITY_V1 is explicit and auditable', qualityResult.selectionPolicy === 'QUALITY_V1');
+check('713 QUALITY_V1 computes causal Reliability/Opportunity for historical-prefix candidates', qualityResult.entries.filter(e => e.status === 'ELIGIBLE').every(e => Number.isFinite(e.reliabilityScore) && Number.isFinite(e.opportunityScore)));
+check('714 quality adjustment rewards stronger Reliability/Opportunity without bypassing gates', candidateQualityAdjustment(80, 80) > candidateQualityAdjustment(40, 40) && !qualityResult.scan.selected.some(c => c.asset.assetId === 'WEAK') && !qualityResult.scan.selected.some(c => c.asset.assetId === 'FALLING'));
+
+console.log(`Portfolio candidate gate: ${passed}/14 invariants passed.`);
