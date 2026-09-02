@@ -1,16 +1,15 @@
 # Trading — Estado Canónico del Proyecto
 
-> Leer este archivo primero al retomar el proyecto. Repositorio canónico y línea viva: `fmaranis/Trading/main`. El detalle histórico permanece en Git.
+> Repositorio canónico: `fmaranis/Trading/main`. Leer este archivo primero al retomar el proyecto.
 
 ## Reglas no negociables
-
 - Nunca usar GitHub Actions. Validaciones en local/AI Studio.
-- ChatGPT modifica GitHub; AI Studio trabaja sobre `main` para ejecutar/Preview/validar.
+- ChatGPT modifica GitHub; AI Studio sincroniza `main`, ejecuta/Preview/valida y no modifica archivos salvo instrucción expresa.
 - REAL / STATIC_REFERENCE / SYNTHETIC siempre explícito; sin fallback sintético silencioso.
 - Replay causal: sólo información disponible hasta la fecha; ejecución posterior a señal; sin lookahead.
 - No polling/agentes para procesos largos. El usuario avisa al terminar y ChatGPT revisa una vez.
-- No calibrar thresholds sobre ventanas usadas ya para diagnóstico.
-- Mantener `PROJECT_STATE.md` como memoria canónica del proyecto.
+- No calibrar thresholds con ventanas ya usadas para diagnóstico.
+- Tras un fallo, ejecutar primero sólo el test dirigido que falla.
 
 ---
 
@@ -26,18 +25,24 @@ Arquitectura:
 3. CUÁNTO HOY — STARTER/BUILD/sizing.
 4. CÓMO GESTIONAR — HOLD/ADD/WATCH/PROTECT/REDUCE/EXIT/ROTATE.
 
-Máquina: **CANDIDATE → STARTER → BUILD → CORE/HOLD → WATCH/PROTECT → REDUCE/EXIT/ROTATE**.
+Perfil MEDIUM: STARTER READY 3% / STRONG 5%; BUILD 8%; máximo 12 posiciones; máximo 2 nuevas/evaluación. Rotación 1:1 estricta y atómica; persistencia challenger 3/10.
 
 Cartera real de referencia:
 - Vanguard Global `IE00B03HD191`: 12.600 €.
 - Vanguard Emerging `IE0031786696`: 1.400 €.
 - Capital pendiente: 13.000 €; horizonte 12 meses; cash hurdle 2,5% anual.
 
-Integridad cerrada:
-- Yahoo listados `adjusted:false`; fondos NAV REAL por ISIN.
-- STARTER MEDIUM READY 3% / STRONG 5%; BUILD 8%; máximo 12 posiciones; máximo 2 nuevas/evaluación.
-- Rotación 1:1 estricta y atómica; persistencia challenger 3/10.
-- Estrés sistémico conserva core READY y bloquea rotación competitiva.
+---
+
+# CORE_GATE_V1 — intención preservada
+
+La concentración de capital hacia Vanguard Global/core es deliberada, no un defecto por sí misma:
+- si una posición mediocre/deteriorada libera capital y el challenger no es excepcional, se prefiere un core global diversificado antes que perseguir otra apuesta táctica o acumular cash innecesario;
+- prioridad: Vanguard Global → ESG Developed → EUNL/IWDA → SXR8/VUSA;
+- challenger excepcional requiere persistencia STRONG fuerte y ventajas claras de consenso/score/cash;
+- no modificar CORE_GATE durante el experimento actual.
+
+La observación del usuario de que el motor suele destacar más a partir de meses 7-9 se mantiene aparcada para la futura fase `ReliabilityScore / OpportunityScore / sizing`: parte de esas grandes aportaciones tardías procede de la consolidación deliberada de rotaciones en el core.
 
 ---
 
@@ -45,148 +50,105 @@ Integridad cerrada:
 
 Flujo: **HEALTHY → WATCH → PROTECT → REDUCE → EXIT**.
 
-Hipótesis actuales, NO promocionadas:
+Thresholds actuales congelados y NO promocionados:
 - ganador: MFE >=8% + giveback >=6 pp + deterioro corto;
 - REDUCE inicial 25%, máximo uno por episodio realmente ejecutado;
-- perdedor requiere persistencia causal antes de REDUCE;
-- hard EXIT sólo para fallo satélite profundo/persistente;
-- reclaim claro desarma episodio;
-- ETF con REDUCE25 inferior a 1 título entero se degrada a PROTECT;
-- **WATCH y PROTECT significan NO vender todavía**.
+- perdedor requiere persistencia causal;
+- hard EXIT sólo para satélite profundo/persistente;
+- reclaim desarma episodio;
+- ETF con REDUCE25 <1 título entero se degrada a PROTECT;
+- WATCH/PROTECT significan NO vender.
 
-A/B principal: `FULL_CAUSAL_REPLAY_SAME_DECISION_ENGINE`.
-- mismo universo, scanner, Entry Timing, sizing, CORE_GATE_V1, cash, fiscalidad y máximo de plazas;
-- sólo cambia la política de protección;
-- divergencia posterior de entradas por cash/plazas es causal y no invalida el A/B;
-- `valid=true` exige cash no negativo, trayectoria finita y plazas respetadas.
+Corrección cerrada: WATCH/PROTECT bloquean también rotación/CORE_GATE; sólo REDUCE/EXIT autorizan venta V2.
 
-Corrección semántica cerrada:
-- `[TREND_PROTECTION_V2:WATCH]` y `:PROTECT` bloquean rotación competitiva/CORE_GATE;
-- sólo REDUCE/EXIT autorizan venta por V2;
-- el cambio mejoró materialmente 2024/25 y fue prácticamente neutro en COVID y 2021/22.
+Cuatro ventanas FULL_CAUSAL actuales:
 
-Backup previo: `backup/main-pre-v2-watch-protect-rotation-2026-09-02` → `dbe5a1ebd5e8f8cec8dedcb25cda518e0168bb6c`.
-
----
-
-# Cuatro ventanas FULL_CAUSAL cerradas con arquitectura V2 actual
-
-| Ventana | CURRENT_POLICY | V2 actual | Δ retorno V2 | Δ DD V2 | Δ final € |
+| Ventana | CURRENT_POLICY | V2 | Δ retorno V2 | Δ DD V2 | Δ final € |
 |---|---:|---:|---:|---:|---:|
-| 2020-02-03 → 2021-02-02 | +3,6506% | +5,5133% | **+1,8627 pp** | +0,0917 pp peor | **+242,15 €** |
-| 2021-11-01 → 2022-10-31 | +0,2208% | -0,2916% | **-0,5124 pp** | **-0,4230 pp mejor** | **-66,62 €** |
-| 2022-07-11 → 2023-07-10 | -0,9692% | -1,4275% | **-0,4583 pp** | **-0,0275 pp mejor** | **-59,58 €** |
-| 2024-04-01 → 2025-03-31 | +6,8119% | +5,1721% | **-1,6398 pp** | +0,4060 pp peor | **-213,18 €** |
+| 2020-02-03 → 2021-02-02 | +3,6506% | +5,5133% | +1,8627 pp | +0,0917 pp peor | +242,15 € |
+| 2021-11-01 → 2022-10-31 | +0,2208% | -0,2916% | -0,5124 pp | -0,4230 pp mejor | -66,62 € |
+| 2022-07-11 → 2023-07-10 | -0,9692% | -1,4275% | -0,4583 pp | -0,0275 pp mejor | -59,58 € |
+| 2024-04-01 → 2025-03-31 | +6,8119% | +5,1721% | -1,6398 pp | +0,4060 pp peor | -213,18 € |
 
-Agregado:
-- V2 gana en retorno sólo **1 de 4** ventanas;
-- suma de diferencias finales: **-97,22 €** sobre cuatro pruebas de 13.000 €;
-- suma de Δ retorno: **-0,7478 pp**, media **-0,1870 pp por ventana**;
-- DD mejora en 2/4 y empeora en 2/4;
-- V2 no muestra robustez suficiente para sustituir CURRENT_POLICY.
-
-Conclusión: **TREND_PROTECTION_V2 no se promociona y no se reajustan sus thresholds con estas mismas ventanas**.
+Agregado: V2 gana 1/4; suma Δ final -97,22 €; media Δ retorno -0,187 pp. No promocionar ni recalibrar thresholds.
 
 ---
 
-# CORE_GATE_V1 — intención estratégica preservada
+# Tercer brazo — STRATEGIC_CORE_HOLD_V1
 
-La concentración posterior hacia Vanguard Global no se considera por sí misma un defecto. Fue una decisión deliberada:
-- cuando una posición mediocre/deteriorada libera capital y el challenger no es excepcional, se prefiere mantener exposición de largo plazo en un core global diversificado antes que perseguir otra apuesta táctica o acumular cash innecesario;
-- `CORE_GATE_V1` sigue siendo el embudo deliberado hacia ese núcleo;
-- no se modifica su lógica ni sus thresholds en el siguiente experimento.
+Objetivo: conservar CORE_GATE_V1 intacto, pero probar si el core de crecimiento ya acumulado debe evitar ventas por deterioro de corto plazo.
 
-La observación del usuario sobre grandes aportaciones a partir de meses 7-9 se interpreta parcialmente por este mecanismo: varias rotaciones terminan consolidando capital en Vanguard Global. Esto puede ser comportamiento deseado y se evaluará aparte en la futura fase de selección/sizing.
-
----
-
-# Diagnóstico específico — vender el core acumulado
-
-Se aislaron las REDUCE V2 directas sobre el núcleo estratégico de crecimiento (Vanguard Global, ESG Developed, US500 y equivalentes amplios).
-
-Evidencia observada:
-- 8 REDUCE directas de core en las cuatro ventanas;
-- en 6 de 8, el activo terminó recuperando más que el cash desde el precio de venta hasta el final de la ventana;
-- COVID 2020-03-16: US500, ESG Developed y Vanguard Global se redujeron cerca del suelo; un mes después habían recuperado aprox. +20,6%, +18,2% y +18,7% desde el precio de venta; al final de la ventana estaban aprox. +50,0%, +53,9% y +50,5%;
-- 2021/22: tras las reducciones de junio, Vanguard Global recuperó aprox. +5,5% hasta final de ventana y US500 +11,9%; ESG Developed de mayo fue el contraejemplo, terminando ~-3,6% desde la venta;
-- 2024/25: el REDUCE de Vanguard Global del 2025-03-12 sólo explica una parte pequeña del déficit total; a 2025-03-31 el fondo estaba ~+0,85% sobre el precio de venta.
-
-Diagnóstico simple hold-vs-cash sobre los importes vendidos, sin pretender sustituir el replay FULL_CAUSAL:
-- COVID: conservar esas tres fracciones de core habría aportado aprox. +136 € frente a dejarlas en cash hasta final;
-- 2021/22: aprox. +27 € netos en conjunto, con dos reducciones ESG parcialmente favorables al cash pero Global/US500 desfavorables;
-- 2024/25: aprox. +6,5 €;
-- suma diagnóstica aproximada: +169 € a favor de conservar las fracciones de core frente a cash.
-
-Este cálculo NO es evidencia económica final porque los proceeds pueden ser reutilizados de forma causal. Sólo justifica probar la hipótesis con un tercer replay completo.
-
----
-
-# Nuevo tercer brazo — STRATEGIC_CORE_HOLD_V1
-
-Implementado como experimento, no como política productiva.
-
-Archivo: `src/investment/decision/replayStrategicCoreHoldExperiment.ts`.
-
-Hipótesis exacta:
-- conservar `CORE_GATE_V1` intacto como destino de capital;
-- conservar TREND_PROTECTION_V2 intacto para satélites y sleeves;
-- no cambiar ningún threshold de MFE/giveback/streak, Entry Timing, STARTER/BUILD o challenger;
-- una vez que el capital está en el **core estratégico de crecimiento**, las señales de corto plazo pueden seguir diagnosticándose, pero REDUCE/EXIT se degradan a WATCH y no se ejecutan;
-- el core estratégico tampoco puede convertirse en fuente de una rotación competitiva de corto plazo;
-- las reglas normales de ADD/entrada siguen vigentes.
-
-Core estratégico experimental:
+Strategic core experimental:
 - `FUND_VANGUARD_GLOBAL`
 - `FUND_VANGUARD_ESG_DEVELOPED`
 - `FUND_VANGUARD_US500`
-- `VWCE`
-- `EUNL`
-- `IWDA` (compatibilidad futura si entra en universo)
-- `SXR8`
-- `VUSA`
+- `VWCE`, `EUNL`, `IWDA`, `SXR8`, `VUSA`.
 
-Regionales, emerging, bonos y activos tácticos NO se convierten en strategic core por este experimento.
+No incluye regionales, emerging, bonos ni activos tácticos.
 
-El worker ejecuta en el checkpoint final tres brazos causales:
-1. CURRENT_POLICY + CORE_GATE_V1.
-2. TREND_PROTECTION_V2 actual.
-3. `STRATEGIC_CORE_HOLD_V1` = mismo V2, pero sin ventas/rotaciones de corto plazo del core estratégico acumulado.
+Semántica:
+- V2 sigue diagnosticando el core;
+- REDUCE/EXIT V2 del strategic core se degradan a WATCH;
+- el core tampoco se usa como fuente de rotación táctica por esa señal corta;
+- reglas de ADD/entrada, CORE_GATE y todos los thresholds siguen iguales;
+- satélites/sleeves usan V2 sin cambios.
 
-El tercer resultado se exporta en:
-`summary.trendProtectionV2Counterfactual.strategicCoreHoldExperiment`
-con `deltaVsCurrentPolicy` y `deltaVsTrendProtectionV2`.
+Implementación: `src/investment/decision/replayStrategicCoreHoldExperiment.ts`.
+Export: `summary.trendProtectionV2Counterfactual.strategicCoreHoldExperiment`.
 
-Regresión añadida a `test:trend-protection-counterfactual`:
-- Global/US500/EUNL reconocidos como strategic core;
-- EQQQ y Vanguard Emerging no lo son;
-- REDUCE de strategic core se convierte en WATCH sin venta;
-- satélite conserva REDUCE;
-- fixture sin strategic core debe producir economía exactamente idéntica entre V2 y STRATEGIC_CORE_HOLD_V1;
-- siguen vigentes cash no negativo y máximo 12 posiciones.
+Backup previo: `backup/main-pre-strategic-core-hold-2026-09-02` → `7c5a77b237d576c4bc3949350229c4c138e7fc71`.
 
-Backup previo:
-`backup/main-pre-strategic-core-hold-2026-09-02` → `7c5a77b237d576c4bc3949350229c4c138e7fc71`.
+## Replay 2021-11-01 → 2022-10-31 — primer resultado
 
----
+Archivo revisado: `trading-replay-2021-11-01-2022-10-31 (4).zip`.
 
-# Hipótesis observada sobre generación de alfa — aparcada para fase posterior
+CURRENT_POLICY:
+- final 13.028,71 €;
+- retorno +0,22083%;
+- DD 5,93938%;
+- exact initial hold +3,24161%.
 
-El usuario observa que la estrategia suele empezar a destacar frente a mantener la cohorte inicial cuando, tras varios meses, detecta una oportunidad persistente y concentra mucho capital en ella.
+TREND_PROTECTION_V2:
+- final 12.962,09 €;
+- retorno -0,29160%;
+- DD 5,51634%;
+- turnover 12.731,54 €;
+- 6 REDUCE / 4 EXIT;
+- final cash 5.644,54 €;
+- Δ vs CURRENT: -66,62 € / -0,51243 pp; DD mejora 0,42304 pp.
 
-Lectura provisional:
-- el motor ya despliega bastante capital temprano, pero muy repartido entre STARTER pequeños;
-- cuando genera alfa de forma clara, con frecuencia coincide con concentraciones posteriores de alta convicción y múltiples ADD/rotaciones hacia una posición dominante;
-- no es una regla universal de “mes 7-8”;
-- conservar esta observación para `ReliabilityScore / OpportunityScore / sizing`, sin mezclarla con el experimento actual de gestión del core.
+STRATEGIC_CORE_HOLD_V1:
+- `valid=true`; cash nunca negativo; máximo 12/12 posiciones;
+- final **13.000,78 €**;
+- retorno **+0,00603%**;
+- DD **5,93898%**;
+- turnover **12.038,05 €**;
+- 2 REDUCE / 4 EXIT;
+- final cash **4.945,07 €**;
+- Δ vs V2: **+38,69 € / +0,29763 pp**;
+- turnover vs V2: **-693,49 €**;
+- Δ DD vs V2: **+0,42264 pp peor**;
+- Δ vs CURRENT: **-27,92 € / -0,21480 pp**; DD prácticamente igual a CURRENT (-0,00040 pp).
+
+Ventas de core eliminadas respecto a V2:
+- 2022-05-12 ESG Developed REDUCE ~139,02 € a retorno ~-14,22%;
+- 2022-06-15 Vanguard Global REDUCE ~232,45 € a ~-12,32%;
+- 2022-06-17 Vanguard US500 REDUCE ~219,01 € a ~-14,40%;
+- 2022-10-10 ESG Developed REDUCE ~103,01 € a ~-15,67%.
+
+Lectura:
+- impedir ventas del core recupera una parte importante de la pérdida V2: mejora +38,69 €;
+- pero sacrifica casi toda la mejora de drawdown de V2: el DD vuelve prácticamente al baseline;
+- confirma la hipótesis de que V2 estaba reduciendo demasiado core antes de rebotes, pero también confirma que esas reducciones sí aportaban amortiguación de caída;
+- STRATEGIC_CORE_HOLD aún queda 27,92 € por debajo de CURRENT y muy por debajo de exact hold (+3,24%), por lo que no se promociona;
+- este resultado favorece una solución más matizada que “core nunca se vende” si las siguientes ventanas muestran el mismo trade-off.
 
 ---
 
 # Próxima acción
 
-1. Sincronizar `main` y ejecutar `npm run lint`.
-2. Si PASS, ejecutar `npm run test:trend-protection-counterfactual`.
-3. No ejecutar aún las cuatro ventanas si falla alguno de esos gates.
-4. Si ambos pasan, probar primero **2021-11-01 → 2022-10-31**, porque contiene varias REDUCE de core y es la mejor ventana para comprobar la hipótesis sin usar COVID como único caso favorable.
-5. Comparar los tres brazos: CURRENT_POLICY vs V2 actual vs STRATEGIC_CORE_HOLD_V1.
-6. Si STRATEGIC_CORE_HOLD mejora 2021/22 sin romper DD/cash/plazas, probar COVID y 2024/25; 2022/23 debería ser casi/necesariamente neutra porque no tuvo REDUCE directas del core estratégico.
-7. No promocionar el tercer brazo ni cambiar thresholds hasta completar esa validación.
+1. No cambiar código ni thresholds con este único resultado.
+2. Ejecutar la misma comparación de tres brazos en **COVID 2020-02-03 → 2021-02-02** para comprobar qué pasa cuando V2 ya ganaba claramente y las ventas del core ocurrieron cerca del suelo.
+3. Después ejecutar **2024-04-01 → 2025-03-31** para medir el único REDUCE tardío de Vanguard Global en mercado alcista.
+4. 2022/23 puede quedar para el final: se espera efecto pequeño/nulo porque no tuvo las reducciones principales del strategic core.
+5. Sólo después decidir si conviene HOLD total del core, protección parcial más suave o una regla explícita de reentrada/reconstrucción tras REDUCE.
