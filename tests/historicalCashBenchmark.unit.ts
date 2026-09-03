@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import {
+  DEFAULT_REPLAY_CASH_BENCHMARK_MODE,
   historicalCashBenchmarkAnnualPct,
   resolveCashBenchmarkAnnualPct
 } from '../src/investment/decision/cashBenchmark';
 import { accrueRemuneratedCashScenario } from '../src/investment/decision/remuneratedCash';
 
+assert.equal(DEFAULT_REPLAY_CASH_BENCHMARK_MODE, 'HISTORICAL_ECB_DFR_FLOOR_0');
 assert.equal(historicalCashBenchmarkAnnualPct('2012-01-03'), 0.25);
 assert.equal(historicalCashBenchmarkAnnualPct('2015-06-01'), 0);
 assert.equal(historicalCashBenchmarkAnnualPct('2022-10-01'), 0.75);
