@@ -19,12 +19,27 @@ const replayRotation = source('src/investment/decision/replayRotationPolicyExper
 const sharedCoreGate = source('src/investment/decision/portfolioCoreGatePolicy.ts');
 const replayCore = source('src/investment/decision/dynamicHistoricalReplayCore.ts');
 const health = source('src/investment/decision/portfolioPositionHealth.ts');
+const currentAlerts = source('src/investment/decision/currentOpportunityAlerts.ts');
+const decisionCenter = source('src/components/InteractiveInvestmentDecisionCenter.tsx');
 const realPortfolio = source('src/components/UserPortfolioPanel.tsx');
 const executionPlan = source('src/components/PortfolioExecutionPlanPanel.tsx');
 
 // Production entry point must remain the integrated decision center, not legacy App.tsx.
 requireText(indexHtml, '/src/decisionMain.tsx', 'ROOT_MUST_USE_DECISION_MAIN');
 forbidText(indexHtml, '/src/main.tsx', 'ROOT_MUST_NOT_USE_LEGACY_MAIN');
+
+// Live study and historical replay must share the same scanner/gate/allocation chain.
+requireText(decisionCenter, 'AssetUniverseScanner.scan(', 'LIVE_MUST_USE_SHARED_SCANNER');
+requireText(decisionCenter, 'PortfolioCandidateGate.apply(', 'LIVE_MUST_USE_CANDIDATE_GATE');
+requireText(decisionCenter, 'InvestmentDecisionEngine.decide(', 'LIVE_MUST_USE_INVESTMENT_DECISION_ENGINE');
+requireText(decisionCenter, 'PortfolioPositionHealthService.evaluate(', 'LIVE_MUST_USE_POSITION_HEALTH_SERVICE');
+requireText(replayCore, 'PortfolioCandidateGate.apply(', 'REPLAY_MUST_USE_CANDIDATE_GATE');
+requireText(replayCore, 'InvestmentDecisionEngine.decide(', 'REPLAY_MUST_USE_INVESTMENT_DECISION_ENGINE');
+
+// Current alerts are a view over the shared eligibility/consensus/timing chain, not an independent trading engine.
+requireText(currentAlerts, 'PortfolioCandidateGate.apply(', 'ALERTS_MUST_USE_CANDIDATE_GATE');
+requireText(currentAlerts, 'StrategyConsensusEngine.assess(', 'ALERTS_MUST_USE_SHARED_CONSENSUS');
+requireText(currentAlerts, 'EntryTimingEngine.assess(', 'ALERTS_MUST_USE_SHARED_ENTRY_TIMING');
 
 // Normal audited replay uses current CORE_GATE policy and must not silently run V2/counterfactual batteries.
 requireText(worker, "const REPLAY_ROTATION_EXPERIMENT = 'CORE_GATE_V1'", 'REPLAY_MUST_USE_CORE_GATE_V1');
