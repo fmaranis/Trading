@@ -2,10 +2,15 @@ import type { MultiAssetDataset } from '../portfolioBacktesting/types';
 import type { AssetUniverseItem } from './assetUniverse';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
 import type { InvestmentHorizonYears, InvestorRiskProfile } from './types';
-import { allCashBenchmark } from './remuneratedCash';
-import { brokerCommission } from './costAwareExecutionPolicy';
-import { DEFAULT_CASH_BENCHMARK_ANNUAL_PCT } from './cashBenchmark';
+import { allCashBenchmarkScenarioAfterTax } from './remuneratedCash';
+import {
+  DEFAULT_CASH_BENCHMARK_ANNUAL_PCT,
+  DEFAULT_REPLAY_CASH_BENCHMARK_MODE,
+  resolveCashBenchmarkAnnualPct,
+  type CashBenchmarkMode
+} from './cashBenchmark';
 import { buildHistoricalShortlist } from './historicalShortlist';
+import { estimateSpanishTaxOnCashInterest, type SpanishTaxSettings } from './spanishTaxModel';
 
 export type HistoricalReplayFrequency = 'ANNUAL' | 'QUARTERLY';
 
@@ -42,6 +47,7 @@ export interface HistoricalDecisionReplayCase {
   excessFinalEurVsCash: number;
   excessReturnVsCashPctPoints: number;
   beatsCash: boolean;
+  cashBenchmarkMode: CashBenchmarkMode;
   cashBenchmarkAnnualPct: number;
   cashTargetWeight: number;
   eligibleAssets: number;
@@ -62,6 +68,8 @@ export interface HistoricalDecisionReplayBatchResult {
   worstCase: HistoricalDecisionReplayCase | null;
   notes: string[];
 }
+
+const DEFAULT_TAX_SETTINGS: SpanishTaxSettings = { priorSavingsTaxableBaseEur: 0, contextConfirmed: false };
 
 function isoDate(timestamp: string): string { return timestamp.slice(0, 10); }
 function median(values: number[]): number | null {
@@ -92,8 +100,10 @@ function replayOne(input: {
   initialCapitalEur: number;
   riskProfile: InvestorRiskProfile;
   horizonYears: InvestmentHorizonYears;
+  cashBenchmarkMode: CashBenchmarkMode;
   cashBenchmarkAnnualPct: number;
   minimumBars: number;
+  taxSettings: SpanishTaxSettings;
 }): HistoricalDecisionReplayCase | null {
   const shortlist = buildHistoricalShortlist({ dataset: input.dataset, catalog: input.catalog, requestedDate: input.requestedDate, minimumBars: input.minimumBars, maxSelected: 8 });
   const historical = shortlist.dataset;
@@ -106,6 +116,28 @@ function replayOne(input: {
   );
   const endDate = latestDatasetDate(input.dataset);
   if (decision.asOfDate >= endDate) return null;
+
+  const decisionCashAnnualPct = resolveCashBenchmarkAnnualPct({
+    mode: input.cashBenchmarkMode,
+    fixedAnnualPct: input.cashBenchmarkAnnualPct,
+    date: decision.asOfDate
+  });
+  const simulatedSavingsIncomeByYear = new Map<string, number>();
+  const taxOnInterest = (grossInterestEur: number, taxDate: string): number => {
+    const year = taxDate.slice(0, 4);
+    const prior = simulatedSavingsIncomeByYear.get(year) ?? 0;
+    const tax = estimateSpanishTaxOnCashInterest(grossInterestEur, input.taxSettings, prior).estimatedTaxEur;
+    simulatedSavingsIncomeByYear.set(year, prior + Math.max(0, grossInterestEur));
+    return tax;
+  };
+  const accrueCash = (principalEur: number, fromDate: string, toDate: string) => allCashBenchmarkScenarioAfterTax({
+    initialCapitalEur: principalEur,
+    mode: input.cashBenchmarkMode,
+    fixedAnnualPct: input.cashBenchmarkAnnualPct,
+    fromDate,
+    toDate,
+    taxOnInterest
+  });
 
   const allocations: HistoricalDecisionReplayLine[] = [];
   let firstExecutionDate: string | null = null;
@@ -124,8 +156,9 @@ function replayOne(input: {
     const latest = bars.at(-1) ?? null;
     const instrumentType = catalogType(input.catalog, recommendation.assetId);
     if (!entry || !latest || !(entry.open > 0) || !(latest.close > 0)) {
-      allocations.push({ assetId: recommendation.assetId, ticker: recommendation.ticker, instrumentType, targetWeight: recommendation.weight, allocatedEur, entryDate: null, entryPriceEur: null, latestPriceEur: null, units: 0, feeEur: 0, residualCashFinalEur: allocatedEur, finalValueEur: allocatedEur, returnPct: null });
-      finalInvested += allocatedEur;
+      const residualCashFinalEur = accrueCash(allocatedEur, decision.asOfDate, endDate).finalEur;
+      allocations.push({ assetId: recommendation.assetId, ticker: recommendation.ticker, instrumentType, targetWeight: recommendation.weight, allocatedEur, entryDate: null, entryPriceEur: null, latestPriceEur: null, units: 0, feeEur: 0, residualCashFinalEur, finalValueEur: residualCashFinalEur, returnPct: allocatedEur > 0 ? (residualCashFinalEur / allocatedEur - 1) * 100 : 0 });
+      finalInvested += residualCashFinalEur;
       continue;
     }
 
@@ -147,17 +180,32 @@ function replayOne(input: {
     }
     const spent = units * entry.open + feeEur;
     const residualInitial = Math.max(0, allocatedEur - spent);
-    const residualCashFinalEur = allCashBenchmark(residualInitial, input.cashBenchmarkAnnualPct, entryDate, endDate).finalEur;
+    const residualCashFinalEur = accrueCash(residualInitial, entryDate, endDate).finalEur;
     const finalValueEur = units * latest.close + residualCashFinalEur;
     allocations.push({ assetId: recommendation.assetId, ticker: recommendation.ticker, instrumentType, targetWeight: recommendation.weight, allocatedEur, entryDate, entryPriceEur: entry.open, latestPriceEur: latest.close, units, feeEur, residualCashFinalEur, finalValueEur, returnPct: allocatedEur > 0 ? (finalValueEur / allocatedEur - 1) * 100 : 0 });
     finalInvested += finalValueEur;
   }
 
   const explicitCashInitial = input.initialCapitalEur * decision.cashWeight;
-  const explicitCashFinal = allCashBenchmark(explicitCashInitial, input.cashBenchmarkAnnualPct, decision.asOfDate, endDate).finalEur;
+  const explicitCashFinal = accrueCash(explicitCashInitial, decision.asOfDate, endDate).finalEur;
   const finalValueEur = finalInvested + explicitCashFinal;
   const totalReturnPct = (finalValueEur / input.initialCapitalEur - 1) * 100;
-  const allCash = allCashBenchmark(input.initialCapitalEur, input.cashBenchmarkAnnualPct, decision.asOfDate, endDate);
+
+  const allCashSavingsIncome = new Map<string, number>();
+  const allCash = allCashBenchmarkScenarioAfterTax({
+    initialCapitalEur: input.initialCapitalEur,
+    mode: input.cashBenchmarkMode,
+    fixedAnnualPct: input.cashBenchmarkAnnualPct,
+    fromDate: decision.asOfDate,
+    toDate: endDate,
+    taxOnInterest: (grossInterestEur, taxDate) => {
+      const year = taxDate.slice(0, 4);
+      const prior = allCashSavingsIncome.get(year) ?? 0;
+      const tax = estimateSpanishTaxOnCashInterest(grossInterestEur, input.taxSettings, prior).estimatedTaxEur;
+      allCashSavingsIncome.set(year, prior + Math.max(0, grossInterestEur));
+      return tax;
+    }
+  });
   const excessFinalEurVsCash = finalValueEur - allCash.finalEur;
   const excessReturnVsCashPctPoints = totalReturnPct - allCash.returnPct;
   const top = allocations.filter(x => x.targetWeight > 0.01).sort((a, b) => b.targetWeight - a.targetWeight).slice(0, 3).map(x => `${x.ticker} ${(x.targetWeight * 100).toFixed(0)}%`).join(' + ');
@@ -179,7 +227,8 @@ function replayOne(input: {
     excessFinalEurVsCash,
     excessReturnVsCashPctPoints,
     beatsCash: excessFinalEurVsCash > 0,
-    cashBenchmarkAnnualPct: input.cashBenchmarkAnnualPct,
+    cashBenchmarkMode: input.cashBenchmarkMode,
+    cashBenchmarkAnnualPct: decisionCashAnnualPct,
     cashTargetWeight: decision.cashWeight,
     eligibleAssets: shortlist.eligibleAssetIds.length,
     selectedAssets: shortlist.selectedAssetIds.length,
@@ -211,13 +260,17 @@ export class HistoricalDecisionReplayEngine {
     initialCapitalEur: number;
     riskProfile: InvestorRiskProfile;
     horizonYears: InvestmentHorizonYears;
+    cashBenchmarkMode?: CashBenchmarkMode;
     cashBenchmarkAnnualPct?: number;
     minimumBars?: number;
+    taxSettings?: SpanishTaxSettings;
   }): HistoricalDecisionReplayBatchResult {
     if (!(input.initialCapitalEur > 0)) throw new Error('El capital del replay histórico debe ser > 0.');
+    const cashBenchmarkMode = input.cashBenchmarkMode ?? DEFAULT_REPLAY_CASH_BENCHMARK_MODE;
     const cashBenchmarkAnnualPct = Number.isFinite(input.cashBenchmarkAnnualPct) ? Math.max(0, Number(input.cashBenchmarkAnnualPct)) : DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
+    const taxSettings = input.taxSettings ?? DEFAULT_TAX_SETTINGS;
     const requestedDates = input.requestedDates?.length ? [...input.requestedDates] : historicalStartDates(input.dataset, input.frequency ?? 'ANNUAL');
-    const cases = requestedDates.map(requestedDate => replayOne({ ...input, requestedDate, cashBenchmarkAnnualPct, minimumBars: input.minimumBars ?? 252 })).filter(Boolean) as HistoricalDecisionReplayCase[];
+    const cases = requestedDates.map(requestedDate => replayOne({ ...input, requestedDate, cashBenchmarkMode, cashBenchmarkAnnualPct, minimumBars: input.minimumBars ?? 252, taxSettings })).filter(Boolean) as HistoricalDecisionReplayCase[];
     const bestCase = [...cases].sort((a, b) => b.excessReturnVsCashPctPoints - a.excessReturnVsCashPctPoints)[0] ?? null;
     const worstCase = [...cases].sort((a, b) => a.excessReturnVsCashPctPoints - b.excessReturnVsCashPctPoints)[0] ?? null;
     const beatsCashCases = cases.filter(c => c.beatsCash).length;
@@ -232,12 +285,17 @@ export class HistoricalDecisionReplayEngine {
       bestCase,
       worstCase,
       notes: [
-        'Cada fecha reconstruye causalmente el shortlist con la misma fórmula de momentum/riesgo/diversificación del escáner y después ejecuta el motor de decisión.',
-        'Los activos sin el mínimo de historia causal quedan excluidos de esa fecha.',
-        'ETFs usan títulos enteros y comisión MyInvestor modelada; fondos usan unidades fraccionarias.',
-        'El efectivo objetivo y el residual se comparan con la referencia remunerada sobre las mismas fechas.',
-        'Permanece el sesgo de supervivencia del catálogo actual: todavía no reconstruimos qué productos existían/comercializaban históricamente fuera del catálogo presente.',
-        'Este replay mantiene la recomendación inicial hasta el final; no simula todavía seguir todas las recomendaciones posteriores.'
+        'Cada fecha reconstruye causalmente el shortlist con la misma formula de momentum/riesgo/diversificacion del escaner y despues ejecuta el motor de decision.',
+        'Los activos sin el minimo de historia causal quedan excluidos de esa fecha.',
+        'ETFs usan titulos enteros y comision MyInvestor modelada; fondos usan unidades fraccionarias.',
+        cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0'
+          ? 'El efectivo usa por fecha la facilidad de deposito del BCE con suelo 0%; no supone una TAE bancaria fija retrospectiva.'
+          : `El efectivo usa un escenario fijo de ${cashBenchmarkAnnualPct.toFixed(2)}% TAE durante todo el replay.`,
+        taxSettings.contextConfirmed
+          ? 'Los intereses de efectivo se integran en la escala progresiva configurada de la base del ahorro.'
+          : 'Sin contexto fiscal anual confirmado, los intereses de efectivo descuentan una retencion del 19%.',
+        'Permanece el sesgo de supervivencia del catalogo actual: todavia no reconstruimos que productos existian/comercializaban historicamente fuera del catalogo presente.',
+        'Este replay mantiene la recomendacion inicial hasta el final; no simula todavia seguir todas las recomendaciones posteriores.'
       ]
     };
   }
