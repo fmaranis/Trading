@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import path from 'node:path';
+import path from 'path';
 import { HistoricalMarketDataService } from '../src/investment/data/marketData/historicalMarketDataService';
 import { MarketDataProviderRegistry } from '../src/investment/data/marketData/registry';
 import { RealMarketDataProvider } from '../src/investment/data/marketData/providers/realMarketDataProvider';
@@ -14,6 +14,7 @@ import {
 
 const STATE_DIR = path.join(process.cwd(), '.runtime');
 const STATE_FILE = path.join(STATE_DIR, 'alertAutomationState.json');
+type NotifiedOpportunityLevel = 'GOOD_ENTRY' | 'HIGH_CONVICTION';
 
 export interface AlertAutomationState {
   lastAttemptAt: string | null;
@@ -27,12 +28,13 @@ export interface AlertAutomationState {
   lastNotificationAt: string | null;
   lastNotificationEventCount: number;
   lastNotificationEventKeys: string[];
+  lastNotifiedActionableLevels: Record<string, NotifiedOpportunityLevel>;
 }
 
 const EMPTY_STATE: AlertAutomationState = {
   lastAttemptAt: null, lastSuccessAt: null, lastRunLocalDate: null, lastMarketDate: null, lastError: null,
   lastAlerts: [], lastDecision: null, lastEvidenceState: null, lastNotificationAt: null,
-  lastNotificationEventCount: 0, lastNotificationEventKeys: []
+  lastNotificationEventCount: 0, lastNotificationEventKeys: [], lastNotifiedActionableLevels: {}
 };
 
 function loadState(): AlertAutomationState {
@@ -43,7 +45,10 @@ function loadState(): AlertAutomationState {
       ...EMPTY_STATE,
       ...parsed,
       lastAlerts: Array.isArray(parsed?.lastAlerts) ? parsed.lastAlerts : [],
-      lastNotificationEventKeys: Array.isArray(parsed?.lastNotificationEventKeys) ? parsed.lastNotificationEventKeys : []
+      lastNotificationEventKeys: Array.isArray(parsed?.lastNotificationEventKeys) ? parsed.lastNotificationEventKeys : [],
+      lastNotifiedActionableLevels: parsed?.lastNotifiedActionableLevels && typeof parsed.lastNotifiedActionableLevels === 'object'
+        ? parsed.lastNotifiedActionableLevels
+        : {}
     };
   } catch { return { ...EMPTY_STATE }; }
 }
@@ -57,21 +62,29 @@ function baseUrl(): string {
   const configured = process.env.ALERT_INTERNAL_BASE_URL?.trim() || process.env.APP_URL?.trim();
   return configured ? configured.replace(/\/$/, '') : 'http://127.0.0.1:3000';
 }
-function isActionable(alert: CurrentOpportunityAlert | undefined): boolean {
+function isActionable(alert: CurrentOpportunityAlert | undefined): alert is CurrentOpportunityAlert & { level: NotifiedOpportunityLevel } {
   return alert?.level === 'HIGH_CONVICTION' || alert?.level === 'GOOD_ENTRY';
 }
-function levelRank(alert: CurrentOpportunityAlert | undefined): number {
-  if (alert?.level === 'HIGH_CONVICTION') return 2;
-  if (alert?.level === 'GOOD_ENTRY') return 1;
+function levelRank(level: NotifiedOpportunityLevel | undefined): number {
+  if (level === 'HIGH_CONVICTION') return 2;
+  if (level === 'GOOD_ENTRY') return 1;
   return 0;
 }
-function newOpportunityEvents(previous: CurrentOpportunityAlert[], current: CurrentOpportunityAlert[]): CurrentOpportunityAlert[] {
-  const previousByAsset = new Map(previous.map(alert => [alert.assetId, alert]));
-  return current.filter(alert => {
-    if (!isActionable(alert)) return false;
-    const before = previousByAsset.get(alert.assetId);
-    return !isActionable(before) || levelRank(alert) > levelRank(before);
-  });
+function newOpportunityEvents(previousNotified: Record<string, NotifiedOpportunityLevel>, current: CurrentOpportunityAlert[]): CurrentOpportunityAlert[] {
+  return current.filter(alert => isActionable(alert) && levelRank(alert.level) > levelRank(previousNotified[alert.assetId]));
+}
+function nextNotifiedLevels(
+  previous: Record<string, NotifiedOpportunityLevel>,
+  current: CurrentOpportunityAlert[],
+  deliveredEvents: CurrentOpportunityAlert[]
+): Record<string, NotifiedOpportunityLevel> {
+  const currentActionable = new Map(current.filter(isActionable).map(alert => [alert.assetId, alert.level]));
+  const next: Record<string, NotifiedOpportunityLevel> = {};
+  for (const [assetId, level] of Object.entries(previous)) {
+    if (currentActionable.has(assetId)) next[assetId] = level;
+  }
+  for (const alert of deliveredEvents) if (isActionable(alert)) next[alert.assetId] = alert.level;
+  return next;
 }
 
 async function crossValidateEodhd(scan: Awaited<ReturnType<typeof AssetUniverseScanner.scan>>): Promise<any | null> {
@@ -133,7 +146,7 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
     const gate = PortfolioCandidateGate.apply(scan, cashBenchmarkAnnualPct, 12);
     const alerts = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct);
     const actionable = alerts.filter(isActionable);
-    const events = newOpportunityEvents(state.lastAlerts, alerts);
+    const events = newOpportunityEvents(state.lastNotifiedActionableLevels, alerts);
 
     const eodhd = await crossValidateEodhd(gate.scan).catch(() => null);
     const evidence = eodhd ? assessCrossProviderEvidence({
@@ -156,6 +169,7 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
         currentActionableCount: actionable.length
       }).catch(() => false);
     }
+    const deliveredEvents = notificationSent ? events : [];
 
     const next: AlertAutomationState = {
       lastAttemptAt: state.lastAttemptAt, lastSuccessAt: new Date().toISOString(), lastRunLocalDate: localRunDate,
@@ -163,7 +177,8 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
       lastEvidenceState: evidence?.state ?? 'PRIMARY_ONLY',
       lastNotificationAt: notificationSent ? new Date().toISOString() : state.lastNotificationAt,
       lastNotificationEventCount: notificationSent ? events.length : 0,
-      lastNotificationEventKeys: notificationSent ? events.map(alert => `${alert.assetId}:${alert.level}`) : []
+      lastNotificationEventKeys: notificationSent ? events.map(alert => `${alert.assetId}:${alert.level}`) : [],
+      lastNotifiedActionableLevels: nextNotifiedLevels(state.lastNotifiedActionableLevels, alerts, deliveredEvents)
     };
     saveState(next);
     return next;
