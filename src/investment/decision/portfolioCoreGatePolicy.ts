@@ -1,4 +1,4 @@
-import { assessAgainstCashBenchmark } from './cashBenchmark';
+import { assessAgainstCashBenchmark, CashBenchmarkService } from './cashBenchmark';
 import {
   PortfolioDecisionEngine,
   type ContributionRecommendation,
@@ -148,7 +148,7 @@ function routeToCore(
 
   incumbent.rotationChallengerAssetId = core.asset.assetId;
   incumbent.rotationChallengerTicker = core.asset.ticker;
-  incumbent.reason = `[CORE_GATE_V1:CORE] Rotación de ${incumbent.label} hacia core diversificado ${core.asset.ticker}. Challenger baseline rechazado: ${baselineContribution.ticker}. ${detail}`;
+  incumbent.reason = `[CORE_GATE_V1:CORE] Rotación experimental de ${incumbent.label} hacia core diversificado ${core.asset.ticker}. Challenger baseline rechazado: ${baselineContribution.ticker}. ${detail}`;
 }
 
 /**
@@ -246,5 +246,9 @@ export function applyCoreGateV1(
  * Replay y UI deben converger en esta misma política para el mismo estado.
  */
 export function evaluatePortfolioDecision(input: PortfolioEvaluationInput): PortfolioDecisionResult {
-  return applyCoreGateV1(input, PortfolioDecisionEngine.evaluate(input));
+  const normalizedInput: PortfolioEvaluationInput = {
+    ...input,
+    cashBenchmarkAnnualPct: input.cashBenchmarkAnnualPct ?? CashBenchmarkService.load()
+  };
+  return applyCoreGateV1(normalizedInput, PortfolioDecisionEngine.evaluate(normalizedInput));
 }
