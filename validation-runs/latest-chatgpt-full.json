@@ -3,10 +3,10 @@
     "format": "TRADING_HISTORICAL_REPLAY_AUDIT",
     "schemaVersion": 1,
     "replayStorageVersion": 3,
-    "exportedAt": "2026-09-03T18:53:01.149Z",
+    "exportedAt": "2026-09-03T21:08:22.426Z",
     "source": "fmaranis/Trading · Replay histórico auditado",
     "note": "Replay completo en JSON normal. La auditoría directamente legible por ChatGPT está en validation-runs/latest-chatgpt.json.",
-    "publishedAt": "2026-09-03T18:53:02.400Z",
+    "publishedAt": "2026-09-03T21:08:23.610Z",
     "githubStorageFormat": "plain-json"
   },
   "session": {
