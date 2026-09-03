@@ -47,6 +47,7 @@ export * from './marketSnapshotHistoryService';
 export * from './userPortfolio';
 export * from './fundPortfolio';
 export * from './portfolioDecisionEngine';
+export * from './portfolioCoreGatePolicy';
 export * from './portfolioExecutionPlan';
 export * from './portfolioStateExecution';
 export * from './portfolioExecutionHistory';
