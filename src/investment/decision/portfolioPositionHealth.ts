@@ -4,8 +4,10 @@ import { FundMarketDataService } from '../data/marketData/fundMarketData';
 import type { AssetUniverseCategory } from './assetUniverse';
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import { assessAgainstCashBenchmark } from './cashBenchmark';
+import { PortfolioExecutionHistoryService, type PortfolioExecutionHistoryEntry } from './portfolioExecutionHistory';
 import { isPortfolioEquityTicker } from './portfolioDiscoveryUniverse';
 import { SingleAssetResearchEngine } from './singleAssetResearch';
+import { TaxLotLedgerService } from './spanishTaxModel';
 import { StrategyConsensusEngine, type StrategyConsensusAssessment } from './strategyConsensusEngine';
 import { classifyTrendProtectionV1, type TrendProtectionDecision } from './trendProtectionPolicy';
 import type { UserPortfolioState } from './userPortfolio';
@@ -148,8 +150,8 @@ export function classifyPositionHealth(
   const weakMultiSignal = assessment.consensusScore <= -1 && assessment.unfavorableVotes >= 2;
   const tacticalGivebackReduction = context.isDiversifiedCore === false
     && weakMultiSignal
-    // First eligible session at or after 10. The replay rebases MFE only after an
-    // actually executed REDUCE, so a still-ineligible day 10 can wait for day 11+.
+    // First eligible session at or after 10. MFE is rebased only after an
+    // actually executed ADD/REDUCE episode boundary, both in replay and live.
     && streak >= REDUCE_MIN_DETERIORATION_SESSIONS
     && mfe != null && mfe >= REDUCE_MIN_MFE_PCT
     && giveback != null && giveback >= REDUCE_MIN_GIVEBACK_PP
@@ -159,7 +161,7 @@ export function classifyPositionHealth(
   if (tacticalGivebackReduction) {
     return {
       action: 'REDUCE',
-      reason: `Deterioro individual persistente en posición satélite: ${streak} sesiones consecutivas con evidencia débil, MFE ${mfe!.toFixed(1)}%, retorno actual ${currentReturn!.toFixed(1)}%, devolución ${giveback!.toFixed(1)} pp y momentum 20d ${momentum20!.toFixed(1)}%. Reducir 50% en la primera sesión realmente elegible a partir de la décima; tras ejecución el replay rebasa MFE para no vender otra vez por el mismo máximo previo.`,
+      reason: `Deterioro individual persistente en posición satélite: ${streak} sesiones consecutivas con evidencia débil, MFE ${mfe!.toFixed(1)}%, retorno actual ${currentReturn!.toFixed(1)}%, devolución ${giveback!.toFixed(1)} pp y momentum 20d ${momentum20!.toFixed(1)}%. Reducir 50% en la primera sesión realmente elegible a partir de la décima; tras ejecución el motor rebasa MFE para no vender otra vez por el mismo máximo previo.`,
       suggestedReductionPct: 50
     };
   }
@@ -293,12 +295,74 @@ function positionPathContext(input: {
   if (!heldBars.length) return base;
   const returns = heldBars.map(bar => (bar.close * input.units! / input.investedEur! - 1) * 100);
   const currentReturnPct = returns.at(-1) ?? null;
-  const mfePct = returns.length ? Math.max(...returns) : null;
+  const mfePct = returns.length ? Math.max(...returns, 0) : null;
   return {
     ...base,
     currentReturnPct,
     mfePct,
     givebackFromMfePctPoints: currentReturnPct == null || mfePct == null ? null : Math.max(0, mfePct - currentReturnPct)
+  };
+}
+
+function executionKeys(entry: PortfolioExecutionHistoryEntry): string[] {
+  return [entry.sourceId, entry.sourceIsin, entry.targetAssetId, entry.targetTicker, entry.targetIsin]
+    .map(value => String(value ?? '').trim().toUpperCase())
+    .filter(Boolean);
+}
+
+function latestEpisodeDate(
+  history: PortfolioExecutionHistoryEntry[],
+  keys: Array<string | null | undefined>,
+  actions: PortfolioExecutionHistoryEntry['action'][]
+): string | null {
+  const wanted = new Set(keys.map(value => String(value ?? '').trim().toUpperCase()).filter(Boolean));
+  if (!wanted.size) return null;
+  return history
+    .filter(entry => actions.includes(entry.action) && executionKeys(entry).some(key => wanted.has(key)))
+    .map(entry => entry.appliedAt.slice(0, 10))
+    .filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date))
+    .sort()
+    .at(-1) ?? null;
+}
+
+function laterDate(a: string | null | undefined, b: string | null | undefined): string | null {
+  const dates = [a, b].filter((value): value is string => Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value))).sort();
+  return dates.at(-1) ?? null;
+}
+
+function trackedListedPathContext(input: {
+  scan: AssetUniverseScanResult;
+  assetId: string;
+  ticker: string;
+  isin?: string | null;
+  shares: number;
+  category: AssetUniverseCategory;
+  deteriorationStreakSessions: number;
+  momentum20Pct: number | null | undefined;
+  history: PortfolioExecutionHistoryEntry[];
+}): { context: PositionHealthContext; basisComplete: boolean; trackedShares: number } {
+  const series = input.scan.acceptedDataset.assets.find(asset => asset.assetId === input.assetId);
+  const lots = TaxLotLedgerService.lots(input.ticker);
+  const trackedShares = lots.reduce((sum, lot) => sum + Math.max(0, lot.shares), 0);
+  const investedEur = lots.reduce((sum, lot) => sum + Math.max(0, lot.acquisitionCostEur), 0);
+  const basisComplete = input.shares > 0 && Math.abs(trackedShares - input.shares) <= Math.max(1e-7, input.shares * 1e-7) && investedEur > 0;
+  const latestLotDate = lots.map(lot => lot.acquisitionDate).filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort().at(-1) ?? null;
+  const latestExecutionDate = latestEpisodeDate(input.history, [input.assetId, input.ticker, input.isin], ['BUY_ETF', 'SELL_ETF']);
+  const episodeStartDate = laterDate(latestLotDate, latestExecutionDate);
+
+  return {
+    basisComplete,
+    trackedShares,
+    context: positionPathContext({
+      bars: series?.bars ?? [],
+      acquisitionDate: basisComplete ? episodeStartDate : null,
+      investedEur: basisComplete ? investedEur : null,
+      units: basisComplete ? input.shares : null,
+      category: input.category,
+      tickerOrAssetId: input.assetId,
+      deteriorationStreakSessions: input.deteriorationStreakSessions,
+      momentum20Pct: input.momentum20Pct
+    })
   };
 }
 
@@ -394,21 +458,28 @@ export class PortfolioPositionHealthService {
   static async evaluate(portfolio: UserPortfolioState, scan: AssetUniverseScanResult, cashBenchmarkAnnualPct: number): Promise<PortfolioPositionHealthResult> {
     const positions: PortfolioPositionHealthSnapshot[] = [];
     const warnings: string[] = [];
+    const executionHistory = PortfolioExecutionHistoryService.load();
 
     for (const holding of portfolio.holdings) {
       const candidate = candidateFor(scan, holding.ticker);
       if (candidate?.status === 'ACCEPTED') {
         const assessment = StrategyConsensusEngine.assess(scan, candidate.asset.assetId, cashBenchmarkAnnualPct);
         const price = candidate.lastClose ?? null;
-        const context: PositionHealthContext = {
+        const deteriorationStreakSessions = assessDeteriorationStreak(scan, candidate.asset.assetId, cashBenchmarkAnnualPct);
+        const tracked = trackedListedPathContext({
+          scan,
+          assetId: candidate.asset.assetId,
+          ticker: candidate.asset.ticker,
+          isin: candidate.asset.isin,
+          shares: holding.shares,
           category: candidate.asset.category,
-          isDiversifiedCore: isDiversifiedCoreCategory(candidate.asset.category, candidate.asset.ticker),
-          deteriorationStreakSessions: assessDeteriorationStreak(scan, candidate.asset.assetId, cashBenchmarkAnnualPct),
+          deteriorationStreakSessions,
           momentum20Pct: candidate.momentum20Pct,
-          currentReturnPct: null,
-          mfePct: null,
-          givebackFromMfePctPoints: null
-        };
+          history: executionHistory
+        });
+        if (!tracked.basisComplete) {
+          warnings.push(`POSITION_COST_BASIS_INCOMPLETE:${holding.ticker.toUpperCase()}:tracked=${tracked.trackedShares.toFixed(6)}:portfolio=${holding.shares.toFixed(6)}`);
+        }
         positions.push(assessmentSnapshot({
           key: holding.ticker.toUpperCase(),
           label: candidate.asset.name,
@@ -420,7 +491,7 @@ export class PortfolioPositionHealthService {
           currentValueEur: price != null ? price * holding.shares : null,
           momentum120Pct: candidate.momentum120Pct,
           cashBenchmarkAnnualPct,
-          context
+          context: tracked.context
         }));
         continue;
       }
@@ -440,13 +511,19 @@ export class PortfolioPositionHealthService {
         const nav = candidate.lastClose ?? null;
         const value = nav != null && fund.units != null ? nav * fund.units : fund.currentValueEur ?? null;
         const series = scan.acceptedDataset.assets.find(asset => asset.assetId === candidate.asset.assetId);
+        const latestExecutionDate = latestEpisodeDate(
+          executionHistory,
+          [fund.id, fund.isin, candidate.asset.assetId, candidate.asset.ticker, candidate.asset.isin],
+          ['SUBSCRIBE_FUND', 'REDEEM_FUND', 'TRANSFER_FUND']
+        );
+        const episodeStartDate = laterDate(fund.acquisitionDate, latestExecutionDate);
         const context = positionPathContext({
           bars: series?.bars ?? [],
-          acquisitionDate: fund.acquisitionDate,
+          acquisitionDate: episodeStartDate,
           investedEur: fund.investedEur,
           units: fund.units,
           category: candidate.asset.category,
-          tickerOrAssetId: candidate.asset.ticker,
+          tickerOrAssetId: candidate.asset.assetId,
           deteriorationStreakSessions: assessDeteriorationStreak(scan, candidate.asset.assetId, cashBenchmarkAnnualPct),
           momentum20Pct: candidate.momentum20Pct
         });
@@ -469,7 +546,7 @@ export class PortfolioPositionHealthService {
         const monitored = await evaluateArbitrary({ key: fund.id, label: fund.name, symbol: fund.isin, unitsOrShares: fund.units ?? null, cashBenchmarkAnnualPct });
         positions.push(monitored);
       } catch (error: any) {
-        positions.push({ key: fund.id, label: fund.name, tickerOrIsin: fund.isin, action: 'DATA_MISSING', reason: error?.message || String(error), source: 'ARBITRARY_REAL_SERIES', currency: null, currentUnitPrice: null, currentValueEur: fund.currentValueEur ?? null, consensusScore: null, favorableVotes: null, unfavorableVotes: null, structuralDowntrend: null, excessVsCashPctPoints: null, suggestedReductionPct: null });
+        positions.push({ key: fund.id, label: fund.name, tickerOrIsin: fund.isin, action: 'DATA_MISSING', reason: error?.message || String(error), source: 'ARBITRARY_REAL_SERIES', currency: null, currentUnitPrice: null, currentValueEur: fund.currentValueEur ?? null, consensusScore: null, favorableVotes: null, structuralDowntrend: null, excessVsCashPctPoints: null, suggestedReductionPct: null });
       }
     }
 
