@@ -10,7 +10,6 @@ import { CurrentOpportunityAlertsPanel } from './CurrentOpportunityAlertsPanel';
 import { UserPortfolioPanel } from './UserPortfolioPanel';
 import { PortfolioExecutionPlanPanel } from './PortfolioExecutionPlanPanel';
 import { RealPurchaseRegistrationPanel } from './RealPurchaseRegistrationPanel';
-import { RemuneratedCashTrajectoryPanel } from './RemuneratedCashTrajectoryPanel';
 import { StrategyConsensusPanel } from './StrategyConsensusPanel';
 
 interface Props {
@@ -24,8 +23,6 @@ interface Props {
 export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
   return <section className="space-y-4">
     <CurrentOpportunityAlertsPanel scan={scan} decision={decision} positionHealth={positionHealth} onInspectAsset={onInspectAsset} />
-
-    <RemuneratedCashTrajectoryPanel mode="LIVE" principalEur={decision.cashAmountEur} horizonMonths={decision.horizonYears * 12} />
 
     <RealPurchaseRegistrationPanel scan={scan} decision={decision} positionHealth={positionHealth} />
 
