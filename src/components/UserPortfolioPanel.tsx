@@ -5,6 +5,7 @@ import {
   FundPosition,
   InvestmentDecisionResult,
   monthlyStagedAmount,
+  PortfolioCashFlowHistoryService,
   PortfolioDecisionEngine,
   StagedCapitalPlan,
   UserHolding,
@@ -42,6 +43,7 @@ function healthLabel(action: string | undefined): string {
   return 'MANTENER';
 }
 function money(value: number | null): string { return value == null ? 'N/D' : `${value.toFixed(2)} €`; }
+function currentDate(): string { return new Date().toISOString().slice(0, 10); }
 
 export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
   const initial = useMemo(() => UserPortfolioService.load(), []);
@@ -97,8 +99,26 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
   const addFund = () => setFunds(prev => [...prev, { id: `manual_${Date.now()}`, isin: '', name: 'Nuevo fondo', category: 'OTHER', investedEur: 0, acquisitionDate: new Date().toISOString().slice(0, 10), currentValueEur: null, units: null, transferable: false, broker: 'MyInvestor' }]);
   const removeHolding = (index: number) => setHoldings(prev => prev.filter((_, i) => i !== index));
   const removeFund = (id: string) => setFunds(prev => prev.filter(f => f.id !== id));
-  const save = () => applyState(UserPortfolioService.save({ cashEur: cash, holdings, funds, stagedCapitalPlan: plan }));
-  const restoreRealBaseline = () => applyState(UserPortfolioService.restoreRealBaseline());
+  const save = () => {
+    const previous = UserPortfolioService.load();
+    const previousLiquidity = Math.max(0, previous.cashEur) + Math.max(0, previous.stagedCapitalPlan?.availableEur ?? 0);
+    const nextLiquidity = Math.max(0, cash) + Math.max(0, plan.availableEur);
+    const externalCashDelta = nextLiquidity - previousLiquidity;
+    if (Math.abs(externalCashDelta) >= 0.005) {
+      PortfolioCashFlowHistoryService.record(
+        externalCashDelta,
+        currentDate(),
+        externalCashDelta > 0
+          ? `Aportación registrada a la cuenta: +${externalCashDelta.toFixed(2)} €`
+          : `Retirada registrada de la cuenta: ${externalCashDelta.toFixed(2)} €`
+      );
+    }
+    applyState(UserPortfolioService.save({ cashEur: cash, holdings, funds, stagedCapitalPlan: plan }));
+  };
+  const restoreRealBaseline = () => {
+    PortfolioCashFlowHistoryService.clear();
+    applyState(UserPortfolioService.restoreRealBaseline());
+  };
 
   return <section className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
