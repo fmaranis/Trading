@@ -7,7 +7,7 @@ export interface SpanishTaxEstimate {
   realizedGainEur: number;
   estimatedTaxEur: number;
   effectiveRatePct: number;
-  method: 'CONFIGURED_PROGRESSIVE' | 'CONSERVATIVE_MAX_RATE' | 'NO_GAIN' | 'TAX_DEFERRED_TRANSFER' | 'UNKNOWN_COST_BASIS';
+  method: 'CONFIGURED_PROGRESSIVE' | 'CONSERVATIVE_MAX_RATE' | 'STATUTORY_WITHHOLDING_19' | 'NO_GAIN' | 'TAX_DEFERRED_TRANSFER' | 'UNKNOWN_COST_BASIS';
   note: string;
 }
 
@@ -37,6 +37,7 @@ export const SPANISH_SAVINGS_TAX_SCALE = [
   { upToEur: 300_000, rate: 0.27 },
   { upToEur: Infinity, rate: 0.30 }
 ] as const;
+export const SPANISH_CAPITAL_INCOME_WITHHOLDING_RATE = 0.19;
 
 export const SPANISH_TAX_SETTINGS_UPDATED_EVENT = 'custodia:spanish-tax-settings-updated';
 const STORAGE_KEY = 'custodia_spanish_tax_settings_v1';
@@ -92,6 +93,47 @@ export function estimateSpanishTaxOnRealizedGain(realizedGainEur: number, settin
     effectiveRatePct: gain > 0 ? tax / gain * 100 : 0,
     method: 'CONFIGURED_PROGRESSIVE',
     note: `Estimación incremental aplicando la escala del ahorro sobre una base previa configurada de ${prior.toFixed(2)} €.`
+  };
+}
+
+/**
+ * Bank-account/deposit interest is savings income. When the annual savings-tax
+ * context is not configured, use the statutory 19% withholding as the replay's
+ * immediate cash drag instead of the 30% conservative reserve used for gains.
+ * When the context is configured, interest shares the same progressive savings
+ * base as taxable realized gains.
+ */
+export function estimateSpanishTaxOnCashInterest(
+  grossInterestEur: number,
+  settings: SpanishTaxSettings,
+  priorSimulatedSavingsIncomeEur = 0
+): SpanishTaxEstimate {
+  const interest = Math.max(0, Number(grossInterestEur) || 0);
+  if (interest <= 1e-9) return {
+    realizedGainEur: 0,
+    estimatedTaxEur: 0,
+    effectiveRatePct: 0,
+    method: 'NO_GAIN',
+    note: 'No hay intereses positivos sobre los que aplicar retención o tributación.'
+  };
+  if (!settings.contextConfirmed) {
+    const tax = interest * SPANISH_CAPITAL_INCOME_WITHHOLDING_RATE;
+    return {
+      realizedGainEur: interest,
+      estimatedTaxEur: tax,
+      effectiveRatePct: SPANISH_CAPITAL_INCOME_WITHHOLDING_RATE * 100,
+      method: 'STATUTORY_WITHHOLDING_19',
+      note: 'Contexto fiscal anual no configurado: los intereses de cuenta/deposito se descuentan con retención del 19%.'
+    };
+  }
+  const prior = Math.max(0, settings.priorSavingsTaxableBaseEur || 0) + Math.max(0, priorSimulatedSavingsIncomeEur || 0);
+  const tax = Math.max(0, taxOnSpanishSavingsBase(prior + interest) - taxOnSpanishSavingsBase(prior));
+  return {
+    realizedGainEur: interest,
+    estimatedTaxEur: tax,
+    effectiveRatePct: interest > 0 ? tax / interest * 100 : 0,
+    method: 'CONFIGURED_PROGRESSIVE',
+    note: `Intereses integrados en la base del ahorro sobre una base previa/simulada de ${prior.toFixed(2)} €.`
   };
 }
 
