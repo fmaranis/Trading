@@ -14,6 +14,8 @@ alertAutomationRouter.get('/status', (_req: Request, res: Response) => {
     lastMarketDate: status.state.lastMarketDate,
     lastEvidenceState: status.state.lastEvidenceState,
     lastNotificationAt: status.state.lastNotificationAt,
+    lastNotificationEventCount: status.state.lastNotificationEventCount,
+    lastNotificationEventKeys: status.state.lastNotificationEventKeys,
     lastErrorPresent: Boolean(status.state.lastError),
     lastAlertCount: status.state.lastAlerts.length
   });
