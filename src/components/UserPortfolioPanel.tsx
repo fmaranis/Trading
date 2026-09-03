@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BarChart3, ChevronDown, Plus, RotateCcw, Save, Trash2, WalletCards } from 'lucide-react';
 import {
   AssetUniverseScanResult,
+  evaluatePortfolioDecision,
   FundPosition,
   InvestmentDecisionResult,
   monthlyStagedAmount,
   PortfolioCashFlowHistoryService,
-  PortfolioDecisionEngine,
   StagedCapitalPlan,
   UserHolding,
   UserPortfolioService,
@@ -90,7 +90,7 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
   const liquidityEur = Math.max(0, cash) + Math.max(0, plan.availableEur);
   const totalEur = investedEur + liquidityEur;
   const portfolio = useMemo(() => ({ cashEur: Math.max(0, cash), holdings, funds, stagedCapitalPlan: plan, updatedAt: new Date().toISOString() }), [cash, holdings, funds, plan, savedRevision]);
-  const portfolioDecision = useMemo(() => PortfolioDecisionEngine.evaluate({ portfolio, scan, decision, fundMarketValues, positionHealth: positionHealth?.byKey }), [portfolio, scan, decision, fundMarketValues, positionHealth]);
+  const portfolioDecision = useMemo(() => evaluatePortfolioDecision({ portfolio, scan, decision, fundMarketValues, positionHealth: positionHealth?.byKey }), [portfolio, scan, decision, fundMarketValues, positionHealth]);
   const monthly = monthlyStagedAmount(plan);
 
   const updateHolding = (index: number, patch: Partial<UserHolding>) => setHoldings(prev => prev.map((h, i) => i === index ? { ...h, ...patch } : h));
