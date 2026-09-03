@@ -51,7 +51,9 @@ function result(input: {
     timingStateCounts: { WAIT: 0, ENTRY_READY: 0, ENTRY_STRONG: 0 },
     trendProtectionV1Counts: { HOLD: 0, WATCH: 0, REDUCE: 0, EXIT: 0, winnerProtectionArmed: 0, loserFailureArmed: 0, earlierProtectionCandidates: 0 },
     deploymentHorizons: [],
-    totalFeesEur: 0, totalEstimatedTaxEur: 0, totalTransferredEur: 0, cashInterestEur: 10,
+    totalFeesEur: 0, totalEstimatedTaxEur: 0, totalTransferredEur: 0,
+    cashBenchmarkMode: 'HISTORICAL_ECB_DFR_FLOOR_0', cashBenchmarkFixedAnnualPct: 2.5,
+    cashInterestEur: 10, cashInterestTaxEur: 0, cashInterestNetEur: 10,
     taxMethod: 'CONSERVATIVE_MAX_RATE', operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN',
     signals: input.defensive ? [{ action: 'REDUCE' } as any] : [], events: [], equityPath: [], notes: []
   };
