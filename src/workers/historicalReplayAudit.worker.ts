@@ -38,6 +38,14 @@ interface RunMessage {
 
 interface ResetMessage { type: 'RESET'; }
 type IncomingMessage = InitMessage | RunMessage | ResetMessage;
+type CheckpointExecutionMode = 'LEGACY_EXACT' | 'SINGLE_PASS_EXACT_FIRST' | 'SINGLE_PASS_PROJECTED' | 'SINGLE_PASS_FINAL_EXACT';
+
+interface CheckpointExecutionAudit {
+  requestedEndDate: string;
+  effectiveEndDate: string;
+  checkpointExecutionMode: CheckpointExecutionMode;
+  checkpointProjectionParity: string;
+}
 
 interface WorkerScope {
   onmessage: ((event: MessageEvent<IncomingMessage>) => void) | null;
@@ -53,6 +61,7 @@ let sourceDataset: MultiAssetDataset | null = null;
 let cachedFullResult: DynamicHistoricalReplayResult | null = null;
 let projectionValidated = false;
 let projectionDisabled = false;
+let checkpointExecutionAuditTrail: CheckpointExecutionAudit[] = [];
 
 function isoDate(timestamp: string): string { return timestamp.slice(0, 10); }
 function addMonthsLikeCore(date: string, months: number): string {
@@ -479,6 +488,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
     cachedFullResult = null;
     projectionValidated = false;
     projectionDisabled = false;
+    checkpointExecutionAuditTrail = [];
     workerScope.postMessage({ type: 'RESET_DONE' });
     return;
   }
@@ -490,6 +500,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
     cachedFullResult = null;
     projectionValidated = false;
     projectionDisabled = false;
+    checkpointExecutionAuditTrail = [];
     workerScope.postMessage({ type: 'READY', rotationExperiment: REPLAY_ROTATION_EXPERIMENT, checkpointExecutionMode: 'GUARDED_SINGLE_PASS_V1' });
     return;
   }
@@ -506,7 +517,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
     const isFinalCheckpoint = requestedEffectiveEnd >= sourceEndDate;
     let result: DynamicHistoricalReplayResult;
     let datasetForAudit = requestedDataset;
-    let executionMode: 'LEGACY_EXACT' | 'SINGLE_PASS_EXACT_FIRST' | 'SINGLE_PASS_PROJECTED' | 'SINGLE_PASS_FINAL_EXACT' = 'LEGACY_EXACT';
+    let executionMode: CheckpointExecutionMode = 'LEGACY_EXACT';
     let parityReason = projectionDisabled ? 'DISABLED_AFTER_PARITY_MISMATCH' : 'NOT_CHECKED';
 
     if (projectionDisabled) {
@@ -541,7 +552,21 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       }
     }
 
+    const auditEntry: CheckpointExecutionAudit = {
+      requestedEndDate: message.endDate,
+      effectiveEndDate: result.endDate,
+      checkpointExecutionMode: executionMode,
+      checkpointProjectionParity: parityReason
+    };
+    checkpointExecutionAuditTrail = [
+      ...checkpointExecutionAuditTrail.filter(item => item.requestedEndDate !== message.endDate),
+      auditEntry
+    ].sort((a, b) => a.requestedEndDate.localeCompare(b.requestedEndDate));
+
     const { audited, fullSignalCount, retainedSignalCount } = finalizeForUi(result, datasetForAudit);
+    Object.assign(audited.timingStateCounts as any, {
+      checkpointExecutionAuditTrail: checkpointExecutionAuditTrail.map(item => ({ ...item }))
+    });
     workerScope.postMessage({
       type: 'RESULT',
       requestedEndDate: message.endDate,
