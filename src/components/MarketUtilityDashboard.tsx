@@ -11,6 +11,7 @@ import { UserPortfolioPanel } from './UserPortfolioPanel';
 import { PortfolioExecutionPlanPanel } from './PortfolioExecutionPlanPanel';
 import { RealPurchaseRegistrationPanel } from './RealPurchaseRegistrationPanel';
 import { StrategyConsensusPanel } from './StrategyConsensusPanel';
+import { PilotOperationsPanel } from './PilotOperationsPanel';
 
 interface Props {
   scan: AssetUniverseScanResult;
@@ -23,6 +24,8 @@ interface Props {
 export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
   return <section className="space-y-4">
     <CurrentOpportunityAlertsPanel scan={scan} decision={decision} positionHealth={positionHealth} onInspectAsset={onInspectAsset} />
+
+    <PilotOperationsPanel scan={scan} decision={decision} positionHealth={positionHealth} onInspectAsset={onInspectAsset} />
 
     <RealPurchaseRegistrationPanel scan={scan} decision={decision} positionHealth={positionHealth} />
 
