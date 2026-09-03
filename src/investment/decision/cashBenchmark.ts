@@ -20,6 +20,37 @@ export interface HistoricalCashRatePoint {
   annualPct: number;
 }
 
+export interface ReplayCashTaxSettings {
+  priorSavingsTaxableBaseEur: number;
+  contextConfirmed: boolean;
+}
+
+export interface ReplayCashContextSnapshot {
+  mode: CashBenchmarkMode;
+  fixedAnnualPct: number;
+  currentDate: string;
+  phase: 'ENGINE' | 'PATH';
+  grossInterestEur: number;
+  interestTaxEur: number;
+  netInterestEur: number;
+}
+
+interface ReplayCashContextState {
+  mode: CashBenchmarkMode;
+  fixedAnnualPct: number;
+  currentDate: string;
+  taxSettings: ReplayCashTaxSettings;
+  phase: 'ENGINE' | 'PATH';
+  engineGrossInterestEur: number;
+  engineInterestTaxEur: number;
+  pathGrossInterestEur: number;
+  pathInterestTaxEur: number;
+  interestByYear: Map<string, number>;
+  realizedGainByYear: Map<string, number>;
+}
+
+let activeReplayCashContext: ReplayCashContextState | null = null;
+
 /**
  * Official ECB deposit-facility rate changes relevant to the replay range.
  * Source: ECB "Key ECB interest rates" table (effective dates and annual %).
@@ -104,6 +135,131 @@ export function cashBenchmarkModeLabel(mode: CashBenchmarkMode): string {
     : 'TAE fija configurada';
 }
 
+export function beginReplayCashContext(input: {
+  mode: CashBenchmarkMode;
+  fixedAnnualPct: number;
+  startDate: string;
+  taxSettings?: ReplayCashTaxSettings;
+}): void {
+  activeReplayCashContext = {
+    mode: input.mode,
+    fixedAnnualPct: sanitizeRate(input.fixedAnnualPct),
+    currentDate: input.startDate.slice(0, 10),
+    taxSettings: {
+      priorSavingsTaxableBaseEur: Math.max(0, Number(input.taxSettings?.priorSavingsTaxableBaseEur) || 0),
+      contextConfirmed: Boolean(input.taxSettings?.contextConfirmed)
+    },
+    phase: 'ENGINE',
+    engineGrossInterestEur: 0,
+    engineInterestTaxEur: 0,
+    pathGrossInterestEur: 0,
+    pathInterestTaxEur: 0,
+    interestByYear: new Map<string, number>(),
+    realizedGainByYear: new Map<string, number>()
+  };
+}
+
+export function endReplayCashContext(): ReplayCashContextSnapshot | null {
+  const state = activeReplayCashContext;
+  activeReplayCashContext = null;
+  if (!state) return null;
+  return {
+    mode: state.mode,
+    fixedAnnualPct: state.fixedAnnualPct,
+    currentDate: state.currentDate,
+    phase: state.phase,
+    grossInterestEur: state.engineGrossInterestEur,
+    interestTaxEur: state.engineInterestTaxEur,
+    netInterestEur: state.engineGrossInterestEur - state.engineInterestTaxEur
+  };
+}
+
+export function activeReplayCashContextSnapshot(): ReplayCashContextSnapshot | null {
+  const state = activeReplayCashContext;
+  if (!state) return null;
+  const gross = state.phase === 'ENGINE' ? state.engineGrossInterestEur : state.pathGrossInterestEur;
+  const tax = state.phase === 'ENGINE' ? state.engineInterestTaxEur : state.pathInterestTaxEur;
+  return {
+    mode: state.mode,
+    fixedAnnualPct: state.fixedAnnualPct,
+    currentDate: state.currentDate,
+    phase: state.phase,
+    grossInterestEur: gross,
+    interestTaxEur: tax,
+    netInterestEur: gross - tax
+  };
+}
+
+export function activeReplayCashTaxSettings(): ReplayCashTaxSettings | null {
+  return activeReplayCashContext ? { ...activeReplayCashContext.taxSettings } : null;
+}
+
+export function setActiveReplayCashDate(date: string): void {
+  const state = activeReplayCashContext;
+  if (!state) return;
+  const normalized = date.slice(0, 10);
+  if (normalized < state.currentDate && state.phase === 'ENGINE') {
+    state.phase = 'PATH';
+    state.interestByYear.clear();
+    state.realizedGainByYear.clear();
+  }
+  state.currentDate = normalized;
+}
+
+export function resolveReplayAwareCashBenchmarkAnnualPct(fallbackAnnualPct: number, date?: string): number {
+  const state = activeReplayCashContext;
+  if (!state) return sanitizeRate(fallbackAnnualPct);
+  if (date) setActiveReplayCashDate(date);
+  return resolveCashBenchmarkAnnualPct({
+    mode: state.mode,
+    fixedAnnualPct: state.fixedAnnualPct,
+    date: state.currentDate
+  });
+}
+
+export function activeReplaySavingsIncomeBeforeCurrentYear(): number {
+  const state = activeReplayCashContext;
+  if (!state) return 0;
+  const year = state.currentDate.slice(0, 4);
+  return (state.interestByYear.get(year) ?? 0) + (state.realizedGainByYear.get(year) ?? 0);
+}
+
+export function activeReplayInterestBeforeCurrentYear(): number {
+  const state = activeReplayCashContext;
+  if (!state) return 0;
+  return state.interestByYear.get(state.currentDate.slice(0, 4)) ?? 0;
+}
+
+export function recordActiveReplayCashInterest(grossInterestEur: number, taxEur: number, date: string): void {
+  const state = activeReplayCashContext;
+  if (!state) return;
+  setActiveReplayCashDate(date);
+  const gross = Math.max(0, grossInterestEur);
+  const tax = Math.max(0, Math.min(gross, taxEur));
+  const year = state.currentDate.slice(0, 4);
+  state.interestByYear.set(year, (state.interestByYear.get(year) ?? 0) + gross);
+  if (state.phase === 'ENGINE') {
+    state.engineGrossInterestEur += gross;
+    state.engineInterestTaxEur += tax;
+  } else {
+    state.pathGrossInterestEur += gross;
+    state.pathInterestTaxEur += tax;
+  }
+}
+
+export function recordActiveReplayRealizedGain(gainEur: number): void {
+  const state = activeReplayCashContext;
+  if (!state) return;
+  const positive = Math.max(0, gainEur);
+  if (positive <= 0) return;
+  const year = state.currentDate.slice(0, 4);
+  state.realizedGainByYear.set(year, (state.realizedGainByYear.get(year) ?? 0) + positive);
+}
+
+export function isReplayCashContextActive(): boolean {
+  return activeReplayCashContext != null;
+}
+
 export class CashBenchmarkService {
   static load(): number {
     if (typeof window === 'undefined') return DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
@@ -144,7 +300,7 @@ export function assessAgainstCashBenchmark(input: {
   notionalEur?: number | null;
   estimatedFeeEur?: number | null;
 }): CashBenchmarkAssessment {
-  const benchmarkAnnualPct = sanitizeRate(input.benchmarkAnnualPct ?? DEFAULT_CASH_BENCHMARK_ANNUAL_PCT);
+  const benchmarkAnnualPct = resolveReplayAwareCashBenchmarkAnnualPct(input.benchmarkAnnualPct ?? DEFAULT_CASH_BENCHMARK_ANNUAL_PCT);
   const notional = input.notionalEur ?? 0;
   const fee = Math.max(0, input.estimatedFeeEur ?? 0);
   const feeDragPct = notional > 0 ? fee / notional * 100 : 0;
