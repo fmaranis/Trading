@@ -3,6 +3,9 @@ import { Activity, AlertTriangle } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from 'recharts';
 import type { AssetUniverseScanResult, FundPosition, UserHolding } from '../investment/decision';
 import {
+  allCashBenchmark,
+  CASH_BENCHMARK_UPDATED_EVENT,
+  CashBenchmarkService,
   PortfolioExecutionHistoryService,
   TaxLotLedgerService,
   USER_REAL_FUND_POSITIONS
@@ -28,6 +31,7 @@ interface Props {
 
 function isoDate(value: string): string { return value.slice(0, 10); }
 function today(): string { return new Date().toISOString().slice(0, 10); }
+function addMonths(date: string, months: number): string { const d = new Date(`${date}T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() + months); return d.toISOString().slice(0, 10); }
 function keyFund(isin: string): string { return `FUND:${isin.trim().toUpperCase()}`; }
 function keyListed(ticker: string): string { return `LISTED:${ticker.trim().toUpperCase()}`; }
 function priceOnOrAfter(series: PriceSeries, date: string): number | null { for (const d of series.dates) if (d >= date) return series.prices.get(d) ?? null; return null; }
@@ -175,32 +179,50 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
 function EvolutionTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
-  return <div className="max-w-[330px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-[10px] shadow-xl"><div className="font-mono text-slate-400">{label}</div><div className="mt-1 font-bold text-white">Valor reconstruido {Number(row?.valueEur ?? 0).toFixed(2)} €</div><div className="text-slate-400">Aportado ejecutado {Number(row?.contributedEur ?? 0).toFixed(2)} € · cash procedente de operaciones {Number(row?.cashEur ?? 0).toFixed(2)} €</div>{row?.eventLabels?.length > 0 && <div className="mt-2 border-t border-slate-800 pt-2 text-cyan-200">{row.eventLabels.map((labelText: string) => <div key={labelText}>• {labelText}</div>)}</div>}</div>;
+  return <div className="max-w-[330px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-[10px] shadow-xl"><div className="font-mono text-slate-400">{label}</div>{Number.isFinite(Number(row?.valueEur)) && <div className="mt-1 font-bold text-white">Valor reconstruido {Number(row.valueEur).toFixed(2)} €</div>}{Number.isFinite(Number(row?.contributedEur)) && <div className="text-slate-400">Aportado ejecutado {Number(row.contributedEur).toFixed(2)} € · cash procedente de operaciones {Number(row?.cashEur ?? 0).toFixed(2)} €</div>}{Number.isFinite(Number(row?.remuneratedAccountEur)) && <div className="mt-1 font-bold text-sky-200">Cuenta remunerada proyectada {Number(row.remuneratedAccountEur).toFixed(2)} €</div>}{row?.eventLabels?.length > 0 && <div className="mt-2 border-t border-slate-800 pt-2 text-cyan-200">{row.eventLabels.map((labelText: string) => <div key={labelText}>• {labelText}</div>)}</div>}</div>;
 }
 
 export const PortfolioEvolutionChart: React.FC<Props> = ({ scan, funds, holdings, cashEur, pendingCapitalEur, revision = 0 }) => {
   const [result, setResult] = useState<EvolutionResult | null>(null), [loading, setLoading] = useState(false), [error, setError] = useState<string | null>(null);
+  const [cashBenchmarkAnnualPct, setCashBenchmarkAnnualPct] = useState(() => CashBenchmarkService.load());
   useEffect(() => {
     let active = true;
     setLoading(true); setError(null);
     reconstruct(funds, holdings, scan).then(value => { if (active) setResult(value); }).catch((e: any) => { if (active) setError(e?.message || String(e)); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [funds, holdings, scan, revision]);
+  useEffect(() => {
+    const sync = () => setCashBenchmarkAnnualPct(CashBenchmarkService.load());
+    window.addEventListener(CASH_BENCHMARK_UPDATED_EVENT, sync as EventListener);
+    return () => window.removeEventListener(CASH_BENCHMARK_UPDATED_EVENT, sync as EventListener);
+  }, []);
 
   const last = result?.points.at(-1) ?? null;
   const gain = last ? last.valueEur - last.contributedEur : null;
   const currentUntrackedLiquidity = Math.max(0, cashEur) + Math.max(0, pendingCapitalEur);
   const warnings = useMemo(() => result?.warnings ?? [], [result]);
+  const chartData = useMemo(() => {
+    const byDate = new Map<string, Record<string, any>>((result?.points ?? []).map(point => [point.date, { ...point }]));
+    if (currentUntrackedLiquidity > 0) {
+      const start = today();
+      for (let month = 0; month <= 12; month++) {
+        const date = addMonths(start, month);
+        const projection = allCashBenchmark(currentUntrackedLiquidity, cashBenchmarkAnnualPct, start, date).finalEur;
+        byDate.set(date, { ...(byDate.get(date) ?? { date }), remuneratedAccountEur: projection });
+      }
+    }
+    return [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  }, [result, currentUntrackedLiquidity, cashBenchmarkAnnualPct]);
 
   return <div className="mt-4 rounded-xl border border-cyan-500/20 bg-slate-950/55 p-4">
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex items-center gap-2"><Activity className="h-4 w-4 text-cyan-300"/><b className="text-sm text-white">Evolución real registrada</b></div><div className="mt-1 text-[10px] text-slate-500">Reconstruye compras/traspasos con fecha, conserva ventas como cash y reutiliza las series REAL ya cargadas antes de pedir otra descarga.</div></div>{loading && <span className="text-[10px] text-cyan-300">Actualizando histórico…</span>}</div>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex items-center gap-2"><Activity className="h-4 w-4 text-cyan-300"/><b className="text-sm text-white">Evolución real registrada</b></div><div className="mt-1 text-[10px] text-slate-500">Reconstruye compras/traspasos con fecha y, sobre la misma gráfica, prolonga desde hoy la liquidez actual como cuenta remunerada al {cashBenchmarkAnnualPct.toFixed(2)}% TAE. No retroproyecta el cash actual al pasado.</div></div>{loading && <span className="text-[10px] text-cyan-300">Actualizando histórico…</span>}</div>
     {error && <div className="mt-3 rounded-lg border border-rose-500/20 bg-rose-500/5 p-3 text-[10px] text-rose-200">{error}</div>}
     {last && <>
-      <div className="mt-3 grid gap-2 sm:grid-cols-4 text-xs"><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Valor reconstruido</div><b className="font-mono">{last.valueEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Aportado ejecutado</div><b className="font-mono">{last.contributedEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Resultado reconstruido</div><b className={`font-mono ${gain != null && gain >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>{gain == null ? 'N/D' : `${gain >= 0 ? '+' : ''}${gain.toFixed(2)} €`}</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Liquidez actual sin fecha histórica</div><b className="font-mono text-cyan-200">{currentUntrackedLiquidity.toFixed(2)} €</b></div></div>
-      <div className="mt-3 h-[300px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={result!.points} margin={{ top: 10, right: 10, left: 5, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/><XAxis dataKey="date" minTickGap={38} tick={{ fontSize: 9, fill: '#94a3b8' }}/><YAxis width={70} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={value => `${Number(value).toFixed(0)}€`}/><Tooltip content={<EvolutionTooltip/>}/><Legend wrapperStyle={{ fontSize: 10 }}/><Line type="monotone" dataKey="valueEur" name="Valor real reconstruido" stroke="#22d3ee" strokeWidth={2} dot={false}/><Line type="stepAfter" dataKey="contributedEur" name="Aportado ejecutado" stroke="#94a3b8" strokeDasharray="5 4" dot={false}/><Scatter dataKey="eventValueEur" name="Operación real" fill="#22c55e"/></ComposedChart></ResponsiveContainer></div>
-      <div className="mt-1 text-[9px] text-slate-600">Series reutilizadas del scan actual: {result!.reusedScanSeries}. Solo lo no disponible se consulta aparte.</div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-4 text-xs"><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Valor reconstruido</div><b className="font-mono">{last.valueEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Aportado ejecutado</div><b className="font-mono">{last.contributedEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Resultado reconstruido</div><b className={`font-mono ${gain != null && gain >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>{gain == null ? 'N/D' : `${gain >= 0 ? '+' : ''}${gain.toFixed(2)} €`}</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Liquidez actual</div><b className="font-mono text-cyan-200">{currentUntrackedLiquidity.toFixed(2)} €</b><div className="mt-1 text-[9px] text-slate-500">Proyección 12m al {cashBenchmarkAnnualPct.toFixed(2)}% TAE</div></div></div>
+      <div className="mt-3 h-[300px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 5, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/><XAxis dataKey="date" minTickGap={38} tick={{ fontSize: 9, fill: '#94a3b8' }}/><YAxis width={70} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={value => `${Number(value).toFixed(0)}€`}/><Tooltip content={<EvolutionTooltip/>}/><Legend wrapperStyle={{ fontSize: 10 }}/><Line type="monotone" dataKey="valueEur" name="Valor real reconstruido" stroke="#22d3ee" strokeWidth={2} dot={false}/><Line type="stepAfter" dataKey="contributedEur" name="Aportado ejecutado" stroke="#94a3b8" strokeDasharray="5 4" dot={false}/><Line type="monotone" dataKey="remuneratedAccountEur" name={`Cuenta remunerada · ${cashBenchmarkAnnualPct.toFixed(2)}% TAE`} stroke="#38bdf8" strokeDasharray="7 4" strokeWidth={2.5} dot={false}/><Scatter dataKey="eventValueEur" name="Operación real" fill="#22c55e"/></ComposedChart></ResponsiveContainer></div>
+      <div className="mt-1 text-[9px] text-slate-600">Series reutilizadas del scan actual: {result!.reusedScanSeries}. La línea de cuenta comienza hoy; la liquidez actual sin fecha de entrada no se inventa en el histórico.</div>
     </>}
     {!loading && result && result.points.length === 0 && <div className="mt-3 text-xs text-slate-500">Todavía no hay historia suficiente para dibujar la evolución.</div>}
-    {(warnings.length > 0 || (result?.inferredEvents ?? 0) > 0) && <details className="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/5 p-3"><summary className="flex cursor-pointer list-none items-center gap-2 text-[10px] font-bold text-amber-100"><AlertTriangle className="h-3.5 w-3.5"/>Precisión de la reconstrucción</summary><div className="mt-2 space-y-1 text-[9px] text-slate-400">{(result?.inferredEvents ?? 0) > 0 && <div>• {result!.inferredEvents} operación(es) sin unidades exactas se han convertido a unidades usando el NAV/precio de esa fecha.</div>}{warnings.map(warning => <div key={warning}>• {warning}</div>)}<div>• La liquidez actual que no tiene fecha de entrada histórica se muestra aparte y no se retroproyecta artificialmente en la gráfica.</div></div></details>}
+    {(warnings.length > 0 || (result?.inferredEvents ?? 0) > 0) && <details className="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/5 p-3"><summary className="flex cursor-pointer list-none items-center gap-2 text-[10px] font-bold text-amber-100"><AlertTriangle className="h-3.5 w-3.5"/>Precisión de la reconstrucción</summary><div className="mt-2 space-y-1 text-[9px] text-slate-400">{(result?.inferredEvents ?? 0) > 0 && <div>• {result!.inferredEvents} operación(es) sin unidades exactas se han convertido a unidades usando el NAV/precio de esa fecha.</div>}{warnings.map(warning => <div key={warning}>• {warning}</div>)}<div>• La liquidez actual que no tiene fecha de entrada histórica se proyecta sólo desde hoy; no se retroproyecta artificialmente.</div></div></details>}
   </div>;
 };
