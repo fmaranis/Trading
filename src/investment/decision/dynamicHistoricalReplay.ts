@@ -1,6 +1,7 @@
 import {
   activeReplayCashContextSnapshot,
   beginReplayCashContext,
+  DEFAULT_REPLAY_CASH_BENCHMARK_MODE,
   endReplayCashContext,
   type CashBenchmarkMode
 } from './cashBenchmark';
@@ -44,7 +45,7 @@ export type DynamicHistoricalReplayInput = CoreReplayInput & {
  */
 export class DynamicHistoricalReplayEngine {
   static run(input: DynamicHistoricalReplayInput): DynamicHistoricalReplayResult {
-    const cashBenchmarkMode: CashBenchmarkMode = input.cashBenchmarkMode ?? 'FIXED_USER_RATE';
+    const cashBenchmarkMode: CashBenchmarkMode = input.cashBenchmarkMode ?? DEFAULT_REPLAY_CASH_BENCHMARK_MODE;
     const fixedAnnualPct = Number.isFinite(input.cashBenchmarkAnnualPct) ? Math.max(0, Number(input.cashBenchmarkAnnualPct)) : 2.5;
 
     beginReplayCashContext({
