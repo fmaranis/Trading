@@ -6,7 +6,6 @@ import { RealMarketDataProvider } from '../src/investment/data/marketData/provid
 import {
   assessCrossProviderEvidence,
   AssetUniverseScanner,
-  CashBenchmarkService,
   CurrentOpportunityAlertEngine,
   EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   PortfolioCandidateGate,
@@ -26,18 +25,26 @@ export interface AlertAutomationState {
   lastDecision: unknown | null;
   lastEvidenceState: string | null;
   lastNotificationAt: string | null;
+  lastNotificationEventCount: number;
+  lastNotificationEventKeys: string[];
 }
 
 const EMPTY_STATE: AlertAutomationState = {
   lastAttemptAt: null, lastSuccessAt: null, lastRunLocalDate: null, lastMarketDate: null, lastError: null,
-  lastAlerts: [], lastDecision: null, lastEvidenceState: null, lastNotificationAt: null
+  lastAlerts: [], lastDecision: null, lastEvidenceState: null, lastNotificationAt: null,
+  lastNotificationEventCount: 0, lastNotificationEventKeys: []
 };
 
 function loadState(): AlertAutomationState {
   try {
     if (!fs.existsSync(STATE_FILE)) return { ...EMPTY_STATE };
     const parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-    return { ...EMPTY_STATE, ...parsed, lastAlerts: Array.isArray(parsed?.lastAlerts) ? parsed.lastAlerts : [] };
+    return {
+      ...EMPTY_STATE,
+      ...parsed,
+      lastAlerts: Array.isArray(parsed?.lastAlerts) ? parsed.lastAlerts : [],
+      lastNotificationEventKeys: Array.isArray(parsed?.lastNotificationEventKeys) ? parsed.lastNotificationEventKeys : []
+    };
   } catch { return { ...EMPTY_STATE }; }
 }
 function saveState(state: AlertAutomationState): void {
@@ -49,6 +56,22 @@ function sevenYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getU
 function baseUrl(): string {
   const configured = process.env.ALERT_INTERNAL_BASE_URL?.trim() || process.env.APP_URL?.trim();
   return configured ? configured.replace(/\/$/, '') : 'http://127.0.0.1:3000';
+}
+function isActionable(alert: CurrentOpportunityAlert | undefined): boolean {
+  return alert?.level === 'HIGH_CONVICTION' || alert?.level === 'GOOD_ENTRY';
+}
+function levelRank(alert: CurrentOpportunityAlert | undefined): number {
+  if (alert?.level === 'HIGH_CONVICTION') return 2;
+  if (alert?.level === 'GOOD_ENTRY') return 1;
+  return 0;
+}
+function newOpportunityEvents(previous: CurrentOpportunityAlert[], current: CurrentOpportunityAlert[]): CurrentOpportunityAlert[] {
+  const previousByAsset = new Map(previous.map(alert => [alert.assetId, alert]));
+  return current.filter(alert => {
+    if (!isActionable(alert)) return false;
+    const before = previousByAsset.get(alert.assetId);
+    return !isActionable(before) || levelRank(alert) > levelRank(before);
+  });
 }
 
 async function crossValidateEodhd(scan: Awaited<ReturnType<typeof AssetUniverseScanner.scan>>): Promise<any | null> {
@@ -109,7 +132,8 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
     const cashBenchmarkAnnualPct = Number(process.env.ALERT_CASH_BENCHMARK_PCT) || 2.5;
     const gate = PortfolioCandidateGate.apply(scan, cashBenchmarkAnnualPct, 12);
     const alerts = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct);
-    const actionable = alerts.filter(alert => alert.level === 'HIGH_CONVICTION' || alert.level === 'GOOD_ENTRY');
+    const actionable = alerts.filter(isActionable);
+    const events = newOpportunityEvents(state.lastAlerts, alerts);
 
     const eodhd = await crossValidateEodhd(gate.scan).catch(() => null);
     const evidence = eodhd ? assessCrossProviderEvidence({
@@ -120,13 +144,16 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
     const marketDate = scan.candidates.filter(c => c.status === 'ACCEPTED' && c.asOfDate).map(c => c.asOfDate!).sort().at(-1) ?? isoDate(new Date());
 
     let notificationSent = false;
-    if (actionable.length > 0) {
+    if (events.length > 0) {
       notificationSent = await notifyWebhook({
-        source: 'Custodia', kind: 'CURRENT_ENTRY_OPPORTUNITIES', generatedAt: new Date().toISOString(),
+        source: 'Custodia', kind: 'CURRENT_ENTRY_OPPORTUNITY_EVENTS', generatedAt: new Date().toISOString(),
         marketDate, cashBenchmarkAnnualPct,
         evidence: evidence ? { state: evidence.state, summary: evidence.summary } : { state: 'PRIMARY_ONLY' },
-        highConviction: actionable.filter(alert => alert.level === 'HIGH_CONVICTION'),
-        goodEntries: actionable.filter(alert => alert.level === 'GOOD_ENTRY')
+        eventRule: 'NEW_GOOD_ENTRY_OR_ESCALATION_TO_HIGH_CONVICTION',
+        events,
+        highConviction: events.filter(alert => alert.level === 'HIGH_CONVICTION'),
+        goodEntries: events.filter(alert => alert.level === 'GOOD_ENTRY'),
+        currentActionableCount: actionable.length
       }).catch(() => false);
     }
 
@@ -134,7 +161,9 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
       lastAttemptAt: state.lastAttemptAt, lastSuccessAt: new Date().toISOString(), lastRunLocalDate: localRunDate,
       lastMarketDate: marketDate, lastError: null, lastAlerts: alerts, lastDecision: null,
       lastEvidenceState: evidence?.state ?? 'PRIMARY_ONLY',
-      lastNotificationAt: notificationSent ? new Date().toISOString() : state.lastNotificationAt
+      lastNotificationAt: notificationSent ? new Date().toISOString() : state.lastNotificationAt,
+      lastNotificationEventCount: notificationSent ? events.length : 0,
+      lastNotificationEventKeys: notificationSent ? events.map(alert => `${alert.assetId}:${alert.level}`) : []
     };
     saveState(next);
     return next;
