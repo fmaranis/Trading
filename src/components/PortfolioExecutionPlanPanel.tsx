@@ -5,12 +5,12 @@ import {
   AssetUniverseScanResult,
   buildPortfolioExecutionPlan,
   CashBenchmarkService,
+  evaluatePortfolioDecision,
   getMyInvestorAvailability,
   InvestmentDecisionResult,
   isPortfolioEquityTicker,
   ManualMyInvestorAvailabilityService,
   PortfolioCandidateGate,
-  PortfolioDecisionEngine,
   PortfolioExecutionPlan,
   PortfolioExecutionPlanService,
   PortfolioStateExecutionService,
@@ -90,7 +90,7 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, decision, p
 
   const generate = (settings: SpanishTaxSettings = taxSettings) => {
     const portfolio = UserPortfolioService.load();
-    const portfolioDecision = PortfolioDecisionEngine.evaluate({ portfolio, scan, decision, positionHealth: positionHealth?.byKey });
+    const portfolioDecision = evaluatePortfolioDecision({ portfolio, scan, decision, positionHealth: positionHealth?.byKey });
     const cashBenchmarkAnnualPct = CashBenchmarkService.load();
     const raw = buildPortfolioExecutionPlan({ portfolio, scan, decisionAsOf: decision.asOfDate, portfolioDecision, cashBenchmarkAnnualPct });
     const consensusLines = raw.lines.map(line => {
