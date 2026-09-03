@@ -3,10 +3,10 @@
     "format": "TRADING_HISTORICAL_REPLAY_AUDIT",
     "schemaVersion": 1,
     "replayStorageVersion": 3,
-    "exportedAt": "2026-09-03T21:21:31.446Z",
+    "exportedAt": "2026-09-03T22:00:58.622Z",
     "source": "fmaranis/Trading · Replay histórico auditado",
     "note": "Replay completo en JSON normal. La auditoría directamente legible por ChatGPT está en validation-runs/latest-chatgpt.json.",
-    "publishedAt": "2026-09-03T21:21:32.360Z",
+    "publishedAt": "2026-09-03T22:01:00.618Z",
     "githubStorageFormat": "plain-json"
   },
   "session": {
@@ -43849,33 +43849,7 @@
       "timingStateCounts": {
         "WAIT": 1911,
         "ENTRY_READY": 744,
-        "ENTRY_STRONG": 314,
-        "checkpointExecutionAuditTrail": [
-          {
-            "requestedEndDate": "2026-07-01",
-            "effectiveEndDate": "2026-07-01",
-            "checkpointExecutionMode": "LEGACY_EXACT",
-            "checkpointProjectionParity": "FIELD_finalValueEur"
-          },
-          {
-            "requestedEndDate": "2026-07-31",
-            "effectiveEndDate": "2026-07-31",
-            "checkpointExecutionMode": "LEGACY_EXACT",
-            "checkpointProjectionParity": "DISABLED_AFTER_PARITY_MISMATCH"
-          },
-          {
-            "requestedEndDate": "2026-08-30",
-            "effectiveEndDate": "2026-08-28",
-            "checkpointExecutionMode": "LEGACY_EXACT",
-            "checkpointProjectionParity": "DISABLED_AFTER_PARITY_MISMATCH"
-          },
-          {
-            "requestedEndDate": "2026-09-01",
-            "effectiveEndDate": "2026-08-31",
-            "checkpointExecutionMode": "LEGACY_EXACT",
-            "checkpointProjectionParity": "DISABLED_AFTER_PARITY_MISMATCH"
-          }
-        ]
+        "ENTRY_STRONG": 314
       },
       "deploymentHorizons": [
         {
