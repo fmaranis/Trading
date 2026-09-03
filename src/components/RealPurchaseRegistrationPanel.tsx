@@ -4,8 +4,8 @@ import {
   buildExecutedPurchaseLine,
   buildPortfolioExecutionPlan,
   CashBenchmarkService,
+  evaluatePortfolioDecision,
   getMyInvestorAvailability,
-  PortfolioDecisionEngine,
   PortfolioStateExecutionService,
   preferredBrokerSearchCode,
   resolveSecurityIsin,
@@ -36,7 +36,7 @@ export const RealPurchaseRegistrationPanel: React.FC<Props> = ({ scan, decision,
   const buyLines = useMemo(() => {
     const portfolio = UserPortfolioService.load();
     const cashBenchmarkAnnualPct = CashBenchmarkService.load();
-    const portfolioDecision = PortfolioDecisionEngine.evaluate({
+    const portfolioDecision = evaluatePortfolioDecision({
       portfolio,
       scan,
       decision,
