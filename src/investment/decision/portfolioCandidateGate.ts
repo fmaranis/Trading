@@ -4,7 +4,7 @@ import {
   assessSlopeSelectionQuality,
   type AssetSelectionQualityMetrics
 } from './assetSelectionQuality';
-import { assessAgainstCashBenchmark } from './cashBenchmark';
+import { assessAgainstCashBenchmark, resolveReplayAwareCashBenchmarkAnnualPct } from './cashBenchmark';
 import { EntryTimingEngine, type EntryTimingSetup, type EntryTimingState } from './entryTiming';
 import { StrategyConsensusEngine } from './strategyConsensusEngine';
 
@@ -158,6 +158,8 @@ export class PortfolioCandidateGate {
   ): PortfolioCandidateGateResult {
     const entries: PortfolioCandidateGateEntry[] = [];
     const eligible: Array<{ candidate: AssetScanCandidate; rankingScore: number }> = [];
+    const asOfDate = scan.candidates.map(candidate => candidate.asOfDate).filter(Boolean).sort().at(-1) ?? new Date().toISOString().slice(0, 10);
+    const effectiveCashBenchmarkAnnualPct = resolveReplayAwareCashBenchmarkAnnualPct(cashBenchmarkAnnualPct, asOfDate);
 
     for (const candidate of scan.candidates) {
       const quality = candidate.status === 'ACCEPTED' ? qualityForCandidate(scan, candidate) : null;
@@ -170,8 +172,8 @@ export class PortfolioCandidateGate {
         continue;
       }
 
-      const cash = assessAgainstCashBenchmark({ momentum120Pct: candidate.momentum120Pct, benchmarkAnnualPct: cashBenchmarkAnnualPct, notionalEur: 0, estimatedFeeEur: 0 });
-      const consensus = StrategyConsensusEngine.assess(scan, candidate.asset.assetId, cashBenchmarkAnnualPct);
+      const cash = assessAgainstCashBenchmark({ momentum120Pct: candidate.momentum120Pct, benchmarkAnnualPct: effectiveCashBenchmarkAnnualPct, notionalEur: 0, estimatedFeeEur: 0 });
+      const consensus = StrategyConsensusEngine.assess(scan, candidate.asset.assetId, effectiveCashBenchmarkAnnualPct);
 
       if (!consensus) {
         entries.push(baseEntry({ candidate, status: 'REJECTED', reason: 'CONSENSUS_UNAVAILABLE', annualizedProxyPct: cash.netAnnualizedProxyPct, excessVsCashPctPoints: cash.excessVsCashPctPoints, ...qualityFields }));
