@@ -3,7 +3,7 @@ import { runDynamicReplayWithRotationExperiment } from '../investment/decision/r
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
 import type { AssetUniverseItem } from '../investment/decision/assetUniverse';
 import type { CashBenchmarkMode } from '../investment/decision/cashBenchmark';
-import type { DynamicReplayFrequency } from '../investment/decision/dynamicHistoricalReplay';
+import type { DynamicReplayFrequency, DynamicReplaySignal } from '../investment/decision/dynamicHistoricalReplay';
 import type { InvestmentHorizonYears, InvestorRiskProfile } from '../investment/decision/types';
 import type { SpanishTaxSettings } from '../investment/decision/spanishTaxModel';
 
@@ -37,6 +37,7 @@ interface WorkerScope {
 
 const workerScope = self as unknown as WorkerScope;
 const REPLAY_ROTATION_EXPERIMENT = 'CORE_GATE_V1' as const;
+const MATERIAL_ACTIONS = new Set(['BUY', 'ADD', 'REDUCE', 'EXIT']);
 let configuration: Omit<InitMessage, 'type' | 'dataset'> | null = null;
 let sourceDataset: MultiAssetDataset | null = null;
 
@@ -67,6 +68,41 @@ function replayInput(dataset: MultiAssetDataset) {
     minimumBars: configuration.minimumBars,
     taxSettings: configuration.taxSettings
   };
+}
+
+/**
+ * The replay engine may emit one HOLD/WATCH/AVOID observation per asset and
+ * decision date. Those observations are useful while calculating, but sending
+ * and persisting every repeated state makes long browser audits unnecessarily
+ * large. Keep every material action and only state transitions for non-material
+ * observations. Financial results and engine counters are already finalized
+ * before this UI-only compaction runs.
+ */
+function compactAuditSignals(signals: DynamicReplaySignal[]): DynamicReplaySignal[] {
+  const retained: DynamicReplaySignal[] = [];
+  const lastStateByAsset = new Map<string, string>();
+
+  for (const signal of signals) {
+    if (signal.executed || MATERIAL_ACTIONS.has(signal.action)) {
+      retained.push(signal);
+      lastStateByAsset.delete(signal.assetId);
+      continue;
+    }
+
+    const stateKey = [
+      signal.action,
+      signal.timingState ?? '',
+      signal.structuralDowntrend ? 'DOWN' : 'OK',
+      signal.buyTheDipCandidate ? 'DIP' : 'NO_DIP',
+      signal.trendProtectionV1Action ?? ''
+    ].join('|');
+
+    if (lastStateByAsset.get(signal.assetId) === stateKey) continue;
+    retained.push(signal);
+    lastStateByAsset.set(signal.assetId, stateKey);
+  }
+
+  return retained;
 }
 
 workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
@@ -101,12 +137,17 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       catalog: configuration.catalog
     });
 
+    const fullSignalCount = result.signals.length;
+    result.signals = compactAuditSignals(result.signals);
+
     workerScope.postMessage({
       type: 'RESULT',
       requestedEndDate: message.endDate,
       result,
       rotationExperiment: REPLAY_ROTATION_EXPERIMENT,
-      trendProtectionV2Counterfactual: false
+      trendProtectionV2Counterfactual: false,
+      fullSignalCount,
+      retainedSignalCount: result.signals.length
     });
   } catch (error: any) {
     workerScope.postMessage({ type: 'ERROR', error: error?.message || String(error), requestedEndDate: message.endDate });
