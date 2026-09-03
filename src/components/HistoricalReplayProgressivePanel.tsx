@@ -5,9 +5,12 @@ import {
   AssetUniverseScanner,
   CASH_BENCHMARK_UPDATED_EVENT,
   CashBenchmarkService,
+  cashBenchmarkModeLabel,
+  DEFAULT_REPLAY_CASH_BENCHMARK_MODE,
   EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   SpanishTaxSettingsService,
   type AssetUniverseScanResult,
+  type CashBenchmarkMode,
   type DynamicHistoricalReplayResult,
   type DynamicReplayFrequency,
   type DynamicReplaySignal,
@@ -133,6 +136,7 @@ interface AuditConfig {
   durationMonths: number;
   chunkDays: number;
   initialCapitalEur: number;
+  cashBenchmarkMode: CashBenchmarkMode;
   cashBenchmarkAnnualPct: number;
 }
 
@@ -213,16 +217,25 @@ function loadPersistedAudit(): PersistedAudit | null {
 function loadLegacyAudit(): any | null {
   try { const raw = localStorage.getItem(LEGACY_STORAGE_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
 }
+function savedCashMode(saved: PersistedAudit | null): CashBenchmarkMode {
+  return saved?.cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0' ? 'HISTORICAL_ECB_DFR_FLOOR_0' : 'FIXED_USER_RATE';
+}
 function sameConfiguration(saved: PersistedAudit | null, config: AuditConfig): boolean {
-  return Boolean(saved
-    && Number.isFinite(Number(saved.cashBenchmarkAnnualPct))
+  if (!saved) return false;
+  const mode = savedCashMode(saved);
+  const sameRate = config.cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0'
+    ? true
+    : Number.isFinite(Number(saved.cashBenchmarkAnnualPct)) && Math.abs(Number(saved.cashBenchmarkAnnualPct) - config.cashBenchmarkAnnualPct) < 1e-9;
+  return Boolean(
+    mode === config.cashBenchmarkMode
     && saved.startDate === config.startDate
     && saved.frequency === config.frequency
     && saved.runMode === config.runMode
     && saved.durationMonths === config.durationMonths
     && saved.chunkDays === config.chunkDays
     && Math.abs(saved.initialCapitalEur - config.initialCapitalEur) < 0.01
-    && Math.abs(Number(saved.cashBenchmarkAnnualPct) - config.cashBenchmarkAnnualPct) < 1e-9);
+    && sameRate
+  );
 }
 function latestPrice(scan: AssetUniverseScanResult, assetId: string, date: string): number | null {
   const asset = scan.acceptedDataset.assets.find(item => item.assetId === assetId);
@@ -430,6 +443,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
   const [durationMonths, setDurationMonths] = useState(12);
   const [chunkDays, setChunkDays] = useState(30);
   const [initialCapital, setInitialCapital] = useState(() => Math.max(1, capitalEur).toFixed(2));
+  const [cashBenchmarkMode, setCashBenchmarkMode] = useState<CashBenchmarkMode>(DEFAULT_REPLAY_CASH_BENCHMARK_MODE);
   const [cashBenchmarkAnnualPct, setCashBenchmarkAnnualPct] = useState(() => CashBenchmarkService.load());
   const [status, setStatus] = useState<SessionStatus>('IDLE');
   const [message, setMessage] = useState('');
@@ -474,9 +488,10 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
   useEffect(() => {
     const saved = loadPersistedAudit();
     if (saved) {
-      setStartDate(saved.startDate); setFrequency(saved.frequency); setRunMode(saved.runMode); setDurationMonths(saved.durationMonths); setChunkDays(saved.chunkDays); setInitialCapital(saved.initialCapitalEur.toFixed(2));
+      const mode = savedCashMode(saved);
+      setStartDate(saved.startDate); setFrequency(saved.frequency); setRunMode(saved.runMode); setDurationMonths(saved.durationMonths); setChunkDays(saved.chunkDays); setInitialCapital(saved.initialCapitalEur.toFixed(2)); setCashBenchmarkMode(mode);
       if (Number.isFinite(Number(saved.cashBenchmarkAnnualPct))) setCashBenchmarkAnnualPct(Number(saved.cashBenchmarkAnnualPct));
-      else setWarning('Esta sesión se creó antes de registrar la TAE. Puedes verla, pero al preparar de nuevo se iniciará una sesión limpia con la TAE seleccionada.');
+      if (!saved.cashBenchmarkMode) setWarning('Esta sesión se creó antes de registrar el modo de cash y se conserva como TAE fija. Para usar BCE histórico prepara una sesión nueva.');
       setCheckpoints(saved.checkpoints ?? []); setExecutions(saved.executions ?? []); setPath(saved.path ?? []); setSignals(saved.signals ?? []); setSummary(saved.summary ?? null); setPositions(saved.positions ?? []);
       checkpointsRef.current = saved.checkpoints ?? []; executionsRef.current = saved.executions ?? []; pathRef.current = saved.path ?? []; signalsRef.current = saved.signals ?? [];
       setMessage(`Hay ${saved.checkpoints?.length ?? 0} checkpoints guardados. Pulsa “Preparar / reanudar” para continuar.`);
@@ -484,10 +499,10 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     }
     const legacy = loadLegacyAudit();
     if (legacy?.version === 2) {
-      setStartDate(legacy.startDate); setFrequency(legacy.frequency); setRunMode(legacy.runMode); setDurationMonths(legacy.durationMonths); setChunkDays(legacy.chunkDays); setInitialCapital(Number(legacy.initialCapitalEur).toFixed(2));
+      setStartDate(legacy.startDate); setFrequency(legacy.frequency); setRunMode(legacy.runMode); setDurationMonths(legacy.durationMonths); setChunkDays(legacy.chunkDays); setInitialCapital(Number(legacy.initialCapitalEur).toFixed(2)); setCashBenchmarkMode('FIXED_USER_RATE');
       setCheckpoints(legacy.checkpoints ?? []); setExecutions(legacy.executions ?? []);
       checkpointsRef.current = legacy.checkpoints ?? []; executionsRef.current = legacy.executions ?? [];
-      setWarning('La sesión legacy no registraba TAE; al preparar de nuevo se iniciará una sesión limpia con la TAE seleccionada.');
+      setWarning('La sesión legacy se conserva como TAE fija. Para usar BCE histórico se iniciará una sesión limpia.');
       setMessage('He recuperado los checkpoints anteriores. La trayectoria completa aparecerá al calcular el siguiente tramo.');
     }
   }, []);
@@ -598,11 +613,11 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || startDate >= today()) { setError('Elige una fecha pasada válida.'); return; }
     if (!(duration >= 1 && duration <= 120)) { setError('La duración total debe estar entre 1 y 120 meses.'); return; }
     if (!(days >= 1 && days <= 365)) { setError('El tramo debe estar entre 1 y 365 días.'); return; }
-    if (!(cashBenchmarkAnnualPct >= 0 && cashBenchmarkAnnualPct <= 50)) { setError('La TAE debe estar entre 0% y 50%.'); return; }
+    if (cashBenchmarkMode === 'FIXED_USER_RATE' && !(cashBenchmarkAnnualPct >= 0 && cashBenchmarkAnnualPct <= 50)) { setError('La TAE debe estar entre 0% y 50%.'); return; }
     const finalDate = earlierDate(addMonths(startDate, duration), today());
     if (finalDate <= startDate) { setError('La duración elegida no deja un periodo válido.'); return; }
 
-    const config: AuditConfig = { startDate, frequency, runMode, durationMonths: duration, chunkDays: days, initialCapitalEur: capital, cashBenchmarkAnnualPct };
+    const config: AuditConfig = { startDate, frequency, runMode, durationMonths: duration, chunkDays: days, initialCapitalEur: capital, cashBenchmarkMode, cashBenchmarkAnnualPct };
     setError(null); setWarning(days > 90 ? 'Has elegido un tramo grande; cada checkpoint puede tardar más.' : null); setStatus('LOADING_DATA'); setMessage('Descargando una sola vez el histórico REAL necesario…');
     try {
       const from = warmupDate(startDate);
@@ -629,12 +644,13 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
         if (response.type === 'READY') {
           const alreadyDone = checkpointsRef.current.length >= ends.length;
           setStatus(alreadyDone ? 'DONE' : 'READY');
-          setMessage(alreadyDone ? `La sesión ya contiene ${ends.length}/${ends.length} checkpoints.` : checkpointsRef.current.length ? `Reanudado: ${checkpointsRef.current.length}/${ends.length} checkpoints · ${pathRef.current.length} sesiones visibles.` : `Preparado: ${ends.length} checkpoints cada ${days} días durante ${duration} meses · cash ${cashBenchmarkAnnualPct.toFixed(2)}% TAE.`);
+          const cashLabel = cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0' ? cashBenchmarkModeLabel(cashBenchmarkMode) : `${cashBenchmarkAnnualPct.toFixed(2)}% TAE fija`;
+          setMessage(alreadyDone ? `La sesión ya contiene ${ends.length}/${ends.length} checkpoints.` : checkpointsRef.current.length ? `Reanudado: ${checkpointsRef.current.length}/${ends.length} checkpoints · ${pathRef.current.length} sesiones visibles.` : `Preparado: ${ends.length} checkpoints cada ${days} días durante ${duration} meses · cash ${cashLabel}.`);
         } else if (response.type === 'RESULT') finishWorkerResult(response.requestedEndDate, response.result);
         else if (response.type === 'ERROR') { setError(`El tramo ${response.requestedEndDate ?? ''} no pudo completarse: ${response.error}`); setStatus('READY'); setAutoRunning(false); autoRunningRef.current = false; }
       };
       worker.onerror = event => { setError(`El proceso aislado falló: ${event.message || 'WORKER_ERROR'}.`); setStatus('IDLE'); setAutoRunning(false); autoRunningRef.current = false; };
-      worker.postMessage({ type: 'INIT', dataset: nextScan.acceptedDataset, catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE, startDate, frequency, initialCapitalEur: capital, riskProfile, horizonYears, cashBenchmarkAnnualPct, minimumBars: 252, taxSettings: SpanishTaxSettingsService.load() });
+      worker.postMessage({ type: 'INIT', dataset: nextScan.acceptedDataset, catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE, startDate, frequency, initialCapitalEur: capital, riskProfile, horizonYears, cashBenchmarkMode, cashBenchmarkAnnualPct, minimumBars: 252, taxSettings: SpanishTaxSettingsService.load() });
     } catch (e: any) { setError(e?.message || String(e)); setStatus('IDLE'); }
   };
 
@@ -645,7 +661,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
   const reset = () => {
     workerRef.current?.terminate(); workerRef.current = null; if (autoTimerRef.current != null) window.clearTimeout(autoTimerRef.current); autoTimerRef.current = null; scanRef.current = null; configRef.current = null; chunkEndsRef.current = [];
     localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(LEGACY_STORAGE_KEY);
-    setStatus('IDLE'); setAutoRunning(false); autoRunningRef.current = false; setCashBenchmarkAnnualPct(CashBenchmarkService.load()); setMessage(''); setError(null); setWarning(null); setCoverage(null); setChunkEnds([]); setCheckpoints([]); setExecutions([]); setPath([]); setSignals([]); setSummary(null); setPositions([]); setSelectedAssetId(null);
+    setStatus('IDLE'); setAutoRunning(false); autoRunningRef.current = false; setCashBenchmarkMode(DEFAULT_REPLAY_CASH_BENCHMARK_MODE); setCashBenchmarkAnnualPct(CashBenchmarkService.load()); setMessage(''); setError(null); setWarning(null); setCoverage(null); setChunkEnds([]); setCheckpoints([]); setExecutions([]); setPath([]); setSignals([]); setSummary(null); setPositions([]); setSelectedAssetId(null);
     checkpointsRef.current = []; executionsRef.current = []; pathRef.current = []; signalsRef.current = [];
   };
 
@@ -670,21 +686,25 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     const next = CashBenchmarkService.set(value);
     setCashBenchmarkAnnualPct(next);
   };
+  const replayCashLabel = cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0'
+    ? cashBenchmarkModeLabel(cashBenchmarkMode)
+    : `${cashBenchmarkAnnualPct.toFixed(2)}% TAE fija`;
 
   return <section className="mt-5 rounded-2xl border border-fuchsia-500/25 bg-gradient-to-br from-fuchsia-950/20 via-slate-900 to-slate-950 p-5">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div className="max-w-3xl"><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-fuchsia-300"/><h2 className="font-bold text-white">Replay histórico auditado · manual o automático</h2></div><p className="mt-1 text-[11px] text-slate-400">La gráfica conserva todas las sesiones desde la fecha inicial. Incluye patrimonio, cash real del motor y la referencia 100% en cuenta remunerada. La TAE forma parte de la configuración de esta sesión.</p></div>
+      <div className="max-w-3xl"><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-fuchsia-300"/><h2 className="font-bold text-white">Replay histórico auditado · manual o automático</h2></div><p className="mt-1 text-[11px] text-slate-400">La gráfica conserva todas las sesiones desde la fecha inicial. Incluye patrimonio, cash real del motor y la referencia 100% en cuenta remunerada. La política de remuneración forma parte de la configuración de esta sesión.</p></div>
       <span className="flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/5 px-3 py-1 text-[9px] font-black text-emerald-200"><ShieldCheck className="h-3 w-3"/> AUDITORÍA PERSISTENTE</span>
     </div>
 
-    <div className="mt-4 grid gap-3 md:grid-cols-4 xl:grid-cols-7">
+    <div className="mt-4 grid gap-3 md:grid-cols-4 xl:grid-cols-8">
       <label className="text-[10px] text-slate-400">Fecha inicial<input type="date" value={startDate} disabled={controlsLocked} max={today()} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
       <label className="text-[10px] text-slate-400">Duración total (meses)<input type="number" min="1" max="120" step="1" value={durationMonths} disabled={controlsLocked} onChange={e => setDurationMonths(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
       <label className="text-[10px] text-slate-400">Frecuencia de decisiones<select value={frequency} disabled={controlsLocked} onChange={e => setFrequency(e.target.value as DynamicReplayFrequency)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"><option value="MONTHLY">Mensual</option><option value="WEEKLY">Semanal</option><option value="DAILY">Cada sesión</option><option value="QUARTERLY">Trimestral</option></select></label>
       <label className="text-[10px] text-slate-400">Tramo de cálculo (días)<input type="number" min="1" max="365" step="1" value={chunkDays} disabled={controlsLocked} onChange={e => setChunkDays(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/><span className="mt-1 block text-[8px] text-slate-600">Editable: 3, 7, 12, 25, 45…</span></label>
       <label className="text-[10px] text-slate-400">Modo<select value={runMode} disabled={controlsLocked} onChange={e => setRunMode(e.target.value as RunMode)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"><option value="MANUAL">Manual · revisar cada tramo</option><option value="AUTO">Automático · encadenar</option></select></label>
       <label className="text-[10px] text-slate-400">Capital inicial<input type="number" min="1" step="100" value={initialCapital} disabled={controlsLocked} onChange={e => setInitialCapital(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
-      <label className="text-[10px] text-sky-300">Cuenta remunerada · % TAE<input type="number" min="0" max="50" step="0.1" value={cashBenchmarkAnnualPct} disabled={controlsLocked} onChange={e => updateCashBenchmark(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-sky-500/30 bg-slate-950 px-3 py-2 text-xs font-bold text-sky-100 disabled:opacity-60"/><span className="mt-1 block text-[8px] text-slate-600">Constante durante este replay.</span></label>
+      <label className="text-[10px] text-sky-300">Cash del replay<select value={cashBenchmarkMode} disabled={controlsLocked} onChange={e => setCashBenchmarkMode(e.target.value as CashBenchmarkMode)} className="mt-1 w-full rounded-lg border border-sky-500/30 bg-slate-950 px-3 py-2 text-xs font-bold text-sky-100 disabled:opacity-60"><option value="HISTORICAL_ECB_DFR_FLOOR_0">Histórico BCE · DFR suelo 0%</option><option value="FIXED_USER_RATE">TAE fija configurada</option></select><span className="mt-1 block text-[8px] text-slate-600">Histórico = tasa fechada; fija = escenario contrafactual.</span></label>
+      <label className="text-[10px] text-sky-300">Cuenta remunerada · % TAE<input type="number" min="0" max="50" step="0.1" value={cashBenchmarkAnnualPct} disabled={controlsLocked || cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0'} onChange={e => updateCashBenchmark(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-sky-500/30 bg-slate-950 px-3 py-2 text-xs font-bold text-sky-100 disabled:opacity-60"/><span className="mt-1 block text-[8px] text-slate-600">{cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0' ? 'No se usa: la tasa varía por fecha.' : 'Constante durante este replay.'}</span></label>
     </div>
 
     <div className="mt-3 flex flex-wrap gap-2">
@@ -699,7 +719,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
 
     {total > 0 && <div className="mt-3 rounded-lg border border-fuchsia-500/15 bg-slate-950/60 p-3"><div className="flex items-center justify-between gap-3 text-[10px] text-slate-400"><span>{message}</span><b className="shrink-0 font-mono text-fuchsia-200">{completed}/{total}</b></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full bg-fuchsia-500 transition-all" style={{ width: `${progressPct}%` }}/></div></div>}
     {!total && message && <div className="mt-3 text-[10px] text-slate-400">{message}</div>}
-    {coverage && <div className="mt-2 text-[9px] text-slate-500">Cobertura REAL: {coverage.accepted}/{coverage.scanned} instrumentos · warm-up desde {coverage.from} · cuenta {cashBenchmarkAnnualPct.toFixed(2)}% TAE.</div>}
+    {coverage && <div className="mt-2 text-[9px] text-slate-500">Cobertura REAL: {coverage.accepted}/{coverage.scanned} instrumentos · warm-up desde {coverage.from} · cash {replayCashLabel}.</div>}
     {warning && <div className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-100">{warning}</div>}
     {error && <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100">{error}</div>}
 
@@ -712,7 +732,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
           <button type="button" onClick={() => setSelectedAssetId(null)} className={`rounded-full border px-3 py-1 text-[9px] font-bold ${selectedAssetId == null ? 'border-white/40 bg-white/10 text-white' : 'border-slate-700 text-slate-400'}`}>Mostrar todas</button>
           {assetLegend.map(asset => <button key={asset.assetId} type="button" onClick={() => setSelectedAssetId(current => current === asset.assetId ? null : asset.assetId)} className={`flex items-center gap-2 rounded-full border px-3 py-1 text-[9px] font-bold transition ${selectedAssetId === asset.assetId ? 'border-white/50 bg-white/10 text-white shadow-[0_0_16px_rgba(255,255,255,0.20)]' : selectedAssetId ? 'border-slate-800 text-slate-600 opacity-50' : 'border-slate-700 text-slate-300'}`}><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: asset.color, boxShadow: selectedAssetId === asset.assetId ? `0 0 12px ${asset.color}` : 'none' }}/>{asset.ticker}</button>)}
         </div>
-        <div className="h-[400px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData}><CartesianGrid strokeDasharray="3 3" opacity={0.18}/><XAxis dataKey="date" tick={{ fontSize: 9 }} minTickGap={28}/><YAxis tick={{ fontSize: 9 }}/><Tooltip formatter={(value: any, name: any) => [`${Number(value ?? 0).toFixed(2)} €`, name]}/><Line type="monotone" dataKey="patrimonio" name="Patrimonio total" dot={false} stroke="#f8fafc" strokeWidth={3}/><Line type="monotone" dataKey="cash" name={`Cash del motor · ${cashBenchmarkAnnualPct.toFixed(2)}% TAE`} dot={false} stroke="#38bdf8" strokeWidth={2.5}/><Line type="monotone" dataKey="cuenta" name={`100% en cuenta · ${cashBenchmarkAnnualPct.toFixed(2)}% TAE`} dot={false} stroke="#94a3b8" strokeDasharray="5 5" strokeOpacity={0.8}/>{assetLegend.map(asset => { const selected = selectedAssetId === asset.assetId; const dimmed = selectedAssetId != null && !selected; return <Line key={asset.assetId} type="monotone" dataKey={assetChartKeys.get(asset.assetId)!} name={`${asset.ticker} · posición`} dot={false} stroke={asset.color} strokeWidth={selected ? 4.5 : 2} strokeOpacity={dimmed ? 0.14 : 0.95} activeDot={{ r: selected ? 6 : 4 }}/>; })}</ComposedChart></ResponsiveContainer></div>
+        <div className="h-[400px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData}><CartesianGrid strokeDasharray="3 3" opacity={0.18}/><XAxis dataKey="date" tick={{ fontSize: 9 }} minTickGap={28}/><YAxis tick={{ fontSize: 9 }}/><Tooltip formatter={(value: any, name: any) => [`${Number(value ?? 0).toFixed(2)} €`, name]}/><Line type="monotone" dataKey="patrimonio" name="Patrimonio total" dot={false} stroke="#f8fafc" strokeWidth={3}/><Line type="monotone" dataKey="cash" name={`Cash del motor · ${replayCashLabel}`} dot={false} stroke="#38bdf8" strokeWidth={2.5}/><Line type="monotone" dataKey="cuenta" name={`100% en cuenta · ${replayCashLabel}`} dot={false} stroke="#94a3b8" strokeDasharray="5 5" strokeOpacity={0.8}/>{assetLegend.map(asset => { const selected = selectedAssetId === asset.assetId; const dimmed = selectedAssetId != null && !selected; return <Line key={asset.assetId} type="monotone" dataKey={assetChartKeys.get(asset.assetId)!} name={`${asset.ticker} · posición`} dot={false} stroke={asset.color} strokeWidth={selected ? 4.5 : 2} strokeOpacity={dimmed ? 0.14 : 0.95} activeDot={{ r: selected ? 6 : 4 }}/>; })}</ComposedChart></ResponsiveContainer></div>
       </div>
 
       {summary && <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-4">
