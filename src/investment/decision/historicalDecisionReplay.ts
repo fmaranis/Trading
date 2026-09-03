@@ -3,6 +3,7 @@ import type { AssetUniverseItem } from './assetUniverse';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
 import type { InvestmentHorizonYears, InvestorRiskProfile } from './types';
 import { allCashBenchmarkScenarioAfterTax } from './remuneratedCash';
+import { brokerCommission } from './costAwareExecutionPolicy';
 import {
   DEFAULT_CASH_BENCHMARK_ANNUAL_PCT,
   DEFAULT_REPLAY_CASH_BENCHMARK_MODE,
