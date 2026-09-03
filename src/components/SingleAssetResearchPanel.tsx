@@ -5,6 +5,7 @@ import type { PriceBar } from '../investment/backtesting/types';
 import { HistoricalMarketDataService } from '../investment/data/marketData/historicalMarketDataService';
 import { FundMarketDataService } from '../investment/data/marketData/fundMarketData';
 import { CashBenchmarkService, SingleAssetResearchEngine, type SingleAssetResearchFrequency, type SingleAssetResearchResult, type SingleAssetResearchSignal } from '../investment/decision';
+import { SingleAssetOperationFocus } from './SingleAssetOperationFocus';
 
 interface Props {
   requestedSymbol?: string | null;
@@ -261,9 +262,11 @@ const SingleAssetResearchPanelImpl: React.FC<Props> = ({ requestedSymbol, sugges
           <table className="w-full min-w-[820px] text-[10px]"><thead className="bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Ejecución</th><th className="p-2 text-left">Acción</th><th className="p-2 text-right">Precio</th><th className="p-2 text-right">Consenso</th><th className="p-2 text-left">Señal</th><th className="p-2 text-left">Motivo</th></tr></thead><tbody>{[...visibleSignals].reverse().map(signal => <tr key={signal.id} className="border-t border-slate-800"><td className="p-2 font-mono text-slate-300">{signal.executionDate}</td><td className={`p-2 font-black ${signal.action === 'BUY' ? 'text-emerald-300' : signal.action === 'ADD' ? 'text-cyan-300' : 'text-rose-300'}`}>{signal.action === 'SELL' ? 'SALIR/REDUCIR' : signal.action}</td><td className="p-2 text-right font-mono text-white">{signal.executionPrice.toFixed(2)}</td><td className="p-2 text-right font-mono">{signal.consensusScore >= 0 ? '+' : ''}{signal.consensusScore} · {signal.favorableVotes}/{signal.unfavorableVotes}</td><td className="p-2 font-mono text-slate-500">{signal.signalDate}</td><td className="max-w-[520px] p-2 text-slate-400">{signal.reason}</td></tr>)}</tbody></table>
           {visibleSignals.length === 0 && <div className="p-4 text-center text-[10px] text-slate-500">No hay BUY/ADD/SELL dentro del rango visible.</div>}
         </div>
+
+        <SingleAssetOperationFocus result={result}/>
       </div>
 
-      <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 text-[10px] text-sky-100">Este gráfico es investigación de un activo aislado. El zoom, SMA20/SMA50 y la tabla son capas visuales: no alteran señales, cartera ni reglas del motor.</div>
+      <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 text-[10px] text-sky-100">Este gráfico es investigación de un activo aislado. El zoom, SMA20/SMA50, la tabla y la vista centrada por operación son capas visuales: no alteran señales, cartera ni reglas del motor.</div>
     </>}
   </section>;
 };
