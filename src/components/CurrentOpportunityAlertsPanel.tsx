@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
-import { BellRing, BarChart3, CheckCircle2, Repeat2, ShieldAlert, Sparkles } from 'lucide-react';
+import { BellRing, BarChart3, CheckCircle2, Eye, Repeat2, ShieldAlert, Sparkles } from 'lucide-react';
 import {
   CashBenchmarkService,
   CurrentOpportunityAlertEngine,
-  PortfolioDecisionEngine,
+  evaluatePortfolioDecision,
   PortfolioRotationReviewEngine,
   resolveSecurityIsin,
   UserPortfolioService,
@@ -36,7 +36,7 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
   const cashBenchmark = CashBenchmarkService.load();
   const portfolio = UserPortfolioService.load();
   const alerts = useMemo(() => CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmark), [scan, decision.asOfDate, cashBenchmark]);
-  const portfolioDecision = useMemo(() => PortfolioDecisionEngine.evaluate({
+  const portfolioDecision = useMemo(() => evaluatePortfolioDecision({
     portfolio,
     scan,
     decision,
@@ -55,6 +55,7 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
   const fundedAlerts = alerts.filter(alert => contributionByAsset.has(alert.assetId));
   const unfundedAlerts = alerts.filter(alert => !contributionByAsset.has(alert.assetId));
   const structuralSales = positionHealth?.positions.filter(position => position.action === 'REDUCE' || position.action === 'EXIT') ?? [];
+  const watchPositions = positionHealth?.positions.filter(position => position.action === 'WATCH') ?? [];
   const buyAmount = portfolioDecision.recommendedNewInvestmentEur;
   const hasBuys = buyAmount > 0.01 && fundedAlerts.length > 0;
   const hasSales = structuralSales.length > 0;
@@ -85,6 +86,27 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
         </div>
         <div className="rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-right"><div className="text-[9px] uppercase text-slate-500">Dinero nuevo disponible</div><div className="mt-1 font-mono text-lg font-black text-white">{availableCapital.toFixed(2)} €</div><div className="text-[9px] text-slate-500">Pendiente recomendado: {buyAmount.toFixed(2)} €</div></div>
       </div>
+
+      <div className="mt-4 grid gap-2 md:grid-cols-3">
+        <div className="rounded-xl border border-emerald-500/20 bg-slate-950/40 p-3">
+          <div className="text-[9px] font-black uppercase tracking-wider text-emerald-300">Comprar ahora · {fundedAlerts.length}</div>
+          <div className="mt-2 flex flex-wrap gap-2">{fundedAlerts.length ? fundedAlerts.map(alert => {
+            const candidate = scan.candidates.find(row => row.asset.assetId === alert.assetId);
+            const isin = resolveSecurityIsin(alert.ticker, candidate?.asset.isin);
+            const inspectKey = candidate?.asset.instrumentType === 'MUTUAL_FUND' ? (isin ?? alert.ticker) : alert.ticker;
+            return <button key={alert.assetId} type="button" disabled={!onInspectAsset} onClick={() => onInspectAsset?.(inspectKey)} className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1.5 font-mono text-[10px] font-black text-emerald-100 disabled:cursor-default">{alert.ticker}</button>;
+          }) : <span className="text-[10px] text-slate-500">Ninguna compra supera todos los filtros.</span>}</div>
+        </div>
+        <div className="rounded-xl border border-amber-500/20 bg-slate-950/40 p-3">
+          <div className="text-[9px] font-black uppercase tracking-wider text-amber-300">Vigilar · {watchPositions.length}</div>
+          <div className="mt-2 flex flex-wrap gap-2">{watchPositions.length ? watchPositions.slice(0, 8).map(position => <button key={position.key} type="button" disabled={!onInspectAsset} onClick={() => onInspectAsset?.(position.tickerOrIsin)} title={position.reason} className="flex items-center gap-1 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 font-mono text-[10px] font-bold text-amber-100 disabled:cursor-default"><Eye className="h-3 w-3"/>{position.tickerOrIsin}</button>) : <span className="text-[10px] text-slate-500">Sin posiciones en WATCH.</span>}</div>
+        </div>
+        <div className="rounded-xl border border-slate-700 bg-slate-950/40 p-3">
+          <div className="text-[9px] font-black uppercase tracking-wider text-slate-300">No comprar / mantener cash</div>
+          <div className="mt-2 text-[10px] text-slate-500">{hasBuys ? 'El resto del capital no recomendado permanece en cash remunerado; no se fuerza otra compra.' : 'Hoy no existe una compra financiada que supere todos los gates de cartera.'}</div>
+        </div>
+      </div>
+      {onInspectAsset && <div className="mt-2 text-[9px] text-slate-500">Los tickers de Comprar y Vigilar abren directamente el estudio con gráfica y señales.</div>}
     </div>
 
     {hasBuys && <div className="mt-4">
