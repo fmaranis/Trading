@@ -17,6 +17,17 @@ export function calendarDaysBetween(fromDate: string, toDate: string): number {
   return Math.max(0, days);
 }
 
+function taxYearBoundariesBetween(fromDate: string, toDate: string): string[] {
+  const startYear = Number(fromDate.slice(0, 4));
+  const endYear = Number(toDate.slice(0, 4));
+  const out: string[] = [];
+  for (let year = startYear + 1; year <= endYear; year++) {
+    const boundary = `${year}-01-01`;
+    if (boundary > fromDate && boundary < toDate) out.push(boundary);
+  }
+  return out;
+}
+
 export function remuneratedCashGrowthFactor(annualPct: number, fromDate: string, toDate: string, dayCount = DEFAULT_CASH_DAY_COUNT): number {
   const rate = Number.isFinite(annualPct) ? Math.max(0, annualPct) / 100 : 0;
   if (rate === 0) return 1;
@@ -33,23 +44,32 @@ export function accrueRemuneratedCash(cashEur: number, annualPct: number, fromDa
   return { cashEur: next, interestEur: next - cashEur, days };
 }
 
+export interface RemuneratedCashScenarioSegment {
+  fromDate: string;
+  toDate: string;
+  annualPct: number;
+  interestEur: number;
+}
+
+function scenarioBoundaries(mode: CashBenchmarkMode, fromDate: string, toDate: string): string[] {
+  const rateChanges = mode === 'HISTORICAL_ECB_DFR_FLOOR_0' ? cashBenchmarkChangeDatesBetween(fromDate, toDate) : [];
+  return [...new Set([fromDate, ...rateChanges, ...taxYearBoundariesBetween(fromDate, toDate), toDate])].sort();
+}
+
 export function accrueRemuneratedCashScenario(input: {
   cashEur: number;
   mode: CashBenchmarkMode;
   fixedAnnualPct: number;
   fromDate: string;
   toDate: string;
-}): { cashEur: number; interestEur: number; days: number; segments: Array<{ fromDate: string; toDate: string; annualPct: number; interestEur: number }> } {
+}): { cashEur: number; interestEur: number; days: number; segments: RemuneratedCashScenarioSegment[] } {
   if (!(input.cashEur >= 0)) throw new Error('El efectivo remunerado no puede partir de saldo negativo.');
   const days = calendarDaysBetween(input.fromDate, input.toDate);
   if (days === 0) return { cashEur: input.cashEur, interestEur: 0, days: 0, segments: [] };
 
-  const boundaries = input.mode === 'HISTORICAL_ECB_DFR_FLOOR_0'
-    ? [input.fromDate, ...cashBenchmarkChangeDatesBetween(input.fromDate, input.toDate), input.toDate]
-    : [input.fromDate, input.toDate];
-
+  const boundaries = scenarioBoundaries(input.mode, input.fromDate, input.toDate);
   let cashEur = input.cashEur;
-  const segments: Array<{ fromDate: string; toDate: string; annualPct: number; interestEur: number }> = [];
+  const segments: RemuneratedCashScenarioSegment[] = [];
   for (let index = 0; index < boundaries.length - 1; index++) {
     const fromDate = boundaries[index];
     const toDate = boundaries[index + 1];
@@ -59,6 +79,45 @@ export function accrueRemuneratedCashScenario(input: {
     cashEur = accrued.cashEur;
   }
   return { cashEur, interestEur: cashEur - input.cashEur, days, segments };
+}
+
+export function accrueRemuneratedCashScenarioAfterTax(input: {
+  cashEur: number;
+  mode: CashBenchmarkMode;
+  fixedAnnualPct: number;
+  fromDate: string;
+  toDate: string;
+  taxOnInterest: (grossInterestEur: number, taxDate: string) => number;
+}): {
+  cashEur: number;
+  grossInterestEur: number;
+  taxEur: number;
+  netInterestEur: number;
+  days: number;
+  segments: Array<RemuneratedCashScenarioSegment & { taxEur: number; netInterestEur: number }>;
+} {
+  if (!(input.cashEur >= 0)) throw new Error('El efectivo remunerado no puede partir de saldo negativo.');
+  const days = calendarDaysBetween(input.fromDate, input.toDate);
+  if (days === 0) return { cashEur: input.cashEur, grossInterestEur: 0, taxEur: 0, netInterestEur: 0, days: 0, segments: [] };
+
+  const boundaries = scenarioBoundaries(input.mode, input.fromDate, input.toDate);
+  let cashEur = input.cashEur;
+  let grossInterestEur = 0;
+  let taxEur = 0;
+  const segments: Array<RemuneratedCashScenarioSegment & { taxEur: number; netInterestEur: number }> = [];
+  for (let index = 0; index < boundaries.length - 1; index++) {
+    const fromDate = boundaries[index];
+    const toDate = boundaries[index + 1];
+    const annualPct = resolveCashBenchmarkAnnualPct({ mode: input.mode, fixedAnnualPct: input.fixedAnnualPct, date: fromDate });
+    const accrued = accrueRemuneratedCash(cashEur, annualPct, fromDate, toDate);
+    const segmentTax = Math.min(accrued.interestEur, Math.max(0, input.taxOnInterest(accrued.interestEur, toDate)));
+    const netInterestEur = accrued.interestEur - segmentTax;
+    cashEur += netInterestEur;
+    grossInterestEur += accrued.interestEur;
+    taxEur += segmentTax;
+    segments.push({ fromDate, toDate, annualPct, interestEur: accrued.interestEur, taxEur: segmentTax, netInterestEur });
+  }
+  return { cashEur, grossInterestEur, taxEur, netInterestEur: grossInterestEur - taxEur, days, segments };
 }
 
 export function allCashBenchmark(initialCapitalEur: number, annualPct: number, fromDate: string, toDate: string): { finalEur: number; returnPct: number; interestEur: number } {
@@ -76,7 +135,7 @@ export function allCashBenchmarkScenario(input: {
   fixedAnnualPct: number;
   fromDate: string;
   toDate: string;
-}): { finalEur: number; returnPct: number; interestEur: number; segments: Array<{ fromDate: string; toDate: string; annualPct: number; interestEur: number }> } {
+}): { finalEur: number; returnPct: number; interestEur: number; segments: RemuneratedCashScenarioSegment[] } {
   const accrued = accrueRemuneratedCashScenario({
     cashEur: input.initialCapitalEur,
     mode: input.mode,
@@ -89,5 +148,30 @@ export function allCashBenchmarkScenario(input: {
     returnPct: input.initialCapitalEur > 0 ? (accrued.cashEur / input.initialCapitalEur - 1) * 100 : 0,
     interestEur: accrued.interestEur,
     segments: accrued.segments
+  };
+}
+
+export function allCashBenchmarkScenarioAfterTax(input: {
+  initialCapitalEur: number;
+  mode: CashBenchmarkMode;
+  fixedAnnualPct: number;
+  fromDate: string;
+  toDate: string;
+  taxOnInterest: (grossInterestEur: number, taxDate: string) => number;
+}): { finalEur: number; returnPct: number; grossInterestEur: number; taxEur: number; netInterestEur: number } {
+  const accrued = accrueRemuneratedCashScenarioAfterTax({
+    cashEur: input.initialCapitalEur,
+    mode: input.mode,
+    fixedAnnualPct: input.fixedAnnualPct,
+    fromDate: input.fromDate,
+    toDate: input.toDate,
+    taxOnInterest: input.taxOnInterest
+  });
+  return {
+    finalEur: accrued.cashEur,
+    returnPct: input.initialCapitalEur > 0 ? (accrued.cashEur / input.initialCapitalEur - 1) * 100 : 0,
+    grossInterestEur: accrued.grossInterestEur,
+    taxEur: accrued.taxEur,
+    netInterestEur: accrued.netInterestEur
   };
 }
