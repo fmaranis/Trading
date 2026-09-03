@@ -142,6 +142,10 @@ function maxNewPositionsPerDecision(risk: InvestmentDecisionResult['riskProfile'
   return risk === 'LOW' ? 1 : risk === 'HIGH' ? 3 : 2;
 }
 
+function maxBootstrapNewPositionsPerDecision(risk: InvestmentDecisionResult['riskProfile']): number {
+  return risk === 'LOW' ? 2 : risk === 'HIGH' ? 5 : 4;
+}
+
 function starterPortfolioShare(risk: InvestmentDecisionResult['riskProfile'], timingState: CurrentOpportunityAlert['timingState']): number {
   if (risk === 'LOW') return timingState === 'ENTRY_READY' ? 0.02 : 0.035;
   if (risk === 'HIGH') return timingState === 'ENTRY_READY' ? 0.04 : 0.07;
@@ -170,6 +174,7 @@ const ROTATION_PERSISTENCE_LOOKBACK_SESSIONS = 10;
 const ROTATION_MIN_PRIOR_STRONG_OBSERVATIONS = 3;
 const SYSTEMIC_DISTRESS_MIN_POSITIONS = 3;
 const SYSTEMIC_DISTRESS_MIN_FRACTION = 0.50;
+const BOOTSTRAP_INVESTED_SHARE_THRESHOLD = 0.50;
 
 function incumbentSelectionScore(candidate: AssetUniverseScanResult['candidates'][number] | undefined, health: PortfolioPositionHealthSnapshot | undefined): number | null {
   if (!candidate || candidate.score == null || !Number.isFinite(candidate.score)) return null;
@@ -417,6 +422,16 @@ export class PortfolioDecisionEngine {
     const maxPortfolioPositions = maxPortfolioPositionsForRisk(decision.riskProfile);
     const occupiedPortfolioPositions = existingPositions.filter(row => (row.currentValueEur ?? 0) > 0).length;
     const availablePortfolioSlots = Math.max(0, maxPortfolioPositions - occupiedPortfolioPositions);
+    const investedShareOfPlanned = totalPlannedCapitalEur > 0 ? currentInvestedValueEur / totalPlannedCapitalEur : 0;
+    const bootstrapDeploymentActive =
+      !hasMissingValuation
+      && !systemicStress
+      && availablePortfolioSlots > 0
+      && investedShareOfPlanned < BOOTSTRAP_INVESTED_SHARE_THRESHOLD
+      && baseDeployableToAssetsEur >= executionPolicy.minimumOrderNotionalEur - 1e-9;
+    const newPositionDecisionLimit = bootstrapDeploymentActive
+      ? maxBootstrapNewPositionsPerDecision(decision.riskProfile)
+      : maxNewPositionsPerDecision(decision.riskProfile);
 
     // A full-slot competitive replacement requires evidence that the challenger was
     // already strong before today. ENTRY_STRONG remains a fast entry-timing signal for
@@ -525,7 +540,7 @@ export class PortfolioDecisionEngine {
       let allocatedBaseEur = 0;
       let allocatedRotationEur = 0;
       let newPositionsAllocated = 0;
-      const newPositionBudget = Math.min(effectiveNewSlots, maxNewPositionsPerDecision(decision.riskProfile));
+      const newPositionBudget = Math.min(effectiveNewSlots, newPositionDecisionLimit);
 
       const allocated = priorities.map<ContributionRecommendation | null>(({ alert, priority }) => {
         const asset = assets.get(alert.assetId) ?? assets.get(alert.ticker.toUpperCase());
@@ -633,7 +648,8 @@ export class PortfolioDecisionEngine {
     if (systemicStress) warnings.push(`Estrés sistémico de cartera: ${systemicDistressedCount}/${systemicHealthRows.length} posiciones observadas tienen consenso ≤-3 y ≥3 señales adversas. Los EXIT estructurales se convierten temporalmente en WATCH o REDUCE hasta el núcleo ENTRY_READY (${(systemicCoreShare * 100).toFixed(1)}%); se bloquea la rotación competitiva mientras persista esta amplitud.`);
     if (exposures.some(x => x.gapEur < -0.01)) warnings.push('Una sobreponderación por sí sola NO genera una venta. REDUCE/EXIT proceden de salud o de una rotación challenger/incumbent con ventaja material; nunca de peso aislado.');
     if (existingPositions.some(x => x.category === 'UNKNOWN' && x.currentValueEur != null)) warnings.push('Hay posiciones fuera del universo clasificado que se valoran y vigilan individualmente; no se inventa una categoría para forzar su peso objetivo.');
-    warnings.push(`Cartera dinámica: máximo ${maxPortfolioPositions} plazas para riesgo ${decision.riskProfile}; ocupadas ${occupiedPortfolioPositions}, libres ${availablePortfolioSlots}. Nuevas plazas por evaluación: máximo ${maxNewPositionsPerDecision(decision.riskProfile)}.`);
+    warnings.push(`Cartera dinámica: máximo ${maxPortfolioPositions} plazas para riesgo ${decision.riskProfile}; ocupadas ${occupiedPortfolioPositions}, libres ${availablePortfolioSlots}. Nuevas plazas por evaluación: máximo ${newPositionDecisionLimit}.`);
+    if (bootstrapDeploymentActive) warnings.push(`Despliegue inicial diversificado activo: la cartera está ${(investedShareOfPlanned * 100).toFixed(1)}% invertida (<${(BOOTSTRAP_INVESTED_SHARE_THRESHOLD * 100).toFixed(0)}%). Se amplía sólo el número de starters simultáneos; no cambian los caps individuales, el cash objetivo, consenso, timing, costes ni límites de categoría.`);
     warnings.push(`Sizing por etapas: ENTRY_READY/ENTRY_STRONG abren starters pequeños; en riesgo ${decision.riskProfile} los caps son ${(starterPortfolioShare(decision.riskProfile, 'ENTRY_READY') * 100).toFixed(1)}% / ${(starterPortfolioShare(decision.riskProfile, 'ENTRY_STRONG') * 100).toFixed(1)}%. Sólo una posición ya confirmada como ADD y todavía ENTRY_STRONG puede construir hasta ${(buildPortfolioShare(decision.riskProfile) * 100).toFixed(1)}%.`);
     warnings.push(`Persistencia de rotación: un challenger que quiera expulsar un incumbent debe ser ENTRY_STRONG hoy y haber sido ENTRY_STRONG al menos ${ROTATION_MIN_PRIOR_STRONG_OBSERVATIONS} veces en las ${ROTATION_PERSISTENCE_LOOKBACK_SESSIONS} sesiones previas. Esta exigencia no se aplica a entradas normales con cash/plaza libre.`);
     if (rotationActions > 0) warnings.push(`Rotación competitiva persistente 1:1 activa: ${rotationActions} incumbent(s) liberan realmente su plaza para challenger(s) con fuerza reciente repetida y ventaja material. Proceeds teóricos liberados: ${plannedRotationProceedsEur.toFixed(2)} €; la ejecución real sigue sujeta a comisión, fiscalidad y efectivo realmente obtenido.`);
