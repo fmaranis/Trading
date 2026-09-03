@@ -77,10 +77,12 @@ requireText(health, 'TaxLotLedgerService.lots(input.ticker)', 'LIVE_LISTED_HEALT
 requireText(health, 'PortfolioExecutionHistoryService.load()', 'LIVE_HEALTH_MUST_REBASE_FROM_EXECUTION_HISTORY');
 requireText(health, 'POSITION_COST_BASIS_INCOMPLETE', 'MISSING_COST_BASIS_MUST_BE_EXPLICIT');
 
-// Autonomous entry alerts are event-driven: do not send the same HIGH/GOOD state every day.
+// Autonomous entry alerts are event-driven and are only marked notified after successful delivery.
 requireText(alertAutomation, 'function newOpportunityEvents(', 'ALERT_EVENT_DIFF_MISSING');
 requireText(alertAutomation, "kind: 'CURRENT_ENTRY_OPPORTUNITY_EVENTS'", 'ALERT_EVENT_PAYLOAD_MISSING');
-requireText(alertAutomation, 'levelRank(alert) > levelRank(before)', 'ALERT_ESCALATION_RULE_MISSING');
+requireText(alertAutomation, 'levelRank(alert.level) > levelRank(previousNotified[alert.assetId])', 'ALERT_ESCALATION_RULE_MISSING');
 requireText(alertAutomation, 'if (events.length > 0)', 'ALERTS_MUST_ONLY_NOTIFY_NEW_EVENTS');
+requireText(alertAutomation, 'const deliveredEvents = notificationSent ? events : [];', 'FAILED_WEBHOOK_MUST_NOT_MARK_EVENT_DELIVERED');
+requireText(alertAutomation, 'lastNotifiedActionableLevels: nextNotifiedLevels(', 'ALERT_DEDUPE_STATE_MUST_TRACK_DELIVERED_EVENTS');
 
 console.log('DECISION_ARCHITECTURE_PARITY_PASS');
