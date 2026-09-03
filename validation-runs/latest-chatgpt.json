@@ -3,13 +3,13 @@
     "format": "TRADING_HISTORICAL_REPLAY_AUDIT",
     "schemaVersion": 1,
     "replayStorageVersion": 3,
-    "exportedAt": "2026-09-03T21:08:22.426Z",
+    "exportedAt": "2026-09-03T21:21:31.446Z",
     "source": "fmaranis/Trading · Replay histórico auditado",
     "note": "JSON de auditoría directamente legible por ChatGPT. El replay completo se publica también como JSON normal en sourceFullReplayPath.",
-    "publishedAt": "2026-09-03T21:08:23.610Z",
+    "publishedAt": "2026-09-03T21:21:32.360Z",
     "githubStorageFormat": "plain-json",
     "readableAuditVersion": 1,
-    "generatedAt": "2026-09-03T21:08:23.626Z",
+    "generatedAt": "2026-09-03T21:21:32.378Z",
     "sourceFullReplayPath": "validation-runs/latest-chatgpt-full.json",
     "diagnosticSignalPolicy": "executed + BUY/ADD/REDUCE/EXIT + diagnostic WATCH + CORE_GATE_V1/ROTATION_CF_V1 markers"
   },
@@ -42,7 +42,33 @@
       "timingStateCounts": {
         "WAIT": 1911,
         "ENTRY_READY": 744,
-        "ENTRY_STRONG": 314
+        "ENTRY_STRONG": 314,
+        "checkpointExecutionAuditTrail": [
+          {
+            "requestedEndDate": "2026-07-01",
+            "effectiveEndDate": "2026-07-01",
+            "checkpointExecutionMode": "LEGACY_EXACT",
+            "checkpointProjectionParity": "FIELD_finalValueEur"
+          },
+          {
+            "requestedEndDate": "2026-07-31",
+            "effectiveEndDate": "2026-07-31",
+            "checkpointExecutionMode": "LEGACY_EXACT",
+            "checkpointProjectionParity": "DISABLED_AFTER_PARITY_MISMATCH"
+          },
+          {
+            "requestedEndDate": "2026-08-30",
+            "effectiveEndDate": "2026-08-28",
+            "checkpointExecutionMode": "LEGACY_EXACT",
+            "checkpointProjectionParity": "DISABLED_AFTER_PARITY_MISMATCH"
+          },
+          {
+            "requestedEndDate": "2026-09-01",
+            "effectiveEndDate": "2026-08-31",
+            "checkpointExecutionMode": "LEGACY_EXACT",
+            "checkpointProjectionParity": "DISABLED_AFTER_PARITY_MISMATCH"
+          }
+        ]
       },
       "deploymentHorizons": [
         {
