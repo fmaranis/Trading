@@ -218,3 +218,54 @@ Cuando el motor quede cerrado:
 2. Si PASS, comprobar visualmente que editar la TAE superior sincroniza el control técnico, recalcula gates y actualiza la tarjeta `Decisión CASH`.
 3. No repetir todavía replays económicos: esta fase no cambia el motor productivo.
 4. Después decidir el siguiente bloque económico por separado: curva histórica de `cashRate(date)` + fiscalidad del interés, o el A/B causal limpio `CURRENT + STRATEGIC_CORE_HOLD` frente a CURRENT/V2.
+
+---
+
+# CIERRE DE PARIDAD DEL MOTOR VIGENTE — 2026-09-04
+
+Esta sección sustituye la “Próxima acción” anterior para el estado actual.
+
+## Decisión
+**FASE CERRADA.** No seguir refactorizando ni recalibrando el motor vigente salvo bug reproducible o regresión numérica.
+
+## Arquitectura validada
+- Entrada productiva: `decisionMain.tsx` / centro integrado.
+- Estudio actual y replay comparten scanner, `PortfolioCandidateGate` e `InvestmentDecisionEngine`.
+- Señales actuales son una vista del mismo gate + `StrategyConsensusEngine` + `EntryTimingEngine`; no constituyen un motor financiero alternativo.
+- `CORE_GATE_V1` tiene una única implementación compartida por replay y cartera real.
+- Replay y cartera real usan el mismo `classifyPositionHealth` para HOLD/ADD/WATCH/REDUCE/EXIT.
+- La cartera real reconstruye retorno/MFE/giveback con lotes fiscales e historial de ejecuciones cuando el coste está completo; si falta, se declara `POSITION_COST_BASIS_INCOMPLETE` y no se inventan datos.
+- `TREND_PROTECTION_V2` permanece contrafactual/experimental; no se promociona en este cierre.
+- `tests/decisionArchitectureParity.unit.ts` protege el cableado para impedir divergencias silenciosas futuras.
+
+## Regresión de cierre
+Replay REAL auditado:
+- 2026-06-01 → 2026-08-31.
+- DAILY · AUTO · 3 meses · chunks 30 días · capital inicial 13.000 €.
+- Cash: `HISTORICAL_ECB_DFR_FLOOR_0`.
+- Valor final: **13.193,530595 €**.
+- Rentabilidad: **+1,488696885 %**.
+- Máximo drawdown: **0,775077842 %**.
+- Exact hold: 13.119,751952 € / +0,921168859 %.
+- Ventaja frente a exact hold: **+73,778643 € / +0,567528027 pp**.
+- Ejecuciones: **25 = 12 BUY + 13 ADD**.
+- Comisiones: 20 €.
+- Fiscalidad estimada: 0,742059737 €.
+- Señales persistidas compactadas: 928; señales diagnósticas: 28.
+
+El resultado coincide con la referencia previa de 3 meses. La compactación y la unificación arquitectónica no alteran el resultado económico de esta regresión.
+
+## Publicación de replays para ChatGPT
+La app publica resultados legibles en la rama `replay-results`:
+- `validation-runs/latest-chatgpt.json`: resumen/auditoría legible.
+- `validation-runs/latest-chatgpt-full.json`: replay completo.
+- `validation-runs/archive-chatgpt/<timestamp>__<start>__<end>.json`: histórico legible; máximo 10 pruebas.
+
+Flujo habitual: el usuario puede decir **“revisa las últimas pruebas”** y ChatGPT debe leer primero `replay-results:validation-runs/latest-chatgpt.json`, usando el full sólo cuando haga falta detalle adicional.
+
+## Regla operativa desde ahora
+- Replays largos y cálculos: los ejecuta la propia app/motor local; **no consumir tokens de AI Studio para calcularlos**.
+- No GitHub Actions.
+- No abrir una nueva ronda de estrategia por una diferencia menor aislada.
+- Los benchmarks de referencia quedan congelados para detectar regresiones, no para recalibrar thresholds.
+- Siguiente trabajo: UX/gráficas o uso piloto/real. Cualquier nueva mejora económica se trata como bloque separado, con hipótesis explícita y holdout independiente.
