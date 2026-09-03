@@ -1,9 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart3, ChevronDown, CircleDollarSign, Radar, RefreshCw } from 'lucide-react';
+import { BarChart3, ChevronDown, Radar, RefreshCw } from 'lucide-react';
 import {
   AssetUniverseScanner,
-  CASH_BENCHMARK_UPDATED_EVENT,
-  CashBenchmarkService,
   EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   EUR_VALIDATION_HOLDOUT_UNIVERSE,
   type AssetScanCandidate,
@@ -13,13 +11,11 @@ import {
 import { SingleAssetResearchPanel } from './SingleAssetResearchPanel';
 import { HistoricalReplayProgressivePanel } from './HistoricalReplayProgressivePanel';
 import { HistoricalAuditJsonControls } from './HistoricalAuditJsonControls';
-import { RemuneratedCashTrajectoryPanel } from './RemuneratedCashTrajectoryPanel';
 
 interface Props { scan: AssetUniverseScanResult; decision: InvestmentDecisionResult; requestedSymbol?: string | null; }
 type RankingMode = 'OPPORTUNITY' | 'MOMENTUM' | 'SAFETY' | 'PUNISHED';
 
 const HISTORICAL_AUDIT_STORAGE_KEY = 'historical_progressive_audit_v3';
-const HISTORICAL_AUDIT_LEGACY_STORAGE_KEY = 'historical_progressive_audit_v2';
 
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function fiveYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 5); return isoDate(d); }
@@ -68,7 +64,6 @@ export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision, request
   const [externalLoading, setExternalLoading] = useState(false);
   const [externalError, setExternalError] = useState<string | null>(null);
   const [historicalReplayMountKey, setHistoricalReplayMountKey] = useState(0);
-  const [cashBenchmarkAnnualPct, setCashBenchmarkAnnualPct] = useState(() => CashBenchmarkService.load());
 
   const productionTickers = useMemo(() => new Set(EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(item => item.ticker.toUpperCase())), []);
   const researchCatalog = useMemo(() => {
@@ -83,12 +78,6 @@ export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision, request
   useEffect(() => {
     if (requestedSymbol?.trim()) setSelectedSymbol(requestedSymbol.trim().toUpperCase());
   }, [requestedSymbol]);
-
-  useEffect(() => {
-    const syncCashBenchmark = () => setCashBenchmarkAnnualPct(CashBenchmarkService.load());
-    window.addEventListener(CASH_BENCHMARK_UPDATED_EVENT, syncCashBenchmark as EventListener);
-    return () => window.removeEventListener(CASH_BENCHMARK_UPDATED_EVENT, syncCashBenchmark as EventListener);
-  }, []);
 
   const loadExternalScan = async () => {
     if (externalLoading || externalScan) return;
@@ -128,12 +117,6 @@ export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision, request
     window.setTimeout(() => document.getElementById('single-asset-research')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   };
 
-  const resetHistoricalReplayForCurrentCashRate = () => {
-    window.localStorage.removeItem(HISTORICAL_AUDIT_STORAGE_KEY);
-    window.localStorage.removeItem(HISTORICAL_AUDIT_LEGACY_STORAGE_KEY);
-    setHistoricalReplayMountKey(value => value + 1);
-  };
-
   return <div className="space-y-5">
     <section className="rounded-2xl border border-violet-500/25 bg-gradient-to-br from-violet-950/35 via-slate-900 to-slate-950 p-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -167,13 +150,13 @@ export const InvestmentResearchLab: React.FC<Props> = ({ scan, decision, request
 
         <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800"><table className="w-full min-w-[820px] text-xs"><thead className="bg-slate-950 text-slate-500"><tr><th className="p-3 text-left">#</th><th className="p-3 text-left">Valor</th><th className="p-3 text-left">Uso</th><th className="p-3 text-left">Categoría</th><th className="p-3 text-right">Mom. 120d</th><th className="p-3 text-right">Vol.</th><th className="p-3 text-right">DD máx.</th><th className="p-3 text-right">Score</th><th className="p-3"></th></tr></thead><tbody>{visible.map((c, i) => {
           const production = productionTickers.has(c.asset.ticker.toUpperCase());
-          return <tr key={c.asset.assetId} className="border-t border-slate-800"><td className="p-3 text-slate-500">{i + 1}</td><td className="p-3"><b className="font-mono text-white">{c.asset.ticker}</b>{c.asset.isin && <div className="font-mono text-[9px] text-cyan-400">{c.asset.isin}</div>}<div className="max-w-[240px] truncate text-[9px] text-slate-500">{c.asset.name}</div></td><td className="p-3"><span className={`rounded-full border px-2 py-1 text-[8px] font-black ${production ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-violet-500/30 bg-violet-500/10 text-violet-200'}`}>{production ? 'CARTERA' : 'VALIDACIÓN EXTERNA'}</span></td><td className="p-3 text-slate-400">{c.asset.category}</td><td className={`p-3 text-right font-mono ${(c.momentum120Pct ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{c.momentum120Pct?.toFixed(1) ?? 'N/D'}%</td><td className="p-3 text-right font-mono">{c.annualizedVolatilityPct?.toFixed(1) ?? 'N/D'}%</td><td className="p-3 text-right font-mono text-amber-200">{c.maxDrawdownPct?.toFixed(1) ?? 'N/D'}%</td><td className="p-3 text-right font-mono">{c.score?.toFixed(2) ?? 'N/D'}</td><td className="p-3 text-right"><button onClick={() => openAsset(c.asset.ticker)} className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5 text-[10px] font-bold text-cyan-200">Analizar</button></td></tr>;
+          return <tr key={c.asset.assetId} className="border-t border-slate-800"><td className="p-3 text-slate-500">{i + 1}</td><td className="p-3"><b className="font-mono text-white">{c.asset.ticker}</b>{c.asset.isin && <div className="font-mono text-[9px] text-cyan-400">ISIN {c.asset.isin}</div>}<div className="max-w-[240px] truncate text-[9px] text-slate-500">{c.asset.name}</div></td><td className="p-3"><span className={`rounded-full border px-2 py-1 text-[8px] font-black ${production ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-violet-500/30 bg-violet-500/10 text-violet-200'}`}>{production ? 'CARTERA' : 'VALIDACIÓN EXTERNA'}</span></td><td className="p-3 text-slate-400">{c.asset.category}</td><td className={`p-3 text-right font-mono ${(c.momentum120Pct ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{c.momentum120Pct?.toFixed(1) ?? 'N/D'}%</td><td className="p-3 text-right font-mono">{c.annualizedVolatilityPct?.toFixed(1) ?? 'N/D'}%</td><td className="p-3 text-right font-mono text-amber-200">{c.maxDrawdownPct?.toFixed(1) ?? 'N/D'}%</td><td className="p-3 text-right font-mono">{c.score?.toFixed(2) ?? 'N/D'}</td><td className="p-3 text-right"><button onClick={() => openAsset(c.asset.ticker)} className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 px-3 py-1.5 text-[10px] font-bold text-cyan-200">Analizar</button></td></tr>;
         })}</tbody></table></div>
         {ranking.length > 10 && <button onClick={() => setShowAll(v => !v)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300"><ChevronDown className={`h-4 w-4 transition-transform ${showAll ? 'rotate-180' : ''}`}/>{showAll ? 'Mostrar solo los 10 primeros' : `Ver los ${ranking.length} instrumentos válidos`}</button>}
         <div className="mt-3 text-[10px] text-slate-500"><b className="text-emerald-300">CARTERA</b> puede competir en “Qué haría hoy”. <b className="text-violet-300">VALIDACIÓN EXTERNA</b> sigue fuera de producción aunque se muestre en este mismo espacio de estudio.</div>
       </div>
     </section>
 
-    <details className="rounded-2xl border border-indigo-500/20 bg-slate-900 p-4"><summary className="cursor-pointer list-none"><div className="font-bold text-white">Validación histórica auditada</div><div className="mt-1 text-[10px] text-slate-500">Una sola herramienta histórica: trayectoria, decisiones, operaciones, fiscalidad, comparación contra mantener y análisis por posición.</div></summary><div className="mt-4"><div className="mb-3 rounded-xl border border-sky-500/25 bg-sky-500/5 p-3"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2 text-xs font-bold text-sky-100"><CircleDollarSign className="h-4 w-4"/>Escenario CASH del replay: {cashBenchmarkAnnualPct.toFixed(2)}% TAE constante</div><div className="mt-1 text-[9px] text-slate-400">El replay progresivo remunera el efectivo libre con esta TAE durante toda la ventana. Es un escenario contrafactual constante; todavía no reconstruye la remuneración bancaria histórica año a año.</div><div className="mt-1 text-[9px] text-amber-300/80">Los replays guardados antes de este control no identificaban la TAE dentro de su configuración. Antes de comparar una TAE distinta, reinicia la sesión para no mezclar checkpoints.</div></div><button type="button" onClick={resetHistoricalReplayForCurrentCashRate} className="shrink-0 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[10px] font-bold text-sky-100">Reiniciar replay con esta TAE</button></div></div><HistoricalAuditJsonControls onImported={() => setHistoricalReplayMountKey(value => value + 1)}/><div className="mt-3"><RemuneratedCashTrajectoryPanel mode="REPLAY" /></div><HistoricalReplayProgressivePanel key={historicalReplayMountKey} capitalEur={decision.capitalEur} riskProfile={decision.riskProfile} horizonYears={decision.horizonYears}/></div></details>
+    <details className="rounded-2xl border border-indigo-500/20 bg-slate-900 p-4"><summary className="cursor-pointer list-none"><div className="font-bold text-white">Validación histórica auditada</div><div className="mt-1 text-[10px] text-slate-500">Una sola herramienta histórica: trayectoria, decisiones, operaciones, fiscalidad, comparación contra mantener y análisis por posición.</div></summary><div className="mt-4"><HistoricalAuditJsonControls onImported={() => setHistoricalReplayMountKey(value => value + 1)}/><HistoricalReplayProgressivePanel key={historicalReplayMountKey} capitalEur={decision.capitalEur} riskProfile={decision.riskProfile} horizonYears={decision.horizonYears}/></div></details>
   </div>;
 };
