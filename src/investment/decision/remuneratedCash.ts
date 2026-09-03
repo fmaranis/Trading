@@ -1,8 +1,15 @@
 import {
+  activeReplayCashContextSnapshot,
+  activeReplayCashTaxSettings,
+  activeReplaySavingsIncomeBeforeCurrentYear,
   cashBenchmarkChangeDatesBetween,
+  isReplayCashContextActive,
+  recordActiveReplayCashInterest,
   resolveCashBenchmarkAnnualPct,
+  setActiveReplayCashDate,
   type CashBenchmarkMode
 } from './cashBenchmark';
+import { estimateSpanishTaxOnCashInterest } from './spanishTaxModel';
 
 export const DEFAULT_CASH_DAY_COUNT = 365;
 
@@ -36,12 +43,38 @@ export function remuneratedCashGrowthFactor(annualPct: number, fromDate: string,
   return Math.pow(1 + rate, days / dayCount);
 }
 
-export function accrueRemuneratedCash(cashEur: number, annualPct: number, fromDate: string, toDate: string): { cashEur: number; interestEur: number; days: number } {
+function accrueFixedRemuneratedCash(cashEur: number, annualPct: number, fromDate: string, toDate: string): { cashEur: number; interestEur: number; days: number } {
   if (!(cashEur >= 0)) throw new Error('El efectivo remunerado no puede partir de saldo negativo.');
   const days = calendarDaysBetween(fromDate, toDate);
   const factor = remuneratedCashGrowthFactor(annualPct, fromDate, toDate);
   const next = cashEur * factor;
   return { cashEur: next, interestEur: next - cashEur, days };
+}
+
+export function accrueRemuneratedCash(cashEur: number, annualPct: number, fromDate: string, toDate: string): { cashEur: number; interestEur: number; days: number } {
+  if (!isReplayCashContextActive()) return accrueFixedRemuneratedCash(cashEur, annualPct, fromDate, toDate);
+  const context = activeReplayCashContextSnapshot();
+  const taxSettings = activeReplayCashTaxSettings();
+  if (!context || !taxSettings) return accrueFixedRemuneratedCash(cashEur, annualPct, fromDate, toDate);
+  const accrued = accrueRemuneratedCashScenarioAfterTax({
+    cashEur,
+    mode: context.mode,
+    fixedAnnualPct: context.fixedAnnualPct,
+    fromDate,
+    toDate,
+    taxOnInterest: (grossInterestEur, taxDate) => {
+      setActiveReplayCashDate(taxDate);
+      const tax = estimateSpanishTaxOnCashInterest(
+        grossInterestEur,
+        taxSettings,
+        activeReplaySavingsIncomeBeforeCurrentYear()
+      ).estimatedTaxEur;
+      recordActiveReplayCashInterest(grossInterestEur, tax, taxDate);
+      return tax;
+    }
+  });
+  setActiveReplayCashDate(toDate);
+  return { cashEur: accrued.cashEur, interestEur: accrued.grossInterestEur, days: accrued.days };
 }
 
 export interface RemuneratedCashScenarioSegment {
@@ -74,7 +107,7 @@ export function accrueRemuneratedCashScenario(input: {
     const fromDate = boundaries[index];
     const toDate = boundaries[index + 1];
     const annualPct = resolveCashBenchmarkAnnualPct({ mode: input.mode, fixedAnnualPct: input.fixedAnnualPct, date: fromDate });
-    const accrued = accrueRemuneratedCash(cashEur, annualPct, fromDate, toDate);
+    const accrued = accrueFixedRemuneratedCash(cashEur, annualPct, fromDate, toDate);
     segments.push({ fromDate, toDate, annualPct, interestEur: accrued.interestEur });
     cashEur = accrued.cashEur;
   }
@@ -109,7 +142,7 @@ export function accrueRemuneratedCashScenarioAfterTax(input: {
     const fromDate = boundaries[index];
     const toDate = boundaries[index + 1];
     const annualPct = resolveCashBenchmarkAnnualPct({ mode: input.mode, fixedAnnualPct: input.fixedAnnualPct, date: fromDate });
-    const accrued = accrueRemuneratedCash(cashEur, annualPct, fromDate, toDate);
+    const accrued = accrueFixedRemuneratedCash(cashEur, annualPct, fromDate, toDate);
     const segmentTax = Math.min(accrued.interestEur, Math.max(0, input.taxOnInterest(accrued.interestEur, toDate)));
     const netInterestEur = accrued.interestEur - segmentTax;
     cashEur += netInterestEur;
@@ -121,12 +154,36 @@ export function accrueRemuneratedCashScenarioAfterTax(input: {
 }
 
 export function allCashBenchmark(initialCapitalEur: number, annualPct: number, fromDate: string, toDate: string): { finalEur: number; returnPct: number; interestEur: number } {
-  const accrued = accrueRemuneratedCash(initialCapitalEur, annualPct, fromDate, toDate);
-  return {
-    finalEur: accrued.cashEur,
-    returnPct: initialCapitalEur > 0 ? (accrued.cashEur / initialCapitalEur - 1) * 100 : 0,
-    interestEur: accrued.interestEur
-  };
+  if (!isReplayCashContextActive()) {
+    const accrued = accrueFixedRemuneratedCash(initialCapitalEur, annualPct, fromDate, toDate);
+    return {
+      finalEur: accrued.cashEur,
+      returnPct: initialCapitalEur > 0 ? (accrued.cashEur / initialCapitalEur - 1) * 100 : 0,
+      interestEur: accrued.interestEur
+    };
+  }
+  const context = activeReplayCashContextSnapshot();
+  const taxSettings = activeReplayCashTaxSettings();
+  if (!context || !taxSettings) {
+    const accrued = accrueFixedRemuneratedCash(initialCapitalEur, annualPct, fromDate, toDate);
+    return { finalEur: accrued.cashEur, returnPct: initialCapitalEur > 0 ? (accrued.cashEur / initialCapitalEur - 1) * 100 : 0, interestEur: accrued.interestEur };
+  }
+  const simulatedByYear = new Map<string, number>();
+  const accrued = allCashBenchmarkScenarioAfterTax({
+    initialCapitalEur,
+    mode: context.mode,
+    fixedAnnualPct: context.fixedAnnualPct,
+    fromDate,
+    toDate,
+    taxOnInterest: (grossInterestEur, taxDate) => {
+      const year = taxDate.slice(0, 4);
+      const prior = simulatedByYear.get(year) ?? 0;
+      const tax = estimateSpanishTaxOnCashInterest(grossInterestEur, taxSettings, prior).estimatedTaxEur;
+      simulatedByYear.set(year, prior + Math.max(0, grossInterestEur));
+      return tax;
+    }
+  });
+  return { finalEur: accrued.finalEur, returnPct: accrued.returnPct, interestEur: accrued.grossInterestEur };
 }
 
 export function allCashBenchmarkScenario(input: {
