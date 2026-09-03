@@ -21,6 +21,7 @@ const replayCore = source('src/investment/decision/dynamicHistoricalReplayCore.t
 const health = source('src/investment/decision/portfolioPositionHealth.ts');
 const currentAlerts = source('src/investment/decision/currentOpportunityAlerts.ts');
 const decisionCenter = source('src/components/InteractiveInvestmentDecisionCenter.tsx');
+const currentDecisionSummary = source('src/components/CurrentOpportunityAlertsPanel.tsx');
 const realPortfolio = source('src/components/UserPortfolioPanel.tsx');
 const executionPlan = source('src/components/PortfolioExecutionPlanPanel.tsx');
 
@@ -46,14 +47,16 @@ requireText(worker, "const REPLAY_ROTATION_EXPERIMENT = 'CORE_GATE_V1'", 'REPLAY
 forbidText(worker, 'runDynamicReplayWithTrendProtectionV2Experiment', 'NORMAL_REPLAY_MUST_NOT_AUTO_RUN_V2');
 forbidText(worker, 'runDynamicReplayWithTrendProtectionV2MediumTermWinnerConfirmExperiment', 'NORMAL_REPLAY_MUST_NOT_AUTO_RUN_V2_CONFIRM');
 
-// CORE_GATE_V1 must have one implementation shared by replay and production portfolio paths.
+// CORE_GATE_V1 must have one implementation shared by replay and every production portfolio surface.
 requireText(sharedCoreGate, 'export function applyCoreGateV1', 'SHARED_CORE_GATE_FUNCTION_MISSING');
 requireText(sharedCoreGate, 'export function evaluatePortfolioDecision', 'PRODUCTION_PORTFOLIO_ENTRY_MISSING');
 requireText(replayRotation, "from './portfolioCoreGatePolicy'", 'REPLAY_MUST_IMPORT_SHARED_CORE_GATE');
 requireText(replayRotation, 'return applyCoreGateV1(evaluationInput, baseline, counters);', 'REPLAY_MUST_CALL_SHARED_CORE_GATE');
 forbidText(replayRotation, 'const CORE_PRIORITY =', 'REPLAY_MUST_NOT_DUPLICATE_CORE_GATE_POLICY');
+requireText(currentDecisionSummary, 'evaluatePortfolioDecision({', 'CURRENT_SUMMARY_MUST_USE_SHARED_DECISION_ENTRY');
 requireText(realPortfolio, 'evaluatePortfolioDecision({', 'REAL_PORTFOLIO_MUST_USE_SHARED_DECISION_ENTRY');
 requireText(executionPlan, 'evaluatePortfolioDecision({', 'EXECUTION_PLAN_MUST_USE_SHARED_DECISION_ENTRY');
+forbidText(currentDecisionSummary, 'PortfolioDecisionEngine.evaluate({', 'CURRENT_SUMMARY_MUST_NOT_BYPASS_SHARED_CORE_GATE');
 forbidText(realPortfolio, 'PortfolioDecisionEngine.evaluate({', 'REAL_PORTFOLIO_MUST_NOT_BYPASS_SHARED_CORE_GATE');
 forbidText(executionPlan, 'PortfolioDecisionEngine.evaluate({', 'EXECUTION_PLAN_MUST_NOT_BYPASS_SHARED_CORE_GATE');
 
