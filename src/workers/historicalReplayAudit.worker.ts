@@ -13,6 +13,7 @@ import {
 import { buildTrendProtectionV2ReplayComparison } from '../investment/decision/trendProtectionReplayComparison';
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
 import type { AssetUniverseItem } from '../investment/decision/assetUniverse';
+import type { CashBenchmarkMode } from '../investment/decision/cashBenchmark';
 import type { DynamicReplayFrequency } from '../investment/decision/dynamicHistoricalReplay';
 import type { InvestmentHorizonYears, InvestorRiskProfile } from '../investment/decision/types';
 import type { SpanishTaxSettings } from '../investment/decision/spanishTaxModel';
@@ -26,6 +27,7 @@ interface InitMessage {
   initialCapitalEur: number;
   riskProfile: InvestorRiskProfile;
   horizonYears: InvestmentHorizonYears;
+  cashBenchmarkMode: CashBenchmarkMode;
   cashBenchmarkAnnualPct: number;
   minimumBars: number;
   taxSettings: SpanishTaxSettings;
@@ -77,6 +79,7 @@ function replayInput(dataset: MultiAssetDataset) {
     initialCapitalEur: configuration.initialCapitalEur,
     riskProfile: configuration.riskProfile,
     horizonYears: configuration.horizonYears,
+    cashBenchmarkMode: configuration.cashBenchmarkMode,
     cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
     minimumBars: configuration.minimumBars,
     taxSettings: configuration.taxSettings
