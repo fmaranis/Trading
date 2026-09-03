@@ -24,6 +24,9 @@ const decisionCenter = source('src/components/InteractiveInvestmentDecisionCente
 const currentDecisionSummary = source('src/components/CurrentOpportunityAlertsPanel.tsx');
 const realPortfolio = source('src/components/UserPortfolioPanel.tsx');
 const executionPlan = source('src/components/PortfolioExecutionPlanPanel.tsx');
+const purchaseRegistration = source('src/components/RealPurchaseRegistrationPanel.tsx');
+const pilotOperations = source('src/components/PilotOperationsPanel.tsx');
+const alertAutomation = source('server/alertAutomation.ts');
 
 // Production entry point must remain the integrated decision center, not legacy App.tsx.
 requireText(indexHtml, '/src/decisionMain.tsx', 'ROOT_MUST_USE_DECISION_MAIN');
@@ -53,12 +56,16 @@ requireText(sharedCoreGate, 'export function evaluatePortfolioDecision', 'PRODUC
 requireText(replayRotation, "from './portfolioCoreGatePolicy'", 'REPLAY_MUST_IMPORT_SHARED_CORE_GATE');
 requireText(replayRotation, 'return applyCoreGateV1(evaluationInput, baseline, counters);', 'REPLAY_MUST_CALL_SHARED_CORE_GATE');
 forbidText(replayRotation, 'const CORE_PRIORITY =', 'REPLAY_MUST_NOT_DUPLICATE_CORE_GATE_POLICY');
-requireText(currentDecisionSummary, 'evaluatePortfolioDecision({', 'CURRENT_SUMMARY_MUST_USE_SHARED_DECISION_ENTRY');
-requireText(realPortfolio, 'evaluatePortfolioDecision({', 'REAL_PORTFOLIO_MUST_USE_SHARED_DECISION_ENTRY');
-requireText(executionPlan, 'evaluatePortfolioDecision({', 'EXECUTION_PLAN_MUST_USE_SHARED_DECISION_ENTRY');
-forbidText(currentDecisionSummary, 'PortfolioDecisionEngine.evaluate({', 'CURRENT_SUMMARY_MUST_NOT_BYPASS_SHARED_CORE_GATE');
-forbidText(realPortfolio, 'PortfolioDecisionEngine.evaluate({', 'REAL_PORTFOLIO_MUST_NOT_BYPASS_SHARED_CORE_GATE');
-forbidText(executionPlan, 'PortfolioDecisionEngine.evaluate({', 'EXECUTION_PLAN_MUST_NOT_BYPASS_SHARED_CORE_GATE');
+for (const [file, label] of [
+  [currentDecisionSummary, 'CURRENT_SUMMARY'],
+  [realPortfolio, 'REAL_PORTFOLIO'],
+  [executionPlan, 'EXECUTION_PLAN'],
+  [purchaseRegistration, 'PURCHASE_REGISTRATION'],
+  [pilotOperations, 'V1_PILOT']
+] as const) {
+  requireText(file, 'evaluatePortfolioDecision({', `${label}_MUST_USE_SHARED_DECISION_ENTRY`);
+  forbidText(file, 'PortfolioDecisionEngine.evaluate({', `${label}_MUST_NOT_BYPASS_SHARED_CORE_GATE`);
+}
 
 // Replay and live monitoring must share the same operative health classifier.
 requireText(health, 'export function classifyPositionHealth', 'SHARED_HEALTH_CLASSIFIER_MISSING');
@@ -69,5 +76,11 @@ requireText(health, 'const classification = classifyPositionHealth(input.assessm
 requireText(health, 'TaxLotLedgerService.lots(input.ticker)', 'LIVE_LISTED_HEALTH_MUST_USE_TRACKED_LOTS');
 requireText(health, 'PortfolioExecutionHistoryService.load()', 'LIVE_HEALTH_MUST_REBASE_FROM_EXECUTION_HISTORY');
 requireText(health, 'POSITION_COST_BASIS_INCOMPLETE', 'MISSING_COST_BASIS_MUST_BE_EXPLICIT');
+
+// Autonomous entry alerts are event-driven: do not send the same HIGH/GOOD state every day.
+requireText(alertAutomation, 'function newOpportunityEvents(', 'ALERT_EVENT_DIFF_MISSING');
+requireText(alertAutomation, "kind: 'CURRENT_ENTRY_OPPORTUNITY_EVENTS'", 'ALERT_EVENT_PAYLOAD_MISSING');
+requireText(alertAutomation, 'levelRank(alert) > levelRank(before)', 'ALERT_ESCALATION_RULE_MISSING');
+requireText(alertAutomation, 'if (events.length > 0)', 'ALERTS_MUST_ONLY_NOTIFY_NEW_EVENTS');
 
 console.log('DECISION_ARCHITECTURE_PARITY_PASS');
