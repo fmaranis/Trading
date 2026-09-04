@@ -7,7 +7,9 @@ import {
   estimateFundRealizedGain,
   SpanishTaxSettingsService,
   TaxLotLedgerService,
-  type TaxAwareRotationAssessment
+  type SpanishTaxSettings,
+  type TaxAwareRotationAssessment,
+  type TrackedTaxLot
 } from './spanishTaxModel';
 import type { UserPortfolioState } from './userPortfolio';
 
@@ -27,6 +29,11 @@ export interface PortfolioRotationReview {
   reason: string;
 }
 
+export interface PortfolioRotationPrivateContext {
+  taxSettings?: SpanishTaxSettings | null;
+  taxLotsByTicker?: Record<string, TrackedTaxLot[]> | null;
+}
+
 function candidateFor(scan: AssetUniverseScanResult, key: string) {
   const normalized = key.toUpperCase();
   return scan.candidates.find(c => c.asset.assetId === key || c.asset.ticker.toUpperCase() === normalized || c.asset.isin?.toUpperCase() === normalized);
@@ -41,6 +48,29 @@ function bestDestination(scan: AssetUniverseScanResult, cashBenchmarkAnnualPct: 
     .find(alert => alert.level === 'HIGH_CONVICTION' || alert.level === 'GOOD_ENTRY') ?? null;
 }
 
+function fifoCostBasisFromLots(
+  lots: TrackedTaxLot[],
+  totalCurrentShares: number,
+  sharesToSell: number
+): { costBasisEur: number | null; precision: 'FIFO_TRACKED' | 'UNKNOWN' } {
+  const shares = Math.max(0, sharesToSell);
+  if (shares <= 0) return { costBasisEur: 0, precision: 'FIFO_TRACKED' };
+  const ordered = lots.filter(lot => lot.shares > 0).sort((a, b) => a.acquisitionDate.localeCompare(b.acquisitionDate));
+  const trackedShares = ordered.reduce((sum, lot) => sum + lot.shares, 0);
+  const untrackedShares = Math.max(0, totalCurrentShares - trackedShares);
+  if (untrackedShares > 1e-8 || trackedShares + 1e-8 < shares) return { costBasisEur: null, precision: 'UNKNOWN' };
+
+  let remaining = shares;
+  let cost = 0;
+  for (const lot of ordered) {
+    if (remaining <= 1e-9) break;
+    const used = Math.min(remaining, lot.shares);
+    cost += lot.acquisitionCostEur * (used / lot.shares);
+    remaining -= used;
+  }
+  return remaining <= 1e-8 ? { costBasisEur: cost, precision: 'FIFO_TRACKED' } : { costBasisEur: null, precision: 'UNKNOWN' };
+}
+
 export class PortfolioRotationReviewEngine {
   static evaluate(input: {
     portfolio: UserPortfolioState;
@@ -48,6 +78,7 @@ export class PortfolioRotationReviewEngine {
     positionHealth: PortfolioPositionHealthResult | null;
     cashBenchmarkAnnualPct: number;
     horizonYears: number;
+    privateContext?: PortfolioRotationPrivateContext;
   }): PortfolioRotationReview {
     const destination = bestDestination(input.scan, input.cashBenchmarkAnnualPct);
     if (!destination) return { sourceId: null, sourceLabel: null, sourceAction: null, targetAssetId: null, targetTicker: null, targetName: null, targetLevel: null, amountEur: null, status: 'NO_DESTINATION', assessment: null, reason: 'No hay hoy una entrada de alta convicción o buena oportunidad que justifique estudiar una rotación.' };
@@ -100,7 +131,10 @@ export class PortfolioRotationReviewEngine {
       const sharesToSell = unitValue && unitValue > 0 ? Math.min(sourceHolding.shares, Math.max(1, Math.floor(amountEur / unitValue))) : 0;
       if (sharesToSell > 0 && unitValue) {
         const notional = sharesToSell * unitValue;
-        const basis = TaxLotLedgerService.fifoCostBasis(sourceHolding.ticker, sourceHolding.shares, sharesToSell);
+        const suppliedLots = input.privateContext?.taxLotsByTicker?.[sourceHolding.ticker.toUpperCase()];
+        const basis = suppliedLots
+          ? fifoCostBasisFromLots(suppliedLots, sourceHolding.shares, sharesToSell)
+          : TaxLotLedgerService.fifoCostBasis(sourceHolding.ticker, sourceHolding.shares, sharesToSell);
         realizedGainEur = basis.costBasisEur == null ? null : Math.max(0, notional - basis.costBasisEur);
         feesEur += brokerCommission(notional);
         if (!targetIsFund) feesEur += brokerCommission(notional);
@@ -114,7 +148,7 @@ export class PortfolioRotationReviewEngine {
       sourceAnnualProxyPct: sourceRow.proxy,
       destinationAnnualProxyPct: destinationProxy,
       horizonYears: input.horizonYears,
-      settings: SpanishTaxSettingsService.load(),
+      settings: input.privateContext?.taxSettings ?? SpanishTaxSettingsService.load(),
       taxDeferredTransfer
     });
 
