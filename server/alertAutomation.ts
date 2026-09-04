@@ -13,6 +13,7 @@ import {
 } from '../src/investment/decision';
 import { firebaseAdminConfigured, firebaseAdminServices } from './firebaseAdmin';
 import { notifyTelegramOpportunity, telegramNotificationConfigured } from './telegramNotifier';
+import { runPortfolioManagementAlerts, type PortfolioManagementAlertSummary } from './portfolioManagementAlerts';
 
 const STATE_DIR = path.join(process.cwd(), '.runtime');
 const STATE_FILE = path.join(STATE_DIR, 'alertAutomationState.json');
@@ -32,12 +33,15 @@ export interface AlertAutomationState {
   lastNotificationEventCount: number;
   lastNotificationEventKeys: string[];
   lastNotifiedActionableLevels: Record<string, NotifiedOpportunityLevel>;
+  lastPortfolioManagementAt: string | null;
+  lastPortfolioManagementSummary: PortfolioManagementAlertSummary | null;
 }
 
 const EMPTY_STATE: AlertAutomationState = {
   lastAttemptAt: null, lastSuccessAt: null, lastRunLocalDate: null, lastMarketDate: null, lastError: null,
   lastAlerts: [], lastDecision: null, lastEvidenceState: null, lastNotificationAt: null,
-  lastNotificationEventCount: 0, lastNotificationEventKeys: [], lastNotifiedActionableLevels: {}
+  lastNotificationEventCount: 0, lastNotificationEventKeys: [], lastNotifiedActionableLevels: {},
+  lastPortfolioManagementAt: null, lastPortfolioManagementSummary: null
 };
 
 function normalizeState(parsed: any): AlertAutomationState {
@@ -48,7 +52,10 @@ function normalizeState(parsed: any): AlertAutomationState {
     lastNotificationEventKeys: Array.isArray(parsed?.lastNotificationEventKeys) ? parsed.lastNotificationEventKeys : [],
     lastNotifiedActionableLevels: parsed?.lastNotifiedActionableLevels && typeof parsed.lastNotifiedActionableLevels === 'object'
       ? parsed.lastNotifiedActionableLevels
-      : {}
+      : {},
+    lastPortfolioManagementSummary: parsed?.lastPortfolioManagementSummary && typeof parsed.lastPortfolioManagementSummary === 'object'
+      ? parsed.lastPortfolioManagementSummary
+      : null
   };
 }
 
@@ -183,9 +190,7 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
     const alerts = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct);
     const actionable = alerts.filter(isActionable);
     const firstRealTelegramDelivery = telegramNotificationConfigured() && state.lastNotificationAt === null;
-    const events = firstRealTelegramDelivery
-      ? actionable
-      : newOpportunityEvents(state.lastNotifiedActionableLevels, alerts);
+    const events = firstRealTelegramDelivery ? actionable : newOpportunityEvents(state.lastNotifiedActionableLevels, alerts);
 
     const eodhd = await crossValidateEodhd(gate.scan).catch(() => null);
     const evidence = eodhd ? assessCrossProviderEvidence({
@@ -198,15 +203,9 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
     let notificationSent = false;
     if (events.length > 0) {
       const evidenceState = evidence?.state ?? 'PRIMARY_ONLY';
-
       if (telegramNotificationConfigured()) {
-        notificationSent = await notifyTelegramOpportunity({
-          marketDate,
-          events,
-          evidenceState
-        }).catch(() => false);
+        notificationSent = await notifyTelegramOpportunity({ marketDate, events, evidenceState }).catch(() => false);
       }
-
       if (!notificationSent) {
         notificationSent = await notifyWebhook({
           source: 'Custodia', kind: 'CURRENT_ENTRY_OPPORTUNITY_EVENTS', generatedAt: new Date().toISOString(),
@@ -222,6 +221,20 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
     }
     const deliveredEvents = notificationSent ? events : [];
 
+    const portfolioManagementSummary = await runPortfolioManagementAlerts({
+      scan,
+      marketDate,
+      defaultCashBenchmarkAnnualPct: cashBenchmarkAnnualPct
+    }).catch((error: any): PortfolioManagementAlertSummary => ({
+      configured: true,
+      evaluated: false,
+      evaluatedPositions: 0,
+      pendingEventCount: 0,
+      rotationStatus: null,
+      notificationSent: false,
+      error: error?.message || String(error)
+    }));
+
     const next: AlertAutomationState = {
       lastAttemptAt: state.lastAttemptAt, lastSuccessAt: new Date().toISOString(), lastRunLocalDate: localRunDate,
       lastMarketDate: marketDate, lastError: null, lastAlerts: alerts, lastDecision: null,
@@ -229,7 +242,9 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
       lastNotificationAt: notificationSent ? new Date().toISOString() : state.lastNotificationAt,
       lastNotificationEventCount: notificationSent ? events.length : 0,
       lastNotificationEventKeys: notificationSent ? events.map(alert => `${alert.assetId}:${alert.level}`) : [],
-      lastNotifiedActionableLevels: nextNotifiedLevels(state.lastNotifiedActionableLevels, alerts, deliveredEvents)
+      lastNotifiedActionableLevels: nextNotifiedLevels(state.lastNotifiedActionableLevels, alerts, deliveredEvents),
+      lastPortfolioManagementAt: new Date().toISOString(),
+      lastPortfolioManagementSummary: portfolioManagementSummary
     };
     await saveState(next);
     return next;
@@ -246,9 +261,7 @@ export async function getAlertAutomationStatus() {
   const state = await loadState();
   const actionable = state.lastAlerts.filter(isActionable);
   const firstRealTelegramDelivery = telegramConfigured && state.lastNotificationAt === null;
-  const pendingEvents = firstRealTelegramDelivery
-    ? actionable
-    : newOpportunityEvents(state.lastNotifiedActionableLevels, state.lastAlerts);
+  const pendingEvents = firstRealTelegramDelivery ? actionable : newOpportunityEvents(state.lastNotifiedActionableLevels, state.lastAlerts);
   return {
     enabled: process.env.ALERT_AUTOMATION_ENABLED === 'true',
     timezone: 'Europe/Madrid', runTimeLocal: process.env.ALERT_RUN_TIME_LOCAL || '22:30',
