@@ -22,6 +22,19 @@ export type DynamicReplayFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY
 export type DynamicReplaySignalAction = 'BUY' | 'ADD' | 'HOLD' | 'WATCH' | 'AVOID' | 'REDUCE' | 'EXIT';
 export type DynamicReplayEventType = 'BUY' | 'ADD' | 'REDUCE' | 'EXIT' | 'TRANSFER';
 export type DynamicReplayDeploymentSession = 1 | 5 | 20 | 60;
+export type DynamicReplaySimulationMode = 'CUSTODIA_ENGINE' | 'HOLD_ONLY';
+export type DynamicReplayInitialPortfolioSource = 'ZERO' | 'MANUAL' | 'CURRENT_PORTFOLIO';
+
+export interface DynamicReplayInitialAllocation {
+  assetId: string;
+  amountEur: number;
+}
+
+export interface DynamicReplayInitialPortfolio {
+  source: Exclude<DynamicReplayInitialPortfolioSource, 'ZERO'>;
+  cashEur: number;
+  allocations: DynamicReplayInitialAllocation[];
+}
 
 export interface DynamicReplaySignal {
   id: string;
@@ -58,6 +71,7 @@ export interface DynamicReplaySignal {
   trendSlopeAccelerationPctPoints?: number | null;
   trendSma20SlopeAnnualizedPct?: number | null;
   trendBreakdown20?: boolean | null;
+  isInitialAllocation?: boolean;
   executed: boolean;
   unitsDelta: number;
   notionalEur: number;
@@ -125,6 +139,8 @@ export interface DynamicHistoricalReplayResult {
   endDate: string;
   frequency: DynamicReplayFrequency;
   initialCapitalEur: number;
+  simulationMode?: DynamicReplaySimulationMode;
+  initialPortfolioSource?: DynamicReplayInitialPortfolioSource;
   finalValueEur: number;
   totalReturnPct: number;
   staticBuyHoldFinalEur: number | null;
@@ -150,7 +166,7 @@ export interface DynamicHistoricalReplayResult {
   totalTransferredEur: number;
   cashInterestEur: number;
   taxMethod: 'CONFIGURED_PROGRESSIVE' | 'CONSERVATIVE_MAX_RATE';
-  operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN';
+  operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN' | 'HOLD_ONLY_NO_DECISIONS';
   signals: DynamicReplaySignal[];
   events: DynamicReplayEvent[];
   equityPath: DynamicReplayEquityPoint[];
@@ -169,6 +185,7 @@ interface Holding {
   instrumentType: 'ETF_ETC' | 'MUTUAL_FUND';
   units: number;
   lots: ReplayLot[];
+  initialStateFractional?: boolean;
 }
 
 interface PlannedSignal {
@@ -386,6 +403,55 @@ function consumeLots(holding: Holding, unitsToSell: number): number {
   }
   holding.lots = next;
   return basis;
+}
+function seedInitialPortfolio(input: {
+  dataset: MultiAssetDataset;
+  catalog: AssetUniverseItem[];
+  startDate: string;
+  initialCapitalEur: number;
+  initialPortfolio?: DynamicReplayInitialPortfolio;
+}): { holdings: Map<string, Holding>; cashEur: number; signals: DynamicReplaySignal[] } {
+  const holdings = new Map<string, Holding>();
+  if (!input.initialPortfolio) return { holdings, cashEur: input.initialCapitalEur, signals: [] };
+
+  const normalized = input.initialPortfolio.allocations
+    .map(row => ({ assetId: String(row.assetId || '').trim(), amountEur: Math.max(0, Number(row.amountEur) || 0) }))
+    .filter(row => row.assetId && row.amountEur > 0);
+  const cashEur = Math.max(0, Number(input.initialPortfolio.cashEur) || 0);
+  const specifiedCapital = cashEur + normalized.reduce((sum, row) => sum + row.amountEur, 0);
+  if (Math.abs(specifiedCapital - input.initialCapitalEur) > 0.02) {
+    throw new Error(`La cartera inicial suma ${specifiedCapital.toFixed(2)} € y no coincide con el capital inicial ${input.initialCapitalEur.toFixed(2)} €.`);
+  }
+
+  const signals: DynamicReplaySignal[] = [];
+  for (const row of normalized) {
+    const item = catalogItem(input.catalog, row.assetId);
+    if (!item) throw new Error(`La posición inicial ${row.assetId} no pertenece al universo disponible del replay.`);
+    const price = closeOnOrBefore(input.dataset, row.assetId, input.startDate);
+    if (!(price != null && price > 0)) throw new Error(`No hay precio REAL para iniciar ${item.ticker} en ${input.startDate}.`);
+    const units = row.amountEur / price;
+    const holding: Holding = {
+      assetId: row.assetId,
+      ticker: item.ticker,
+      instrumentType: instrumentType(input.catalog, row.assetId),
+      units,
+      lots: [],
+      initialStateFractional: true
+    };
+    addLot(holding, units, row.amountEur, input.startDate);
+    holdings.set(row.assetId, holding);
+    signals.push({
+      id: `${input.startDate}_${row.assetId}_INITIAL`, signalDate: input.startDate, executionDate: input.startDate,
+      assetId: row.assetId, ticker: item.ticker, action: 'BUY', targetWeight: input.initialCapitalEur > 0 ? row.amountEur / input.initialCapitalEur : 0,
+      currentWeight: 0, recommendedAmountEur: row.amountEur,
+      consensusScore: null, favorableVotes: null, unfavorableVotes: null, structuralDowntrend: false, buyTheDipCandidate: false,
+      timingState: null, timingSetup: null, timingScore: null, suggestedInitialFraction: null,
+      isInitialAllocation: true, executed: true, unitsDelta: units, notionalEur: row.amountEur, feeEur: 0,
+      realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: price,
+      reason: 'Posición de partida definida por el usuario. Es estado inicial del replay, no una compra decidida por Custodia.'
+    });
+  }
+  return { holdings, cashEur, signals };
 }
 function taxForPositiveGain(gainEur: number, executionDate: string, settings: SpanishTaxSettings, positiveGainByYear: Map<string, number>): number {
   const positive = Math.max(0, gainEur);
@@ -668,7 +734,7 @@ function buildDeploymentHorizons(input: {
 }
 function timingCounts(signals: DynamicReplaySignal[]): DynamicReplayTimingStateCounts {
   const counts: DynamicReplayTimingStateCounts = { WAIT: 0, ENTRY_READY: 0, ENTRY_STRONG: 0 };
-  for (const signal of signals) if (signal.timingState) counts[signal.timingState] += 1;
+  for (const signal of signals) if (!signal.isInitialAllocation && signal.timingState) counts[signal.timingState] += 1;
   return counts;
 }
 function trendProtectionCounts(signals: DynamicReplaySignal[]): DynamicReplayTrendProtectionV1Counts {
@@ -682,6 +748,7 @@ function trendProtectionCounts(signals: DynamicReplaySignal[]): DynamicReplayTre
     earlierProtectionCandidates: 0
   };
   for (const signal of signals) {
+    if (signal.isInitialAllocation) continue;
     const action = signal.trendProtectionV1Action;
     if (action) counts[action] += 1;
     if (signal.trendProtectionV1WinnerProtectionArmed) counts.winnerProtectionArmed += 1;
@@ -703,22 +770,27 @@ export class DynamicHistoricalReplayEngine {
     cashBenchmarkAnnualPct?: number;
     minimumBars?: number;
     taxSettings?: SpanishTaxSettings;
+    simulationMode?: DynamicReplaySimulationMode;
+    initialPortfolio?: DynamicReplayInitialPortfolio;
   }): DynamicHistoricalReplayResult {
     if (!(input.initialCapitalEur > 0)) throw new Error('El capital del replay dinámico debe ser > 0.');
     const frequency = input.frequency ?? 'MONTHLY';
     const minimumBars = input.minimumBars ?? 252;
+    const simulationMode = input.simulationMode ?? 'CUSTODIA_ENGINE';
+    const initialPortfolioSource: DynamicReplayInitialPortfolioSource = input.initialPortfolio?.source ?? 'ZERO';
     const cashBenchmarkAnnualPct = Number.isFinite(input.cashBenchmarkAnnualPct) ? Math.max(0, Number(input.cashBenchmarkAnnualPct)) : DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
     const taxSettings = input.taxSettings ?? DEFAULT_TAX_SETTINGS;
     const endDate = latestDatasetDate(input.dataset);
     if (input.startDate >= endDate) throw new Error('La fecha inicial debe ser anterior al último dato REAL.');
 
-    const holdings = new Map<string, Holding>();
+    const seeded = seedInitialPortfolio({ dataset: input.dataset, catalog: input.catalog, startDate: input.startDate, initialCapitalEur: input.initialCapitalEur, initialPortfolio: input.initialPortfolio });
+    const holdings = seeded.holdings;
     const positionHealthStateByAsset = new Map<string, ReplayPositionHealthState>();
-    const signals: DynamicReplaySignal[] = [];
+    const signals: DynamicReplaySignal[] = [...seeded.signals];
     const events: DynamicReplayEvent[] = [];
     const decisionStates: DecisionState[] = [];
     const positiveGainByYear = new Map<string, number>();
-    let cashEur = input.initialCapitalEur;
+    let cashEur = seeded.cashEur;
     let cashInterestEur = 0;
     let totalFeesEur = 0;
     let totalEstimatedTaxEur = 0;
@@ -727,6 +799,67 @@ export class DynamicHistoricalReplayEngine {
     let firstDecisionDate: string | null = null;
     let lastDecisionDate: string | null = null;
     let decisions = 0;
+
+    if (simulationMode === 'HOLD_ONLY') {
+      firstDecisionDate = input.startDate;
+      lastCashDate = input.startDate;
+      if (endDate > input.startDate) {
+        const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, input.startDate, endDate);
+        cashEur = accrued.cashEur;
+        cashInterestEur = accrued.interestEur;
+      }
+      decisionStates.push({ date: input.startDate, regime: 'HOLD_ONLY', method: 'SIN_MOTOR' });
+      const finalPortfolio = portfolioValue(input.dataset, holdings, cashEur, endDate);
+      const finalValueEur = finalPortfolio.equityEur;
+      const totalReturnPct = (finalValueEur / input.initialCapitalEur - 1) * 100;
+      const allCash = allCashBenchmark(input.initialCapitalEur, cashBenchmarkAnnualPct, input.startDate, endDate);
+      const equityPath = buildDailyEquityPath({ dataset: input.dataset, signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: input.startDate, endDate, decisionStates });
+      const deploymentHorizons = buildDeploymentHorizons({ path: equityPath, signals, initialCapitalEur: input.initialCapitalEur });
+      return {
+        requestedStartDate: input.startDate,
+        startDate: input.startDate,
+        endDate,
+        frequency,
+        initialCapitalEur: input.initialCapitalEur,
+        simulationMode,
+        initialPortfolioSource,
+        finalValueEur,
+        totalReturnPct,
+        staticBuyHoldFinalEur: finalValueEur,
+        staticBuyHoldReturnPct: totalReturnPct,
+        allCashFinalEur: allCash.finalEur,
+        allCashReturnPct: allCash.returnPct,
+        excessFinalEurVsStatic: 0,
+        excessReturnVsStaticPctPoints: 0,
+        excessFinalEurVsCash: finalValueEur - allCash.finalEur,
+        excessReturnVsCashPctPoints: totalReturnPct - allCash.returnPct,
+        decisionPathMaxDrawdownPct: pathMaxDrawdown(equityPath),
+        decisions: 0,
+        materialSignals: 0,
+        executedBuys: 0,
+        executedAdds: 0,
+        executedReductions: 0,
+        executedExits: 0,
+        timingStateCounts: { WAIT: 0, ENTRY_READY: 0, ENTRY_STRONG: 0 },
+        trendProtectionV1Counts: { HOLD: 0, WATCH: 0, REDUCE: 0, EXIT: 0, winnerProtectionArmed: 0, loserFailureArmed: 0, earlierProtectionCandidates: 0 },
+        deploymentHorizons,
+        totalFeesEur: 0,
+        totalEstimatedTaxEur: 0,
+        totalTransferredEur: 0,
+        cashInterestEur,
+        taxMethod: taxSettings.contextConfirmed ? 'CONFIGURED_PROGRESSIVE' : 'CONSERVATIVE_MAX_RATE',
+        operationalParity: 'HOLD_ONLY_NO_DECISIONS',
+        signals,
+        events,
+        equityPath,
+        notes: [
+          'Modo MANTENER CARTERA: las posiciones iniciales se valoran a lo largo del periodo sin BUY/ADD/WATCH/REDUCE/EXIT/ROTATE del motor.',
+          'El efectivo no invertido conserva exactamente la misma remuneración histórica/configurada y fiscalidad del cash que el replay normal.',
+          'Las posiciones iniciales son estado de partida definido por el usuario; no son recomendaciones ni decisiones de Custodia.',
+          'Toda la valoración usa únicamente precios REAL disponibles en el dataset del replay.'
+        ]
+      };
+    }
 
     for (const requestedDate of requestedDecisionDates(input.dataset, input.startDate, endDate, frequency)) {
       const fullScan = buildHistoricalFullScan({ dataset: input.dataset, catalog: input.catalog, date: requestedDate, minimumBars });
@@ -836,8 +969,6 @@ export class DynamicHistoricalReplayEngine {
         });
       }
 
-      // Keep non-operational traces for holdings, selected candidates and every asset that reached Entry Timing.
-      // This makes WAIT/READY/STRONG and HOLD/WATCH measurable without inventing a second replay path.
       const timingTraceIds = dateGate.entries.filter(entry => entry.timingState != null).map(entry => entry.assetId);
       const traceIds = new Set<string>([
         ...timingTraceIds,
@@ -915,7 +1046,7 @@ export class DynamicHistoricalReplayEngine {
             let unitsToSell = salePlan.signal.action === 'EXIT'
               ? saleHolding.units
               : Math.min(saleHolding.units, salePlan.signal.recommendedAmountEur / saleBar.open);
-            if (saleHolding.instrumentType === 'ETF_ETC') unitsToSell = Math.floor(unitsToSell + 1e-9);
+            if (saleHolding.instrumentType === 'ETF_ETC' && !saleHolding.initialStateFractional) unitsToSell = Math.floor(unitsToSell + 1e-9);
             if (!(unitsToSell > 1e-12)) executablePair = false;
             else {
               const gross = unitsToSell * saleBar.open;
@@ -963,7 +1094,7 @@ export class DynamicHistoricalReplayEngine {
           if (!holding || !bar || !(bar.open > 0)) continue;
           const price = bar.open;
           let unitsToSell = plan.signal.action === 'EXIT' ? holding.units : Math.min(holding.units, plan.signal.recommendedAmountEur / price);
-          if (holding.instrumentType === 'ETF_ETC') unitsToSell = Math.floor(unitsToSell + 1e-9);
+          if (holding.instrumentType === 'ETF_ETC' && !holding.initialStateFractional) unitsToSell = Math.floor(unitsToSell + 1e-9);
           if (!(unitsToSell > 1e-12)) continue;
           const gross = unitsToSell * price;
           const fee = holding.instrumentType === 'ETF_ETC' ? brokerCommission(gross) : 0;
@@ -976,8 +1107,6 @@ export class DynamicHistoricalReplayEngine {
             holdings.delete(holding.assetId);
             positionHealthStateByAsset.delete(holding.assetId);
           } else if (plan.signal.action === 'REDUCE') {
-            // A partial sale starts a new health episode for the remaining tranche.
-            // Its old MFE must not be allowed to trigger another tactical reduction.
             positionHealthStateByAsset.delete(holding.assetId);
           }
           totalFeesEur += fee;
@@ -1060,37 +1189,53 @@ export class DynamicHistoricalReplayEngine {
       const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, lastCashDate, endDate);
       cashEur = accrued.cashEur; cashInterestEur += accrued.interestEur;
     }
+    const resultStartDate = input.initialPortfolio ? input.startDate : firstDecisionDate;
     const finalPortfolio = portfolioValue(input.dataset, holdings, cashEur, endDate);
     const finalValueEur = finalPortfolio.equityEur;
     const totalReturnPct = (finalValueEur / input.initialCapitalEur - 1) * 100;
-    const allCash = allCashBenchmark(input.initialCapitalEur, cashBenchmarkAnnualPct, firstDecisionDate, endDate);
-    const staticResult = HistoricalDecisionReplayEngine.run({ dataset: input.dataset, catalog: input.catalog, requestedDates: [input.startDate], initialCapitalEur: input.initialCapitalEur, riskProfile: input.riskProfile, horizonYears: input.horizonYears, cashBenchmarkAnnualPct, minimumBars }).cases[0] ?? null;
-    const staticFinal = staticResult?.finalValueEur ?? null;
-    const staticReturn = staticResult?.totalReturnPct ?? null;
-    const material = signals.filter(signal => ['BUY', 'ADD', 'REDUCE', 'EXIT'].includes(signal.action));
-    const equityPath = buildDailyEquityPath({ dataset: input.dataset, signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: firstDecisionDate, endDate, decisionStates });
+    const allCash = allCashBenchmark(input.initialCapitalEur, cashBenchmarkAnnualPct, resultStartDate, endDate);
+
+    let staticFinal: number | null = null;
+    let staticReturn: number | null = null;
+    if (input.initialPortfolio) {
+      const holdStates: DecisionState[] = [{ date: input.startDate, regime: 'HOLD_ONLY', method: 'SIN_MOTOR' }];
+      const holdPath = buildDailyEquityPath({ dataset: input.dataset, signals: seeded.signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: input.startDate, endDate, decisionStates: holdStates });
+      staticFinal = holdPath.at(-1)?.equityEur ?? null;
+      staticReturn = staticFinal == null ? null : (staticFinal / input.initialCapitalEur - 1) * 100;
+    } else {
+      const staticResult = HistoricalDecisionReplayEngine.run({ dataset: input.dataset, catalog: input.catalog, requestedDates: [input.startDate], initialCapitalEur: input.initialCapitalEur, riskProfile: input.riskProfile, horizonYears: input.horizonYears, cashBenchmarkAnnualPct, minimumBars }).cases[0] ?? null;
+      staticFinal = staticResult?.finalValueEur ?? null;
+      staticReturn = staticResult?.totalReturnPct ?? null;
+    }
+
+    const material = signals.filter(signal => !signal.isInitialAllocation && ['BUY', 'ADD', 'REDUCE', 'EXIT'].includes(signal.action));
+    const equityPath = buildDailyEquityPath({ dataset: input.dataset, signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: resultStartDate, endDate, decisionStates });
     const timingStateCounts = timingCounts(signals);
     const trendProtectionV1Counts = trendProtectionCounts(signals);
     const deploymentHorizons = buildDeploymentHorizons({ path: equityPath, signals, initialCapitalEur: input.initialCapitalEur });
 
     return {
-      requestedStartDate: input.startDate, startDate: firstDecisionDate, endDate, frequency, initialCapitalEur: input.initialCapitalEur,
+      requestedStartDate: input.startDate, startDate: resultStartDate, endDate, frequency, initialCapitalEur: input.initialCapitalEur,
+      simulationMode, initialPortfolioSource,
       finalValueEur, totalReturnPct, staticBuyHoldFinalEur: staticFinal, staticBuyHoldReturnPct: staticReturn,
       allCashFinalEur: allCash.finalEur, allCashReturnPct: allCash.returnPct,
       excessFinalEurVsStatic: staticFinal == null ? null : finalValueEur - staticFinal,
       excessReturnVsStaticPctPoints: staticReturn == null ? null : totalReturnPct - staticReturn,
       excessFinalEurVsCash: finalValueEur - allCash.finalEur, excessReturnVsCashPctPoints: totalReturnPct - allCash.returnPct,
       decisionPathMaxDrawdownPct: pathMaxDrawdown(equityPath), decisions, materialSignals: material.length,
-      executedBuys: signals.filter(signal => signal.action === 'BUY' && signal.executed).length,
-      executedAdds: signals.filter(signal => signal.action === 'ADD' && signal.executed).length,
-      executedReductions: signals.filter(signal => signal.action === 'REDUCE' && signal.executed).length,
-      executedExits: signals.filter(signal => signal.action === 'EXIT' && signal.executed).length,
+      executedBuys: signals.filter(signal => !signal.isInitialAllocation && signal.action === 'BUY' && signal.executed).length,
+      executedAdds: signals.filter(signal => !signal.isInitialAllocation && signal.action === 'ADD' && signal.executed).length,
+      executedReductions: signals.filter(signal => !signal.isInitialAllocation && signal.action === 'REDUCE' && signal.executed).length,
+      executedExits: signals.filter(signal => !signal.isInitialAllocation && signal.action === 'EXIT' && signal.executed).length,
       timingStateCounts, trendProtectionV1Counts, deploymentHorizons,
       totalFeesEur, totalEstimatedTaxEur, totalTransferredEur, cashInterestEur,
       taxMethod: taxSettings.contextConfirmed ? 'CONFIGURED_PROGRESSIVE' : 'CONSERVATIVE_MAX_RATE',
       operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN',
       signals, events: events.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)), equityPath,
       notes: [
+        input.initialPortfolio
+          ? `El replay parte de una cartera inicial ${initialPortfolioSource}: ${input.initialPortfolio.allocations.length} posiciones y ${input.initialPortfolio.cashEur.toFixed(2)} € de cash; esa asignación es estado inicial y no una decisión del motor.`
+          : 'El replay parte de cero, exactamente como el comportamiento histórico anterior a esta ampliación.',
         'Cada fecha reconstruye la misma cadena operativa in-universe que usa la pantalla actual: universo REAL → cash+consenso → PortfolioCandidateGate → InvestmentDecisionEngine → PortfolioDecisionEngine con objetivos estables → salud individual para WATCH/REDUCE/EXIT.',
         'Cada decisión usa exclusivamente datos disponibles hasta esa fecha; nunca se eligen compras o ventas mirando el resultado futuro.',
         'La fecha operativa de señal es siempre la fecha de decisión solicitada; el asOfDate de los datos puede ser anterior sin desplazar la señal fuera de la ventana del replay.',
@@ -1098,13 +1243,11 @@ export class DynamicHistoricalReplayEngine {
         'Las señales conservan timingState, timingSetup, timingScore y suggestedInitialFraction; WAIT queda auditado como NO COMPRAR y READY/STRONG permanecen visibles aunque el candidato no reciba capital.',
         'Las posiciones existentes conservan auditoría causal de retorno, MFE, giveback, persistencia de deterioro y clasificación core/satélite. WATCH es explícito pero no operativo; REDUCE por giveback se reserva a satélites y requiere persistencia, MFE previo y momentum 20d no recuperado.',
         'TREND_PROTECTION_V1 es sólo diagnóstico en este replay: registra pendientes 20/60, aceleración, ruptura, protección de ganador y fallo de tesis, pero NO altera ninguna orden ni la trayectoria patrimonial baseline.',
-        'trendProtectionV1Counts.earlierProtectionCandidates cuenta observaciones donde V1 habría propuesto REDUCE/EXIT antes que la política vigente; no es una estimación de beneficio y debe validarse después con replay contrafactual separado.',
         'Tras un ADD o un REDUCE ejecutado se reinicia la referencia MFE de la posición resultante para no mezclar el máximo de una exposición anterior con la nueva base/tramo restante.',
-        'deploymentHorizons mide 1/5/20/60 sesiones transcurridas desde la fecha inicial: capital neto comprometido por flujos ejecutados y valor de mercado invertido se informan por separado.',
         'Una compra ejecutada cuenta contra el objetivo estable del activo en las decisiones posteriores; el replay no redistribuye desde cero el efectivo restante después de cada operación.',
-        'ETFs usan títulos enteros, mínimo/drag de comisión de la política adaptativa y comisión MyInvestor modelada; fondos usan unidades fraccionarias.',
+        'ETFs comprados por el motor usan títulos enteros y la comisión MyInvestor modelada. Las posiciones iniciales son un estado contrafactual exacto en euros y pueden contener unidades fraccionarias para conservar el importe de partida solicitado.',
         'Las rotaciones competitivas 1:1 son atómicas en ejecución: si el challenger no puede comprarse realmente en la fecha común de ejecución, no se vende el incumbent ni se abre una plaza ficticia.',
-        'La salud histórica de posiciones del universo usa la misma función pura classifyPositionHealth. Activos arbitrarios fuera del universo actual no se introducen porque reconstruir su monitor externo histórico exigiría una fuente no contenida en el dataset causal.',
+        'La salud histórica de posiciones del universo usa la misma función pura classifyPositionHealth.',
         'Fondo→fondo se empareja como traspaso fiscalmente diferido cuando coincide en el mismo cambio. La parte no diferida soporta la reserva fiscal estimada.',
         taxSettings.contextConfirmed ? 'La fiscalidad usa la escala española del ahorro y la base previa configurada.' : 'El contexto fiscal anual no está confirmado: las plusvalías imponibles reservan conservadoramente el 30%.',
         'La trayectoria se valora en cada sesión disponible y se compara con mantener todo el capital en la cuenta remunerada.',
