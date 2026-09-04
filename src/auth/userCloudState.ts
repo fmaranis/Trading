@@ -5,6 +5,9 @@ const ACCOUNT_API_BASE = '/api/alerts/account';
 const OWNER_KEY = 'custodia_cloud_owner_uid_v1';
 export const PRIVATE_LOCAL_STORAGE_KEYS = [
   'custodia_user_portfolio_v1',
+  'custodia_fund_positions_v1',
+  'custodia_staged_capital_plan_v1',
+  'custodia_pending_execution_plan_v1',
   'custodia_portfolio_execution_history_v1',
   'custodia_portfolio_cash_flow_history_v1',
   'custodia_myinvestor_manual_availability_v1',
