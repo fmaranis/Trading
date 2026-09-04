@@ -218,16 +218,22 @@ async function listGithubArchive(repository: string, branch: string, headers: Re
     const detail = await response.text();
     throw new Error(`GITHUB_REPLAY_ARCHIVE_LIST_FAILED:${response.status}:${detail.slice(0, 500)}`);
   }
-  const payload = await response.json();
-  return Array.isArray(payload) ? payload.filter(entry => entry?.type === 'file' && String(entry?.name ?? '').endsWith('.json')) : [];
+  const entries = await response.json() as any[];
+  return Array.isArray(entries)
+    ? entries.filter(entry => {
+        if (entry?.type !== 'file') return false;
+        const name = String(entry?.name ?? '');
+        return name.endsWith('.json') || name.endsWith('.json.gz.b64');
+      })
+    : [];
 }
 
-async function deleteGithubArchiveFile(repository: string, branch: string, filePath: string, sha: string, headers: Record<string, string>): Promise<void> {
-  const apiUrl = `https://api.github.com/repos/${repository}/contents/${filePath}`;
+async function deleteGithubArchiveFile(repository: string, branch: string, targetPath: string, sha: string, headers: Record<string, string>): Promise<void> {
+  const apiUrl = `https://api.github.com/repos/${repository}/contents/${targetPath}`;
   const response = await githubFetch(apiUrl, {
     method: 'DELETE',
     headers,
-    body: JSON.stringify({ message: `Prune old replay archive ${path.basename(filePath)}`, sha, branch })
+    body: JSON.stringify({ message: `Delete archived replay ${path.posix.basename(targetPath)}`, sha, branch })
   });
   if (!response.ok) {
     const detail = await response.text();
@@ -237,41 +243,57 @@ async function deleteGithubArchiveFile(repository: string, branch: string, fileP
 
 async function pruneGithubArchive(repository: string, branch: string, headers: Record<string, string>): Promise<number> {
   const entries = await listGithubArchive(repository, branch, headers);
-  const stale = entries.sort((a, b) => String(b.name).localeCompare(String(a.name))).slice(CHATGPT_REPLAY_ARCHIVE_LIMIT);
-  for (const entry of stale) {
+  const ordered = [...entries].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const excess = Math.max(0, ordered.length - CHATGPT_REPLAY_ARCHIVE_LIMIT);
+  for (const entry of ordered.slice(0, excess)) {
     await deleteGithubArchiveFile(repository, branch, String(entry.path), String(entry.sha), headers);
   }
-  return stale.length;
+  return excess;
 }
 
 async function publishReplayProjectionToGithub(payload: any, archive: boolean): Promise<Record<string, unknown>> {
   const token = process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim();
   const target = replaySyncTarget();
   if (!token) return { configured: false, published: false, archived: false, ...target };
-  if (process.env.NODE_ENV === 'production') return { configured: true, published: false, archived: false, blockedReason: 'PRODUCTION_SYNC_DISABLED', ...target };
+
+  if (process.env.NODE_ENV === 'production') {
+    return { configured: true, published: false, archived: false, blockedReason: 'PRODUCTION_SYNC_DISABLED', ...target };
+  }
 
   const repository = target.repository.trim();
   const branch = target.branch.trim();
   validateReplaySyncTarget(repository, branch);
   const headers = githubHeaders(token);
-  const fullSerialized = JSON.stringify(payload, null, 2);
+
+  const fullPayload = {
+    ...payload,
+    metadata: {
+      ...payload.metadata,
+      publishedAt: new Date().toISOString(),
+      githubStorageFormat: 'plain-json',
+      note: 'Replay completo en JSON normal. La auditoría directamente legible por ChatGPT está en validation-runs/latest-chatgpt.json.'
+    }
+  };
+  const fullSerialized = JSON.stringify(fullPayload, null, 2);
+
+  let readableAudit = buildReadableReplayAudit(fullPayload, false);
+  let readableSerialized = JSON.stringify(readableAudit, null, 2);
+  let reducedDiagnosticSet = false;
+  if (Buffer.byteLength(readableSerialized, 'utf8') > CHATGPT_READABLE_TARGET_BYTES) {
+    readableAudit = buildReadableReplayAudit(fullPayload, true);
+    readableAudit.metadata.reducedDiagnosticSet = true;
+    readableSerialized = JSON.stringify(readableAudit, null, 2);
+    reducedDiagnosticSet = true;
+  }
+
   const fullCommitSha = await upsertGithubTextFile(
     repository,
     branch,
     CHATGPT_REPLAY_FULL_PATH,
     fullSerialized,
-    `Update full replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
+    `Update full readable replay audit ${String(payload?.session?.startDate ?? '')} ${String(payload?.session?.frequency ?? '')}`.trim(),
     headers
   );
-
-  let readable = buildReadableReplayAudit(payload, false);
-  let readableSerialized = JSON.stringify(readable, null, 2);
-  let reducedDiagnosticSet = false;
-  if (Buffer.byteLength(readableSerialized, 'utf8') > CHATGPT_READABLE_TARGET_BYTES) {
-    readable = buildReadableReplayAudit(payload, true);
-    readableSerialized = JSON.stringify(readable, null, 2);
-    reducedDiagnosticSet = true;
-  }
 
   const latestCommitSha = await upsertGithubTextFile(
     repository,
@@ -337,8 +359,7 @@ async function clearGithubReplayArchive(): Promise<Record<string, unknown>> {
 
 async function startServer() {
   const app = express();
-  const configuredPort = Number(process.env.PORT);
-  const PORT = Number.isFinite(configuredPort) && configuredPort > 0 ? configuredPort : 3000;
+  const PORT = 3000;
   app.use(express.json({ limit: `${MAX_HISTORICAL_AUDIT_BYTES}b` }));
 
   app.use((req, res, next) => {
