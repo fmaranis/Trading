@@ -28,10 +28,13 @@ for (const [file, label] of [[decisionMain, 'MAIN'], [portfolioMain, 'PORTFOLIO_
 }
 
 requireText(gate, "gate === 'DEV_BYPASS'", 'LOCAL_DEV_BYPASS_MISSING');
+requireText(gate, 'sendEmailVerification', 'EMAIL_VERIFICATION_UI_MISSING');
+requireText(gate, 'await reload(user);', 'VERIFIED_EMAIL_REFRESH_MISSING');
 requireText(firebaseAdmin, "process.env.NODE_ENV === 'production' || process.env.FIREBASE_AUTH_REQUIRED === 'true'", 'PRODUCTION_AUTH_MUST_BE_REQUIRED');
 requireText(authSecurity, 'auth.verifyIdToken(raw, true)', 'SERVER_MUST_VERIFY_AND_CHECK_REVOKED_ID_TOKEN');
 requireText(authSecurity, 'token.isAdmin === true', 'ADMIN_MUST_COME_FROM_SIGNED_CLAIM');
 requireText(authSecurity, 'token.accessGranted === true || token.isAdmin === true', 'ACCESS_MUST_COME_FROM_SIGNED_CLAIM');
+requireText(authSecurity, 'account.token.email_verified === true', 'BOOTSTRAP_EMAIL_MUST_BE_VERIFIED');
 forbidText(authSecurity, "profile.role === 'admin'", 'FIRESTORE_PROFILE_MUST_NOT_GRANT_ADMIN');
 
 requireText(accountRoutes, "accountRouter.get('/state'", 'PRIVATE_STATE_READ_ENDPOINT_MISSING');
