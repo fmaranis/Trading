@@ -1,6 +1,7 @@
 import type { User } from 'firebase/auth';
 import { accountFetch } from './accountApi';
 
+const ACCOUNT_API_BASE = '/api/alerts/account';
 const OWNER_KEY = 'custodia_cloud_owner_uid_v1';
 export const PRIVATE_LOCAL_STORAGE_KEYS = [
   'custodia_user_portfolio_v1',
@@ -57,7 +58,7 @@ function applyCloudValues(uid: string, values: Record<string, string>): void {
 
 export class UserCloudStateService {
   static async hydrate(user: User): Promise<{ migratedLegacy: boolean; cloudStateExists: boolean }> {
-    const cloud = await accountFetch<CloudStatePayload>(user, '/api/account/state');
+    const cloud = await accountFetch<CloudStatePayload>(user, `${ACCOUNT_API_BASE}/state`);
     const localOwner = typeof window === 'undefined' ? null : window.localStorage.getItem(OWNER_KEY);
 
     if (cloud.exists) {
@@ -79,7 +80,7 @@ export class UserCloudStateService {
   }
 
   static async push(user: User, values = currentSnapshot()): Promise<void> {
-    await accountFetch(user, '/api/account/state', { method: 'PUT', body: JSON.stringify({ values }) });
+    await accountFetch(user, `${ACCOUNT_API_BASE}/state`, { method: 'PUT', body: JSON.stringify({ values }) });
   }
 
   static startAutoSync(user: User): () => void {
