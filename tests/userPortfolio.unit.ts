@@ -42,12 +42,11 @@ const missing = analyzePortfolioRebalance(
 check('309 missing market price is explicit', missing.lines.some(x => x.ticker === 'UNKNOWN.DE' && x.action === 'DATA_MISSING'));
 check('310 unknown holding adds warning instead of fabricated price', missing.warnings.includes('PRICE_MISSING:UNKNOWN.DE'));
 
-const unified = UserPortfolioService.load();
-check('311 real portfolio baseline contains the two user-provided mutual funds', (unified.funds ?? []).length === 2);
-check('312 Vanguard Global is inside real portfolio state', unified.funds?.some(f => f.isin === 'IE00B03HD191' && f.investedEur === 12600 && f.acquisitionDate === '2026-08-11') === true);
-check('313 Vanguard Emerging is inside real portfolio state', unified.funds?.some(f => f.isin === 'IE0031786696' && f.investedEur === 1400 && f.acquisitionDate === '2026-08-12') === true);
-check('314 staged capital is inside the same real portfolio state', unified.stagedCapitalPlan?.availableEur === 13000 && unified.stagedCapitalPlan?.horizonMonths === 12);
-check('315 unified portfolio keeps ETF holdings and mutual funds as different product fields in one state', Array.isArray(unified.holdings) && Array.isArray(unified.funds));
+const fresh = UserPortfolioService.load();
+check('311 a fresh account has no embedded mutual-fund positions', (fresh.funds ?? []).length === 0);
+check('312 a fresh account has no embedded listed holdings', fresh.holdings.length === 0);
+check('313 a fresh account has zero pending capital', (fresh.stagedCapitalPlan?.availableEur ?? 0) === 0);
+check('314 portfolio product fields remain unified', Array.isArray(fresh.holdings) && Array.isArray(fresh.funds));
 
 const migratedFromAccidentalEmpty = migrateUserPortfolioState({
   cashEur: 0,
@@ -57,9 +56,9 @@ const migratedFromAccidentalEmpty = migrateUserPortfolioState({
   exampleInitialized: true,
   updatedAt: '2026-08-29T00:00:00Z'
 });
-check('316 pre-v2 empty state restores both real funds exactly once', (migratedFromAccidentalEmpty.funds ?? []).length === 2 && new Set(migratedFromAccidentalEmpty.funds?.map(f => f.isin)).size === 2);
-check('317 pre-v2 empty state restores real pending capital', migratedFromAccidentalEmpty.stagedCapitalPlan?.availableEur === 13000);
-check('318 migration marks state as v2', migratedFromAccidentalEmpty.portfolioDataVersion === 2);
+check('315 pre-v2 empty state stays empty instead of inserting a person-specific portfolio', (migratedFromAccidentalEmpty.funds ?? []).length === 0);
+check('316 pre-v2 empty state keeps zero pending capital', migratedFromAccidentalEmpty.stagedCapitalPlan?.availableEur === 0);
+check('317 migration marks state as v2', migratedFromAccidentalEmpty.portfolioDataVersion === 2);
 
 const intentionalEmptyAfterMigration = migrateUserPortfolioState({
   cashEur: 0,
@@ -69,15 +68,18 @@ const intentionalEmptyAfterMigration = migrateUserPortfolioState({
   portfolioDataVersion: 2,
   updatedAt: '2026-08-29T00:00:00Z'
 });
-check('319 v2 empty state is respected after a future intentional exit', (intentionalEmptyAfterMigration.funds ?? []).length === 0 && intentionalEmptyAfterMigration.stagedCapitalPlan?.availableEur === 0);
+check('318 v2 empty state is respected after an intentional exit', (intentionalEmptyAfterMigration.funds ?? []).length === 0 && intentionalEmptyAfterMigration.stagedCapitalPlan?.availableEur === 0);
 
-const oneExistingRealFund = migrateUserPortfolioState({
-  cashEur: 0,
-  holdings: [],
-  funds: [{ id: 'legacy_global', isin: 'IE00B03HD191', name: 'Vanguard Global Stock Index Fund EUR Acc', category: 'GLOBAL_EQUITY', investedEur: 12600, acquisitionDate: '2026-08-11', units: 196.59, transferable: true, broker: 'MyInvestor' }],
-  stagedCapitalPlan: { availableEur: 13000, horizonMonths: 12, preferredMode: 'MONTHLY' },
-  updatedAt: '2026-08-29T00:00:00Z'
-});
-check('320 migration preserves existing real fund and adds only the missing real position', (oneExistingRealFund.funds ?? []).length === 2 && oneExistingRealFund.funds?.filter(f => f.isin === 'IE00B03HD191').length === 1 && oneExistingRealFund.funds?.some(f => f.isin === 'IE0031786696') === true);
+const genericLegacyFund = {
+  id: 'legacy_test', isin: 'TEST00000001', name: 'Legacy Test Fund', category: 'OTHER', investedEur: 2500,
+  acquisitionDate: '2026-01-10', units: 25, transferable: true, broker: 'TestBroker'
+};
+const migratedLegacy = migrateUserPortfolioState(
+  { cashEur: 100, holdings: [], updatedAt: '2026-08-29T00:00:00Z' },
+  [genericLegacyFund],
+  { availableEur: 3000, horizonMonths: 6, preferredMode: 'MONTHLY' }
+);
+check('319 legacy user-owned fund data is preserved during migration', migratedLegacy.funds?.length === 1 && migratedLegacy.funds[0].id === 'legacy_test' && migratedLegacy.funds[0].investedEur === 2500);
+check('320 legacy user-owned pending capital is preserved during migration', migratedLegacy.stagedCapitalPlan?.availableEur === 3000 && migratedLegacy.stagedCapitalPlan?.horizonMonths === 6);
 
-console.log(`User portfolio rebalance/real-state migration: ${passed}/20 invariants passed.`);
+console.log(`User portfolio rebalance/private-state migration: ${passed}/20 invariants passed.`);
