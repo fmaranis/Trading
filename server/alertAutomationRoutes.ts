@@ -8,22 +8,27 @@ export const alertAutomationRouter = express.Router();
 // product layer is introduced. Public path: /api/alerts/account/*.
 alertAutomationRouter.use('/account', accountRouter);
 
-alertAutomationRouter.get('/status', (_req: Request, res: Response) => {
-  const status = getAlertAutomationStatus();
-  res.json({
-    enabled: status.enabled,
-    timezone: status.timezone,
-    runTimeLocal: status.runTimeLocal,
-    notificationChannelConfigured: status.webhookConfigured,
-    lastSuccessAt: status.state.lastSuccessAt,
-    lastMarketDate: status.state.lastMarketDate,
-    lastEvidenceState: status.state.lastEvidenceState,
-    lastNotificationAt: status.state.lastNotificationAt,
-    lastNotificationEventCount: status.state.lastNotificationEventCount,
-    lastNotificationEventKeys: status.state.lastNotificationEventKeys,
-    lastErrorPresent: Boolean(status.state.lastError),
-    lastAlertCount: status.state.lastAlerts.length
-  });
+alertAutomationRouter.get('/status', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const status = await getAlertAutomationStatus();
+    res.json({
+      enabled: status.enabled,
+      timezone: status.timezone,
+      runTimeLocal: status.runTimeLocal,
+      notificationChannelConfigured: status.webhookConfigured,
+      persistence: status.persistence,
+      lastSuccessAt: status.state.lastSuccessAt,
+      lastMarketDate: status.state.lastMarketDate,
+      lastEvidenceState: status.state.lastEvidenceState,
+      lastNotificationAt: status.state.lastNotificationAt,
+      lastNotificationEventCount: status.state.lastNotificationEventCount,
+      lastNotificationEventKeys: status.state.lastNotificationEventKeys,
+      lastErrorPresent: Boolean(status.state.lastError),
+      lastAlertCount: status.state.lastAlerts.length
+    });
+  } catch (error: any) {
+    res.status(503).json({ ok: false, error: error?.message || String(error), persistence: 'UNAVAILABLE' });
+  }
 });
 
 alertAutomationRouter.post('/run-now', async (req: Request, res: Response): Promise<void> => {
