@@ -24,7 +24,7 @@ let runtimePromise: Promise<FirebaseClientRuntime> | null = null;
 export function loadFirebaseClientRuntime(): Promise<FirebaseClientRuntime> {
   if (runtimePromise) return runtimePromise;
   runtimePromise = (async () => {
-    const response = await fetch('/api/account/public-config');
+    const response = await fetch('/api/alerts/account/public-config');
     if (!response.ok) throw new Error(`FIREBASE_PUBLIC_CONFIG_HTTP_${response.status}`);
     const config = await response.json() as FirebasePublicRuntimeConfig;
     if (!config.configured || !config.firebase) return { config, app: null, auth: null };
