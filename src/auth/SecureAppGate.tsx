@@ -89,7 +89,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
       if (!account.accessGranted) { setMessage(user.emailVerified ? 'La cuenta sigue pendiente de aprobación.' : 'Verifica primero el correo y vuelve a comprobar el acceso.'); return; }
       await UserCloudStateService.hydrate(user);
       setGate('READY');
-    } catch (error: any) { setMessage(error?.message || String(error)); }
+    } catch (error: any) { setMessage(error?.message || String(error)); setGate('ERROR'); }
     finally { setBusy(false); }
   };
 
@@ -118,7 +118,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
 
   if (gate === 'LOADING') return <div className="flex min-h-screen items-center justify-center bg-[#0b0f19] text-slate-300"><RefreshCw className="mr-2 h-4 w-4 animate-spin"/>Verificando sesión privada…</div>;
 
-  if (gate === 'ERROR' && (!runtime?.config.configured || !user)) return <div className="flex min-h-screen items-center justify-center bg-[#0b0f19] p-4"><div className="max-w-lg rounded-2xl border border-rose-500/30 bg-slate-950 p-6 text-sm text-slate-300"><h1 className="font-bold text-rose-200">Acceso privado no disponible</h1><p className="mt-2">La versión publicada exige Firebase Authentication correctamente configurado. No se muestra ninguna cartera sin protección.</p>{message && <div className="mt-3 font-mono text-xs text-rose-300">{message}</div>}</div></div>;
+  if (gate === 'ERROR') return <div className="flex min-h-screen items-center justify-center bg-[#0b0f19] p-4"><div className="w-full max-w-lg rounded-2xl border border-rose-500/30 bg-slate-950 p-6 text-sm text-slate-300"><h1 className="font-bold text-rose-200">Acceso privado bloqueado</h1><p className="mt-2">No se ha podido completar de forma segura la autenticación o la carga del estado privado. La aplicación permanece cerrada y no muestra ninguna cartera.</p>{message && <div className="mt-3 break-words font-mono text-xs text-rose-300">{message}</div>}<div className="mt-4 flex flex-wrap gap-2">{user && <button disabled={busy} onClick={() => void refreshAccess()} className="flex items-center gap-1 rounded-lg border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-200"><RefreshCw className="h-3.5 w-3.5"/>Reintentar verificación</button>}{user && <button disabled={busy} onClick={() => void logout()} className="flex items-center gap-1 rounded-lg border border-slate-700 px-4 py-2 text-xs text-slate-300"><LogOut className="h-3.5 w-3.5"/>Salir</button>}</div></div></div>;
 
   if (gate === 'LOGIN') return <div className="flex min-h-screen items-center justify-center bg-[#0b0f19] p-4">
     <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-6 shadow-2xl">
