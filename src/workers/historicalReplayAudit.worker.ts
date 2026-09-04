@@ -3,7 +3,12 @@ import { runDynamicReplayWithRotationExperiment } from '../investment/decision/r
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
 import type { AssetUniverseItem } from '../investment/decision/assetUniverse';
 import type { CashBenchmarkMode } from '../investment/decision/cashBenchmark';
-import type { DynamicReplayFrequency, DynamicReplaySignal } from '../investment/decision/dynamicHistoricalReplay';
+import type {
+  DynamicReplayFrequency,
+  DynamicReplayInitialPortfolio,
+  DynamicReplaySignal,
+  DynamicReplaySimulationMode
+} from '../investment/decision/dynamicHistoricalReplay';
 import type { InvestmentHorizonYears, InvestorRiskProfile } from '../investment/decision/types';
 import type { SpanishTaxSettings } from '../investment/decision/spanishTaxModel';
 
@@ -20,6 +25,8 @@ interface InitMessage {
   cashBenchmarkAnnualPct: number;
   minimumBars: number;
   taxSettings: SpanishTaxSettings;
+  simulationMode?: DynamicReplaySimulationMode;
+  initialPortfolio?: DynamicReplayInitialPortfolio;
 }
 
 interface RunMessage {
@@ -66,7 +73,9 @@ function replayInput(dataset: MultiAssetDataset) {
     cashBenchmarkMode: configuration.cashBenchmarkMode,
     cashBenchmarkAnnualPct: configuration.cashBenchmarkAnnualPct,
     minimumBars: configuration.minimumBars,
-    taxSettings: configuration.taxSettings
+    taxSettings: configuration.taxSettings,
+    simulationMode: configuration.simulationMode ?? 'CUSTODIA_ENGINE',
+    initialPortfolio: configuration.initialPortfolio
   };
 }
 
@@ -131,11 +140,10 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
   try {
     const dataset = truncateDataset(sourceDataset, message.endDate);
     const input = replayInput(dataset);
-    const result = appendRotationCounterfactualAudit({
-      result: runDynamicReplayWithRotationExperiment(input, REPLAY_ROTATION_EXPERIMENT),
-      dataset,
-      catalog: configuration.catalog
-    });
+    const baseline = runDynamicReplayWithRotationExperiment(input, REPLAY_ROTATION_EXPERIMENT);
+    const result = input.simulationMode === 'HOLD_ONLY'
+      ? baseline
+      : appendRotationCounterfactualAudit({ result: baseline, dataset, catalog: configuration.catalog });
 
     const fullSignalCount = result.signals.length;
     result.signals = compactAuditSignals(result.signals);
