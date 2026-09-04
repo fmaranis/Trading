@@ -19,6 +19,7 @@ const cloudState = source('src/auth/userCloudState.ts');
 const authSecurity = source('server/authSecurity.ts');
 const accountRoutes = source('server/accountRoutes.ts');
 const firebaseAdmin = source('server/firebaseAdmin.ts');
+const alertAutomation = source('server/alertAutomation.ts');
 const alertRoutes = source('server/alertAutomationRoutes.ts');
 const firestoreRules = source('firestore.rules');
 const packageJson = source('package.json');
@@ -59,6 +60,13 @@ requireText(cloudState, 'localOwner && localOwner !== user.uid', 'CROSS_USER_LOC
 requireText(cloudState, 'clearPrivateLocalState()', 'PRIVATE_LOCAL_CLEAR_MISSING');
 
 requireText(alertRoutes, "alertAutomationRouter.use('/account', accountRouter)", 'ACCOUNT_ROUTER_NOT_MOUNTED');
+requireText(alertAutomation, "const FIRESTORE_STATE_DOCUMENT = 'system/alertAutomation'", 'ALERT_STATE_FIRESTORE_DOCUMENT_MISSING');
+requireText(alertAutomation, 'db.doc(FIRESTORE_STATE_DOCUMENT).get()', 'ALERT_STATE_MUST_READ_FIRESTORE');
+requireText(alertAutomation, 'db.doc(FIRESTORE_STATE_DOCUMENT).set({', 'ALERT_STATE_MUST_WRITE_FIRESTORE');
+requireText(alertAutomation, "process.env.NODE_ENV === 'production' || process.env.FIREBASE_AUTH_REQUIRED === 'true'", 'ALERT_STATE_MUST_REQUIRE_DURABLE_STORAGE_IN_PRODUCTION');
+requireText(alertAutomation, 'ALERT_STATE_PERSISTENCE_NOT_CONFIGURED', 'ALERT_STATE_MUST_FAIL_CLOSED_WITHOUT_DURABLE_STORAGE');
+requireText(alertRoutes, 'await getAlertAutomationStatus()', 'ALERT_STATUS_MUST_AWAIT_PERSISTENT_STATE');
+
 requireText(firestoreRules, 'allow create, update, delete: if false;', 'CLIENT_WRITES_MUST_BE_DENIED');
 requireText(firestoreRules, 'request.auth.uid == userId', 'FIRESTORE_OWNER_CHECK_MISSING');
 requireText(firestoreRules, 'request.auth.token.isAdmin == true', 'FIRESTORE_ADMIN_CLAIM_CHECK_MISSING');
