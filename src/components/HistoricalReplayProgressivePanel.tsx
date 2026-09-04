@@ -13,10 +13,18 @@ import {
   type CashBenchmarkMode,
   type DynamicHistoricalReplayResult,
   type DynamicReplayFrequency,
+  type DynamicReplayInitialPortfolio,
+  type DynamicReplayInitialPortfolioSource,
   type DynamicReplaySignal,
+  type DynamicReplaySimulationMode,
   type InvestmentHorizonYears,
   type InvestorRiskProfile
 } from '../investment/decision';
+import {
+  DEFAULT_REPLAY_SCENARIO,
+  ReplayInitialPortfolioControls,
+  type ReplayScenarioDraft
+} from './ReplayInitialPortfolioControls';
 
 interface Props {
   capitalEur: number;
@@ -138,10 +146,13 @@ interface AuditConfig {
   initialCapitalEur: number;
   cashBenchmarkMode: CashBenchmarkMode;
   cashBenchmarkAnnualPct: number;
+  simulationMode: DynamicReplaySimulationMode;
+  initialPortfolioSource: DynamicReplayInitialPortfolioSource;
+  initialPortfolio?: DynamicReplayInitialPortfolio;
 }
 
 interface PersistedAudit extends AuditConfig {
-  version: 3;
+  version: 3 | 4;
   checkpoints: AuditCheckpoint[];
   executions: AuditExecution[];
   path: AuditPathPoint[];
@@ -211,7 +222,7 @@ function loadPersistedAudit(): PersistedAudit | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedAudit;
-    return parsed?.version === 3 ? parsed : null;
+    return parsed?.version === 3 || parsed?.version === 4 ? parsed : null;
   } catch { return null; }
 }
 function loadLegacyAudit(): any | null {
@@ -219,6 +230,19 @@ function loadLegacyAudit(): any | null {
 }
 function savedCashMode(saved: PersistedAudit | null): CashBenchmarkMode {
   return saved?.cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0' ? 'HISTORICAL_ECB_DFR_FLOOR_0' : 'FIXED_USER_RATE';
+}
+function savedSimulationMode(saved: PersistedAudit | null): DynamicReplaySimulationMode {
+  return saved?.simulationMode === 'HOLD_ONLY' ? 'HOLD_ONLY' : 'CUSTODIA_ENGINE';
+}
+function savedPortfolioSource(saved: PersistedAudit | null): DynamicReplayInitialPortfolioSource {
+  return saved?.initialPortfolioSource === 'MANUAL' || saved?.initialPortfolioSource === 'CURRENT_PORTFOLIO' ? saved.initialPortfolioSource : 'ZERO';
+}
+function initialPortfolioSignature(portfolio?: DynamicReplayInitialPortfolio): string {
+  if (!portfolio) return 'ZERO';
+  const allocations = [...portfolio.allocations]
+    .map(row => ({ assetId: row.assetId, amountEur: Number(row.amountEur.toFixed(6)) }))
+    .sort((a, b) => a.assetId.localeCompare(b.assetId));
+  return JSON.stringify({ source: portfolio.source, cashEur: Number(portfolio.cashEur.toFixed(6)), allocations });
 }
 function sameConfiguration(saved: PersistedAudit | null, config: AuditConfig): boolean {
   if (!saved) return false;
@@ -234,6 +258,9 @@ function sameConfiguration(saved: PersistedAudit | null, config: AuditConfig): b
     && saved.durationMonths === config.durationMonths
     && saved.chunkDays === config.chunkDays
     && Math.abs(saved.initialCapitalEur - config.initialCapitalEur) < 0.01
+    && savedSimulationMode(saved) === config.simulationMode
+    && savedPortfolioSource(saved) === config.initialPortfolioSource
+    && initialPortfolioSignature(saved.initialPortfolio) === initialPortfolioSignature(config.initialPortfolio)
     && sameRate
   );
 }
@@ -443,6 +470,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
   const [durationMonths, setDurationMonths] = useState(12);
   const [chunkDays, setChunkDays] = useState(30);
   const [initialCapital, setInitialCapital] = useState(() => Math.max(1, capitalEur).toFixed(2));
+  const [scenario, setScenario] = useState<ReplayScenarioDraft>(DEFAULT_REPLAY_SCENARIO);
   const [cashBenchmarkMode, setCashBenchmarkMode] = useState<CashBenchmarkMode>(DEFAULT_REPLAY_CASH_BENCHMARK_MODE);
   const [cashBenchmarkAnnualPct, setCashBenchmarkAnnualPct] = useState(() => CashBenchmarkService.load());
   const [status, setStatus] = useState<SessionStatus>('IDLE');
@@ -477,7 +505,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
   useEffect(() => { pathRef.current = path; }, [path]);
   useEffect(() => { signalsRef.current = signals; }, [signals]);
   useEffect(() => { autoRunningRef.current = autoRunning; }, [autoRunning]);
-  useEffect(() => setInitialCapital(Math.max(1, capitalEur).toFixed(2)), [capitalEur]);
+  useEffect(() => { if (scenario.source === 'ZERO') setInitialCapital(Math.max(1, capitalEur).toFixed(2)); }, [capitalEur, scenario.source]);
   useEffect(() => () => { workerRef.current?.terminate(); if (autoTimerRef.current != null) window.clearTimeout(autoTimerRef.current); }, []);
   useEffect(() => {
     const sync = () => { if (status === 'IDLE') setCashBenchmarkAnnualPct(CashBenchmarkService.load()); };
@@ -489,7 +517,15 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     const saved = loadPersistedAudit();
     if (saved) {
       const mode = savedCashMode(saved);
+      const restoredSource = savedPortfolioSource(saved);
+      const restoredPortfolio = saved.initialPortfolio;
       setStartDate(saved.startDate); setFrequency(saved.frequency); setRunMode(saved.runMode); setDurationMonths(saved.durationMonths); setChunkDays(saved.chunkDays); setInitialCapital(saved.initialCapitalEur.toFixed(2)); setCashBenchmarkMode(mode);
+      setScenario({
+        source: restoredSource,
+        simulationMode: savedSimulationMode(saved),
+        cashEur: restoredPortfolio?.cashEur ?? 0,
+        allocations: restoredPortfolio?.allocations ?? []
+      });
       if (Number.isFinite(Number(saved.cashBenchmarkAnnualPct))) setCashBenchmarkAnnualPct(Number(saved.cashBenchmarkAnnualPct));
       if (!saved.cashBenchmarkMode) setWarning('Esta sesión se creó antes de registrar el modo de cash y se conserva como TAE fija. Para usar BCE histórico prepara una sesión nueva.');
       setCheckpoints(saved.checkpoints ?? []); setExecutions(saved.executions ?? []); setPath(saved.path ?? []); setSignals(saved.signals ?? []); setSummary(saved.summary ?? null); setPositions(saved.positions ?? []);
@@ -500,6 +536,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     const legacy = loadLegacyAudit();
     if (legacy?.version === 2) {
       setStartDate(legacy.startDate); setFrequency(legacy.frequency); setRunMode(legacy.runMode); setDurationMonths(legacy.durationMonths); setChunkDays(legacy.chunkDays); setInitialCapital(Number(legacy.initialCapitalEur).toFixed(2)); setCashBenchmarkMode('FIXED_USER_RATE');
+      setScenario(DEFAULT_REPLAY_SCENARIO);
       setCheckpoints(legacy.checkpoints ?? []); setExecutions(legacy.executions ?? []);
       checkpointsRef.current = legacy.checkpoints ?? []; executionsRef.current = legacy.executions ?? [];
       setWarning('La sesión legacy se conserva como TAE fija. Para usar BCE histórico se iniciará una sesión limpia.');
@@ -511,7 +548,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     const config = configRef.current;
     if (!config) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 3, ...config, checkpoints: nextCheckpoints, executions: nextExecutions, path: nextPath, signals: nextSignals, summary: nextSummary, positions: nextPositions } satisfies PersistedAudit));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 4, ...config, checkpoints: nextCheckpoints, executions: nextExecutions, path: nextPath, signals: nextSignals, summary: nextSummary, positions: nextPositions } satisfies PersistedAudit));
       setWarning(null);
     } catch {
       setWarning('El cálculo continúa, pero el navegador no pudo guardar toda la trayectoria localmente. Los resultados siguen visibles mientras no cierres esta sesión.');
@@ -568,6 +605,9 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     };
     const nextCheckpoints = [...checkpointsRef.current.filter(item => item.requestedEndDate !== requestedEndDate), checkpoint].sort((a, b) => a.requestedEndDate.localeCompare(b.requestedEndDate));
     const exactHold = buildExactInitialHold({ scan, executions: currentExecutions, path: nextPath, initialCapitalEur: result.initialCapitalEur, endDate: result.endDate });
+    const exactHoldFinal = result.initialPortfolioSource && result.initialPortfolioSource !== 'ZERO' ? result.staticBuyHoldFinalEur : exactHold.finalEur;
+    const exactHoldReturn = result.initialPortfolioSource && result.initialPortfolioSource !== 'ZERO' ? result.staticBuyHoldReturnPct : exactHold.returnPct;
+    const exactHoldDate = result.initialPortfolioSource && result.initialPortfolioSource !== 'ZERO' ? result.startDate : exactHold.firstDate;
     const nextSummary: ReplaySummary = {
       endDate: result.endDate,
       engineFinalEur: result.finalValueEur,
@@ -577,13 +617,13 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
       engineFeesEur: result.totalFeesEur,
       engineTaxEur: result.totalEstimatedTaxEur,
       engineTransferredEur: result.totalTransferredEur,
-      exactHoldFinalEur: exactHold.finalEur,
-      exactHoldProfitEur: exactHold.finalEur == null ? null : exactHold.finalEur - result.initialCapitalEur,
-      exactHoldReturnPct: exactHold.returnPct,
-      advantageEur: exactHold.finalEur == null ? null : result.finalValueEur - exactHold.finalEur,
-      advantagePctPoints: exactHold.returnPct == null ? null : result.totalReturnPct - exactHold.returnPct,
+      exactHoldFinalEur: exactHoldFinal,
+      exactHoldProfitEur: exactHoldFinal == null ? null : exactHoldFinal - result.initialCapitalEur,
+      exactHoldReturnPct: exactHoldReturn,
+      advantageEur: exactHoldFinal == null ? null : result.finalValueEur - exactHoldFinal,
+      advantagePctPoints: exactHoldReturn == null ? null : result.totalReturnPct - exactHoldReturn,
       taxMethod: result.taxMethod,
-      initialPortfolioDate: exactHold.firstDate
+      initialPortfolioDate: exactHoldDate
     };
     Object.assign(nextSummary, {
       timingStateCounts: result.timingStateCounts,
@@ -608,8 +648,16 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
 
   const prepare = async () => {
     if (status === 'LOADING_DATA' || status === 'RUNNING') return;
-    const capital = Number(initialCapital); const duration = Math.trunc(Number(durationMonths)); const days = Math.trunc(Number(chunkDays));
-    if (!(capital > 0)) { setError('El capital inicial debe ser mayor que cero.'); return; }
+    const scenarioPortfolio: DynamicReplayInitialPortfolio | undefined = scenario.source === 'ZERO' ? undefined : {
+      source: scenario.source,
+      cashEur: Math.max(0, Number(scenario.cashEur) || 0),
+      allocations: scenario.allocations.map(row => ({ assetId: row.assetId, amountEur: Math.max(0, Number(row.amountEur) || 0) })).filter(row => row.assetId && row.amountEur > 0)
+    };
+    const scenarioCapital = scenarioPortfolio
+      ? scenarioPortfolio.cashEur + scenarioPortfolio.allocations.reduce((sum, row) => sum + row.amountEur, 0)
+      : Number(initialCapital);
+    const capital = scenarioCapital; const duration = Math.trunc(Number(durationMonths)); const days = Math.trunc(Number(chunkDays));
+    if (!(capital > 0)) { setError(scenario.source === 'ZERO' ? 'El capital inicial debe ser mayor que cero.' : 'La cartera inicial debe contener cash o al menos una posición con importe mayor que cero.'); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || startDate >= today()) { setError('Elige una fecha pasada válida.'); return; }
     if (!(duration >= 1 && duration <= 120)) { setError('La duración total debe estar entre 1 y 120 meses.'); return; }
     if (!(days >= 1 && days <= 365)) { setError('El tramo debe estar entre 1 y 365 días.'); return; }
@@ -617,12 +665,30 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     const finalDate = earlierDate(addMonths(startDate, duration), today());
     if (finalDate <= startDate) { setError('La duración elegida no deja un periodo válido.'); return; }
 
-    const config: AuditConfig = { startDate, frequency, runMode, durationMonths: duration, chunkDays: days, initialCapitalEur: capital, cashBenchmarkMode, cashBenchmarkAnnualPct };
+    const config: AuditConfig = {
+      startDate,
+      frequency,
+      runMode,
+      durationMonths: duration,
+      chunkDays: days,
+      initialCapitalEur: capital,
+      cashBenchmarkMode,
+      cashBenchmarkAnnualPct,
+      simulationMode: scenario.simulationMode,
+      initialPortfolioSource: scenario.source,
+      initialPortfolio: scenarioPortfolio
+    };
     setError(null); setWarning(days > 90 ? 'Has elegido un tramo grande; cada checkpoint puede tardar más.' : null); setStatus('LOADING_DATA'); setMessage('Descargando una sola vez el histórico REAL necesario…');
     try {
       const from = warmupDate(startDate);
       const nextScan = await AssetUniverseScanner.scan(EUR_PORTFOLIO_DISCOVERY_UNIVERSE, from, finalDate, { forceRefresh: false, concurrency: 3, maxSelected: 12, minimumBars: 252, maxDataAgeDays: 7 });
       if (nextScan.acceptedDataset.assets.length < 1) throw new Error('No hay instrumentos con histórico REAL suficiente para ese periodo.');
+      for (const allocation of scenarioPortfolio?.allocations ?? []) {
+        if (!nextScan.acceptedDataset.assets.some(asset => asset.assetId === allocation.assetId)) {
+          const label = EUR_PORTFOLIO_DISCOVERY_UNIVERSE.find(asset => asset.assetId === allocation.assetId)?.ticker ?? allocation.assetId;
+          throw new Error(`No hay histórico REAL suficiente para iniciar ${label} en la fecha elegida.`);
+        }
+      }
       setCoverage({ accepted: nextScan.accepted, scanned: nextScan.scanned, from }); scanRef.current = nextScan;
       const ends = buildChunkEnds(startDate, finalDate, days); setChunkEnds(ends); chunkEndsRef.current = ends;
 
@@ -645,12 +711,18 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
           const alreadyDone = checkpointsRef.current.length >= ends.length;
           setStatus(alreadyDone ? 'DONE' : 'READY');
           const cashLabel = cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0' ? cashBenchmarkModeLabel(cashBenchmarkMode) : `${cashBenchmarkAnnualPct.toFixed(2)}% TAE fija`;
-          setMessage(alreadyDone ? `La sesión ya contiene ${ends.length}/${ends.length} checkpoints.` : checkpointsRef.current.length ? `Reanudado: ${checkpointsRef.current.length}/${ends.length} checkpoints · ${pathRef.current.length} sesiones visibles.` : `Preparado: ${ends.length} checkpoints cada ${days} días durante ${duration} meses · cash ${cashLabel}.`);
+          const sourceLabel = scenario.source === 'ZERO' ? 'desde cero' : scenario.source === 'CURRENT_PORTFOLIO' ? 'cartera actual' : 'cartera manual';
+          const simulationLabel = scenario.simulationMode === 'CUSTODIA_ENGINE' ? 'Motor Custodia' : 'Mantener cartera';
+          setMessage(alreadyDone ? `La sesión ya contiene ${ends.length}/${ends.length} checkpoints.` : checkpointsRef.current.length ? `Reanudado: ${checkpointsRef.current.length}/${ends.length} checkpoints · ${pathRef.current.length} sesiones visibles.` : `Preparado: ${ends.length} checkpoints · ${sourceLabel} · ${simulationLabel} · cash ${cashLabel}.`);
         } else if (response.type === 'RESULT') finishWorkerResult(response.requestedEndDate, response.result);
         else if (response.type === 'ERROR') { setError(`El tramo ${response.requestedEndDate ?? ''} no pudo completarse: ${response.error}`); setStatus('READY'); setAutoRunning(false); autoRunningRef.current = false; }
       };
       worker.onerror = event => { setError(`El proceso aislado falló: ${event.message || 'WORKER_ERROR'}.`); setStatus('IDLE'); setAutoRunning(false); autoRunningRef.current = false; };
-      worker.postMessage({ type: 'INIT', dataset: nextScan.acceptedDataset, catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE, startDate, frequency, initialCapitalEur: capital, riskProfile, horizonYears, cashBenchmarkMode, cashBenchmarkAnnualPct, minimumBars: 252, taxSettings: SpanishTaxSettingsService.load() });
+      worker.postMessage({
+        type: 'INIT', dataset: nextScan.acceptedDataset, catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE, startDate, frequency,
+        initialCapitalEur: capital, riskProfile, horizonYears, cashBenchmarkMode, cashBenchmarkAnnualPct, minimumBars: 252,
+        taxSettings: SpanishTaxSettingsService.load(), simulationMode: scenario.simulationMode, initialPortfolio: scenarioPortfolio
+      });
     } catch (e: any) { setError(e?.message || String(e)); setStatus('IDLE'); }
   };
 
@@ -661,7 +733,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
   const reset = () => {
     workerRef.current?.terminate(); workerRef.current = null; if (autoTimerRef.current != null) window.clearTimeout(autoTimerRef.current); autoTimerRef.current = null; scanRef.current = null; configRef.current = null; chunkEndsRef.current = [];
     localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(LEGACY_STORAGE_KEY);
-    setStatus('IDLE'); setAutoRunning(false); autoRunningRef.current = false; setCashBenchmarkMode(DEFAULT_REPLAY_CASH_BENCHMARK_MODE); setCashBenchmarkAnnualPct(CashBenchmarkService.load()); setMessage(''); setError(null); setWarning(null); setCoverage(null); setChunkEnds([]); setCheckpoints([]); setExecutions([]); setPath([]); setSignals([]); setSummary(null); setPositions([]); setSelectedAssetId(null);
+    setStatus('IDLE'); setAutoRunning(false); autoRunningRef.current = false; setScenario(DEFAULT_REPLAY_SCENARIO); setCashBenchmarkMode(DEFAULT_REPLAY_CASH_BENCHMARK_MODE); setCashBenchmarkAnnualPct(CashBenchmarkService.load()); setMessage(''); setError(null); setWarning(null); setCoverage(null); setChunkEnds([]); setCheckpoints([]); setExecutions([]); setPath([]); setSignals([]); setSummary(null); setPositions([]); setSelectedAssetId(null);
     checkpointsRef.current = []; executionsRef.current = []; pathRef.current = []; signalsRef.current = [];
   };
 
@@ -682,6 +754,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
   const visibleSignals = useMemo(() => showAllSignals ? signals : signals.filter(signal => MATERIAL_ACTIONS.has(signal.action)), [signals, showAllSignals]);
 
   const completed = checkpoints.length; const total = chunkEnds.length; const progressPct = total > 0 ? Math.min(100, completed / total * 100) : 0; const controlsLocked = status !== 'IDLE';
+  const scenarioCapital = scenario.source === 'ZERO' ? Number(initialCapital) : Math.max(0, scenario.cashEur) + scenario.allocations.reduce((sum, row) => sum + Math.max(0, Number(row.amountEur) || 0), 0);
   const updateCashBenchmark = (value: number) => {
     const next = CashBenchmarkService.set(value);
     setCashBenchmarkAnnualPct(next);
@@ -689,6 +762,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
   const replayCashLabel = cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0'
     ? cashBenchmarkModeLabel(cashBenchmarkMode)
     : `${cashBenchmarkAnnualPct.toFixed(2)}% TAE fija`;
+  const scenarioLabel = `${scenario.source === 'ZERO' ? 'DESDE CERO' : scenario.source === 'CURRENT_PORTFOLIO' ? 'MI CARTERA ACTUAL' : 'MANUAL'} · ${scenario.simulationMode === 'CUSTODIA_ENGINE' ? 'MOTOR CUSTODIA' : 'MANTENER CARTERA'}`;
 
   return <section className="mt-5 rounded-2xl border border-fuchsia-500/25 bg-gradient-to-br from-fuchsia-950/20 via-slate-900 to-slate-950 p-5">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -699,13 +773,16 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     <div className="mt-4 grid gap-3 md:grid-cols-4 xl:grid-cols-8">
       <label className="text-[10px] text-slate-400">Fecha inicial<input type="date" value={startDate} disabled={controlsLocked} max={today()} onChange={e => setStartDate(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
       <label className="text-[10px] text-slate-400">Duración total (meses)<input type="number" min="1" max="120" step="1" value={durationMonths} disabled={controlsLocked} onChange={e => setDurationMonths(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
-      <label className="text-[10px] text-slate-400">Frecuencia de decisiones<select value={frequency} disabled={controlsLocked} onChange={e => setFrequency(e.target.value as DynamicReplayFrequency)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"><option value="MONTHLY">Mensual</option><option value="WEEKLY">Semanal</option><option value="DAILY">Cada sesión</option><option value="QUARTERLY">Trimestral</option></select></label>
+      <label className="text-[10px] text-slate-400">Frecuencia de decisiones<select value={frequency} disabled={controlsLocked || scenario.simulationMode === 'HOLD_ONLY'} onChange={e => setFrequency(e.target.value as DynamicReplayFrequency)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"><option value="MONTHLY">Mensual</option><option value="WEEKLY">Semanal</option><option value="DAILY">Cada sesión</option><option value="QUARTERLY">Trimestral</option></select></label>
       <label className="text-[10px] text-slate-400">Tramo de cálculo (días)<input type="number" min="1" max="365" step="1" value={chunkDays} disabled={controlsLocked} onChange={e => setChunkDays(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/><span className="mt-1 block text-[8px] text-slate-600">Editable: 3, 7, 12, 25, 45…</span></label>
-      <label className="text-[10px] text-slate-400">Modo<select value={runMode} disabled={controlsLocked} onChange={e => setRunMode(e.target.value as RunMode)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"><option value="MANUAL">Manual · revisar cada tramo</option><option value="AUTO">Automático · encadenar</option></select></label>
-      <label className="text-[10px] text-slate-400">Capital inicial<input type="number" min="1" step="100" value={initialCapital} disabled={controlsLocked} onChange={e => setInitialCapital(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
+      <label className="text-[10px] text-slate-400">Modo de ejecución<select value={runMode} disabled={controlsLocked} onChange={e => setRunMode(e.target.value as RunMode)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"><option value="MANUAL">Manual · revisar cada tramo</option><option value="AUTO">Automático · encadenar</option></select></label>
+      <label className="text-[10px] text-slate-400">Capital inicial<input type="number" min="1" step="100" value={scenario.source === 'ZERO' ? initialCapital : scenarioCapital.toFixed(2)} disabled={controlsLocked || scenario.source !== 'ZERO'} onChange={e => setInitialCapital(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/><span className="mt-1 block text-[8px] text-slate-600">{scenario.source === 'ZERO' ? 'Editable.' : 'Calculado: posiciones + cash.'}</span></label>
       <label className="text-[10px] text-sky-300">Cash del replay<select value={cashBenchmarkMode} disabled={controlsLocked} onChange={e => setCashBenchmarkMode(e.target.value as CashBenchmarkMode)} className="mt-1 w-full rounded-lg border border-sky-500/30 bg-slate-950 px-3 py-2 text-xs font-bold text-sky-100 disabled:opacity-60"><option value="HISTORICAL_ECB_DFR_FLOOR_0">Histórico BCE · DFR suelo 0%</option><option value="FIXED_USER_RATE">TAE fija configurada</option></select><span className="mt-1 block text-[8px] text-slate-600">Histórico = tasa fechada; fija = escenario contrafactual.</span></label>
       <label className="text-[10px] text-sky-300">Cuenta remunerada · % TAE<input type="number" min="0" max="50" step="0.1" value={cashBenchmarkAnnualPct} disabled={controlsLocked || cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0'} onChange={e => updateCashBenchmark(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-sky-500/30 bg-slate-950 px-3 py-2 text-xs font-bold text-sky-100 disabled:opacity-60"/><span className="mt-1 block text-[8px] text-slate-600">{cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0' ? 'No se usa: la tasa varía por fecha.' : 'Constante durante este replay.'}</span></label>
     </div>
+
+    <ReplayInitialPortfolioControls value={scenario} disabled={controlsLocked} onChange={setScenario}/>
+    <div className="mt-2 text-[9px] font-bold text-violet-300">ESCENARIO: {scenarioLabel}</div>
 
     <div className="mt-3 flex flex-wrap gap-2">
       {status === 'IDLE' && <button type="button" onClick={() => void prepare()} className="flex min-h-11 items-center gap-2 rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-2 text-xs font-bold text-fuchsia-100"><PlayCircle className="h-4 w-4"/>Preparar / reanudar</button>}
@@ -724,7 +801,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     {error && <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100">{error}</div>}
 
     {path.length > 0 && <div className="mt-5 space-y-5">
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 text-xs"><div className="rounded-lg bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Periodo visible</div><b>{path[0].date} → {path.at(-1)!.date}</b><div className="text-[9px] text-slate-500">{path.length} sesiones</div></div><div className="rounded-lg bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Patrimonio</div><b>{path.at(-1)!.equityEur.toFixed(2)} €</b><div className="text-[9px] text-sky-400">cash motor {path.at(-1)!.cashEur.toFixed(2)} €</div></div><div className="rounded-lg bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Señales / decisiones</div><b>{signals.length}</b></div><div className="rounded-lg bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Operaciones ejecutadas</div><b>{executions.length}</b></div></div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 text-xs"><div className="rounded-lg bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Periodo visible</div><b>{path[0].date} → {path.at(-1)!.date}</b><div className="text-[9px] text-slate-500">{path.length} sesiones</div></div><div className="rounded-lg bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Patrimonio</div><b>{path.at(-1)!.equityEur.toFixed(2)} €</b><div className="text-[9px] text-sky-400">cash motor {path.at(-1)!.cashEur.toFixed(2)} €</div></div><div className="rounded-lg bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Señales / decisiones</div><b>{signals.length}</b></div><div className="rounded-lg bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Operaciones / posiciones iniciales</div><b>{executions.length}</b></div></div>
 
       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
         <div className="mb-2"><b className="text-xs text-white">Evolución completa desde la fecha inicial</b><div className="text-[9px] text-slate-500">Patrimonio, cash del motor y alternativa 100% en cuenta se dibujan en la misma gráfica. Cada activo conserva su línea seleccionable.</div></div>
@@ -736,22 +813,22 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
       </div>
 
       {summary && <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-4">
-        <div><b className="text-sm text-white">Resumen final del periodo · Motor vs mantener cohorte inicial</b><div className="mt-1 text-[9px] text-slate-500">“Mantener” congela todas las compras ejecutadas que nacieron de la primera señal del replay, aunque se ejecutasen en días distintos: mismos activos, unidades, comisiones y efectivo residual. No incluye selecciones posteriores.</div></div>
+        <div><b className="text-sm text-white">Resumen final del periodo · Motor vs mantener cartera inicial</b><div className="mt-1 text-[9px] text-slate-500">Con cartera manual/actual, “Mantener” usa exactamente esa cartera de partida y el mismo cash remunerado. Desde cero se conserva el benchmark anterior de cohorte inicial.</div></div>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3"><div className="text-[9px] uppercase text-emerald-300">Seguir el motor</div><div className="mt-1 text-lg font-black text-white">{summary.engineFinalEur.toFixed(2)} €</div><div className={summary.engineReturnPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.engineProfitEur >= 0 ? '+' : ''}{summary.engineProfitEur.toFixed(2)} € · {summary.engineReturnPct >= 0 ? '+' : ''}{summary.engineReturnPct.toFixed(2)}%</div><div className="mt-2 text-[9px] text-slate-500">DD máx. -{summary.engineMaxDrawdownPct.toFixed(2)}% · comisiones {summary.engineFeesEur.toFixed(2)} € · impuestos ya soportados {summary.engineTaxEur.toFixed(2)} €</div></div>
-          <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3"><div className="text-[9px] uppercase text-indigo-300">Misma cohorte inicial · mantener</div><div className="mt-1 text-lg font-black text-white">{summary.exactHoldFinalEur == null ? 'N/D' : `${summary.exactHoldFinalEur.toFixed(2)} €`}</div><div className={(summary.exactHoldReturnPct ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.exactHoldProfitEur == null ? 'N/D' : `${summary.exactHoldProfitEur >= 0 ? '+' : ''}${summary.exactHoldProfitEur.toFixed(2)} € · ${summary.exactHoldReturnPct! >= 0 ? '+' : ''}${summary.exactHoldReturnPct!.toFixed(2)}%`}</div><div className="mt-2 text-[9px] text-slate-500">Cohorte señalada inicialmente: {summary.initialPortfolioDate ?? 'N/D'} · se respetan las fechas reales de ejecución de cada compra y luego no se vende.</div></div>
-          <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-3"><div className="text-[9px] uppercase text-fuchsia-300">Diferencia total vs mantener cohorte inicial</div><div className={`mt-1 text-lg font-black ${(summary.advantageEur ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{summary.advantageEur == null ? 'N/D' : `${summary.advantageEur >= 0 ? '+' : ''}${summary.advantageEur.toFixed(2)} €`}</div><div className={(summary.advantagePctPoints ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.advantagePctPoints == null ? 'N/D' : `${summary.advantagePctPoints >= 0 ? '+' : ''}${summary.advantagePctPoints.toFixed(2)} pp`}</div><div className="mt-2 text-[9px] text-slate-500">Incluye nuevas selecciones, ADD/REDUCE/EXIT y diferencias de liquidez posteriores; no equivale por sí sola a “alpha por mover”. Fiscalidad: {summary.taxMethod === 'CONFIGURED_PROGRESSIVE' ? 'escala configurada' : 'reserva conservadora 30%'}.</div></div>
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3"><div className="text-[9px] uppercase text-emerald-300">{scenario.simulationMode === 'CUSTODIA_ENGINE' ? 'Seguir el motor' : 'Mantener sin motor'}</div><div className="mt-1 text-lg font-black text-white">{summary.engineFinalEur.toFixed(2)} €</div><div className={summary.engineReturnPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.engineProfitEur >= 0 ? '+' : ''}{summary.engineProfitEur.toFixed(2)} € · {summary.engineReturnPct >= 0 ? '+' : ''}{summary.engineReturnPct.toFixed(2)}%</div><div className="mt-2 text-[9px] text-slate-500">DD máx. -{summary.engineMaxDrawdownPct.toFixed(2)}% · comisiones {summary.engineFeesEur.toFixed(2)} € · impuestos ya soportados {summary.engineTaxEur.toFixed(2)} €</div></div>
+          <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3"><div className="text-[9px] uppercase text-indigo-300">Cartera inicial · mantener</div><div className="mt-1 text-lg font-black text-white">{summary.exactHoldFinalEur == null ? 'N/D' : `${summary.exactHoldFinalEur.toFixed(2)} €`}</div><div className={(summary.exactHoldReturnPct ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.exactHoldProfitEur == null ? 'N/D' : `${summary.exactHoldProfitEur >= 0 ? '+' : ''}${summary.exactHoldProfitEur.toFixed(2)} € · ${summary.exactHoldReturnPct! >= 0 ? '+' : ''}${summary.exactHoldReturnPct!.toFixed(2)}%`}</div><div className="mt-2 text-[9px] text-slate-500">Fecha de partida: {summary.initialPortfolioDate ?? 'N/D'} · sin decisiones posteriores del motor.</div></div>
+          <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 p-3"><div className="text-[9px] uppercase text-fuchsia-300">Diferencia total vs mantener cartera inicial</div><div className={`mt-1 text-lg font-black ${(summary.advantageEur ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{summary.advantageEur == null ? 'N/D' : `${summary.advantageEur >= 0 ? '+' : ''}${summary.advantageEur.toFixed(2)} €`}</div><div className={(summary.advantagePctPoints ?? 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{summary.advantagePctPoints == null ? 'N/D' : `${summary.advantagePctPoints >= 0 ? '+' : ''}${summary.advantagePctPoints.toFixed(2)} pp`}</div><div className="mt-2 text-[9px] text-slate-500">Incluye decisiones posteriores del motor cuando está activado. Fiscalidad: {summary.taxMethod === 'CONFIGURED_PROGRESSIVE' ? 'escala configurada' : 'reserva conservadora 30%'}.</div></div>
         </div>
       </div>}
 
       {positions.length > 0 && <div className="rounded-xl border border-slate-800">
-        <div className="p-3"><b className="text-xs text-white">Resultado de cada posición comprada</b><div className="mt-1 text-[9px] text-slate-500">MFE = máxima ganancia alcanzada por la posición agregada; MAE = máxima caída desde su coste acumulado. ADD actualiza el coste medio; REDUCE disminuye unidades sin crear una posición falsa; una recompra después de EXIT inicia un ciclo nuevo. “Bruto” es antes de comisiones/impuestos; “neto” descuenta ambos una sola vez.</div></div>
+        <div className="p-3"><b className="text-xs text-white">Resultado de cada posición comprada / posición inicial</b><div className="mt-1 text-[9px] text-slate-500">MFE = máxima ganancia alcanzada por la posición agregada; MAE = máxima caída desde su coste acumulado. Las posiciones definidas al inicio se muestran desde la fecha inicial y después siguen las mismas reglas del motor si Motor Custodia está activo.</div></div>
         <div className="max-h-[520px] overflow-auto border-t border-slate-800"><table className="w-full min-w-[1400px] text-[10px]"><thead className="sticky top-0 bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Activo</th><th className="p-2 text-left">Entrada → salida</th><th className="p-2 text-right">P. entrada</th><th className="p-2 text-right">Invertido</th><th className="p-2 text-right">Máx. ganancia</th><th className="p-2 text-right">Máx. caída</th><th className="p-2 text-right">Resultado bruto</th><th className="p-2 text-right">Impuesto</th><th className="p-2 text-right">Comisiones</th><th className="p-2 text-right">Resultado neto</th><th className="p-2 text-left">Tratamiento fiscal</th></tr></thead><tbody>{positions.map(position => <tr key={position.id} className={`border-t border-slate-800 ${selectedAssetId === position.assetId ? 'bg-white/5' : ''}`} onClick={() => setSelectedAssetId(current => current === position.assetId ? null : position.assetId)}><td className="cursor-pointer p-2"><b>{position.ticker}</b><div className="max-w-[240px] truncate text-[9px] text-slate-500">{position.name}</div></td><td className="p-2 font-mono">{position.entryDate} → {position.exitDate ?? 'ABIERTA'}</td><td className="p-2 text-right">{position.entryPriceEur == null ? 'N/D' : `${position.entryPriceEur.toFixed(4)} €`}</td><td className="p-2 text-right">{position.totalBoughtEur.toFixed(2)} €</td><td className="p-2 text-right font-bold text-emerald-300">+{position.mfePct.toFixed(2)}%</td><td className="p-2 text-right font-bold text-rose-300">{position.maePct.toFixed(2)}%</td><td className={`p-2 text-right ${position.finalGrossPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{position.finalGrossProfitEur >= 0 ? '+' : ''}{position.finalGrossProfitEur.toFixed(2)} € · {position.finalGrossPct >= 0 ? '+' : ''}{position.finalGrossPct.toFixed(2)}%</td><td className="p-2 text-right">-{position.estimatedTaxEur.toFixed(2)} €</td><td className="p-2 text-right">-{position.totalFeesEur.toFixed(2)} €</td><td className={`p-2 text-right font-bold ${position.finalNetPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{position.finalNetProfitEur >= 0 ? '+' : ''}{position.finalNetProfitEur.toFixed(2)} € · {position.finalNetPct >= 0 ? '+' : ''}{position.finalNetPct.toFixed(2)}%</td><td className="p-2 text-slate-400">{position.taxLabel}</td></tr>)}</tbody></table></div>
       </div>}
 
-      <div className="rounded-xl border border-slate-800"><div className="flex items-center justify-between gap-2 p-3"><div><b className="text-xs text-white">Decisiones y señales cronológicas</b><div className="text-[9px] text-slate-500">Incluye lo que el motor pensó en cada fecha, aunque no hubiese operación.</div></div><button type="button" onClick={() => setShowAllSignals(value => !value)} className="rounded-lg border border-slate-700 px-3 py-1.5 text-[10px] text-slate-300">{showAllSignals ? 'Solo movimientos' : 'Ver también MANTENER / NO COMPRAR'}</button></div><div className="max-h-[420px] overflow-auto border-t border-slate-800"><table className="w-full min-w-[1040px] text-[10px]"><thead className="sticky top-0 bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Fecha señal</th><th className="p-2 text-left">Acción</th><th className="p-2 text-left">Activo</th><th className="p-2 text-right">Importe recomendado</th><th className="p-2 text-right">Peso actual → objetivo</th><th className="p-2 text-left">Ejecución</th><th className="p-2 text-left">Motivo</th></tr></thead><tbody>{visibleSignals.map(signal => <tr key={signal.id} className="border-t border-slate-800"><td className="p-2 font-mono">{signal.signalDate}</td><td className={`p-2 font-bold ${signal.action === 'BUY' || signal.action === 'ADD' ? 'text-emerald-200' : signal.action === 'REDUCE' || signal.action === 'EXIT' ? 'text-rose-200' : signal.action === 'AVOID' ? 'text-amber-200' : 'text-slate-300'}`}>{actionLabel(signal.action)}</td><td className="p-2"><b>{signal.ticker}</b><div className="max-w-[250px] truncate text-[9px] text-slate-500">{catalogueLabel(signal.assetId, signal.ticker)}</div></td><td className="p-2 text-right">{signal.recommendedAmountEur.toFixed(2)} €</td><td className="p-2 text-right">{(signal.currentWeight * 100).toFixed(1)}% → {(signal.targetWeight * 100).toFixed(1)}%</td><td className="p-2">{signal.executed ? `Sí · ${signal.executionDate ?? ''}` : 'No'}</td><td className="p-2 text-slate-400">{signal.reason}</td></tr>)}</tbody></table></div></div>
+      <div className="rounded-xl border border-slate-800"><div className="flex items-center justify-between gap-2 p-3"><div><b className="text-xs text-white">Decisiones y señales cronológicas</b><div className="text-[9px] text-slate-500">Incluye lo que el motor pensó en cada fecha, aunque no hubiese operación. Las posiciones iniciales aparecen como estado de partida, no como recomendación.</div></div><button type="button" onClick={() => setShowAllSignals(value => !value)} className="rounded-lg border border-slate-700 px-3 py-1.5 text-[10px] text-slate-300">{showAllSignals ? 'Solo movimientos' : 'Ver también MANTENER / NO COMPRAR'}</button></div><div className="max-h-[420px] overflow-auto border-t border-slate-800"><table className="w-full min-w-[1040px] text-[10px]"><thead className="sticky top-0 bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Fecha señal</th><th className="p-2 text-left">Acción</th><th className="p-2 text-left">Activo</th><th className="p-2 text-right">Importe recomendado</th><th className="p-2 text-right">Peso actual → objetivo</th><th className="p-2 text-left">Ejecución</th><th className="p-2 text-left">Motivo</th></tr></thead><tbody>{visibleSignals.map(signal => <tr key={signal.id} className="border-t border-slate-800"><td className="p-2 font-mono">{signal.signalDate}</td><td className={`p-2 font-bold ${signal.action === 'BUY' || signal.action === 'ADD' ? 'text-emerald-200' : signal.action === 'REDUCE' || signal.action === 'EXIT' ? 'text-rose-200' : signal.action === 'AVOID' ? 'text-amber-200' : 'text-slate-300'}`}>{actionLabel(signal.action)}</td><td className="p-2"><b>{signal.ticker}</b><div className="max-w-[250px] truncate text-[9px] text-slate-500">{catalogueLabel(signal.assetId, signal.ticker)}</div></td><td className="p-2 text-right">{signal.recommendedAmountEur.toFixed(2)} €</td><td className="p-2 text-right">{(signal.currentWeight * 100).toFixed(1)}% → {(signal.targetWeight * 100).toFixed(1)}%</td><td className="p-2">{signal.executed ? `Sí · ${signal.executionDate ?? ''}` : 'No'}</td><td className="p-2 text-slate-400">{signal.reason}</td></tr>)}</tbody></table></div></div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-800"><div className="p-3"><b className="text-xs text-white">Operaciones realmente ejecutadas</b><div className="text-[9px] text-slate-500">Compras, aportaciones, reducciones y salidas con fiscalidad realmente aplicada por el replay.</div></div><table className="w-full min-w-[1260px] border-t border-slate-800 text-[10px]"><thead className="bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Ejecución</th><th className="p-2 text-left">Acción</th><th className="p-2 text-left">Activo</th><th className="p-2 text-right">Importe</th><th className="p-2 text-right">Unidades</th><th className="p-2 text-right">Precio</th><th className="p-2 text-right">Ganancia realizada</th><th className="p-2 text-right">Impuesto</th><th className="p-2 text-right">Traspaso diferido</th><th className="p-2 text-left">Motivo</th></tr></thead><tbody>{executions.map(operation => <tr key={operation.id} className="border-t border-slate-800"><td className="p-2 font-mono text-slate-300">{operation.executionDate}</td><td className={`p-2 font-bold ${operation.action === 'BUY' || operation.action === 'ADD' ? 'text-emerald-200' : 'text-rose-200'}`}>{actionLabel(operation.action)}</td><td className="p-2"><b>{operation.ticker}</b><div className="max-w-[260px] truncate text-[9px] text-slate-500">{catalogueLabel(operation.assetId, operation.ticker)}</div></td><td className="p-2 text-right">{operation.notionalEur.toFixed(2)} €</td><td className="p-2 text-right font-mono">{operation.unitsDelta >= 0 ? '+' : ''}{operation.unitsDelta.toFixed(6)}</td><td className="p-2 text-right">{operation.executionPriceEur == null ? 'N/D' : `${operation.executionPriceEur.toFixed(4)} €`}</td><td className={`p-2 text-right ${operation.realizedGainEur >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{operation.realizedGainEur >= 0 ? '+' : ''}{operation.realizedGainEur.toFixed(2)} €</td><td className="p-2 text-right">{operation.estimatedTaxEur.toFixed(2)} €</td><td className="p-2 text-right">{operation.taxDeferredTransferEur.toFixed(2)} €</td><td className="p-2 text-slate-400">{operation.reason}</td></tr>)}</tbody></table></div>
+      <div className="overflow-x-auto rounded-xl border border-slate-800"><div className="p-3"><b className="text-xs text-white">Operaciones realmente ejecutadas / estado inicial</b><div className="text-[9px] text-slate-500">Las asignaciones iniciales tienen comisión 0 porque son la condición de partida. Las operaciones posteriores sí usan la ejecución, comisiones y fiscalidad normales del replay.</div></div><table className="w-full min-w-[1260px] border-t border-slate-800 text-[10px]"><thead className="bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Ejecución</th><th className="p-2 text-left">Acción</th><th className="p-2 text-left">Activo</th><th className="p-2 text-right">Importe</th><th className="p-2 text-right">Unidades</th><th className="p-2 text-right">Precio</th><th className="p-2 text-right">Ganancia realizada</th><th className="p-2 text-right">Impuesto</th><th className="p-2 text-right">Traspaso diferido</th><th className="p-2 text-left">Motivo</th></tr></thead><tbody>{executions.map(operation => <tr key={operation.id} className="border-t border-slate-800"><td className="p-2 font-mono text-slate-300">{operation.executionDate}</td><td className={`p-2 font-bold ${operation.action === 'BUY' || operation.action === 'ADD' ? 'text-emerald-200' : 'text-rose-200'}`}>{operation.id.endsWith('_INITIAL') ? 'INICIAL' : actionLabel(operation.action)}</td><td className="p-2"><b>{operation.ticker}</b><div className="max-w-[260px] truncate text-[9px] text-slate-500">{catalogueLabel(operation.assetId, operation.ticker)}</div></td><td className="p-2 text-right">{operation.notionalEur.toFixed(2)} €</td><td className="p-2 text-right font-mono">{operation.unitsDelta >= 0 ? '+' : ''}{operation.unitsDelta.toFixed(6)}</td><td className="p-2 text-right">{operation.executionPriceEur == null ? 'N/D' : `${operation.executionPriceEur.toFixed(4)} €`}</td><td className={`p-2 text-right ${operation.realizedGainEur >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{operation.realizedGainEur >= 0 ? '+' : ''}{operation.realizedGainEur.toFixed(2)} €</td><td className="p-2 text-right">{operation.estimatedTaxEur.toFixed(2)} €</td><td className="p-2 text-right">{operation.taxDeferredTransferEur.toFixed(2)} €</td><td className="p-2 text-slate-400">{operation.reason}</td></tr>)}</tbody></table></div>
     </div>}
   </section>;
 };
