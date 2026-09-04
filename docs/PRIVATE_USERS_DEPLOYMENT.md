@@ -51,9 +51,26 @@ users/{uid}/private/state
     custodia_cash_benchmark_annual_pct_v1,
     custodia_investment_decision_history_v1
   }
+
+system/alertAutomation
+  persistence: FIRESTORE
+  updatedAt
+  lastAttemptAt
+  lastSuccessAt
+  lastRunLocalDate
+  lastMarketDate
+  lastError
+  lastAlerts
+  lastEvidenceState
+  lastNotificationAt
+  lastNotificationEventCount
+  lastNotificationEventKeys
+  lastNotifiedActionableLevels
 ```
 
 Los valores privados se sincronizan como representaciones JSON/string ya utilizadas por los servicios locales. Esto evita modificar el motor financiero y permite migrar gradualmente cada servicio a documentos Firestore nativos en el futuro.
+
+`system/alertAutomation` es estado técnico del backend, no una cartera de usuario. Mantiene de forma durable el deduplicado de avisos de entrada. El Admin SDK es el único que lo lee/escribe; las reglas cliente siguen deny-by-default.
 
 ## Reglas de seguridad
 
@@ -64,6 +81,7 @@ Los valores privados se sincronizan como representaciones JSON/string ya utiliza
 - Ningún cliente puede escribir roles, estados o datos privados directamente en Firestore.
 - Todas las escrituras se realizan mediante el backend autenticado.
 - El servidor usa Admin SDK y, por tanto, debe protegerse mediante IAM/credenciales de servicio; las reglas Firestore no sustituyen esa protección.
+- `system/alertAutomation` queda cubierto por el deny-by-default del cliente y sólo es accesible al backend con Admin SDK.
 
 ## Primer administrador
 
@@ -151,6 +169,18 @@ Mientras la app está abierta:
 
 La estrategia/cálculo no usa Firestore para decidir: el estado se hidrata primero y los servicios existentes trabajan con la misma representación que antes.
 
+## Persistencia de alertas de entrada
+
+El job de oportunidades ya no depende de `.runtime/alertAutomationState.json` cuando Firebase está configurado.
+
+- Con Firebase configurado: lee/escribe `system/alertAutomation` en Firestore.
+- En producción o con `FIREBASE_AUTH_REQUIRED=true`: si la persistencia Firebase no está disponible, devuelve `ALERT_STATE_PERSISTENCE_NOT_CONFIGURED` y no cae silenciosamente a disco local.
+- Sólo en desarrollo sin Firebase puede usar `.runtime/alertAutomationState.json` como fallback local.
+- `/api/alerts/status` expone `persistence: FIRESTORE | LOCAL_DEV | UNAVAILABLE` para diagnóstico.
+- El deduplicado conserva la regla vigente: evento nuevo al aparecer `GOOD_ENTRY`, al escalar a `HIGH_CONVICTION`, o al reaparecer después de haber dejado de ser accionable; un webhook fallido no marca el evento como entregado.
+
+Esto elimina la dependencia de un filesystem efímero para la continuidad de avisos entre reinicios/reescalados del contenedor.
+
 ## Configuración Firebase necesaria
 
 1. Crear/seleccionar un proyecto Firebase.
@@ -170,10 +200,10 @@ FIREBASE_AUTH_DOMAIN=
 FIREBASE_APP_ID=
 FIREBASE_AUTH_REQUIRED=true
 FIREBASE_SELF_REGISTRATION_ENABLED=false
-FIREBASE_BOOTSTRAP_ADMIN_EMAILS=...
+FIREBASE_BOOTSTRAP_ADMIN_UIDS=...
 ```
 
-6. Verificar el correo de la cuenta bootstrap si se usa `FIREBASE_BOOTSTRAP_ADMIN_EMAILS`.
+6. Si se usa bootstrap por email, verificar el correo de la cuenta bootstrap.
 7. Cloud Run dentro del mismo proyecto: preferir Application Default Credentials y un service account con el acceso mínimo requerido a Firebase Auth/Firestore.
 8. Fuera de ese entorno puede usarse temporalmente `FIREBASE_SERVICE_ACCOUNT_JSON` como secreto server-side; nunca incluirlo en frontend, repositorio o variables `VITE_*`.
 9. Desplegar `firestore.rules` (`firebase.json` ya referencia el archivo).
@@ -181,18 +211,32 @@ FIREBASE_BOOTSTRAP_ADMIN_EMAILS=...
 
 ## Dependencias
 
-Se añadieron versiones fijadas:
+Versiones fijadas y lockfile coherente:
 
 ```text
 firebase 12.18.0
 firebase-admin 13.10.0
 ```
 
-`firebase-admin 13.10.0` mantiene compatibilidad con Node >=18. El `package-lock.json` anterior se eliminó deliberadamente porque no contenía estas dependencias; ejecutar `npm install` una vez en el entorno sincronizado regenerará un lock coherente antes de congelar/desplegar la versión piloto.
+El `package-lock.json` ya fue regenerado a partir del `package.json` actual e incluye ambas dependencias.
+
+## Cloud Run + Cloud Scheduler
+
+Para producción 24/7:
+
+- desplegar el full-stack en Cloud Run;
+- mantener `FIREBASE_AUTH_REQUIRED=true`;
+- guardar secretos server-side, nunca en GitHub;
+- usar Cloud Scheduler para invocar `POST /api/alerts/run-now` a la hora deseada en `Europe/Madrid`;
+- configurar `ALERT_ADMIN_TOKEN` y hacer que Scheduler envíe el mismo valor en `x-alert-admin-token` si el servicio web es público;
+- cuando Cloud Scheduler sea la fuente de programación, dejar `ALERT_AUTOMATION_ENABLED=false` para no duplicar el scheduler interno del proceso;
+- verificar `/api/alerts/status` y exigir `persistence: FIRESTORE` antes de considerar el job operativo.
+
+El scheduler interno de Node se conserva sólo para entornos locales/long-lived donde sea útil; Cloud Scheduler es la opción prevista para Cloud Run.
 
 ## Qué queda pendiente para autonomía completa de salidas
 
-La cartera ya puede persistirse por usuario en Firestore y deja de depender exclusivamente del navegador. El siguiente cierre de infraestructura para avisos `WATCH/REDUCE/EXIT` 24/7 es hacer que el job backend:
+La cartera ya puede persistirse por usuario en Firestore y deja de depender exclusivamente del navegador. El cierre restante para avisos `WATCH/REDUCE/EXIT` 24/7 es hacer que el job backend:
 
 1. enumere únicamente usuarios `ACTIVE`;
 2. lea su estado privado Firestore mediante el backend autorizado;
@@ -203,15 +247,28 @@ La cartera ya puede persistirse por usuario en Firestore y deja de depender excl
 
 No debe implementarse una segunda lógica de trading en el backend: el clasificador y gates deben seguir siendo los mismos módulos compartidos.
 
+## Validación multiusuario realizada
+
+Validado manualmente en el proyecto Firebase real:
+
+- primer usuario ADMIN autenticado correctamente;
+- cartera real asociada al UID privado del propietario;
+- alta de un segundo usuario desde el panel ADMIN;
+- segundo usuario sin privilegios ADMIN;
+- cartera del segundo usuario aislada de la del ADMIN;
+- cambio de UID en el mismo navegador sin mezcla de estados;
+- retorno al usuario ADMIN recuperando exclusivamente su cartera;
+- borrado del usuario de prueba disponible desde el panel.
+
 ## Regla de publicación
 
 No publicar como versión operativa hasta cumplir simultáneamente:
 
 - Firebase configurado;
 - `FIREBASE_AUTH_REQUIRED=true`;
-- primer ADMIN comprobado y correo verificado si el bootstrap fue por email;
+- primer ADMIN comprobado;
 - Firestore rules desplegadas;
-- `npm install` + lockfile regenerado;
+- lockfile coherente con Firebase;
 - `npm run lint` PASS;
 - `npx tsx tests/privateUserSecurity.unit.ts` PASS;
 - login usuario normal probado;
@@ -219,4 +276,6 @@ No publicar como versión operativa hasta cumplir simultáneamente:
 - ADMIN capaz de alta/bloqueo/borrado de una cuenta de prueba;
 - ADMIN incapaz de abrir la cartera de otra cuenta desde la UI/Firestore client;
 - cambio de usuario en un mismo navegador sin mezcla de cartera;
-- error forzado de carga privada comprobado como fail-closed.
+- error forzado de carga privada comprobado como fail-closed;
+- `/api/alerts/status` devuelve `persistence: FIRESTORE` en el entorno desplegado;
+- Cloud Scheduler probado manualmente al menos una vez antes de dejarlo programado.
