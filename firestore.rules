@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.isAdmin == true;
+    }
+
+    function hasAccess() {
+      return signedIn() && (request.auth.token.accessGranted == true || isAdmin());
+    }
+
+    function owns(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // Profile metadata may be read by its owner or an administrator.
+    // Client writes are deliberately forbidden: role/access/status are server-managed.
+    match /users/{userId} {
+      allow read: if owns(userId) || isAdmin();
+      allow create, update, delete: if false;
+
+      // Portfolio, executions, tax context, decision history and broker preferences.
+      // The current frontend synchronizes through the authenticated Cloud Run API,
+      // but these rules still prevent cross-user reads if a Firestore client is added later.
+      match /private/{document=**} {
+        allow read: if hasAccess() && (owns(userId) || isAdmin());
+        allow create, update, delete: if false;
+      }
+    }
+
+    // No other client-accessible collections are public by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
