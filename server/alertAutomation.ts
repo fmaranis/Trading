@@ -182,7 +182,10 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
     const gate = PortfolioCandidateGate.apply(scan, cashBenchmarkAnnualPct, 12);
     const alerts = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct);
     const actionable = alerts.filter(isActionable);
-    const events = newOpportunityEvents(state.lastNotifiedActionableLevels, alerts);
+    const firstRealTelegramDelivery = telegramNotificationConfigured() && state.lastNotificationAt === null;
+    const events = firstRealTelegramDelivery
+      ? actionable
+      : newOpportunityEvents(state.lastNotifiedActionableLevels, alerts);
 
     const eodhd = await crossValidateEodhd(gate.scan).catch(() => null);
     const evidence = eodhd ? assessCrossProviderEvidence({
@@ -204,8 +207,6 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
         }).catch(() => false);
       }
 
-      // Optional fallback only. Never call it after a successful Telegram delivery,
-      // which avoids duplicate notifications when both channels are configured.
       if (!notificationSent) {
         notificationSent = await notifyWebhook({
           source: 'Custodia', kind: 'CURRENT_ENTRY_OPPORTUNITY_EVENTS', generatedAt: new Date().toISOString(),
@@ -242,6 +243,12 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
 export async function getAlertAutomationStatus() {
   const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL?.trim());
   const telegramConfigured = telegramNotificationConfigured();
+  const state = await loadState();
+  const actionable = state.lastAlerts.filter(isActionable);
+  const firstRealTelegramDelivery = telegramConfigured && state.lastNotificationAt === null;
+  const pendingEvents = firstRealTelegramDelivery
+    ? actionable
+    : newOpportunityEvents(state.lastNotifiedActionableLevels, state.lastAlerts);
   return {
     enabled: process.env.ALERT_AUTOMATION_ENABLED === 'true',
     timezone: 'Europe/Madrid', runTimeLocal: process.env.ALERT_RUN_TIME_LOCAL || '22:30',
@@ -249,7 +256,10 @@ export async function getAlertAutomationStatus() {
     telegramConfigured,
     notificationChannelConfigured: telegramConfigured || webhookConfigured,
     persistence: firebaseAdminConfigured() ? 'FIRESTORE' : persistentStateRequired() ? 'UNAVAILABLE' : 'LOCAL_DEV',
-    state: await loadState()
+    actionableAlertCount: actionable.length,
+    pendingNotificationEventCount: pendingEvents.length,
+    pendingNotificationEventKeys: pendingEvents.map(alert => `${alert.assetId}:${alert.level}`),
+    state
   };
 }
 
