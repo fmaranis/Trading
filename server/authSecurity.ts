@@ -66,5 +66,7 @@ function csvSet(value: string | undefined): Set<string> {
 export function isBootstrapAdmin(account: VerifiedAccount): boolean {
   const emails = csvSet(process.env.FIREBASE_BOOTSTRAP_ADMIN_EMAILS);
   const uids = csvSet(process.env.FIREBASE_BOOTSTRAP_ADMIN_UIDS);
-  return uids.has(account.uid.toLowerCase()) || Boolean(account.email && emails.has(account.email.toLowerCase()));
+  if (uids.has(account.uid.toLowerCase())) return true;
+  const verifiedEmail = account.token.email_verified === true && account.email ? account.email.toLowerCase() : null;
+  return Boolean(verifiedEmail && emails.has(verifiedEmail));
 }
