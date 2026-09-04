@@ -4,6 +4,23 @@ export function telegramNotificationConfigured(): boolean {
   return Boolean(process.env.TELEGRAM_BOT_TOKEN?.trim() && process.env.TELEGRAM_CHAT_ID?.trim());
 }
 
+async function sendTelegramText(text: string): Promise<boolean> {
+  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
+  if (!token || !chatId) return false;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 4000), disable_web_page_preview: true }),
+      signal: controller.signal
+    });
+    return response.ok;
+  } finally { clearTimeout(timeout); }
+}
+
 function alertLine(alert: CurrentOpportunityAlert): string {
   const item = alert as any;
   const label = String(item.assetName || item.name || item.ticker || alert.assetId);
@@ -40,25 +57,40 @@ export async function notifyTelegramOpportunity(input: {
   events: CurrentOpportunityAlert[];
   evidenceState: string;
 }): Promise<boolean> {
-  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  const chatId = process.env.TELEGRAM_CHAT_ID?.trim();
-  if (!token || !chatId) return false;
+  return sendTelegramText(formatTelegramOpportunityMessage(input));
+}
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
-  try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: formatTelegramOpportunityMessage(input),
-        disable_web_page_preview: true
-      }),
-      signal: controller.signal
-    });
-    return response.ok;
-  } finally {
-    clearTimeout(timeout);
+const MANAGEMENT_LABEL: Record<'ADD' | 'WATCH' | 'REDUCE' | 'EXIT', string> = {
+  ADD: 'AÑADIR', WATCH: 'VIGILAR', REDUCE: 'REDUCIR', EXIT: 'SALIR'
+};
+
+export async function notifyTelegramPortfolioManagement(input: {
+  marketDate: string;
+  actionEvents: Array<{
+    key: string;
+    label: string;
+    tickerOrIsin: string;
+    action: 'ADD' | 'WATCH' | 'REDUCE' | 'EXIT';
+    reason: string;
+    suggestedReductionPct: number | null;
+  }>;
+  rotationEvent: { sourceLabel: string; targetLabel: string; reason: string } | null;
+}): Promise<boolean> {
+  const lines: string[] = [
+    'CUSTODIA · GESTIÓN DE CARTERA',
+    `Mercado: ${input.marketDate}`,
+    `Cambios nuevos: ${input.actionEvents.length + (input.rotationEvent ? 1 : 0)}`,
+    ''
+  ];
+  for (const event of input.actionEvents) {
+    const pct = event.action === 'REDUCE' && event.suggestedReductionPct != null ? ` ${event.suggestedReductionPct.toFixed(0)}%` : '';
+    lines.push(`• ${MANAGEMENT_LABEL[event.action]}${pct} · ${event.label} (${event.tickerOrIsin})`);
+    lines.push(`  ${event.reason.slice(0, 500)}`);
   }
+  if (input.rotationEvent) {
+    lines.push(`• ROTAR · ${input.rotationEvent.sourceLabel} → ${input.rotationEvent.targetLabel}`);
+    lines.push(`  ${input.rotationEvent.reason.slice(0, 500)}`);
+  }
+  lines.push('', 'Aviso automático. Revisa Custodia antes de ejecutar cualquier operación.');
+  return sendTelegramText(lines.join('\n'));
 }
