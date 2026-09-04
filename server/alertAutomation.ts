@@ -12,6 +12,7 @@ import {
   type CurrentOpportunityAlert
 } from '../src/investment/decision';
 import { firebaseAdminConfigured, firebaseAdminServices } from './firebaseAdmin';
+import { notifyTelegramOpportunity, telegramNotificationConfigured } from './telegramNotifier';
 
 const STATE_DIR = path.join(process.cwd(), '.runtime');
 const STATE_FILE = path.join(STATE_DIR, 'alertAutomationState.json');
@@ -193,16 +194,30 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
 
     let notificationSent = false;
     if (events.length > 0) {
-      notificationSent = await notifyWebhook({
-        source: 'Custodia', kind: 'CURRENT_ENTRY_OPPORTUNITY_EVENTS', generatedAt: new Date().toISOString(),
-        marketDate, cashBenchmarkAnnualPct,
-        evidence: evidence ? { state: evidence.state, summary: evidence.summary } : { state: 'PRIMARY_ONLY' },
-        eventRule: 'NEW_GOOD_ENTRY_OR_ESCALATION_TO_HIGH_CONVICTION',
-        events,
-        highConviction: events.filter(alert => alert.level === 'HIGH_CONVICTION'),
-        goodEntries: events.filter(alert => alert.level === 'GOOD_ENTRY'),
-        currentActionableCount: actionable.length
-      }).catch(() => false);
+      const evidenceState = evidence?.state ?? 'PRIMARY_ONLY';
+
+      if (telegramNotificationConfigured()) {
+        notificationSent = await notifyTelegramOpportunity({
+          marketDate,
+          events,
+          evidenceState
+        }).catch(() => false);
+      }
+
+      // Optional fallback only. Never call it after a successful Telegram delivery,
+      // which avoids duplicate notifications when both channels are configured.
+      if (!notificationSent) {
+        notificationSent = await notifyWebhook({
+          source: 'Custodia', kind: 'CURRENT_ENTRY_OPPORTUNITY_EVENTS', generatedAt: new Date().toISOString(),
+          marketDate, cashBenchmarkAnnualPct,
+          evidence: evidence ? { state: evidence.state, summary: evidence.summary } : { state: 'PRIMARY_ONLY' },
+          eventRule: 'NEW_GOOD_ENTRY_OR_ESCALATION_TO_HIGH_CONVICTION',
+          events,
+          highConviction: events.filter(alert => alert.level === 'HIGH_CONVICTION'),
+          goodEntries: events.filter(alert => alert.level === 'GOOD_ENTRY'),
+          currentActionableCount: actionable.length
+        }).catch(() => false);
+      }
     }
     const deliveredEvents = notificationSent ? events : [];
 
@@ -225,10 +240,14 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
 }
 
 export async function getAlertAutomationStatus() {
+  const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL?.trim());
+  const telegramConfigured = telegramNotificationConfigured();
   return {
     enabled: process.env.ALERT_AUTOMATION_ENABLED === 'true',
     timezone: 'Europe/Madrid', runTimeLocal: process.env.ALERT_RUN_TIME_LOCAL || '22:30',
-    webhookConfigured: Boolean(process.env.ALERT_WEBHOOK_URL?.trim()),
+    webhookConfigured,
+    telegramConfigured,
+    notificationChannelConfigured: telegramConfigured || webhookConfigured,
     persistence: firebaseAdminConfigured() ? 'FIRESTORE' : persistentStateRequired() ? 'UNAVAILABLE' : 'LOCAL_DEV',
     state: await loadState()
   };
