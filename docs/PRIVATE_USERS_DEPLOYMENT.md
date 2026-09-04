@@ -20,7 +20,7 @@ Rutas web protegidas:
 - `/portfolio.html`
 - `/legacy.html`
 
-En producción no existe bypass si Firebase no está configurado.
+En producción no existe bypass si Firebase no está configurado. Además, cualquier error durante autenticación, autorización o hidratación del estado privado es **fail-closed**: la aplicación no renderiza la cartera.
 
 ## Estructura Firestore
 
@@ -39,6 +39,9 @@ users/{uid}/private/state
   updatedAt
   values: {
     custodia_user_portfolio_v1,
+    custodia_fund_positions_v1,              # legado, sólo migración/aislamiento
+    custodia_staged_capital_plan_v1,         # legado, sólo migración/aislamiento
+    custodia_pending_execution_plan_v1,
     custodia_portfolio_execution_history_v1,
     custodia_portfolio_cash_flow_history_v1,
     custodia_myinvestor_manual_availability_v1,
@@ -72,14 +75,16 @@ FIREBASE_BOOTSTRAP_ADMIN_EMAILS="tu-correo@example.com"
 FIREBASE_BOOTSTRAP_ADMIN_UIDS="firebase-uid"
 ```
 
-Cuando esa cuenta inicia sesión, `/api/alerts/account/bootstrap` establece:
+Cuando esa cuenta inicia sesión, `/api/alerts/account/bootstrap` puede establecer:
 
 ```text
 isAdmin=true
 accessGranted=true
 ```
 
-Después se fuerza renovación del token. No existe un campo editable por el navegador que pueda convertir a un usuario en administrador.
+La vía por **email sólo funciona cuando Firebase emite `email_verified=true`**. Registrar simplemente el correo configurado sin controlar/verificar ese buzón no concede ADMIN. La vía por UID exige coincidencia exacta.
+
+Después del bootstrap se fuerza renovación del ID token para recibir los claims. No existe un campo editable por el navegador que pueda convertir a un usuario en administrador.
 
 Recomendación: una vez existan al menos dos administradores controlados, retirar `FIREBASE_BOOTSTRAP_ADMIN_EMAILS/UIDS` del entorno de producción.
 
@@ -89,7 +94,7 @@ Hay dos caminos.
 
 ### 1. Registro pendiente
 
-Con `FIREBASE_SELF_REGISTRATION_ENABLED=true`, una persona puede crear usuario con email/contraseña, pero queda sin `accessGranted`. Ve únicamente la pantalla PENDIENTE hasta que un administrador lo aprueba.
+Con `FIREBASE_SELF_REGISTRATION_ENABLED=true`, una persona puede crear usuario con email/contraseña y recibe flujo de verificación de correo, pero queda sin `accessGranted`. Ve únicamente la pantalla PENDIENTE hasta que un administrador lo aprueba.
 
 ### 2. Alta por administrador
 
@@ -133,7 +138,7 @@ Al primer acceso autorizado:
 4. si posteriormente entra otro UID en el mismo navegador, los datos privados locales del usuario anterior se limpian antes de hidratar la nueva cuenta;
 5. al cerrar sesión se intenta sincronizar y después se limpia la caché privada local.
 
-Esto evita que dos cuentas compartan inadvertidamente una cartera a través del mismo `localStorage`.
+Las claves heredadas de fondos/capital pendiente y el plan de ejecución pendiente forman parte explícita del aislamiento. Esto evita que dos cuentas compartan inadvertidamente cartera, operaciones pendientes o datos antiguos a través del mismo `localStorage`.
 
 ## Sincronización
 
@@ -168,10 +173,11 @@ FIREBASE_SELF_REGISTRATION_ENABLED=false
 FIREBASE_BOOTSTRAP_ADMIN_EMAILS=...
 ```
 
-6. Cloud Run dentro del mismo proyecto: preferir Application Default Credentials y un service account con el acceso mínimo requerido a Firebase Auth/Firestore.
-7. Fuera de ese entorno puede usarse temporalmente `FIREBASE_SERVICE_ACCOUNT_JSON` como secreto server-side; nunca incluirlo en frontend, repositorio o variables `VITE_*`.
-8. Desplegar `firestore.rules` (`firebase.json` ya referencia el archivo).
-9. Añadir el dominio público de Cloud Run/dominio propio a los dominios autorizados de Firebase Authentication cuando corresponda.
+6. Verificar el correo de la cuenta bootstrap si se usa `FIREBASE_BOOTSTRAP_ADMIN_EMAILS`.
+7. Cloud Run dentro del mismo proyecto: preferir Application Default Credentials y un service account con el acceso mínimo requerido a Firebase Auth/Firestore.
+8. Fuera de ese entorno puede usarse temporalmente `FIREBASE_SERVICE_ACCOUNT_JSON` como secreto server-side; nunca incluirlo en frontend, repositorio o variables `VITE_*`.
+9. Desplegar `firestore.rules` (`firebase.json` ya referencia el archivo).
+10. Añadir el dominio público de Cloud Run/dominio propio a los dominios autorizados de Firebase Authentication cuando corresponda.
 
 ## Dependencias
 
@@ -203,7 +209,7 @@ No publicar como versión operativa hasta cumplir simultáneamente:
 
 - Firebase configurado;
 - `FIREBASE_AUTH_REQUIRED=true`;
-- primer ADMIN comprobado;
+- primer ADMIN comprobado y correo verificado si el bootstrap fue por email;
 - Firestore rules desplegadas;
 - `npm install` + lockfile regenerado;
 - `npm run lint` PASS;
@@ -212,4 +218,5 @@ No publicar como versión operativa hasta cumplir simultáneamente:
 - usuario normal incapaz de abrir ADMIN;
 - ADMIN capaz de alta/bloqueo/borrado de una cuenta de prueba;
 - ADMIN incapaz de abrir la cartera de otra cuenta desde la UI/Firestore client;
-- cambio de usuario en un mismo navegador sin mezcla de cartera.
+- cambio de usuario en un mismo navegador sin mezcla de cartera;
+- error forzado de carga privada comprobado como fail-closed.
