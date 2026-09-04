@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { createUserWithEmailAndPassword, getIdToken, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
-import { KeyRound, LogOut, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
+import { createUserWithEmailAndPassword, getIdToken, onAuthStateChanged, reload, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
+import { KeyRound, LogOut, MailCheck, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
 import { AdminUsersPanel } from '../components/AdminUsersPanel';
 import { bootstrapAccount, loadAccountMe, type AccountMe } from './accountApi';
 import { loadFirebaseClientRuntime, type FirebaseClientRuntime } from './firebaseClient';
@@ -66,8 +66,9 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
     try {
       if (mode === 'REGISTER') {
         if (!runtime.config.selfRegistrationEnabled) throw new Error('El registro público está desactivado. Un administrador debe crear la cuenta.');
-        await createUserWithEmailAndPassword(runtime.auth, email.trim(), password);
-        setMessage('Cuenta creada. Queda pendiente de aprobación por un administrador.');
+        const credential = await createUserWithEmailAndPassword(runtime.auth, email.trim(), password);
+        await sendEmailVerification(credential.user).catch(() => undefined);
+        setMessage('Cuenta creada. Verifica tu correo y después un administrador podrá concederte acceso.');
       } else {
         await signInWithEmailAndPassword(runtime.auth, email.trim(), password);
       }
@@ -79,13 +80,24 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
     if (!user) return;
     setBusy(true); setMessage(null);
     try {
+      await reload(user);
       await getIdToken(user, true);
+      const boot = await bootstrapAccount(user);
+      if (boot.tokenRefreshRequired) await getIdToken(user, true);
       const account = await loadAccountMe(user);
       setMe(account);
-      if (!account.accessGranted) { setMessage('La cuenta sigue pendiente de aprobación.'); return; }
+      if (!account.accessGranted) { setMessage(user.emailVerified ? 'La cuenta sigue pendiente de aprobación.' : 'Verifica primero el correo y vuelve a comprobar el acceso.'); return; }
       await UserCloudStateService.hydrate(user);
       setGate('READY');
     } catch (error: any) { setMessage(error?.message || String(error)); }
+    finally { setBusy(false); }
+  };
+
+  const resendVerification = async () => {
+    if (!user) return;
+    setBusy(true); setMessage(null);
+    try { await sendEmailVerification(user); setMessage('Correo de verificación reenviado.'); }
+    catch (error: any) { setMessage(error?.message || String(error)); }
     finally { setBusy(false); }
   };
 
@@ -115,11 +127,11 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
       {message && <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">{message}</div>}
       <button disabled={busy || !email.trim() || password.length < 6} onClick={() => void authenticate()} className="mt-4 w-full rounded-lg bg-cyan-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-40">{busy ? 'Procesando…' : mode === 'LOGIN' ? 'Entrar' : 'Crear cuenta'}</button>
       <div className="mt-3 flex items-center justify-between text-[11px]"><button onClick={() => void forgotPassword()} className="text-slate-400 hover:text-cyan-300">He olvidado la contraseña</button>{runtime?.config.selfRegistrationEnabled && <button onClick={() => { setMode(mode === 'LOGIN' ? 'REGISTER' : 'LOGIN'); setMessage(null); }} className="text-cyan-300">{mode === 'LOGIN' ? 'Solicitar cuenta' : 'Ya tengo cuenta'}</button>}</div>
-      {mode === 'REGISTER' && <div className="mt-3 text-[10px] text-slate-500">El registro no concede acceso a carteras. La cuenta queda pendiente hasta que un administrador la apruebe.</div>}
+      {mode === 'REGISTER' && <div className="mt-3 text-[10px] text-slate-500">El registro no concede acceso a carteras. Debes verificar el correo y la cuenta queda pendiente hasta que un administrador la apruebe.</div>}
     </div>
   </div>;
 
-  if (gate === 'PENDING') return <div className="flex min-h-screen items-center justify-center bg-[#0b0f19] p-4"><div className="w-full max-w-lg rounded-2xl border border-amber-500/30 bg-slate-950 p-6 text-center"><UserRound className="mx-auto h-8 w-8 text-amber-300"/><h1 className="mt-3 font-bold text-white">Cuenta pendiente de acceso</h1><p className="mt-2 text-sm text-slate-400">{me?.email ?? user?.email} está autenticada, pero todavía no puede leer ni guardar una cartera. Un administrador debe concederle acceso.</p>{message && <div className="mt-3 text-xs text-amber-200">{message}</div>}<div className="mt-5 flex justify-center gap-2"><button disabled={busy} onClick={() => void refreshAccess()} className="flex items-center gap-1 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white"><RefreshCw className="h-3.5 w-3.5"/>Comprobar acceso</button><button disabled={busy} onClick={() => void logout()} className="flex items-center gap-1 rounded-lg border border-slate-700 px-4 py-2 text-xs text-slate-300"><LogOut className="h-3.5 w-3.5"/>Salir</button></div></div></div>;
+  if (gate === 'PENDING') return <div className="flex min-h-screen items-center justify-center bg-[#0b0f19] p-4"><div className="w-full max-w-lg rounded-2xl border border-amber-500/30 bg-slate-950 p-6 text-center"><UserRound className="mx-auto h-8 w-8 text-amber-300"/><h1 className="mt-3 font-bold text-white">Cuenta pendiente de acceso</h1><p className="mt-2 text-sm text-slate-400">{me?.email ?? user?.email} está autenticada, pero todavía no puede leer ni guardar una cartera. Un administrador debe concederle acceso.</p>{user && !user.emailVerified && <div className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 text-xs text-cyan-200">El correo aún no figura como verificado. El bootstrap inicial por email nunca concede ADMIN a una cuenta sin verificar.</div>}{message && <div className="mt-3 text-xs text-amber-200">{message}</div>}<div className="mt-5 flex flex-wrap justify-center gap-2">{user && !user.emailVerified && <button disabled={busy} onClick={() => void resendVerification()} className="flex items-center gap-1 rounded-lg border border-cyan-500/30 px-4 py-2 text-xs font-bold text-cyan-200"><MailCheck className="h-3.5 w-3.5"/>Reenviar verificación</button>}<button disabled={busy} onClick={() => void refreshAccess()} className="flex items-center gap-1 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white"><RefreshCw className="h-3.5 w-3.5"/>Comprobar acceso</button><button disabled={busy} onClick={() => void logout()} className="flex items-center gap-1 rounded-lg border border-slate-700 px-4 py-2 text-xs text-slate-300"><LogOut className="h-3.5 w-3.5"/>Salir</button></div></div></div>;
 
   return <>
     <div className="fixed bottom-3 right-3 z-[80] flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/95 p-2 shadow-xl backdrop-blur">
