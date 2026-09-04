@@ -7,6 +7,9 @@ export const accountRouter = express.Router();
 
 const CLOUD_STATE_KEYS = new Set([
   'custodia_user_portfolio_v1',
+  'custodia_fund_positions_v1',
+  'custodia_staged_capital_plan_v1',
+  'custodia_pending_execution_plan_v1',
   'custodia_portfolio_execution_history_v1',
   'custodia_portfolio_cash_flow_history_v1',
   'custodia_myinvestor_manual_availability_v1',
