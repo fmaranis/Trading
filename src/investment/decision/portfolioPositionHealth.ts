@@ -546,7 +546,7 @@ export class PortfolioPositionHealthService {
         const monitored = await evaluateArbitrary({ key: fund.id, label: fund.name, symbol: fund.isin, unitsOrShares: fund.units ?? null, cashBenchmarkAnnualPct });
         positions.push(monitored);
       } catch (error: any) {
-        positions.push({ key: fund.id, label: fund.name, tickerOrIsin: fund.isin, action: 'DATA_MISSING', reason: error?.message || String(error), source: 'ARBITRARY_REAL_SERIES', currency: null, currentUnitPrice: null, currentValueEur: fund.currentValueEur ?? null, consensusScore: null, favorableVotes: null, structuralDowntrend: null, excessVsCashPctPoints: null, suggestedReductionPct: null });
+        positions.push({ key: fund.id, label: fund.name, tickerOrIsin: fund.isin, action: 'DATA_MISSING', reason: error?.message || String(error), source: 'ARBITRARY_REAL_SERIES', currency: null, currentUnitPrice: null, currentValueEur: fund.currentValueEur ?? null, consensusScore: null, favorableVotes: null, unfavorableVotes: null, structuralDowntrend: null, excessVsCashPctPoints: null, suggestedReductionPct: null });
       }
     }
 
