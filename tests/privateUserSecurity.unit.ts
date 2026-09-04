@@ -28,6 +28,7 @@ for (const [file, label] of [[decisionMain, 'MAIN'], [portfolioMain, 'PORTFOLIO_
 }
 
 requireText(gate, "gate === 'DEV_BYPASS'", 'LOCAL_DEV_BYPASS_MISSING');
+requireText(gate, "if (gate === 'ERROR') return", 'AUTH_ERRORS_MUST_FAIL_CLOSED');
 requireText(gate, 'sendEmailVerification', 'EMAIL_VERIFICATION_UI_MISSING');
 requireText(gate, 'await reload(user);', 'VERIFIED_EMAIL_REFRESH_MISSING');
 requireText(firebaseAdmin, "process.env.NODE_ENV === 'production' || process.env.FIREBASE_AUTH_REQUIRED === 'true'", 'PRODUCTION_AUTH_MUST_BE_REQUIRED');
@@ -48,6 +49,10 @@ requireText(accountRoutes, 'CANNOT_REMOVE_LAST_ADMIN', 'LAST_ADMIN_DEMOTION_GUAR
 requireText(accountRoutes, 'auth.revokeRefreshTokens(uid)', 'PRIVILEGE_REVOCATION_MUST_REVOKE_REFRESH_TOKENS');
 requireText(accountRoutes, 'db.recursiveDelete(db.doc(`users/${uid}`))', 'USER_DELETE_MUST_REMOVE_PRIVATE_DATA');
 forbidText(accountRoutes, "accountRouter.get('/admin/users/:uid/state'", 'ADMIN_MUST_NOT_HAVE_PORTFOLIO_READ_ENDPOINT');
+for (const key of ['custodia_fund_positions_v1', 'custodia_staged_capital_plan_v1', 'custodia_pending_execution_plan_v1']) {
+  requireText(accountRoutes, `'${key}'`, `BACKEND_PRIVATE_KEY_MISSING:${key}`);
+  requireText(cloudState, `'${key}'`, `CLIENT_PRIVATE_KEY_MISSING:${key}`);
+}
 
 requireText(cloudState, "const OWNER_KEY = 'custodia_cloud_owner_uid_v1'", 'LOCAL_STATE_OWNER_MARKER_MISSING');
 requireText(cloudState, 'localOwner && localOwner !== user.uid', 'CROSS_USER_LOCAL_STATE_GUARD_MISSING');
