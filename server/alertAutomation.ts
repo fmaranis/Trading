@@ -11,9 +11,11 @@ import {
   PortfolioCandidateGate,
   type CurrentOpportunityAlert
 } from '../src/investment/decision';
+import { firebaseAdminConfigured, firebaseAdminServices } from './firebaseAdmin';
 
 const STATE_DIR = path.join(process.cwd(), '.runtime');
 const STATE_FILE = path.join(STATE_DIR, 'alertAutomationState.json');
+const FIRESTORE_STATE_DOCUMENT = 'system/alertAutomation';
 type NotifiedOpportunityLevel = 'GOOD_ENTRY' | 'HIGH_CONVICTION';
 
 export interface AlertAutomationState {
@@ -37,25 +39,58 @@ const EMPTY_STATE: AlertAutomationState = {
   lastNotificationEventCount: 0, lastNotificationEventKeys: [], lastNotifiedActionableLevels: {}
 };
 
-function loadState(): AlertAutomationState {
+function normalizeState(parsed: any): AlertAutomationState {
+  return {
+    ...EMPTY_STATE,
+    ...(parsed && typeof parsed === 'object' ? parsed : {}),
+    lastAlerts: Array.isArray(parsed?.lastAlerts) ? parsed.lastAlerts : [],
+    lastNotificationEventKeys: Array.isArray(parsed?.lastNotificationEventKeys) ? parsed.lastNotificationEventKeys : [],
+    lastNotifiedActionableLevels: parsed?.lastNotifiedActionableLevels && typeof parsed.lastNotifiedActionableLevels === 'object'
+      ? parsed.lastNotifiedActionableLevels
+      : {}
+  };
+}
+
+function persistentStateRequired(): boolean {
+  return process.env.NODE_ENV === 'production' || process.env.FIREBASE_AUTH_REQUIRED === 'true';
+}
+
+function loadLocalState(): AlertAutomationState {
   try {
     if (!fs.existsSync(STATE_FILE)) return { ...EMPTY_STATE };
-    const parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-    return {
-      ...EMPTY_STATE,
-      ...parsed,
-      lastAlerts: Array.isArray(parsed?.lastAlerts) ? parsed.lastAlerts : [],
-      lastNotificationEventKeys: Array.isArray(parsed?.lastNotificationEventKeys) ? parsed.lastNotificationEventKeys : [],
-      lastNotifiedActionableLevels: parsed?.lastNotifiedActionableLevels && typeof parsed.lastNotifiedActionableLevels === 'object'
-        ? parsed.lastNotifiedActionableLevels
-        : {}
-    };
+    return normalizeState(JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')));
   } catch { return { ...EMPTY_STATE }; }
 }
-function saveState(state: AlertAutomationState): void {
+
+function saveLocalState(state: AlertAutomationState): void {
   fs.mkdirSync(STATE_DIR, { recursive: true });
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
+
+async function loadState(): Promise<AlertAutomationState> {
+  if (firebaseAdminConfigured()) {
+    const { db } = firebaseAdminServices();
+    const snapshot = await db.doc(FIRESTORE_STATE_DOCUMENT).get();
+    return snapshot.exists ? normalizeState(snapshot.data()) : { ...EMPTY_STATE };
+  }
+  if (persistentStateRequired()) throw new Error('ALERT_STATE_PERSISTENCE_NOT_CONFIGURED');
+  return loadLocalState();
+}
+
+async function saveState(state: AlertAutomationState): Promise<void> {
+  if (firebaseAdminConfigured()) {
+    const { db } = firebaseAdminServices();
+    await db.doc(FIRESTORE_STATE_DOCUMENT).set({
+      ...state,
+      persistence: 'FIRESTORE',
+      updatedAt: new Date().toISOString()
+    });
+    return;
+  }
+  if (persistentStateRequired()) throw new Error('ALERT_STATE_PERSISTENCE_NOT_CONFIGURED');
+  saveLocalState(state);
+}
+
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function sevenYearsAgo(): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - 7); return isoDate(d); }
 function baseUrl(): string {
@@ -127,12 +162,12 @@ function configuredRunTime(): { hour: number; minute: number } {
 }
 
 export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> {
-  const state = loadState();
+  const state = await loadState();
   const localRunDate = madridClock().date;
   state.lastAttemptAt = new Date().toISOString();
   state.lastRunLocalDate = localRunDate;
   state.lastError = null;
-  saveState(state);
+  await saveState(state);
   try {
     const registry = new MarketDataProviderRegistry();
     registry.register(new RealMarketDataProvider(`${baseUrl()}/api/market-data/history`));
@@ -180,21 +215,22 @@ export async function runDailyOpportunityCheck(): Promise<AlertAutomationState> 
       lastNotificationEventKeys: notificationSent ? events.map(alert => `${alert.assetId}:${alert.level}`) : [],
       lastNotifiedActionableLevels: nextNotifiedLevels(state.lastNotifiedActionableLevels, alerts, deliveredEvents)
     };
-    saveState(next);
+    await saveState(next);
     return next;
   } catch (error: any) {
     const failed = { ...state, lastRunLocalDate: localRunDate, lastError: error?.message || String(error) };
-    saveState(failed);
+    await saveState(failed);
     throw error;
   }
 }
 
-export function getAlertAutomationStatus() {
+export async function getAlertAutomationStatus() {
   return {
     enabled: process.env.ALERT_AUTOMATION_ENABLED === 'true',
     timezone: 'Europe/Madrid', runTimeLocal: process.env.ALERT_RUN_TIME_LOCAL || '22:30',
     webhookConfigured: Boolean(process.env.ALERT_WEBHOOK_URL?.trim()),
-    state: loadState()
+    persistence: firebaseAdminConfigured() ? 'FIRESTORE' : persistentStateRequired() ? 'UNAVAILABLE' : 'LOCAL_DEV',
+    state: await loadState()
   };
 }
 
@@ -205,7 +241,9 @@ export function startDailyAlertScheduler(): NodeJS.Timeout | null {
     if (running) return;
     const clock = madridClock();
     const target = configuredRunTime();
-    const state = loadState();
+    let state: AlertAutomationState;
+    try { state = await loadState(); }
+    catch (err) { console.error('[Custodia] alert state persistence unavailable:', err); return; }
     const reached = clock.hour > target.hour || (clock.hour === target.hour && clock.minute >= target.minute);
     if (!reached || state.lastRunLocalDate === clock.date) return;
     running = true;
