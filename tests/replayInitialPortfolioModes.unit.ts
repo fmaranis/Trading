@@ -40,6 +40,9 @@ requireText(wrapper, 'DynamicReplayInitialPortfolio', 'PUBLIC_REPLAY_MUST_EXPORT
 requireText(worker, "simulationMode: configuration.simulationMode ?? 'CUSTODIA_ENGINE'", 'WORKER_MUST_FORWARD_SIMULATION_MODE');
 requireText(worker, 'initialPortfolio: configuration.initialPortfolio', 'WORKER_MUST_FORWARD_INITIAL_PORTFOLIO');
 requireText(worker, 'runDynamicReplayWithRotationExperiment(input, REPLAY_ROTATION_EXPERIMENT)', 'WORKER_MUST_KEEP_EXISTING_CORE_GATE_REPLAY_PATH');
+requireText(worker, 'effectiveSeededStartDate', 'SEEDED_REPLAY_MUST_ALIGN_TO_A_REAL_MARKET_SESSION');
+requireText(worker, 'requiredIds.every(assetId => datesByAsset.get(assetId)?.has(date))', 'SEEDED_REPLAY_MUST_USE_A_COMMON_SESSION_FOR_ALL_INITIAL_ASSETS');
+requireText(worker, "if (!portfolio?.allocations.length) return requestedStartDate", 'ZERO_REPLAY_START_DATE_MUST_NOT_BE_NORMALIZED');
 
 // The feature must live in the existing replay UI, using the existing universe and private portfolio service.
 requireText(panel, '<ReplayInitialPortfolioControls', 'INITIAL_PORTFOLIO_CONTROLS_MUST_BE_INSIDE_EXISTING_REPLAY_PANEL');
