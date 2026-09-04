@@ -56,8 +56,8 @@ Los valores privados se sincronizan como representaciones JSON/string ya utiliza
 
 `firestore.rules` aplica deny-by-default.
 
-- Un usuario sólo puede leer su propio perfil/estado.
-- Un administrador puede leer perfiles/estado para soporte administrativo.
+- Un usuario sólo puede leer su propio perfil y su propio estado financiero.
+- Un administrador de cuentas puede leer metadatos de cuenta/perfil para administrar usuarios, pero **no puede leer la cartera, efectivo, historial fiscal u operaciones de otros usuarios**.
 - Ningún cliente puede escribir roles, estados o datos privados directamente en Firestore.
 - Todas las escrituras se realizan mediante el backend autenticado.
 - El servidor usa Admin SDK y, por tanto, debe protegerse mediante IAM/credenciales de servicio; las reglas Firestore no sustituyen esa protección.
@@ -113,6 +113,8 @@ El panel permite:
 - bloquear/reactivar una cuenta;
 - generar enlace de cambio de contraseña;
 - borrar cuenta y sus datos Firestore.
+
+El panel **no incluye** ninguna función para abrir la cartera de otro usuario.
 
 Protecciones:
 
@@ -187,7 +189,7 @@ firebase-admin 13.10.0
 La cartera ya puede persistirse por usuario en Firestore y deja de depender exclusivamente del navegador. El siguiente cierre de infraestructura para avisos `WATCH/REDUCE/EXIT` 24/7 es hacer que el job backend:
 
 1. enumere únicamente usuarios `ACTIVE`;
-2. lea su estado privado Firestore;
+2. lea su estado privado Firestore mediante el backend autorizado;
 3. reconstruya la cartera/contexto operativo en servidor;
 4. ejecute el mismo clasificador de salud vigente con datos REAL;
 5. guarde por UID el último evento notificado;
@@ -209,4 +211,5 @@ No publicar como versión operativa hasta cumplir simultáneamente:
 - login usuario normal probado;
 - usuario normal incapaz de abrir ADMIN;
 - ADMIN capaz de alta/bloqueo/borrado de una cuenta de prueba;
+- ADMIN incapaz de abrir la cartera de otra cuenta desde la UI/Firestore client;
 - cambio de usuario en un mismo navegador sin mezcla de cartera.
