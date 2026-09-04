@@ -44,6 +44,7 @@ requireText(accountRoutes, 'CANNOT_DELETE_LAST_ADMIN', 'LAST_ADMIN_DELETE_GUARD_
 requireText(accountRoutes, 'CANNOT_REMOVE_LAST_ADMIN', 'LAST_ADMIN_DEMOTION_GUARD_MISSING');
 requireText(accountRoutes, 'auth.revokeRefreshTokens(uid)', 'PRIVILEGE_REVOCATION_MUST_REVOKE_REFRESH_TOKENS');
 requireText(accountRoutes, 'db.recursiveDelete(db.doc(`users/${uid}`))', 'USER_DELETE_MUST_REMOVE_PRIVATE_DATA');
+forbidText(accountRoutes, "accountRouter.get('/admin/users/:uid/state'", 'ADMIN_MUST_NOT_HAVE_PORTFOLIO_READ_ENDPOINT');
 
 requireText(cloudState, "const OWNER_KEY = 'custodia_cloud_owner_uid_v1'", 'LOCAL_STATE_OWNER_MARKER_MISSING');
 requireText(cloudState, 'localOwner && localOwner !== user.uid', 'CROSS_USER_LOCAL_STATE_GUARD_MISSING');
@@ -53,6 +54,8 @@ requireText(alertRoutes, "alertAutomationRouter.use('/account', accountRouter)",
 requireText(firestoreRules, 'allow create, update, delete: if false;', 'CLIENT_WRITES_MUST_BE_DENIED');
 requireText(firestoreRules, 'request.auth.uid == userId', 'FIRESTORE_OWNER_CHECK_MISSING');
 requireText(firestoreRules, 'request.auth.token.isAdmin == true', 'FIRESTORE_ADMIN_CLAIM_CHECK_MISSING');
+requireText(firestoreRules, 'allow read: if hasAccess() && owns(userId);', 'PRIVATE_FINANCIAL_READ_MUST_BE_OWNER_ONLY');
+forbidText(firestoreRules, 'allow read: if hasAccess() && (owns(userId) || isAdmin());', 'ADMIN_MUST_NOT_READ_OTHER_USERS_FINANCIAL_STATE');
 requireText(firestoreRules, 'allow read, write: if false;', 'FIRESTORE_DENY_BY_DEFAULT_MISSING');
 
 requireText(packageJson, '"firebase": "12.18.0"', 'FIREBASE_CLIENT_DEPENDENCY_MISSING');
