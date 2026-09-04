@@ -56,6 +56,14 @@ requireText(controls, "<option value=\"CURRENT_PORTFOLIO\">", 'CURRENT_PORTFOLIO
 requireText(controls, "<option value=\"CUSTODIA_ENGINE\">", 'CUSTODIA_ENGINE_UI_MISSING');
 requireText(controls, "<option value=\"HOLD_ONLY\">", 'HOLD_ONLY_UI_MISSING');
 
+// Asset selection must keep the existing list and also support free catalogue lookup.
+requireText(controls, 'Listado existente', 'EXISTING_ASSET_DROPDOWN_MUST_REMAIN_AVAILABLE');
+requireText(controls, 'Buscar por nombre, ticker o ISIN', 'FREE_ASSET_SEARCH_UI_MISSING');
+requireText(controls, 'assetSearchText(asset).includes(query)', 'FREE_ASSET_SEARCH_MUST_FILTER_THE_CATALOGUE');
+requireText(controls, 'asset.isin', 'FREE_ASSET_SEARCH_MUST_INCLUDE_ISIN');
+requireText(controls, 'asset.name', 'FREE_ASSET_SEARCH_MUST_INCLUDE_NAME');
+requireText(controls, 'asset.ticker', 'FREE_ASSET_SEARCH_MUST_INCLUDE_TICKER');
+
 // Prevent an obvious future architecture regression: no independent replay engine in the controls.
 forbidText(controls, 'class Replay', 'CONTROLS_MUST_NOT_DEFINE_A_SECOND_REPLAY_ENGINE');
 forbidText(controls, 'PortfolioDecisionEngine.evaluate', 'CONTROLS_MUST_NOT_IMPLEMENT_FINANCIAL_POLICY');
