@@ -60,12 +60,31 @@ function truncateDataset(dataset: MultiAssetDataset, endDate: string): MultiAsse
   };
 }
 
+function effectiveSeededStartDate(dataset: MultiAssetDataset, requestedStartDate: string, portfolio?: DynamicReplayInitialPortfolio): string {
+  if (!portfolio?.allocations.length) return requestedStartDate;
+  const requiredIds = [...new Set(portfolio.allocations.map(row => row.assetId).filter(Boolean))];
+  if (!requiredIds.length) return requestedStartDate;
+
+  const datesByAsset = new Map<string, Set<string>>();
+  for (const assetId of requiredIds) {
+    const asset = dataset.assets.find(row => row.assetId === assetId);
+    if (!asset) throw new Error(`INITIAL_PORTFOLIO_ASSET_DATA_MISSING:${assetId}`);
+    datesByAsset.set(assetId, new Set(asset.bars.map(bar => bar.timestamp.slice(0, 10)).filter(date => date >= requestedStartDate)));
+  }
+
+  const candidates = [...(datesByAsset.get(requiredIds[0]) ?? new Set<string>())].sort();
+  const common = candidates.find(date => requiredIds.every(assetId => datesByAsset.get(assetId)?.has(date)));
+  if (!common) throw new Error('INITIAL_PORTFOLIO_COMMON_MARKET_DATE_NOT_FOUND');
+  return common;
+}
+
 function replayInput(dataset: MultiAssetDataset) {
   if (!configuration) throw new Error('AUDIT_WORKER_NOT_INITIALIZED');
+  const startDate = effectiveSeededStartDate(dataset, configuration.startDate, configuration.initialPortfolio);
   return {
     dataset,
     catalog: configuration.catalog,
-    startDate: configuration.startDate,
+    startDate,
     frequency: configuration.frequency,
     initialCapitalEur: configuration.initialCapitalEur,
     riskProfile: configuration.riskProfile,
