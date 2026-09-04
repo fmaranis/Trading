@@ -88,10 +88,7 @@ La trayectoria posterior a una operación es siempre diagnóstico ex post y nunc
 
 ---
 
-# USUARIOS PRIVADOS / ADMINISTRACIÓN — IMPLEMENTACIÓN EN MAIN
-
-## Objetivo
-La versión publicada debe ser multiusuario y fail-closed. No se publica una cartera mediante una sesión pública ni se confía en un UID enviado por el navegador.
+# USUARIOS PRIVADOS / ADMINISTRACIÓN — IMPLEMENTADO Y VALIDADO
 
 ## Arquitectura
 - Firebase Authentication: email/password.
@@ -110,7 +107,7 @@ La versión publicada debe ser multiusuario y fail-closed. No se publica una car
 - `/portfolio.html`
 - `/legacy.html`
 
-En producción Firebase es obligatorio aunque una variable de entorno estuviese mal configurada. Cualquier error de autenticación/autorización/hidratación deja la app cerrada (`fail-closed`).
+En producción Firebase es obligatorio. Cualquier error de autenticación/autorización/hidratación deja la app cerrada (`fail-closed`).
 
 ## Administración de cuentas
 El panel ADMIN permite:
@@ -127,34 +124,34 @@ Protecciones:
 - no eliminación/despromoción del último ADMIN activo;
 - revocación de refresh tokens al bloquear o retirar privilegios.
 
-Primer ADMIN:
-- se configura mediante `FIREBASE_BOOTSTRAP_ADMIN_EMAILS` o UID exacto;
-- bootstrap por email exige `email_verified=true`;
-- después se fuerza renovación de token para recibir los claims.
+## Validación real realizada
+Validado manualmente en el proyecto Firebase configurado:
+- primer usuario ADMIN autenticado correctamente;
+- cartera real migrada/asociada exclusivamente a su UID privado;
+- segundo usuario creado desde el panel ADMIN;
+- segundo usuario sin privilegios ADMIN;
+- cartera del segundo usuario aislada de la del ADMIN;
+- cambio de UID en el mismo navegador sin contaminación de `localStorage`;
+- retorno al ADMIN recuperando únicamente su cartera;
+- borrado del usuario de prueba disponible desde el panel.
 
-## Privacidad de estado local
-- Cada UID tiene marcador propietario local `custodia_cloud_owner_uid_v1`.
-- Si cambia el UID en el mismo navegador, primero se limpian las claves privadas del usuario anterior.
-- Si el UID ya tiene cloud state, ese estado manda y reemplaza la caché local.
-- Si es el primer UID y existe el estado histórico local sin propietario, se migra una sola vez a ese UID.
-- Logout intenta sincronizar y limpia la caché privada.
-- Nuevas cuentas empiezan con cartera vacía; no hay posiciones ni cantidades personales predefinidas en el código actual.
+Nuevas cuentas empiezan vacías; no existen posiciones ni cantidades personales predefinidas en código actual.
 
-Claves migradas/aisladas incluyen cartera unificada, claves legacy de fondos/capital, plan pendiente de ejecución, historial de ejecuciones/cashflow, disponibilidad MyInvestor, historial piloto, fiscalidad/lotes, cash benchmark e historial de decisiones.
+---
 
-## Archivos principales
-- `server/firebaseAdmin.ts`
-- `server/authSecurity.ts`
-- `server/accountRoutes.ts`
-- `src/auth/firebaseClient.ts`
-- `src/auth/accountApi.ts`
-- `src/auth/userCloudState.ts`
-- `src/auth/SecureAppGate.tsx`
-- `src/components/AdminUsersPanel.tsx`
-- `firestore.rules`
-- `firebase.json`
-- `tests/privateUserSecurity.unit.ts`
-- `docs/PRIVATE_USERS_DEPLOYMENT.md`
+# ALERTAS / PERSISTENCIA 24/7 — DEDUPE DE ENTRADAS CERRADO
+
+El deduplicado global de `GOOD_ENTRY/HIGH_CONVICTION` ya no depende del filesystem efímero cuando Firebase está configurado.
+
+- Estado durable: `system/alertAutomation` en Firestore.
+- El backend lee/escribe ese documento mediante Firebase Admin SDK.
+- En producción o cuando `FIREBASE_AUTH_REQUIRED=true`, ausencia de persistencia Firebase produce `ALERT_STATE_PERSISTENCE_NOT_CONFIGURED`; no hay fallback silencioso a `.runtime`.
+- Sólo desarrollo sin Firebase conserva `.runtime/alertAutomationState.json` como fallback local.
+- `/api/alerts/status` devuelve `persistence: FIRESTORE | LOCAL_DEV | UNAVAILABLE`.
+- Se mantiene la semántica vigente: nuevo aviso al aparecer `GOOD_ENTRY`, escalar a `HIGH_CONVICTION` o reaparecer tras dejar de ser accionable; webhook fallido no se marca como entregado.
+- `tests/privateUserSecurity.unit.ts` protege también la persistencia durable del estado de alertas.
+
+Cloud Run tiene filesystem desechable; por tanto esta migración era obligatoria antes de considerar fiable el dedupe entre reinicios/reescalados.
 
 ---
 
@@ -162,40 +159,57 @@ Claves migradas/aisladas incluyen cartera unificada, claves legacy de fondos/cap
 
 AI Studio Preview sirve para desarrollar y probar, pero no constituye ejecución 24/7.
 
-Destino recomendado:
+Destino previsto:
 - app full-stack → Cloud Run;
 - estado de usuario → Firestore;
+- estado técnico de alertas → Firestore;
 - programación fiable → Cloud Scheduler llamando `POST /api/alerts/run-now`;
 - secretos sólo server-side;
 - canal de aviso vía webhook.
 
-Pendiente antes de afirmar autonomía total de `WATCH/REDUCE/EXIT`: el job backend debe reconstruir por UID la cartera/contexto desde Firestore y llamar al mismo clasificador compartido. No crear una segunda lógica de trading.
+Cuando Cloud Scheduler sea la fuente de programación en Cloud Run:
+- `ALERT_AUTOMATION_ENABLED=false` para evitar doble scheduler;
+- `ALERT_ADMIN_TOKEN` configurado como secreto y enviado como `x-alert-admin-token` al endpoint actual;
+- zona horaria del job: `Europe/Madrid`;
+- verificar `/api/alerts/status` y exigir `persistence: FIRESTORE`.
 
-El dedupe global actual del job de entradas sigue usando `.runtime/alertAutomationState.json`; en un contenedor efímero debe migrarse a almacenamiento persistente antes del despliegue 24/7 definitivo.
+Pendiente antes de afirmar autonomía total de `WATCH/REDUCE/EXIT`: el job backend debe enumerar usuarios ACTIVE, reconstruir por UID la cartera/contexto desde Firestore y llamar al mismo `classifyPositionHealth` compartido. No crear una segunda lógica de trading.
 
 ---
 
-# GATES ANTES DE PUBLICAR
+# DEPENDENCIAS / LOCK
 
-Después de sincronizar `main` en el entorno local/AI Studio:
+Versiones fijadas:
+- `firebase 12.18.0`
+- `firebase-admin 13.10.0`
 
-1. Ejecutar `npm install` una vez para instalar Firebase y regenerar `package-lock.json` coherente.
-2. Ejecutar `npx tsx tests/privateUserSecurity.unit.ts`.
-3. Ejecutar `npm run lint`.
-4. Ejecutar `npx tsx tests/userPortfolio.unit.ts` y `npx tsx tests/fundPortfolio.unit.ts`.
-5. No ejecutar replay por este bloque: seguridad/persistencia no debe cambiar estrategia.
-6. Configurar proyecto Firebase, Email/Password y Firestore.
-7. Configurar `FIREBASE_AUTH_REQUIRED=true` para prueba de preproducción.
-8. Configurar y verificar el primer ADMIN.
-9. Desplegar `firestore.rules`.
-10. Probar cuenta normal, cuenta pendiente, ADMIN, bloqueo y borrado de una cuenta de prueba.
-11. Probar cambio de UID en el mismo navegador y verificar que no aparece la cartera anterior.
-12. Probar fallo de carga privada y confirmar que la app no renderiza cartera.
+`package-lock.json` fue regenerado y publicado en `main` con ambas dependencias. AI Studio validó:
+- `npm ls firebase firebase-admin` PASS;
+- `npm run lint` PASS;
+- `tests/privateUserSecurity.unit.ts` PASS antes del cambio de persistencia de alertas;
+- `npm run build` PASS.
 
-`package-lock.json` se eliminó temporalmente porque el lock anterior no contenía las nuevas dependencias Firebase y este entorno no puede resolver npm para regenerarlo. No desplegar hasta regenerarlo mediante `npm install` y validar.
+Tras el cambio de persistencia de alertas debe repetirse sólo el gate dirigido de seguridad, lint y build; no ejecutar replay financiero.
+
+---
+
+# GATES RESTANTES ANTES DE PUBLICAR
+
+1. Sincronizar el `main` actual en AI Studio/local.
+2. Ejecutar:
+   - `npx tsx tests/privateUserSecurity.unit.ts`
+   - `npm run lint`
+   - `npm run build`
+3. No ejecutar replay por este bloque.
+4. Desplegar `firestore.rules` en el proyecto Firebase real.
+5. Probar fallo de carga privada y confirmar fail-closed si no se hizo de forma explícita.
+6. Desplegar preproducción en Cloud Run con los secretos del entorno.
+7. Verificar `/api/alerts/status` → `persistence: FIRESTORE`.
+8. Configurar Cloud Scheduler y forzar una ejecución manual controlada antes de dejar la programación activa.
+9. Mantener `ALERT_AUTOMATION_ENABLED=false` cuando Cloud Scheduler controle la cadencia.
 
 ---
 
 # Próxima acción
 
-Sincronizar `main` y ejecutar únicamente los gates anteriores. Si pasan, el siguiente bloque es configurar Firebase real y desplegar preproducción; no modificar el motor financiero.
+Sincronizar `main` y ejecutar únicamente los tres gates dirigidos (`privateUserSecurity`, `lint`, `build`). Si pasan, desplegar las reglas Firestore y preparar Cloud Run/Cloud Scheduler. No modificar el motor financiero ni ejecutar replays.
