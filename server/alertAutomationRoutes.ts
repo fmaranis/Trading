@@ -1,7 +1,6 @@
 import express, { Request, Response } from 'express';
 import { getAlertAutomationStatus, runDailyOpportunityCheck } from './alertAutomation';
 import { accountRouter } from './accountRoutes';
-import { notifyTelegramOpportunity, telegramNotificationConfigured } from './telegramNotifier';
 
 export const alertAutomationRouter = express.Router();
 
@@ -16,8 +15,8 @@ alertAutomationRouter.get('/status', async (_req: Request, res: Response): Promi
       enabled: status.enabled,
       timezone: status.timezone,
       runTimeLocal: status.runTimeLocal,
-      notificationChannelConfigured: status.webhookConfigured,
-      telegramConfigured: telegramNotificationConfigured(),
+      notificationChannelConfigured: status.notificationChannelConfigured,
+      telegramConfigured: status.telegramConfigured,
       persistence: status.persistence,
       lastSuccessAt: status.state.lastSuccessAt,
       lastMarketDate: status.state.lastMarketDate,
@@ -30,36 +29,6 @@ alertAutomationRouter.get('/status', async (_req: Request, res: Response): Promi
     });
   } catch (error: any) {
     res.status(503).json({ ok: false, error: error?.message || String(error), persistence: 'UNAVAILABLE' });
-  }
-});
-
-// Internal relay used by ALERT_WEBHOOK_URL. It is deliberately protected with
-// ALERT_ADMIN_TOKEN so the public Cloud Run service cannot be abused to spam Telegram.
-alertAutomationRouter.post('/telegram-relay', async (req: Request, res: Response): Promise<void> => {
-  const expected = process.env.ALERT_ADMIN_TOKEN?.trim();
-  const supplied = String(req.query.token ?? '').trim();
-  if (!expected || supplied !== expected) {
-    res.status(403).json({ ok: false, error: 'TELEGRAM_RELAY_AUTH_REQUIRED' });
-    return;
-  }
-  const events = Array.isArray(req.body?.events) ? req.body.events : [];
-  if (!events.length) {
-    res.status(400).json({ ok: false, error: 'TELEGRAM_RELAY_EVENTS_REQUIRED' });
-    return;
-  }
-  try {
-    const sent = await notifyTelegramOpportunity({
-      marketDate: String(req.body?.marketDate ?? ''),
-      events,
-      evidenceState: String(req.body?.evidence?.state ?? 'PRIMARY_ONLY')
-    });
-    if (!sent) {
-      res.status(503).json({ ok: false, error: 'TELEGRAM_NOTIFICATION_NOT_SENT' });
-      return;
-    }
-    res.json({ ok: true, delivered: events.length });
-  } catch (error: any) {
-    res.status(502).json({ ok: false, error: 'TELEGRAM_NOTIFICATION_FAILED', detail: error?.message || String(error) });
   }
 });
 
