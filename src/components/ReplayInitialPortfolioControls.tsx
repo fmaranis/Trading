@@ -30,6 +30,9 @@ interface Props {
 
 function isoDate(date: Date): string { return date.toISOString().slice(0, 10); }
 function yearsAgo(years: number): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - years); return isoDate(d); }
+function normalizeSearch(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+}
 function normalizeAllocations(rows: DynamicReplayInitialAllocation[]): DynamicReplayInitialAllocation[] {
   const byAsset = new Map<string, number>();
   for (const row of rows) {
@@ -42,27 +45,38 @@ function normalizeAllocations(rows: DynamicReplayInitialAllocation[]): DynamicRe
 }
 function catalogueName(assetId: string): string {
   const item = EUR_PORTFOLIO_DISCOVERY_UNIVERSE.find(asset => asset.assetId === assetId);
-  return item ? `${item.ticker} · ${item.name}` : assetId;
+  return item ? `${item.ticker} · ${item.name}${item.isin ? ` · ${item.isin}` : ''}` : assetId;
 }
 function findCatalogAsset(input: { ticker?: string | null; isin?: string | null; name?: string | null }) {
   const ticker = String(input.ticker ?? '').trim().toUpperCase();
   const isin = String(input.isin ?? '').trim().toUpperCase();
-  const name = String(input.name ?? '').trim().toLowerCase();
+  const name = normalizeSearch(String(input.name ?? ''));
   return EUR_PORTFOLIO_DISCOVERY_UNIVERSE.find(asset =>
     (ticker && asset.ticker.toUpperCase() === ticker)
     || (isin && String(asset.isin ?? '').toUpperCase() === isin)
-    || (name && asset.name.trim().toLowerCase() === name)
+    || (name && normalizeSearch(asset.name) === name)
   ) ?? null;
+}
+function assetSearchText(asset: (typeof EUR_PORTFOLIO_DISCOVERY_UNIVERSE)[number]): string {
+  return normalizeSearch([asset.ticker, asset.isin ?? '', asset.name, asset.assetId].join(' '));
 }
 
 export const ReplayInitialPortfolioControls: React.FC<Props> = ({ value, disabled = false, onChange }) => {
   const [assetToAdd, setAssetToAdd] = useState(EUR_PORTFOLIO_DISCOVERY_UNIVERSE[0]?.assetId ?? '');
+  const [assetSearch, setAssetSearch] = useState('');
   const [amountToAdd, setAmountToAdd] = useState('1000');
   const [loadingCurrent, setLoadingCurrent] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const invested = useMemo(() => value.allocations.reduce((sum, row) => sum + Math.max(0, Number(row.amountEur) || 0), 0), [value.allocations]);
   const total = Math.max(0, value.cashEur) + invested;
+  const searchResults = useMemo(() => {
+    const query = normalizeSearch(assetSearch);
+    if (!query) return [];
+    return EUR_PORTFOLIO_DISCOVERY_UNIVERSE
+      .filter(asset => assetSearchText(asset).includes(query))
+      .slice(0, 12);
+  }, [assetSearch]);
 
   const setSource = async (source: DynamicReplayInitialPortfolioSource) => {
     if (source === 'ZERO') {
@@ -131,6 +145,11 @@ export const ReplayInitialPortfolioControls: React.FC<Props> = ({ value, disable
     if (!assetToAdd || !(amountEur > 0)) return;
     onChange({ ...value, allocations: normalizeAllocations([...value.allocations, { assetId: assetToAdd, amountEur }]) });
   };
+  const chooseSearchResult = (assetId: string) => {
+    setAssetToAdd(assetId);
+    const asset = EUR_PORTFOLIO_DISCOVERY_UNIVERSE.find(item => item.assetId === assetId);
+    setAssetSearch(asset ? `${asset.ticker}${asset.isin ? ` · ${asset.isin}` : ''} · ${asset.name}` : assetId);
+  };
 
   return <div className="mt-4 rounded-xl border border-violet-500/25 bg-violet-950/10 p-4">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -159,12 +178,19 @@ export const ReplayInitialPortfolioControls: React.FC<Props> = ({ value, disable
     {loadError && <div className="mt-3 rounded-lg border border-rose-500/25 bg-rose-500/10 p-2 text-[10px] text-rose-100">{loadError}</div>}
 
     {value.source !== 'ZERO' && <>
-      <div className="mt-3 grid gap-3 md:grid-cols-[180px_1fr_150px_auto] md:items-end">
+      <div className="mt-3 grid gap-3 lg:grid-cols-[180px_minmax(280px,1fr)_minmax(280px,1fr)_150px_auto] lg:items-end">
         <label className="text-[10px] text-slate-400">Cash inicial (€)<input type="number" min="0" step="100" value={value.cashEur} disabled={disabled} onChange={e => onChange({ ...value, cashEur: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
-        <label className="text-[10px] text-slate-400">Añadir activo<select value={assetToAdd} disabled={disabled} onChange={e => setAssetToAdd(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60">{EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(asset => <option key={asset.assetId} value={asset.assetId}>{asset.ticker} · {asset.name}</option>)}</select></label>
+        <label className="text-[10px] text-slate-400">Listado existente<select value={assetToAdd} disabled={disabled} onChange={e => setAssetToAdd(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60">{EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(asset => <option key={asset.assetId} value={asset.assetId}>{asset.ticker} · {asset.name}{asset.isin ? ` · ${asset.isin}` : ''}</option>)}</select></label>
+        <div className="relative text-[10px] text-slate-400">Buscar por nombre, ticker o ISIN
+          <input type="text" value={assetSearch} disabled={disabled} onChange={e => setAssetSearch(e.target.value)} placeholder="Ej.: Iberdrola, IBE.MC, ES0144580Y14" className="mt-1 w-full rounded-lg border border-cyan-500/30 bg-slate-950 px-3 py-2 text-xs text-white placeholder:text-slate-700 disabled:opacity-60"/>
+          {assetSearch.trim() && <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-700 bg-slate-950 shadow-2xl">
+            {searchResults.length > 0 ? searchResults.map(asset => <button key={asset.assetId} type="button" disabled={disabled} onClick={() => chooseSearchResult(asset.assetId)} className="block w-full border-b border-slate-800 px-3 py-2 text-left hover:bg-slate-900 disabled:opacity-50"><b className="text-cyan-200">{asset.ticker}</b><span className="ml-2 text-slate-300">{asset.name}</span>{asset.isin && <div className="font-mono text-[9px] text-slate-600">ISIN {asset.isin}</div>}</button>) : <div className="p-3 text-[10px] text-slate-500">No existe coincidencia en el catálogo operativo actual.</div>}
+          </div>}
+        </div>
         <label className="text-[10px] text-slate-400">Importe (€)<input type="number" min="0" step="100" value={amountToAdd} disabled={disabled} onChange={e => setAmountToAdd(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
         <button type="button" disabled={disabled || !assetToAdd || !(Number(amountToAdd) > 0)} onClick={addAsset} className="min-h-10 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-[10px] font-bold text-violet-100 disabled:opacity-40">Añadir al replay</button>
       </div>
+      <div className="mt-2 text-[9px] text-slate-500">Puedes usar el listado o escribir directamente nombre, ticker o ISIN. El buscador consulta el catálogo operativo de activos que la app puede descargar y reproducir con histórico REAL.</div>
 
       <div className="mt-3 overflow-x-auto rounded-lg border border-slate-800">
         <table className="w-full min-w-[640px] text-[10px]"><thead className="bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Activo inicial</th><th className="p-2 text-right">€ al iniciar</th><th className="p-2 text-right">Acción</th></tr></thead><tbody>
