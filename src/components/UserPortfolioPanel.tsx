@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart3, ChevronDown, Plus, RotateCcw, Save, Trash2, WalletCards } from 'lucide-react';
+import { BarChart3, ChevronDown, Plus, Save, Trash2, WalletCards } from 'lucide-react';
 import {
   AssetUniverseScanResult,
   evaluatePortfolioDecision,
@@ -115,10 +115,6 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
     }
     applyState(UserPortfolioService.save({ cashEur: cash, holdings, funds, stagedCapitalPlan: plan }));
   };
-  const restoreRealBaseline = () => {
-    PortfolioCashFlowHistoryService.clear();
-    applyState(UserPortfolioService.restoreRealBaseline());
-  };
 
   return <section className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -126,7 +122,7 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
         <div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-emerald-300"/><h2 className="font-bold">Mi cartera real</h2></div>
         <p className="mt-1 text-[11px] text-slate-400">Cada posición se valora a mercado y se vigila por su propia tendencia y consenso. El importe aportado se conserva como coste de compra, nunca como sustituto silencioso del valor actual.</p>
       </div>
-      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-[10px] font-bold text-emerald-200">ESTADO REAL · {portfolio.updatedAt.slice(0, 10)}</span>
+      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/5 px-3 py-1 text-[10px] font-bold text-emerald-200">ESTADO PRIVADO · {portfolio.updatedAt.slice(0, 10)}</span>
     </div>
 
     <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -168,7 +164,7 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
             {onInspectAsset && <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-cyan-300"><BarChart3 className="h-3.5 w-3.5"/>Abrir gráfica, señales y ficha</div>}
           </button>;
         })}
-        {funds.length + holdings.length === 0 && <div className="col-span-full rounded-lg border border-dashed border-slate-800 p-4 text-xs text-slate-500">No hay posiciones registradas.</div>}
+        {funds.length + holdings.length === 0 && <div className="col-span-full rounded-lg border border-dashed border-slate-800 p-4 text-xs text-slate-500">No hay posiciones registradas para esta cuenta.</div>}
       </div>
     </div>
 
@@ -180,10 +176,10 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, decision, positionHe
             <label className="block text-[10px] uppercase text-slate-500">Efectivo ya disponible en cuenta<input type="number" min="0" step="10" value={cash} onChange={e => setCash(Math.max(0, Number(e.target.value) || 0))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm"/></label>
             <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3"><div className="text-[10px] uppercase text-violet-300">Capital nuevo pendiente</div><div className="mt-2 grid grid-cols-2 gap-2"><label className="text-[10px] text-slate-500">Disponible €<input type="number" min="0" value={plan.availableEur} onChange={e => setPlan({ ...plan, availableEur: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"/></label><label className="text-[10px] text-slate-500">Plazo meses<input type="number" min="1" max="120" value={plan.horizonMonths} onChange={e => setPlan({ ...plan, horizonMonths: Math.max(1, Number(e.target.value) || 1) })} className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"/></label></div><div className="mt-2 text-[10px] text-slate-500">Referencia: {monthly.toFixed(2)} €/mes.</div></div>
             <button onClick={save} className="flex w-full items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"><Save className="h-3.5 w-3.5"/>Guardar reconciliación</button>
-            <button onClick={restoreRealBaseline} className="flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-500/25 px-3 py-2 text-xs text-emerald-200"><RotateCcw className="h-3.5 w-3.5"/>Restaurar cartera real registrada</button>
+            <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-[10px] text-slate-500">Cada cuenta empieza vacía. No existe una cartera personal embebida en el código ni un botón que restaure posiciones de otro usuario.</div>
           </div>
           <div className="space-y-3">
-            <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><div className="flex items-center justify-between"><div><b className="text-sm">Fondos</b><div className="text-[10px] text-slate-500">Editar solo si tu cuenta real no coincide.</div></div><button onClick={addFund} className="flex items-center gap-1 rounded-lg border border-dashed border-slate-700 px-2 py-1 text-[10px] text-slate-400"><Plus className="h-3 w-3"/>Fondo</button></div><div className="mt-2 space-y-3">{funds.length === 0 && <div className="rounded-lg border border-dashed border-slate-800 p-3 text-xs text-slate-600">Sin fondos registrados.</div>}{funds.map(f => <FundMarketDataCard key={f.id} fund={f} onChange={patch=>updateFund(f.id,patch)} onRemove={()=>removeFund(f.id)} onMarketValue={value=>setFundMarketValues(prev=>prev[f.id]===value?prev:{...prev,[f.id]:value})}/>)}</div></div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><div className="flex items-center justify-between"><div><b className="text-sm">Fondos</b><div className="text-[10px] text-slate-500">Edita únicamente los datos de esta cuenta.</div></div><button onClick={addFund} className="flex items-center gap-1 rounded-lg border border-dashed border-slate-700 px-2 py-1 text-[10px] text-slate-400"><Plus className="h-3 w-3"/>Fondo</button></div><div className="mt-2 space-y-3">{funds.length === 0 && <div className="rounded-lg border border-dashed border-slate-800 p-3 text-xs text-slate-600">Sin fondos registrados.</div>}{funds.map(f => <FundMarketDataCard key={f.id} fund={f} onChange={patch=>updateFund(f.id,patch)} onRemove={()=>removeFund(f.id)} onMarketValue={value=>setFundMarketValues(prev=>prev[f.id]===value?prev:{...prev,[f.id]:value})}/>)}</div></div>
             <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><div className="flex items-center justify-between"><div><b className="text-sm">Activos cotizados</b><div className="text-[10px] text-slate-500">Ticker libre; el datalist solo ayuda, no limita.</div></div><button onClick={addHolding} className="flex items-center gap-1 rounded-lg border border-dashed border-slate-700 px-2 py-1 text-[10px] text-slate-400"><Plus className="h-3 w-3"/>Activo</button></div><datalist id="portfolio-known-tickers">{knownTickers.map(t => <option key={t} value={t}/>)}</datalist><div className="mt-2 space-y-2">{holdings.length === 0 && <div className="rounded-lg border border-dashed border-slate-800 p-3 text-xs text-slate-600">Sin activos cotizados registrados.</div>}{holdings.map((holding, index) => <div key={`${index}_${holding.ticker}`} className="grid grid-cols-[1fr_110px_32px] gap-2"><input list="portfolio-known-tickers" value={holding.ticker} onChange={e => updateHolding(index, { ticker: e.target.value.toUpperCase() })} placeholder="Ticker libre…" className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 font-mono text-xs"/><input type="number" min="0" step="1" value={holding.shares} onChange={e => updateHolding(index, { shares: Math.max(0, Number(e.target.value) || 0) })} className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-right font-mono text-xs" title="Títulos"/><button onClick={() => removeHolding(index)} className="rounded-lg border border-slate-700 text-slate-400 hover:text-rose-300"><Trash2 className="mx-auto h-3.5 w-3.5"/></button></div>)}</div></div>
           </div>
         </div>
