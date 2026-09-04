@@ -17,17 +17,16 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
-    // Profile metadata may be read by its owner or an administrator.
+    // Profile/account metadata may be read by its owner or an account administrator.
     // Client writes are deliberately forbidden: role/access/status are server-managed.
     match /users/{userId} {
       allow read: if owns(userId) || isAdmin();
       allow create, update, delete: if false;
 
-      // Portfolio, executions, tax context, decision history and broker preferences.
-      // The current frontend synchronizes through the authenticated Cloud Run API,
-      // but these rules still prevent cross-user reads if a Firestore client is added later.
+      // Financial data remains private even from account administrators.
+      // ADMIN manages identity/access, not somebody else's money.
       match /private/{document=**} {
-        allow read: if hasAccess() && (owns(userId) || isAdmin());
+        allow read: if hasAccess() && owns(userId);
         allow create, update, delete: if false;
       }
     }
