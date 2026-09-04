@@ -1,232 +1,39 @@
 # Trading — Estado Canónico del Proyecto
 
-> Repositorio canónico: `fmaranis/Trading/main`. Leer este archivo primero al retomar el proyecto. El detalle histórico permanece en Git.
+> Repositorio canónico: `fmaranis/Trading/main`. Leer este archivo primero al retomar el proyecto. El detalle histórico permanece en Git; este estado actual evita incluir datos financieros personales.
 
 ## Reglas no negociables
 - Nunca usar GitHub Actions. Validaciones en local/AI Studio.
 - ChatGPT modifica GitHub; AI Studio sincroniza `main`, ejecuta/Preview/valida y no modifica archivos salvo instrucción expresa.
 - REAL / STATIC_REFERENCE / SYNTHETIC siempre explícito; sin fallback sintético silencioso.
 - Replay causal: sólo información disponible hasta la fecha; ejecución posterior a señal; sin lookahead.
-- No polling/agentes para procesos largos. El usuario avisa al terminar y ChatGPT revisa una vez.
+- Replays largos los ejecuta el motor local/app, no un agente consumiendo tokens.
 - No calibrar thresholds con ventanas ya usadas para diagnóstico.
 - Tras un fallo, ejecutar primero sólo el test dirigido que falla.
-- No seguir añadiendo scores/capas desconectadas: integrar y atribuir antes de cambiar políticas.
+- No añadir scores/capas desconectadas: integrar y atribuir antes de cambiar políticas.
+- La estrategia V1 queda congelada durante el piloto: sólo bugs reproducibles o problemas de datos/operación.
+- Ningún dato de cartera real, efectivo, coste, historial fiscal u operación de un usuario debe quedar embebido en código público.
 
 ---
 
-# Estado vigente — 2026-09-03
+# Estado vigente — 2026-09-04
 
 Pregunta central: **¿Muevo dinero hoy o no?**
 
-Arquitectura:
+Arquitectura financiera vigente:
 1. DÓNDE — ranking/calidad/consenso.
 2. CUÁNDO — Entry Timing causal.
 3. CUÁNTO HOY — STARTER/BUILD/sizing.
-4. CÓMO GESTIONAR — HOLD/ADD/WATCH/PROTECT/REDUCE/EXIT/ROTATE.
+4. CÓMO GESTIONAR — HOLD/ADD/WATCH/REDUCE/EXIT/ROTATE.
 5. CASH — alternativa remunerada explícita: no invertir también puede ser la decisión correcta.
 
-Perfil MEDIUM: STARTER READY 3% / STRONG 5%; BUILD 8%; máximo 12 posiciones; máximo 2 nuevas/evaluación. Rotación 1:1 estricta y atómica. Sin deuda/cash negativo.
+Perfil MEDIUM de referencia: STARTER READY 3% / STRONG 5%; BUILD 8%; máximo 12 posiciones; máximo 2 nuevas/evaluación. Rotación 1:1 estricta y atómica. Sin deuda/cash negativo.
 
-Cartera real de referencia:
-- Vanguard Global `IE00B03HD191`: 12.600 €.
-- Vanguard Emerging `IE0031786696`: 1.400 €.
-- Capital pendiente: 13.000 €; horizonte 12 meses.
-- Cuenta operativa remunerada: **2,5% TAE por defecto, editable** mediante `CashBenchmarkService`; no tratar 2,5% como constante económica permanente.
+Los datos de cartera real ya no se documentan aquí ni se usan como defaults de código. Se migran/persisten únicamente como estado privado asociado al UID autenticado.
 
 ---
 
-# Políticas vigentes / hallazgos estructurales
-
-## Strategic growth core
-Hallazgo estructural validado: el strategic growth core no debe venderse por deterioro corto ordinario ni financiar rotación táctica competitiva.
-
-Core explícito: `FUND_VANGUARD_GLOBAL`, `FUND_VANGUARD_ESG_DEVELOPED`, `FUND_VANGUARD_US500`, `VWCE`, `EUNL`, `IWDA`, `SXR8`, `VUSA`.
-
-`CORE_GATE_V1` permanece: capital liberado por una posición mediocre puede consolidarse en core global cuando no existe challenger excepcional.
-
-## TREND_PROTECTION_V2
-Flujo: **HEALTHY → WATCH → PROTECT → REDUCE → EXIT**.
-
-Winner: MFE >=8%, giveback >=6 pp; REDUCE 25%, uno por episodio. Perdedor exige persistencia. Hard EXIT sólo satélite profundo/persistente. Reclaim desarma. WATCH/PROTECT no venden y bloquean rotación/CORE_GATE.
-
-La política sigue siendo causal y ejecutable. Su valor económico es mixto; no se modifica todavía.
-
----
-
-# CASH REMUNERADO COMO ACTIVO DEFENSIVO — CASH_FIRST_CLASS_V1
-
-Hallazgo: el motor **ya remuneraba realmente el cash** y ya lo usaba como hurdle, pero la interfaz lo mostraba como si fuese principalmente liquidez residual. Esta fase corrige representación/auditoría sin cambiar decisiones productivas.
-
-## Comportamiento que ya existía y se conserva
-- `CashBenchmarkService`: TAE por defecto 2,5%, editable/persistente; los candidatos deben superar esta referencia antes de recibir dinero nuevo.
-- `remuneratedCash.ts`: el saldo libre acumula rendimiento entre fechas por días naturales; `cashInterestEur` entra en el patrimonio final del replay.
-- El replay compara además contra `allCashBenchmark`: mantener todo el capital en cash remunerado.
-- `InvestmentDecisionEngine` ya usa cash deliberadamente por perfil y régimen, no sólo como sobrante.
-- Base por perfil: LOW 25%, MEDIUM 12%, HIGH 5%.
-- Overlay de régimen: BEAR_HIGH_VOL 35%, BEAR_LOW_VOL 25%, SIDEWAYS_HIGH_VOL 20%, BULL_HIGH_VOL 12%, SIDEWAYS_LOW_VOL 8%, BULL_LOW_VOL 3%, UNKNOWN 30%.
-- Si el asignador no encuentra activos adecuados puede devolver 100% cash; en otro caso el cash final queda limitado por la lógica vigente del asignador.
-
-## Integración nueva — implementada, pendiente de gates
-Backup previo: `backup/main-pre-cash-first-class-2026-09-03` → `176ab1465d6c267e664b59d802a0e74f220b400b`.
-
-Cambios:
-- `InteractiveInvestmentDecisionCenter.tsx`: editor visible **Cuenta operativa remunerada · % TAE** junto a capital/riesgo/horizonte.
-- Nueva tarjeta **Decisión CASH**: muestra euros y peso objetivo del asignador, TAE configurada, equivalencia de interés a un año y rol descriptivo `CASH PRIORITARIO / REFUGIO DEFENSIVO / REFUGIO POR FALTA DE OPORTUNIDAD / RESERVA ESTRATÉGICA / BUFFER OPERATIVO`.
-- La tarjeta es descriptiva: usa `cashWeight`, régimen y gates ya existentes; no añade score, threshold ni orden nueva.
-- `DecisionGuardrailsPanel.tsx`: los controles de TAE quedan sincronizados por `CASH_BENCHMARK_UPDATED_EVENT`; cambiar uno actualiza el resto y recalcula gates.
-- La comparación histórica simple identifica explícitamente que usa **TAE constante configurada**, no remuneración bancaria histórica reconstruida.
-- `InvestmentResearchLab.tsx`: la validación histórica auditada muestra la TAE constante activa y ofrece **Reiniciar replay con esta TAE** para borrar checkpoints v2/v3 antes de comparar otro escenario y evitar mezclar sesiones antiguas con una TAE distinta.
-- `tests/cashRemuneration.unit.ts`: contrato numérico de 2,5% TAE, 365 días, capitalización, benchmark 100% cash y sanitización del rango configurable.
-
-Importante:
-- Esta fase **NO cambia** `InvestmentDecisionEngine`, V2, CORE, Entry Timing, sizing, selección, rotaciones ni thresholds.
-- Los replays antiguos `historical_progressive_audit_v3` no almacenaban la TAE dentro de su configuración; antes de comparar otra TAE se debe reiniciar la sesión con el nuevo control.
-- La curva histórica de tipos (`cashRate(date)`) queda pendiente. Hasta entonces, un replay de 2015 con 2,5% significa “escenario contrafactual con 2,5% constante”, no “la cuenta pagaba 2,5% en 2015”.
-- La remuneración del cash se contabiliza actualmente **bruta**; la fiscalidad/retención de los intereses bancarios todavía no está integrada en `cashInterestEur`. No mezclar este pendiente con la fiscalidad ya modelada de plusvalías de ventas.
-
----
-
-# Experimentos de DÓNDE / CUÁNTO cerrados
-
-## SELECTION_QUALITY_V1
-No promocionado. 2017-18 +0,5581 pp vs CORE; 2025-26 -0,0059 pp; 2015 igualdad económica. Conservar scores como diagnóstico.
-
-## QUALITY_SIZING_V1
-No promocionado. 2017-18 +0,1051 pp; 2014 +0,199 pp; 2016 -1,7431 pp por exceso de cash durante recuperación. No recalibrar.
-
-## SELECTION_SLOPE_V1
-No promocionado. 2013 +0,4804 pp vs CORE; 2012 -0,5699 pp; 2025-26 +0,1151 pp. Agregado ~+0,0256 pp: neutralidad económica. Conservar `SlopeQuality` como diagnóstico/tie-breaker potencial.
-
----
-
-# CURRENT_VS_CORE_CAUSAL_ATTRIBUTION_V1
-
-No añade otro brazo. Reutiliza CURRENT, V2 y STRATEGIC_CORE_HOLD.
-
-Identidad obligatoria:
-`CORE−CURRENT = (V2−CURRENT) + (CORE−V2)`.
-
-## 2025-04-01 → 2026-03-31
-- CURRENT: 14.489,42 €, +11,4571%, DD 6,5053%.
-- V2 = CORE: 14.450,08 €, +11,1545%, DD 6,7131%.
-- `V2 − CURRENT = -39,3362 € / -0,302586 pp`.
-- `CORE − V2 = 0`.
-
-Toda la pérdida nace de V2. Primera divergencia 03/03/2026: REDUCE Intesa. Después V2 reduce Vanguard Eurozone, Vanguard Europe y Ferrovial.
-
-## 2015-01-02 → 2015-12-31
-- CURRENT: 13.541,29 €, +4,1638%, DD 10,2068%.
-- V2: 13.561,19 €, +4,3168%, DD 8,2863%.
-- CORE: 13.585,60 €, +4,5046%, DD 8,2863%.
-- `V2 − CURRENT = +19,90 € / +0,1531 pp`.
-- `CORE − V2 = +24,41 € / +0,1878 pp`.
-
-Primera divergencia CURRENT→V2: 05/06/2015, REDUCE ISPA. Primera divergencia V2→CORE: 26/08/2015, REDUCE EUNL bloqueado por CORE HOLD.
-
----
-
-# V2_REDUCTION_OUTCOME_AUDIT_V1
-
-Auditoría **ex post exclusivamente diagnóstica**. Usa precios futuros sólo para analizar decisiones pasadas y está prohibido usar sus salidas como input causal del motor.
-
-Registra por REDUCE: causa, retorno/MFE/giveback en señal, fricción, retorno posterior 20/60 sesiones/fin, caída/recuperación máxima y proxy mark-to-market de vender frente a mantener la porción.
-
-Archivos:
-- `src/investment/decision/v2ReductionOutcomeAudit.ts`
-- `tests/v2ReductionOutcomeAudit.unit.ts`
-
-Gates: lint PASS; test dirigido PASS tras corregir tolerancia IEEE-754; regresión counterfactual sin incidencias reportadas.
-
-Lectura 2015: heterogeneidad real entre REDUCE. ISPA fue útil; Inditex/EUNL/Ferrovial muestran ventas prematuras. La proxy estática no equivale al P&L causal completo porque vender cambia cash, plazas y operaciones posteriores.
-
-Lectura 2025-26: las cuatro ventas de marzo tenían slope20 muy negativa pero slope60 aún positiva y consenso constructivo. La proxy agregada hasta final (~-39,83 €) casi explica toda la pérdida real de V2 vs CURRENT (-39,34 €).
-
----
-
-# TREND_PROTECTION_V2_MEDIUM_TERM_WINNER_CONFIRM — CERRADO / NO PROMOCIONADO
-
-Experimento dirigido, causal y aislado. **No modifica `classifyTrendProtectionV2` productivo.**
-
-Regla probada: si V2 base intenta `REDUCE` por `WINNER_PROTECTION`, mantener `PROTECT` mientras simultáneamente:
-- `regressionSlope60AnnualizedPct > 0`;
-- `consensusScore > 0`;
-- `unfavorableVotes < 2`.
-
-El REDUCE se mantiene cuando hay al menos una confirmación adicional: slope60 <=0, consenso <=0 o >=2 votos adversos.
-
-No toca LOSER_FAILURE, hard EXIT, reclaim, MFE/giveback, tamaño 25%, selección, sizing, Entry Timing, cash ni CORE_GATE.
-
-Implementación:
-- `trendProtectionV2MediumTermConfirm.ts`;
-- clasificador inyectado en `replayTrendProtectionV2Experiment.ts`;
-- brazo `mediumTermWinnerConfirmExperiment` en worker;
-- `tests/trendProtectionV2MediumTermConfirm.unit.ts`.
-
-Backup previo: `backup/main-pre-v2-medium-term-confirm-2026-09-02` → `a6d68dd4fcdb71a93955a4c3b2780bd06f95e58d`.
-
-## Evidencia 1 — 2015
-- V2: 13.561,19 €, +4,3168%, DD 8,2863%.
-- MEDIUM_TERM_CONFIRM: 13.560,27 €, +4,3098%, DD 8,2741%.
-- vs V2: **-0,92 € / -0,0070 pp**; DD -0,0121 pp mejor; turnover -34,31 €.
-- Mantiene REDUCE útil de ISPA; retrasa Inditex y Ferrovial. Economía esencialmente neutra, ligeramente peor.
-
-## Evidencia 2 — 2025-04-01 → 2026-03-31
-- V2: 14.450,08 €, +11,1545%, DD 6,7131%.
-- MEDIUM_TERM_CONFIRM: **14.456,73 €, +11,2056%, DD 6,5461%**.
-- vs V2: **+6,65 € / +0,0512 pp**; DD -0,1670 pp mejor.
-- Sigue ~32,69 € por debajo de CURRENT.
-- No elimina las cuatro ventas: las retrasa entre 1 y 7 días para exigir confirmación media.
-
-## Holdout independiente — 2020-02-03 → 2021-02-02
-- CURRENT: 13.474,58 €, +3,6506%, DD 13,5340%.
-- V2: **13.716,73 €, +5,5133%, DD 13,6257%**.
-- MEDIUM_TERM_CONFIRM: **13.713,35 €, +5,4873%, DD 13,6257%**.
-- CORE HOLD: 13.808,35 €, +6,2181%, DD 13,6835%.
-- `MEDIUM_TERM_CONFIRM − V2 = -3,38 € / -0,0260 pp`.
-- DD idéntico a V2; turnover -10,57 €; tax +0,16 €.
-- Conserva las tres reducciones `LOSER_FAILURE` del 16/03/2020 exactamente igual que V2.
-- Único cambio económico relevante: retrasa el REDUCE de 4GLD del 24/09/2020 al 10/11/2020; el retraso termina ligeramente peor.
-- Restricciones: máximo 12 posiciones; cash nunca negativo.
-
-## Decisión final
-**NO PROMOCIONAR.**
-
-Motivo:
-- 2015: -0,92 € vs V2.
-- 2025-26: +6,65 € vs V2.
-- holdout 2020-21: -3,38 € vs V2.
-
-El patrón tiene sentido causal y puede reducir ventas prematuras, pero no demuestra un edge económico robusto fuera de las ventanas que originaron la hipótesis. No ajustar thresholds ni añadir condiciones para intentar salvarlo.
-
-Conservar la idea como diagnóstico sobre “pullback corto vs deterioro medio”, pero mantener V2 productivo sin este filtro.
-
----
-
-# UX / gráficas — después del motor
-
-Cuando el motor quede cerrado:
-- zoom/rango temporal 1M/3M/6M/1A/Todo;
-- slope20/60/120, SMA20/SMA50 y señales activables;
-- gráfica por operación centrada en ejecución con BUY/ADD/REDUCE/EXIT, timing, consenso, quality, slopes y trayectoria posterior;
-- opción de trayectoria completa.
-
----
-
-# Próxima acción
-
-1. Validar `CASH_FIRST_CLASS_V1` en local/AI Studio: `npm run lint` y `npx tsx tests/cashRemuneration.unit.ts`.
-2. Si PASS, comprobar visualmente que editar la TAE superior sincroniza el control técnico, recalcula gates y actualiza la tarjeta `Decisión CASH`.
-3. No repetir todavía replays económicos: esta fase no cambia el motor productivo.
-4. Después decidir el siguiente bloque económico por separado: curva histórica de `cashRate(date)` + fiscalidad del interés, o el A/B causal limpio `CURRENT + STRATEGIC_CORE_HOLD` frente a CURRENT/V2.
-
----
-
-# CIERRE DE PARIDAD DEL MOTOR VIGENTE — 2026-09-04
-
-Esta sección sustituye la “Próxima acción” anterior para el estado actual.
-
-## Decisión
-**FASE CERRADA.** No seguir refactorizando ni recalibrando el motor vigente salvo bug reproducible o regresión numérica.
+# MOTOR VIGENTE — CERRADO
 
 ## Arquitectura validada
 - Entrada productiva: `decisionMain.tsx` / centro integrado.
@@ -234,38 +41,161 @@ Esta sección sustituye la “Próxima acción” anterior para el estado actual
 - Señales actuales son una vista del mismo gate + `StrategyConsensusEngine` + `EntryTimingEngine`; no constituyen un motor financiero alternativo.
 - `CORE_GATE_V1` tiene una única implementación compartida por replay y cartera real.
 - Replay y cartera real usan el mismo `classifyPositionHealth` para HOLD/ADD/WATCH/REDUCE/EXIT.
-- La cartera real reconstruye retorno/MFE/giveback con lotes fiscales e historial de ejecuciones cuando el coste está completo; si falta, se declara `POSITION_COST_BASIS_INCOMPLETE` y no se inventan datos.
-- `TREND_PROTECTION_V2` permanece contrafactual/experimental; no se promociona en este cierre.
-- `tests/decisionArchitectureParity.unit.ts` protege el cableado para impedir divergencias silenciosas futuras.
+- La cartera reconstruye retorno/MFE/giveback con lotes e historial de ejecuciones cuando el coste está completo; si falta, se declara `POSITION_COST_BASIS_INCOMPLETE` y no se inventan datos.
+- `TREND_PROTECTION_V2` permanece contrafactual/experimental; no se promociona.
+- `tests/decisionArchitectureParity.unit.ts` protege el cableado.
 
-## Regresión de cierre
-Replay REAL auditado:
+## Regresión técnica congelada
+Replay REAL auditado de referencia:
 - 2026-06-01 → 2026-08-31.
-- DAILY · AUTO · 3 meses · chunks 30 días · capital inicial 13.000 €.
-- Cash: `HISTORICAL_ECB_DFR_FLOOR_0`.
-- Valor final: **13.193,530595 €**.
-- Rentabilidad: **+1,488696885 %**.
-- Máximo drawdown: **0,775077842 %**.
-- Exact hold: 13.119,751952 € / +0,921168859 %.
-- Ventaja frente a exact hold: **+73,778643 € / +0,567528027 pp**.
-- Ejecuciones: **25 = 12 BUY + 13 ADD**.
+- DAILY · AUTO · chunks 30 días · capital de prueba 13.000 €.
+- Cash histórico `HISTORICAL_ECB_DFR_FLOOR_0`.
+- Valor final: 13.193,530595 €.
+- Rentabilidad: +1,488696885%.
+- Máximo drawdown: 0,775077842%.
+- 25 ejecuciones = 12 BUY + 13 ADD.
 - Comisiones: 20 €.
-- Fiscalidad estimada: 0,742059737 €.
-- Señales persistidas compactadas: 928; señales diagnósticas: 28.
+- Señales persistidas compactadas: 928; diagnósticas: 28.
 
-El resultado coincide con la referencia previa de 3 meses. La compactación y la unificación arquitectónica no alteran el resultado económico de esta regresión.
+Este benchmark es exclusivamente una regresión técnica para detectar cambios del motor; no representa ni publica la cartera real de ningún usuario.
 
-## Publicación de replays para ChatGPT
-La app publica resultados legibles en la rama `replay-results`:
-- `validation-runs/latest-chatgpt.json`: resumen/auditoría legible.
-- `validation-runs/latest-chatgpt-full.json`: replay completo.
-- `validation-runs/archive-chatgpt/<timestamp>__<start>__<end>.json`: histórico legible; máximo 10 pruebas.
+## Política de experiments
+- `SELECTION_QUALITY_V1`: no promocionado.
+- `QUALITY_SIZING_V1`: no promocionado.
+- `SELECTION_SLOPE_V1`: no promocionado.
+- `TREND_PROTECTION_V2_MEDIUM_TERM_WINNER_CONFIRM`: no promocionado.
+- No reabrir thresholds por diferencias menores aisladas.
 
-Flujo habitual: el usuario puede decir **“revisa las últimas pruebas”** y ChatGPT debe leer primero `replay-results:validation-runs/latest-chatgpt.json`, usando el full sólo cuando haga falta detalle adicional.
+---
 
-## Regla operativa desde ahora
-- Replays largos y cálculos: los ejecuta la propia app/motor local; **no consumir tokens de AI Studio para calcularlos**.
-- No GitHub Actions.
-- No abrir una nueva ronda de estrategia por una diferencia menor aislada.
-- Los benchmarks de referencia quedan congelados para detectar regresiones, no para recalibrar thresholds.
-- Siguiente trabajo: UX/gráficas o uso piloto/real. Cualquier nueva mejora económica se trata como bloque separado, con hipótesis explícita y holdout independiente.
+# UX / V1 PILOT — IMPLEMENTADO
+
+La interfaz ya incorpora:
+- resumen ejecutivo “qué hacer hoy / cuánto / qué vigilar”;
+- zoom 1M/3M/6M/1A/Todo en investigación;
+- SMA20/SMA50 activables;
+- BUY/ADD/SELL-REDUCE en gráfica;
+- tabla de operaciones visibles;
+- vista centrada por operación con contexto ex post claramente separado de la decisión causal;
+- historial diario V1 PILOT;
+- seguimiento de posiciones con retorno/MFE/giveback/estado;
+- historial de ejecuciones reales;
+- disponibilidad MyInvestor confirmable por usuario;
+- alarmas de entrada por evento nuevo, no repetitivas;
+- si el webhook falla, el evento no se marca como entregado y puede reintentarse.
+
+La trayectoria posterior a una operación es siempre diagnóstico ex post y nunca input causal.
+
+---
+
+# USUARIOS PRIVADOS / ADMINISTRACIÓN — IMPLEMENTACIÓN EN MAIN
+
+## Objetivo
+La versión publicada debe ser multiusuario y fail-closed. No se publica una cartera mediante una sesión pública ni se confía en un UID enviado por el navegador.
+
+## Arquitectura
+- Firebase Authentication: email/password.
+- El cliente envía Firebase ID token al backend.
+- Backend verifica `verifyIdToken(..., true)` y obtiene el UID real del token.
+- Firestore persiste estado privado por `users/{uid}/private/state`.
+- Firebase Admin SDK gestiona usuarios/claims; no se confía en campos editables de Firestore para privilegios.
+- Custom Claims:
+  - `accessGranted=true` → acceso a la aplicación privada.
+  - `isAdmin=true` → administración de cuentas y acceso propio.
+- ADMIN administra cuentas, pero no dispone de endpoint/UI para leer la cartera financiera de otro usuario.
+- Firestore rules: estado financiero privado legible sólo por su propietario; deny-by-default y sin escrituras directas desde cliente.
+
+## Entradas protegidas
+- `/`
+- `/portfolio.html`
+- `/legacy.html`
+
+En producción Firebase es obligatorio aunque una variable de entorno estuviese mal configurada. Cualquier error de autenticación/autorización/hidratación deja la app cerrada (`fail-closed`).
+
+## Administración de cuentas
+El panel ADMIN permite:
+- listar cuentas;
+- crear cuenta con acceso;
+- conceder/revocar acceso;
+- promover/despromover ADMIN;
+- bloquear/reactivar;
+- generar enlace de cambio/configuración de contraseña;
+- borrar cuenta y árbol Firestore asociado.
+
+Protecciones:
+- no auto-borrado / auto-bloqueo / auto-desadmin;
+- no eliminación/despromoción del último ADMIN activo;
+- revocación de refresh tokens al bloquear o retirar privilegios.
+
+Primer ADMIN:
+- se configura mediante `FIREBASE_BOOTSTRAP_ADMIN_EMAILS` o UID exacto;
+- bootstrap por email exige `email_verified=true`;
+- después se fuerza renovación de token para recibir los claims.
+
+## Privacidad de estado local
+- Cada UID tiene marcador propietario local `custodia_cloud_owner_uid_v1`.
+- Si cambia el UID en el mismo navegador, primero se limpian las claves privadas del usuario anterior.
+- Si el UID ya tiene cloud state, ese estado manda y reemplaza la caché local.
+- Si es el primer UID y existe el estado histórico local sin propietario, se migra una sola vez a ese UID.
+- Logout intenta sincronizar y limpia la caché privada.
+- Nuevas cuentas empiezan con cartera vacía; no hay posiciones ni cantidades personales predefinidas en el código actual.
+
+Claves migradas/aisladas incluyen cartera unificada, claves legacy de fondos/capital, plan pendiente de ejecución, historial de ejecuciones/cashflow, disponibilidad MyInvestor, historial piloto, fiscalidad/lotes, cash benchmark e historial de decisiones.
+
+## Archivos principales
+- `server/firebaseAdmin.ts`
+- `server/authSecurity.ts`
+- `server/accountRoutes.ts`
+- `src/auth/firebaseClient.ts`
+- `src/auth/accountApi.ts`
+- `src/auth/userCloudState.ts`
+- `src/auth/SecureAppGate.tsx`
+- `src/components/AdminUsersPanel.tsx`
+- `firestore.rules`
+- `firebase.json`
+- `tests/privateUserSecurity.unit.ts`
+- `docs/PRIVATE_USERS_DEPLOYMENT.md`
+
+---
+
+# DESPLIEGUE / AUTONOMÍA
+
+AI Studio Preview sirve para desarrollar y probar, pero no constituye ejecución 24/7.
+
+Destino recomendado:
+- app full-stack → Cloud Run;
+- estado de usuario → Firestore;
+- programación fiable → Cloud Scheduler llamando `POST /api/alerts/run-now`;
+- secretos sólo server-side;
+- canal de aviso vía webhook.
+
+Pendiente antes de afirmar autonomía total de `WATCH/REDUCE/EXIT`: el job backend debe reconstruir por UID la cartera/contexto desde Firestore y llamar al mismo clasificador compartido. No crear una segunda lógica de trading.
+
+El dedupe global actual del job de entradas sigue usando `.runtime/alertAutomationState.json`; en un contenedor efímero debe migrarse a almacenamiento persistente antes del despliegue 24/7 definitivo.
+
+---
+
+# GATES ANTES DE PUBLICAR
+
+Después de sincronizar `main` en el entorno local/AI Studio:
+
+1. Ejecutar `npm install` una vez para instalar Firebase y regenerar `package-lock.json` coherente.
+2. Ejecutar `npx tsx tests/privateUserSecurity.unit.ts`.
+3. Ejecutar `npm run lint`.
+4. Ejecutar `npx tsx tests/userPortfolio.unit.ts` y `npx tsx tests/fundPortfolio.unit.ts`.
+5. No ejecutar replay por este bloque: seguridad/persistencia no debe cambiar estrategia.
+6. Configurar proyecto Firebase, Email/Password y Firestore.
+7. Configurar `FIREBASE_AUTH_REQUIRED=true` para prueba de preproducción.
+8. Configurar y verificar el primer ADMIN.
+9. Desplegar `firestore.rules`.
+10. Probar cuenta normal, cuenta pendiente, ADMIN, bloqueo y borrado de una cuenta de prueba.
+11. Probar cambio de UID en el mismo navegador y verificar que no aparece la cartera anterior.
+12. Probar fallo de carga privada y confirmar que la app no renderiza cartera.
+
+`package-lock.json` se eliminó temporalmente porque el lock anterior no contenía las nuevas dependencias Firebase y este entorno no puede resolver npm para regenerarlo. No desplegar hasta regenerarlo mediante `npm install` y validar.
+
+---
+
+# Próxima acción
+
+Sincronizar `main` y ejecutar únicamente los gates anteriores. Si pasan, el siguiente bloque es configurar Firebase real y desplegar preproducción; no modificar el motor financiero.
