@@ -1,7 +1,12 @@
 import express, { Request, Response } from 'express';
 import { getAlertAutomationStatus, runDailyOpportunityCheck } from './alertAutomation';
+import { accountRouter } from './accountRoutes';
 
 export const alertAutomationRouter = express.Router();
+
+// Mounted here to avoid widening the root server surface while the authenticated
+// product layer is introduced. Public path: /api/alerts/account/*.
+alertAutomationRouter.use('/account', accountRouter);
 
 alertAutomationRouter.get('/status', (_req: Request, res: Response) => {
   const status = getAlertAutomationStatus();
