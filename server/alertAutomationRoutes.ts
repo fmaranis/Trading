@@ -11,6 +11,7 @@ alertAutomationRouter.use('/account', accountRouter);
 alertAutomationRouter.get('/status', async (_req: Request, res: Response): Promise<void> => {
   try {
     const status = await getAlertAutomationStatus();
+    const portfolio = status.state.lastPortfolioManagementSummary;
     res.json({
       enabled: status.enabled,
       timezone: status.timezone,
@@ -28,7 +29,17 @@ alertAutomationRouter.get('/status', async (_req: Request, res: Response): Promi
       lastNotificationEventCount: status.state.lastNotificationEventCount,
       lastNotificationEventKeys: status.state.lastNotificationEventKeys,
       lastErrorPresent: Boolean(status.state.lastError),
-      lastAlertCount: status.state.lastAlerts.length
+      lastAlertCount: status.state.lastAlerts.length,
+      portfolioManagement: {
+        lastCheckedAt: status.state.lastPortfolioManagementAt,
+        configured: portfolio?.configured ?? false,
+        evaluated: portfolio?.evaluated ?? false,
+        evaluatedPositions: portfolio?.evaluatedPositions ?? 0,
+        pendingEventCount: portfolio?.pendingEventCount ?? 0,
+        rotationStatus: portfolio?.rotationStatus ?? null,
+        notificationSent: portfolio?.notificationSent ?? false,
+        errorPresent: Boolean(portfolio?.error)
+      }
     });
   } catch (error: any) {
     res.status(503).json({ ok: false, error: error?.message || String(error), persistence: 'UNAVAILABLE' });
