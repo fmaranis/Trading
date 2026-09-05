@@ -43,7 +43,7 @@ interface WorkerScope {
 }
 
 const workerScope = self as unknown as WorkerScope;
-const REPLAY_ROTATION_EXPERIMENT = 'CORE_GATE_V1' as const;
+const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1' as const;
 const MATERIAL_ACTIONS = new Set(['BUY', 'ADD', 'REDUCE', 'EXIT']);
 let configuration: Omit<InitMessage, 'type' | 'dataset'> | null = null;
 let sourceDataset: MultiAssetDataset | null = null;
