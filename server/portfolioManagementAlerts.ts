@@ -8,6 +8,7 @@ import {
   type PositionHealthContext
 } from '../src/investment/decision/portfolioPositionHealth';
 import { PortfolioRotationReviewEngine } from '../src/investment/decision/portfolioRotationReview';
+import { applyStrategicCoreShortTermProtection } from '../src/investment/decision/strategicCorePolicy';
 import { StrategyConsensusEngine } from '../src/investment/decision/strategyConsensusEngine';
 import { migrateUserPortfolioState, type UserPortfolioState } from '../src/investment/decision/userPortfolio';
 import type { PortfolioExecutionHistoryEntry } from '../src/investment/decision/portfolioExecutionHistory';
@@ -181,6 +182,14 @@ function rebuildByKey(result: PortfolioPositionHealthResult): void {
   result.byKey = byKey;
 }
 
+function applyStrategicCoreAlertProtection(result: PortfolioPositionHealthResult, scan: AssetUniverseScanResult): void {
+  result.positions = result.positions.map(position => {
+    const candidate = candidateFor(scan, position.key) ?? candidateFor(scan, position.tickerOrIsin);
+    return applyStrategicCoreShortTermProtection(candidate?.asset.assetId ?? null, position);
+  });
+  rebuildByKey(result);
+}
+
 async function evaluateWithPrivateContext(input: {
   portfolio: UserPortfolioState;
   scan: AssetUniverseScanResult;
@@ -265,7 +274,7 @@ async function evaluateWithPrivateContext(input: {
     });
   }
 
-  rebuildByKey(result);
+  applyStrategicCoreAlertProtection(result, input.scan);
   return result;
 }
 
