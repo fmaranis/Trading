@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { SecureAppGate } from './auth/SecureAppGate';
+import { ForwardRiskResearchPanel } from './components/ForwardRiskResearchPanel';
 import { InteractiveInvestmentDecisionCenter } from './components/InteractiveInvestmentDecisionCenter';
 import { installReplaySessionStorageFallback } from './replaySessionStorageFallback';
 import './index.css';
@@ -24,6 +25,7 @@ function DecisionApp() {
         </header>
         <main className="mx-auto w-full max-w-7xl px-3 py-5 sm:px-6 lg:px-8">
           <InteractiveInvestmentDecisionCenter />
+          <ForwardRiskResearchPanel />
         </main>
         <footer className="mx-auto max-w-7xl px-4 pb-8 text-center text-[11px] text-slate-600">
           Herramienta cuantitativa de apoyo a la decisión. Las oportunidades son señales para revisión, no órdenes automáticas ni garantías de rentabilidad.
