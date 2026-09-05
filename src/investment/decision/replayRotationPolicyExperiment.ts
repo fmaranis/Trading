@@ -53,9 +53,16 @@ export function runDynamicReplayWithRotationExperiment(
       const gated = applyCoreGateV1(evaluationInput, baseline, gateCounters);
       if (experiment === 'CORE_GATE_V1') return gated;
       const architecture = applyCoreArchitectureV1(evaluationInput, gated, architectureCounters);
-      return experiment === 'CORE_ALPHA_V2'
-        ? applyCoreAlphaV2(evaluationInput, architecture, alphaCounters)
-        : architecture;
+      if (experiment !== 'CORE_ALPHA_V2') return architecture;
+
+      // Never create a core REDUCE in the same decision where V1 already emitted
+      // another funded order (including a core top-up/return-to-core). The replay
+      // executor keys plans by asset, so this keeps every V2 tilt unambiguous and atomic.
+      if (architecture.contributions.some(row => row.amountEur > 0.01)) {
+        alphaCounters.blockedExistingFreshNonCoreOrder += 1;
+        return architecture;
+      }
+      return applyCoreAlphaV2(evaluationInput, architecture, alphaCounters);
     }) as typeof PortfolioDecisionEngine.evaluate;
 
     const result = DynamicHistoricalReplayEngine.run(input);
@@ -75,7 +82,7 @@ export function runDynamicReplayWithRotationExperiment(
     if (experiment === 'CORE_ALPHA_V2') {
       const limits = CORE_ALPHA_V2_LIMITS[input.riskProfile];
       result.notes.push(
-        `CORE_ALPHA_V2 candidato: tilts core→alpha ejecutables ${alphaCounters.coreFundedTilts}; bloqueados sin candidato excepcional ${alphaCounters.blockedNoExceptionalCandidate}; bloqueados por core floor/capacidad ${alphaCounters.blockedCoreFloor}; bloqueados porque ya había orden no-core con cash ${alphaCounters.blockedExistingFreshNonCoreOrder}.`,
+        `CORE_ALPHA_V2 candidato: tilts core→alpha ejecutables ${alphaCounters.coreFundedTilts}; bloqueados sin candidato excepcional ${alphaCounters.blockedNoExceptionalCandidate}; bloqueados por core floor/capacidad ${alphaCounters.blockedCoreFloor}; bloqueados porque V1 ya había emitido una orden financiada ${alphaCounters.blockedExistingFreshNonCoreOrder}.`,
         `CORE_ALPHA_V2 ${input.riskProfile}: core floor ${(limits.coreFloorShare * 100).toFixed(0)}%, máximo tilt nuevo por decisión ${(limits.maxCoreFundedTiltSharePerDecision * 100).toFixed(0)}%. Se exige HIGH_CONVICTION + ENTRY_STRONG, ≥${CORE_ALPHA_V2_THRESHOLDS.minPriorStrongObservations}/${CORE_ALPHA_V2_THRESHOLDS.persistenceLookbackSessions} STRONG, consenso ≥${CORE_ALPHA_V2_THRESHOLDS.minConsensusScore}, ${CORE_ALPHA_V2_THRESHOLDS.minFavorableVotes}/5 favorables, ventaja de selección vs core ≥${CORE_ALPHA_V2_THRESHOLDS.minRelativeSelectionScoreAdvantage} y ventaja relativa frente a cash ≥${CORE_ALPHA_V2_THRESHOLDS.minExcessVsCashAdvantagePctPoints} pp.`
       );
     }
