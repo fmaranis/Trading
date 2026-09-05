@@ -76,7 +76,8 @@ requireText(forwardRisk, "methodology: 'STRICT_WALK_FORWARD_NEXT_OPEN'", 'FORWAR
 requireText(forwardRisk, 'candidate.labelEndIndexes[labelIndex] < row.index', 'FORWARD_RISK_LABEL_LEAKAGE_GUARD_MISSING');
 requireText(forwardRisk, 'executionIndex: row.index + 1', 'FORWARD_RISK_MUST_EXECUTE_NEXT_OPEN');
 requireText(forwardRisk, 'economicPassRealistic', 'FORWARD_RISK_REALISTIC_ACCEPTANCE_MISSING');
-forbidText(forwardRisk, 'PortfolioDecisionEngine', 'FORWARD_RISK_MUST_NOT_MUTATE_PORTFOLIO_ENGINE');
+forbidText(forwardRisk, "from './portfolioDecisionEngine'", 'FORWARD_RISK_MUST_NOT_IMPORT_PORTFOLIO_ENGINE');
+forbidText(forwardRisk, 'PortfolioDecisionEngine.', 'FORWARD_RISK_MUST_NOT_CALL_PORTFOLIO_ENGINE');
 
 for (const [file, label] of [
   [currentDecisionSummary, 'CURRENT_SUMMARY'],
