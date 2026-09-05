@@ -43,7 +43,7 @@ interface WorkerScope {
 }
 
 const workerScope = self as unknown as WorkerScope;
-const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1' as const;
+const REPLAY_ROTATION_EXPERIMENT = 'CORE_ALPHA_V2' as const;
 const MATERIAL_ACTIONS = new Set(['BUY', 'ADD', 'REDUCE', 'EXIT']);
 const AUDIT_BROADCAST_CHANNEL = 'historical-replay-audit-v3';
 const auditChannel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(AUDIT_BROADCAST_CHANNEL);
@@ -100,14 +100,6 @@ function replayInput(dataset: MultiAssetDataset) {
   };
 }
 
-/**
- * The replay engine may emit one HOLD/WATCH/AVOID observation per asset and
- * decision date. Those observations are useful while calculating, but sending
- * and persisting every repeated state makes long browser audits unnecessarily
- * large. Keep every material action and only state transitions for non-material
- * observations. Financial results and engine counters are already finalized
- * before this UI-only compaction runs.
- */
 function compactAuditSignals(signals: DynamicReplaySignal[]): DynamicReplaySignal[] {
   const retained: DynamicReplaySignal[] = [];
   const lastStateByAsset = new Map<string, string>();
@@ -172,6 +164,8 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       available: result.structuralCoreBenchmarkFinalEur != null,
       assetId: result.structuralCoreBenchmarkAssetId,
       ticker: result.structuralCoreBenchmarkTicker,
+      startDate: result.structuralCoreBenchmarkStartDate,
+      endDate: result.structuralCoreBenchmarkEndDate,
       finalEur: result.structuralCoreBenchmarkFinalEur,
       returnPct: result.structuralCoreBenchmarkReturnPct,
       cagrPct: result.structuralCoreBenchmarkCagrPct,
@@ -181,14 +175,12 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       beats: result.beatsStructuralCoreBenchmark
     };
 
-    // HistoricalReplayProgressivePanel persists the worker signals verbatim.
-    // Store the hard global-core benchmark as an audit extension so replay v4
-    // export/publication cannot silently discard it from the reduced UI summary.
     if (result.signals.length > 0) {
       const firstSignal = result.signals[0] as DynamicReplaySignal & { auditExtensions?: Record<string, unknown> };
       firstSignal.auditExtensions = {
         ...(firstSignal.auditExtensions ?? {}),
-        structuralCoreBenchmark
+        structuralCoreBenchmark,
+        replayPolicy: REPLAY_ROTATION_EXPERIMENT
       };
     }
     auditChannel?.postMessage({ type: 'STRUCTURAL_CORE_BENCHMARK', benchmark: structuralCoreBenchmark });
