@@ -145,6 +145,17 @@ function compactAuditSignals(signals: DynamicReplaySignal[]): DynamicReplaySigna
   return retained;
 }
 
+function selectAuditCarrier(signals: DynamicReplaySignal[]): DynamicReplaySignal | null {
+  // latest-chatgpt.json may keep only executed/REDUCE/EXIT diagnostic signals
+  // when the readable projection has to shrink. Carry large audit extensions on
+  // a signal that survives that strict projection whenever one exists.
+  return signals.find(signal => signal.executed === true)
+    ?? signals.find(signal => signal.action === 'REDUCE' || signal.action === 'EXIT')
+    ?? signals.find(signal => MATERIAL_ACTIONS.has(signal.action))
+    ?? signals[0]
+    ?? null;
+}
+
 workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
   const message = event.data;
 
@@ -228,10 +239,10 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
       beats: result.beatsStructuralCoreBenchmark
     };
 
-    if (result.signals.length > 0) {
-      const firstSignal = result.signals[0] as DynamicReplaySignal & { auditExtensions?: Record<string, unknown> };
-      firstSignal.auditExtensions = {
-        ...(firstSignal.auditExtensions ?? {}),
+    const auditCarrier = selectAuditCarrier(result.signals) as (DynamicReplaySignal & { auditExtensions?: Record<string, unknown> }) | null;
+    if (auditCarrier) {
+      auditCarrier.auditExtensions = {
+        ...(auditCarrier.auditExtensions ?? {}),
         structuralCoreBenchmark,
         ...(forwardRiskForecast ? { forwardRiskForecastV1: forwardRiskForecast } : {}),
         ...(forwardRiskForecastV2 ? { forwardRiskForecastV2 } : {}),
