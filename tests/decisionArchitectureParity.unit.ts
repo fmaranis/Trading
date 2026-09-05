@@ -17,6 +17,7 @@ const indexHtml = source('index.html');
 const worker = source('src/workers/historicalReplayAudit.worker.ts');
 const replayRotation = source('src/investment/decision/replayRotationPolicyExperiment.ts');
 const sharedCoreGate = source('src/investment/decision/portfolioCoreGatePolicy.ts');
+const coreAlphaOverlay = source('src/investment/decision/coreAlphaOverlay.ts');
 const assetRoles = source('src/investment/decision/portfolioAssetRole.ts');
 const strategicCore = source('src/investment/decision/strategicCorePolicy.ts');
 const replayCore = source('src/investment/decision/dynamicHistoricalReplayCore.ts');
@@ -32,11 +33,9 @@ const pilotOperations = source('src/components/PilotOperationsPanel.tsx');
 const alertAutomation = source('server/alertAutomation.ts');
 const portfolioManagementAlerts = source('server/portfolioManagementAlerts.ts');
 
-// Production entry point must remain the integrated decision center, not legacy App.tsx.
 requireText(indexHtml, '/src/decisionMain.tsx', 'ROOT_MUST_USE_DECISION_MAIN');
 forbidText(indexHtml, '/src/main.tsx', 'ROOT_MUST_NOT_USE_LEGACY_MAIN');
 
-// Live study and historical replay must share the same scanner/gate/allocation chain.
 requireText(decisionCenter, 'AssetUniverseScanner.scan(', 'LIVE_MUST_USE_SHARED_SCANNER');
 requireText(decisionCenter, 'PortfolioCandidateGate.apply(', 'LIVE_MUST_USE_CANDIDATE_GATE');
 requireText(decisionCenter, 'InvestmentDecisionEngine.decide(', 'LIVE_MUST_USE_INVESTMENT_DECISION_ENGINE');
@@ -44,27 +43,32 @@ requireText(decisionCenter, 'PortfolioPositionHealthService.evaluate(', 'LIVE_MU
 requireText(replayCore, 'PortfolioCandidateGate.apply(', 'REPLAY_MUST_USE_CANDIDATE_GATE');
 requireText(replayCore, 'InvestmentDecisionEngine.decide(', 'REPLAY_MUST_USE_INVESTMENT_DECISION_ENGINE');
 
-// Current alerts are a view over the shared eligibility/consensus/timing chain, not an independent trading engine.
 requireText(currentAlerts, 'PortfolioCandidateGate.apply(', 'ALERTS_MUST_USE_CANDIDATE_GATE');
 requireText(currentAlerts, 'StrategyConsensusEngine.assess(', 'ALERTS_MUST_USE_SHARED_CONSENSUS');
 requireText(currentAlerts, 'EntryTimingEngine.assess(', 'ALERTS_MUST_USE_SHARED_ENTRY_TIMING');
 
-// Normal audited replay now uses the versioned structural-core architecture and
-// must not silently run V2/counterfactual batteries.
-requireText(worker, "const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1'", 'REPLAY_MUST_USE_CORE_ARCHITECTURE_V1');
-forbidText(worker, 'runDynamicReplayWithTrendProtectionV2Experiment', 'NORMAL_REPLAY_MUST_NOT_AUTO_RUN_V2');
-forbidText(worker, 'runDynamicReplayWithTrendProtectionV2MediumTermWinnerConfirmExperiment', 'NORMAL_REPLAY_MUST_NOT_AUTO_RUN_V2_CONFIRM');
+// The audited replay is intentionally testing CORE_ALPHA_V2. It must layer on
+// the existing shared V1 architecture rather than replacing the mature engine.
+requireText(worker, "const REPLAY_ROTATION_EXPERIMENT = 'CORE_ALPHA_V2'", 'REPLAY_MUST_USE_CORE_ALPHA_V2_CANDIDATE');
+forbidText(worker, 'runDynamicReplayWithTrendProtectionV2Experiment', 'NORMAL_REPLAY_MUST_NOT_AUTO_RUN_TREND_V2');
+forbidText(worker, 'runDynamicReplayWithTrendProtectionV2MediumTermWinnerConfirmExperiment', 'NORMAL_REPLAY_MUST_NOT_AUTO_RUN_TREND_V2_CONFIRM');
 
-// CORE_GATE + CORE_ARCHITECTURE must have one implementation shared by replay
-// and every productive portfolio surface.
 requireText(sharedCoreGate, 'export function applyCoreGateV1', 'SHARED_CORE_GATE_FUNCTION_MISSING');
 requireText(sharedCoreGate, 'export function applyCoreArchitectureV1', 'SHARED_CORE_ARCHITECTURE_FUNCTION_MISSING');
 requireText(sharedCoreGate, 'export function evaluatePortfolioDecision', 'PRODUCTION_PORTFOLIO_ENTRY_MISSING');
-requireText(sharedCoreGate, 'return applyCoreArchitectureV1(normalizedInput, gated);', 'PRODUCTION_MUST_FINISH_WITH_CORE_ARCHITECTURE');
+requireText(sharedCoreGate, 'return applyCoreArchitectureV1(normalizedInput, gated);', 'PRODUCTION_MUST_REMAIN_V1_UNTIL_V2_VALIDATED');
 requireText(replayRotation, "from './portfolioCoreGatePolicy'", 'REPLAY_MUST_IMPORT_SHARED_CORE_POLICY');
+requireText(replayRotation, "from './coreAlphaOverlay'", 'REPLAY_MUST_IMPORT_ALPHA_OVERLAY');
 requireText(replayRotation, 'const gated = applyCoreGateV1(evaluationInput, baseline, gateCounters);', 'REPLAY_MUST_CALL_SHARED_CORE_GATE');
 requireText(replayRotation, 'applyCoreArchitectureV1(evaluationInput, gated, architectureCounters)', 'REPLAY_MUST_CALL_SHARED_CORE_ARCHITECTURE');
+requireText(replayRotation, 'applyCoreAlphaV2(evaluationInput, architecture, alphaCounters)', 'REPLAY_MUST_LAYER_ALPHA_V2_AFTER_V1');
+requireText(coreAlphaOverlay, "export const CORE_ALPHA_V2 = 'CORE_ALPHA_V2'", 'CORE_ALPHA_V2_POLICY_MISSING');
+requireText(coreAlphaOverlay, 'coreFloorShare', 'CORE_ALPHA_V2_CORE_FLOOR_MISSING');
+requireText(coreAlphaOverlay, 'maxCoreFundedTiltSharePerDecision', 'CORE_ALPHA_V2_TILT_CAP_MISSING');
+requireText(coreAlphaOverlay, 'minPriorStrongObservations', 'CORE_ALPHA_V2_PERSISTENCE_MISSING');
+requireText(coreAlphaOverlay, 'positionStage: \'ROTATION_ENTRY\'', 'CORE_ALPHA_V2_MUST_BE_ATOMIC_ROTATION');
 forbidText(replayRotation, 'const CORE_PRIORITY =', 'REPLAY_MUST_NOT_DUPLICATE_CORE_POLICY');
+
 for (const [file, label] of [
   [currentDecisionSummary, 'CURRENT_SUMMARY'],
   [realPortfolio, 'REAL_PORTFOLIO'],
@@ -76,31 +80,25 @@ for (const [file, label] of [
   forbidText(file, 'PortfolioDecisionEngine.evaluate({', `${label}_MUST_NOT_BYPASS_SHARED_CORE_POLICY`);
 }
 
-// Structural core must be globally diversified, not a regional winner, and its
-// short-horizon deterioration remains diagnostic rather than executable.
 requireText(assetRoles, "'FUND_VANGUARD_GLOBAL'", 'GLOBAL_FUND_MUST_BE_STRUCTURAL_CORE');
 forbidText(assetRoles, "'FUND_VANGUARD_US500',", 'US500_MUST_NOT_BE_STRUCTURAL_CORE');
 forbidText(assetRoles, "'SXR8',", 'SP500_ETF_MUST_NOT_BE_STRUCTURAL_CORE');
 requireText(strategicCore, "export const STRATEGIC_CORE_POLICY = 'STRATEGIC_CORE_HOLD_V1'", 'STRATEGIC_CORE_HOLD_POLICY_MISSING');
 requireText(portfolioManagementAlerts, 'applyStrategicCoreShortTermProtection', 'BACKEND_ALERTS_MUST_PROTECT_STRUCTURAL_CORE');
 
-// Every replay must expose the hard benchmark the product is trying to beat:
-// 100% buy-and-hold in the structural global core.
 requireText(replayPublic, 'structuralCoreBenchmarkFinalEur', 'STRUCTURAL_CORE_BENCHMARK_MISSING');
 requireText(replayPublic, 'excessReturnVsStructuralCorePctPoints', 'STRUCTURAL_CORE_EXCESS_RETURN_MISSING');
 requireText(replayPublic, 'beatsStructuralCoreBenchmark', 'STRUCTURAL_CORE_VERDICT_MISSING');
+requireText(replayPublic, 'MAX_CORE_BENCHMARK_EDGE_LAG_DAYS', 'STRUCTURAL_CORE_BENCHMARK_COVERAGE_GUARD_MISSING');
 
-// Replay and live monitoring must share the same operative health classifier.
 requireText(health, 'export function classifyPositionHealth', 'SHARED_HEALTH_CLASSIFIER_MISSING');
 requireText(replayCore, 'const classification = classifyPositionHealth(assessment, cash.excessVsCashPctPoints, context);', 'REPLAY_MUST_USE_SHARED_HEALTH_CLASSIFIER');
 requireText(health, 'const classification = classifyPositionHealth(input.assessment, cash.excessVsCashPctPoints, context);', 'LIVE_MUST_USE_SHARED_HEALTH_CLASSIFIER');
 
-// Live listed positions must not drop MFE/giveback context when tracked cost basis exists.
 requireText(health, 'TaxLotLedgerService.lots(input.ticker)', 'LIVE_LISTED_HEALTH_MUST_USE_TRACKED_LOTS');
 requireText(health, 'PortfolioExecutionHistoryService.load()', 'LIVE_HEALTH_MUST_REBASE_FROM_EXECUTION_HISTORY');
 requireText(health, 'POSITION_COST_BASIS_INCOMPLETE', 'MISSING_COST_BASIS_MUST_BE_EXPLICIT');
 
-// Autonomous entry alerts are event-driven and are only marked notified after successful delivery.
 requireText(alertAutomation, 'function newOpportunityEvents(', 'ALERT_EVENT_DIFF_MISSING');
 requireText(alertAutomation, "kind: 'CURRENT_ENTRY_OPPORTUNITY_EVENTS'", 'ALERT_EVENT_PAYLOAD_MISSING');
 requireText(alertAutomation, 'levelRank(alert.level) > levelRank(previousNotified[alert.assetId])', 'ALERT_ESCALATION_RULE_MISSING');
