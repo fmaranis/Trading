@@ -15,6 +15,12 @@ function finite(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function optionalFinite(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function normalizeExecution(raw: any): any {
   return {
     ...raw,
@@ -47,10 +53,28 @@ function extractTrendProtectionV2Counterfactual(session: any): any | null {
   return null;
 }
 
-function attachCounterfactualToSummary(session: any): any {
+function extractStructuralCoreBenchmark(session: any): any | null {
+  const direct = session?.summary?.structuralCoreBenchmark;
+  if (direct && typeof direct === 'object') return direct;
+  for (const signal of Array.isArray(session?.signals) ? session.signals : []) {
+    const candidate = signal?.auditExtensions?.structuralCoreBenchmark;
+    if (candidate && typeof candidate === 'object') return candidate;
+  }
+  return null;
+}
+
+function attachAuditExtensionsToSummary(session: any): any {
   const counterfactual = extractTrendProtectionV2Counterfactual(session);
-  if (!counterfactual) return session;
-  return { ...session, summary: { ...(session.summary ?? {}), trendProtectionV2Counterfactual: counterfactual } };
+  const structuralCoreBenchmark = extractStructuralCoreBenchmark(session);
+  if (!counterfactual && !structuralCoreBenchmark) return session;
+  return {
+    ...session,
+    summary: {
+      ...(session.summary ?? {}),
+      ...(counterfactual ? { trendProtectionV2Counterfactual: counterfactual } : {}),
+      ...(structuralCoreBenchmark ? { structuralCoreBenchmark } : {})
+    }
+  };
 }
 
 function normalizeSession(raw: any): any {
@@ -62,7 +86,7 @@ function normalizeSession(raw: any): any {
   if (!['MANUAL', 'AUTO'].includes(String(raw.runMode ?? ''))) throw new Error('El modo de ejecución del JSON no es válido.');
   if (!(finite(raw.durationMonths) > 0) || !(finite(raw.chunkDays) > 0) || !(finite(raw.initialCapitalEur) > 0)) throw new Error('La configuración numérica de la prueba está incompleta.');
   for (const field of ['checkpoints', 'executions', 'path', 'signals']) if (!Array.isArray(raw[field])) throw new Error(`El JSON no contiene el bloque obligatorio “${field}”.`);
-  return attachCounterfactualToSummary({
+  return attachAuditExtensionsToSummary({
     ...raw, version: replayStorageVersion, durationMonths: finite(raw.durationMonths), chunkDays: finite(raw.chunkDays), initialCapitalEur: finite(raw.initialCapitalEur),
     checkpoints: raw.checkpoints, executions: raw.executions.map(normalizeExecution), path: raw.path.map(normalizePathPoint), signals: raw.signals,
     summary: raw.summary ?? null, positions: Array.isArray(raw.positions) ? raw.positions : []
@@ -89,7 +113,7 @@ function buildPayload(session: any) {
       source: 'fmaranis/Trading · Replay histórico auditado',
       note: 'Archivo autocontenido para auditoría, comparación, reimportación y lectura directa desde GitHub tras sincronizar el proyecto.'
     },
-    session: attachCounterfactualToSummary(session)
+    session: attachAuditExtensionsToSummary(session)
   };
 }
 
@@ -100,6 +124,7 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
   const [savingProject, setSavingProject] = useState(false);
   const [clearingArchive, setClearingArchive] = useState(false);
   const [counterfactual, setCounterfactual] = useState<any | null>(null);
+  const [structuralCoreBenchmark, setStructuralCoreBenchmark] = useState<any | null>(null);
 
   const currentSession = () => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -107,15 +132,21 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
     return normalizeSession(JSON.parse(raw));
   };
 
+  const syncAuditExtensions = (session: any) => {
+    setCounterfactual(extractTrendProtectionV2Counterfactual(session));
+    setStructuralCoreBenchmark(extractStructuralCoreBenchmark(session));
+  };
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setCounterfactual(extractTrendProtectionV2Counterfactual(normalizeSession(JSON.parse(raw))));
-    } catch { setCounterfactual(null); }
+      if (raw) syncAuditExtensions(normalizeSession(JSON.parse(raw)));
+    } catch { setCounterfactual(null); setStructuralCoreBenchmark(null); }
     if (typeof BroadcastChannel === 'undefined') return;
     const channel = new BroadcastChannel(AUDIT_BROADCAST_CHANNEL);
     channel.onmessage = event => {
       if (event.data?.type === 'TREND_PROTECTION_V2_COUNTERFACTUAL' && event.data?.counterfactual) setCounterfactual(event.data.counterfactual);
+      if (event.data?.type === 'STRUCTURAL_CORE_BENCHMARK' && event.data?.benchmark) setStructuralCoreBenchmark(event.data.benchmark);
     };
     return () => channel.close();
   }, []);
@@ -124,6 +155,7 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
     setError(null);
     try {
       const session = currentSession();
+      syncAuditExtensions(session);
       const blob = new Blob([JSON.stringify(buildPayload(session), null, 2)], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -138,6 +170,7 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
     setError(null); setMessage(null); setSavingProject(true);
     try {
       const session = currentSession();
+      syncAuditExtensions(session);
       const response = await fetch('/api/validation/historical-audit/save', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildPayload(session))
       });
@@ -184,7 +217,7 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
         setMessage('Importación cancelada; la prueba actual no se ha modificado.'); return;
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session)); localStorage.removeItem(LEGACY_STORAGE_KEY);
-      setCounterfactual(extractTrendProtectionV2Counterfactual(session));
+      syncAuditExtensions(session);
       setMessage(`Prueba importada: ${session.checkpoints.length} checkpoints · ${session.executions.length} operaciones · ${session.path.length} sesiones. Los resultados ya están disponibles; para continuar calculando, usa “Preparar / reanudar”.`);
       onImported?.();
     } catch (e: any) { setError(`No se pudo importar la prueba: ${e?.message || String(e)}`); }
@@ -198,9 +231,20 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
   const counterfactualValid = counterfactual?.valid === true && (fullCausal || parityExact);
   const constraints = counterfactual?.portfolioConstraints;
 
+  const coreFinal = optionalFinite(structuralCoreBenchmark?.finalEur);
+  const coreReturn = optionalFinite(structuralCoreBenchmark?.returnPct);
+  const coreCagr = optionalFinite(structuralCoreBenchmark?.cagrPct);
+  const coreDrawdown = optionalFinite(structuralCoreBenchmark?.maxDrawdownPct);
+  const excessFinal = optionalFinite(structuralCoreBenchmark?.excessFinalEur);
+  const excessReturn = optionalFinite(structuralCoreBenchmark?.excessReturnPctPoints);
+  const engineFinal = coreFinal != null && excessFinal != null ? coreFinal + excessFinal : null;
+  const engineReturn = coreReturn != null && excessReturn != null ? coreReturn + excessReturn : null;
+  const benchmarkAvailable = structuralCoreBenchmark?.available === true && coreFinal != null;
+  const benchmarkBeats = structuralCoreBenchmark?.beats === true;
+
   return <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar + publicar” genera latest-chatgpt.json y latest-chatgpt-full.json. El A/B CURRENT_POLICY vs TREND_PROTECTION_V2 queda incluido en summary cuando existe.</div></div>
+      <div><div className="flex items-center gap-2"><FileJson className="h-4 w-4 text-cyan-300"/><b className="text-xs text-white">Archivo de auditoría de la prueba</b></div><div className="mt-1 text-[9px] text-slate-500">“Guardar + publicar” genera latest-chatgpt.json y latest-chatgpt-full.json. El benchmark obligatorio Motor vs 100% core global y el A/B de gestión quedan incluidos en summary cuando existen.</div></div>
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => void saveToProject()} disabled={savingProject} className="flex min-h-10 items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 disabled:opacity-50"><Save className="h-3.5 w-3.5"/>{savingProject ? 'Publicando JSON…' : 'Guardar + publicar para ChatGPT'}</button>
         <button type="button" onClick={() => void clearArchive()} disabled={clearingArchive} className="flex min-h-10 items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[10px] font-bold text-rose-100 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5"/>{clearingArchive ? 'Borrando…' : 'Borrar histórico ChatGPT'}</button>
@@ -209,6 +253,19 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={e => void importFile(e.target.files?.[0] ?? null)}/>
       </div>
     </div>
+
+    {structuralCoreBenchmark && <div className={`mt-3 rounded-xl border p-3 ${benchmarkAvailable ? (benchmarkBeats ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5') : 'border-rose-500/30 bg-rose-500/10'}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div><b className="text-xs text-white">Benchmark obligatorio · Motor vs 100% core global</b><div className="mt-1 text-[9px] text-slate-500">Compra inicial y mantener el core global estructural durante todo el mismo periodo. No interviene en las decisiones del motor.</div></div>
+        <span className={`rounded-full border px-2 py-1 text-[9px] font-black ${!benchmarkAvailable ? 'border-rose-500/30 text-rose-200' : benchmarkBeats ? 'border-emerald-500/30 text-emerald-200' : 'border-amber-500/30 text-amber-200'}`}>{!benchmarkAvailable ? 'BENCHMARK N/D' : benchmarkBeats ? 'MOTOR > CORE' : 'CORE ≥ MOTOR'}</span>
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-4">
+        <div className="rounded-lg bg-slate-950/70 p-2"><div className="text-[8px] uppercase text-slate-500">Motor</div><b className="text-xs text-white">{engineFinal == null ? 'N/D' : `${engineFinal.toFixed(2)} €`}</b><div className="text-[9px] text-slate-400">{engineReturn == null ? 'N/D' : `${engineReturn >= 0 ? '+' : ''}${engineReturn.toFixed(2)}%`}</div></div>
+        <div className="rounded-lg bg-slate-950/70 p-2"><div className="text-[8px] uppercase text-slate-500">100% core · {structuralCoreBenchmark.ticker ?? 'global'}</div><b className="text-xs text-white">{coreFinal == null ? 'N/D' : `${coreFinal.toFixed(2)} €`}</b><div className="text-[9px] text-slate-400">{coreReturn == null ? 'N/D' : `${coreReturn >= 0 ? '+' : ''}${coreReturn.toFixed(2)}%`}</div></div>
+        <div className="rounded-lg bg-slate-950/70 p-2"><div className="text-[8px] uppercase text-slate-500">Ventaja Motor − Core</div><b className={`text-xs ${excessFinal == null ? 'text-slate-300' : excessFinal >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>{excessFinal == null ? 'N/D' : `${excessFinal >= 0 ? '+' : ''}${excessFinal.toFixed(2)} €`}</b><div className={excessReturn == null ? 'text-[9px] text-slate-500' : excessReturn >= 0 ? 'text-[9px] text-emerald-300' : 'text-[9px] text-rose-300'}>{excessReturn == null ? 'N/D' : `${excessReturn >= 0 ? '+' : ''}${excessReturn.toFixed(2)} pp`}</div></div>
+        <div className="rounded-lg bg-slate-950/70 p-2"><div className="text-[8px] uppercase text-slate-500">Core · CAGR / DD máx.</div><b className="text-xs text-white">{coreCagr == null ? 'N/D' : `${coreCagr.toFixed(2)}%`} / {coreDrawdown == null ? 'N/D' : `-${coreDrawdown.toFixed(2)}%`}</b><div className="text-[9px] text-slate-500">Referencia dura de valor añadido.</div></div>
+      </div>
+    </div>}
 
     {counterfactual && <div className={`mt-3 rounded-xl border p-3 ${counterfactualValid ? 'border-violet-500/25 bg-violet-500/5' : 'border-rose-500/30 bg-rose-500/10'}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
