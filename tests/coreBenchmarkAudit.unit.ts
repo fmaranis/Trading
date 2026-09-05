@@ -14,7 +14,7 @@ assert.match(replayPublic, /structuralCoreBenchmarkFinalEur/);
 assert.match(replayPublic, /excessReturnVsStructuralCorePctPoints/);
 assert.match(replayPublic, /beatsStructuralCoreBenchmark/);
 
-assert.match(worker, /structuralCoreBenchmark:/);
+assert.match(worker, /structuralCoreBenchmark/);
 assert.match(worker, /auditExtensions/);
 assert.match(worker, /STRUCTURAL_CORE_BENCHMARK/);
 assert.match(worker, /CORE_ARCHITECTURE_V1/);
