@@ -45,6 +45,8 @@ interface WorkerScope {
 const workerScope = self as unknown as WorkerScope;
 const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1' as const;
 const MATERIAL_ACTIONS = new Set(['BUY', 'ADD', 'REDUCE', 'EXIT']);
+const AUDIT_BROADCAST_CHANNEL = 'historical-replay-audit-v3';
+const auditChannel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(AUDIT_BROADCAST_CHANNEL);
 let configuration: Omit<InitMessage, 'type' | 'dataset'> | null = null;
 let sourceDataset: MultiAssetDataset | null = null;
 
@@ -166,6 +168,18 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
 
     const fullSignalCount = result.signals.length;
     result.signals = compactAuditSignals(result.signals);
+    const structuralCoreBenchmark = {
+      available: result.structuralCoreBenchmarkFinalEur != null,
+      assetId: result.structuralCoreBenchmarkAssetId,
+      ticker: result.structuralCoreBenchmarkTicker,
+      finalEur: result.structuralCoreBenchmarkFinalEur,
+      returnPct: result.structuralCoreBenchmarkReturnPct,
+      cagrPct: result.structuralCoreBenchmarkCagrPct,
+      maxDrawdownPct: result.structuralCoreBenchmarkMaxDrawdownPct,
+      excessFinalEur: result.excessFinalEurVsStructuralCore,
+      excessReturnPctPoints: result.excessReturnVsStructuralCorePctPoints,
+      beats: result.beatsStructuralCoreBenchmark
+    };
 
     // HistoricalReplayProgressivePanel persists the worker signals verbatim.
     // Store the hard global-core benchmark as an audit extension so replay v4
@@ -174,20 +188,10 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       const firstSignal = result.signals[0] as DynamicReplaySignal & { auditExtensions?: Record<string, unknown> };
       firstSignal.auditExtensions = {
         ...(firstSignal.auditExtensions ?? {}),
-        structuralCoreBenchmark: {
-          available: result.structuralCoreBenchmarkFinalEur != null,
-          assetId: result.structuralCoreBenchmarkAssetId,
-          ticker: result.structuralCoreBenchmarkTicker,
-          finalEur: result.structuralCoreBenchmarkFinalEur,
-          returnPct: result.structuralCoreBenchmarkReturnPct,
-          cagrPct: result.structuralCoreBenchmarkCagrPct,
-          maxDrawdownPct: result.structuralCoreBenchmarkMaxDrawdownPct,
-          excessFinalEur: result.excessFinalEurVsStructuralCore,
-          excessReturnPctPoints: result.excessReturnVsStructuralCorePctPoints,
-          beats: result.beatsStructuralCoreBenchmark
-        }
+        structuralCoreBenchmark
       };
     }
+    auditChannel?.postMessage({ type: 'STRUCTURAL_CORE_BENCHMARK', benchmark: structuralCoreBenchmark });
 
     workerScope.postMessage({
       type: 'RESULT',
