@@ -1,3 +1,4 @@
+import { loadForwardRiskDiagnosticData } from '../investment/decision/forwardRiskDiagnosticData';
 import { runForwardRiskForecastV1 } from '../investment/decision/forwardRiskForecast';
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
@@ -73,6 +74,11 @@ function latestDatasetDate(dataset: MultiAssetDataset): string | null {
   return dates.at(-1) ?? null;
 }
 
+function earliestDatasetDate(dataset: MultiAssetDataset): string | null {
+  const dates = dataset.assets.flatMap(asset => asset.bars.slice(0, 1).map(bar => bar.timestamp.slice(0, 10))).sort();
+  return dates[0] ?? null;
+}
+
 function effectiveSeededStartDate(dataset: MultiAssetDataset, requestedStartDate: string, portfolio?: DynamicReplayInitialPortfolio): string {
   if (!portfolio?.allocations.length) return requestedStartDate;
   const requiredIds = [...new Set(portfolio.allocations.map(row => row.assetId).filter(Boolean))];
@@ -138,7 +144,7 @@ function compactAuditSignals(signals: DynamicReplaySignal[]): DynamicReplaySigna
   return retained;
 }
 
-workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
+workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
   const message = event.data;
 
   if (message.type === 'RESET') {
@@ -173,10 +179,17 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
 
     const finalSourceDate = latestDatasetDate(sourceDataset);
     const isFinalChunk = finalSourceDate != null && message.endDate >= finalSourceDate;
+    let diagnosticDataset = sourceDiagnosticDataset;
+    if (isFinalChunk && !diagnosticDataset && input.simulationMode === 'CUSTODIA_ENGINE' && !configuration.initialPortfolio) {
+      const diagnosticFrom = earliestDatasetDate(dataset) ?? input.startDate;
+      const loaded = await loadForwardRiskDiagnosticData(diagnosticFrom, result.endDate);
+      diagnosticDataset = loaded.dataset;
+      sourceDiagnosticDataset = loaded.dataset;
+    }
     const forwardRiskForecast = isFinalChunk && input.simulationMode === 'CUSTODIA_ENGINE' && !configuration.initialPortfolio
       ? runForwardRiskForecastV1({
         dataset,
-        diagnosticDataset: sourceDiagnosticDataset ? truncateDataset(sourceDiagnosticDataset, message.endDate) : undefined,
+        diagnosticDataset: diagnosticDataset ? truncateDataset(diagnosticDataset, message.endDate) : undefined,
         catalog: configuration.catalog,
         startDate: input.startDate,
         endDate: result.endDate,
