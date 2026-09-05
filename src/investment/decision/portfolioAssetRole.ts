@@ -8,33 +8,32 @@ export type PortfolioAssetRole =
 /**
  * Canonical long-run growth core used across portfolio management policies.
  *
- * Membership is intentionally explicit rather than inferred from a broad
- * category. A GLOBAL_EQUITY or US_EQUITY label alone is not enough to make an
- * instrument untouchable: factor, thematic and holdout products can share the
- * same category while serving a different portfolio role.
+ * Membership is intentionally explicit and restricted to broad global / developed
+ * world exposure. Regional indexes (US, Europe, Japan, Emerging) are diversified
+ * sleeves/tilts, not structural substitutes for the whole global core. This keeps
+ * tactical relative-strength decisions from silently turning a regional winner
+ * into the user's entire long-run market exposure.
  */
 export const STRATEGIC_GROWTH_CORE_ASSET_IDS = [
   'FUND_VANGUARD_GLOBAL',
   'FUND_VANGUARD_ESG_DEVELOPED',
-  'FUND_VANGUARD_US500',
   'VWCE',
   'EUNL',
-  'IWDA',
-  'SXR8',
-  'VUSA'
+  'IWDA'
 ] as const;
 
 /**
  * Preferred destination order for CORE_GATE. This is a subset/order of the
- * strategic core, not a second definition of what the core is.
+ * strategic core, not a second definition of what the core is. Mutual funds are
+ * preferred where the product is available because eligible fund-to-fund changes
+ * can preserve Spanish tax deferral; no performance-chasing transfer is implied.
  */
 export const STRATEGIC_GROWTH_CORE_PRIORITY = [
   'FUND_VANGUARD_GLOBAL',
   'FUND_VANGUARD_ESG_DEVELOPED',
+  'VWCE',
   'EUNL',
-  'IWDA',
-  'SXR8',
-  'VUSA'
+  'IWDA'
 ] as const;
 
 const strategicGrowthCoreSet = new Set<string>(STRATEGIC_GROWTH_CORE_ASSET_IDS);
