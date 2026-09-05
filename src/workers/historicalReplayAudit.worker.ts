@@ -1,6 +1,7 @@
 import { loadForwardRiskDiagnosticData } from '../investment/decision/forwardRiskDiagnosticData';
 import { runForwardRiskForecastV1 } from '../investment/decision/forwardRiskForecast';
 import { runForwardRiskForecastV2 } from '../investment/decision/forwardRiskForecastV2';
+import { runForwardRiskForecastV3 } from '../investment/decision/forwardRiskForecastV3';
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
@@ -49,7 +50,7 @@ interface WorkerScope {
 const workerScope = self as unknown as WorkerScope;
 // CORE_ALPHA_V2 failed its economic replay and is deliberately not the normal
 // engine. Production/replay baseline remains the closed structural-core V1 while
-// forward-risk V1/V2 are evaluated independently and never feed live decisions.
+// forward-risk V1/V2/V3 are evaluated independently and never feed live decisions.
 const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1' as const;
 const MATERIAL_ACTIONS = new Set(['BUY', 'ADD', 'REDUCE', 'EXIT']);
 const AUDIT_BROADCAST_CHANNEL = 'historical-replay-audit-v3';
@@ -221,6 +222,15 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
         endDate: result.endDate
       })
       : null;
+    const forwardRiskForecastV3 = shouldRunForwardRisk
+      ? runForwardRiskForecastV3({
+        dataset,
+        diagnosticDataset: diagnosticSlice,
+        catalog: configuration.catalog,
+        startDate: input.startDate,
+        endDate: result.endDate
+      })
+      : null;
 
     const fullSignalCount = result.signals.length;
     result.signals = compactAuditSignals(result.signals);
@@ -246,12 +256,14 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
         structuralCoreBenchmark,
         ...(forwardRiskForecast ? { forwardRiskForecastV1: forwardRiskForecast } : {}),
         ...(forwardRiskForecastV2 ? { forwardRiskForecastV2 } : {}),
+        ...(forwardRiskForecastV3 ? { forwardRiskForecastV3 } : {}),
         replayPolicy: REPLAY_ROTATION_EXPERIMENT
       };
     }
     auditChannel?.postMessage({ type: 'STRUCTURAL_CORE_BENCHMARK', benchmark: structuralCoreBenchmark });
     if (forwardRiskForecast) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V1', forecast: forwardRiskForecast });
     if (forwardRiskForecastV2) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V2', forecast: forwardRiskForecastV2 });
+    if (forwardRiskForecastV3) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V3', forecast: forwardRiskForecastV3 });
 
     workerScope.postMessage({
       type: 'RESULT',
@@ -261,6 +273,7 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
       trendProtectionV2Counterfactual: false,
       forwardRiskForecastV1: forwardRiskForecast,
       forwardRiskForecastV2,
+      forwardRiskForecastV3,
       fullSignalCount,
       retainedSignalCount: result.signals.length
     });
