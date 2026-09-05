@@ -50,11 +50,14 @@ for (const feature of [
 ]) assert.match(v2, new RegExp(feature));
 
 // Horizons are preserved independently. A strong 5d/20d/60d warning is not
-// diluted by averaging the three percentiles.
+// diluted by averaging the three percentiles, and each horizon keeps its own
+// valid evaluation rows.
 assert.match(v2, /imminentRiskPercentilePct/);
 assert.match(v2, /nearTermRiskPercentilePct/);
 assert.match(v2, /mediumTermRiskPercentilePct/);
 assert.match(v2, /Math\.max\(percentiles\[0\], percentiles\[1\], percentiles\[2\]\)/);
+assert.match(v2, /forecasts\.filter\(row => Number\.isFinite\(row\.rawLabels\[horizonIndex\]\)\)/);
+assert.doesNotMatch(v2, /row\.hasAllLabels/);
 
 // Inverted AUC is diagnostic only. It must not silently flip predictions.
 assert.match(v2, /invertedAuc/);
@@ -62,7 +65,12 @@ assert.match(v2, /orientation: 'DIRECT' \| 'INVERTED' \| 'UNRESOLVED'/);
 assert.match(v2, /V2 nunca invierte automáticamente una señal/);
 assert.doesNotMatch(v2, /predictions\s*=\s*predictions\.map\([^\n]*1\s*-/);
 
-// Real anticipation is audited before the last peak preceding a threshold breach.
+// False positives and real anticipation are first-class audit outputs.
+assert.match(v2, /highRiskForecasts/);
+assert.match(v2, /highRiskPrecisionPct/);
+assert.match(v2, /highRiskFalsePositivePct/);
+assert.match(v2, /anticipatedEpisodeRatePct/);
+assert.match(v2, /medianLeadSessionsBeforePeak/);
 assert.match(v2, /peakDate/);
 assert.match(v2, /breachDate/);
 assert.match(v2, /leadSessionsBeforePeak/);
