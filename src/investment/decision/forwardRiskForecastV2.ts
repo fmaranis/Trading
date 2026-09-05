@@ -48,6 +48,9 @@ export interface ForwardRiskV2Metric {
   invertedAuc: number | null;
   topDecileEventRatePct: number | null;
   liftVsBaseRate: number | null;
+  highRiskForecasts: number;
+  highRiskPrecisionPct: number | null;
+  highRiskFalsePositivePct: number | null;
   orientation: 'DIRECT' | 'INVERTED' | 'UNRESOLVED';
 }
 
@@ -102,6 +105,8 @@ export interface ForwardRiskForecastV2Result {
   rankingOrientationPass: boolean | null;
   predictiveSignalPass: boolean | null;
   anticipationPass: boolean | null;
+  anticipatedEpisodeRatePct: number | null;
+  medianLeadSessionsBeforePeak: number | null;
   forecastsEvaluated: number;
   episodeAudits: ForwardRiskV2EpisodeAudit[];
   featureWeights: Array<{ horizonSessions: 5 | 20 | 60; top: ForwardRiskV2FeatureWeight[] }>;
@@ -132,7 +137,6 @@ interface ForecastInternal extends ForwardRiskV2AuditPoint {
   index: number;
   percentiles: [number, number, number];
   rawLabels: [number, number, number];
-  hasAllLabels: boolean;
 }
 
 interface CrashEpisode {
@@ -435,7 +439,7 @@ function auc(labels: number[], predictions: number[]): number | null {
 }
 
 function metric(horizonIndex: 0 | 1 | 2, forecasts: ForecastInternal[]): ForwardRiskV2Metric {
-  const usable = forecasts.filter(row => row.hasAllLabels && Number.isFinite(row.rawLabels[horizonIndex]));
+  const usable = forecasts.filter(row => Number.isFinite(row.rawLabels[horizonIndex]));
   const labels = usable.map(row => row.rawLabels[horizonIndex]);
   const predictions = usable.map(row => [row.probability5d3Pct, row.probability20d5Pct, row.probability60d10Pct][horizonIndex] / 100);
   const eventRate = labels.length ? mean(labels) : Number.NaN;
@@ -444,12 +448,17 @@ function metric(horizonIndex: 0 | 1 | 2, forecasts: ForecastInternal[]): Forward
   const sorted = usable.map((row, index) => ({ row, probability: predictions[index] })).sort((a, b) => b.probability - a.probability);
   const topCount = Math.max(1, Math.floor(sorted.length * 0.10));
   const topRate = sorted.length ? mean(sorted.slice(0, topCount).map(entry => entry.row.rawLabels[horizonIndex])) : Number.NaN;
+  const highRisk = usable.filter(row => row.percentiles[horizonIndex] >= HIGH_RISK_PERCENTILE);
+  const highRiskPrecision = highRisk.length ? mean(highRisk.map(row => row.rawLabels[horizonIndex])) : Number.NaN;
   const orientation = directAuc == null || invertedAuc == null ? 'UNRESOLVED' : directAuc >= invertedAuc ? 'DIRECT' : 'INVERTED';
   return {
     horizonSessions: HORIZONS[horizonIndex], preCrashThresholdPct: THRESHOLDS[horizonIndex], observations: usable.length,
     eventRatePct: Number.isFinite(eventRate) ? eventRate * 100 : null, auc: directAuc, invertedAuc,
     topDecileEventRatePct: Number.isFinite(topRate) ? topRate * 100 : null,
     liftVsBaseRate: Number.isFinite(topRate) && Number.isFinite(eventRate) && eventRate > 0 ? topRate / eventRate : null,
+    highRiskForecasts: highRisk.length,
+    highRiskPrecisionPct: Number.isFinite(highRiskPrecision) ? highRiskPrecision * 100 : null,
+    highRiskFalsePositivePct: Number.isFinite(highRiskPrecision) ? (1 - highRiskPrecision) * 100 : null,
     orientation
   };
 }
@@ -488,8 +497,7 @@ function buildForecasts(rows: FeatureRow[], startDate: string, endDate: string, 
       regime,
       labels: validLabels,
       percentiles,
-      rawLabels: row.labels,
-      hasAllLabels: row.labels.every(Number.isFinite)
+      rawLabels: row.labels
     });
   }
   return { forecasts, latestModels: models };
@@ -571,7 +579,8 @@ export function runForwardRiskForecastV2(input: {
       coreAssetId: null, coreTicker: null, startDate: input.startDate, endDate: input.endDate,
       diagnosticSeriesUsed: [], diagnosticSeriesMissing: ['^VIX', '^VIX3M'], featureCount: FEATURE_NAMES.length,
       retrainEverySessions: RETRAIN_EVERY_SESSIONS, minimumTrainingRows: MINIMUM_TRAINING_ROWS, maximumTrainingRows: MAXIMUM_TRAINING_ROWS,
-      metrics: [], rankingOrientationPass: null, predictiveSignalPass: null, anticipationPass: null, forecastsEvaluated: 0,
+      metrics: [], rankingOrientationPass: null, predictiveSignalPass: null, anticipationPass: null,
+      anticipatedEpisodeRatePct: null, medianLeadSessionsBeforePeak: null, forecastsEvaluated: 0,
       episodeAudits: [], featureWeights: [], sampledForecasts: [], notes: ['No existe core global con cobertura suficiente para V2.']
     };
   }
@@ -585,15 +594,20 @@ export function runForwardRiskForecastV2(input: {
   const episodeAudits = auditEpisodes(built.coreBars, forecasts).filter(row => row.peakDate >= input.startDate && row.peakDate <= input.endDate);
   const auditableEpisodes = episodeAudits.filter(row => row.maxRiskPercentileBeforePeak != null);
   const anticipated = auditableEpisodes.filter(row => row.anticipatedBeforePeak);
+  const anticipatedEpisodeRatePct = auditableEpisodes.length ? anticipated.length / auditableEpisodes.length * 100 : null;
   const leadValues = anticipated.map(row => row.leadSessionsBeforePeak).filter((value): value is number => value != null).sort((a, b) => a - b);
-  const medianLead = leadValues.length ? leadValues[Math.floor(leadValues.length / 2)] : null;
-  const anticipationPass = auditableEpisodes.length >= 3 && anticipated.length / auditableEpisodes.length >= 0.50 && medianLead != null && medianLead >= 2;
-  const sampledForecasts = forecasts.filter((_, index) => index % 20 === 0).concat(forecasts.slice(-1)).slice(-300).map(row => ({
-    informationDate: row.informationDate, executionDate: row.executionDate,
-    probability5d3Pct: row.probability5d3Pct, probability20d5Pct: row.probability20d5Pct, probability60d10Pct: row.probability60d10Pct,
-    imminentRiskPercentilePct: row.imminentRiskPercentilePct, nearTermRiskPercentilePct: row.nearTermRiskPercentilePct, mediumTermRiskPercentilePct: row.mediumTermRiskPercentilePct,
-    combinedRiskPercentilePct: row.combinedRiskPercentilePct, regime: row.regime, labels: row.labels
-  }));
+  const medianLeadSessionsBeforePeak = leadValues.length ? leadValues[Math.floor(leadValues.length / 2)] : null;
+  const anticipationPass = auditableEpisodes.length >= 3 && anticipated.length / auditableEpisodes.length >= 0.50 && medianLeadSessionsBeforePeak != null && medianLeadSessionsBeforePeak >= 2;
+  const sampledForecasts = forecasts
+    .filter((row, index) => index % 20 === 0 || row.regime === 'PRE_CRASH' || row.combinedRiskPercentilePct >= HIGH_RISK_PERCENTILE * 100)
+    .concat(forecasts.slice(-1))
+    .slice(-1200)
+    .map(row => ({
+      informationDate: row.informationDate, executionDate: row.executionDate,
+      probability5d3Pct: row.probability5d3Pct, probability20d5Pct: row.probability20d5Pct, probability60d10Pct: row.probability60d10Pct,
+      imminentRiskPercentilePct: row.imminentRiskPercentilePct, nearTermRiskPercentilePct: row.nearTermRiskPercentilePct, mediumTermRiskPercentilePct: row.mediumTermRiskPercentilePct,
+      combinedRiskPercentilePct: row.combinedRiskPercentilePct, regime: row.regime, labels: row.labels
+    }));
 
   return {
     version: FORWARD_RISK_FORECAST_V2,
@@ -603,7 +617,8 @@ export function runForwardRiskForecastV2(input: {
     diagnosticSeriesUsed: built.diagnosticUsed, diagnosticSeriesMissing: built.diagnosticMissing,
     featureCount: FEATURE_NAMES.length, retrainEverySessions: RETRAIN_EVERY_SESSIONS,
     minimumTrainingRows: MINIMUM_TRAINING_ROWS, maximumTrainingRows: MAXIMUM_TRAINING_ROWS,
-    metrics, rankingOrientationPass, predictiveSignalPass, anticipationPass, forecastsEvaluated: forecasts.length,
+    metrics, rankingOrientationPass, predictiveSignalPass, anticipationPass,
+    anticipatedEpisodeRatePct, medianLeadSessionsBeforePeak, forecastsEvaluated: forecasts.length,
     episodeAudits, featureWeights: topWeights(latestModels), sampledForecasts,
     notes: [
       'V2 no intenta reconocer una crisis activa: las filas cuyo drawdown actual supera el límite de calma de cada horizonte quedan fuera del target de entrenamiento/evaluación.',
@@ -611,6 +626,8 @@ export function runForwardRiskForecastV2(input: {
       'Modelo: regresión logística ponderada por desbalance de clases con regularización Elastic Net; probabilidades recalibradas al event-rate causal de entrenamiento.',
       'Features nuevas priorizan deterioro y divergencias: aceleración de volatilidad/VIX, cambios de breadth, cambios de dispersión, rotación defensiva y divergencia precio-breadth.',
       'Los tres horizontes permanecen separados. combinedRiskPercentile usa el máximo y nunca diluye una señal fuerte mediante promedio.',
+      'Cada horizonte se evalúa con sus propias filas válidas; no se descartan observaciones 5d/20d porque una etiqueta 60d esté todavía abierta o excluida por crisis activa.',
+      'highRiskFalsePositivePct mide directamente falsos avisos en forecasts >= percentil 80 del horizonte correspondiente.',
       'Cada forecast sólo entrena con muestras cuyo horizonte futuro completo terminó antes de informationDate y ejecutaría, si algún día se autorizase, al siguiente open.',
       'La AUC invertida se exporta sólo como diagnóstico de orientación. V2 nunca invierte automáticamente una señal para mejorar un backtest.',
       'episodeAudits exige anticipación antes del último máximo previo al breach; detectar riesgo después del peak no cuenta como anticipación.',
