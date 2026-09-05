@@ -52,7 +52,7 @@ for (const feature of [
 
 // Semantic monotonicity: all engineered features mean more risk as they rise,
 // and the classifier cannot assign a negative coefficient to flip that meaning.
-assert.match(v3, /values mayores representan deterioro/);
+assert.match(v3, /valores mayores representan deterioro/);
 assert.match(v3, /updated = Math\.max\(0, updated - shrink\)/);
 assert.match(v3, /weights\[c\] = clamp\(updated, 0, 8\)/);
 
