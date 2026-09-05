@@ -81,33 +81,38 @@ function structuralCoreBenchmark(input: DynamicHistoricalReplayInput, result: Co
     const item = input.catalog.find(asset => asset.assetId === assetId);
     const series = input.dataset.assets.find(asset => asset.assetId === assetId);
     if (!item || !series?.bars.length) continue;
-    const startBar = [...series.bars]
-      .filter(bar => isoDate(bar.timestamp) <= result.startDate && Number.isFinite(bar.close) && bar.close > 0)
-      .sort((a, b) => isoDate(a.timestamp).localeCompare(isoDate(b.timestamp)))
-      .at(-1);
-    const endBar = [...series.bars]
-      .filter(bar => isoDate(bar.timestamp) <= result.endDate && Number.isFinite(bar.close) && bar.close > 0)
-      .sort((a, b) => isoDate(a.timestamp).localeCompare(isoDate(b.timestamp)))
-      .at(-1);
+    const validBars = [...series.bars]
+      .filter(bar => Number.isFinite(bar.close) && bar.close > 0)
+      .sort((a, b) => isoDate(a.timestamp).localeCompare(isoDate(b.timestamp)));
+    const startBar = validBars.find(bar => {
+      const date = isoDate(bar.timestamp);
+      return date >= result.startDate && date <= result.endDate;
+    });
+    const endBar = validBars.filter(bar => isoDate(bar.timestamp) <= result.endDate).at(-1);
     if (!startBar || !endBar || !(startBar.close > 0) || !(endBar.close > 0)) continue;
+    const benchmarkStartDate = isoDate(startBar.timestamp);
+    const benchmarkEndDate = isoDate(endBar.timestamp);
+    if (benchmarkEndDate < benchmarkStartDate) continue;
 
     const units = input.initialCapitalEur / startBar.close;
     const finalEur = units * endBar.close;
     const returnPct = (finalEur / input.initialCapitalEur - 1) * 100;
-    const years = yearsBetween(result.startDate, result.endDate);
+    const years = yearsBetween(benchmarkStartDate, benchmarkEndDate);
     const cagrPct = years > 0 && finalEur > 0
       ? (Math.pow(finalEur / input.initialCapitalEur, 1 / years) - 1) * 100
       : null;
-    const pathValues = series.bars
+    const pathValues = validBars
       .filter(bar => {
         const date = isoDate(bar.timestamp);
-        return date >= result.startDate && date <= result.endDate && Number.isFinite(bar.close) && bar.close > 0;
+        return date >= benchmarkStartDate && date <= benchmarkEndDate;
       })
       .map(bar => units * bar.close);
 
     return {
       assetId,
       ticker: item.ticker,
+      startDate: benchmarkStartDate,
+      endDate: benchmarkEndDate,
       finalEur,
       returnPct,
       cagrPct,
@@ -188,7 +193,7 @@ export class DynamicHistoricalReplayEngine {
           ? 'Intereses de cash: tributacion progresiva segun la base del ahorro configurada.'
           : 'Intereses de cash: se descuenta retencion del 19% al no existir contexto fiscal anual confirmado.',
         benchmark
-          ? `Benchmark estructural: 100% del capital en ${benchmark.ticker} desde ${coreResult!.startDate} hasta ${coreResult!.endDate}, buy-and-hold sin market timing. Final ${benchmark.finalEur.toFixed(2)} €, retorno ${benchmark.returnPct.toFixed(2)}%, CAGR ${benchmark.cagrPct == null ? 'N/D' : `${benchmark.cagrPct.toFixed(2)}%`}, DD máx. ${benchmark.maxDrawdownPct == null ? 'N/D' : `${benchmark.maxDrawdownPct.toFixed(2)}%`}. Este benchmark no participa en ninguna decisión del motor.`
+          ? `Benchmark estructural: 100% del capital en ${benchmark.ticker} desde la primera sesión disponible ${benchmark.startDate} hasta ${benchmark.endDate}, buy-and-hold sin market timing. Final ${benchmark.finalEur.toFixed(2)} €, retorno ${benchmark.returnPct.toFixed(2)}%, CAGR ${benchmark.cagrPct == null ? 'N/D' : `${benchmark.cagrPct.toFixed(2)}%`}, DD máx. ${benchmark.maxDrawdownPct == null ? 'N/D' : `${benchmark.maxDrawdownPct.toFixed(2)}%`}. Este benchmark no participa en ninguna decisión del motor.`
           : 'Benchmark estructural no disponible: el dataset del replay no contiene un core global con precio válido en inicio y fin.'
       ]
     };
