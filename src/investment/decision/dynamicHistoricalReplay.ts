@@ -35,6 +35,8 @@ export interface DynamicHistoricalReplayResult extends CoreDynamicHistoricalRepl
   cashInterestNetEur: number;
   structuralCoreBenchmarkAssetId: string | null;
   structuralCoreBenchmarkTicker: string | null;
+  structuralCoreBenchmarkStartDate: string | null;
+  structuralCoreBenchmarkEndDate: string | null;
   structuralCoreBenchmarkFinalEur: number | null;
   structuralCoreBenchmarkReturnPct: number | null;
   structuralCoreBenchmarkCagrPct: number | null;
@@ -48,6 +50,8 @@ type CoreReplayInput = Parameters<typeof DynamicHistoricalReplayCoreEngine.run>[
 export type DynamicHistoricalReplayInput = CoreReplayInput & {
   cashBenchmarkMode?: CashBenchmarkMode;
 };
+
+const MAX_CORE_BENCHMARK_EDGE_LAG_DAYS = 7;
 
 function isoDate(timestamp: string): string { return timestamp.slice(0, 10); }
 
@@ -69,6 +73,14 @@ function yearsBetween(startDate: string, endDate: string): number {
   return Number.isFinite(start) && Number.isFinite(end) && end > start
     ? (end - start) / 86_400_000 / 365.2425
     : 0;
+}
+
+function calendarDaysBetween(startDate: string, endDate: string): number {
+  const start = Date.parse(`${startDate}T00:00:00Z`);
+  const end = Date.parse(`${endDate}T00:00:00Z`);
+  return Number.isFinite(start) && Number.isFinite(end)
+    ? Math.max(0, Math.round((end - start) / 86_400_000))
+    : Number.POSITIVE_INFINITY;
 }
 
 function structuralCoreBenchmark(input: DynamicHistoricalReplayInput, result: CoreDynamicHistoricalReplayResult) {
@@ -93,6 +105,13 @@ function structuralCoreBenchmark(input: DynamicHistoricalReplayInput, result: Co
     const benchmarkStartDate = isoDate(startBar.timestamp);
     const benchmarkEndDate = isoDate(endBar.timestamp);
     if (benchmarkEndDate < benchmarkStartDate) continue;
+
+    // A benchmark must cover the same economic period. Do not silently accept a
+    // preferred mutual fund whose provider history starts years after the replay;
+    // fall through to another structural-core instrument with genuine coverage.
+    const startLagDays = calendarDaysBetween(result.startDate, benchmarkStartDate);
+    const endLagDays = calendarDaysBetween(benchmarkEndDate, result.endDate);
+    if (startLagDays > MAX_CORE_BENCHMARK_EDGE_LAG_DAYS || endLagDays > MAX_CORE_BENCHMARK_EDGE_LAG_DAYS) continue;
 
     const units = input.initialCapitalEur / startBar.close;
     const finalEur = units * endBar.close;
@@ -154,8 +173,6 @@ export class DynamicHistoricalReplayEngine {
       const closed = endReplayCashContext();
       if (closed) engineSnapshot = {
         ...closed,
-        // endReplayCashContext always reports the engine phase totals even if
-        // the core has subsequently rebuilt its daily chart path.
         phase: closed.phase
       };
     }
@@ -177,6 +194,8 @@ export class DynamicHistoricalReplayEngine {
       totalEstimatedTaxEur: coreResult!.totalEstimatedTaxEur + cashInterestTaxEur,
       structuralCoreBenchmarkAssetId: benchmark?.assetId ?? null,
       structuralCoreBenchmarkTicker: benchmark?.ticker ?? null,
+      structuralCoreBenchmarkStartDate: benchmark?.startDate ?? null,
+      structuralCoreBenchmarkEndDate: benchmark?.endDate ?? null,
       structuralCoreBenchmarkFinalEur: benchmark?.finalEur ?? null,
       structuralCoreBenchmarkReturnPct: benchmark?.returnPct ?? null,
       structuralCoreBenchmarkCagrPct: benchmark?.cagrPct ?? null,
@@ -193,8 +212,8 @@ export class DynamicHistoricalReplayEngine {
           ? 'Intereses de cash: tributacion progresiva segun la base del ahorro configurada.'
           : 'Intereses de cash: se descuenta retencion del 19% al no existir contexto fiscal anual confirmado.',
         benchmark
-          ? `Benchmark estructural: 100% del capital en ${benchmark.ticker} desde la primera sesión disponible ${benchmark.startDate} hasta ${benchmark.endDate}, buy-and-hold sin market timing. Final ${benchmark.finalEur.toFixed(2)} €, retorno ${benchmark.returnPct.toFixed(2)}%, CAGR ${benchmark.cagrPct == null ? 'N/D' : `${benchmark.cagrPct.toFixed(2)}%`}, DD máx. ${benchmark.maxDrawdownPct == null ? 'N/D' : `${benchmark.maxDrawdownPct.toFixed(2)}%`}. Este benchmark no participa en ninguna decisión del motor.`
-          : 'Benchmark estructural no disponible: el dataset del replay no contiene un core global con precio válido en inicio y fin.'
+          ? `Benchmark estructural: 100% del capital en ${benchmark.ticker} desde ${benchmark.startDate} hasta ${benchmark.endDate}, buy-and-hold sin market timing y con cobertura real del periodo completo (tolerancia de borde ≤${MAX_CORE_BENCHMARK_EDGE_LAG_DAYS} días). Final ${benchmark.finalEur.toFixed(2)} €, retorno ${benchmark.returnPct.toFixed(2)}%, CAGR ${benchmark.cagrPct == null ? 'N/D' : `${benchmark.cagrPct.toFixed(2)}%`}, DD máx. ${benchmark.maxDrawdownPct == null ? 'N/D' : `${benchmark.maxDrawdownPct.toFixed(2)}%`}. Este benchmark no participa en ninguna decisión del motor.`
+          : `Benchmark estructural no disponible: ningún core global del dataset cubre inicio y fin del replay con tolerancia ≤${MAX_CORE_BENCHMARK_EDGE_LAG_DAYS} días.`
       ]
     };
   }
