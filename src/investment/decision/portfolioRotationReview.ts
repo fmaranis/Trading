@@ -2,6 +2,7 @@ import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import { brokerCommission } from './costAwareExecutionPolicy';
 import { CurrentOpportunityAlertEngine, type CurrentOpportunityAlert } from './currentOpportunityAlerts';
 import type { PortfolioPositionHealthResult, PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
+import { strategicCoreBlocksTacticalRotation } from './strategicCorePolicy';
 import {
   assessTaxAwareRotation,
   estimateFundRealizedGain,
@@ -83,7 +84,13 @@ export class PortfolioRotationReviewEngine {
     const destination = bestDestination(input.scan, input.cashBenchmarkAnnualPct);
     if (!destination) return { sourceId: null, sourceLabel: null, sourceAction: null, targetAssetId: null, targetTicker: null, targetName: null, targetLevel: null, amountEur: null, status: 'NO_DESTINATION', assessment: null, reason: 'No hay hoy una entrada de alta convicción o buena oportunidad que justifique estudiar una rotación.' };
 
-    const positions = input.positionHealth?.positions.filter(position => position.currentValueEur != null && position.currentValueEur > 0 && position.action !== 'ADD' && position.action !== 'EXIT' && position.action !== 'REDUCE') ?? [];
+    const positions = (input.positionHealth?.positions ?? [])
+      .filter(position => position.currentValueEur != null && position.currentValueEur > 0 && position.action !== 'ADD' && position.action !== 'EXIT' && position.action !== 'REDUCE')
+      .filter(position => {
+        const candidate = candidateFor(input.scan, position.key) ?? candidateFor(input.scan, position.tickerOrIsin);
+        const assetId = candidate?.asset.assetId ?? position.key;
+        return !strategicCoreBlocksTacticalRotation(assetId);
+      });
     const invested = positions.reduce((sum, position) => sum + (position.currentValueEur ?? 0), 0);
     const liquidity = Math.max(0, input.portfolio.cashEur) + Math.max(0, input.portfolio.stagedCapitalPlan?.availableEur ?? 0);
     const total = invested + liquidity;
@@ -107,7 +114,7 @@ export class PortfolioRotationReviewEngine {
         sourceId: null, sourceLabel: null, sourceAction: null,
         targetAssetId: destination.assetId, targetTicker: destination.ticker, targetName: destination.name, targetLevel: destination.level,
         amountEur: null, status: 'KEEP', assessment: null,
-        reason: `La mejor oportunidad actual es ${destination.ticker}, pero ninguna posición mantenida presenta una desventaja proxy de al menos 5 pp que justifique estudiar su venta.`
+        reason: `La mejor oportunidad actual es ${destination.ticker}, pero ninguna posición no-core mantenida presenta una desventaja proxy de al menos 5 pp que justifique estudiar su venta. El core global queda fuera de las fuentes tácticas de financiación.`
       };
     }
 
