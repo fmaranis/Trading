@@ -7,6 +7,7 @@ const STORAGE_KEY = 'historical_progressive_audit_v3';
 const LEGACY_STORAGE_KEY = 'historical_progressive_audit_v2';
 const FORMAT = 'TRADING_HISTORICAL_REPLAY_AUDIT';
 const EXPORT_SCHEMA_VERSION = 1;
+const SUPPORTED_REPLAY_STORAGE_VERSIONS = new Set([3, 4]);
 const AUDIT_BROADCAST_CHANNEL = 'historical-replay-audit-v3';
 
 function finite(value: unknown, fallback = 0): number {
@@ -54,14 +55,15 @@ function attachCounterfactualToSummary(session: any): any {
 
 function normalizeSession(raw: any): any {
   if (!raw || typeof raw !== 'object') throw new Error('El JSON no contiene una sesión histórica válida.');
-  if (Number(raw.version) !== 3) throw new Error(`Versión de replay no compatible: ${String(raw.version ?? 'desconocida')}. Se esperaba v3.`);
+  const replayStorageVersion = Number(raw.version);
+  if (!SUPPORTED_REPLAY_STORAGE_VERSIONS.has(replayStorageVersion)) throw new Error(`Versión de replay no compatible: ${String(raw.version ?? 'desconocida')}. Se esperaba v3 o v4.`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(raw.startDate ?? ''))) throw new Error('Falta una fecha inicial válida en la prueba.');
   if (!['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY'].includes(String(raw.frequency ?? ''))) throw new Error('La frecuencia histórica del JSON no es válida.');
   if (!['MANUAL', 'AUTO'].includes(String(raw.runMode ?? ''))) throw new Error('El modo de ejecución del JSON no es válido.');
   if (!(finite(raw.durationMonths) > 0) || !(finite(raw.chunkDays) > 0) || !(finite(raw.initialCapitalEur) > 0)) throw new Error('La configuración numérica de la prueba está incompleta.');
   for (const field of ['checkpoints', 'executions', 'path', 'signals']) if (!Array.isArray(raw[field])) throw new Error(`El JSON no contiene el bloque obligatorio “${field}”.`);
   return attachCounterfactualToSummary({
-    ...raw, version: 3, durationMonths: finite(raw.durationMonths), chunkDays: finite(raw.chunkDays), initialCapitalEur: finite(raw.initialCapitalEur),
+    ...raw, version: replayStorageVersion, durationMonths: finite(raw.durationMonths), chunkDays: finite(raw.chunkDays), initialCapitalEur: finite(raw.initialCapitalEur),
     checkpoints: raw.checkpoints, executions: raw.executions.map(normalizeExecution), path: raw.path.map(normalizePathPoint), signals: raw.signals,
     summary: raw.summary ?? null, positions: Array.isArray(raw.positions) ? raw.positions : []
   });
@@ -83,7 +85,7 @@ function safePart(value: unknown, fallback: string): string {
 function buildPayload(session: any) {
   return {
     metadata: {
-      format: FORMAT, schemaVersion: EXPORT_SCHEMA_VERSION, replayStorageVersion: 3, exportedAt: new Date().toISOString(),
+      format: FORMAT, schemaVersion: EXPORT_SCHEMA_VERSION, replayStorageVersion: Number(session?.version), exportedAt: new Date().toISOString(),
       source: 'fmaranis/Trading · Replay histórico auditado',
       note: 'Archivo autocontenido para auditoría, comparación, reimportación y lectura directa desde GitHub tras sincronizar el proyecto.'
     },
