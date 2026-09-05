@@ -18,6 +18,7 @@ const worker = source('src/workers/historicalReplayAudit.worker.ts');
 const replayRotation = source('src/investment/decision/replayRotationPolicyExperiment.ts');
 const sharedCoreGate = source('src/investment/decision/portfolioCoreGatePolicy.ts');
 const coreAlphaOverlay = source('src/investment/decision/coreAlphaOverlay.ts');
+const forwardRisk = source('src/investment/decision/forwardRiskForecast.ts');
 const assetRoles = source('src/investment/decision/portfolioAssetRole.ts');
 const strategicCore = source('src/investment/decision/strategicCorePolicy.ts');
 const replayCore = source('src/investment/decision/dynamicHistoricalReplayCore.ts');
@@ -47,27 +48,35 @@ requireText(currentAlerts, 'PortfolioCandidateGate.apply(', 'ALERTS_MUST_USE_CAN
 requireText(currentAlerts, 'StrategyConsensusEngine.assess(', 'ALERTS_MUST_USE_SHARED_CONSENSUS');
 requireText(currentAlerts, 'EntryTimingEngine.assess(', 'ALERTS_MUST_USE_SHARED_ENTRY_TIMING');
 
-// The audited replay is intentionally testing CORE_ALPHA_V2. It must layer on
-// the existing shared V1 architecture rather than replacing the mature engine.
-requireText(worker, "const REPLAY_ROTATION_EXPERIMENT = 'CORE_ALPHA_V2'", 'REPLAY_MUST_USE_CORE_ALPHA_V2_CANDIDATE');
+// CORE_ALPHA_V2 failed its economic replay. Normal audited replay returns to the
+// closed V1 architecture. Forward risk is an independent final counterfactual,
+// never a replacement for the productive engine before validation.
+requireText(worker, "const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1'", 'REPLAY_MUST_RETURN_TO_CORE_ARCHITECTURE_V1');
+requireText(worker, 'runForwardRiskForecastV1({', 'REPLAY_MUST_RUN_FORWARD_RISK_COUNTERFACTUAL');
+requireText(worker, "forwardRiskForecastV1: forwardRiskForecast", 'FORWARD_RISK_MUST_BE_AUDITED');
 forbidText(worker, 'runDynamicReplayWithTrendProtectionV2Experiment', 'NORMAL_REPLAY_MUST_NOT_AUTO_RUN_TREND_V2');
 forbidText(worker, 'runDynamicReplayWithTrendProtectionV2MediumTermWinnerConfirmExperiment', 'NORMAL_REPLAY_MUST_NOT_AUTO_RUN_TREND_V2_CONFIRM');
 
 requireText(sharedCoreGate, 'export function applyCoreGateV1', 'SHARED_CORE_GATE_FUNCTION_MISSING');
 requireText(sharedCoreGate, 'export function applyCoreArchitectureV1', 'SHARED_CORE_ARCHITECTURE_FUNCTION_MISSING');
 requireText(sharedCoreGate, 'export function evaluatePortfolioDecision', 'PRODUCTION_PORTFOLIO_ENTRY_MISSING');
-requireText(sharedCoreGate, 'return applyCoreArchitectureV1(normalizedInput, gated);', 'PRODUCTION_MUST_REMAIN_V1_UNTIL_V2_VALIDATED');
+requireText(sharedCoreGate, 'return applyCoreArchitectureV1(normalizedInput, gated);', 'PRODUCTION_MUST_REMAIN_V1_UNTIL_PREDICTOR_VALIDATED');
 requireText(replayRotation, "from './portfolioCoreGatePolicy'", 'REPLAY_MUST_IMPORT_SHARED_CORE_POLICY');
-requireText(replayRotation, "from './coreAlphaOverlay'", 'REPLAY_MUST_IMPORT_ALPHA_OVERLAY');
 requireText(replayRotation, 'const gated = applyCoreGateV1(evaluationInput, baseline, gateCounters);', 'REPLAY_MUST_CALL_SHARED_CORE_GATE');
 requireText(replayRotation, 'applyCoreArchitectureV1(evaluationInput, gated, architectureCounters)', 'REPLAY_MUST_CALL_SHARED_CORE_ARCHITECTURE');
-requireText(replayRotation, 'applyCoreAlphaV2(evaluationInput, architecture, alphaCounters)', 'REPLAY_MUST_LAYER_ALPHA_V2_AFTER_V1');
-requireText(coreAlphaOverlay, "export const CORE_ALPHA_V2 = 'CORE_ALPHA_V2'", 'CORE_ALPHA_V2_POLICY_MISSING');
-requireText(coreAlphaOverlay, 'coreFloorShare', 'CORE_ALPHA_V2_CORE_FLOOR_MISSING');
-requireText(coreAlphaOverlay, 'maxCoreFundedTiltSharePerDecision', 'CORE_ALPHA_V2_TILT_CAP_MISSING');
-requireText(coreAlphaOverlay, 'minPriorStrongObservations', 'CORE_ALPHA_V2_PERSISTENCE_MISSING');
-requireText(coreAlphaOverlay, 'positionStage: \'ROTATION_ENTRY\'', 'CORE_ALPHA_V2_MUST_BE_ATOMIC_ROTATION');
 forbidText(replayRotation, 'const CORE_PRIORITY =', 'REPLAY_MUST_NOT_DUPLICATE_CORE_POLICY');
+
+// Failed V2 remains available only for attribution/research; it must not silently
+// become the live shared entry point.
+requireText(coreAlphaOverlay, "export const CORE_ALPHA_V2 = 'CORE_ALPHA_V2'", 'FAILED_ALPHA_EXPERIMENT_MUST_REMAIN_VERSIONED');
+requireText(replayRotation, 'applyCoreAlphaV2(evaluationInput, architecture, alphaCounters)', 'FAILED_ALPHA_EXPERIMENT_MUST_REMAIN_REPRODUCIBLE');
+
+// Forward prediction must be truly causal and economically isolated.
+requireText(forwardRisk, "methodology: 'STRICT_WALK_FORWARD_NEXT_OPEN'", 'FORWARD_RISK_METHODOLOGY_MISSING');
+requireText(forwardRisk, 'candidate.labelEndIndexes[labelIndex] < row.index', 'FORWARD_RISK_LABEL_LEAKAGE_GUARD_MISSING');
+requireText(forwardRisk, 'executionIndex: row.index + 1', 'FORWARD_RISK_MUST_EXECUTE_NEXT_OPEN');
+requireText(forwardRisk, 'economicPassRealistic', 'FORWARD_RISK_REALISTIC_ACCEPTANCE_MISSING');
+forbidText(forwardRisk, 'PortfolioDecisionEngine', 'FORWARD_RISK_MUST_NOT_MUTATE_PORTFOLIO_ENGINE');
 
 for (const [file, label] of [
   [currentDecisionSummary, 'CURRENT_SUMMARY'],
