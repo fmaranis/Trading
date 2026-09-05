@@ -10,6 +10,7 @@ import { startDailyAlertScheduler } from './server/alertAutomation';
 
 const HISTORICAL_AUDIT_FORMAT = 'TRADING_HISTORICAL_REPLAY_AUDIT';
 const HISTORICAL_AUDIT_SCHEMA_VERSION = 1;
+const SUPPORTED_REPLAY_STORAGE_VERSIONS = new Set([3, 4]);
 const MAX_HISTORICAL_AUDIT_BYTES = 25 * 1024 * 1024;
 const DEFAULT_REPLAY_SYNC_REPOSITORY = 'fmaranis/Trading';
 const DEFAULT_REPLAY_SYNC_BRANCH = 'replay-results';
@@ -45,7 +46,7 @@ function validateHistoricalAuditPayload(payload: any): void {
   if (payload?.metadata?.format !== HISTORICAL_AUDIT_FORMAT) throw new Error('INVALID_AUDIT_FORMAT');
   if (Number(payload?.metadata?.schemaVersion) !== HISTORICAL_AUDIT_SCHEMA_VERSION) throw new Error('UNSUPPORTED_AUDIT_SCHEMA');
   const session = payload.session;
-  if (!session || Number(session.version) !== 3) throw new Error('UNSUPPORTED_REPLAY_STORAGE_VERSION');
+  if (!session || !SUPPORTED_REPLAY_STORAGE_VERSIONS.has(Number(session.version))) throw new Error('UNSUPPORTED_REPLAY_STORAGE_VERSION');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(session.startDate ?? ''))) throw new Error('INVALID_START_DATE');
   for (const field of ['checkpoints', 'executions', 'path', 'signals']) {
     if (!Array.isArray(session[field])) throw new Error(`MISSING_${field.toUpperCase()}`);
