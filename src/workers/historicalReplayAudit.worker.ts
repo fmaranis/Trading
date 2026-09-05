@@ -1,3 +1,4 @@
+import { runForwardRiskForecastV1 } from '../investment/decision/forwardRiskForecast';
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
@@ -15,6 +16,7 @@ import type { SpanishTaxSettings } from '../investment/decision/spanishTaxModel'
 interface InitMessage {
   type: 'INIT';
   dataset: MultiAssetDataset;
+  diagnosticDataset?: MultiAssetDataset;
   catalog: AssetUniverseItem[];
   startDate: string;
   frequency: DynamicReplayFrequency;
@@ -43,12 +45,16 @@ interface WorkerScope {
 }
 
 const workerScope = self as unknown as WorkerScope;
-const REPLAY_ROTATION_EXPERIMENT = 'CORE_ALPHA_V2' as const;
+// CORE_ALPHA_V2 failed its economic replay and is deliberately not the normal
+// engine. Production/replay baseline remains the closed structural-core V1 while
+// the new forward-risk system is evaluated independently as a counterfactual.
+const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1' as const;
 const MATERIAL_ACTIONS = new Set(['BUY', 'ADD', 'REDUCE', 'EXIT']);
 const AUDIT_BROADCAST_CHANNEL = 'historical-replay-audit-v3';
 const auditChannel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(AUDIT_BROADCAST_CHANNEL);
-let configuration: Omit<InitMessage, 'type' | 'dataset'> | null = null;
+let configuration: Omit<InitMessage, 'type' | 'dataset' | 'diagnosticDataset'> | null = null;
 let sourceDataset: MultiAssetDataset | null = null;
+let sourceDiagnosticDataset: MultiAssetDataset | null = null;
 
 function truncateDataset(dataset: MultiAssetDataset, endDate: string): MultiAssetDataset {
   return {
@@ -60,6 +66,11 @@ function truncateDataset(dataset: MultiAssetDataset, endDate: string): MultiAsse
       }))
       .filter(asset => asset.bars.length > 0)
   };
+}
+
+function latestDatasetDate(dataset: MultiAssetDataset): string | null {
+  const dates = dataset.assets.flatMap(asset => asset.bars.slice(-1).map(bar => bar.timestamp.slice(0, 10))).sort();
+  return dates.at(-1) ?? null;
 }
 
 function effectiveSeededStartDate(dataset: MultiAssetDataset, requestedStartDate: string, portfolio?: DynamicReplayInitialPortfolio): string {
@@ -133,13 +144,15 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
   if (message.type === 'RESET') {
     configuration = null;
     sourceDataset = null;
+    sourceDiagnosticDataset = null;
     workerScope.postMessage({ type: 'RESET_DONE' });
     return;
   }
 
   if (message.type === 'INIT') {
-    const { dataset, type: _type, ...rest } = message;
+    const { dataset, diagnosticDataset, type: _type, ...rest } = message;
     sourceDataset = dataset;
+    sourceDiagnosticDataset = diagnosticDataset ?? null;
     configuration = rest;
     workerScope.postMessage({ type: 'READY', rotationExperiment: REPLAY_ROTATION_EXPERIMENT });
     return;
@@ -157,6 +170,21 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
     const result = input.simulationMode === 'HOLD_ONLY'
       ? baseline
       : appendRotationCounterfactualAudit({ result: baseline, dataset, catalog: configuration.catalog });
+
+    const finalSourceDate = latestDatasetDate(sourceDataset);
+    const isFinalChunk = finalSourceDate != null && message.endDate >= finalSourceDate;
+    const forwardRiskForecast = isFinalChunk && input.simulationMode === 'CUSTODIA_ENGINE' && !configuration.initialPortfolio
+      ? runForwardRiskForecastV1({
+        dataset,
+        diagnosticDataset: sourceDiagnosticDataset ? truncateDataset(sourceDiagnosticDataset, message.endDate) : undefined,
+        catalog: configuration.catalog,
+        startDate: input.startDate,
+        endDate: result.endDate,
+        initialCapitalEur: input.initialCapitalEur,
+        cashBenchmarkMode: input.cashBenchmarkMode,
+        cashBenchmarkAnnualPct: input.cashBenchmarkAnnualPct
+      })
+      : null;
 
     const fullSignalCount = result.signals.length;
     result.signals = compactAuditSignals(result.signals);
@@ -180,10 +208,12 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       firstSignal.auditExtensions = {
         ...(firstSignal.auditExtensions ?? {}),
         structuralCoreBenchmark,
+        ...(forwardRiskForecast ? { forwardRiskForecastV1: forwardRiskForecast } : {}),
         replayPolicy: REPLAY_ROTATION_EXPERIMENT
       };
     }
     auditChannel?.postMessage({ type: 'STRUCTURAL_CORE_BENCHMARK', benchmark: structuralCoreBenchmark });
+    if (forwardRiskForecast) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V1', forecast: forwardRiskForecast });
 
     workerScope.postMessage({
       type: 'RESULT',
@@ -191,6 +221,7 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
       result,
       rotationExperiment: REPLAY_ROTATION_EXPERIMENT,
       trendProtectionV2Counterfactual: false,
+      forwardRiskForecastV1: forwardRiskForecast,
       fullSignalCount,
       retainedSignalCount: result.signals.length
     });
