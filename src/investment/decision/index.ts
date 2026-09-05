@@ -45,6 +45,8 @@ export * from './opportunityOutcomeBacktest';
 export * from './opportunityThresholdResearch';
 export * from './opportunityThresholdWalkForward';
 export * from './marketSnapshotHistoryService';
+export * from './forwardRiskDiagnosticData';
+export * from './forwardRiskForecast';
 export * from './userPortfolio';
 export * from './fundPortfolio';
 export * from './portfolioDecisionEngine';
