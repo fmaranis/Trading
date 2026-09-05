@@ -167,6 +167,28 @@ workerScope.onmessage = (event: MessageEvent<IncomingMessage>) => {
     const fullSignalCount = result.signals.length;
     result.signals = compactAuditSignals(result.signals);
 
+    // HistoricalReplayProgressivePanel persists the worker signals verbatim.
+    // Store the hard global-core benchmark as an audit extension so replay v4
+    // export/publication cannot silently discard it from the reduced UI summary.
+    if (result.signals.length > 0) {
+      const firstSignal = result.signals[0] as DynamicReplaySignal & { auditExtensions?: Record<string, unknown> };
+      firstSignal.auditExtensions = {
+        ...(firstSignal.auditExtensions ?? {}),
+        structuralCoreBenchmark: {
+          available: result.structuralCoreBenchmarkFinalEur != null,
+          assetId: result.structuralCoreBenchmarkAssetId,
+          ticker: result.structuralCoreBenchmarkTicker,
+          finalEur: result.structuralCoreBenchmarkFinalEur,
+          returnPct: result.structuralCoreBenchmarkReturnPct,
+          cagrPct: result.structuralCoreBenchmarkCagrPct,
+          maxDrawdownPct: result.structuralCoreBenchmarkMaxDrawdownPct,
+          excessFinalEur: result.excessFinalEurVsStructuralCore,
+          excessReturnPctPoints: result.excessReturnVsStructuralCorePctPoints,
+          beats: result.beatsStructuralCoreBenchmark
+        }
+      };
+    }
+
     workerScope.postMessage({
       type: 'RESULT',
       requestedEndDate: message.endDate,
