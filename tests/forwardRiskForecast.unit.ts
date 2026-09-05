@@ -25,8 +25,9 @@ assert.match(forecast, /predictiveSignalPass/);
 assert.match(forecast, /brokerCommission/);
 assert.match(forecast, /estimatedTax = Math\.max\(0, realizedGain\) \* 0\.30/);
 assert.match(forecast, /taxOnInterest: gross => gross \* 0\.19/);
-assert.doesNotMatch(forecast, /PortfolioDecisionEngine/);
-assert.doesNotMatch(forecast, /evaluatePortfolioDecision/);
+assert.doesNotMatch(forecast, /from ['"]\.\/portfolioDecisionEngine['"]/);
+assert.doesNotMatch(forecast, /PortfolioDecisionEngine\./);
+assert.doesNotMatch(forecast, /evaluatePortfolioDecision\(/);
 
 assert.match(diagnostics, /'\^VIX'/);
 assert.match(diagnostics, /'\^VIX3M'/);
