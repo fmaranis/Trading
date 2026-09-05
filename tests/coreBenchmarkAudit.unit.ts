@@ -22,7 +22,8 @@ assert.match(replayPublic, /endLagDays > MAX_CORE_BENCHMARK_EDGE_LAG_DAYS/);
 assert.match(worker, /structuralCoreBenchmark/);
 assert.match(worker, /auditExtensions/);
 assert.match(worker, /STRUCTURAL_CORE_BENCHMARK/);
-assert.match(worker, /CORE_ALPHA_V2/);
+assert.match(worker, /const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1'/);
+assert.match(worker, /FORWARD_RISK_FORECAST_V1/);
 assert.match(worker, /replayPolicy/);
 
 assert.match(auditControls, /extractStructuralCoreBenchmark/);
