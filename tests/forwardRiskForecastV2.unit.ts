@@ -78,12 +78,15 @@ assert.match(v2, /anticipatedBeforePeak/);
 assert.match(v2, /index <= episode\.peakIndex/);
 
 // Research isolation: worker exports V1 and V2 together, but neither V2 nor its
-// score may enter the production portfolio decision engine.
+// score may enter the production portfolio decision engine. The audit carrier is
+// selected from a signal that survives the compact ChatGPT-readable projection.
 assert.match(worker, /runForwardRiskForecastV1/);
 assert.match(worker, /runForwardRiskForecastV2/);
 assert.match(worker, /forwardRiskForecastV1/);
 assert.match(worker, /forwardRiskForecastV2/);
 assert.match(worker, /FORWARD_RISK_FORECAST_V2/);
+assert.match(worker, /function selectAuditCarrier/);
+assert.match(worker, /signals\.find\(signal => signal\.executed === true\)/);
 assert.doesNotMatch(v2, /from ['"]\.\/portfolioDecisionEngine['"]/);
 assert.doesNotMatch(v2, /evaluatePortfolioDecision\(/);
 assert.doesNotMatch(v2, /targetCoreExposurePct/);
