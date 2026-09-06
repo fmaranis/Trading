@@ -6,13 +6,15 @@ export type PortfolioAssetRole =
   | 'TACTICAL_SATELLITE';
 
 /**
- * Canonical long-run growth core used across portfolio management policies.
+ * Canonical long-run growth-core membership used across portfolio policies.
  *
  * Membership is intentionally explicit and restricted to broad global / developed
  * world exposure. Regional indexes (US, Europe, Japan, Emerging) are diversified
- * sleeves/tilts, not structural substitutes for the whole global core. This keeps
- * tactical relative-strength decisions from silently turning a regional winner
- * into the user's entire long-run market exposure.
+ * sleeves/tilts, not structural substitutes for the whole global core.
+ *
+ * IMPORTANT: being a member of this set does NOT make a product the preferred
+ * production core. Production allocation is selected causally by
+ * DYNAMIC_CORE_SELECTOR_V1.
  */
 export const STRATEGIC_GROWTH_CORE_ASSET_IDS = [
   'FUND_VANGUARD_GLOBAL',
@@ -23,10 +25,11 @@ export const STRATEGIC_GROWTH_CORE_ASSET_IDS = [
 ] as const;
 
 /**
- * Preferred destination order for CORE_GATE. This is a subset/order of the
- * strategic core, not a second definition of what the core is. Mutual funds are
- * preferred where the product is available because eligible fund-to-fund changes
- * can preserve Spanish tax deferral; no performance-chasing transfer is implied.
+ * Deterministic reference order retained only for research/diagnostic modules
+ * that need one broad-market series when no portfolio decision state exists.
+ *
+ * @deprecated Production portfolio allocation MUST NOT use this array. The live
+ * and replay decision path uses DYNAMIC_CORE_SELECTOR_V1 instead.
  */
 export const STRATEGIC_GROWTH_CORE_PRIORITY = [
   'FUND_VANGUARD_GLOBAL',
