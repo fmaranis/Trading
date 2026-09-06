@@ -1,6 +1,7 @@
 export const FORWARD_RISK_MACRO_DATA_V5 = 'FORWARD_RISK_MACRO_DATA_V5' as const;
 
 export type ForwardRiskMacroSeriesId = 'T10Y2Y' | 'T10Y3M' | 'BAA10Y' | 'WALCL';
+export type ForwardRiskMacroDataSource = 'FRED_GRAPH_CSV_CURRENT_VINTAGE' | 'FRED_API_ALFRED_REALTIME_PERIODS';
 
 export interface ForwardRiskMacroObservation {
   date: string;
@@ -16,8 +17,8 @@ export interface ForwardRiskMacroSeries {
 
 export interface ForwardRiskMacroDataV5 {
   version: typeof FORWARD_RISK_MACRO_DATA_V5;
-  source: 'FRED_GRAPH_CSV_CURRENT_VINTAGE';
-  pointInTimeVintageSafe: false;
+  source: ForwardRiskMacroDataSource;
+  pointInTimeVintageSafe: boolean;
   startDate: string;
   endDate: string;
   series: ForwardRiskMacroSeries[];
