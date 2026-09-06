@@ -62,13 +62,17 @@ function buildRealtimeWindows(startDate: string, endDate: string): Array<{ start
   return windows;
 }
 
+function isAlfredUnavailableWindow(status: number, body: string): boolean {
+  return status === 400 && body.includes('The series does not exist in ALFRED but may exist in FRED');
+}
+
 async function fetchRealtimeWindow(
   id: ForwardRiskMacroSeriesId,
   observationStartDate: string,
   realtimeStartDate: string,
   realtimeEndDate: string,
   apiKey: string
-): Promise<FredRealtimeObservation[]> {
+): Promise<{ rows: FredRealtimeObservation[]; alfredUnavailable: boolean }> {
   const rows: FredRealtimeObservation[] = [];
   const limit = 100000;
   let offset = 0;
@@ -92,7 +96,17 @@ async function fetchRealtimeWindow(
     const response = await fetch(`https://api.stlouisfed.org/fred/series/observations?${params.toString()}`, {
       headers: { Accept: 'application/json' }
     });
-    if (!response.ok) throw new Error(`${id}_ALFRED_HTTP_${response.status}:${(await response.text()).slice(0, 300)}`);
+    if (!response.ok) {
+      const body = (await response.text()).slice(0, 1000);
+      // Some FRED series existed before they began being archived by ALFRED.
+      // That is a genuine point-in-time coverage gap, not a reason to substitute
+      // today's FRED values. Skip only this precise archival-coverage response
+      // and continue probing later real-time windows for the same series.
+      if (isAlfredUnavailableWindow(response.status, body)) {
+        return { rows: [], alfredUnavailable: true };
+      }
+      throw new Error(`${id}_ALFRED_HTTP_${response.status}:${body.slice(0, 300)}`);
+    }
     const payload: any = await response.json();
     const page = Array.isArray(payload?.observations) ? payload.observations as FredRealtimeObservation[] : [];
     rows.push(...page);
@@ -101,7 +115,7 @@ async function fetchRealtimeWindow(
     if (!page.length || offset >= count) break;
   }
 
-  return rows;
+  return { rows, alfredUnavailable: false };
 }
 
 async function fetchRealtimePeriods(
@@ -109,10 +123,17 @@ async function fetchRealtimePeriods(
   startDate: string,
   endDate: string,
   apiKey: string
-): Promise<FredRealtimeObservation[]> {
+): Promise<{ rows: FredRealtimeObservation[]; unavailableWindows: string[] }> {
   const allRows: FredRealtimeObservation[] = [];
+  const unavailableWindows: string[] = [];
+
   for (const window of buildRealtimeWindows(startDate, endDate)) {
-    allRows.push(...await fetchRealtimeWindow(id, startDate, window.start, window.end, apiKey));
+    const result = await fetchRealtimeWindow(id, startDate, window.start, window.end, apiKey);
+    if (result.alfredUnavailable) {
+      unavailableWindows.push(`${window.start}:${window.end}`);
+      continue;
+    }
+    allRows.push(...result.rows);
   }
 
   // A real-time record whose validity spans a chunk boundary may be returned in
@@ -122,7 +143,7 @@ async function fetchRealtimePeriods(
     const key = `${row.date}|${row.realtime_start}|${row.realtime_end}|${row.value}`;
     deduped.set(key, row);
   }
-  return [...deduped.values()];
+  return { rows: [...deduped.values()], unavailableWindows };
 }
 
 /**
@@ -163,11 +184,19 @@ export async function loadForwardRiskMacroDataV5VintageSafe(startDate: string, e
 
   for (const definition of SERIES) {
     try {
-      const realtimeRows = await fetchRealtimePeriods(definition.id, startDate, endDate, apiKey);
-      const observations = materializePointInTime(realtimeRows, startDate, endDate);
-      if (!observations.length) throw new Error('NO_POINT_IN_TIME_OBSERVATIONS');
+      const realtime = await fetchRealtimePeriods(definition.id, startDate, endDate, apiKey);
+      const observations = materializePointInTime(realtime.rows, startDate, endDate);
+      if (!observations.length) {
+        const unavailable = realtime.unavailableWindows.length
+          ? `:ALFRED_UNAVAILABLE_WINDOWS=${realtime.unavailableWindows.join(',')}`
+          : '';
+        throw new Error(`NO_POINT_IN_TIME_OBSERVATIONS${unavailable}`);
+      }
       series.push({ id: definition.id, frequency: definition.frequency, observations, source: 'FRED' });
       loaded.push(definition.id);
+      if (realtime.unavailableWindows.length) {
+        failures.push(`${definition.id}:PARTIAL_ALFRED_COVERAGE:${realtime.unavailableWindows.join(',')}`);
+      }
     } catch (error: any) {
       failures.push(`${definition.id}:${error?.message || String(error)}`);
     }
@@ -187,7 +216,8 @@ export async function loadForwardRiskMacroDataV5VintageSafe(startDate: string, e
     notes: [
       'FRED/ALFRED realtime_start and realtime_end are used to reconstruct only information available as of each historical release/revision date.',
       'ALFRED requests are chunked into bounded real-time windows to stay below the API vintage-date limit; exact duplicate records are removed after merging.',
-      'No current-vintage graph CSV and no synthetic fallback is permitted in this loader.',
+      'A 400 response explicitly stating that a series was not yet available in ALFRED marks only that real-time window as unavailable; later windows are still queried.',
+      'Unavailable ALFRED windows are never filled with current-vintage FRED data or synthetic values.',
       'The downstream V5 formula and frozen thresholds are unchanged; only macro data provenance is made point-in-time safe.'
     ]
   };
