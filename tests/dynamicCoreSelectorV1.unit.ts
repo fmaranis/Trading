@@ -29,12 +29,31 @@ function candidate(asset: typeof vanguard | typeof eunl, score: number, healthy 
   };
 }
 
+function causalBars(healthy: boolean) {
+  return Array.from({ length: 300 }, (_, i) => {
+    const close = healthy ? 70 + i * 0.10 : 130 - i * 0.10;
+    return {
+      timestamp: new Date(Date.UTC(2025, 0, 1 + i)).toISOString().slice(0, 10),
+      open: close,
+      high: close * 1.001,
+      low: close * 0.999,
+      close
+    };
+  });
+}
+
 function input(rows: Array<ReturnType<typeof candidate>>): PortfolioEvaluationInput {
+  const acceptedAssets = rows.map(row => ({
+    assetId: row.asset.assetId,
+    ticker: row.asset.ticker,
+    name: row.asset.name,
+    bars: causalBars((row.momentum120Pct ?? 0) >= 0)
+  }));
   return {
     portfolio: { cashEur: 0, holdings: [], funds: [], updatedAt: '2026-01-01T00:00:00Z' },
     scan: {
       scanned: rows.length, accepted: rows.length, rejected: 0, rejectionCounts: {}, selected: [], candidates: rows,
-      dataset: { timeframe: '1d', assets: [] }, acceptedDataset: { timeframe: '1d', assets: [] }
+      dataset: { timeframe: '1d', assets: acceptedAssets }, acceptedDataset: { timeframe: '1d', assets: acceptedAssets }
     },
     decision: {
       generatedAt: '2026-01-01T00:00:00Z', asOfDate: '2026-01-01', dataAgeDays: 0, currency: 'EUR', capitalEur: 10_000,
@@ -105,6 +124,18 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   assert.equal(selection.selectedAssetId, 'EUNL');
   assert.equal(selection.reason, 'HEALTHY_INCUMBENT_INERTIA');
   assert.equal(selection.incumbentHealthy, true);
+}
+
+// Missing evidence is never treated as proof of deterioration. Even with a
+// healthy alternative available, an incumbent whose own series is unavailable
+// cannot be structurally transferred.
+{
+  const scenario = input([candidate(vanguard, 80), candidate(eunl, 10)]);
+  scenario.scan.acceptedDataset.assets = scenario.scan.acceptedDataset.assets.filter(row => row.assetId !== 'EUNL');
+  const selection = selectDynamicCoreV1(scenario, result('EUNL'));
+  assert.equal(selection.selectedAssetId, null);
+  assert.equal(selection.incumbentHealthy, null);
+  assert.equal(selection.reason, 'INCUMBENT_EVIDENCE_INSUFFICIENT');
 }
 
 // A genuinely unhealthy incumbent is not protected forever: the best healthy
