@@ -77,7 +77,7 @@ async function main() {
 
     const diagnostic = await loadForwardRiskDiagnosticData(DATA_FROM, FINAL_END_DATE);
     const macro = await loadForwardRiskMacroDataV5(DATA_FROM, FINAL_END_DATE);
-    const options = await loadForwardRiskOptionsDataV7(DATA_FROM, FINAL_END_DATE);
+    const options = await loadForwardRiskOptionsDataV7();
 
     const cases = years().map(period => {
       const v5 = runForwardRiskVulnerabilityV5({
