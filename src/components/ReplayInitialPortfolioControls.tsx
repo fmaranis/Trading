@@ -7,6 +7,7 @@ import {
   type DynamicReplayInitialPortfolioSource,
   type DynamicReplaySimulationMode
 } from '../investment/decision';
+import { registerLiveDiscoveredAsset, type LiveDiscoveredAsset } from '../investment/decision/dynamicPortfolioDiscovery';
 
 export interface ReplayScenarioDraft {
   source: DynamicReplayInitialPortfolioSource;
@@ -67,6 +68,10 @@ export const ReplayInitialPortfolioControls: React.FC<Props> = ({ value, disable
   const [amountToAdd, setAmountToAdd] = useState('1000');
   const [loadingCurrent, setLoadingCurrent] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [marketResults, setMarketResults] = useState<LiveDiscoveredAsset[]>([]);
+  const [marketSearching, setMarketSearching] = useState(false);
+  const [marketSearchError, setMarketSearchError] = useState<string | null>(null);
+  const [marketRevision, setMarketRevision] = useState(0);
 
   const invested = useMemo(() => value.allocations.reduce((sum, row) => sum + Math.max(0, Number(row.amountEur) || 0), 0), [value.allocations]);
   const total = Math.max(0, value.cashEur) + invested;
@@ -76,7 +81,7 @@ export const ReplayInitialPortfolioControls: React.FC<Props> = ({ value, disable
     return EUR_PORTFOLIO_DISCOVERY_UNIVERSE
       .filter(asset => assetSearchText(asset).includes(query))
       .slice(0, 12);
-  }, [assetSearch]);
+  }, [assetSearch, marketRevision]);
 
   const setSource = async (source: DynamicReplayInitialPortfolioSource) => {
     if (source === 'ZERO') {
@@ -149,6 +154,32 @@ export const ReplayInitialPortfolioControls: React.FC<Props> = ({ value, disable
     setAssetToAdd(assetId);
     const asset = EUR_PORTFOLIO_DISCOVERY_UNIVERSE.find(item => item.assetId === assetId);
     setAssetSearch(asset ? `${asset.ticker}${asset.isin ? ` · ${asset.isin}` : ''} · ${asset.name}` : assetId);
+    setMarketResults([]);
+    setMarketSearchError(null);
+  };
+  const searchOpenMarket = async () => {
+    const query = assetSearch.trim();
+    if (query.length < 2) return;
+    setMarketSearching(true); setMarketSearchError(null); setMarketResults([]);
+    try {
+      const response = await fetch(`/api/alerts/asset-discovery/search?q=${encodeURIComponent(query)}`);
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || `MARKET_DISCOVERY_HTTP_${response.status}`);
+      const results = Array.isArray(payload?.results) ? payload.results as LiveDiscoveredAsset[] : [];
+      setMarketResults(results);
+      if (!results.length) setMarketSearchError('Yahoo no devolvió instrumentos con histórico utilizable para esa búsqueda.');
+    } catch (error: any) { setMarketSearchError(error?.message || String(error)); }
+    finally { setMarketSearching(false); }
+  };
+  const chooseMarketResult = (candidate: LiveDiscoveredAsset) => {
+    try {
+      const asset = registerLiveDiscoveredAsset(candidate);
+      setMarketRevision(value => value + 1);
+      setAssetToAdd(asset.assetId);
+      setAssetSearch(`${asset.ticker}${asset.isin ? ` · ${asset.isin}` : ''} · ${asset.name}`);
+      setMarketResults([]);
+      setMarketSearchError(null);
+    } catch (error: any) { setMarketSearchError(error?.message || String(error)); }
   };
 
   return <div className="mt-4 rounded-xl border border-violet-500/25 bg-violet-950/10 p-4">
@@ -178,19 +209,21 @@ export const ReplayInitialPortfolioControls: React.FC<Props> = ({ value, disable
     {loadError && <div className="mt-3 rounded-lg border border-rose-500/25 bg-rose-500/10 p-2 text-[10px] text-rose-100">{loadError}</div>}
 
     {value.source !== 'ZERO' && <>
-      <div className="mt-3 grid gap-3 lg:grid-cols-[180px_minmax(280px,1fr)_minmax(280px,1fr)_150px_auto] lg:items-end">
+      <div className="mt-3 grid gap-3 lg:grid-cols-[180px_minmax(260px,1fr)_minmax(320px,1.2fr)_150px_auto] lg:items-end">
         <label className="text-[10px] text-slate-400">Cash inicial (€)<input type="number" min="0" step="100" value={value.cashEur} disabled={disabled} onChange={e => onChange({ ...value, cashEur: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
-        <label className="text-[10px] text-slate-400">Listado existente<select value={assetToAdd} disabled={disabled} onChange={e => setAssetToAdd(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60">{EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(asset => <option key={asset.assetId} value={asset.assetId}>{asset.ticker} · {asset.name}{asset.isin ? ` · ${asset.isin}` : ''}</option>)}</select></label>
-        <div className="relative text-[10px] text-slate-400">Buscar por nombre, ticker o ISIN
-          <input type="text" value={assetSearch} disabled={disabled} onChange={e => setAssetSearch(e.target.value)} placeholder="Ej.: Iberdrola, IBE.MC, ES0144580Y14" className="mt-1 w-full rounded-lg border border-cyan-500/30 bg-slate-950 px-3 py-2 text-xs text-white placeholder:text-slate-700 disabled:opacity-60"/>
-          {assetSearch.trim() && <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-700 bg-slate-950 shadow-2xl">
-            {searchResults.length > 0 ? searchResults.map(asset => <button key={asset.assetId} type="button" disabled={disabled} onClick={() => chooseSearchResult(asset.assetId)} className="block w-full border-b border-slate-800 px-3 py-2 text-left hover:bg-slate-900 disabled:opacity-50"><b className="text-cyan-200">{asset.ticker}</b><span className="ml-2 text-slate-300">{asset.name}</span>{asset.isin && <div className="font-mono text-[9px] text-slate-600">ISIN {asset.isin}</div>}</button>) : <div className="p-3 text-[10px] text-slate-500">No existe coincidencia en el catálogo operativo actual.</div>}
+        <label className="text-[10px] text-slate-400">Descubiertos / catálogo<select value={assetToAdd} disabled={disabled} onChange={e => setAssetToAdd(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60">{EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(asset => <option key={asset.assetId} value={asset.assetId}>{asset.ticker} · {asset.name}{asset.isin ? ` · ${asset.isin}` : ''}</option>)}</select></label>
+        <div className="relative text-[10px] text-slate-400">Buscar nombre, ticker o ISIN
+          <div className="mt-1 flex gap-2"><input type="text" value={assetSearch} disabled={disabled} onChange={e => { setAssetSearch(e.target.value); setMarketResults([]); setMarketSearchError(null); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void searchOpenMarket(); } }} placeholder="Cualquier ISIN, ticker o nombre" className="min-w-0 flex-1 rounded-lg border border-cyan-500/30 bg-slate-950 px-3 py-2 text-xs text-white placeholder:text-slate-700 disabled:opacity-60"/><button type="button" disabled={disabled || marketSearching || assetSearch.trim().length < 2} onClick={() => void searchOpenMarket()} className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 text-[9px] font-bold text-cyan-100 disabled:opacity-40">{marketSearching ? 'Buscando…' : 'Buscar mercado'}</button></div>
+          {assetSearch.trim() && (searchResults.length > 0 || marketResults.length > 0 || marketSearchError) && <div className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-slate-700 bg-slate-950 shadow-2xl">
+            {searchResults.map(asset => <button key={`local-${asset.assetId}`} type="button" disabled={disabled} onClick={() => chooseSearchResult(asset.assetId)} className="block w-full border-b border-slate-800 px-3 py-2 text-left hover:bg-slate-900 disabled:opacity-50"><b className="text-cyan-200">{asset.ticker}</b><span className="ml-2 text-slate-300">{asset.name}</span>{asset.isin && <div className="font-mono text-[9px] text-slate-600">ISIN {asset.isin}</div>}<div className="text-[8px] text-slate-600">Catálogo / descubierto previamente</div></button>)}
+            {marketResults.map(candidate => <button key={`market-${candidate.symbol}`} type="button" disabled={disabled || !candidate.usableInEurEngine} onClick={() => chooseMarketResult(candidate)} className="block w-full border-b border-slate-800 px-3 py-2 text-left hover:bg-slate-900 disabled:opacity-45"><b className="text-emerald-200">{candidate.symbol}</b><span className="ml-2 text-slate-300">{candidate.name}</span><div className="text-[8px] text-slate-500">Yahoo LIVE · {candidate.quoteType} · {candidate.currency ?? 'divisa N/D'} · {candidate.historyBars3y} sesiones/3a{candidate.usableInEurEngine ? '' : ' · NO compatible: no EUR'}</div></button>)}
+            {marketSearchError && <div className="p-3 text-[9px] text-amber-200">{marketSearchError}</div>}
           </div>}
         </div>
         <label className="text-[10px] text-slate-400">Importe (€)<input type="number" min="0" step="100" value={amountToAdd} disabled={disabled} onChange={e => setAmountToAdd(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
         <button type="button" disabled={disabled || !assetToAdd || !(Number(amountToAdd) > 0)} onClick={addAsset} className="min-h-10 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-[10px] font-bold text-violet-100 disabled:opacity-40">Añadir al replay</button>
       </div>
-      <div className="mt-2 text-[9px] text-slate-500">Puedes usar el listado o escribir directamente nombre, ticker o ISIN. El buscador consulta el catálogo operativo de activos que la app puede descargar y reproducir con histórico REAL.</div>
+      <div className="mt-2 text-[9px] text-slate-500">Primero busca en el catálogo y en los instrumentos ya descubiertos. “Buscar mercado” consulta Yahoo en vivo y valida histórico REAL. Los instrumentos nuevos en EUR se guardan localmente y pasan al mismo scanner/replay; no se inventa un proxy silencioso.</div>
 
       <div className="mt-3 overflow-x-auto rounded-lg border border-slate-800">
         <table className="w-full min-w-[640px] text-[10px]"><thead className="bg-slate-950 text-slate-500"><tr><th className="p-2 text-left">Activo inicial</th><th className="p-2 text-right">€ al iniciar</th><th className="p-2 text-right">Acción</th></tr></thead><tbody>
