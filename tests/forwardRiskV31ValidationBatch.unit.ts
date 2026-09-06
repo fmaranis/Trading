@@ -22,7 +22,11 @@ assert.match(script, /transactionCostsApplied: false/);
 assert.match(script, /periodBoundaryEnforced: true/);
 assert.match(script, /isoDate\(exit\.timestamp\) > input\.periodEndDate/);
 assert.match(script, /breakEvenRoundTripCostBps/);
-assert.match(script, /economicCounterfactual/);
+assert.match(script, /buildEconomicAggregate/);
+assert.match(script, /sourcePeriodNets/);
+assert.match(script, /ECONOMIC_AGGREGATE_INCONSISTENT/);
+assert.match(script, /directSignalTotal/);
+assert.match(script, /economicCounterfactual = buildEconomicAggregate\(cases\)/);
 assert.doesNotMatch(script, /runDynamicReplayWithRotationExperiment/);
 assert.doesNotMatch(script, /portfolioDecisionEngine/);
 
