@@ -21,15 +21,35 @@ const stockAsset = {
   assetId: 'EQ_ASML', ticker: 'ASML.AS', name: 'ASML Holding', category: 'SEMICONDUCTORS', currency: 'EUR'
 } as const;
 
+function causalBars() {
+  return Array.from({ length: 300 }, (_, i) => {
+    const close = 70 + i * 0.10;
+    return {
+      timestamp: new Date(Date.UTC(2025, 0, 1 + i)).toISOString().slice(0, 10),
+      open: close,
+      high: close * 1.001,
+      low: close * 0.999,
+      close
+    };
+  });
+}
+
 function input(riskProfile: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM'): PortfolioEvaluationInput {
+  const assets = [coreAsset, usAsset, stockAsset];
+  const acceptedAssets = assets.map(asset => ({
+    assetId: asset.assetId,
+    ticker: asset.ticker,
+    name: asset.name,
+    bars: causalBars()
+  }));
   return {
     portfolio: { cashEur: 0, holdings: [], funds: [], updatedAt: '2026-01-01T00:00:00Z' },
     scan: {
       scanned: 3, accepted: 3, rejected: 0, rejectionCounts: {},
       selected: [],
-      candidates: [coreAsset, usAsset, stockAsset].map(asset => ({ asset, status: 'ACCEPTED', bars: 300, asOfDate: '2026-01-01', lastClose: 100, momentum20Pct: 5, momentum60Pct: 8, momentum120Pct: 12, annualizedVolatilityPct: 15, maxDrawdownPct: 10, score: 10 })),
-      dataset: { timeframe: '1d', assets: [] },
-      acceptedDataset: { timeframe: '1d', assets: [] }
+      candidates: assets.map(asset => ({ asset, status: 'ACCEPTED', bars: 300, asOfDate: '2026-01-01', lastClose: 100, momentum20Pct: 5, momentum60Pct: 8, momentum120Pct: 12, annualizedVolatilityPct: 15, maxDrawdownPct: 10, score: 10 })),
+      dataset: { timeframe: '1d', assets: acceptedAssets },
+      acceptedDataset: { timeframe: '1d', assets: acceptedAssets }
     },
     decision: {
       generatedAt: '2026-01-01T00:00:00Z', asOfDate: '2026-01-01', dataAgeDays: 0, currency: 'EUR', capitalEur: 10_000,
@@ -80,7 +100,7 @@ assert.equal(protectedHealth.suggestedReductionPct, null);
 assert.match(protectedHealth.reason, /STRATEGIC_CORE_HOLD_V1/);
 
 // CORE_ARCHITECTURE_V1 independently blocks an EXIT emitted by the baseline
-// portfolio engine and removes its tactical challenger.
+// portfolio engine and removes its tactical challenger while the incumbent is healthy.
 {
   const base = result({
     currentInvestedValueEur: 8_000, currentCashEur: 0, totalPlannedCapitalEur: 8_000,
@@ -102,8 +122,8 @@ assert.match(protectedHealth.reason, /STRATEGIC_CORE_HOLD_V1/);
   assert.equal(next.contributions.some(row => row.assetId === usAsset.assetId), false);
 }
 
-// Idle money is deployed to the structural core; only the explicit operational
-// reserve remains cash. For MEDIUM that reserve is 5%, not a timing position.
+// Idle money is deployed to the healthy structural core selected causally; only
+// the explicit operational reserve remains cash. For MEDIUM that reserve is 5%.
 {
   const next = applyCoreArchitectureV1(input('MEDIUM'), result());
   const core = next.contributions.find(row => row.assetId === coreAsset.assetId);
@@ -138,8 +158,8 @@ assert.match(protectedHealth.reason, /STRATEGIC_CORE_HOLD_V1/);
   assert.equal(Number(alpha!.amountEur.toFixed(2)), 500); // 25% of 10k less existing 2k sleeve.
 }
 
-// A non-core sale returns to the structural core instead of leaving the proceeds
-// in cash. The pair is marked ROTATION_ENTRY so replay execution remains atomic.
+// A non-core sale returns to the healthy structural core selected for that date
+// instead of leaving the proceeds in cash. The pair remains atomic in replay/live.
 {
   const base = result({
     currentInvestedValueEur: 10_000, currentCashEur: 0, targetCashEur: 0, residualPlannedCashEur: 0,
