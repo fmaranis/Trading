@@ -4,10 +4,15 @@ import { MarketDataProviderRegistry } from '../src/investment/data/marketData/re
 import { RealMarketDataProvider } from '../src/investment/data/marketData/providers/realMarketDataProvider';
 import { AssetUniverseScanner } from '../src/investment/decision/assetUniverseScanner';
 import { EUR_ASSET_UNIVERSE } from '../src/investment/decision/assetUniverse';
+import { historicalCashBenchmarkAnnualPct } from '../src/investment/decision/cashBenchmark';
 import { loadForwardRiskDiagnosticData } from '../src/investment/decision/forwardRiskDiagnosticData';
 import { runForwardRiskForecastV31 } from '../src/investment/decision/forwardRiskForecastV31';
 
 const WARMUP_YEARS = 7;
+const ECONOMIC_NOTIONAL_EUR = 13_000;
+const PROTECTED_SHARE = 0.25;
+const ECONOMIC_HORIZON_SESSIONS = 20;
+const ECONOMIC_HIGH_RISK_PERCENTILE_PCT = 80;
 const PERIODS = [
   { id: 'Q4_2018_CORRECTION', startDate: '2018-06-01', endDate: '2019-05-31', kind: 'STRESS' },
   { id: 'PRE_COVID_CALM', startDate: '2019-01-01', endDate: '2019-12-31', kind: 'CONTROL' },
@@ -21,6 +26,7 @@ function yearsBefore(date: string, years: number): string {
   d.setUTCFullYear(d.getUTCFullYear() - years);
   return d.toISOString().slice(0, 10);
 }
+function isoDate(value: string): string { return value.slice(0, 10); }
 async function waitForHealth(url: string, timeoutMs = 30_000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -37,6 +43,91 @@ function median(values: number[]): number | null {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+function cashGrowthFactor(fromDate: string, toDate: string): number {
+  let factor = 1;
+  let cursor = new Date(`${fromDate}T00:00:00Z`);
+  const end = new Date(`${toDate}T00:00:00Z`);
+  while (cursor < end) {
+    const date = cursor.toISOString().slice(0, 10);
+    factor *= 1 + historicalCashBenchmarkAnnualPct(date) / 100 / 365;
+    cursor = new Date(cursor.getTime() + 86_400_000);
+  }
+  return factor;
+}
+function economicAudit(input: {
+  coreAssetId: string | null;
+  sampledForecasts: Array<{ executionDate: string; nearTermRiskPercentilePct: number }>;
+  dataset: typeof AssetUniverseScanner extends never ? never : any;
+}) {
+  if (!input.coreAssetId) return { status: 'NO_CORE', signals: [], summary: null };
+  const core = input.dataset.assets.find((asset: any) => asset.assetId === input.coreAssetId);
+  if (!core) return { status: 'NO_CORE_DATA', signals: [], summary: null };
+  const bars = [...core.bars]
+    .filter((bar: any) => bar.open > 0)
+    .sort((a: any, b: any) => isoDate(a.timestamp).localeCompare(isoDate(b.timestamp)));
+  const byDate = new Map(bars.map((bar: any, index: number) => [isoDate(bar.timestamp), index] as const));
+  const protectedNotionalEur = ECONOMIC_NOTIONAL_EUR * PROTECTED_SHARE;
+  const signals: Array<Record<string, number | string>> = [];
+  let blockedThroughIndex = -1;
+
+  for (const forecast of input.sampledForecasts) {
+    if (forecast.nearTermRiskPercentilePct < ECONOMIC_HIGH_RISK_PERCENTILE_PCT) continue;
+    const entryIndex = byDate.get(forecast.executionDate);
+    if (entryIndex == null || entryIndex <= blockedThroughIndex) continue;
+    const exitIndex = entryIndex + ECONOMIC_HORIZON_SESSIONS;
+    if (exitIndex >= bars.length) continue;
+    const entry = bars[entryIndex];
+    const exit = bars[exitIndex];
+    const entryOpen = entry.open;
+    const exitOpen = exit.open;
+    if (!(entryOpen > 0) || !(exitOpen > 0)) continue;
+    const holdFinalEur = protectedNotionalEur * (exitOpen / entryOpen);
+    const cashFinalEur = protectedNotionalEur * cashGrowthFactor(isoDate(entry.timestamp), isoDate(exit.timestamp));
+    const grossProtectedEur = cashFinalEur - holdFinalEur;
+    const roundTripBreakEvenBps = grossProtectedEur / protectedNotionalEur * 10_000;
+    signals.push({
+      executionDate: isoDate(entry.timestamp),
+      reentryDate: isoDate(exit.timestamp),
+      riskPercentilePct: forecast.nearTermRiskPercentilePct,
+      protectedNotionalEur,
+      holdFinalEur,
+      cashFinalEur,
+      grossProtectedEur,
+      roundTripBreakEvenBps
+    });
+    blockedThroughIndex = exitIndex;
+  }
+
+  const benefits = signals.map(row => Number(row.grossProtectedEur));
+  const netGrossProtectedEur = benefits.reduce((sum, value) => sum + value, 0);
+  return {
+    status: 'VALID',
+    policy: {
+      basis: 'SAMPLED_20D_V3_1_HIGH_RISK_FIXED_HOLD_RESEARCH_ONLY',
+      sampledForecastCadence: 'EVERY_20_FORECASTS_FROM_FROZEN_V3_1_OUTPUT',
+      highRiskPercentilePct: ECONOMIC_HIGH_RISK_PERCENTILE_PCT,
+      protectedSharePct: PROTECTED_SHARE * 100,
+      protectedNotionalEur,
+      holdSessions: ECONOMIC_HORIZON_SESSIONS,
+      execution: 'NEXT_OPEN',
+      reentry: 'OPEN_AFTER_FIXED_20_SESSIONS',
+      cashBenchmark: 'HISTORICAL_ECB_DFR_FLOOR_0',
+      transactionCostsApplied: false
+    },
+    signals,
+    summary: {
+      signalCount: signals.length,
+      positiveProtectionSignals: benefits.filter(value => value > 0).length,
+      negativeProtectionSignals: benefits.filter(value => value < 0).length,
+      netGrossProtectedEur,
+      meanGrossProtectedEur: mean(benefits),
+      medianGrossProtectedEur: median(benefits),
+      bestGrossProtectedEur: benefits.length ? Math.max(...benefits) : null,
+      worstGrossProtectedEur: benefits.length ? Math.min(...benefits) : null,
+      breakEvenRoundTripCostBps: signals.length ? netGrossProtectedEur / (protectedNotionalEur * signals.length) * 10_000 : null
+    }
+  };
 }
 
 async function main() {
@@ -59,8 +150,6 @@ async function main() {
     registry.setDefaultProvider('yahoo_finance');
     HistoricalMarketDataService.setRegistry(registry);
 
-    // One shared historical scan and one diagnostic-data load for the whole batch.
-    // This avoids repeating the expensive seven-year warm-up for every validation period.
     const requestedFrom = yearsBefore(PERIODS[0].startDate, WARMUP_YEARS);
     const finalEndDate = PERIODS.at(-1)!.endDate;
     const scan = await AssetUniverseScanner.scan(EUR_ASSET_UNIVERSE, requestedFrom, finalEndDate, {
@@ -102,7 +191,8 @@ async function main() {
         medianLeadSessionsBeforePeak: forecast.medianLeadSessionsBeforePeak,
         metrics,
         episodes: forecast.episodeAudits,
-        anticipatedEpisodes: anticipated.length
+        anticipatedEpisodes: anticipated.length,
+        economicAudit: economicAudit({ coreAssetId: forecast.coreAssetId, sampledForecasts: forecast.sampledForecasts, dataset: scan.acceptedDataset })
       };
     });
 
@@ -113,6 +203,8 @@ async function main() {
     const controlCases = cases.filter(row => row.kind === 'CONTROL');
     const stressEpisodes = stressCases.flatMap(row => row.episodes);
     const controlHighRiskForecasts = controlCases.reduce((sum, row) => sum + row.metrics.reduce((s, metric) => s + metric.highRiskForecasts, 0), 0);
+    const economicSummaries = cases.flatMap(row => row.economicAudit.summary ? [row.economicAudit.summary] : []);
+    const economicNet = economicSummaries.map(summary => summary.netGrossProtectedEur);
 
     console.log('\nFORWARD_RISK_V31_VALIDATION_BATCH_RESULT');
     console.log(JSON.stringify({
@@ -135,17 +227,28 @@ async function main() {
         medianStressLeadSessions: median(stressEpisodes.flatMap(row => row.leadSessionsBeforePeak == null ? [] : [row.leadSessionsBeforePeak])),
         meanDirectAuc: mean(directAucs),
         meanHighRiskFalsePositivePct: mean(falsePositiveRates),
-        controlHighRiskForecasts
+        controlHighRiskForecasts,
+        economicCounterfactual: {
+          periodCount: economicSummaries.length,
+          periodsWithPositiveGrossProtection: economicNet.filter(value => value > 0).length,
+          periodsWithNegativeGrossProtection: economicNet.filter(value => value < 0).length,
+          totalGrossProtectedEur: economicNet.reduce((sum, value) => sum + value, 0),
+          meanPeriodGrossProtectedEur: mean(economicNet),
+          medianPeriodGrossProtectedEur: median(economicNet),
+          totalSignals: economicSummaries.reduce((sum, row) => sum + row.signalCount, 0)
+        }
       },
       decisionRule: {
         productionPromotionAllowed: false,
-        rationale: 'Research batch only. V3.1 remains isolated from Custodia regardless of result; promotion requires robust multi-period OOS evidence plus an economic counterfactual.'
+        rationale: 'Research batch only. V3.1 remains isolated from Custodia regardless of result. The economic counterfactual is diagnostic, sparse, gross of transaction costs and cannot override failed predictive robustness.'
       },
       notes: [
         'The V3.1 model and thresholds are frozen for this batch; no parameter is fitted to these periods.',
         'Stress and control periods are declared in code before outcomes are calculated.',
         'The expensive historical universe scan and VIX/VIX3M diagnostic load are shared across all cases.',
-        'The batch measures anticipation and false positives. Economic money-saved validation remains a separate required gate.',
+        'The economic counterfactual uses only the frozen sampled 20d V3.1 output: 25% of a 13,000 EUR research notional moves to historical ECB-floor cash for exactly 20 sessions at NEXT_OPEN.',
+        'Overlapping sampled protection windows are ignored. This avoids stacking repeated alarms and keeps the audit causal and conservative.',
+        'Transaction costs are not assumed. Each signal and period reports gross protection and break-even round-trip cost so the result is not tied to an invented broker tariff.',
         'No result from this script feeds live decisions, Custodia, or replay portfolio actions.'
       ]
     }, null, 2));
