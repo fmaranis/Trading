@@ -30,7 +30,8 @@ requireText(data, 'VIX_History.csv', 'V7_CBOE_VIX_SOURCE_MISSING');
 requireText(data, 'VIX9D_History.csv', 'V7_CBOE_VIX9D_SOURCE_MISSING');
 requireText(data, 'VVIX_History.csv', 'V7_CBOE_VVIX_SOURCE_MISSING');
 requireText(data, 'V7_CBOE_DATA_REQUIRED', 'V7_MUST_FAIL_CLOSED_WITHOUT_REAL_OPTIONS_DATA');
-forbidText(data, 'synthetic', 'V7_DATA_LOADER_MUST_NOT_IMPLEMENT_SYNTHETIC_FALLBACK');
+requireText(data, 'there is no synthetic fallback', 'V7_NO_SYNTHETIC_FALLBACK_MUST_BE_EXPLICIT');
+forbidText(data, "source: 'SYNTHETIC'", 'V7_DATA_MUST_NOT_DECLARE_SYNTHETIC_SOURCE');
 
 forbidText(worker, 'forwardRiskOptionsV7', 'V7_MUST_NOT_BE_WIRED_TO_REPLAY_WORKER');
 forbidText(worker, 'FORWARD_RISK_OPTIONS_V7', 'V7_MUST_NOT_AFFECT_PRODUCTIVE_REPLAY');
