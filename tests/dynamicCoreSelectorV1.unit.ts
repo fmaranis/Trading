@@ -66,6 +66,14 @@ function input(rows: Array<ReturnType<typeof candidate>>): PortfolioEvaluationIn
   } as unknown as PortfolioEvaluationInput;
 }
 
+function markHealth(scenario: PortfolioEvaluationInput, assetId: string, action: 'HOLD' | 'WATCH' | 'EXIT'): PortfolioEvaluationInput {
+  scenario.positionHealth = {
+    ...(scenario.positionHealth ?? {}),
+    [assetId]: { action } as any
+  };
+  return scenario;
+}
+
 function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisionResult {
   const existingPositions = existingCore ? [{
     id: existingCore,
@@ -103,6 +111,7 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   );
   assert.equal(selection.version, DYNAMIC_CORE_SELECTOR_V1);
   assert.equal(selection.selectedAssetId, 'EUNL');
+  assert.equal(selection.incumbentState, 'NONE');
   assert.equal(selection.reason, 'BEST_HEALTHY_CORE');
 }
 
@@ -125,6 +134,7 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   assert.equal(selection.selectedAssetId, 'EUNL');
   assert.equal(selection.reason, 'HEALTHY_INCUMBENT_INERTIA');
   assert.equal(selection.incumbentHealthy, true);
+  assert.equal(selection.incumbentState, 'HEALTHY');
 }
 
 // Missing evidence is never treated as proof of deterioration. Even with a
@@ -136,22 +146,38 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   const selection = selectDynamicCoreV1(scenario, result('EUNL'));
   assert.equal(selection.selectedAssetId, null);
   assert.equal(selection.incumbentHealthy, null);
+  assert.equal(selection.incumbentState, 'UNKNOWN');
   assert.equal(selection.reason, 'INCUMBENT_EVIDENCE_INSUFFICIENT');
 }
 
-// A genuinely unhealthy incumbent is not protected forever: the best healthy
-// broad-global alternative becomes the selected replacement.
+// Failing the fresh-money/cash gate is only DEGRADED. A healthy alternative does
+// not trigger a product switch unless independent position-health has reached EXIT.
 {
-  const selection = selectDynamicCoreV1(
-    input([candidate(vanguard, 30, true), candidate(eunl, -20, false)]),
-    result('EUNL')
-  );
+  const scenario = markHealth(input([candidate(vanguard, 30, true), candidate(eunl, -20, false)]), 'EUNL', 'WATCH');
+  const selection = selectDynamicCoreV1(scenario, result('EUNL'));
+  assert.equal(selection.selectedAssetId, null);
+  assert.equal(selection.incumbentHealthy, false);
+  assert.equal(selection.incumbentState, 'DEGRADED');
+  assert.equal(selection.reason, 'DEGRADED_INCUMBENT_HOLD');
+  const next = applyCoreArchitectureV1(scenario, result('EUNL'));
+  const incumbent = next.existingPositions.find(row => row.assetId === 'EUNL')!;
+  assert.equal(incumbent.action, 'HOLD');
+  assert.equal(next.contributions.length, 0);
+}
+
+// A genuinely BROKEN incumbent is not protected forever: when a healthy broad
+// global alternative exists it becomes the structural replacement.
+{
+  const scenario = markHealth(input([candidate(vanguard, 30, true), candidate(eunl, -20, false)]), 'EUNL', 'EXIT');
+  const selection = selectDynamicCoreV1(scenario, result('EUNL'));
   assert.equal(selection.selectedAssetId, 'FUND_VANGUARD_GLOBAL');
   assert.equal(selection.reason, 'REPLACE_UNHEALTHY_INCUMBENT');
   assert.equal(selection.incumbentHealthy, false);
+  assert.equal(selection.incumbentState, 'BROKEN');
 }
 
-// No healthy alternative means no forced default allocation.
+// If every broad-global core is unhealthy and there is no incumbent, no fixed
+// product is forced merely to keep money invested.
 {
   const selection = selectDynamicCoreV1(
     input([candidate(vanguard, -10, false), candidate(eunl, -20, false)]),
@@ -161,14 +187,30 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   assert.equal(selection.reason, 'NO_HEALTHY_CORE');
 }
 
+// If the incumbent itself is BROKEN and no healthy replacement exists, the safe
+// destination is remunerated cash rather than holding a broken core forever.
+{
+  const scenario = markHealth(input([candidate(vanguard, -10, false), candidate(eunl, -20, false)]), 'EUNL', 'EXIT');
+  const selection = selectDynamicCoreV1(scenario, result('EUNL'));
+  assert.equal(selection.selected, null);
+  assert.equal(selection.incumbentState, 'BROKEN');
+  assert.equal(selection.reason, 'BROKEN_INCUMBENT_TO_CASH');
+
+  const next = applyCoreArchitectureV1(scenario, result('EUNL'));
+  const incumbent = next.existingPositions.find(row => row.assetId === 'EUNL')!;
+  assert.equal(incumbent.action, 'EXIT');
+  assert.equal(incumbent.suggestedReductionPct, 100);
+  assert.equal(incumbent.rotationChallengerAssetId, null);
+  assert.match(incumbent.reason, /DYNAMIC_CORE_SELECTOR_V1:STRUCTURAL_CASH_EXIT/);
+  assert.equal(next.contributions.length, 0);
+}
+
 // Integration: structural transfer is explicit and atomic; it is not swallowed
 // by the short-term core protection layer.
 {
+  const scenario = markHealth(input([candidate(vanguard, 30, true), candidate(eunl, -20, false)]), 'EUNL', 'EXIT');
   const base = result('EUNL');
-  const next = applyCoreArchitectureV1(
-    input([candidate(vanguard, 30, true), candidate(eunl, -20, false)]),
-    base
-  );
+  const next = applyCoreArchitectureV1(scenario, base);
   const incumbent = next.existingPositions.find(row => row.assetId === 'EUNL')!;
   const replacement = next.contributions.find(row => row.assetId === 'FUND_VANGUARD_GLOBAL')!;
   assert.equal(incumbent.action, 'EXIT');
@@ -186,6 +228,7 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   assert.match(source, /result\.coreSelectionAudit\s*=\s*coreSelectionAudit/);
   assert.match(source, /auditCarrier\.auditExtensions\s*=\s*\{/);
   assert.match(source, /coreSelectionAudit:\s*coreSelectionAudit\.map/);
+  assert.match(source, /incumbentState:\s*selection\.incumbentState/);
 }
 
 console.log('dynamicCoreSelectorV1.unit: PASS');
