@@ -20,14 +20,14 @@ interface JobState {
 const MAX_OUTPUT_CHARS = 1_500_000;
 const JOBS: JobDefinition[] = [
   {
-    id: 'forward-risk-v8-vintage-safe',
-    name: 'Forward Risk V8 · confirmación macro vintage-safe',
-    description: 'Reconstruye V5 con FRED/ALFRED real-time periods y vuelve a comprobar V8 sobre EUNL y los seis benchmarks HOLDOUT sin reajustar thresholds. Requiere FRED_API_KEY; no usa Gemini ni GitHub Actions.',
-    marker: 'FORWARD_RISK_V8_VINTAGE_SAFE_RESULT',
+    id: 'forward-risk-v8-economic-gate',
+    name: 'Forward Risk V8 · gate económico causal',
+    description: 'Mide si la señal V8 vintage-safe genera beneficio económico real con una política congelada del 25% ejecutada NEXT_OPEN, efectivo BCE histórico, comisiones y fiscalidad existentes. EUNL + seis HOLDOUT. Requiere FRED_API_KEY; no usa Gemini ni GitHub Actions.',
+    marker: 'FORWARD_RISK_V8_ECONOMIC_RESULT',
     steps: [
-      { label: 'Guard V8 vintage-safe', command: 'npx', args: ['tsx', 'tests/forwardRiskV8VintageSafe.unit.ts'] },
+      { label: 'Guard V8 económico', command: 'npx', args: ['tsx', 'tests/forwardRiskV8EconomicGate.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'V8 con macro ALFRED point-in-time', command: 'npx', args: ['tsx', 'scripts/forwardRiskV8VintageSafeLive.ts'] }
+      { label: 'V8 contrafactual económico NEXT_OPEN', command: 'npx', args: ['tsx', 'scripts/forwardRiskV8EconomicGateLive.ts'] }
     ]
   }
 ];
