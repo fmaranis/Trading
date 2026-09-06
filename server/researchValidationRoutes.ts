@@ -20,14 +20,14 @@ interface JobState {
 const MAX_OUTPUT_CHARS = 1_500_000;
 const JOBS: JobDefinition[] = [
   {
-    id: 'forward-risk-v8-transfer',
-    name: 'Forward Risk V8 · confirmación en benchmarks holdout',
-    description: 'Transfiere la señal congelada V5>=80 OR V7>=80 a seis benchmarks global-equity HOLDOUT que no generan la señal. No reajusta thresholds, no usa Gemini y no usa GitHub Actions.',
-    marker: 'FORWARD_RISK_V8_BENCHMARK_TRANSFER_RESULT',
+    id: 'forward-risk-v8-vintage-safe',
+    name: 'Forward Risk V8 · confirmación macro vintage-safe',
+    description: 'Reconstruye V5 con FRED/ALFRED real-time periods y vuelve a comprobar V8 sobre EUNL y los seis benchmarks HOLDOUT sin reajustar thresholds. Requiere FRED_API_KEY; no usa Gemini ni GitHub Actions.',
+    marker: 'FORWARD_RISK_V8_VINTAGE_SAFE_RESULT',
     steps: [
-      { label: 'Guard transferencia V8', command: 'npx', args: ['tsx', 'tests/forwardRiskV8BenchmarkTransfer.unit.ts'] },
+      { label: 'Guard V8 vintage-safe', command: 'npx', args: ['tsx', 'tests/forwardRiskV8VintageSafe.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Transferencia V8 a benchmarks holdout', command: 'npx', args: ['tsx', 'scripts/forwardRiskV8BenchmarkTransferLive.ts'] }
+      { label: 'V8 con macro ALFRED point-in-time', command: 'npx', args: ['tsx', 'scripts/forwardRiskV8VintageSafeLive.ts'] }
     ]
   }
 ];
