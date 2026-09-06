@@ -210,12 +210,14 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
 // cancelled. The motor stays invested and does not create a cash-exit plan.
 {
   const scenario = markHealth(input([candidate(vanguard, -20, false), candidate(eunl, -10, false)]), 'EUNL', 'EXIT');
-  const selection = selectDynamicCoreV1(scenario, result('EUNL'));
+  const base = result('EUNL');
+  base.existingPositions[0].action = 'EXIT';
+  const selection = selectDynamicCoreV1(scenario, base);
   assert.equal(selection.selectedAssetId, null);
   assert.equal(selection.incumbentState, 'BROKEN');
   assert.equal(selection.reason, 'DEGRADED_INCUMBENT_HOLD');
 
-  const next = applyCoreArchitectureV1(scenario, result('EUNL'));
+  const next = applyCoreArchitectureV1(scenario, base);
   const incumbent = next.existingPositions.find(row => row.assetId === 'EUNL')!;
   assert.equal(incumbent.action, 'HOLD');
   assert.equal(incumbent.rotationChallengerAssetId, null);
