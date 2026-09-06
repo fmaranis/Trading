@@ -16,9 +16,34 @@
 
 ---
 
-# Estado vigente — 2026-09-04
+# Estado vigente — 2026-09-06
 
-Pregunta central: **¿Muevo dinero hoy o no?**
+## Investigación predictiva de caídas — estado activo
+
+Objetivo de esta línea: **anticipar deterioros antes de la caída**, no reaccionar cuando la pérdida ya se ha producido. La validación debe medir anticipación en sesiones, falsos positivos, precisión y finalmente valor económico protegido.
+
+- `FORWARD_RISK_FORECAST_V3_1` es investigación aislada; no alimenta Custodia, sizing, BUY/ADD/REDUCE/EXIT ni el replay productivo.
+- V3.1 mantiene congelada la señal 5d de V3 y estudia 20d mediante deterioro persistente y 60d mediante fragilidad silenciosa cerca de máximos.
+- Entrenamiento walk-forward causal: sólo etiquetas ya maduras; ejecución diagnóstica a fecha posterior; sin inversión automática de scores.
+- Los replays de 12 meses que devolvían `0 forecasts` no demostraban fallo predictivo: el replay sólo precargaba 3 años y V3.1 necesita aproximadamente 312 sesiones para construir features + 504 observaciones mínimas de entrenamiento + hasta 60 sesiones para madurar etiquetas.
+- Desde 2026-09-06 el worker carga, sólo al terminar el replay, hasta 5 años de warm-up adicional para Forward Risk. Ese dataset se crea **después de terminar el baseline** y nunca entra en `replayInput`; el JSON registra `forwardRiskResearchData` con rango solicitado/real y `isolatedFromReplayDecisions: true`.
+- El universo de investigación se limita a los activos ya aceptados por el replay; el warm-up no introduce candidatos nuevos en las decisiones históricas.
+- Protección de arquitectura: `tests/forwardRiskForecastV31.unit.ts` exige que el warm-up de investigación ocurra después del baseline y prohíbe usar `forwardRiskDataset` como entrada del replay.
+- Commits de esta corrección: `8014ed70cc05339984f1fce7467d3ffb3bf43494` + `780acd38a62a0d604149379893d0a9c40abbd23b`.
+
+### Regresión COVID usada durante el diagnóstico
+
+Ventana técnica 2019-09 → 2020-08:
+- una versión intermedia con salida reactiva tardía terminó en -10,408832%;
+- tras eliminar esa salida reactiva, el motor volvió a +7,041594%;
+- buy&hold exacto: +7,515348%;
+- drawdown del motor: 30,022532% frente a 33,757218% del core estructural.
+
+Conclusión vigente: **eliminar la salida tardía fue correcto**. El problema pendiente ya no es salir después del desplome, sino demostrar una señal causal útil **antes del máximo previo a la caída**.
+
+El antiguo `OPPORTUNITY_THRESHOLD_RESEARCH` / walk-forward de umbrales permanece como investigación secundaria y no se promociona: su muestra OOS era insuficiente y no debe desviar la investigación del predictor de riesgo adelantado.
+
+Pregunta central del producto: **¿Muevo dinero hoy o no?**
 
 Arquitectura financiera vigente:
 1. DÓNDE — ranking/calidad/consenso.
@@ -189,7 +214,7 @@ Versiones fijadas:
 - `tests/privateUserSecurity.unit.ts` PASS antes del cambio de persistencia de alertas;
 - `npm run build` PASS.
 
-Tras el cambio de persistencia de alertas debe repetirse sólo el gate dirigido de seguridad, lint y build; no ejecutar replay financiero.
+Tras el cambio de persistencia de alertas debe repetirse sólo el gate dirigido de seguridad, lint y build; no ejecutar replay financiero por ese bloque.
 
 ---
 
@@ -200,16 +225,26 @@ Tras el cambio de persistencia de alertas debe repetirse sólo el gate dirigido 
    - `npx tsx tests/privateUserSecurity.unit.ts`
    - `npm run lint`
    - `npm run build`
-3. No ejecutar replay por este bloque.
-4. Desplegar `firestore.rules` en el proyecto Firebase real.
-5. Probar fallo de carga privada y confirmar fail-closed si no se hizo de forma explícita.
-6. Desplegar preproducción en Cloud Run con los secretos del entorno.
-7. Verificar `/api/alerts/status` → `persistence: FIRESTORE`.
-8. Configurar Cloud Scheduler y forzar una ejecución manual controlada antes de dejar la programación activa.
-9. Mantener `ALERT_AUTOMATION_ENABLED=false` cuando Cloud Scheduler controle la cadencia.
+3. Desplegar `firestore.rules` en el proyecto Firebase real.
+4. Probar fallo de carga privada y confirmar fail-closed si no se hizo de forma explícita.
+5. Desplegar preproducción en Cloud Run con los secretos del entorno.
+6. Verificar `/api/alerts/status` → `persistence: FIRESTORE`.
+7. Configurar Cloud Scheduler y forzar una ejecución manual controlada antes de dejar la programación activa.
+8. Mantener `ALERT_AUTOMATION_ENABLED=false` cuando Cloud Scheduler controle la cadencia.
+
+Estos gates de despliegue son independientes de la investigación Forward Risk y no deben mezclarse con ella.
 
 ---
 
-# Próxima acción
+# Próxima acción de investigación
 
-Sincronizar `main` y ejecutar únicamente los tres gates dirigidos (`privateUserSecurity`, `lint`, `build`). Si pasan, desplegar las reglas Firestore y preparar Cloud Run/Cloud Scheduler. No modificar el motor financiero ni ejecutar replays.
+1. Sincronizar `main` al HEAD que contiene el warm-up aislado.
+2. Ejecutar primero sólo:
+   - `npm run test:forward-risk-forecast-v31`
+   - `npm run lint`
+3. Si ambos pasan, repetir la ventana técnica 2019-09 → 2020-08 para comprobar simultáneamente:
+   - que el resultado de Custodia permanece aproximadamente en la regresión ya observada (+7,041594%, salvo diferencias explicables de datos);
+   - que `forwardRiskResearchData.isolatedFromReplayDecisions === true`;
+   - que V3.1 deja de devolver `0 forecasts` y produce métricas/episodios evaluables.
+4. Sólo después usar la prueba larga 2016-09 → 2026-09 para valorar anticipación OOS, falsos positivos y estabilidad entre crisis.
+5. No conectar V3.1 a decisiones reales hasta demostrar evidencia predictiva y valor económico neto.
