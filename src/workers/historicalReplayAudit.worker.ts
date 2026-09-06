@@ -1,3 +1,4 @@
+import { AssetUniverseScanner } from '../investment/decision/assetUniverseScanner';
 import { loadForwardRiskDiagnosticData } from '../investment/decision/forwardRiskDiagnosticData';
 import { runForwardRiskForecastV1 } from '../investment/decision/forwardRiskForecast';
 import { runForwardRiskForecastV2 } from '../investment/decision/forwardRiskForecastV2';
@@ -48,6 +49,7 @@ const workerScope = self as unknown as WorkerScope;
 // Production/replay baseline remains structural-core V1. Forward-risk V1/V2/V3/V3.1
 // are research diagnostics only and never feed live or replay portfolio decisions.
 const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1' as const;
+const FORWARD_RISK_RESEARCH_WARMUP_YEARS = 5;
 const MATERIAL_ACTIONS = new Set(['BUY', 'ADD', 'REDUCE', 'EXIT']);
 const AUDIT_BROADCAST_CHANNEL = 'historical-replay-audit-v3';
 const auditChannel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(AUDIT_BROADCAST_CHANNEL);
@@ -70,6 +72,15 @@ function latestDatasetDate(dataset: MultiAssetDataset): string | null {
 function earliestDatasetDate(dataset: MultiAssetDataset): string | null {
   const dates = dataset.assets.flatMap(asset => asset.bars.slice(0, 1).map(bar => bar.timestamp.slice(0, 10))).sort();
   return dates[0] ?? null;
+}
+function yearsBefore(date: string, years: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCFullYear(d.getUTCFullYear() - years);
+  return d.toISOString().slice(0, 10);
+}
+function needsEarlierHistory(dataset: MultiAssetDataset, requestedFrom: string): boolean {
+  const actualFrom = earliestDatasetDate(dataset);
+  return actualFrom == null || actualFrom > requestedFrom;
 }
 function effectiveSeededStartDate(dataset: MultiAssetDataset, requestedStartDate: string, portfolio?: DynamicReplayInitialPortfolio): string {
   if (!portfolio?.allocations.length) return requestedStartDate;
@@ -142,6 +153,8 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
   }
 
   try {
+    // The baseline always uses only the dataset supplied by the replay UI. Research
+    // history is loaded later and never enters Custodia or the replay decisions.
     const dataset = truncateDataset(sourceDataset, message.endDate);
     const input = replayInput(dataset);
     const baseline = runDynamicReplayWithRotationExperiment(input, REPLAY_ROTATION_EXPERIMENT);
@@ -149,15 +162,44 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
 
     const finalSourceDate = latestDatasetDate(sourceDataset);
     const isFinalChunk = finalSourceDate != null && message.endDate >= finalSourceDate;
+    const shouldRunForwardRisk = isFinalChunk && input.simulationMode === 'CUSTODIA_ENGINE' && !configuration.initialPortfolio;
+
+    let forwardRiskDataset = dataset;
+    const forwardRiskRequestedFrom = shouldRunForwardRisk ? yearsBefore(input.startDate, FORWARD_RISK_RESEARCH_WARMUP_YEARS) : null;
+    if (shouldRunForwardRisk && forwardRiskRequestedFrom && needsEarlierHistory(forwardRiskDataset, forwardRiskRequestedFrom)) {
+      // Preserve the same currently accepted investable universe. The extra fetch
+      // exists only to give the forecasters enough pre-start observations; it does
+      // not rescan new candidates into the historical replay.
+      const sourceAssetIds = new Set(sourceDataset.assets.map(asset => asset.assetId));
+      const researchCatalog = configuration.catalog.filter(asset => sourceAssetIds.has(asset.assetId));
+      const researchScan = await AssetUniverseScanner.scan(researchCatalog, forwardRiskRequestedFrom, result.endDate, {
+        forceRefresh: false,
+        concurrency: 3,
+        maxSelected: 12,
+        minimumBars: 252,
+        maxDataAgeDays: 7
+      });
+      forwardRiskDataset = researchScan.acceptedDataset;
+    }
+
+    const forwardRiskActualFrom = earliestDatasetDate(forwardRiskDataset);
+    const forwardRiskResearchData = shouldRunForwardRisk ? {
+      warmupYears: FORWARD_RISK_RESEARCH_WARMUP_YEARS,
+      requestedFrom: forwardRiskRequestedFrom,
+      actualFrom: forwardRiskActualFrom,
+      baselineFrom: earliestDatasetDate(dataset),
+      assetCount: forwardRiskDataset.assets.length,
+      isolatedFromReplayDecisions: true
+    } : null;
+
     let diagnosticDataset = sourceDiagnosticDataset;
-    if (isFinalChunk && !diagnosticDataset && input.simulationMode === 'CUSTODIA_ENGINE' && !configuration.initialPortfolio) {
-      const diagnosticFrom = earliestDatasetDate(dataset) ?? input.startDate;
+    const diagnosticFrom = forwardRiskRequestedFrom ?? forwardRiskActualFrom ?? input.startDate;
+    if (shouldRunForwardRisk && (!diagnosticDataset || needsEarlierHistory(diagnosticDataset, diagnosticFrom))) {
       const loaded = await loadForwardRiskDiagnosticData(diagnosticFrom, result.endDate);
       diagnosticDataset = loaded.dataset; sourceDiagnosticDataset = loaded.dataset;
     }
     const diagnosticSlice = diagnosticDataset ? truncateDataset(diagnosticDataset, message.endDate) : undefined;
-    const shouldRunForwardRisk = isFinalChunk && input.simulationMode === 'CUSTODIA_ENGINE' && !configuration.initialPortfolio;
-    const common = { dataset, diagnosticDataset: diagnosticSlice, catalog: configuration.catalog, startDate: input.startDate, endDate: result.endDate };
+    const common = { dataset: forwardRiskDataset, diagnosticDataset: diagnosticSlice, catalog: configuration.catalog, startDate: input.startDate, endDate: result.endDate };
     const forwardRiskForecast = shouldRunForwardRisk ? runForwardRiskForecastV1({ ...common, initialCapitalEur: input.initialCapitalEur, cashBenchmarkMode: input.cashBenchmarkMode, cashBenchmarkAnnualPct: input.cashBenchmarkAnnualPct }) : null;
     const forwardRiskForecastV2 = shouldRunForwardRisk ? runForwardRiskForecastV2(common) : null;
     const forwardRiskForecastV3 = shouldRunForwardRisk ? runForwardRiskForecastV3(common) : null;
@@ -184,6 +226,7 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
     if (auditCarrier) {
       auditCarrier.auditExtensions = {
         ...(auditCarrier.auditExtensions ?? {}), structuralCoreBenchmark,
+        ...(forwardRiskResearchData ? { forwardRiskResearchData } : {}),
         ...(forwardRiskForecast ? { forwardRiskForecastV1: forwardRiskForecast } : {}),
         ...(forwardRiskForecastV2 ? { forwardRiskForecastV2 } : {}),
         ...(forwardRiskForecastV3 ? { forwardRiskForecastV3 } : {}),
@@ -192,6 +235,7 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
       };
     }
     auditChannel?.postMessage({ type: 'STRUCTURAL_CORE_BENCHMARK', benchmark: structuralCoreBenchmark });
+    if (forwardRiskResearchData) auditChannel?.postMessage({ type: 'FORWARD_RISK_RESEARCH_DATA', data: forwardRiskResearchData });
     if (forwardRiskForecast) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V1', forecast: forwardRiskForecast });
     if (forwardRiskForecastV2) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V2', forecast: forwardRiskForecastV2 });
     if (forwardRiskForecastV3) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V3', forecast: forwardRiskForecastV3 });
@@ -200,6 +244,7 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
     workerScope.postMessage({
       type: 'RESULT', requestedEndDate: message.endDate, result,
       rotationExperiment: REPLAY_ROTATION_EXPERIMENT, trendProtectionV2Counterfactual: false,
+      forwardRiskResearchData,
       forwardRiskForecastV1: forwardRiskForecast, forwardRiskForecastV2, forwardRiskForecastV3, forwardRiskForecastV31,
       fullSignalCount, retainedSignalCount: result.signals.length
     });
