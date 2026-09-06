@@ -59,7 +59,7 @@ function economicAudit(input: {
   coreAssetId: string | null;
   periodEndDate: string;
   sampledForecasts: Array<{ executionDate: string; nearTermRiskPercentilePct: number }>;
-  dataset: typeof AssetUniverseScanner extends never ? never : any;
+  dataset: any;
 }) {
   if (!input.coreAssetId) return { status: 'NO_CORE', signals: [], summary: null };
   const core = input.dataset.assets.find((asset: any) => asset.assetId === input.coreAssetId);
@@ -131,6 +131,31 @@ function economicAudit(input: {
       breakEvenRoundTripCostBps: signals.length ? netGrossProtectedEur / (protectedNotionalEur * signals.length) * 10_000 : null
     }
   };
+}
+
+function buildEconomicAggregate(cases: Array<any>) {
+  const sourcePeriodNets = cases.map(row => ({
+    id: row.id,
+    netGrossProtectedEur: row.economicAudit.summary?.netGrossProtectedEur ?? null,
+    signalCount: row.economicAudit.summary?.signalCount ?? 0
+  }));
+  const usable = sourcePeriodNets.filter(row => row.netGrossProtectedEur != null) as Array<{ id: string; netGrossProtectedEur: number; signalCount: number }>;
+  const values = usable.map(row => row.netGrossProtectedEur);
+  const aggregate = {
+    periodCount: usable.length,
+    periodsWithPositiveGrossProtection: values.filter(value => value > 0).length,
+    periodsWithNegativeGrossProtection: values.filter(value => value < 0).length,
+    totalGrossProtectedEur: values.reduce((sum, value) => sum + value, 0),
+    meanPeriodGrossProtectedEur: mean(values),
+    medianPeriodGrossProtectedEur: median(values),
+    totalSignals: usable.reduce((sum, row) => sum + row.signalCount, 0),
+    sourcePeriodNets
+  };
+  const directSignalTotal = cases.reduce((sum, row) => sum + row.economicAudit.signals.reduce((s: number, signal: any) => s + Number(signal.grossProtectedEur), 0), 0);
+  if (Math.abs(directSignalTotal - aggregate.totalGrossProtectedEur) > 1e-8) {
+    throw new Error(`ECONOMIC_AGGREGATE_INCONSISTENT:${directSignalTotal}:${aggregate.totalGrossProtectedEur}`);
+  }
+  return aggregate;
 }
 
 async function main() {
@@ -211,8 +236,7 @@ async function main() {
     const controlCases = cases.filter(row => row.kind === 'CONTROL');
     const stressEpisodes = stressCases.flatMap(row => row.episodes);
     const controlHighRiskForecasts = controlCases.reduce((sum, row) => sum + row.metrics.reduce((s, metric) => s + metric.highRiskForecasts, 0), 0);
-    const economicSummaries = cases.flatMap(row => row.economicAudit.summary ? [row.economicAudit.summary] : []);
-    const economicNet = economicSummaries.map(summary => summary.netGrossProtectedEur);
+    const economicCounterfactual = buildEconomicAggregate(cases);
 
     console.log('\nFORWARD_RISK_V31_VALIDATION_BATCH_RESULT');
     console.log(JSON.stringify({
@@ -236,15 +260,7 @@ async function main() {
         meanDirectAuc: mean(directAucs),
         meanHighRiskFalsePositivePct: mean(falsePositiveRates),
         controlHighRiskForecasts,
-        economicCounterfactual: {
-          periodCount: economicSummaries.length,
-          periodsWithPositiveGrossProtection: economicNet.filter(value => value > 0).length,
-          periodsWithNegativeGrossProtection: economicNet.filter(value => value < 0).length,
-          totalGrossProtectedEur: economicNet.reduce((sum, value) => sum + value, 0),
-          meanPeriodGrossProtectedEur: mean(economicNet),
-          medianPeriodGrossProtectedEur: median(economicNet),
-          totalSignals: economicSummaries.reduce((sum, row) => sum + row.signalCount, 0)
-        }
+        economicCounterfactual
       },
       decisionRule: {
         productionPromotionAllowed: false,
@@ -257,6 +273,7 @@ async function main() {
         'The economic counterfactual uses only the frozen sampled 20d V3.1 output: 25% of a 13,000 EUR research notional moves to historical ECB-floor cash for exactly 20 sessions at NEXT_OPEN.',
         'Every protection cycle must end inside its declared validation period; no economic result can borrow future sessions from the following period.',
         'Overlapping sampled protection windows are ignored. This avoids stacking repeated alarms and keeps the audit causal and conservative.',
+        'The aggregate is rebuilt from the exact per-period economic summaries and cross-checked against the sum of every serialized signal. Any mismatch aborts the run with ECONOMIC_AGGREGATE_INCONSISTENT.',
         'Transaction costs are not assumed. Each signal and period reports gross protection and break-even round-trip cost so the result is not tied to an invented broker tariff.',
         'No result from this script feeds live decisions, Custodia, or replay portfolio actions.'
       ]
