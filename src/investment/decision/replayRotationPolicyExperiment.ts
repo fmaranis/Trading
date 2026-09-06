@@ -14,7 +14,7 @@ import {
   type CoreGateV1Counters,
   type PortfolioEvaluationInput
 } from './portfolioCoreGatePolicy';
-import { selectDynamicCoreV1, type DynamicCoreCandidateScore } from './dynamicCoreSelector';
+import { selectDynamicCoreV1, type DynamicCoreCandidateScore, type DynamicCoreIncumbentState, type DynamicCoreSelectionReason } from './dynamicCoreSelector';
 import { PortfolioDecisionEngine } from './portfolioDecisionEngine';
 
 export type ReplayRotationExperiment = 'BASELINE' | 'CORE_GATE_V1' | 'CORE_ARCHITECTURE_V1' | 'CORE_ALPHA_V2';
@@ -27,7 +27,8 @@ export interface ReplayDynamicCoreSelectionAuditEntry {
   selectedTicker: string | null;
   incumbentAssetId: string | null;
   incumbentHealthy: boolean | null;
-  reason: 'HEALTHY_INCUMBENT_INERTIA' | 'BEST_HEALTHY_CORE' | 'REPLACE_UNHEALTHY_INCUMBENT' | 'INCUMBENT_EVIDENCE_INSUFFICIENT' | 'NO_HEALTHY_CORE';
+  incumbentState: DynamicCoreIncumbentState;
+  reason: DynamicCoreSelectionReason;
   candidates: DynamicCoreCandidateScore[];
 }
 
@@ -85,6 +86,7 @@ export function runDynamicReplayWithRotationExperiment(
         selectedTicker: selection.selected?.asset.ticker ?? null,
         incumbentAssetId: selection.incumbentAssetId,
         incumbentHealthy: selection.incumbentHealthy,
+        incumbentState: selection.incumbentState,
         reason: selection.reason,
         candidates: selection.candidateScores.map(candidate => ({ ...candidate }))
       });
@@ -135,8 +137,8 @@ export function runDynamicReplayWithRotationExperiment(
       const limits = CORE_ARCHITECTURE_V1_LIMITS[input.riskProfile];
       result.notes.push(
         `CORE_ARCHITECTURE_V1: core-sales tácticas protegidas ${architectureCounters.protectedCoreSales}, contribuciones no-core limitadas ${architectureCounters.cappedNonCoreContributions}, ventas devueltas a core ${architectureCounters.salesReturnedToCore}, top-ups de core ${architectureCounters.coreTopUps}.`,
-        `Guardrails ${input.riskProfile}: no-core máximo ${(limits.maximumNonCoreShare * 100).toFixed(0)}%, cash operativo ${(limits.operationalCashReserveShare * 100).toFixed(0)}%. El core global no recibe EXIT táctico y el cash residual vuelve al core sano seleccionado causalmente.`,
-        `Auditoría ${experiment}: ${coreSelectionAudit.length} decisiones de core exportadas en coreSelectionAudit con candidato elegido, incumbent, motivo y scores comparativos. Ninguna prioridad fija de producto participa en la selección productiva.`
+        `Guardrails ${input.riskProfile}: no-core máximo ${(limits.maximumNonCoreShare * 100).toFixed(0)}%, cash operativo ${(limits.operationalCashReserveShare * 100).toFixed(0)}%. Core HEALTHY se mantiene; DEGRADED no recibe dinero nuevo; BROKEN se sustituye por un core sano o pasa a cash si ninguno existe.`,
+        `Auditoría ${experiment}: ${coreSelectionAudit.length} decisiones de core exportadas en coreSelectionAudit con candidato elegido, estado incumbent, motivo y scores comparativos. Ninguna prioridad fija de producto participa en la selección productiva.`
       );
     }
 
