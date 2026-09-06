@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { getAlertAutomationStatus, runDailyOpportunityCheck } from './alertAutomation';
 import { accountRouter } from './accountRoutes';
 import { researchValidationRouter } from './researchValidationRoutes';
+import { assetDiscoveryRouter } from './assetDiscoveryRoutes';
 
 export const alertAutomationRouter = express.Router();
 
@@ -9,10 +10,12 @@ export const alertAutomationRouter = express.Router();
 // product layer is introduced. Public path: /api/alerts/account/*.
 alertAutomationRouter.use('/account', accountRouter);
 
-// Research execution is a fixed allowlist of local Node/TypeScript jobs. It never
-// accepts an arbitrary shell command and does not call Gemini or another AI API.
-// Public path: /api/alerts/research-validation/*.
+// Fixed local research jobs: no arbitrary shell command and no AI API.
 alertAutomationRouter.use('/research-validation', researchValidationRouter);
+
+// Open Yahoo discovery used by replay/research when an asset is not present in
+// the curated production catalogue. It only returns EUR instruments as usable.
+alertAutomationRouter.use('/asset-discovery', assetDiscoveryRouter);
 
 alertAutomationRouter.get('/status', async (_req: Request, res: Response): Promise<void> => {
   try {
