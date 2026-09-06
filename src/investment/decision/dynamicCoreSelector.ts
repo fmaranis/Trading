@@ -8,9 +8,13 @@ export const DYNAMIC_CORE_SELECTOR_V1 = 'DYNAMIC_CORE_SELECTOR_V1' as const;
 export type DynamicCoreSelectionReason =
   | 'HEALTHY_INCUMBENT_INERTIA'
   | 'INCUMBENT_EVIDENCE_INSUFFICIENT'
+  | 'DEGRADED_INCUMBENT_HOLD'
   | 'BEST_HEALTHY_CORE'
   | 'REPLACE_UNHEALTHY_INCUMBENT'
+  | 'BROKEN_INCUMBENT_TO_CASH'
   | 'NO_HEALTHY_CORE';
+
+export type DynamicCoreIncumbentState = 'NONE' | 'HEALTHY' | 'DEGRADED' | 'BROKEN' | 'UNKNOWN';
 
 type PortfolioEvaluationInput = Parameters<typeof PortfolioDecisionEngine.evaluate>[0];
 type ScanCandidate = PortfolioEvaluationInput['scan']['candidates'][number];
@@ -36,6 +40,7 @@ export interface DynamicCoreSelectionV1 {
   selectedAssetId: string | null;
   incumbentAssetId: string | null;
   incumbentHealthy: boolean | null;
+  incumbentState: DynamicCoreIncumbentState;
   reason: DynamicCoreSelectionReason;
   candidateScores: DynamicCoreCandidateScore[];
 }
@@ -53,6 +58,17 @@ function currentCoreValues(result: PortfolioDecisionResult): Map<string, number>
     values.set(assetId, (values.get(assetId) ?? 0) + Math.max(0, position.currentValueEur ?? 0));
   }
   return values;
+}
+
+function healthActionFor(input: PortfolioEvaluationInput, assetId: string): string | null {
+  const map = input.positionHealth ?? {};
+  const normalized = assetId.toUpperCase();
+  const direct = map[assetId] ?? map[normalized];
+  if (direct?.action) return direct.action;
+  for (const [key, value] of Object.entries(map)) {
+    if (key.toUpperCase() === normalized && value?.action) return value.action;
+  }
+  return null;
 }
 
 function scoreCandidate(
@@ -105,19 +121,16 @@ function scoreCandidate(
 /**
  * Causal selector for the structural global core.
  *
- * Rules:
- * - only broad products explicitly classified as STRATEGIC_GROWTH_CORE compete;
- * - no hard-coded product priority decides the winner;
- * - a currently-held healthy core is retained (inertia, no performance chasing);
- * - missing/insufficient evidence about the incumbent can never authorize a
- *   structural transfer: unknown is not the same thing as unhealthy;
- * - only when the incumbent is positively evidenced as unhealthy is the best
- *   healthy broad-global alternative allowed to replace it;
- * - if no healthy core exists, returns null so new money is not forced into a
- *   known-unhealthy/default product.
+ * The incumbent has three economically different states:
+ * - HEALTHY: eligible for new money and retained by inertia;
+ * - DEGRADED: not eligible for fresh core money, but not sold merely because it
+ *   temporarily lags cash or another broad index;
+ * - BROKEN: position-health has independently reached EXIT. Only then may the
+ *   structural core be replaced, or moved to cash if no healthy global core exists.
  *
- * The selector reads only the scan/portfolio state supplied for the current
- * decision date. It does not inspect future returns or replay outcomes.
+ * Missing evidence is UNKNOWN and can never authorize a sale. New core selection
+ * and replacement use only data available on the current decision date; no fixed
+ * Vanguard/EUNL product priority and no future return enter this function.
  */
 export function selectDynamicCoreV1(
   input: PortfolioEvaluationInput,
@@ -140,48 +153,69 @@ export function selectDynamicCoreV1(
   const incumbentAssetId = incumbentEntries[0]?.[0] ?? null;
   const incumbentScore = incumbentAssetId ? scoreById.get(incumbentAssetId) ?? null : null;
 
-  // Inertia is deliberate: a healthy core is not replaced simply because a
-  // competitor has recently scored a little better.
-  const healthyHeld = incumbentEntries
-    .map(([assetId]) => ({ assetId, score: scoreById.get(assetId) ?? null }))
-    .filter((row): row is { assetId: string; score: DynamicCoreCandidateScore } => row.score?.healthy === true);
-
-  if (healthyHeld.length) {
-    const selectedId = healthyHeld[0].assetId;
-    const selected = candidates.find(candidate => candidate.asset.assetId.toUpperCase() === selectedId) ?? null;
-    return {
-      version: DYNAMIC_CORE_SELECTOR_V1,
-      selected,
-      selectedAssetId: selected?.asset.assetId ?? null,
-      incumbentAssetId,
-      incumbentHealthy: incumbentScore?.healthy ?? null,
-      reason: 'HEALTHY_INCUMBENT_INERTIA',
-      candidateScores
-    };
-  }
-
-  // Critical safety rule: a missing series, incomplete consensus or any other
-  // evidence gap cannot be interpreted as proof that the incumbent is bad.
-  if (incumbentAssetId && (!incumbentScore || !incumbentScore.evidenceSufficient)) {
-    return {
-      version: DYNAMIC_CORE_SELECTOR_V1,
-      selected: null,
-      selectedAssetId: null,
-      incumbentAssetId,
-      incumbentHealthy: null,
-      reason: 'INCUMBENT_EVIDENCE_INSUFFICIENT',
-      candidateScores
-    };
-  }
-
   const healthyAlternatives = candidates
     .map(candidate => ({ candidate, score: scoreById.get(candidate.asset.assetId.toUpperCase())! }))
     .filter(row => row.score.healthy)
     .sort((a, b) => (b.score.compositeScore ?? -Infinity) - (a.score.compositeScore ?? -Infinity)
       || (b.score.consensusScore ?? -Infinity) - (a.score.consensusScore ?? -Infinity)
       || a.candidate.asset.assetId.localeCompare(b.candidate.asset.assetId));
-
   const best = healthyAlternatives[0]?.candidate ?? null;
+
+  if (!incumbentAssetId) {
+    return {
+      version: DYNAMIC_CORE_SELECTOR_V1,
+      selected: best,
+      selectedAssetId: best?.asset.assetId ?? null,
+      incumbentAssetId: null,
+      incumbentHealthy: null,
+      incumbentState: 'NONE',
+      reason: best ? 'BEST_HEALTHY_CORE' : 'NO_HEALTHY_CORE',
+      candidateScores
+    };
+  }
+
+  if (!incumbentScore || !incumbentScore.evidenceSufficient) {
+    return {
+      version: DYNAMIC_CORE_SELECTOR_V1,
+      selected: null,
+      selectedAssetId: null,
+      incumbentAssetId,
+      incumbentHealthy: null,
+      incumbentState: 'UNKNOWN',
+      reason: 'INCUMBENT_EVIDENCE_INSUFFICIENT',
+      candidateScores
+    };
+  }
+
+  if (incumbentScore.healthy) {
+    const selected = candidates.find(candidate => candidate.asset.assetId.toUpperCase() === incumbentAssetId) ?? null;
+    return {
+      version: DYNAMIC_CORE_SELECTOR_V1,
+      selected,
+      selectedAssetId: selected?.asset.assetId ?? null,
+      incumbentAssetId,
+      incumbentHealthy: true,
+      incumbentState: 'HEALTHY',
+      reason: 'HEALTHY_INCUMBENT_INERTIA',
+      candidateScores
+    };
+  }
+
+  // A core that merely fails the new-money/cash gate is degraded, not broken.
+  // This explicitly prevents a broad-index switch caused by one weak period.
+  const broken = healthActionFor(input, incumbentAssetId) === 'EXIT';
+  if (!broken) {
+    return {
+      version: DYNAMIC_CORE_SELECTOR_V1,
+      selected: null,
+      selectedAssetId: null,
+      incumbentAssetId,
+      incumbentHealthy: false,
+      incumbentState: 'DEGRADED',
+      reason: 'DEGRADED_INCUMBENT_HOLD',
+      candidateScores
+    };
+  }
 
   if (!best) {
     return {
@@ -189,8 +223,9 @@ export function selectDynamicCoreV1(
       selected: null,
       selectedAssetId: null,
       incumbentAssetId,
-      incumbentHealthy: incumbentScore?.healthy ?? null,
-      reason: 'NO_HEALTHY_CORE',
+      incumbentHealthy: false,
+      incumbentState: 'BROKEN',
+      reason: 'BROKEN_INCUMBENT_TO_CASH',
       candidateScores
     };
   }
@@ -200,8 +235,9 @@ export function selectDynamicCoreV1(
     selected: best,
     selectedAssetId: best.asset.assetId,
     incumbentAssetId,
-    incumbentHealthy: incumbentScore?.healthy ?? null,
-    reason: incumbentAssetId ? 'REPLACE_UNHEALTHY_INCUMBENT' : 'BEST_HEALTHY_CORE',
+    incumbentHealthy: false,
+    incumbentState: 'BROKEN',
+    reason: 'REPLACE_UNHEALTHY_INCUMBENT',
     candidateScores
   };
 }
