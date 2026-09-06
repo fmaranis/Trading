@@ -40,6 +40,15 @@ assert.match(v31, /innerValidation = usable\.slice\(split\)/);
 assert.match(worker, /runForwardRiskForecastV31/);
 assert.match(worker, /forwardRiskForecastV31/);
 assert.match(worker, /FORWARD_RISK_FORECAST_V3_1/);
+assert.match(worker, /FORWARD_RISK_RESEARCH_WARMUP_YEARS = 5/);
+assert.match(worker, /AssetUniverseScanner\.scan\(researchCatalog, forwardRiskRequestedFrom, result\.endDate/);
+assert.match(worker, /const common = \{ dataset: forwardRiskDataset/);
+assert.match(worker, /isolatedFromReplayDecisions: true/);
+assert.doesNotMatch(worker, /replayInput\(forwardRiskDataset\)/);
+const baselineIndex = worker.indexOf('const baseline = runDynamicReplayWithRotationExperiment(input, REPLAY_ROTATION_EXPERIMENT)');
+const researchScanIndex = worker.indexOf('AssetUniverseScanner.scan(researchCatalog, forwardRiskRequestedFrom, result.endDate');
+assert.ok(baselineIndex >= 0 && researchScanIndex > baselineIndex, 'Forward-risk warmup must happen only after the replay baseline is finished.');
+
 assert.doesNotMatch(v31, /portfolioDecisionEngine/);
 assert.doesNotMatch(v31, /targetCoreExposurePct/);
 assert.match(gate, /return applyCoreArchitectureV1\(normalizedInput, gated\);/);
