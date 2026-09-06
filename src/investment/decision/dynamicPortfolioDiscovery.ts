@@ -53,6 +53,7 @@ export function registerLiveDiscoveredAsset(input: LiveDiscoveredAsset): AssetUn
     throw new Error(`El instrumento ${input.symbol} no cotiza en EUR y el motor actual no puede mezclar divisas sin FX explícito.`);
   }
   const quoteType = String(input.quoteType).toUpperCase();
+  const identifiedFund = quoteType === 'MUTUALFUND' && Boolean(input.isin);
   const asset: AssetUniverseItem = {
     assetId: assetIdFor(input.symbol),
     ticker: input.symbol.toUpperCase(),
@@ -60,8 +61,8 @@ export function registerLiveDiscoveredAsset(input: LiveDiscoveredAsset): AssetUn
     name: input.name || input.symbol,
     category: quoteType === 'EQUITY' ? 'EUROPE_EQUITY' : 'GLOBAL_EQUITY',
     currency: 'EUR',
-    instrumentType: quoteType === 'MUTUALFUND' ? 'MUTUAL_FUND' : 'ETF_ETC',
-    marketDataProvider: quoteType === 'MUTUALFUND' ? 'EODHD_FUND' : 'YAHOO'
+    instrumentType: identifiedFund ? 'MUTUAL_FUND' : 'ETF_ETC',
+    marketDataProvider: identifiedFund ? 'EODHD_FUND' : 'YAHOO'
   };
   const registered = dedupePush(asset);
   persist();
