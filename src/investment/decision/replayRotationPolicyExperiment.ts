@@ -14,10 +14,25 @@ import {
   type CoreGateV1Counters,
   type PortfolioEvaluationInput
 } from './portfolioCoreGatePolicy';
+import { selectDynamicCoreV1, type DynamicCoreCandidateScore } from './dynamicCoreSelector';
 import { PortfolioDecisionEngine } from './portfolioDecisionEngine';
 
 export type ReplayRotationExperiment = 'BASELINE' | 'CORE_GATE_V1' | 'CORE_ARCHITECTURE_V1' | 'CORE_ALPHA_V2';
 type ReplayRunInput = Parameters<typeof DynamicHistoricalReplayEngine.run>[0];
+
+export interface ReplayDynamicCoreSelectionAuditEntry {
+  decisionDate: string;
+  selectedAssetId: string | null;
+  selectedTicker: string | null;
+  incumbentAssetId: string | null;
+  incumbentHealthy: boolean | null;
+  reason: 'HEALTHY_INCUMBENT_INERTIA' | 'BEST_HEALTHY_CORE' | 'REPLACE_UNHEALTHY_INCUMBENT' | 'INCUMBENT_EVIDENCE_INSUFFICIENT' | 'NO_HEALTHY_CORE';
+  candidates: DynamicCoreCandidateScore[];
+}
+
+export type DynamicReplayExperimentResult = DynamicHistoricalReplayResult & {
+  coreSelectionAudit: ReplayDynamicCoreSelectionAuditEntry[];
+};
 
 /**
  * Replay policy wrapper.
@@ -25,12 +40,20 @@ type ReplayRunInput = Parameters<typeof DynamicHistoricalReplayEngine.run>[0];
  * BASELINE, CORE_GATE_V1 and CORE_ARCHITECTURE_V1 remain available for
  * attribution. CORE_ALPHA_V2 is the bounded candidate that keeps V1 intact and
  * allows only small, exceptional, atomic core-funded alpha tilts.
+ *
+ * CORE_ARCHITECTURE_V1/CORE_ALPHA_V2 also export a decision-by-decision audit of
+ * DYNAMIC_CORE_SELECTOR_V1 so the chosen structural core is never a hidden
+ * implementation detail in historical validation.
  */
 export function runDynamicReplayWithRotationExperiment(
   input: ReplayRunInput,
   experiment: ReplayRotationExperiment = 'BASELINE'
-): DynamicHistoricalReplayResult {
-  if (experiment === 'BASELINE') return DynamicHistoricalReplayEngine.run(input);
+): DynamicReplayExperimentResult {
+  if (experiment === 'BASELINE') {
+    const result = DynamicHistoricalReplayEngine.run(input) as DynamicReplayExperimentResult;
+    result.coreSelectionAudit = [];
+    return result;
+  }
 
   const originalEvaluate = PortfolioDecisionEngine.evaluate;
   const gateCounters: CoreGateV1Counters = { KEEP: 0, CORE: 0, CHALLENGER: 0 };
@@ -46,12 +69,25 @@ export function runDynamicReplayWithRotationExperiment(
     blockedCoreFloor: 0,
     blockedExistingFreshNonCoreOrder: 0
   };
+  const coreSelectionAudit: ReplayDynamicCoreSelectionAuditEntry[] = [];
 
   try {
     PortfolioDecisionEngine.evaluate = ((evaluationInput: PortfolioEvaluationInput) => {
       const baseline = originalEvaluate.call(PortfolioDecisionEngine, evaluationInput);
       const gated = applyCoreGateV1(evaluationInput, baseline, gateCounters);
       if (experiment === 'CORE_GATE_V1') return gated;
+
+      const selection = selectDynamicCoreV1(evaluationInput, gated);
+      coreSelectionAudit.push({
+        decisionDate: evaluationInput.decision.asOfDate,
+        selectedAssetId: selection.selectedAssetId,
+        selectedTicker: selection.selected?.asset.ticker ?? null,
+        incumbentAssetId: selection.incumbentAssetId,
+        incumbentHealthy: selection.incumbentHealthy,
+        reason: selection.reason,
+        candidates: selection.candidateScores.map(candidate => ({ ...candidate }))
+      });
+
       const architecture = applyCoreArchitectureV1(evaluationInput, gated, architectureCounters);
       if (experiment !== 'CORE_ALPHA_V2') return architecture;
 
@@ -65,7 +101,8 @@ export function runDynamicReplayWithRotationExperiment(
       return applyCoreAlphaV2(evaluationInput, architecture, alphaCounters);
     }) as typeof PortfolioDecisionEngine.evaluate;
 
-    const result = DynamicHistoricalReplayEngine.run(input);
+    const result = DynamicHistoricalReplayEngine.run(input) as DynamicReplayExperimentResult;
+    result.coreSelectionAudit = coreSelectionAudit;
     result.notes.push(
       `Replay CORE_GATE_V1 compartido: KEEP ${gateCounters.KEEP}, CORE ${gateCounters.CORE}, CHALLENGER ${gateCounters.CHALLENGER}.`,
       `CORE_GATE_V1: un incumbent todavía HOLD con consenso no negativo se conserva. El challenger sólo evita el core con evidencia excepcional causal (≥${CORE_GATE_V1_THRESHOLDS.challengerExceptionMinPriorStrong}/10 STRONG previos, consenso ≥${CORE_GATE_V1_THRESHOLDS.challengerExceptionMinConsensus}, ventaja de score ≥${CORE_GATE_V1_THRESHOLDS.challengerExceptionMinScoreAdvantage} y ventaja frente a cash ≥${CORE_GATE_V1_THRESHOLDS.challengerExceptionMinCashAdvantagePctPoints} pp).`
@@ -75,7 +112,8 @@ export function runDynamicReplayWithRotationExperiment(
       const limits = CORE_ARCHITECTURE_V1_LIMITS[input.riskProfile];
       result.notes.push(
         `CORE_ARCHITECTURE_V1: core-sales tácticas protegidas ${architectureCounters.protectedCoreSales}, contribuciones no-core limitadas ${architectureCounters.cappedNonCoreContributions}, ventas devueltas a core ${architectureCounters.salesReturnedToCore}, top-ups de core ${architectureCounters.coreTopUps}.`,
-        `Guardrails ${input.riskProfile}: no-core máximo ${(limits.maximumNonCoreShare * 100).toFixed(0)}%, cash operativo ${(limits.operationalCashReserveShare * 100).toFixed(0)}%. El core global no recibe EXIT táctico y el cash residual vuelve al core.`
+        `Guardrails ${input.riskProfile}: no-core máximo ${(limits.maximumNonCoreShare * 100).toFixed(0)}%, cash operativo ${(limits.operationalCashReserveShare * 100).toFixed(0)}%. El core global no recibe EXIT táctico y el cash residual vuelve al core sano seleccionado causalmente.`,
+        `Auditoría ${experiment}: ${coreSelectionAudit.length} decisiones de core exportadas en coreSelectionAudit con candidato elegido, incumbent, motivo y scores comparativos. Ninguna prioridad fija de producto participa en la selección productiva.`
       );
     }
 
