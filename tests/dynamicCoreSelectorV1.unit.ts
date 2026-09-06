@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { selectDynamicCoreV1, DYNAMIC_CORE_SELECTOR_V1 } from '../src/investment/decision/dynamicCoreSelector';
 import { applyCoreArchitectureV1, type PortfolioEvaluationInput } from '../src/investment/decision/portfolioCoreGatePolicy';
 import type { PortfolioDecisionResult } from '../src/investment/decision/portfolioDecisionEngine';
@@ -175,6 +176,16 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   assert.match(incumbent.reason, /DYNAMIC_CORE_SELECTOR_V1:STRUCTURAL_TRANSFER/);
   assert.ok(replacement);
   assert.equal(replacement.positionStage, 'ROTATION_ENTRY');
+}
+
+// Persistence contract: the progressive UI deliberately serializes a compact
+// result shape, so the core audit must also ride on signal.auditExtensions; this
+// is the channel preserved by the JSON exporter and later merged by the worker.
+{
+  const source = readFileSync(new URL('../src/investment/decision/replayRotationPolicyExperiment.ts', import.meta.url), 'utf8');
+  assert.match(source, /result\.coreSelectionAudit\s*=\s*coreSelectionAudit/);
+  assert.match(source, /auditCarrier\.auditExtensions\s*=\s*\{/);
+  assert.match(source, /coreSelectionAudit:\s*coreSelectionAudit\.map/);
 }
 
 console.log('dynamicCoreSelectorV1.unit: PASS');
