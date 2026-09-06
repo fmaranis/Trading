@@ -19,6 +19,7 @@ import { PortfolioDecisionEngine } from './portfolioDecisionEngine';
 
 export type ReplayRotationExperiment = 'BASELINE' | 'CORE_GATE_V1' | 'CORE_ARCHITECTURE_V1' | 'CORE_ALPHA_V2';
 type ReplayRunInput = Parameters<typeof DynamicHistoricalReplayEngine.run>[0];
+type ReplaySignalWithAudit = DynamicHistoricalReplayResult['signals'][number] & { auditExtensions?: Record<string, unknown> };
 
 export interface ReplayDynamicCoreSelectionAuditEntry {
   decisionDate: string;
@@ -103,6 +104,28 @@ export function runDynamicReplayWithRotationExperiment(
 
     const result = DynamicHistoricalReplayEngine.run(input) as DynamicReplayExperimentResult;
     result.coreSelectionAudit = coreSelectionAudit;
+
+    // HistoricalReplayProgressivePanel intentionally persists a compact replay
+    // schema and therefore does not retain unknown result-level fields. Keep a
+    // copy on the same signal audit carrier channel already used by the worker
+    // for structural-core/forward-risk diagnostics so JSON export cannot silently
+    // lose the core decision trail.
+    const auditCarrier = (
+      result.signals.find(signal => signal.executed === true)
+      ?? result.signals.find(signal => signal.action === 'REDUCE' || signal.action === 'EXIT')
+      ?? result.signals.find(signal => signal.action === 'BUY' || signal.action === 'ADD')
+      ?? result.signals[0]
+    ) as ReplaySignalWithAudit | undefined;
+    if (auditCarrier) {
+      auditCarrier.auditExtensions = {
+        ...(auditCarrier.auditExtensions ?? {}),
+        coreSelectionAudit: coreSelectionAudit.map(entry => ({
+          ...entry,
+          candidates: entry.candidates.map(candidate => ({ ...candidate }))
+        }))
+      };
+    }
+
     result.notes.push(
       `Replay CORE_GATE_V1 compartido: KEEP ${gateCounters.KEEP}, CORE ${gateCounters.CORE}, CHALLENGER ${gateCounters.CHALLENGER}.`,
       `CORE_GATE_V1: un incumbent todavía HOLD con consenso no negativo se conserva. El challenger sólo evita el core con evidencia excepcional causal (≥${CORE_GATE_V1_THRESHOLDS.challengerExceptionMinPriorStrong}/10 STRONG previos, consenso ≥${CORE_GATE_V1_THRESHOLDS.challengerExceptionMinConsensus}, ventaja de score ≥${CORE_GATE_V1_THRESHOLDS.challengerExceptionMinScoreAdvantage} y ventaja frente a cash ≥${CORE_GATE_V1_THRESHOLDS.challengerExceptionMinCashAdvantagePctPoints} pp).`
