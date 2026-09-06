@@ -40,8 +40,9 @@ export const CORE_GATE_V1_THRESHOLDS = {
  * Portfolio architecture guardrails, deliberately versioned and not fitted to a
  * single historical path. The structural core is the default home for long-run
  * investable capital; the non-core sleeve is a bounded budget, not a replacement
- * for the market core. Cash is an operational reserve rather than a market-timing
- * destination.
+ * for the market core. Cash is normally an operational reserve, but it becomes
+ * an explicit defensive destination when position-health has independently
+ * classified the incumbent core as EXIT and no healthy global replacement exists.
  */
 export const CORE_ARCHITECTURE_V1_LIMITS = {
   LOW: { maximumNonCoreShare: 0.18, operationalCashReserveShare: 0.08 },
@@ -321,8 +322,10 @@ export function applyCoreGateV1(
  * invariant instead of another tactical position:
  *
  * - a healthy structural global core is not tactically sold or performance-chased;
- * - if the incumbent core becomes causally unhealthy, DYNAMIC_CORE_SELECTOR_V1
- *   can transfer it to the best healthy broad global alternative available then;
+ * - a degraded incumbent receives no fresh core money but is not sold for one
+ *   period of relative weakness;
+ * - a structurally broken incumbent (position-health EXIT) is transferred to the
+ *   best healthy broad-global alternative, or to cash if no healthy replacement exists;
  * - regional indexes and tactical assets share a bounded non-core budget;
  * - non-core sales return to the selected healthy structural core by default;
  * - residual investable cash above a small operational reserve is deployed to
@@ -340,9 +343,8 @@ export function applyCoreArchitectureV1(
   const oldRotationProceeds = result.plannedRotationProceedsEur;
   const oldRecommended = result.recommendedNewInvestmentEur;
 
-  // 0) Explicit structural replacement. This is the only path that may replace
-  // a core product: the largest incumbent core is no longer healthy and another
-  // accepted broad-global core is healthy on the same causal decision date.
+  // 0a) Explicit structural replacement. Only a BROKEN core (position-health EXIT)
+  // reaches this path; temporary underperformance is DEGRADED and remains held.
   if (
     core
     && coreSelection.reason === 'REPLACE_UNHEALTHY_INCUMBENT'
@@ -357,29 +359,47 @@ export function applyCoreArchitectureV1(
       incumbent.suggestedReductionPct = 100;
       incumbent.rotationChallengerAssetId = core.asset.assetId;
       incumbent.rotationChallengerTicker = core.asset.ticker;
-      incumbent.reason = `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER] El core actual ${incumbent.label} ha dejado de superar el gate causal de salud; se transfiere al mejor core global sano disponible en esta fecha, ${core.asset.ticker}. No se usa rentabilidad futura ni prioridad fija de producto. ${incumbent.reason}`;
+      incumbent.reason = `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER] El core actual ${incumbent.label} ha alcanzado EXIT por deterioro estructural causal; se transfiere al mejor core global sano disponible en esta fecha, ${core.asset.ticker}. No se usa rentabilidad futura ni prioridad fija de producto. ${incumbent.reason}`;
       addOrMergeCoreContribution(
         input,
         result,
         transferAmount,
-        `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER] ${transferAmount.toFixed(2)} € pasan del core deteriorado al core global sano seleccionado causalmente ${core.asset.ticker}.`,
+        `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER] ${transferAmount.toFixed(2)} € pasan del core roto al core global sano seleccionado causalmente ${core.asset.ticker}.`,
         'ROTATION_ENTRY'
       );
     }
   }
 
-  // 1) Structural global core is observable but not tactically sellable. An EXIT
-  // explicitly created above by the dynamic selector is preserved.
+  // 0b) If position-health has reached EXIT and every broad-global candidate is
+  // also unhealthy, preserving the core forever would be a hidden buy-and-hold
+  // override. Exit to remunerated cash instead; re-entry requires a healthy core
+  // on a later causal decision date.
+  if (coreSelection.reason === 'BROKEN_INCUMBENT_TO_CASH' && coreSelection.incumbentAssetId) {
+    const incumbent = result.existingPositions.find(position => position.assetId?.toUpperCase() === coreSelection.incumbentAssetId);
+    if (incumbent && Math.max(0, incumbent.currentValueEur ?? 0) > 1e-9) {
+      if (incumbent.rotationChallengerAssetId) removeContribution(result, incumbent.rotationChallengerAssetId, true);
+      const exitAmount = Math.max(0, incumbent.currentValueEur ?? 0);
+      incumbent.action = 'EXIT';
+      incumbent.suggestedReductionPct = 100;
+      clearRotationFields(incumbent);
+      incumbent.reason = `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_CASH_EXIT] ${incumbent.label} ha alcanzado EXIT por deterioro estructural causal y no existe ningún core global sano alternativo. Se sale a cash remunerado; no se fuerza otro índice deteriorado y la reentrada exige que vuelva a existir un core sano. ${incumbent.reason}`;
+      result.targetCashEur = Math.max(result.targetCashEur, Math.max(0, result.currentCashEur) + exitAmount);
+    }
+  }
+
+  // 1) Structural global core is observable but not tactically sellable. EXITs
+  // explicitly created above by the dynamic selector are preserved.
   for (const position of result.existingPositions) {
     if (!isStrategicGrowthCoreAssetId(position.assetId)) continue;
     if (position.reason.includes(`[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER]`)) continue;
+    if (position.reason.includes(`[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_CASH_EXIT]`)) continue;
     if (position.action !== 'REDUCE' && position.action !== 'EXIT' && !position.rotationChallengerAssetId) continue;
     if (position.rotationChallengerAssetId) removeContribution(result, position.rotationChallengerAssetId, true);
     const observed = position.action;
     position.action = 'HOLD';
     position.suggestedReductionPct = null;
     clearRotationFields(position);
-    position.reason = `[CORE_ARCHITECTURE_V1:STRUCTURAL_CORE] [${STRATEGIC_CORE_POLICY}] ${position.label} es core global estructural sano: ${observed} queda como diagnóstico y no se ejecuta por timing táctico. Un cambio de core sólo puede autorizarlo ${DYNAMIC_CORE_SELECTOR_V1} por deterioro estructural causal y existencia de un sustituto global sano. ${position.reason}`;
+    position.reason = `[CORE_ARCHITECTURE_V1:STRUCTURAL_CORE] [${STRATEGIC_CORE_POLICY}] ${position.label} es core global estructural y no está roto: ${observed} queda como diagnóstico y no se ejecuta por timing táctico. Un cambio sólo puede autorizarlo ${DYNAMIC_CORE_SELECTOR_V1} cuando position-health alcance EXIT; entonces se sustituye por un core sano o se pasa a cash si ninguno lo está. ${position.reason}`;
     counters.protectedCoreSales += 1;
   }
 
@@ -488,7 +508,7 @@ export function applyCoreArchitectureV1(
 
   const selectedText = core ? `${core.asset.ticker} (${coreSelection.reason})` : `ninguno (${coreSelection.reason})`;
   result.warnings.push(
-    `${CORE_ARCHITECTURE_V1}: selector ${DYNAMIC_CORE_SELECTOR_V1}; core actual ${selectedText}; no-core máximo ${(limits.maximumNonCoreShare * 100).toFixed(0)}%; cash operativo ${(limits.operationalCashReserveShare * 100).toFixed(0)}%. No existe prioridad fija Vanguard/EUNL ni rotación 100% regional por momentum.`
+    `${CORE_ARCHITECTURE_V1}: selector ${DYNAMIC_CORE_SELECTOR_V1}; core actual ${selectedText}; estado incumbent ${coreSelection.incumbentState}; no-core máximo ${(limits.maximumNonCoreShare * 100).toFixed(0)}%; cash operativo ${(limits.operationalCashReserveShare * 100).toFixed(0)}%. No existe prioridad fija Vanguard/EUNL ni rotación 100% regional por momentum.`
   );
   return result;
 }
