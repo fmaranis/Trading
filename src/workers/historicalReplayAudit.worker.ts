@@ -2,6 +2,7 @@ import { loadForwardRiskDiagnosticData } from '../investment/decision/forwardRis
 import { runForwardRiskForecastV1 } from '../investment/decision/forwardRiskForecast';
 import { runForwardRiskForecastV2 } from '../investment/decision/forwardRiskForecastV2';
 import { runForwardRiskForecastV3 } from '../investment/decision/forwardRiskForecastV3';
+import { runForwardRiskForecastV31 } from '../investment/decision/forwardRiskForecastV31';
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
@@ -34,11 +35,7 @@ interface InitMessage {
   initialPortfolio?: DynamicReplayInitialPortfolio;
 }
 
-interface RunMessage {
-  type: 'RUN';
-  endDate: string;
-}
-
+interface RunMessage { type: 'RUN'; endDate: string; }
 interface ResetMessage { type: 'RESET'; }
 type IncomingMessage = InitMessage | RunMessage | ResetMessage;
 
@@ -48,9 +45,8 @@ interface WorkerScope {
 }
 
 const workerScope = self as unknown as WorkerScope;
-// CORE_ALPHA_V2 failed its economic replay and is deliberately not the normal
-// engine. Production/replay baseline remains the closed structural-core V1 while
-// forward-risk V1/V2/V3 are evaluated independently and never feed live decisions.
+// Production/replay baseline remains structural-core V1. Forward-risk V1/V2/V3/V3.1
+// are research diagnostics only and never feed live or replay portfolio decisions.
 const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1' as const;
 const MATERIAL_ACTIONS = new Set(['BUY', 'ADD', 'REDUCE', 'EXIT']);
 const AUDIT_BROADCAST_CHANNEL = 'historical-replay-audit-v3';
@@ -63,42 +59,33 @@ function truncateDataset(dataset: MultiAssetDataset, endDate: string): MultiAsse
   return {
     ...dataset,
     assets: dataset.assets
-      .map(asset => ({
-        ...asset,
-        bars: asset.bars.filter(bar => bar.timestamp.slice(0, 10) <= endDate)
-      }))
+      .map(asset => ({ ...asset, bars: asset.bars.filter(bar => bar.timestamp.slice(0, 10) <= endDate) }))
       .filter(asset => asset.bars.length > 0)
   };
 }
-
 function latestDatasetDate(dataset: MultiAssetDataset): string | null {
   const dates = dataset.assets.flatMap(asset => asset.bars.slice(-1).map(bar => bar.timestamp.slice(0, 10))).sort();
   return dates.at(-1) ?? null;
 }
-
 function earliestDatasetDate(dataset: MultiAssetDataset): string | null {
   const dates = dataset.assets.flatMap(asset => asset.bars.slice(0, 1).map(bar => bar.timestamp.slice(0, 10))).sort();
   return dates[0] ?? null;
 }
-
 function effectiveSeededStartDate(dataset: MultiAssetDataset, requestedStartDate: string, portfolio?: DynamicReplayInitialPortfolio): string {
   if (!portfolio?.allocations.length) return requestedStartDate;
   const requiredIds = [...new Set(portfolio.allocations.map(row => row.assetId).filter(Boolean))];
   if (!requiredIds.length) return requestedStartDate;
-
   const datesByAsset = new Map<string, Set<string>>();
   for (const assetId of requiredIds) {
     const asset = dataset.assets.find(row => row.assetId === assetId);
     if (!asset) throw new Error(`INITIAL_PORTFOLIO_ASSET_DATA_MISSING:${assetId}`);
     datesByAsset.set(assetId, new Set(asset.bars.map(bar => bar.timestamp.slice(0, 10)).filter(date => date >= requestedStartDate)));
   }
-
   const candidates = [...(datesByAsset.get(requiredIds[0]) ?? new Set<string>())].sort();
   const common = candidates.find(date => requiredIds.every(assetId => datesByAsset.get(assetId)?.has(date)));
   if (!common) throw new Error('INITIAL_PORTFOLIO_COMMON_MARKET_DATE_NOT_FOUND');
   return common;
 }
-
 function replayInput(dataset: MultiAssetDataset) {
   if (!configuration) throw new Error('AUDIT_WORKER_NOT_INITIALIZED');
   const startDate = effectiveSeededStartDate(dataset, configuration.startDate, configuration.initialPortfolio);
@@ -118,38 +105,20 @@ function replayInput(dataset: MultiAssetDataset) {
     initialPortfolio: configuration.initialPortfolio
   };
 }
-
 function compactAuditSignals(signals: DynamicReplaySignal[]): DynamicReplaySignal[] {
   const retained: DynamicReplaySignal[] = [];
   const lastStateByAsset = new Map<string, string>();
-
   for (const signal of signals) {
     if (signal.executed || MATERIAL_ACTIONS.has(signal.action)) {
-      retained.push(signal);
-      lastStateByAsset.delete(signal.assetId);
-      continue;
+      retained.push(signal); lastStateByAsset.delete(signal.assetId); continue;
     }
-
-    const stateKey = [
-      signal.action,
-      signal.timingState ?? '',
-      signal.structuralDowntrend ? 'DOWN' : 'OK',
-      signal.buyTheDipCandidate ? 'DIP' : 'NO_DIP',
-      signal.trendProtectionV1Action ?? ''
-    ].join('|');
-
+    const stateKey = [signal.action, signal.timingState ?? '', signal.structuralDowntrend ? 'DOWN' : 'OK', signal.buyTheDipCandidate ? 'DIP' : 'NO_DIP', signal.trendProtectionV1Action ?? ''].join('|');
     if (lastStateByAsset.get(signal.assetId) === stateKey) continue;
-    retained.push(signal);
-    lastStateByAsset.set(signal.assetId, stateKey);
+    retained.push(signal); lastStateByAsset.set(signal.assetId, stateKey);
   }
-
   return retained;
 }
-
 function selectAuditCarrier(signals: DynamicReplaySignal[]): DynamicReplaySignal | null {
-  // latest-chatgpt.json may keep only executed/REDUCE/EXIT diagnostic signals
-  // when the readable projection has to shrink. Carry large audit extensions on
-  // a signal that survives that strict projection whenever one exists.
   return signals.find(signal => signal.executed === true)
     ?? signals.find(signal => signal.action === 'REDUCE' || signal.action === 'EXIT')
     ?? signals.find(signal => MATERIAL_ACTIONS.has(signal.action))
@@ -159,36 +128,24 @@ function selectAuditCarrier(signals: DynamicReplaySignal[]): DynamicReplaySignal
 
 workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
   const message = event.data;
-
   if (message.type === 'RESET') {
-    configuration = null;
-    sourceDataset = null;
-    sourceDiagnosticDataset = null;
-    workerScope.postMessage({ type: 'RESET_DONE' });
-    return;
+    configuration = null; sourceDataset = null; sourceDiagnosticDataset = null;
+    workerScope.postMessage({ type: 'RESET_DONE' }); return;
   }
-
   if (message.type === 'INIT') {
     const { dataset, diagnosticDataset, type: _type, ...rest } = message;
-    sourceDataset = dataset;
-    sourceDiagnosticDataset = diagnosticDataset ?? null;
-    configuration = rest;
-    workerScope.postMessage({ type: 'READY', rotationExperiment: REPLAY_ROTATION_EXPERIMENT });
-    return;
+    sourceDataset = dataset; sourceDiagnosticDataset = diagnosticDataset ?? null; configuration = rest;
+    workerScope.postMessage({ type: 'READY', rotationExperiment: REPLAY_ROTATION_EXPERIMENT }); return;
   }
-
   if (!configuration || !sourceDataset) {
-    workerScope.postMessage({ type: 'ERROR', error: 'AUDIT_WORKER_NOT_INITIALIZED' });
-    return;
+    workerScope.postMessage({ type: 'ERROR', error: 'AUDIT_WORKER_NOT_INITIALIZED' }); return;
   }
 
   try {
     const dataset = truncateDataset(sourceDataset, message.endDate);
     const input = replayInput(dataset);
     const baseline = runDynamicReplayWithRotationExperiment(input, REPLAY_ROTATION_EXPERIMENT);
-    const result = input.simulationMode === 'HOLD_ONLY'
-      ? baseline
-      : appendRotationCounterfactualAudit({ result: baseline, dataset, catalog: configuration.catalog });
+    const result = input.simulationMode === 'HOLD_ONLY' ? baseline : appendRotationCounterfactualAudit({ result: baseline, dataset, catalog: configuration.catalog });
 
     const finalSourceDate = latestDatasetDate(sourceDataset);
     const isFinalChunk = finalSourceDate != null && message.endDate >= finalSourceDate;
@@ -196,41 +153,15 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
     if (isFinalChunk && !diagnosticDataset && input.simulationMode === 'CUSTODIA_ENGINE' && !configuration.initialPortfolio) {
       const diagnosticFrom = earliestDatasetDate(dataset) ?? input.startDate;
       const loaded = await loadForwardRiskDiagnosticData(diagnosticFrom, result.endDate);
-      diagnosticDataset = loaded.dataset;
-      sourceDiagnosticDataset = loaded.dataset;
+      diagnosticDataset = loaded.dataset; sourceDiagnosticDataset = loaded.dataset;
     }
     const diagnosticSlice = diagnosticDataset ? truncateDataset(diagnosticDataset, message.endDate) : undefined;
     const shouldRunForwardRisk = isFinalChunk && input.simulationMode === 'CUSTODIA_ENGINE' && !configuration.initialPortfolio;
-    const forwardRiskForecast = shouldRunForwardRisk
-      ? runForwardRiskForecastV1({
-        dataset,
-        diagnosticDataset: diagnosticSlice,
-        catalog: configuration.catalog,
-        startDate: input.startDate,
-        endDate: result.endDate,
-        initialCapitalEur: input.initialCapitalEur,
-        cashBenchmarkMode: input.cashBenchmarkMode,
-        cashBenchmarkAnnualPct: input.cashBenchmarkAnnualPct
-      })
-      : null;
-    const forwardRiskForecastV2 = shouldRunForwardRisk
-      ? runForwardRiskForecastV2({
-        dataset,
-        diagnosticDataset: diagnosticSlice,
-        catalog: configuration.catalog,
-        startDate: input.startDate,
-        endDate: result.endDate
-      })
-      : null;
-    const forwardRiskForecastV3 = shouldRunForwardRisk
-      ? runForwardRiskForecastV3({
-        dataset,
-        diagnosticDataset: diagnosticSlice,
-        catalog: configuration.catalog,
-        startDate: input.startDate,
-        endDate: result.endDate
-      })
-      : null;
+    const common = { dataset, diagnosticDataset: diagnosticSlice, catalog: configuration.catalog, startDate: input.startDate, endDate: result.endDate };
+    const forwardRiskForecast = shouldRunForwardRisk ? runForwardRiskForecastV1({ ...common, initialCapitalEur: input.initialCapitalEur, cashBenchmarkMode: input.cashBenchmarkMode, cashBenchmarkAnnualPct: input.cashBenchmarkAnnualPct }) : null;
+    const forwardRiskForecastV2 = shouldRunForwardRisk ? runForwardRiskForecastV2(common) : null;
+    const forwardRiskForecastV3 = shouldRunForwardRisk ? runForwardRiskForecastV3(common) : null;
+    const forwardRiskForecastV31 = shouldRunForwardRisk ? runForwardRiskForecastV31(common) : null;
 
     const fullSignalCount = result.signals.length;
     result.signals = compactAuditSignals(result.signals);
@@ -252,11 +183,11 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
     const auditCarrier = selectAuditCarrier(result.signals) as (DynamicReplaySignal & { auditExtensions?: Record<string, unknown> }) | null;
     if (auditCarrier) {
       auditCarrier.auditExtensions = {
-        ...(auditCarrier.auditExtensions ?? {}),
-        structuralCoreBenchmark,
+        ...(auditCarrier.auditExtensions ?? {}), structuralCoreBenchmark,
         ...(forwardRiskForecast ? { forwardRiskForecastV1: forwardRiskForecast } : {}),
         ...(forwardRiskForecastV2 ? { forwardRiskForecastV2 } : {}),
         ...(forwardRiskForecastV3 ? { forwardRiskForecastV3 } : {}),
+        ...(forwardRiskForecastV31 ? { forwardRiskForecastV31 } : {}),
         replayPolicy: REPLAY_ROTATION_EXPERIMENT
       };
     }
@@ -264,18 +195,13 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
     if (forwardRiskForecast) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V1', forecast: forwardRiskForecast });
     if (forwardRiskForecastV2) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V2', forecast: forwardRiskForecastV2 });
     if (forwardRiskForecastV3) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V3', forecast: forwardRiskForecastV3 });
+    if (forwardRiskForecastV31) auditChannel?.postMessage({ type: 'FORWARD_RISK_FORECAST_V3_1', forecast: forwardRiskForecastV31 });
 
     workerScope.postMessage({
-      type: 'RESULT',
-      requestedEndDate: message.endDate,
-      result,
-      rotationExperiment: REPLAY_ROTATION_EXPERIMENT,
-      trendProtectionV2Counterfactual: false,
-      forwardRiskForecastV1: forwardRiskForecast,
-      forwardRiskForecastV2,
-      forwardRiskForecastV3,
-      fullSignalCount,
-      retainedSignalCount: result.signals.length
+      type: 'RESULT', requestedEndDate: message.endDate, result,
+      rotationExperiment: REPLAY_ROTATION_EXPERIMENT, trendProtectionV2Counterfactual: false,
+      forwardRiskForecastV1: forwardRiskForecast, forwardRiskForecastV2, forwardRiskForecastV3, forwardRiskForecastV31,
+      fullSignalCount, retainedSignalCount: result.signals.length
     });
   } catch (error: any) {
     workerScope.postMessage({ type: 'ERROR', error: error?.message || String(error), requestedEndDate: message.endDate });
