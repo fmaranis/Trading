@@ -19,6 +19,8 @@ assert.match(script, /ECONOMIC_HIGH_RISK_PERCENTILE_PCT = 80/);
 assert.match(script, /historicalCashBenchmarkAnnualPct/);
 assert.match(script, /execution: 'NEXT_OPEN'/);
 assert.match(script, /transactionCostsApplied: false/);
+assert.match(script, /periodBoundaryEnforced: true/);
+assert.match(script, /isoDate\(exit\.timestamp\) > input\.periodEndDate/);
 assert.match(script, /breakEvenRoundTripCostBps/);
 assert.match(script, /economicCounterfactual/);
 assert.doesNotMatch(script, /runDynamicReplayWithRotationExperiment/);
