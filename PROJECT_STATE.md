@@ -32,69 +32,104 @@ Replay auditado:
 No reintroducir la salida reactiva tardía del core.
 
 ## Forward Risk — decisiones congeladas
-- **V3.1: RETIRADO.** No V3.2 ni tuning de ventanas usadas.
+- **V3.1: RETIRADO.** No V3.2 ni tuning.
 - **V4: RESEARCH_ONLY.** Dirección razonable, anticipación insuficiente.
-- **V5: RETIRADO como arquitectura autónoma.** 7/19 episodios = 36,84%; lead 58; falsa vulnerabilidad 14,62%. Se conserva sólo su señal congelada `>=80` para V8.
-- **V6: RETIRADO.** 2/19 = 10,53%; lead 43,5; falsa divergencia 5,51%. No V6.1.
-- **V7: RETIRADO.** 6/19 = 31,58%; lead 43; falsa señal 7,35%. Sí anticipó COVID con 17 sesiones. Se conserva sólo su señal congelada `>=80` para V8.
-- **V8: COMPLEMENTARIEDAD CONFIRMADA CROSS-BENCHMARK, NO PROMOVIDA.** `V5 >=80 OR V7 >=80`, sin pesos ni retuning.
+- **V5: RETIRADO como arquitectura autónoma.** 7/19 = 36,84%; lead 58; falsa vulnerabilidad 14,62%. Sólo se conserva su señal congelada `>=80` dentro de V8.
+- **V6: RETIRADO.** 2/19 = 10,53%. No V6.1.
+- **V7: RETIRADO como arquitectura autónoma.** 6/19 = 31,58%; lead 43; falsa señal 7,35%. Sólo se conserva su señal congelada `>=80` dentro de V8.
+- **V8: COMPLEMENTARIEDAD CONFIRMADA Y VINTAGE-SAFE CONFIRMADA; NO PROMOVIDA.** Regla fija `V5 >=80 OR V7 >=80`, sin pesos ni retuning.
 
-Resultado EUNL 2011–2026:
-- 11/19 episodios = **57,89%**;
-- lead mediano **52 sesiones**;
-- falsa señal **19,06%**;
-- 5 episodios sólo V5, 4 sólo V7, 2 ambos.
+### Confirmación inicial / cross-benchmark
+EUNL con macro current-vintage: 11/19 = 57,89%, lead mediano 52, falsa señal 19,06%.
 
-Confirmación sobre seis benchmarks `HOLDOUT_*` global-equity predeclarados:
-- **6/6 benchmarks válidos pasan**;
-- 83 episodios auditables;
-- 68 anticipados = **81,93%**;
-- lead mediano **40 sesiones**;
-- falsa señal **20,52%**;
-- veredicto `V8_CROSS_BENCHMARK_CONFIRMATION_PASS_STILL_REQUIRES_VINTAGE_SAFE_MACRO`.
+Seis benchmarks global-equity holdout predeclarados:
+- 83 episodios;
+- 68 anticipados = 81,93%;
+- lead mediano 40;
+- falsa señal 20,52%;
+- 6/6 benchmarks pasaron.
 
-Los benchmarks fueron outcomes únicamente; no generaron ni ajustaron señales V5/V7/V8. No es holdout temporal, pero sí confirma transferencia cross-benchmark sin retuning.
+### Confirmación macro point-in-time — RESUELTA
+El gate ALFRED/FRED real-time-period pasó sin cambiar V5/V7/V8.
 
-V1/V2/V3/V3.1 están retirados del worker automático. V4/V5/V6/V7/V8 no alimentan decisiones productivas.
+Resultado vintage-safe 2011–2026:
+- macro source `FRED_API_ALFRED_REALTIME_PERIODS`;
+- `macroPointInTimeVintageSafe=true`;
+- cargadas `T10Y2Y`, `T10Y3M`, `BAA10Y`, `WALCL`;
+- no fallback a FRED current-vintage ni a datos sintéticos;
+- EUNL: 11/19 = **57,89%**, lead mediano **63**, falsa señal **16,73%**, PASS;
+- seis holdouts: **72/83 = 86,75%** anticipados;
+- lead mediano holdout **40**;
+- falsa señal holdout **26,33%**;
+- **6/6 benchmarks PASS**;
+- veredicto `V8_VINTAGE_SAFE_CONFIRMATION_PASS_READY_FOR_CAUSAL_ECONOMIC_GATE`.
 
-## Bloqueo metodológico vigente: macro point-in-time
-V5/V8 originales usan `FRED_GRAPH_CSV_CURRENT_VINTAGE`, que no es point-in-time safe. Antes de cualquier gate económico debe comprobarse que la señal sobrevive usando únicamente datos macro conocidos históricamente en cada fecha.
+Cobertura ALFRED parcial, explícita y no rellenada:
+- T10Y2Y/T10Y3M/BAA10Y: sin archivo ALFRED utilizable en ventanas 2008–2010 y 2011–2013;
+- WALCL: sin archivo ALFRED utilizable en 2008–2010.
+Eso explica ausencia de señal macro vintage-safe en parte del tramo temprano; no se sustituye por datos conocidos hoy.
+
+V1/V2/V3/V3.1 están retirados del worker automático. V4/V5/V6/V7/V8 siguen sin alimentar decisiones productivas.
+
+## Bloqueo metodológico vigente: utilidad económica causal
+El bloqueo ya no es el vintage macro. Ahora V8 debe demostrar que una acción ejecutable mejora dinero/riesgo después de comisiones, impuestos, cash remunerado y coste de oportunidad.
+
+Política económica **congelada antes del resultado**:
+- capital: **13.000 €**;
+- señal: `V5>=80 OR V7>=80`, sin cambios;
+- transición OFF→ON: vender **25%** de las participaciones/títulos al primer open posterior a la fecha de información;
+- transición ON→OFF: recomprar con ese cash al primer open posterior;
+- ejecución: **NEXT_OPEN** estricta; una señal de la misma fecha nunca puede usar ese open;
+- títulos enteros;
+- comisión: `brokerCommission` / perfil MyInvestor existente;
+- cash: `HISTORICAL_ECB_DFR_FLOOR_0`, remuneración after-tax mediante `accrueRemuneratedCashScenarioAfterTax`;
+- fiscalidad: modelo español existente; contexto no confirmado => reserva conservadora 30% sobre plusvalías positivas y 19% sobre intereses de cash;
+- baseline: buy-and-hold del mismo activo con la misma compra inicial y comisión; no se liquida al final, de modo que el diferimiento fiscal del hold es una penalización realista contra la estrategia protegida;
+- sin grid de 10/25/50 ni ajuste posterior.
+
+Gate individual congelado:
+`finalDeltaEur >= 0 AND drawdownReductionPctPoints >= 1 AND netBreachProtectionEur > 0`.
+
+Gate global congelado:
+- EUNL debe pasar individualmente;
+- los 6 holdouts deben ser válidos;
+- al menos **4/6** holdouts deben pasar individualmente;
+- mediana holdout de `finalDeltaEur >= 0`;
+- mediana holdout de reducción de drawdown `>=1 pp`.
+
+Incluso con PASS:
+- `productionPromotionAllowed=false`;
+- el siguiente estado sería shadow/paper validation, no integración automática en Custodia.
 
 Implementado:
-- `src/investment/decision/forwardRiskMacroDataV5VintageSafe.ts`
-- usa FRED/ALFRED API `series/observations` con real-time periods (`realtime_start`, `realtime_end`, `output_type=1`);
-- exige `FRED_API_KEY`;
-- fuente `FRED_API_ALFRED_REALTIME_PERIODS`;
-- `pointInTimeVintageSafe=true` sólo en ese loader;
-- prohíbe fallback a `fredgraph.csv` y fallback sintético;
-- transforma cada revisión/publicación en el último valor realmente disponible desde su `realtime_start`;
-- downstream V5 conserva fórmula y umbrales sin cambios.
-
-Prueba activa:
-- `scripts/forwardRiskV8VintageSafeLive.ts`
-- vuelve a medir V8 vintage-safe sobre EUNL y los mismos seis benchmarks holdout;
-- thresholds congelados: V5>=80 OR V7>=80, evento >=5%, lookback 63;
-- PASS sólo si EUNL pasa y la transferencia holdout mantiene >=50% anticipación, lead >=10 y falsa señal <=35%;
-- un PASS habilita únicamente el siguiente **gate económico causal**, no producción.
+- `scripts/forwardRiskV8EconomicGateLive.ts`;
+- `tests/forwardRiskV8EconomicGate.unit.ts`.
 
 ---
 
 # Validaciones sin tokens de IA
 La pantalla incluye `ResearchValidationCenter`.
-
 Ruta backend: `/api/alerts/research-validation/*`.
 
-Job automático vigente: `forward-risk-v8-vintage-safe`.
+Job automático vigente: `forward-risk-v8-economic-gate` — **Forward Risk V8 · gate económico causal**.
+
 Ejecuta:
-1. guard V8 vintage-safe;
+1. `Guard V8 económico`;
 2. TypeScript (`npm run lint`);
-3. V8 con macro ALFRED point-in-time sobre EUNL + seis benchmarks holdout.
+3. `V8 contrafactual económico NEXT_OPEN`.
 
-Si `FRED_API_KEY` no está configurada, debe fallar explícitamente con `FRED_API_KEY_REQUIRED`. Eso es un problema de configuración, no un veredicto negativo del predictor.
+Marker de resultado: `FORWARD_RISK_V8_ECONOMIC_RESULT`.
+Requiere `FRED_API_KEY`. No llama a Gemini y no usa GitHub Actions.
 
-Los jobs V6/V7/V8 previos dejan de mostrarse para evitar repetir gates ya resueltos. Sus scripts quedan en Git para reproducibilidad.
-
-No llama a Gemini ni usa GitHub Actions.
+El resultado reporta por EUNL y cada holdout:
+- valor final hold vs protegido;
+- delta final y rentabilidad;
+- drawdown hold vs protegido y reducción;
+- dinero ganado/perdido en fechas de breach;
+- beneficio/coste marginal por ciclo de protección;
+- tiempo protegido;
+- comisiones, turnover, impuestos sobre plusvalías e intereses de cash;
+- auditoría de cada trade con `signalDate` y `executionDate`.
 
 ---
 
@@ -105,7 +140,7 @@ No llama a Gemini ni usa GitHub Actions.
 - **EODHD**: secundario para contraste y NAV de fondos por ISIN si hay API key.
 - **Alpha Vantage**: contraste secundario si hay API key.
 - **Cboe**: históricos VIX/VIX9D/VVIX de V7/V8.
-- **FRED/ALFRED API**: reconstrucción point-in-time de macro V5/V8 cuando `FRED_API_KEY` está configurada.
+- **FRED/ALFRED API**: macro point-in-time V5/V8 con `FRED_API_KEY`.
 
 ## Replay manual abierto
 El replay manual puede buscar Yahoo LIVE por nombre/ticker/ISIN, validar histórico REAL y registrar instrumentos dinámicos EUR. El estudio individual acepta ticker directo y fondos/ISIN mediante `FundMarketDataService`.
@@ -153,8 +188,8 @@ El antiguo panel Forward Risk V1 fue retirado y sustituido por `ResearchValidati
 ---
 
 # Próxima secuencia
-1. Ejecutar `Forward Risk V8 · confirmación macro vintage-safe` desde `Validaciones de investigación -> Ejecutar sin IA`.
-2. Si falta `FRED_API_KEY`, configurarla en el entorno y repetir el mismo job; no cambiar señales ni gates.
-3. Si V8 vintage-safe pasa, construir gate económico causal NEXT_OPEN para medir dinero realmente salvado frente al coste de oportunidad/cash, sin conectar todavía a producción.
+1. Ejecutar `Forward Risk V8 · gate económico causal` desde `Validaciones de investigación -> Ejecutar sin IA`.
+2. Si PASS: preparar shadow/paper validation manteniendo V8 fuera de producción.
+3. Si FAIL: mantener V8 research-only y **no** retocar 25%, 80/80 ni el gate usando esta muestra.
 4. Completar `OPEN_MARKET_DISCOVERY_V1`.
 5. Diseñar `CORE_ELIGIBILITY_V2` y seguir simplificando UI/ranking/controles.
