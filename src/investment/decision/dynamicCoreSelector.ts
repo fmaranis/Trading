@@ -125,12 +125,14 @@ function scoreCandidate(
  * - HEALTHY: eligible for new money and retained by inertia;
  * - DEGRADED: not eligible for fresh core money, but not sold merely because it
  *   temporarily lags cash or another broad index;
- * - BROKEN: position-health has independently reached EXIT. Only then may the
- *   structural core be replaced, or moved to cash if no healthy global core exists.
+ * - BROKEN: position-health has independently reached EXIT. This is a trigger to
+ *   compare all broad-global cores, not a trigger to abandon market exposure.
  *
- * Missing evidence is UNKNOWN and can never authorize a sale. New core selection
- * and replacement use only data available on the current decision date; no fixed
- * Vanguard/EUNL product priority and no future return enter this function.
+ * A BROKEN incumbent is transferred to the best evidence-backed core available
+ * on that date, even when every core is weak. If the incumbent itself is still
+ * the least-bad core, it is retained instead of being sold to cash. Missing
+ * evidence is UNKNOWN and can never authorize a sale. No fixed Vanguard/EUNL
+ * product priority and no future return enter this selector.
  */
 export function selectDynamicCoreV1(
   input: PortfolioEvaluationInput,
@@ -153,23 +155,25 @@ export function selectDynamicCoreV1(
   const incumbentAssetId = incumbentEntries[0]?.[0] ?? null;
   const incumbentScore = incumbentAssetId ? scoreById.get(incumbentAssetId) ?? null : null;
 
-  const healthyAlternatives = candidates
+  const rankedWithEvidence = candidates
     .map(candidate => ({ candidate, score: scoreById.get(candidate.asset.assetId.toUpperCase())! }))
-    .filter(row => row.score.healthy)
+    .filter(row => row.score.evidenceSufficient && row.score.compositeScore != null)
     .sort((a, b) => (b.score.compositeScore ?? -Infinity) - (a.score.compositeScore ?? -Infinity)
       || (b.score.consensusScore ?? -Infinity) - (a.score.consensusScore ?? -Infinity)
       || a.candidate.asset.assetId.localeCompare(b.candidate.asset.assetId));
-  const best = healthyAlternatives[0]?.candidate ?? null;
+  const healthyAlternatives = rankedWithEvidence.filter(row => row.score.healthy);
+  const bestHealthy = healthyAlternatives[0]?.candidate ?? null;
+  const bestAvailable = rankedWithEvidence[0]?.candidate ?? null;
 
   if (!incumbentAssetId) {
     return {
       version: DYNAMIC_CORE_SELECTOR_V1,
-      selected: best,
-      selectedAssetId: best?.asset.assetId ?? null,
+      selected: bestHealthy,
+      selectedAssetId: bestHealthy?.asset.assetId ?? null,
       incumbentAssetId: null,
       incumbentHealthy: null,
       incumbentState: 'NONE',
-      reason: best ? 'BEST_HEALTHY_CORE' : 'NO_HEALTHY_CORE',
+      reason: bestHealthy ? 'BEST_HEALTHY_CORE' : 'NO_HEALTHY_CORE',
       candidateScores
     };
   }
@@ -201,8 +205,6 @@ export function selectDynamicCoreV1(
     };
   }
 
-  // A core that merely fails the new-money/cash gate is degraded, not broken.
-  // This explicitly prevents a broad-index switch caused by one weak period.
   const broken = healthActionFor(input, incumbentAssetId) === 'EXIT';
   if (!broken) {
     return {
@@ -217,7 +219,11 @@ export function selectDynamicCoreV1(
     };
   }
 
-  if (!best) {
+  // A core EXIT is a relative-selection event, not a market-exit event. Prefer
+  // a healthy core when one exists; otherwise use the best evidence-backed core
+  // even if all are currently weak. Cash is not the default destination.
+  const replacement = bestHealthy ?? bestAvailable;
+  if (!replacement || replacement.asset.assetId.toUpperCase() === incumbentAssetId) {
     return {
       version: DYNAMIC_CORE_SELECTOR_V1,
       selected: null,
@@ -225,15 +231,15 @@ export function selectDynamicCoreV1(
       incumbentAssetId,
       incumbentHealthy: false,
       incumbentState: 'BROKEN',
-      reason: 'BROKEN_INCUMBENT_TO_CASH',
+      reason: 'DEGRADED_INCUMBENT_HOLD',
       candidateScores
     };
   }
 
   return {
     version: DYNAMIC_CORE_SELECTOR_V1,
-    selected: best,
-    selectedAssetId: best.asset.assetId,
+    selected: replacement,
+    selectedAssetId: replacement.asset.assetId,
     incumbentAssetId,
     incumbentHealthy: false,
     incumbentState: 'BROKEN',
