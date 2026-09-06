@@ -49,7 +49,7 @@ const workerScope = self as unknown as WorkerScope;
 // Production/replay baseline remains structural-core V1. Forward-risk V1/V2/V3/V3.1
 // are research diagnostics only and never feed live or replay portfolio decisions.
 const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1' as const;
-const FORWARD_RISK_RESEARCH_WARMUP_YEARS = 5;
+const FORWARD_RISK_RESEARCH_WARMUP_YEARS = 7;
 const MATERIAL_ACTIONS = new Set(['BUY', 'ADD', 'REDUCE', 'EXIT']);
 const AUDIT_BROADCAST_CHANNEL = 'historical-replay-audit-v3';
 const auditChannel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(AUDIT_BROADCAST_CHANNEL);
