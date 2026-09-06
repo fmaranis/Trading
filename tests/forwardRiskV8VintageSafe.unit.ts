@@ -16,7 +16,9 @@ requireText(loader, 'realtime_end', 'MUST_READ_REALTIME_END');
 requireText(loader, "source: 'FRED_API_ALFRED_REALTIME_PERIODS'", 'VINTAGE_SAFE_PROVENANCE_MISSING');
 requireText(loader, 'pointInTimeVintageSafe: true', 'VINTAGE_SAFE_FLAG_MISSING');
 forbidText(loader, 'fredgraph.csv', 'VINTAGE_SAFE_MUST_NOT_USE_CURRENT_GRAPH_CSV');
-forbidText(loader, 'synthetic fallback', 'VINTAGE_SAFE_MUST_NOT_ALLOW_SYNTHETIC_FALLBACK');
+forbidText(loader, "from './synthetic", 'VINTAGE_SAFE_MUST_NOT_IMPORT_SYNTHETIC_DATA');
+forbidText(loader, "from '../synthetic", 'VINTAGE_SAFE_MUST_NOT_IMPORT_SYNTHETIC_DATA');
+forbidText(loader, 'DataSourceType.SYNTHETIC', 'VINTAGE_SAFE_MUST_NOT_USE_SYNTHETIC_DATA');
 
 requireText(script, 'V5_SIGNAL_SCORE_PCT = 80', 'V5_THRESHOLD_MUST_STAY_FROZEN');
 requireText(script, 'V7_SIGNAL_SCORE_PCT = 80', 'V7_THRESHOLD_MUST_STAY_FROZEN');
