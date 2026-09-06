@@ -7,6 +7,7 @@ export const DYNAMIC_CORE_SELECTOR_V1 = 'DYNAMIC_CORE_SELECTOR_V1' as const;
 
 export type DynamicCoreSelectionReason =
   | 'HEALTHY_INCUMBENT_INERTIA'
+  | 'INCUMBENT_EVIDENCE_INSUFFICIENT'
   | 'BEST_HEALTHY_CORE'
   | 'REPLACE_UNHEALTHY_INCUMBENT'
   | 'NO_HEALTHY_CORE';
@@ -24,6 +25,7 @@ export interface DynamicCoreCandidateScore {
   excessVsCashPctPoints: number | null;
   structuralDowntrend: boolean;
   cashPasses: boolean;
+  evidenceSufficient: boolean;
   healthy: boolean;
   currentlyHeldEur: number;
 }
@@ -72,12 +74,15 @@ function scoreCandidate(
     : null;
   const structuralDowntrend = assessment?.structuralDowntrend ?? false;
   const cashPasses = cash.passes === true;
+  const evidenceSufficient = assessment != null && rawScore != null && cash.passes != null;
   const compositeScore = rawScore == null || consensusScore == null
     ? null
     : rawScore + consensusScore * 5 + clamp(excess ?? 0, -20, 20) * 0.5;
-  const healthy = candidate.status === 'ACCEPTED'
+  const healthy = evidenceSufficient
+    && candidate.status === 'ACCEPTED'
     && compositeScore != null
     && !structuralDowntrend
+    && consensusScore != null
     && consensusScore >= 0
     && cashPasses;
 
@@ -91,6 +96,7 @@ function scoreCandidate(
     excessVsCashPctPoints: excess,
     structuralDowntrend,
     cashPasses,
+    evidenceSufficient,
     healthy,
     currentlyHeldEur: heldEur
   };
@@ -103,7 +109,10 @@ function scoreCandidate(
  * - only broad products explicitly classified as STRATEGIC_GROWTH_CORE compete;
  * - no hard-coded product priority decides the winner;
  * - a currently-held healthy core is retained (inertia, no performance chasing);
- * - only when no held core remains healthy is the best healthy alternative chosen;
+ * - missing/insufficient evidence about the incumbent can never authorize a
+ *   structural transfer: unknown is not the same thing as unhealthy;
+ * - only when the incumbent is positively evidenced as unhealthy is the best
+ *   healthy broad-global alternative allowed to replace it;
  * - if no healthy core exists, returns null so new money is not forced into a
  *   known-unhealthy/default product.
  *
@@ -124,6 +133,9 @@ export function selectDynamicCoreV1(
     scoreById.set(id, scoreCandidate(input, candidate, heldValues.get(id) ?? 0));
   }
 
+  const candidateScores = [...scoreById.values()].sort(
+    (a, b) => (b.compositeScore ?? -Infinity) - (a.compositeScore ?? -Infinity) || a.assetId.localeCompare(b.assetId)
+  );
   const incumbentEntries = [...heldValues.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const incumbentAssetId = incumbentEntries[0]?.[0] ?? null;
   const incumbentScore = incumbentAssetId ? scoreById.get(incumbentAssetId) ?? null : null;
@@ -144,7 +156,21 @@ export function selectDynamicCoreV1(
       incumbentAssetId,
       incumbentHealthy: incumbentScore?.healthy ?? null,
       reason: 'HEALTHY_INCUMBENT_INERTIA',
-      candidateScores: [...scoreById.values()].sort((a, b) => (b.compositeScore ?? -Infinity) - (a.compositeScore ?? -Infinity) || a.assetId.localeCompare(b.assetId))
+      candidateScores
+    };
+  }
+
+  // Critical safety rule: a missing series, incomplete consensus or any other
+  // evidence gap cannot be interpreted as proof that the incumbent is bad.
+  if (incumbentAssetId && (!incumbentScore || !incumbentScore.evidenceSufficient)) {
+    return {
+      version: DYNAMIC_CORE_SELECTOR_V1,
+      selected: null,
+      selectedAssetId: null,
+      incumbentAssetId,
+      incumbentHealthy: null,
+      reason: 'INCUMBENT_EVIDENCE_INSUFFICIENT',
+      candidateScores
     };
   }
 
@@ -156,7 +182,6 @@ export function selectDynamicCoreV1(
       || a.candidate.asset.assetId.localeCompare(b.candidate.asset.assetId));
 
   const best = healthyAlternatives[0]?.candidate ?? null;
-  const candidateScores = [...scoreById.values()].sort((a, b) => (b.compositeScore ?? -Infinity) - (a.compositeScore ?? -Infinity) || a.assetId.localeCompare(b.assetId));
 
   if (!best) {
     return {
@@ -164,7 +189,7 @@ export function selectDynamicCoreV1(
       selected: null,
       selectedAssetId: null,
       incumbentAssetId,
-      incumbentHealthy: incumbentScore?.healthy ?? (incumbentAssetId ? false : null),
+      incumbentHealthy: incumbentScore?.healthy ?? null,
       reason: 'NO_HEALTHY_CORE',
       candidateScores
     };
@@ -175,7 +200,7 @@ export function selectDynamicCoreV1(
     selected: best,
     selectedAssetId: best.asset.assetId,
     incumbentAssetId,
-    incumbentHealthy: incumbentScore?.healthy ?? (incumbentAssetId ? false : null),
+    incumbentHealthy: incumbentScore?.healthy ?? null,
     reason: incumbentAssetId ? 'REPLACE_UNHEALTHY_INCUMBENT' : 'BEST_HEALTHY_CORE',
     candidateScores
   };
