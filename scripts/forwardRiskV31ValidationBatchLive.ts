@@ -57,6 +57,7 @@ function cashGrowthFactor(fromDate: string, toDate: string): number {
 }
 function economicAudit(input: {
   coreAssetId: string | null;
+  periodEndDate: string;
   sampledForecasts: Array<{ executionDate: string; nearTermRiskPercentilePct: number }>;
   dataset: typeof AssetUniverseScanner extends never ? never : any;
 }) {
@@ -79,6 +80,7 @@ function economicAudit(input: {
     if (exitIndex >= bars.length) continue;
     const entry = bars[entryIndex];
     const exit = bars[exitIndex];
+    if (isoDate(exit.timestamp) > input.periodEndDate) continue;
     const entryOpen = entry.open;
     const exitOpen = exit.open;
     if (!(entryOpen > 0) || !(exitOpen > 0)) continue;
@@ -113,7 +115,8 @@ function economicAudit(input: {
       execution: 'NEXT_OPEN',
       reentry: 'OPEN_AFTER_FIXED_20_SESSIONS',
       cashBenchmark: 'HISTORICAL_ECB_DFR_FLOOR_0',
-      transactionCostsApplied: false
+      transactionCostsApplied: false,
+      periodBoundaryEnforced: true
     },
     signals,
     summary: {
@@ -192,7 +195,12 @@ async function main() {
         metrics,
         episodes: forecast.episodeAudits,
         anticipatedEpisodes: anticipated.length,
-        economicAudit: economicAudit({ coreAssetId: forecast.coreAssetId, sampledForecasts: forecast.sampledForecasts, dataset: scan.acceptedDataset })
+        economicAudit: economicAudit({
+          coreAssetId: forecast.coreAssetId,
+          periodEndDate: period.endDate,
+          sampledForecasts: forecast.sampledForecasts,
+          dataset: scan.acceptedDataset
+        })
       };
     });
 
@@ -247,6 +255,7 @@ async function main() {
         'Stress and control periods are declared in code before outcomes are calculated.',
         'The expensive historical universe scan and VIX/VIX3M diagnostic load are shared across all cases.',
         'The economic counterfactual uses only the frozen sampled 20d V3.1 output: 25% of a 13,000 EUR research notional moves to historical ECB-floor cash for exactly 20 sessions at NEXT_OPEN.',
+        'Every protection cycle must end inside its declared validation period; no economic result can borrow future sessions from the following period.',
         'Overlapping sampled protection windows are ignored. This avoids stacking repeated alarms and keeps the audit causal and conservative.',
         'Transaction costs are not assumed. Each signal and period reports gross protection and break-even round-trip cost so the result is not tied to an invented broker tariff.',
         'No result from this script feeds live decisions, Custodia, or replay portfolio actions.'
