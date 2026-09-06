@@ -19,31 +19,72 @@ const SERIES: Array<{ id: ForwardRiskMacroSeriesId; frequency: 'DAILY' | 'WEEKLY
   { id: 'WALCL', frequency: 'WEEKLY' }
 ];
 
+// FRED rejects JSON requests whose selected real-time period contains more than
+// 2,000 vintage dates. Three-year windows stay comfortably below that limit for
+// the daily macro series used by V5 while preserving the exact same data.
+const MAX_REALTIME_WINDOW_YEARS = 3;
+
 function requiredApiKey(): string {
   const key = process.env.FRED_API_KEY?.trim();
   if (!key) throw new Error('FRED_API_KEY_REQUIRED');
   return key;
 }
 
-async function fetchRealtimePeriods(
+function parseIsoDate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function isoDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function addUtcDays(value: Date, days: number): Date {
+  const next = new Date(value.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function buildRealtimeWindows(startDate: string, endDate: string): Array<{ start: string; end: string }> {
+  const end = parseIsoDate(endDate);
+  let cursor = parseIsoDate(startDate);
+  const windows: Array<{ start: string; end: string }> = [];
+
+  while (cursor <= end) {
+    const candidateEnd = new Date(cursor.getTime());
+    candidateEnd.setUTCFullYear(candidateEnd.getUTCFullYear() + MAX_REALTIME_WINDOW_YEARS);
+    const chunkEnd = addUtcDays(candidateEnd, -1);
+    const boundedEnd = chunkEnd < end ? chunkEnd : end;
+    windows.push({ start: isoDate(cursor), end: isoDate(boundedEnd) });
+    cursor = addUtcDays(boundedEnd, 1);
+  }
+
+  return windows;
+}
+
+async function fetchRealtimeWindow(
   id: ForwardRiskMacroSeriesId,
-  startDate: string,
-  endDate: string,
+  observationStartDate: string,
+  realtimeStartDate: string,
+  realtimeEndDate: string,
   apiKey: string
 ): Promise<FredRealtimeObservation[]> {
   const rows: FredRealtimeObservation[] = [];
   const limit = 100000;
   let offset = 0;
+
   for (;;) {
     const params = new URLSearchParams({
       series_id: id,
       api_key: apiKey,
       file_type: 'json',
       output_type: '1',
-      realtime_start: startDate,
-      realtime_end: endDate,
-      observation_start: startDate,
-      observation_end: endDate,
+      realtime_start: realtimeStartDate,
+      realtime_end: realtimeEndDate,
+      observation_start: observationStartDate,
+      // An observation dated after the as-of window could not have been known
+      // inside that window, so cap this as well to reduce payload size.
+      observation_end: realtimeEndDate,
       limit: String(limit),
       offset: String(offset),
       sort_order: 'asc'
@@ -59,7 +100,29 @@ async function fetchRealtimePeriods(
     offset += page.length;
     if (!page.length || offset >= count) break;
   }
+
   return rows;
+}
+
+async function fetchRealtimePeriods(
+  id: ForwardRiskMacroSeriesId,
+  startDate: string,
+  endDate: string,
+  apiKey: string
+): Promise<FredRealtimeObservation[]> {
+  const allRows: FredRealtimeObservation[] = [];
+  for (const window of buildRealtimeWindows(startDate, endDate)) {
+    allRows.push(...await fetchRealtimeWindow(id, startDate, window.start, window.end, apiKey));
+  }
+
+  // A real-time record whose validity spans a chunk boundary may be returned in
+  // both adjacent calls. Exact deduplication keeps chunking semantically neutral.
+  const deduped = new Map<string, FredRealtimeObservation>();
+  for (const row of allRows) {
+    const key = `${row.date}|${row.realtime_start}|${row.realtime_end}|${row.value}`;
+    deduped.set(key, row);
+  }
+  return [...deduped.values()];
 }
 
 /**
@@ -123,6 +186,7 @@ export async function loadForwardRiskMacroDataV5VintageSafe(startDate: string, e
     failures,
     notes: [
       'FRED/ALFRED realtime_start and realtime_end are used to reconstruct only information available as of each historical release/revision date.',
+      'ALFRED requests are chunked into bounded real-time windows to stay below the API vintage-date limit; exact duplicate records are removed after merging.',
       'No current-vintage graph CSV and no synthetic fallback is permitted in this loader.',
       'The downstream V5 formula and frozen thresholds are unchanged; only macro data provenance is made point-in-time safe.'
     ]
