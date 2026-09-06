@@ -15,6 +15,7 @@ interface ValidationJob {
   result: any;
   error: string | null;
 }
+interface ProviderStatus { provider: string; configured: boolean; role?: string; primaryProvider?: string; }
 
 const BASE = '/api/alerts/research-validation';
 
@@ -23,6 +24,9 @@ function badge(status: Status): string {
     : status === 'PASSED' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
       : status === 'FAILED' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200'
         : 'border-slate-700 bg-slate-900 text-slate-400';
+}
+function providerClass(configured: boolean | null): string {
+  return configured === true ? 'text-emerald-200' : configured === false ? 'text-amber-200' : 'text-slate-400';
 }
 
 function resultSummary(result: any): React.ReactNode {
@@ -40,13 +44,21 @@ export const ResearchValidationCenter: React.FC = () => {
   const [jobs, setJobs] = useState<ValidationJob[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [eodhd, setEodhd] = useState<ProviderStatus | null>(null);
+  const [alpha, setAlpha] = useState<ProviderStatus | null>(null);
 
   const refresh = async () => {
     try {
-      const response = await fetch(`${BASE}/jobs`);
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || `HTTP_${response.status}`);
+      const [jobsResponse, eodhdResponse, alphaResponse] = await Promise.all([
+        fetch(`${BASE}/jobs`),
+        fetch('/api/eodhd/status'),
+        fetch('/api/alpha-vantage/status')
+      ]);
+      const payload = await jobsResponse.json();
+      if (!jobsResponse.ok) throw new Error(payload?.error || `HTTP_${jobsResponse.status}`);
       setJobs(Array.isArray(payload.jobs) ? payload.jobs : []);
+      if (eodhdResponse.ok) setEodhd(await eodhdResponse.json());
+      if (alphaResponse.ok) setAlpha(await alphaResponse.json());
       setError(null);
     } catch (e: any) { setError(e?.message || String(e)); }
   };
@@ -77,6 +89,13 @@ export const ResearchValidationCenter: React.FC = () => {
       </div>
       <button type="button" onClick={() => void refresh()} className="rounded-lg border border-slate-700 px-3 py-2 text-[10px] font-bold text-slate-300 hover:bg-slate-900"><RefreshCw className="mr-1 inline h-3 w-3"/>Actualizar</button>
     </div>
+
+    <div className="mt-4 grid gap-2 sm:grid-cols-3 text-[10px]">
+      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Yahoo Finance</div><b className="mt-1 block text-emerald-200">PRINCIPAL · ACTIVO</b><div className="mt-1 text-slate-600">Histórico y descubrimiento abierto por ticker/ISIN/nombre.</div></div>
+      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">EODHD</div><b className={`mt-1 block ${providerClass(eodhd?.configured ?? null)}`}>{eodhd == null ? 'COMPROBANDO…' : eodhd.configured ? 'CONFIGURADO' : 'SIN API KEY'}</b><div className="mt-1 text-slate-600">NAV de fondos + contraste secundario.</div></div>
+      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Alpha Vantage</div><b className={`mt-1 block ${providerClass(alpha?.configured ?? null)}`}>{alpha == null ? 'COMPROBANDO…' : alpha.configured ? 'CONFIGURADO' : 'SIN API KEY'}</b><div className="mt-1 text-slate-600">Contraste secundario; no bloquea Yahoo.</div></div>
+    </div>
+
     {error && <div className="mt-3 rounded-lg border border-rose-500/25 bg-rose-500/10 p-3 text-[10px] text-rose-100">{error}</div>}
     <div className="mt-4 space-y-3">
       {jobs.map(job => <div key={job.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
