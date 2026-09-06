@@ -1,12 +1,18 @@
 import express, { Request, Response } from 'express';
 import { getAlertAutomationStatus, runDailyOpportunityCheck } from './alertAutomation';
 import { accountRouter } from './accountRoutes';
+import { researchValidationRouter } from './researchValidationRoutes';
 
 export const alertAutomationRouter = express.Router();
 
 // Mounted here to avoid widening the root server surface while the authenticated
 // product layer is introduced. Public path: /api/alerts/account/*.
 alertAutomationRouter.use('/account', accountRouter);
+
+// Research execution is a fixed allowlist of local Node/TypeScript jobs. It never
+// accepts an arbitrary shell command and does not call Gemini or another AI API.
+// Public path: /api/alerts/research-validation/*.
+alertAutomationRouter.use('/research-validation', researchValidationRouter);
 
 alertAutomationRouter.get('/status', async (_req: Request, res: Response): Promise<void> => {
   try {
