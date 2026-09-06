@@ -13,7 +13,14 @@ assert.match(script, /CALM_RECOVERY_2023/);
 assert.match(script, /runForwardRiskForecastV31/);
 assert.match(script, /FROZEN_V3_1_MULTI_PERIOD_OOS_RESEARCH_ONLY/);
 assert.match(script, /productionPromotionAllowed: false/);
-assert.match(script, /Economic money-saved validation remains a separate required gate/);
+assert.match(script, /PROTECTED_SHARE = 0\.25/);
+assert.match(script, /ECONOMIC_HORIZON_SESSIONS = 20/);
+assert.match(script, /ECONOMIC_HIGH_RISK_PERCENTILE_PCT = 80/);
+assert.match(script, /historicalCashBenchmarkAnnualPct/);
+assert.match(script, /execution: 'NEXT_OPEN'/);
+assert.match(script, /transactionCostsApplied: false/);
+assert.match(script, /breakEvenRoundTripCostBps/);
+assert.match(script, /economicCounterfactual/);
 assert.doesNotMatch(script, /runDynamicReplayWithRotationExperiment/);
 assert.doesNotMatch(script, /portfolioDecisionEngine/);
 
