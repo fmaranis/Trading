@@ -20,15 +20,14 @@ interface JobState {
 const MAX_OUTPUT_CHARS = 1_500_000;
 const JOBS: JobDefinition[] = [
   {
-    id: 'forward-risk-v8',
-    name: 'Forward Risk V8 · complementariedad V5 + V7 · 2011–2026',
-    description: 'Comprueba si las señales ya congeladas de vulnerabilidad macro V5 y opciones V7 cubren episodios distintos. No reajusta thresholds, no usa Gemini y no usa GitHub Actions.',
-    marker: 'FORWARD_RISK_V8_COMPLEMENTARITY_RESULT',
+    id: 'forward-risk-v8-transfer',
+    name: 'Forward Risk V8 · confirmación en benchmarks holdout',
+    description: 'Transfiere la señal congelada V5>=80 OR V7>=80 a seis benchmarks global-equity HOLDOUT que no generan la señal. No reajusta thresholds, no usa Gemini y no usa GitHub Actions.',
+    marker: 'FORWARD_RISK_V8_BENCHMARK_TRANSFER_RESULT',
     steps: [
-      { label: 'Guard arquitectura V8', command: 'npx', args: ['tsx', 'tests/forwardRiskComplementarityV8.unit.ts'] },
-      { label: 'Guard rolling V8', command: 'npx', args: ['tsx', 'tests/forwardRiskComplementarityV8Rolling.unit.ts'] },
+      { label: 'Guard transferencia V8', command: 'npx', args: ['tsx', 'tests/forwardRiskV8BenchmarkTransfer.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Rolling V8 2011–2026', command: 'npx', args: ['tsx', 'scripts/forwardRiskComplementarityV8RollingLive.ts'] }
+      { label: 'Transferencia V8 a benchmarks holdout', command: 'npx', args: ['tsx', 'scripts/forwardRiskV8BenchmarkTransferLive.ts'] }
     ]
   }
 ];
