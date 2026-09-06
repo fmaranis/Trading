@@ -32,11 +32,12 @@ function providerClass(configured: boolean | null): string {
 function resultSummary(result: any): React.ReactNode {
   if (!result) return null;
   const aggregate = result.aggregate ?? {};
+  const falseSignal = aggregate.falseSignalTimePct ?? aggregate.falseDivergenceTimePct ?? aggregate.falseVulnerabilityTimePct ?? null;
   return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
     <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Veredicto</div><b className="text-xs text-white">{String(result.verdict ?? 'N/D')}</b></div>
     <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Anticipación</div><b className="text-sm text-white">{aggregate.anticipationRatePct == null ? 'N/D' : `${Number(aggregate.anticipationRatePct).toFixed(2)}%`}</b></div>
     <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Lead mediano</div><b className="text-sm text-white">{aggregate.medianLeadSessionsBeforePeak == null ? 'N/D' : `${Number(aggregate.medianLeadSessionsBeforePeak).toFixed(0)} sesiones`}</b></div>
-    <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Falsa divergencia</div><b className="text-sm text-white">{aggregate.falseDivergenceTimePct == null ? 'N/D' : `${Number(aggregate.falseDivergenceTimePct).toFixed(2)}%`}</b></div>
+    <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Falsa señal</div><b className="text-sm text-white">{falseSignal == null ? 'N/D' : `${Number(falseSignal).toFixed(2)}%`}</b></div>
   </div>;
 }
 
