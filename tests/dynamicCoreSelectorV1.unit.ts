@@ -165,7 +165,7 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   assert.equal(next.contributions.length, 0);
 }
 
-// A genuinely BROKEN incumbent is not protected forever: when a healthy broad
+// A genuinely BROKEN incumbent is not protected forever: when a healthier broad
 // global alternative exists it becomes the structural replacement.
 {
   const scenario = markHealth(input([candidate(vanguard, 30, true), candidate(eunl, -20, false)]), 'EUNL', 'EXIT');
@@ -176,8 +176,8 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   assert.equal(selection.incumbentState, 'BROKEN');
 }
 
-// If every broad-global core is unhealthy and there is no incumbent, no fixed
-// product is forced merely to keep money invested.
+// Without an incumbent, every unhealthy core may legitimately leave fresh money
+// undeployed. This does not authorize liquidation of an already-held core.
 {
   const selection = selectDynamicCoreV1(
     input([candidate(vanguard, -10, false), candidate(eunl, -20, false)]),
@@ -187,21 +187,39 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   assert.equal(selection.reason, 'NO_HEALTHY_CORE');
 }
 
-// If the incumbent itself is BROKEN and no healthy replacement exists, the safe
-// destination is remunerated cash rather than holding a broken core forever.
+// BROKEN is a relative core-selection event, never a default market exit. If all
+// cores are weak but Vanguard ranks above the incumbent, rotate to Vanguard as
+// the best available core instead of sending the portfolio to cash.
 {
   const scenario = markHealth(input([candidate(vanguard, -10, false), candidate(eunl, -20, false)]), 'EUNL', 'EXIT');
   const selection = selectDynamicCoreV1(scenario, result('EUNL'));
-  assert.equal(selection.selected, null);
+  assert.equal(selection.selectedAssetId, 'FUND_VANGUARD_GLOBAL');
   assert.equal(selection.incumbentState, 'BROKEN');
-  assert.equal(selection.reason, 'BROKEN_INCUMBENT_TO_CASH');
+  assert.equal(selection.reason, 'REPLACE_UNHEALTHY_INCUMBENT');
 
   const next = applyCoreArchitectureV1(scenario, result('EUNL'));
   const incumbent = next.existingPositions.find(row => row.assetId === 'EUNL')!;
+  const replacement = next.contributions.find(row => row.assetId === 'FUND_VANGUARD_GLOBAL')!;
   assert.equal(incumbent.action, 'EXIT');
-  assert.equal(incumbent.suggestedReductionPct, 100);
+  assert.equal(incumbent.rotationChallengerAssetId, 'FUND_VANGUARD_GLOBAL');
+  assert.ok(replacement);
+  assert.equal(replacement.positionStage, 'ROTATION_ENTRY');
+}
+
+// If the incumbent is itself the best of a bad set, a late reactive EXIT is
+// cancelled. The motor stays invested and does not create a cash-exit plan.
+{
+  const scenario = markHealth(input([candidate(vanguard, -20, false), candidate(eunl, -10, false)]), 'EUNL', 'EXIT');
+  const selection = selectDynamicCoreV1(scenario, result('EUNL'));
+  assert.equal(selection.selectedAssetId, null);
+  assert.equal(selection.incumbentState, 'BROKEN');
+  assert.equal(selection.reason, 'DEGRADED_INCUMBENT_HOLD');
+
+  const next = applyCoreArchitectureV1(scenario, result('EUNL'));
+  const incumbent = next.existingPositions.find(row => row.assetId === 'EUNL')!;
+  assert.equal(incumbent.action, 'HOLD');
   assert.equal(incumbent.rotationChallengerAssetId, null);
-  assert.match(incumbent.reason, /DYNAMIC_CORE_SELECTOR_V1:STRUCTURAL_CASH_EXIT/);
+  assert.doesNotMatch(incumbent.reason, /STRUCTURAL_CASH_EXIT/);
   assert.equal(next.contributions.length, 0);
 }
 
