@@ -7,12 +7,12 @@ import {
 } from './portfolioDecisionEngine';
 import {
   isStrategicGrowthCoreAssetId,
-  portfolioAssetRole,
-  STRATEGIC_GROWTH_CORE_PRIORITY
+  portfolioAssetRole
 } from './portfolioAssetRole';
 import type { PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
 import { STRATEGIC_CORE_POLICY } from './strategicCorePolicy';
 import { StrategyConsensusEngine } from './strategyConsensusEngine';
+import { DYNAMIC_CORE_SELECTOR_V1, selectDynamicCoreV1 } from './dynamicCoreSelector';
 
 export type PortfolioEvaluationInput = Parameters<typeof PortfolioDecisionEngine.evaluate>[0];
 
@@ -65,15 +65,8 @@ function healthFor(input: PortfolioEvaluationInput, position: PortfolioPositionD
   return undefined;
 }
 
-function chooseCoreCandidate(input: PortfolioEvaluationInput) {
-  const accepted = input.scan.candidates.filter(candidate => candidate.status === 'ACCEPTED');
-  for (const assetId of STRATEGIC_GROWTH_CORE_PRIORITY) {
-    const found = accepted.find(candidate => candidate.asset.assetId === assetId);
-    if (found) return found;
-  }
-  return accepted
-    .filter(candidate => candidate.asset.category === 'GLOBAL_EQUITY' && !candidate.asset.assetId.startsWith('EQ_'))
-    .sort((a, b) => a.asset.assetId.localeCompare(b.asset.assetId))[0] ?? null;
+function chooseCoreCandidate(input: PortfolioEvaluationInput, result: PortfolioDecisionResult) {
+  return selectDynamicCoreV1(input, result).selected;
 }
 
 function causalSelectionScore(input: PortfolioEvaluationInput, assetId: string): {
@@ -145,9 +138,9 @@ function refreshPlanningTotals(result: PortfolioDecisionResult, oldRotationProce
   result.residualPlannedCashEur = Math.max(0, result.residualPlannedCashEur + (newRotationProceeds - oldRotationProceeds) - (newRecommended - oldRecommended));
 }
 
-function coreCurrentValue(result: PortfolioDecisionResult): number {
+function coreCurrentValue(result: PortfolioDecisionResult, assetId: string): number {
   return result.existingPositions
-    .filter(position => isStrategicGrowthCoreAssetId(position.assetId))
+    .filter(position => position.assetId === assetId)
     .reduce((sum, position) => sum + Math.max(0, position.currentValueEur ?? 0), 0);
 }
 
@@ -159,11 +152,11 @@ function contributionRole(input: PortfolioEvaluationInput, contribution: Contrib
 function addOrMergeCoreContribution(input: PortfolioEvaluationInput, result: PortfolioDecisionResult, amountEur: number, reason: string, stage: ContributionRecommendation['positionStage']): boolean {
   const amount = Math.max(0, amountEur);
   if (amount <= 1e-9) return false;
-  const core = chooseCoreCandidate(input);
+  const core = chooseCoreCandidate(input, result);
   if (!core) return false;
 
   const existingIndex = result.contributions.findIndex(row => row.assetId === core.asset.assetId);
-  const currentValue = coreCurrentValue(result);
+  const currentValue = coreCurrentValue(result, core.asset.assetId);
   if (existingIndex >= 0) {
     const existing = result.contributions[existingIndex];
     const mergedAmount = Math.max(0, existing.amountEur) + amount;
@@ -256,7 +249,7 @@ export function applyCoreGateV1(
   const oldRotationProceeds = result.plannedRotationProceedsEur;
   const oldRecommended = result.recommendedNewInvestmentEur;
   const health = healthFor(input, rotation);
-  const core = chooseCoreCandidate(input);
+  const core = chooseCoreCandidate(input, result);
 
   if (health?.action === 'HOLD' && !health.structuralDowntrend && (health.consensusScore ?? -Infinity) >= 0) {
     removeContribution(result, challengerAssetId, true);
@@ -270,15 +263,15 @@ export function applyCoreGateV1(
   }
 
   if (!core || core.asset.assetId === rotation.assetId) {
-    rotation.reason += ' [CORE_GATE_V1:CHALLENGER] No existe un core alternativo utilizable; se conserva la rotación baseline.';
-    baselineContribution.reason += ' [CORE_GATE_V1:CHALLENGER] Sin core alternativo utilizable.';
+    rotation.reason += ' [CORE_GATE_V1:CHALLENGER] No existe un core alternativo causalmente sano; se conserva la rotación baseline.';
+    baselineContribution.reason += ' [CORE_GATE_V1:CHALLENGER] Sin core alternativo causalmente sano.';
     counters.CHALLENGER += 1;
     return result;
   }
 
   if (core.asset.assetId === challengerAssetId) {
-    rotation.reason += ' [CORE_GATE_V1:CHALLENGER] El challenger baseline ya es el core diversificado prioritario.';
-    baselineContribution.reason += ' [CORE_GATE_V1:CHALLENGER] El destino ya coincide con el core prioritario.';
+    rotation.reason += ' [CORE_GATE_V1:CHALLENGER] El challenger baseline ya coincide con el core seleccionado causalmente.';
+    baselineContribution.reason += ' [CORE_GATE_V1:CHALLENGER] El destino ya coincide con el core seleccionado causalmente.';
     counters.CHALLENGER += 1;
     return result;
   }
@@ -327,15 +320,13 @@ export function applyCoreGateV1(
  * CORE_ARCHITECTURE_V1 turns the global market core into an explicit portfolio
  * invariant instead of another tactical position:
  *
- * - structural global core cannot be REDUCE/EXITed by short-horizon health;
+ * - a healthy structural global core is not tactically sold or performance-chased;
+ * - if the incumbent core becomes causally unhealthy, DYNAMIC_CORE_SELECTOR_V1
+ *   can transfer it to the best healthy broad global alternative available then;
  * - regional indexes and tactical assets share a bounded non-core budget;
- * - non-core sales return to the structural core by default;
+ * - non-core sales return to the selected healthy structural core by default;
  * - residual investable cash above a small operational reserve is deployed to
- *   the structural core without EntryTiming/market-timing gates.
- *
- * It deliberately does NOT rotate 100% of the core into the strongest recent
- * region. Full core replacement is reserved for a separate equivalent-product
- * transfer decision with product-level evidence, not performance chasing.
+ *   that selected core, never to a fixed product priority.
  */
 export function applyCoreArchitectureV1(
   input: PortfolioEvaluationInput,
@@ -344,20 +335,51 @@ export function applyCoreArchitectureV1(
 ): PortfolioDecisionResult {
   const limits = CORE_ARCHITECTURE_V1_LIMITS[input.decision.riskProfile];
   const total = Math.max(0, result.totalPlannedCapitalEur);
-  const core = chooseCoreCandidate(input);
+  const coreSelection = selectDynamicCoreV1(input, result);
+  const core = coreSelection.selected;
   const oldRotationProceeds = result.plannedRotationProceedsEur;
   const oldRecommended = result.recommendedNewInvestmentEur;
 
-  // 1) Structural global core is observable but not tactically sellable.
+  // 0) Explicit structural replacement. This is the only path that may replace
+  // a core product: the largest incumbent core is no longer healthy and another
+  // accepted broad-global core is healthy on the same causal decision date.
+  if (
+    core
+    && coreSelection.reason === 'REPLACE_UNHEALTHY_INCUMBENT'
+    && coreSelection.incumbentAssetId
+    && coreSelection.incumbentAssetId !== core.asset.assetId.toUpperCase()
+  ) {
+    const incumbent = result.existingPositions.find(position => position.assetId?.toUpperCase() === coreSelection.incumbentAssetId);
+    if (incumbent && Math.max(0, incumbent.currentValueEur ?? 0) > 1e-9) {
+      if (incumbent.rotationChallengerAssetId) removeContribution(result, incumbent.rotationChallengerAssetId, true);
+      const transferAmount = Math.max(0, incumbent.currentValueEur ?? 0);
+      incumbent.action = 'EXIT';
+      incumbent.suggestedReductionPct = 100;
+      incumbent.rotationChallengerAssetId = core.asset.assetId;
+      incumbent.rotationChallengerTicker = core.asset.ticker;
+      incumbent.reason = `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER] El core actual ${incumbent.label} ha dejado de superar el gate causal de salud; se transfiere al mejor core global sano disponible en esta fecha, ${core.asset.ticker}. No se usa rentabilidad futura ni prioridad fija de producto. ${incumbent.reason}`;
+      addOrMergeCoreContribution(
+        input,
+        result,
+        transferAmount,
+        `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER] ${transferAmount.toFixed(2)} € pasan del core deteriorado al core global sano seleccionado causalmente ${core.asset.ticker}.`,
+        'ROTATION_ENTRY'
+      );
+    }
+  }
+
+  // 1) Structural global core is observable but not tactically sellable. An EXIT
+  // explicitly created above by the dynamic selector is preserved.
   for (const position of result.existingPositions) {
     if (!isStrategicGrowthCoreAssetId(position.assetId)) continue;
+    if (position.reason.includes(`[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER]`)) continue;
     if (position.action !== 'REDUCE' && position.action !== 'EXIT' && !position.rotationChallengerAssetId) continue;
     if (position.rotationChallengerAssetId) removeContribution(result, position.rotationChallengerAssetId, true);
     const observed = position.action;
     position.action = 'HOLD';
     position.suggestedReductionPct = null;
     clearRotationFields(position);
-    position.reason = `[CORE_ARCHITECTURE_V1:STRUCTURAL_CORE] [${STRATEGIC_CORE_POLICY}] ${position.label} es core global estructural: ${observed} queda como diagnóstico y no se ejecuta. El core sólo puede sustituirse por otro producto global equivalente mediante una política de transferencia explícita, no por timing táctico. ${position.reason}`;
+    position.reason = `[CORE_ARCHITECTURE_V1:STRUCTURAL_CORE] [${STRATEGIC_CORE_POLICY}] ${position.label} es core global estructural sano: ${observed} queda como diagnóstico y no se ejecuta por timing táctico. Un cambio de core sólo puede autorizarlo ${DYNAMIC_CORE_SELECTOR_V1} por deterioro estructural causal y existencia de un sustituto global sano. ${position.reason}`;
     counters.protectedCoreSales += 1;
   }
 
@@ -397,7 +419,7 @@ export function applyCoreArchitectureV1(
         source,
         contribution,
         core,
-        `[${CORE_ARCHITECTURE_V1}] El challenger excedería el presupuesto no-core ${(limits.maximumNonCoreShare * 100).toFixed(0)}%; el capital vuelve al core en lugar de aumentar riesgo táctico.`
+        `[${CORE_ARCHITECTURE_V1}] El challenger excedería el presupuesto no-core ${(limits.maximumNonCoreShare * 100).toFixed(0)}%; el capital vuelve al core sano seleccionado causalmente en lugar de aumentar riesgo táctico.`
       );
       counters.cappedNonCoreContributions += 1;
       continue;
@@ -418,8 +440,9 @@ export function applyCoreArchitectureV1(
 
   refreshPlanningTotals(result, result.plannedRotationProceedsEur, result.recommendedNewInvestmentEur);
 
-  // 3) A non-core REDUCE/EXIT without a funded destination returns to core.
-  // Marking the destination on the source preserves atomic replay/live semantics.
+  // 3) A non-core REDUCE/EXIT without a funded destination returns to the healthy
+  // core selected for this date. If no core is healthy, proceeds are not forced
+  // into a known-bad/default product and may remain cash.
   if (core) {
     for (const position of result.existingPositions) {
       if (isStrategicGrowthCoreAssetId(position.assetId)) continue;
@@ -429,12 +452,12 @@ export function applyCoreArchitectureV1(
       if (amount <= 1e-9) continue;
       position.rotationChallengerAssetId = core.asset.assetId;
       position.rotationChallengerTicker = core.asset.ticker;
-      position.reason += ` [${CORE_ARCHITECTURE_V1}:RETURN_TO_CORE] El capital liberado no queda esperando en cash: vuelve al core global ${core.asset.ticker}.`;
+      position.reason += ` [${CORE_ARCHITECTURE_V1}:RETURN_TO_CORE] El capital liberado vuelve al core global sano seleccionado causalmente ${core.asset.ticker}.`;
       if (addOrMergeCoreContribution(
         input,
         result,
         amount,
-        `[${CORE_ARCHITECTURE_V1}:RETURN_TO_CORE] ${amount.toFixed(2)} € procedentes de ${position.action} no-core vuelven al core global.`,
+        `[${CORE_ARCHITECTURE_V1}:RETURN_TO_CORE] ${amount.toFixed(2)} € procedentes de ${position.action} no-core vuelven al core global sano seleccionado causalmente.`,
         'ROTATION_ENTRY'
       )) counters.salesReturnedToCore += 1;
     }
@@ -444,15 +467,16 @@ export function applyCoreArchitectureV1(
   const beforeCoreTopUpRecommended = result.recommendedNewInvestmentEur;
   refreshPlanningTotals(result, beforeCoreTopUpRotation, beforeCoreTopUpRecommended);
 
-  // 4) Idle investable cash is not a market-timing position. Keep only the
-  // risk-profile operational reserve; deploy the rest to the global core.
+  // 4) Idle investable cash is not a market-timing position while a healthy core
+  // exists. Keep only the profile reserve; if no core passes the causal health
+  // gate, do not force a default product just to reduce cash.
   const operationalCashReserveEur = total * limits.operationalCashReserveShare;
   const coreTopUpEur = core ? Math.max(0, result.residualPlannedCashEur - operationalCashReserveEur) : 0;
   if (coreTopUpEur > 1e-9 && addOrMergeCoreContribution(
     input,
     result,
     coreTopUpEur,
-    `[${CORE_ARCHITECTURE_V1}:CORE_TOP_UP] Cash residual por encima de la reserva operativa ${(limits.operationalCashReserveShare * 100).toFixed(0)}% se invierte en el core global; no se exige breakout para mantener exposición estructural al mercado.`,
+    `[${CORE_ARCHITECTURE_V1}:CORE_TOP_UP] Cash residual por encima de la reserva operativa ${(limits.operationalCashReserveShare * 100).toFixed(0)}% se invierte en ${core?.asset.ticker ?? 'el core'} porque ${DYNAMIC_CORE_SELECTOR_V1} lo ha seleccionado como core global sano en esta fecha.`,
     'BUILD'
   )) {
     counters.coreTopUps += 1;
@@ -462,8 +486,9 @@ export function applyCoreArchitectureV1(
     result.deployableToAssetsEur = Math.max(result.deployableToAssetsEur, Math.max(0, result.recommendedNewInvestmentEur - result.plannedRotationProceedsEur));
   }
 
+  const selectedText = core ? `${core.asset.ticker} (${coreSelection.reason})` : `ninguno (${coreSelection.reason})`;
   result.warnings.push(
-    `${CORE_ARCHITECTURE_V1}: core global protegido; no-core máximo ${(limits.maximumNonCoreShare * 100).toFixed(0)}%; cash operativo ${(limits.operationalCashReserveShare * 100).toFixed(0)}%. El exceso de cash y las ventas no-core se dirigen al core. No existe rotación 100% regional por momentum.`
+    `${CORE_ARCHITECTURE_V1}: selector ${DYNAMIC_CORE_SELECTOR_V1}; core actual ${selectedText}; no-core máximo ${(limits.maximumNonCoreShare * 100).toFixed(0)}%; cash operativo ${(limits.operationalCashReserveShare * 100).toFixed(0)}%. No existe prioridad fija Vanguard/EUNL ni rotación 100% regional por momentum.`
   );
   return result;
 }
