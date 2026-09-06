@@ -20,15 +20,15 @@ interface JobState {
 const MAX_OUTPUT_CHARS = 1_500_000;
 const JOBS: JobDefinition[] = [
   {
-    id: 'forward-risk-v6',
-    name: 'Forward Risk V6 · gate anual 2011–2026',
-    description: 'Ejecuta guards, TypeScript y el rolling gate V6 en el backend local de la app. No usa Gemini ni ninguna API de IA.',
-    marker: 'FORWARD_RISK_V6_CROSS_ASSET_RESULT',
+    id: 'forward-risk-v7',
+    name: 'Forward Risk V7 · opciones/volatilidad implícita · 2011–2026',
+    description: 'Ejecuta guards, TypeScript y el rolling gate V7 usando históricos oficiales Cboe de VIX, VIX9D y VVIX. No usa Gemini ni ninguna API de IA.',
+    marker: 'FORWARD_RISK_V7_OPTIONS_RESULT',
     steps: [
-      { label: 'Guard arquitectura V6', command: 'npx', args: ['tsx', 'tests/forwardRiskCrossAssetV6.unit.ts'] },
-      { label: 'Guard rolling V6', command: 'npx', args: ['tsx', 'tests/forwardRiskCrossAssetV6Rolling.unit.ts'] },
+      { label: 'Guard arquitectura V7', command: 'npx', args: ['tsx', 'tests/forwardRiskOptionsV7.unit.ts'] },
+      { label: 'Guard rolling V7', command: 'npx', args: ['tsx', 'tests/forwardRiskOptionsV7Rolling.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Rolling V6 2011–2026', command: 'npx', args: ['tsx', 'scripts/forwardRiskCrossAssetV6RollingLive.ts'] }
+      { label: 'Rolling V7 2011–2026', command: 'npx', args: ['tsx', 'scripts/forwardRiskOptionsV7RollingLive.ts'] }
     ]
   }
 ];
