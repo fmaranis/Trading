@@ -31,6 +31,7 @@ const realPortfolio = source('src/components/UserPortfolioPanel.tsx');
 const executionPlan = source('src/components/PortfolioExecutionPlanPanel.tsx');
 const purchaseRegistration = source('src/components/RealPurchaseRegistrationPanel.tsx');
 const pilotOperations = source('src/components/PilotOperationsPanel.tsx');
+const decisionMain = source('src/decisionMain.tsx');
 const alertAutomation = source('server/alertAutomation.ts');
 const portfolioManagementAlerts = source('server/portfolioManagementAlerts.ts');
 
@@ -48,14 +49,20 @@ requireText(currentAlerts, 'PortfolioCandidateGate.apply(', 'ALERTS_MUST_USE_CAN
 requireText(currentAlerts, 'StrategyConsensusEngine.assess(', 'ALERTS_MUST_USE_SHARED_CONSENSUS');
 requireText(currentAlerts, 'EntryTimingEngine.assess(', 'ALERTS_MUST_USE_SHARED_ENTRY_TIMING');
 
-// CORE_ALPHA_V2 failed its economic replay. Normal audited replay returns to the
-// closed V1 architecture. Forward risk is an independent final counterfactual,
-// never a replacement for the productive engine before validation.
-requireText(worker, "const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1'", 'REPLAY_MUST_RETURN_TO_CORE_ARCHITECTURE_V1');
-requireText(worker, 'runForwardRiskForecastV1({', 'REPLAY_MUST_RUN_FORWARD_RISK_COUNTERFACTUAL');
-requireText(worker, "forwardRiskForecastV1: forwardRiskForecast", 'FORWARD_RISK_MUST_BE_AUDITED');
+// Productive replay is the closed structural-core architecture. Forward Risk
+// V1/V2/V3/V3.1 was retired from automatic replay after the frozen V3.1
+// adversarial holdout failed. Research successors must run only from explicit
+// research jobs, never silently inside Custodia/replay.
+requireText(worker, "const REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1'", 'REPLAY_MUST_USE_CORE_ARCHITECTURE_V1');
+requireText(worker, "forwardRiskResearchStatus: 'RETIRED_FROM_REPLAY_V3_1_ADVERSARIAL_HOLDOUT_FAILED'", 'REPLAY_MUST_RECORD_FORWARD_RISK_RETIREMENT');
+forbidText(worker, 'runForwardRiskForecastV1(', 'REPLAY_MUST_NOT_AUTO_RUN_FORWARD_RISK_V1');
+forbidText(worker, 'runForwardRiskForecastV2(', 'REPLAY_MUST_NOT_AUTO_RUN_FORWARD_RISK_V2');
+forbidText(worker, 'runForwardRiskForecastV3(', 'REPLAY_MUST_NOT_AUTO_RUN_FORWARD_RISK_V3');
+forbidText(worker, 'runForwardRiskForecastV31(', 'REPLAY_MUST_NOT_AUTO_RUN_FORWARD_RISK_V31');
 forbidText(worker, 'runDynamicReplayWithTrendProtectionV2Experiment', 'NORMAL_REPLAY_MUST_NOT_AUTO_RUN_TREND_V2');
 forbidText(worker, 'runDynamicReplayWithTrendProtectionV2MediumTermWinnerConfirmExperiment', 'NORMAL_REPLAY_MUST_NOT_AUTO_RUN_TREND_V2_CONFIRM');
+requireText(decisionMain, 'ResearchValidationCenter', 'MAIN_MUST_EXPOSE_RESEARCH_VALIDATION_CENTER');
+forbidText(decisionMain, 'ForwardRiskResearchPanel', 'MAIN_MUST_NOT_RENDER_RETIRED_FORWARD_RISK_V1_PANEL');
 
 requireText(sharedCoreGate, 'export function applyCoreGateV1', 'SHARED_CORE_GATE_FUNCTION_MISSING');
 requireText(sharedCoreGate, 'export function applyCoreArchitectureV1', 'SHARED_CORE_ARCHITECTURE_FUNCTION_MISSING');
@@ -71,11 +78,11 @@ forbidText(replayRotation, 'const CORE_PRIORITY =', 'REPLAY_MUST_NOT_DUPLICATE_C
 requireText(coreAlphaOverlay, "export const CORE_ALPHA_V2 = 'CORE_ALPHA_V2'", 'FAILED_ALPHA_EXPERIMENT_MUST_REMAIN_VERSIONED');
 requireText(replayRotation, 'applyCoreAlphaV2(evaluationInput, architecture, alphaCounters)', 'FAILED_ALPHA_EXPERIMENT_MUST_REMAIN_REPRODUCIBLE');
 
-// Forward prediction must be truly causal and economically isolated.
-requireText(forwardRisk, "methodology: 'STRICT_WALK_FORWARD_NEXT_OPEN'", 'FORWARD_RISK_METHODOLOGY_MISSING');
+// Historical Forward Risk V1 remains reproducible research code, but is not wired
+// to replay or production. Preserve its causal invariants while it remains in repo.
+requireText(forwardRisk, "methodology: 'STRICT_WALK_FORWARD_NEXT_OPEN'", 'FORWARD_RISK_HISTORICAL_METHODOLOGY_MISSING');
 requireText(forwardRisk, 'candidate.labelEndIndexes[labelIndex] < row.index', 'FORWARD_RISK_LABEL_LEAKAGE_GUARD_MISSING');
 requireText(forwardRisk, 'executionIndex: row.index + 1', 'FORWARD_RISK_MUST_EXECUTE_NEXT_OPEN');
-requireText(forwardRisk, 'economicPassRealistic', 'FORWARD_RISK_REALISTIC_ACCEPTANCE_MISSING');
 forbidText(forwardRisk, "from './portfolioDecisionEngine'", 'FORWARD_RISK_MUST_NOT_IMPORT_PORTFOLIO_ENGINE');
 forbidText(forwardRisk, 'PortfolioDecisionEngine.', 'FORWARD_RISK_MUST_NOT_CALL_PORTFOLIO_ENGINE');
 
