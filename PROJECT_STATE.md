@@ -14,7 +14,7 @@
 
 ---
 
-# Estado vigente — 2026-09-06
+# Estado vigente — 2026-09-07
 
 ## Motor productivo
 La arquitectura productiva cerrada sigue siendo `CORE_ARCHITECTURE_V1`.
@@ -35,21 +35,54 @@ No reintroducir la salida reactiva tardía del core: la regresión COVID mostró
 - **V3.1: RETIRADO.** Adversarial holdout: mediana AUC20 ≈0,486, orientación DIRECT ≈33%, falsos positivos ≈91,9%. No V3.2 ni tuning de las mismas ventanas.
 - **V4: RESEARCH_ONLY.** Mejor dirección (mediana AUC ≈0,599; DIRECT ≈66,7%) pero sólo 2/45 episodios anticipados. Es confirmación/reactividad, no predictor temprano.
 - **V5: RETIRADO como arquitectura autónoma.** 2011–2026: 7/19 episodios anticipados = 36,84%; lead mediano 58 sesiones; falsa vulnerabilidad 14,62%. Falló el gate congelado de anticipación >=40% y no se ajusta el umbral después.
-- **V6: INVESTIGACIÓN ACTIVA.** Divergencia cross-asset label-free: debilidad relativa risk-on + fortaleza defensiva. Gate congelado antes del resultado: anticipación >=50%, lead mediano >=10 sesiones, falsa divergencia <=35%.
+- **V6: RETIRADO.** Rolling anual 2011–2026: 19 episodios auditables, 2 anticipados = 10,53%; lead mediano 43,5 sesiones; falsa divergencia 5,51%; sólo 1 año pasa el gate. Veredicto `RETIRE_V6_CROSS_ASSET_ARCHITECTURE`. No V6.1 ni ajuste de score/ventanas sobre estos años.
+- **V7: INVESTIGACIÓN ACTIVA.** Nueva familia independiente basada en volatilidad implícita de opciones, no en macro ni divergencia de ETFs: VIX, VIX9D y VVIX oficiales de Cboe. Metodología `PAST_ONLY_OPTIONS_IMPLIED_STRESS_NO_LABEL_FIT`. Gate congelado antes del resultado e idéntico a V6: anticipación >=50%, lead mediano >=10 sesiones, falsa señal <=35%.
 
-V1/V2/V3/V3.1 están retirados del worker automático. El worker debe registrar `RETIRED_FROM_REPLAY_V3_1_ADVERSARIAL_HOLDOUT_FAILED` y no volver a ejecutar esos predictores.
+V1/V2/V3/V3.1 están retirados del worker automático. V4/V5/V6/V7 tampoco alimentan decisiones productivas. El worker debe registrar `RETIRED_FROM_REPLAY_V3_1_ADVERSARIAL_HOLDOUT_FAILED` y no volver a ejecutar esos predictores.
 
-## Validaciones sin tokens de IA
+## V7 · opciones/volatilidad implícita
+Archivos principales:
+- `src/investment/decision/forwardRiskOptionsDataV7.ts`
+- `src/investment/decision/forwardRiskOptionsV7.ts`
+- `scripts/forwardRiskOptionsV7RollingLive.ts`
+- `tests/forwardRiskOptionsV7.unit.ts`
+- `tests/forwardRiskOptionsV7Rolling.unit.ts`
+
+Datos:
+- `VIX_History.csv`
+- `VIX9D_History.csv`
+- `VVIX_History.csv`
+- fuente explícita `CBOE_PUBLIC_HISTORICAL_CSV`;
+- sin fallback sintético;
+- alineación sólo con observaciones ya publicadas y máximo 5 días de staleness.
+
+Componentes V7, todos normalizados únicamente contra su historia precedente de 252–756 observaciones:
+- nivel VIX;
+- subida VIX 20 sesiones;
+- nivel VIX9D;
+- subida VIX9D 20 sesiones;
+- ratio VIX9D/VIX;
+- nivel VVIX;
+- subida VVIX 20 sesiones;
+- ratio VVIX/VIX.
+
+Umbral de señal congelado: percentil compuesto >=80. Evento auditado: caída >=5% desde pico. Ventana pre-pico: 63 sesiones. No fitted coefficients, labels futuros, grid search ni calibración posterior.
+
+---
+
+# Validaciones sin tokens de IA
 La pantalla principal incluye `ResearchValidationCenter`.
 
-Ruta backend actual: `/api/alerts/research-validation/*`.
+Ruta backend: `/api/alerts/research-validation/*`.
 
-Primer job disponible: `forward-risk-v6`.
+Job automático vigente: `forward-risk-v7`.
 Ejecuta, en el backend Node de la propia app:
-1. guard de arquitectura V6;
-2. guard rolling V6;
+1. guard arquitectura V7;
+2. guard rolling V7;
 3. TypeScript (`npm run lint`);
 4. rolling anual 2011–2026.
+
+V6 ya no aparece como job ejecutable para evitar repetir una arquitectura retirada. Sus scripts permanecen en Git únicamente para reproducibilidad histórica.
 
 No llama a Gemini ni usa GitHub Actions. La UI consulta el estado por polling y muestra el JSON final.
 
@@ -61,6 +94,7 @@ No llama a Gemini ni usa GitHub Actions. La UI consulta el estado por polling y 
 - **Yahoo Finance**: proveedor primario para acciones/ETF y búsqueda abierta. Integración no oficial; el backend usa chart/search endpoints con validación y timeouts.
 - **EODHD**: secundario para contraste y NAV de fondos por ISIN (`<ISIN>.EUFUND`) cuando `EODHD_API_KEY` está configurada.
 - **Alpha Vantage**: contraste secundario cuando `ALPHA_VANTAGE_API_KEY` está configurada.
+- **Cboe**: fuente oficial de históricos de índices de volatilidad para V7; research-only.
 - La pantalla de validaciones muestra en runtime si EODHD/Alpha tienen API key configurada.
 
 ## Limitación histórica localizada y corregida parcialmente
@@ -132,8 +166,8 @@ El antiguo panel visible `Forward Risk Forecast V1` fue retirado de `decisionMai
 ---
 
 # Próxima secuencia
-1. Recargar/sincronizar la app y ejecutar V6 desde **Validaciones de investigación -> Ejecutar sin IA**.
-2. Leer el resultado V6 sin volver a AI Studio como agente.
+1. Sincronizar/recargar `main` y ejecutar **Forward Risk V7** desde `Validaciones de investigación -> Ejecutar sin IA`.
+2. Leer el resultado V7. Si falla el gate, retirar V7 sin V7.1 y cambiar otra vez de familia de información. Si pasa, construir sólo entonces el contrafactual económico causal.
 3. Completar `OPEN_MARKET_DISCOVERY_V1` server-side para que live + alertas no dependan del catálogo finito.
 4. Diseñar `CORE_ELIGIBILITY_V2` semántico/auditable sin cambiar todavía la política productiva hasta validarlo.
 5. Fusionar ranking técnico/cobertura/controles en una única sección avanzada y seguir simplificando la jerarquía visual.
