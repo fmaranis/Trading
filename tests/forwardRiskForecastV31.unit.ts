@@ -40,7 +40,7 @@ assert.match(v31, /innerValidation = usable\.slice\(split\)/);
 assert.match(worker, /runForwardRiskForecastV31/);
 assert.match(worker, /forwardRiskForecastV31/);
 assert.match(worker, /FORWARD_RISK_FORECAST_V3_1/);
-assert.match(worker, /FORWARD_RISK_RESEARCH_WARMUP_YEARS = 5/);
+assert.match(worker, /FORWARD_RISK_RESEARCH_WARMUP_YEARS = 7/);
 assert.match(worker, /AssetUniverseScanner\.scan\(researchCatalog, forwardRiskRequestedFrom, result\.endDate/);
 assert.match(worker, /const common = \{ dataset: forwardRiskDataset/);
 assert.match(worker, /isolatedFromReplayDecisions: true/);
