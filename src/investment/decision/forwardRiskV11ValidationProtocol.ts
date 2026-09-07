@@ -37,7 +37,7 @@ export const FORWARD_RISK_V11_VALIDATION_PROTOCOL = {
   },
 
   historicalBlindHoldout: {
-    status: 'SEALED_PENDING_LOCAL_IMPLEMENTATION_GATES',
+    status: 'SEALED_READY_FOR_ONE_SHOT_OPEN',
     selectionBasis: 'STRUCTURAL_ONLY_NO_RETURN_DRAWDOWN_VOLATILITY_OR_V11_OUTCOME_QUERY',
     eligibility: [
       'UCITS broad or regional equity ETF',
@@ -69,14 +69,21 @@ export const FORWARD_RISK_V11_VALIDATION_PROTOCOL = {
   } satisfies ForwardRiskV11PolicyFreeze,
 
   localImplementationGates: {
-    status: 'PENDING',
+    status: 'PASS',
+    recordedAt: '2026-09-07',
+    evidence: [
+      'forwardRiskV11SizingOverlay.unit: PASS',
+      'forwardRiskV11ValidationProtocol.unit: PASS',
+      'forwardRiskV11BlindValidation.unit: PASS',
+      'npm run lint / tsc --noEmit: PASS'
+    ],
     required: [
       'npx tsx tests/forwardRiskV11SizingOverlay.unit.ts',
       'npx tsx tests/forwardRiskV11ValidationProtocol.unit.ts',
       'npx tsx tests/forwardRiskV11BlindValidation.unit.ts',
       'npm run lint'
     ]
-  } satisfies ForwardRiskV11LocalGateRecord & { readonly required: readonly string[] },
+  } satisfies ForwardRiskV11LocalGateRecord & { readonly recordedAt: string; readonly evidence: readonly string[]; readonly required: readonly string[] },
 
   validationSemantics: {
     baseline: 'MONTHLY_CONTRIBUTION_PLUS_EXISTING_PORTFOLIO_CANDIDATE_GATE_WITH_FULL_AVAILABLE_CASH_DEPLOYMENT_WHEN_ELIGIBLE',
