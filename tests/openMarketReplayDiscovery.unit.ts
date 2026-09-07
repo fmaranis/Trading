@@ -5,6 +5,8 @@ import path from 'node:path';
 const controls = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ReplayInitialPortfolioControls.tsx'), 'utf8');
 const discoveryRoutes = fs.readFileSync(path.resolve(process.cwd(), 'server/assetDiscoveryRoutes.ts'), 'utf8');
 const registry = fs.readFileSync(path.resolve(process.cwd(), 'src/investment/decision/dynamicPortfolioDiscovery.ts'), 'utf8');
+const discoveryDomain = fs.readFileSync(path.resolve(process.cwd(), 'src/investment/decision/openMarketDiscoveryV1.ts'), 'utf8');
+const replayCore = fs.readFileSync(path.resolve(process.cwd(), 'src/investment/decision/dynamicHistoricalReplayCore.ts'), 'utf8');
 const scanner = fs.readFileSync(path.resolve(process.cwd(), 'src/investment/decision/assetUniverseScanner.ts'), 'utf8');
 
 assert.match(controls, /Buscar mercado/);
@@ -20,5 +22,13 @@ assert.match(registry, /EUR_PORTFOLIO_DISCOVERY_UNIVERSE\.push\(asset\)/);
 assert.match(scanner, /HistoricalMarketDataService\.getHistoricalBars/);
 assert.match(scanner, /FundMarketDataService\.history/);
 assert.doesNotMatch(controls, /No existe coincidencia en el catálogo operativo actual/);
+
+// Manual CURRENT discovery is useful for defining a replay instrument, but the
+// historical engine may not call today's Yahoo search to reconstruct past choice sets.
+assert.match(discoveryDomain, /historicalPointInTimeSafe: false/);
+assert.match(discoveryDomain, /must not call current Yahoo search/);
+assert.doesNotMatch(replayCore, /asset-discovery/);
+assert.doesNotMatch(replayCore, /open-universe/);
+assert.match(replayCore, /bars\.length < input\.minimumBars/);
 
 console.log('openMarketReplayDiscovery.unit: PASS');
