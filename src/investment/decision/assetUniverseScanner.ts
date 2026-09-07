@@ -144,8 +144,11 @@ function todayIso(): string { return new Date().toISOString().slice(0, 10); }
 function currentDiscoveryBaseUrl(): string {
   if (typeof window !== 'undefined') return '';
   const configured = typeof process !== 'undefined'
-    ? (process.env.ALERT_INTERNAL_BASE_URL?.trim() || process.env.APP_URL?.trim())
+    ? (process.env.OPEN_MARKET_DISCOVERY_INTERNAL_BASE_URL?.trim() || process.env.ALERT_INTERNAL_BASE_URL?.trim())
     : '';
+  // APP_URL is intentionally not used here: in preview/development environments
+  // it may identify the public SPA host, which can return index.html for API paths.
+  // Server-side discovery must call the internal Express router instead.
   return configured ? configured.replace(/\/$/, '') : 'http://127.0.0.1:3000';
 }
 function promotableCurrentDiscovery(rows: readonly OpenMarketDiscoveryV1Asset[]): OpenMarketDiscoveryV1Asset[] {
@@ -179,6 +182,10 @@ async function expandCurrentOperationalUniverse(
   try {
     const response = await fetch(`${currentDiscoveryBaseUrl()}/api/alerts/asset-discovery/open-universe`);
     if (!response.ok) throw new Error(`OPEN_MARKET_DISCOVERY_HTTP_${response.status}`);
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.toLowerCase().includes('application/json')) {
+      throw new Error(`OPEN_MARKET_DISCOVERY_NON_JSON_RESPONSE:${contentType || 'UNKNOWN_CONTENT_TYPE'}`);
+    }
     const snapshot = await response.json() as OpenMarketDiscoveryV1Snapshot;
     if (snapshot.version !== OPEN_MARKET_DISCOVERY_V1 || snapshot.historicalPointInTimeSafe !== false || !Array.isArray(snapshot.assets)) {
       throw new Error('OPEN_MARKET_DISCOVERY_INVALID_SNAPSHOT');
