@@ -14,8 +14,8 @@ export interface ForwardRiskV11LocalGateRecord {
  *
  * V9 and V10 blind instruments are permanently contaminated for successor
  * design. The V11 holdout below was selected only from structural metadata:
- * UCITS equity exposure, long-lived EUR Xetra listing, and absence from the
- * existing production/validation catalogues and prior blind samples.
+ * UCITS equity exposure, long-lived EUR Xetra listing, accumulating share
+ * classes, and absence from existing catalogues and prior blind samples.
  */
 export const FORWARD_RISK_V11_VALIDATION_PROTOCOL = {
   protocolVersion: 'V11_PREREG_2026_09_07',
@@ -41,6 +41,7 @@ export const FORWARD_RISK_V11_VALIDATION_PROTOCOL = {
     selectionBasis: 'STRUCTURAL_ONLY_NO_RETURN_DRAWDOWN_VOLATILITY_OR_V11_OUTCOME_QUERY',
     eligibility: [
       'UCITS broad or regional equity ETF',
+      'accumulating share class to avoid dividend-cashflow bias when using causal split-adjusted Close',
       'EUR Deutsche Boerse/Xetra listing',
       'listing age structurally sufficient for >=756 sessions',
       'absent from EUR_ASSET_UNIVERSE',
@@ -50,11 +51,11 @@ export const FORWARD_RISK_V11_VALIDATION_PROTOCOL = {
     ],
     assets: [
       { assetId: 'V11_BLIND_IUSQ', ticker: 'IUSQ.DE', isin: 'IE00B6R52259', name: 'iShares MSCI ACWI UCITS ETF', exposure: 'GLOBAL_ALL_COUNTRY_EQUITY', xetraListingDate: '2012-04-02' },
-      { assetId: 'V11_BLIND_IUSA', ticker: 'IUSA.DE', isin: 'IE0031442068', name: 'iShares Core S&P 500 UCITS ETF USD (Dist)', exposure: 'US_EQUITY', xetraListingDate: '2002-03-15' },
+      { assetId: 'V11_BLIND_SXR4', ticker: 'SXR4.DE', isin: 'IE00B52SFT06', name: 'iShares MSCI USA UCITS ETF USD (Acc)', exposure: 'US_EQUITY', xetraListingDate: '2010-03-10' },
       { assetId: 'V11_BLIND_EUNM', ticker: 'EUNM.DE', isin: 'IE00B4L5YC18', name: 'iShares MSCI EM UCITS ETF USD (Acc)', exposure: 'EMERGING_EQUITY', xetraListingDate: '2009-10-20' },
       { assetId: 'V11_BLIND_EUNK', ticker: 'EUNK.DE', isin: 'IE00B4K48X80', name: 'iShares Core MSCI Europe UCITS ETF EUR (Acc)', exposure: 'EUROPE_EQUITY', xetraListingDate: '2009-10-20' },
       { assetId: 'V11_BLIND_SXR1', ticker: 'SXR1.DE', isin: 'IE00B52MJY50', name: 'iShares Core MSCI Pacific ex-Japan UCITS ETF', exposure: 'PACIFIC_EX_JAPAN_EQUITY', xetraListingDate: '2010-03-10' },
-      { assetId: 'V11_BLIND_IQQJ', ticker: 'IQQJ.DE', isin: 'IE00B02KXH56', name: 'iShares MSCI Japan UCITS ETF USD (Dist)', exposure: 'JAPAN_EQUITY', xetraListingDate: '2004-10-01' }
+      { assetId: 'V11_BLIND_SXRZ', ticker: 'SXRZ.DE', isin: 'IE00B52MJD48', name: 'iShares Nikkei 225 UCITS ETF JPY (Acc)', exposure: 'JAPAN_EQUITY', xetraListingDate: '2010-03-10' }
     ] as const,
     openPolicy: 'ONE_SHOT_AFTER_POLICY_FINGERPRINT_AND_LOCAL_GATES',
     replacementAfterOpeningAllowed: false,
