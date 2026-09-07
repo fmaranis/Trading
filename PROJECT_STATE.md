@@ -37,148 +37,44 @@ No reintroducir la salida reactiva tardía del core.
 - V5: RETIRADO como arquitectura autónoma; sólo se conserva su señal congelada `>=80` dentro de V8.
 - V6: RETIRADO. No V6.1.
 - V7: RETIRADO como arquitectura autónoma; sólo se conserva su señal congelada `>=80` dentro de V8.
-- V8: **información predictiva confirmada y vintage-safe, pero política transaccional económica FALLIDA y señal diaria demasiado fragmentada; RESEARCH_ONLY**.
-- V9: **BLIND FAIL / RETIRADO**. No V9.1 sobre la muestra abierta.
-- V10: **POLICY_FROZEN / LOCAL_GUARDS_PASS / HOLDOUT_SEALED_READY_FOR_ONE_SHOT_OPEN / RESEARCH_ONLY**.
+- V8: información predictiva confirmada y vintage-safe, pero gate económico FAIL y señal fragmentada; RESEARCH_ONLY.
+- V9: `V9_BLIND_FAIL_RETIRE_V9_POLICY_1`; política retirada y holdout consumido.
+- V10: `V10_BLIND_FAIL_RETIRE_V10_POLICY_1`; política retirada y holdout consumido.
 
-Regla V8 permanece congelada:
+Regla V8 congelada:
 `V5 vulnerability >=80 OR V7 options >=80`.
 
-## V8 — confirmación predictiva vintage-safe
-Macro source `FRED_API_ALFRED_REALTIME_PERIODS`, `macroPointInTimeVintageSafe=true`.
+## V8 — hechos cerrados
+- EUNL: 11/19 episodios anticipados = 57,89%; lead mediano 63; falsa señal 16,73%.
+- Seis holdouts: 72/83 = 86,75% anticipados; lead mediano 40; falsa señal 26,33%; 6/6 PASS predictivo.
+- Gate económico: 0/6 PASS; mediana `finalDeltaEur = -13.971,89 €`; mediana reducción drawdown +5,52 pp.
+- Fragmentación: 3.974 sesiones, 1.059 ON (26,65%), 111 runs ON, duración mediana 2 sesiones, 222 transiciones.
 
-Resultado 2011–2026:
-- EUNL: 11/19 episodios anticipados = 57,89%; lead mediano 63; falsa señal 16,73%; PASS.
-- Seis holdouts: 72/83 = 86,75% anticipados.
-- Lead mediano holdout: 40 sesiones.
-- Falsa señal holdout: 26,33%.
-- 6/6 benchmarks PASS.
+Conclusión V8: contiene información anticipativa útil, pero no sirve como interruptor directo de transacciones.
 
-Veredicto:
-`V8_VINTAGE_SAFE_CONFIRMATION_PASS_READY_FOR_CAUSAL_ECONOMIC_GATE`.
+## V9 — blind consumido
+Política: `V9_POLICY_1`.
+Fingerprint: `sha256:219a83f8ba3205c33de96a73105e31ee927312b0fc655eaf24edd3bfc8c19fb0`.
 
-Cobertura ALFRED parcial queda explícita y no se rellena con current-vintage:
-- T10Y2Y/T10Y3M/BAA10Y: sin archivo ALFRED utilizable en 2008–2010 y 2011–2013.
-- WALCL: sin archivo ALFRED utilizable en 2008–2010.
-
-## V8 — gate económico causal FAIL
-Política fijada antes del resultado:
-- capital 13.000 €;
-- OFF->ON: vender 25% NEXT_OPEN;
-- ON->OFF: recomprar 25% NEXT_OPEN;
-- títulos enteros;
-- comisiones MyInvestor existentes;
-- cash `HISTORICAL_ECB_DFR_FLOOR_0` after-tax;
-- fiscalidad española existente;
-- baseline buy-and-hold;
-- sin grid ni ajuste posterior.
-
-Resultado EUNL:
-- hold final ~76.805 €;
-- protegido final ~38.181 €;
-- delta final ~-38.624 €;
-- max drawdown 33,63% -> 27,19% = +6,44 pp de reducción;
-- 95 reducciones + 95 recompras;
-- turnover ~1,13 M€;
-- comisiones ~1.360 €;
-- impuestos estimados ~11.429 €;
-- tiempo protegido 25,67%;
-- `netBreachProtectionEur` ~-176.811 €.
-
-Holdouts:
-- 6 válidos;
-- 0/6 pasan el gate económico;
-- mediana `finalDeltaEur` = -13.971,89 €;
-- mediana reducción drawdown = +5,52 pp.
-
-Veredicto:
-`V8_CAUSAL_ECONOMIC_GATE_FAIL_RESEARCH_ONLY`.
-
-Interpretación cerrada:
-- V8 contiene información anticipativa útil;
-- no puede usarse como interruptor directo de venta/recompra.
-
-## V8 — fragmentación confirmada
-Sobre 3.974 sesiones reales:
-- V8 ON: 1.059 = 26,65%;
-- 111 runs ON;
-- 222 transiciones;
-- duración mediana ON: 2 sesiones;
-- 46/111 runs de 1 sesión;
-- 80/111 = 72,1% <=3 sesiones;
-- 91/111 = 82,0% <=5 sesiones;
-- 2022: 19 activaciones.
-
-Veredicto:
-`V8_SIGNAL_FRAGMENTATION_CONFIRMED_DIAGNOSTIC_ONLY`.
-
----
-
-# V9 — blind consumido y política retirada
-
-Política congelada:
-`V9_POLICY_1`.
-
-Fingerprint:
-`sha256:219a83f8ba3205c33de96a73105e31ee927312b0fc655eaf24edd3bfc8c19fb0`.
-
-Holdout V9 ya abierto y permanentemente contaminado:
-- `SPPW.DE`;
-- `SPY5.DE`;
-- `SPYM.DE`;
-- `ZPRS.DE`;
-- `VGEU.DE`;
-- `ZPDJ.DE`.
-
-Estos seis no pueden reutilizarse como blind de un sucesor.
-
-## Resultado predictivo V9 blind
-- 6 activos evaluados;
-- 56 episodios;
-- 22 anticipados;
-- anticipation rate = 39,29% frente a gate >=50% -> FAIL;
-- lead mediano = 39 sesiones frente a gate >=10 -> PASS;
-- false protected time = 26,13% frente a gate <=35% -> PASS.
-
-Conclusión: la histéresis eliminó parte del chattering, pero filtró demasiadas señales verdaderas.
-
-## Resultado económico V9 blind
-Gate requerido: >=4/6 PASS individuales, mediana `finalDeltaEur >=0` y mediana reducción DD >=1 pp.
+Holdout consumido:
+`SPPW.DE`, `SPY5.DE`, `SPYM.DE`, `ZPRS.DE`, `VGEU.DE`, `ZPDJ.DE`.
 
 Resultado:
-- 0/6 PASS económicos;
-- mediana `finalDeltaEur` ~-6.791 €;
-- mediana reducción drawdown ~+5,96 pp.
+- predictivo: 22/56 anticipados = 39,29% frente a gate >=50%; FAIL;
+- lead mediano 39; falsa protección 26,13%;
+- económico: 0/6 PASS; mediana `finalDeltaEur ~ -6.791 €`; mediana reducción drawdown ~+5,96 pp.
 
-Resumen aproximado por activo:
-- SPPW.DE: delta ~-6.616 €, reducción DD +6,41 pp;
-- SPY5.DE: delta ~-37.288 €, reducción DD +5,52 pp;
-- SPYM.DE: delta ~-6.966 €, reducción DD 0 pp;
-- ZPRS.DE: delta ~-11.929 €, reducción DD +7,88 pp;
-- VGEU.DE: delta ~-4.411 €, reducción DD +6,65 pp;
-- ZPDJ.DE: delta 0 €, reducción DD 0 pp, serie sospechosa.
+ZPDJ presentó una posible anomalía de corporate action, pero excluirlo no rescata V9: los otros 5 también fallan económicamente.
 
-Veredicto final:
-`V9_BLIND_FAIL_RETIRE_V9_POLICY_1`.
-
-### Anomalía ZPDJ
-La serie usada en el blind presenta comportamiento incompatible con un ETF normal alrededor del inicio del histórico: max drawdown ~68,94%, un único episodio y cero entradas de protección. Se considera posible problema de corporate action/ajuste de precios.
-
-Esto no rescata V9: excluyendo ZPDJ, los otros 5 activos también obtuvieron `economicPass=false`.
-
-Consecuencia:
-- V9 queda retirado;
-- no probar V9.1, 3/4/5 confirmaciones, otros porcentajes, otras ventanas o nuevos thresholds sobre este holdout;
-- el aprendizaje admisible para un sucesor es arquitectónico: una señal de riesgo no debe implicar automáticamente vender posiciones existentes.
+No V9.1 ni tuning sobre esa muestra.
 
 ---
 
-# V10 — riesgo + oportunidad aplicado sólo a dinero nuevo
+# V10 — blind consumido y política retirada
 
-Objetivo:
-probar si Forward Risk puede mejorar **el momento de entrada del dinero nuevo** sin vender posiciones existentes y sin ignorar la posibilidad de subida.
+Objetivo: probar Forward Risk como control de admisión de dinero nuevo, sin modificar posiciones existentes y usando `PortfolioCandidateGate = ELIGIBLE` como contrapeso de oportunidad.
 
-Archivos:
+Archivos principales:
 - `src/investment/decision/forwardRiskV10Policy.ts`;
 - `src/investment/decision/forwardRiskV10ValidationProtocol.ts`;
 - `tests/forwardRiskV10Policy.unit.ts`;
@@ -187,103 +83,74 @@ Archivos:
 - `scripts/forwardRiskV10BlindValidationLive.ts`;
 - `docs/forward_risk_v10_preregistration.md`.
 
-Política congelada:
-`V10_POLICY_1`.
+Política: `V10_POLICY_1`.
+Fingerprint: `sha256:be5dfdfb369e51d28f5e4f3ac1797f7d8bbd3ae0be625be705c9625bfbf4ae0f`.
 
-Fingerprint:
-`sha256:be5dfdfb369e51d28f5e4f3ac1797f7d8bbd3ae0be625be705c9625bfbf4ae0f`.
+### Contrato congelado
+- riesgo: V8 congelado `V5>=80 OR V7>=80`;
+- oportunidad: `PortfolioCandidateGate.status === ELIGIBLE`;
+- posiciones existentes: `NEVER_SELL_OR_REDUCE`;
+- aportación de investigación: 1.000 € al mes;
+- baseline: desplegar cada aportación en la siguiente apertura;
+- V10: sólo aplazar dinero nuevo cuando hay riesgo V8 y no hay oportunidad ELIGIBLE;
+- reevaluación cada sesión;
+- liberación en el primer `risk OFF / opportunity ELIGIBLE / 63 sesiones`;
+- títulos enteros, MyInvestor y cash histórico ECB DFR floor 0 after-tax.
 
-## Inputs V10 congelados
-Riesgo:
-`V8 = V5>=80 OR V7>=80`.
-No se retoca ningún threshold V8.
-
-Oportunidad positiva:
-`PortfolioCandidateGate.status === ELIGIBLE`.
-
-No se crea un predictor alcista V10 ni un nuevo threshold de oportunidad. Se reutiliza el booleano productivo causal ya existente.
-
-## Regla V10 congelada
-Posiciones existentes:
-`NEVER_SELL_OR_REDUCE`.
-
-Para cada nueva aportación:
-1. V8 OFF -> invertir 100% NEXT_OPEN.
-2. V8 ON + oportunidad ELIGIBLE -> invertir 100% NEXT_OPEN. La oportunidad prevalece sobre el riesgo.
-3. V8 ON + oportunidad no elegible -> aplazar 100% en cash remunerado.
-4. Revaluar el cash aplazado cada sesión.
-5. Liberar 100% NEXT_OPEN en el primer evento entre:
-   - V8 OFF;
-   - activo pasa a ELIGIBLE;
-   - 63 sesiones de aplazamiento.
-6. Nunca vender una posición existente.
-
-Semántica económica:
-- aportación 1.000 €;
-- primera sesión de mercado de cada mes;
-- baseline = invertir cada aportación inmediatamente NEXT_OPEN;
-- títulos enteros;
-- MyInvestor;
-- cash histórico ECB DFR floor 0 after-tax;
-- V10 no genera ventas, por lo que no genera plusvalías realizadas por su propia acción; sí fiscalidad del interés de cash.
-
-## Holdout histórico V10 — SELLADO Y LISTO, TODAVÍA NO ABIERTO
-Selección sólo estructural, sin consultar rentabilidades/drawdowns/volatilidad/resultados V10:
-- `V10_BLIND_VGVF` — `VGVF.DE` — IE00BK5BQV03 — Developed World;
-- `V10_BLIND_VNRA` — `VNRA.DE` — IE00BK5BQW10 — North America;
-- `V10_BLIND_VFEM` — `VFEM.DE` — IE00B3VVMM84 — Emerging Markets;
-- `V10_BLIND_VERE` — `VERE.DE` — IE00BK5BQY34 — Developed Europe ex UK;
-- `V10_BLIND_VGEK` — `VGEK.DE` — IE00BK5BQZ41 — Asia Pacific ex Japan;
-- `V10_BLIND_VJPN` — `VJPN.DE` — IE00B95PGT31 — Japan.
-
-No aparecen en `EUR_ASSET_UNIVERSE`, `EUR_VALIDATION_HOLDOUT_UNIVERSE` ni V9.
-No sustituir activos después de abrir el holdout.
-
-## Gate de calidad V10 predeclarado
-Antes de evaluar:
-- >=756 barras;
-- >=36 aportaciones mensuales;
-- >=6 aportaciones efectivamente aplazadas y completadas por activo;
-- fechas únicas;
-- open/close positivos;
-- ningún salto close-to-close absoluto >40% en una sesión.
-
-Fallo de calidad -> `INVALID_DATA`.
-Menos de 6 activos válidos -> agregado `INCONCLUSIVE`.
-No reemplazar el activo.
-
-## Gate caída vs subida
-Para cada aportación aplazada se observa el baseline inmediato durante 63 sesiones:
-- `DOWN_FIRST`: toca -5% antes que +5%;
-- `UP_FIRST`: toca +5% antes que -5%;
-- `NEITHER`: ninguno.
-
-Así V10 mide explícitamente ambos lados: caída evitada y subida perdida. Esta clasificación es sólo auditoría posterior y nunca alimenta la decisión histórica.
-
-## Gate económico V10
-PASS individual:
-`finalDeltaEur >= 0 AND medianDeferredExecutionPriceImprovementPct >= 0 AND downFirstCount >= upFirstCount`.
-
-PASS agregado:
-- 6/6 activos válidos;
-- >=4/6 PASS individuales;
-- mediana `finalDeltaEur >=0`;
-- mediana de mejora del precio de ejecución aplazada >=0%;
-- agregado `DOWN_FIRST >= UP_FIRST`.
-
-Sin grid ni tuning tras abrir el holdout.
-
-## Guard local V10 — PASS
+### Guard previo
 Ejecutado localmente el 2026-09-07:
 - `forwardRiskV10Policy.unit: PASS`;
 - `forwardRiskV10ValidationProtocol.unit: PASS`;
-- `npm run lint` / `tsc --noEmit: PASS`.
+- `tsc --noEmit: PASS`.
 
-El PASS se registró sin cambiar `V10_POLICY_1`, holdout, gates ni fingerprint.
+No cambió política, fingerprint ni holdout.
 
-## Confirmación temporal futura V10
-Reservada desde 2026-09-08 inclusive.
-No puede usarse para tuning.
+### Holdout V10 consumido
+Activos:
+- `VGVF.DE` — Developed World;
+- `VNRA.DE` — North America;
+- `VFEM.DE` — Emerging Markets;
+- `VERE.DE` — Developed Europe ex UK;
+- `VGEK.DE` — Asia Pacific ex Japan;
+- `VJPN.DE` — Japan.
+
+Los 6/6 superaron el gate de calidad. No hay sustituciones ni rescate por datos insuficientes.
+
+### Resultado blind one-shot
+Ejecución local completada el 2026-09-07; evaluada hasta 2026-09-01.
+
+Veredicto:
+`V10_BLIND_FAIL_RETIRE_V10_POLICY_1`.
+
+Agregado:
+- activos válidos: 6/6;
+- PASS individuales: 0/6;
+- aportaciones aplazadas: 71;
+- mediana `finalDeltaEur = -219,25 €`;
+- mediana mejora de precio aplazado = `-1,1907%`;
+- `DOWN_FIRST = 34`;
+- `UP_FIRST = 28`;
+- `NEITHER = 9`.
+
+Por activo:
+- VGVF.DE: 8 aplazadas; delta -138,50 €; mejora mediana -1,1286%; DOWN/UP/NEITHER 5/3/0; FAIL.
+- VNRA.DE: 10 aplazadas; delta -337,18 €; mejora mediana -1,2529%; 4/6/0; FAIL.
+- VFEM.DE: 18 aplazadas; delta -334,85 €; mejora mediana -1,3930%; 7/7/4; FAIL.
+- VERE.DE: 10 aplazadas; delta -11,58 €; mejora mediana -1,2901%; 5/4/1; FAIL.
+- VGEK.DE: 8 aplazadas; delta -74,19 €; mejora mediana -1,1096%; 4/3/1; FAIL.
+- VJPN.DE: 17 aplazadas; delta -300,00 €; mejora mediana +0,0391%; 9/5/3; FAIL.
+
+### Interpretación cerrada
+V10 confirma que Forward Risk conserva cierta información direccional: 34 casos alcanzan -5% antes que +5%, frente a 28 en sentido contrario. Sin embargo, esa información no se monetiza con la política binaria de aplazar el 100% y liberar después: 5/6 activos tienen peor precio mediano al liberar el cash y 6/6 terminan con delta final negativo.
+
+La lección admisible es arquitectónica: detectar riesgo no equivale a disponer de una regla económica rentable; esperar hasta desaparición del riesgo u oportunidad confirmada puede entrar después de parte de la recuperación.
+
+Consecuencias:
+- V10_POLICY_1 retirada;
+- no V10.1 ni tuning de ventanas, porcentajes, thresholds o reglas sobre estos seis activos;
+- los seis quedan consumidos para cualquier blind sucesor;
+- la ventana future-forward desde 2026-09-08 no se usa para promocionar V10 porque el blind ya falló;
+- si Forward Risk continúa, requiere arquitectura nueva preregistrada y holdout independiente todavía no inspeccionado.
 
 ---
 
@@ -291,22 +158,18 @@ No puede usarse para tuning.
 Pantalla: `ResearchValidationCenter`.
 Ruta backend: `/api/alerts/research-validation/*`.
 
-La interfaz muestra **sólo la validación Forward Risk vigente**. Las validaciones V8/V9 y guards cerrados permanecen archivados para trazabilidad, sin botones ejecutables.
+La interfaz conserva sólo validaciones vigentes como botones. V8, V9, guard V10 y blind V10 están archivados y read-only.
 
-Job visible actual:
+Estado actual: **no hay un job Forward Risk pendiente de ejecutar**.
 
-### `forward-risk-v10-blind-validation`
-**Forward Risk · V10 · validación blind**.
-Ejecuta en orden:
-1. `npx tsx tests/forwardRiskV10Policy.unit.ts`;
-2. `npx tsx tests/forwardRiskV10ValidationProtocol.unit.ts`;
-3. `npx tsx tests/forwardRiskV10BlindValidation.unit.ts`;
-4. `npm run lint`;
-5. `npx tsx scripts/forwardRiskV10BlindValidationLive.ts`.
+Histórico:
+- V8 · diagnóstico completado;
+- V9 · guard completado;
+- V9 · blind FAIL · retirada;
+- V10 · guard PASS;
+- V10 · blind FAIL · retirada.
 
-El runner reconstruye `PortfolioCandidateGate.apply` causalmente en cada fecha usando sólo el prefijo de precios disponible. Sólo después de guards + TypeScript abre los seis históricos V10. Guarda el resultado local y bloquea una segunda ejecución completada.
-
-No usa Gemini, agentes ni GitHub Actions.
+No usar Gemini, agentes ni GitHub Actions para cálculos largos.
 
 ---
 
@@ -319,7 +182,7 @@ No usa Gemini, agentes ni GitHub Actions.
 
 Replay manual abierto puede buscar Yahoo LIVE por nombre/ticker/ISIN y registrar instrumentos dinámicos EUR.
 
-Pendientes estructurales después de cerrar V10:
+Pendientes estructurales:
 - `OPEN_MARKET_DISCOVERY_V1` server-side compartido por decisión/alertas/replay/estudio.
 - `CORE_ELIGIBILITY_V2` con criterios auditables de índice amplio/diversificado, histórico y divisa.
 
@@ -348,9 +211,8 @@ Pendiente de simplificación:
 ---
 
 # Próxima secuencia
-1. Sincronizar `main` y ejecutar por el único botón visible **Forward Risk · V10 · validación blind**.
-2. El job repetirá guards + TypeScript antes de abrir el holdout.
-3. Ejecutar el blind V10 una sola vez en el backend local.
-4. Registrar PASS / FAIL / INCONCLUSIVE sin retuning y marcar los seis activos V10 como consumidos.
-5. Si pasa, mantener además confirmación future-forward desde 2026-09-08 antes de considerar cualquier integración productiva.
-6. Después continuar `OPEN_MARKET_DISCOVERY_V1` y `CORE_ELIGIBILITY_V2`.
+1. V10 queda cerrado; no volver a ejecutar ni retunear sobre el holdout consumido.
+2. No integrar V10 en producción ni en Custodia/replay/live.
+3. Si se continúa Forward Risk, definir primero una arquitectura sucesora y sellar un holdout independiente antes de abrir históricos; sólo puede heredarse de V10 la lección arquitectónica, no parámetros ajustados a sus resultados.
+4. Mantener `CORE_ARCHITECTURE_V1` sin Forward Risk productivo.
+5. Después continuar `OPEN_MARKET_DISCOVERY_V1` y `CORE_ELIGIBILITY_V2`.
