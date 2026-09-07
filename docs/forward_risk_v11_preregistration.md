@@ -3,7 +3,7 @@
 Fecha de sellado: **2026-09-07**  
 Protocolo: `V11_PREREG_2026_09_07`  
 Política: `V11_POLICY_1`  
-Estado: **POLICY_FROZEN / HOLDOUT_SEALED_PENDING_LOCAL_IMPLEMENTATION_GATES / RESEARCH_ONLY**
+Estado: **POLICY_FROZEN / LOCAL_GUARDS_PASS / HOLDOUT_SEALED_READY_FOR_ONE_SHOT_OPEN / RESEARCH_ONLY**
 
 Fingerprint congelado:
 
@@ -152,14 +152,25 @@ No hay grid ni tuning posterior.
 - los activos blind no participan en la construcción de V5/V7;
 - el runner llama primero al unlock de protocolo y sólo después descarga el catálogo blind.
 
-## 10. Secuencia
+## 10. Guard local — PASS
 
-1. Ejecutar **Forward Risk · V11 · guard de sizing continuo** en el backend local.
-2. El guard ejecuta política, protocolo, guard estático del runner y TypeScript; no abre históricos blind.
-3. Si PASS, registrar `localImplementationGates.status = PASS` sin cambiar fingerprint, política, sample ni gates.
-4. Sustituir el único botón visible por **Forward Risk · V11 · validación blind**.
+Ejecutado localmente el **2026-09-07**, antes de abrir el holdout:
+
+- `forwardRiskV11SizingOverlay.unit: PASS`;
+- `forwardRiskV11ValidationProtocol.unit: PASS`;
+- `forwardRiskV11BlindValidation.unit: PASS`;
+- `npm run lint` / `tsc --noEmit: PASS`.
+
+El PASS se registró sin modificar política, fingerprint, sample ni gates.
+
+## 11. Secuencia vigente
+
+1. **COMPLETADO:** guard local V11 PASS.
+2. **COMPLETADO:** registrar `localImplementationGates.status = PASS` sin cambiar fingerprint, política, muestra ni gates.
+3. Ejecutar desde la app **Forward Risk · V11 · validación blind**.
+4. El job vuelve a ejecutar los tres guards + TypeScript antes de abrir los seis históricos.
 5. Ejecutar una sola vez el blind histórico local.
-6. Registrar PASS / FAIL / INCONCLUSIVE sin retuning.
+6. Registrar PASS / FAIL / INCONCLUSIVE sin retuning; los seis activos quedan consumidos al abrirse.
 7. Sólo si PASS, usar confirmación future-forward reservada desde 2026-09-08 antes de cualquier integración productiva.
 
 Nunca usar GitHub Actions, Gemini ni agentes para el cálculo largo.
