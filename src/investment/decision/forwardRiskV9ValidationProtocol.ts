@@ -10,11 +10,12 @@ export interface ForwardRiskV9LocalGateRecord {
 }
 
 /**
- * V9 pre-registration boundary.
+ * V9 historical record.
  *
- * The blind sample was sealed before the state-machine policy was designed.
- * The policy and local implementation guards are now frozen/PASS. Historical
- * blind data may be opened only by the dedicated one-shot blind validation job.
+ * The policy was frozen and the blind sample was opened exactly once after the
+ * local implementation guards passed. The blind result failed the preregistered
+ * predictive/economic gates, so V9_POLICY_1 is retired. The six blind assets are
+ * permanently contaminated for successor validation and must not be reused.
  */
 export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
   protocolVersion: 'V9_PREREG_2026_09_07',
@@ -47,7 +48,7 @@ export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
   },
 
   historicalBlindHoldout: {
-    status: 'SEALED_READY_FOR_ONE_SHOT_OPEN',
+    status: 'OPENED_CONSUMED_FAIL_2026_09_07',
     selectionBasis: 'STRUCTURAL_ONLY_NO_HISTORICAL_OUTCOME_QUERY_FOR_V9',
     eligibility: [
       'UCITS equity ETF',
@@ -69,12 +70,34 @@ export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
     insufficientDataReplacementAllowed: false
   },
 
+  blindOutcome: {
+    status: 'FAIL',
+    verdict: 'V9_BLIND_FAIL_RETIRE_V9_POLICY_1',
+    openedAndConsumedAt: '2026-09-07',
+    predictive: {
+      validAssets: 6,
+      auditableEpisodes: 56,
+      anticipatedEpisodes: 22,
+      anticipationRatePct: 39.29,
+      medianLeadSessionsBeforePeak: 39,
+      falseProtectedTimePct: 26.13
+    },
+    economic: {
+      validAssets: 6,
+      individualPasses: 0,
+      medianFinalDeltaEurApprox: -6791,
+      medianDrawdownReductionPctPointsApprox: 5.96
+    },
+    dataQualityNote: 'ZPDJ.DE showed a suspicious historical-series discontinuity; this does not rescue V9 because the other five assets also failed the individual economic gate.',
+    disposition: 'RETIRED_NO_V9_1_ON_OPENED_HOLDOUT'
+  },
+
   futureForwardConfirmation: {
-    status: 'RESERVED',
+    status: 'CANCELLED_FOR_RETIRED_POLICY',
     startDateInclusive: '2026-09-08',
     purpose: 'TEMPORALLY_VIRGIN_CONFIRMATION',
     tuningAllowedAfterStart: false,
-    note: 'This is the strongest unbiased confirmation because these observations did not exist when the V9 contract was sealed.'
+    note: 'V9_POLICY_1 failed its historical blind gate and is retired; future observations are not used to rescue or retune it.'
   },
 
   policyFreeze: {
