@@ -1,4 +1,4 @@
-import crypto from 'node:crypto';
+import { createHash } from 'node:crypto';
 import {
   FORWARD_RISK_V10_DATA_QUALITY_GATE,
   FORWARD_RISK_V10_POLICY,
@@ -24,6 +24,25 @@ if (FORWARD_RISK_V10_POLICY.economicSemantics.contributionEur !== 1000) throw ne
 if (FORWARD_RISK_V10_POLICY.economicSemantics.executionMode !== 'NEXT_OPEN') throw new Error('FORWARD_RISK_V10_POLICY_GUARD_FAIL:EXECUTION_MODE');
 if (FORWARD_RISK_V10_DATA_QUALITY_GATE.minimumBars !== 756 || FORWARD_RISK_V10_DATA_QUALITY_GATE.maxAbsoluteOneSessionCloseReturnPct !== 40) throw new Error('FORWARD_RISK_V10_POLICY_GUARD_FAIL:DATA_QUALITY_GATE');
 if (FORWARD_RISK_V10_VALIDATION_GATE.validBlindAssetsRequired !== 6 || FORWARD_RISK_V10_VALIDATION_GATE.minimumIndividualPasses !== 4) throw new Error('FORWARD_RISK_V10_POLICY_GUARD_FAIL:VALIDATION_GATE');
+
+const decisions = [
+  decideForwardRiskV10({ riskActive: false, opportunityEligible: false, hasDeferredCash: false, deferredAgeSessions: 0 }),
+  decideForwardRiskV10({ riskActive: true, opportunityEligible: true, hasDeferredCash: false, deferredAgeSessions: 0 }),
+  decideForwardRiskV10({ riskActive: true, opportunityEligible: false, hasDeferredCash: false, deferredAgeSessions: 0 }),
+  decideForwardRiskV10({ riskActive: true, opportunityEligible: false, hasDeferredCash: true, deferredAgeSessions: 20 }),
+  decideForwardRiskV10({ riskActive: false, opportunityEligible: false, hasDeferredCash: true, deferredAgeSessions: 20 }),
+  decideForwardRiskV10({ riskActive: true, opportunityEligible: true, hasDeferredCash: true, deferredAgeSessions: 20 }),
+  decideForwardRiskV10({ riskActive: true, opportunityEligible: false, hasDeferredCash: true, deferredAgeSessions: 63 })
+];
+const allowedActions = new Set([
+  'INVEST_100_PCT_NEXT_OPEN',
+  'DEFER_100_PCT_IN_REMUNERATED_CASH',
+  'HOLD_DEFERRED_CASH',
+  'RELEASE_100_PCT_NEXT_OPEN'
+]);
+for (const decision of decisions) {
+  if (!allowedActions.has(decision.action)) throw new Error(`FORWARD_RISK_V10_POLICY_GUARD_FAIL:FORBIDDEN_ACTION:${decision.action}`);
+}
 
 requireAction(
   { riskActive: false, opportunityEligible: false, hasDeferredCash: false, deferredAgeSessions: 0 },
@@ -60,11 +79,6 @@ if (forced.action !== 'RELEASE_100_PCT_NEXT_OPEN' || forced.reason !== 'DEFERRED
   throw new Error('FORWARD_RISK_V10_POLICY_GUARD_FAIL:FORCE_RELEASE');
 }
 
-const forbiddenActions = ['SELL', 'REDUCE', 'LIQUIDATE'];
-for (const forbidden of forbiddenActions) {
-  if (JSON.stringify(FORWARD_RISK_V10_POLICY).includes(forbidden)) throw new Error(`FORWARD_RISK_V10_POLICY_GUARD_FAIL:FORBIDDEN_EXISTING_POSITION_ACTION:${forbidden}`);
-}
-
 const canonicalPolicy = {
   policyVersion: FORWARD_RISK_V10_POLICY.policyVersion,
   purpose: FORWARD_RISK_V10_POLICY.purpose,
@@ -76,7 +90,7 @@ const canonicalPolicy = {
   dataQuality: FORWARD_RISK_V10_DATA_QUALITY_GATE,
   validationGate: FORWARD_RISK_V10_VALIDATION_GATE
 };
-const actualFingerprint = `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonicalPolicy)).digest('hex')}`;
+const actualFingerprint = `sha256:${createHash('sha256').update(JSON.stringify(canonicalPolicy)).digest('hex')}`;
 if (actualFingerprint !== FORWARD_RISK_V10_POLICY_FINGERPRINT) {
   throw new Error(`FORWARD_RISK_V10_POLICY_GUARD_FAIL:FINGERPRINT:${actualFingerprint}`);
 }
