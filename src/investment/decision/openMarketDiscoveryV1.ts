@@ -57,21 +57,37 @@ export interface OpenMarketDiscoveryV1Snapshot {
   limitations: readonly string[];
 }
 
-function normalizedKey(asset: AssetUniverseItem): string {
-  return String(asset.isin || asset.ticker).trim().toUpperCase();
+function normalizedTicker(asset: AssetUniverseItem): string {
+  return String(asset.ticker).trim().toUpperCase();
+}
+function normalizedIsin(asset: AssetUniverseItem): string | null {
+  const value = String(asset.isin ?? '').trim().toUpperCase();
+  return value || null;
 }
 
+/**
+ * Discovery is strictly additive to the already validated operational catalogue.
+ * The base array is preserved exactly/in-order, including intentional multiple
+ * exchange aliases that may share an ISIN. Only newly discovered rows are
+ * deduplicated against existing ticker/ISIN identities and against each other.
+ */
 export function mergeOpenMarketAssets(
   base: readonly AssetUniverseItem[],
   discovered: readonly OpenMarketDiscoveryV1Asset[]
 ): AssetUniverseItem[] {
-  const byKey = new Map<string, AssetUniverseItem>();
-  for (const asset of base) byKey.set(normalizedKey(asset), asset);
+  const merged = [...base];
+  const seenTickers = new Set(base.map(normalizedTicker));
+  const seenIsins = new Set(base.map(normalizedIsin).filter((value): value is string => Boolean(value)));
+
   for (const row of discovered) {
-    const key = normalizedKey(row.asset);
-    if (!byKey.has(key)) byKey.set(key, row.asset);
+    const ticker = normalizedTicker(row.asset);
+    const isin = normalizedIsin(row.asset);
+    if (seenTickers.has(ticker) || Boolean(isin && seenIsins.has(isin))) continue;
+    merged.push(row.asset);
+    seenTickers.add(ticker);
+    if (isin) seenIsins.add(isin);
   }
-  return [...byKey.values()];
+  return merged;
 }
 
 /**
