@@ -111,9 +111,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'forward-risk-v11-blind-validation',
     name: 'Forward Risk · V11 · validación blind',
-    description: 'Validación vigente one-shot. Compara el motor actual contra el mismo motor con V11_POLICY_1 como overlay continuo de sizing sobre dinero nuevo ELIGIBLE. Comprueba primero que FRED_API_KEY esté configurada; después repite guards y TypeScript y sólo entonces abre los seis históricos blind. Usa NEXT_OPEN, drawdown unitizado por flujos y backend local sin IA ni GitHub Actions.',
+    description: 'Validación histórica consumida. V11_POLICY_1 terminó correctamente a nivel técnico, pero falló el gate blind de retorno/riesgo y queda retirada. No puede relanzarse ni retunearse sobre estos seis activos.',
     marker: 'FORWARD_RISK_V11_BLIND_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'V11 · blind FAIL · retirada',
     steps: [
       { label: 'Preflight FRED/ALFRED', command: 'npx', args: ['tsx', 'scripts/forwardRiskV11RuntimePreflight.ts'] },
       { label: 'Guard V11 sizing continuo', command: 'npx', args: ['tsx', 'tests/forwardRiskV11SizingOverlay.unit.ts'] },
