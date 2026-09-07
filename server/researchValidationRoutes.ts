@@ -52,6 +52,16 @@ const JOBS: JobDefinition[] = [
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'V9 validación blind one-shot', command: 'npx', args: ['tsx', 'scripts/forwardRiskV9BlindValidationLive.ts'] }
     ]
+  },
+  {
+    id: 'forward-risk-v10-policy-guard',
+    name: 'Forward Risk V10 · guard de política riesgo + oportunidad',
+    description: 'Valida la política V10 congelada de dinero nuevo, el sellado del nuevo holdout y TypeScript. Comprueba que V10 nunca venda posiciones existentes y que oportunidad ELIGIBLE pueda anular un aplazamiento por riesgo. No descarga ni abre los seis activos V10 blind, no ejecuta replay largo, no usa Gemini ni GitHub Actions.',
+    steps: [
+      { label: 'Guard V10 política de dinero nuevo', command: 'npx', args: ['tsx', 'tests/forwardRiskV10Policy.unit.ts'] },
+      { label: 'Guard V10 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV10ValidationProtocol.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+    ]
   }
 ];
 
