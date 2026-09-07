@@ -19,6 +19,7 @@ const protocolSource = source('src/investment/decision/forwardRiskV9ValidationPr
 const universeSource = source('src/investment/decision/assetUniverse.ts');
 
 const expectedBlindTickers = ['SPPW.DE', 'SPY5.DE', 'SPYM.DE', 'ZPRS.DE', 'VGEU.DE', 'ZPDJ.DE'];
+const expectedFingerprint = 'sha256:219a83f8ba3205c33de96a73105e31ee927312b0fc655eaf24edd3bfc8c19fb0';
 const actualBlindTickers = FORWARD_RISK_V9_VALIDATION_PROTOCOL.historicalBlindHoldout.assets.map(asset => asset.ticker);
 
 if (JSON.stringify(actualBlindTickers) !== JSON.stringify(expectedBlindTickers)) {
@@ -29,11 +30,11 @@ for (const ticker of expectedBlindTickers) {
   forbidText(universeSource, `ticker: '${ticker}'`, `BLIND_TICKER_ALREADY_IN_EXISTING_UNIVERSE:${ticker}`);
 }
 
-if (FORWARD_RISK_V9_VALIDATION_PROTOCOL.policyFreeze.status !== 'NOT_FROZEN') {
-  throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:POLICY_MUST_START_LOCKED');
+if (FORWARD_RISK_V9_VALIDATION_PROTOCOL.policyFreeze.status !== 'FROZEN') {
+  throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:POLICY_NOT_FROZEN');
 }
-if (FORWARD_RISK_V9_VALIDATION_PROTOCOL.policyFreeze.fingerprint !== null) {
-  throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:POLICY_FINGERPRINT_MUST_START_NULL');
+if (FORWARD_RISK_V9_VALIDATION_PROTOCOL.policyFreeze.fingerprint !== expectedFingerprint) {
+  throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:POLICY_FINGERPRINT_CHANGED');
 }
 if (FORWARD_RISK_V9_VALIDATION_PROTOCOL.futureForwardConfirmation.startDateInclusive !== '2026-09-08') {
   throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:FUTURE_FORWARD_START_CHANGED');
@@ -42,18 +43,34 @@ if (FORWARD_RISK_V9_VALIDATION_PROTOCOL.frozenSignalInput.v5ThresholdPct !== 80 
   throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:V8_THRESHOLDS_CHANGED');
 }
 
-let locked = false;
-try {
-  assertForwardRiskV9HistoricalHoldoutUnlocked();
-} catch (error) {
-  locked = error instanceof Error && error.message === 'V9_BLIND_HOLDOUT_LOCKED_POLICY_NOT_FROZEN';
+const localStatus = FORWARD_RISK_V9_VALIDATION_PROTOCOL.localImplementationGates.status;
+if (localStatus !== 'PENDING' && localStatus !== 'PASS') {
+  throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:INVALID_LOCAL_GATE_STATUS');
 }
-if (!locked) throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:BLIND_HOLDOUT_NOT_LOCKED');
 
-requireText(protocolSource, 'Do not fetch or inspect historical price series for V9 blind assets before policyFreeze.status is FROZEN.', 'ANTI_LEAKAGE_RULE_MISSING');
+if (localStatus === 'PENDING') {
+  let locked = false;
+  try {
+    assertForwardRiskV9HistoricalHoldoutUnlocked();
+  } catch (error) {
+    locked = error instanceof Error && error.message === 'V9_BLIND_HOLDOUT_LOCKED_LOCAL_GATES_NOT_RECORDED';
+  }
+  if (!locked) throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:HOLDOUT_MUST_STAY_LOCKED_UNTIL_LOCAL_GATES_PASS');
+} else {
+  if (assertForwardRiskV9HistoricalHoldoutUnlocked() !== expectedFingerprint) {
+    throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:UNLOCKED_FINGERPRINT_MISMATCH');
+  }
+}
+
+requireText(protocolSource, 'Do not fetch or inspect historical price series for V9 blind assets before policyFreeze.status is FROZEN and localImplementationGates.status is PASS.', 'ANTI_LEAKAGE_RULE_MISSING');
 requireText(protocolSource, 'replacementAfterOpeningAllowed: false', 'HOLDOUT_REPLACEMENT_MUST_BE_FORBIDDEN');
 requireText(protocolSource, 'insufficientDataReplacementAllowed: false', 'INSUFFICIENT_DATA_MUST_NOT_ENABLE_CHERRY_PICKING');
 requireText(protocolSource, "stateAlphabet: ['NORMAL', 'ALERTA', 'PROTECCION', 'RECUPERACION']", 'STATE_ALPHABET_MUST_BE_PREDECLARED');
 requireText(protocolSource, 'thresholdsRetunableInV9: false', 'V8_THRESHOLDS_MUST_REMAIN_FROZEN');
+requireText(protocolSource, "policyVersion: 'V9_POLICY_1'", 'FROZEN_POLICY_VERSION_MISSING');
+requireText(protocolSource, 'alertOnHitsRequired: 2', 'FROZEN_ALERT_HITS_MISSING');
+requireText(protocolSource, 'alertWindowSessions: 3', 'FROZEN_ALERT_WINDOW_MISSING');
+requireText(protocolSource, 'recoveryOffSessionsRequired: 5', 'FROZEN_RECOVERY_RULE_MISSING');
+requireText(protocolSource, 'protectionReductionPct: 25', 'FROZEN_PROTECTION_SIZE_MISSING');
 
 console.log('forwardRiskV9ValidationProtocol.unit: PASS');
