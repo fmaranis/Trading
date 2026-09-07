@@ -20,8 +20,11 @@ assert.ok(OPEN_MARKET_DISCOVERY_V1_LIMITATIONS.some(note => /point-in-time/i.tes
 assert.ok(OPEN_MARKET_DISCOVERY_V1_LIMITATIONS.some(note => /survivorship/i.test(note)));
 assert.ok(OPEN_MARKET_DISCOVERY_V1_LIMITATIONS.some(note => /must not call current Yahoo search/i.test(note)));
 
+// The established catalogue may intentionally contain multiple exchange aliases
+// for the same ISIN. Discovery must never shrink or rewrite that base catalogue.
 const base: AssetUniverseItem[] = [
-  { assetId: 'BASE', ticker: 'AAA.DE', isin: 'IE0000000001', name: 'Base', category: 'GLOBAL_EQUITY', currency: 'EUR' }
+  { assetId: 'BASE_A', ticker: 'AAA.DE', isin: 'IE0000000001', name: 'Base A', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'BASE_B', ticker: 'AAA.MI', isin: 'IE0000000001', name: 'Base B alias', category: 'GLOBAL_EQUITY', currency: 'EUR' }
 ];
 const discovered: OpenMarketDiscoveryV1Asset[] = [
   {
@@ -31,10 +34,16 @@ const discovered: OpenMarketDiscoveryV1Asset[] = [
   {
     asset: { assetId: 'OPEN_NEW', ticker: 'BBB.DE', name: 'New', category: 'US_EQUITY', currency: 'EUR' },
     source: 'YAHOO_LIVE_QUERY_SWEEP', queryFamily: 'US', breadth: 'BROAD', discoveredAt: '2026-09-07T00:00:00Z', quoteType: 'ETF', exchange: 'XETRA', historyBars3y: 756, historicalPointInTimeSafe: false
+  },
+  {
+    asset: { assetId: 'OPEN_NEW_DUP', ticker: 'BBB.DE', name: 'Repeated new', category: 'US_EQUITY', currency: 'EUR' },
+    source: 'YAHOO_LIVE_QUERY_SWEEP', queryFamily: 'US', breadth: 'BROAD', discoveredAt: '2026-09-07T00:00:00Z', quoteType: 'ETF', exchange: 'XETRA', historyBars3y: 756, historicalPointInTimeSafe: false
   }
 ];
 const merged = mergeOpenMarketAssets(base, discovered);
-assert.deepEqual(merged.map(row => row.assetId), ['BASE', 'OPEN_NEW']);
+assert.deepEqual(merged.map(row => row.assetId), ['BASE_A', 'BASE_B', 'OPEN_NEW']);
+assert.equal(merged.length, base.length + 1, 'Open discovery must be strictly additive to the existing catalogue.');
+assert.deepEqual(merged.slice(0, base.length), base, 'Base catalogue order/content must remain unchanged.');
 
 const catalog: AssetUniverseItem[] = [
   { assetId: 'OLD', ticker: 'OLD.DE', name: 'Old', category: 'GLOBAL_EQUITY', currency: 'EUR' },
