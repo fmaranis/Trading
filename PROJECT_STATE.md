@@ -169,13 +169,15 @@ Mismos flujos y gate:
 Así el único delta experimental es Forward Risk como sizing overlay.
 
 ## Holdout V11 — SELLADO, NO ABIERTO
-Seleccionado exclusivamente por metadata estructural antes de cualquier histórico V11:
+Seleccionado exclusivamente por metadata estructural antes de cualquier histórico V11. La muestra final usa clases acumulativas para evitar sesgo por dividendos no modelados en el histórico causal `Close`:
 - `IUSQ.DE` — MSCI ACWI — IE00B6R52259;
-- `IUSA.DE` — S&P 500 — IE0031442068;
+- `SXR4.DE` — MSCI USA — IE00B52SFT06;
 - `EUNM.DE` — MSCI Emerging Markets — IE00B4L5YC18;
 - `EUNK.DE` — MSCI Europe — IE00B4K48X80;
 - `SXR1.DE` — MSCI Pacific ex Japan — IE00B52MJY50;
-- `IQQJ.DE` — MSCI Japan — IE00B02KXH56.
+- `SXRZ.DE` — Nikkei 225 — IE00B52MJD48.
+
+Antes de abrir ningún histórico V11 se sustituyeron dos clases distributivas inicialmente consideradas (`IUSA.DE` e `IQQJ.DE`) por `SXR4.DE` y `SXRZ.DE`. Fue una corrección exclusivamente estructural para eliminar el sesgo de distribuciones no modeladas; no se consultaron resultados, rentabilidades, drawdowns ni volatilidades V11.
 
 No aparecen en los universos de producción/holdout existentes ni en V9/V10. No sustituir después de abrir.
 
