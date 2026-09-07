@@ -36,7 +36,7 @@ No reintroducir la salida reactiva tardía del core.
 - V6: RETIRADO. No V6.1.
 - V7: RETIRADO como arquitectura autónoma; sólo se conserva su señal congelada `>=80` dentro de V8.
 - V8: **información predictiva confirmada y vintage-safe confirmada, pero política transaccional económica FALLIDA y señal diaria demasiado fragmentada; RESEARCH_ONLY**.
-- V9: **PRE-REGISTERED / HOLDOUT_SEALED / POLICY_NOT_FROZEN**. Todavía no existe máquina de estados implementada.
+- V9: **POLICY_FROZEN / HOLDOUT_SEALED_PENDING_LOCAL_IMPLEMENTATION_GATES / RESEARCH_ONLY**.
 
 Regla V8 permanece congelada:
 `V5 vulnerability >=80 OR V7 options >=80`.
@@ -115,24 +115,24 @@ Veredicto: `V8_SIGNAL_FRAGMENTATION_CONFIRMED_DIAGNOSTIC_ONLY`.
 Interpretación cerrada:
 - V8 puede contener evidencia anticipativa útil;
 - el booleano diario está demasiado fragmentado para operar directamente;
-- no se corrige V8 probando persistencias/confirmaciones sobre la misma muestra;
-- la siguiente arquitectura es V9, una capa temporal con histéresis sobre la señal V8 congelada.
+- no se corrige V8 retocando la propia señal;
+- V9 es una capa temporal con histéresis sobre la señal V8 congelada.
 
 Archivos:
 - `scripts/forwardRiskV8FragmentationDiagnosticLive.ts`;
 - `tests/forwardRiskV8FragmentationDiagnostic.unit.ts`.
 
-## Forward Risk V9 — protocolo sellado antes del diseño
+## Forward Risk V9 — protocolo y política congelados antes de abrir holdout
 Objetivo V9:
 `NORMAL -> ALERTA -> PROTECCION -> RECUPERACION`, usando V8 como evidencia congelada y memoria causal del propio estado. V9 no puede retocar V5/V7 ni introducir resultados futuros como inputs.
 
 ### Muestra de desarrollo
-Todo lo ya inspeccionado hasta 2026-09-01 se considera **contaminado pero válido para diseño**. Puede utilizarse para construir y depurar la máquina V9, pero nunca como evidencia OOS imparcial de V9.
+Todo lo inspeccionado hasta 2026-09-01 se considera **contaminado pero válido para diseño**. Nunca cuenta como evidencia OOS imparcial de V9.
 
-El actual `EUR_VALIDATION_HOLDOUT_UNIVERSE` tampoco es virgen: `scripts/brokerAwareExecutionSweepLive.ts` ya escanea todo ese catálogo y calcula pérdidas, volatilidad, drawdowns y peores ventanas históricas. Por tanto queda excluido como holdout V9.
+El actual `EUR_VALIDATION_HOLDOUT_UNIVERSE` tampoco es virgen: `scripts/brokerAwareExecutionSweepLive.ts` ya escanea todo ese catálogo y calcula pérdidas, volatilidad, drawdowns y peores ventanas históricas. Queda excluido como holdout V9.
 
-### Holdout histórico V9 — SELLADO Y BLOQUEADO
-Seleccionado antes de diseñar transiciones, persistencias, sizing o recuperación, únicamente por criterios estructurales y diversificación de exposición:
+### Holdout histórico V9 — SELLADO
+Fijado antes de diseñar la política, por criterios estructurales y diversificación de exposición:
 - `V9_BLIND_SPPW` — `SPPW.DE` — global equity;
 - `V9_BLIND_SPY5` — `SPY5.DE` — US equity;
 - `V9_BLIND_SPYM` — `SPYM.DE` — emerging equity;
@@ -140,39 +140,85 @@ Seleccionado antes de diseñar transiciones, persistencias, sizing o recuperaci�
 - `V9_BLIND_VGEU` — `VGEU.DE` — Europe equity;
 - `V9_BLIND_ZPDJ` — `ZPDJ.DE` — Japan equity.
 
-Regla de sellado:
-- **NO descargar ni inspeccionar las series históricas de estos seis activos para V9 mientras la política no esté congelada**;
-- no sustituir activos tras abrir el holdout;
-- un activo con datos insuficientes tampoco se reemplaza por otro más conveniente;
-- el holdout se abre una sola vez después de congelar y versionar todo el contrato V9;
-- si falla, ese contrato V9 se retira; una arquitectura sucesora necesita un holdout nuevo.
+No se han incorporado estos seis activos a `EUR_ASSET_UNIVERSE` ni a `EUR_VALIDATION_HOLDOUT_UNIVERSE`.
+No abrir/descargar sus series para la validación V9 hasta que los guards locales queden registrados PASS.
+No sustituir activos después de abrir el holdout; tampoco sustituir un caso por datos insuficientes.
 
-Implementado el candado en:
+### Política V9 congelada — `V9_POLICY_1`
+Implementación:
+`src/investment/decision/forwardRiskV9StateMachine.ts`.
+
+Transiciones:
+1. Primer V8 ON: `NORMAL -> ALERTA`; sin trade.
+2. Segundo ON dentro de una ventana total de 3 sesiones: `ALERTA -> PROTECCION`; una sola venta 25% `NEXT_OPEN`.
+3. Si vence la ventana de 3 sesiones sin segundo ON: `ALERTA -> NORMAL`; sin trade.
+4. En `PROTECCION`, ON mantiene estado; no vuelve a vender.
+5. Primer OFF: `PROTECCION -> RECUPERACION`; sin recomprar todavía.
+6. Cinco OFF consecutivos en total: `RECUPERACION -> NORMAL`; una sola recompra `NEXT_OPEN`.
+7. Cualquier ON durante `RECUPERACION`: vuelve a `PROTECCION` sin venta adicional, porque la cartera ya sigue reducida.
+
+Parámetros congelados:
+- hits ON para proteger: **2**;
+- ventana ALERTA: **3 sesiones**;
+- streak OFF para recuperar: **5 sesiones**;
+- reducción: **25%**, heredada del gate V8; no se retunea;
+- ejecución: **NEXT_OPEN**.
+
+Fingerprint congelado:
+`sha256:219a83f8ba3205c33de96a73105e31ee927312b0fc655eaf24edd3bfc8c19fb0`.
+
+### Gate predictivo V9 congelado
+- evento: caída >=5%;
+- lookback pre-pico: 63 sesiones;
+- se considera anticipación la entrada real a `PROTECCION`, no `ALERTA`;
+- anticipation rate >=50%;
+- lead mediano >=10 sesiones;
+- false protected time <=35%;
+- `PROTECCION + RECUPERACION` cuentan como tiempo protegido;
+- los 6 activos blind deben ser válidos para PASS; menos de 6 = INCONCLUSIVE, sin reemplazo.
+
+### Gate económico V9 congelado
+Misma base del gate V8 para aislar el efecto de la histéresis:
+- capital 13.000 €;
+- 25% de reducción;
+- whole shares;
+- comisiones MyInvestor existentes;
+- cash histórico ECB DFR floor 0 after-tax;
+- fiscalidad española existente;
+- `NEXT_OPEN` causal;
+- baseline buy-and-hold del mismo activo.
+
+PASS individual:
+`finalDeltaEur >= 0 AND drawdownReductionPctPoints >= 1 AND netBreachProtectionEur > 0`.
+
+PASS agregado:
+- 6/6 blind válidos;
+- >=4/6 PASS individual;
+- mediana `finalDeltaEur >= 0`;
+- mediana reducción drawdown >=1 pp.
+
+### Candado local antes del holdout
+La política está congelada, pero el holdout sigue bloqueado porque:
+- `localImplementationGates.status = PENDING`.
+
+Antes de abrirlo deben pasar localmente:
+1. `npx tsx tests/forwardRiskV9StateMachine.unit.ts`;
+2. `npx tsx tests/forwardRiskV9ValidationProtocol.unit.ts`;
+3. `npm run lint`.
+
+Mientras no conste PASS, abrirlo falla con:
+`V9_BLIND_HOLDOUT_LOCKED_LOCAL_GATES_NOT_RECORDED`.
+
+Archivos V9:
 - `src/investment/decision/forwardRiskV9ValidationProtocol.ts`;
+- `src/investment/decision/forwardRiskV9StateMachine.ts`;
 - `tests/forwardRiskV9ValidationProtocol.unit.ts`;
+- `tests/forwardRiskV9StateMachine.unit.ts`;
 - `docs/forward_risk_v9_preregistration.md`.
-
-Estado actual del candado:
-- `policyFreeze.status = NOT_FROZEN`;
-- `policyFreeze.fingerprint = null`;
-- intentar abrir el holdout debe fallar con `V9_BLIND_HOLDOUT_LOCKED_POLICY_NOT_FROZEN`.
 
 ### Confirmación temporal futura V9
 Reservada desde **2026-09-08** inclusive.
-No se puede usar para tuning después de esa fecha. Es la confirmación temporal realmente virgen porque esas observaciones no existían al sellar el protocolo.
-
-### Antes de abrir el holdout hay que congelar
-1. tabla completa de transiciones V9;
-2. reglas de confirmación/persistencia e histéresis;
-3. memoria causal de estados;
-4. mapping estado -> acción económica;
-5. semántica `NEXT_OPEN`;
-6. sizing;
-7. comisiones, cash histórico y fiscalidad española;
-8. gates predictivos y económicos PASS/FAIL;
-9. fingerprint único de política comprometido en `main`.
-
-Sólo después, en un commit posterior, se podrá construir/ejecutar la validación blind.
+No se puede usar para tuning. Es la confirmación temporal realmente virgen porque esas observaciones no existían al sellar el protocolo.
 
 ---
 
@@ -180,18 +226,26 @@ Sólo después, en un commit posterior, se podrá construir/ejecutar la validaci
 Pantalla: `ResearchValidationCenter`.
 Ruta backend: `/api/alerts/research-validation/*`.
 
-Job V8 disponible:
-`forward-risk-v8-fragmentation-diagnostic` — **Forward Risk V8 · diagnóstico de fragmentación**.
+Jobs disponibles:
 
-Ejecuta:
-1. Guard V8 fragmentación.
-2. `npm run lint`.
-3. V8 diagnóstico ON/OFF sobre sesiones reales de EUNL.
-
+### `forward-risk-v8-fragmentation-diagnostic`
+**Forward Risk V8 · diagnóstico de fragmentación**.
+- guard V8;
+- `npm run lint`;
+- diagnóstico V8 real-session.
 Marker: `FORWARD_RISK_V8_FRAGMENTATION_RESULT`.
-Requiere `FRED_API_KEY`. No usa Gemini ni GitHub Actions.
+Requiere `FRED_API_KEY`.
 
-No crear todavía job de validación V9 que abra el holdout: la política sigue sin congelar.
+### `forward-risk-v9-policy-guard`
+**Forward Risk V9 · guard de política congelada**.
+Ejecuta únicamente:
+1. test unitario de máquina V9;
+2. test unitario de protocolo/sellado;
+3. `npm run lint`.
+
+No descarga ni inspecciona los seis activos blind, no ejecuta replay largo, no usa Gemini ni GitHub Actions.
+
+Todavía NO existe job de blind validation V9; se creará sólo después de registrar PASS de este guard.
 
 ---
 
@@ -233,9 +287,9 @@ Pendiente de simplificación:
 ---
 
 # Próxima secuencia
-1. Diseñar V9 **sólo con la muestra de desarrollo ya contaminada**, sin tocar el holdout sellado.
-2. Fijar tabla `NORMAL / ALERTA / PROTECCION / RECUPERACION`, histéresis, acciones y gates económicos/predictivos.
-3. Crear tests causales y congelar el contrato con fingerprint en `main`.
-4. Sólo en un commit posterior, abrir una única vez el holdout histórico V9 y ejecutar localmente su validación.
-5. Si pasa, mantener además la confirmación future-forward desde 2026-09-08; no promover directamente a producción.
-6. En paralelo, después de cerrar este bloque, continuar `OPEN_MARKET_DISCOVERY_V1` y `CORE_ELIGIBILITY_V2`.
+1. Ejecutar localmente **Forward Risk V9 · guard de política congelada**. No toca holdout.
+2. Si PASS, registrar `localImplementationGates.status = PASS` sin cambiar política ni fingerprint.
+3. Sólo después crear el runner blind V9, con los seis activos sellados y gates ya congelados.
+4. Ejecutar el blind histórico una única vez en el motor local; no sustituir casos ni retocar V9 tras ver el resultado.
+5. Si V9 pasa, mantener además confirmación future-forward desde 2026-09-08; no promover directamente a producción.
+6. Después de cerrar este bloque, continuar `OPEN_MARKET_DISCOVERY_V1` y `CORE_ELIGIBILITY_V2`.
