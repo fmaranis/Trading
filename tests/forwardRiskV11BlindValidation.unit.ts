@@ -14,7 +14,7 @@ function forbidText(file: string, text: string, label: string): void {
 }
 
 const runner = source('scripts/forwardRiskV11BlindValidationLive.ts');
-const expectedTickers = ['IUSQ.DE', 'IUSA.DE', 'EUNM.DE', 'EUNK.DE', 'SXR1.DE', 'IQQJ.DE'];
+const expectedTickers = ['IUSQ.DE', 'SXR4.DE', 'EUNM.DE', 'EUNK.DE', 'SXR1.DE', 'SXRZ.DE'];
 const actualTickers = FORWARD_RISK_V11_VALIDATION_PROTOCOL.historicalBlindHoldout.assets.map(asset => asset.ticker);
 if (JSON.stringify(actualTickers) !== JSON.stringify(expectedTickers)) throw new Error('FORWARD_RISK_V11_BLIND_GUARD_FAIL:BLIND_SAMPLE_CHANGED');
 if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.policyFreeze.fingerprint !== FORWARD_RISK_V11_POLICY_FINGERPRINT) throw new Error('FORWARD_RISK_V11_BLIND_GUARD_FAIL:FINGERPRINT_CHANGED');
@@ -38,6 +38,8 @@ for (const ticker of expectedTickers) requireText(runner, `ticker: '${ticker}'`,
 for (const contaminated of ['SPPW.DE','SPY5.DE','SPYM.DE','ZPRS.DE','VGEU.DE','ZPDJ.DE','VGVF.DE','VNRA.DE','VFEM.DE','VERE.DE','VGEK.DE','VJPN.DE']) {
   forbidText(runner, `ticker: '${contaminated}'`, `CONTAMINATED_BLIND_REUSED:${contaminated}`);
 }
+forbidText(runner, "ticker: 'IUSA.DE'", 'DISTRIBUTING_US_SAMPLE_FORBIDDEN');
+forbidText(runner, "ticker: 'IQQJ.DE'", 'DISTRIBUTING_JAPAN_SAMPLE_FORBIDDEN');
 forbidText(runner, 'EUR_VALIDATION_HOLDOUT_UNIVERSE', 'OLD_HOLDOUT_UNIVERSE_FORBIDDEN');
 forbidText(runner, 'Math.random', 'RANDOMNESS_FORBIDDEN');
 forbidText(runner, 'runForwardRiskV9StateMachine', 'V9_STATE_MACHINE_FORBIDDEN');
