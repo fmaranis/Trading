@@ -111,10 +111,11 @@ const JOBS: JobDefinition[] = [
   {
     id: 'forward-risk-v11-blind-validation',
     name: 'Forward Risk · V11 · validación blind',
-    description: 'Validación vigente one-shot. Compara el motor actual contra el mismo motor con V11_POLICY_1 como overlay continuo de sizing sobre dinero nuevo ELIGIBLE. Repite guards y TypeScript antes de abrir los seis históricos blind; usa NEXT_OPEN, drawdown unitizado por flujos y backend local sin IA ni GitHub Actions.',
+    description: 'Validación vigente one-shot. Compara el motor actual contra el mismo motor con V11_POLICY_1 como overlay continuo de sizing sobre dinero nuevo ELIGIBLE. Comprueba primero que FRED_API_KEY esté configurada; después repite guards y TypeScript y sólo entonces abre los seis históricos blind. Usa NEXT_OPEN, drawdown unitizado por flujos y backend local sin IA ni GitHub Actions.',
     marker: 'FORWARD_RISK_V11_BLIND_RESULT',
     visibility: 'CURRENT',
     steps: [
+      { label: 'Preflight FRED/ALFRED', command: 'npx', args: ['tsx', 'scripts/forwardRiskV11RuntimePreflight.ts'] },
       { label: 'Guard V11 sizing continuo', command: 'npx', args: ['tsx', 'tests/forwardRiskV11SizingOverlay.unit.ts'] },
       { label: 'Guard V11 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11ValidationProtocol.unit.ts'] },
       { label: 'Guard V11 runner blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11BlindValidation.unit.ts'] },
