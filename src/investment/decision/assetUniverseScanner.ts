@@ -3,6 +3,13 @@ import { FundMarketDataService } from '../data/marketData/fundMarketData';
 import { MultiAssetDataset, computeAssetDatasetFingerprint } from '../portfolioBacktesting';
 import { assessAssetSelectionQuality } from './assetSelectionQuality';
 import { AssetUniverseItem } from './assetUniverse';
+import { EUR_PORTFOLIO_DISCOVERY_UNIVERSE } from './portfolioDiscoveryUniverse';
+import {
+  OPEN_MARKET_DISCOVERY_V1,
+  mergeOpenMarketAssets,
+  type OpenMarketDiscoveryV1Asset,
+  type OpenMarketDiscoveryV1Snapshot
+} from './openMarketDiscoveryV1';
 
 interface ScannerResponse {
   bars: Array<{ timestamp: string; open: number; high: number; low: number; close: number; volume?: number }>;
@@ -40,6 +47,27 @@ export interface AssetUniverseScanResult {
   dataset: MultiAssetDataset;
   acceptedDataset: MultiAssetDataset;
   rejectionCounts: Record<string, number>;
+  currentOpenDiscovery?: {
+    version: typeof OPEN_MARKET_DISCOVERY_V1;
+    attempted: boolean;
+    promotedAssets: number;
+    generatedAt: string | null;
+    error: string | null;
+  };
+}
+
+export interface AssetUniverseScanOptions {
+  forceRefresh?: boolean;
+  concurrency?: number;
+  maxSelected?: number;
+  minimumBars?: number;
+  maxDataAgeDays?: number;
+  /**
+   * Current/live only. The default `auto` behavior expands only the canonical
+   * operational universe and only when endDate is near today. Historical replay
+   * never calls current Yahoo discovery retrospectively.
+   */
+  currentOpenDiscovery?: boolean;
 }
 
 function pctReturn(prices: number[], lookback: number): number | null {
@@ -112,6 +140,62 @@ function toDataset(candidates: AssetScanCandidate[]): MultiAssetDataset {
   return { timeframe: '1d', assets: candidates.map(c => ({ assetId: c.asset.assetId, ticker: c.asset.ticker, name: c.asset.name, currency: 'EUR', bars: c.response!.bars, provenance: c.response!.provenance })) };
 }
 
+function todayIso(): string { return new Date().toISOString().slice(0, 10); }
+function currentDiscoveryBaseUrl(): string {
+  if (typeof window !== 'undefined') return '';
+  const configured = typeof process !== 'undefined'
+    ? (process.env.ALERT_INTERNAL_BASE_URL?.trim() || process.env.APP_URL?.trim())
+    : '';
+  return configured ? configured.replace(/\/$/, '') : 'http://127.0.0.1:3000';
+}
+function promotableCurrentDiscovery(rows: readonly OpenMarketDiscoveryV1Asset[]): OpenMarketDiscoveryV1Asset[] {
+  // Automatic discovery is intentionally narrower than manual search. V1 may
+  // autonomously propose listed ETFs/ETCs; individual equities remain only in
+  // the curated catalogue or explicit user-directed search until separately
+  // validated for automatic open-market promotion.
+  return rows.filter(row =>
+    row.asset.currency === 'EUR'
+    && row.quoteType === 'ETF'
+    && row.historyBars3y >= 252
+    && row.historicalPointInTimeSafe === false
+  );
+}
+async function expandCurrentOperationalUniverse(
+  universe: AssetUniverseItem[],
+  endDate: string,
+  option: boolean | undefined
+): Promise<{ universe: AssetUniverseItem[]; audit: NonNullable<AssetUniverseScanResult['currentOpenDiscovery']> }> {
+  const liveDate = daysBetween(endDate, todayIso()) <= 7;
+  const canonicalOperationalUniverse = universe === EUR_PORTFOLIO_DISCOVERY_UNIVERSE;
+  const shouldAttempt = option !== false && liveDate && canonicalOperationalUniverse;
+  const audit: NonNullable<AssetUniverseScanResult['currentOpenDiscovery']> = {
+    version: OPEN_MARKET_DISCOVERY_V1,
+    attempted: shouldAttempt,
+    promotedAssets: 0,
+    generatedAt: null,
+    error: null
+  };
+  if (!shouldAttempt) return { universe, audit };
+  try {
+    const response = await fetch(`${currentDiscoveryBaseUrl()}/api/alerts/asset-discovery/open-universe`);
+    if (!response.ok) throw new Error(`OPEN_MARKET_DISCOVERY_HTTP_${response.status}`);
+    const snapshot = await response.json() as OpenMarketDiscoveryV1Snapshot;
+    if (snapshot.version !== OPEN_MARKET_DISCOVERY_V1 || snapshot.historicalPointInTimeSafe !== false || !Array.isArray(snapshot.assets)) {
+      throw new Error('OPEN_MARKET_DISCOVERY_INVALID_SNAPSHOT');
+    }
+    const promoted = promotableCurrentDiscovery(snapshot.assets);
+    const expanded = mergeOpenMarketAssets(universe, promoted);
+    audit.promotedAssets = Math.max(0, expanded.length - universe.length);
+    audit.generatedAt = snapshot.generatedAt ?? null;
+    return { universe: expanded, audit };
+  } catch (error: any) {
+    // Discovery is additive. A temporary Yahoo/search failure must not disable
+    // the already-validated curated decision universe.
+    audit.error = error?.message || String(error);
+    return { universe, audit };
+  }
+}
+
 async function loadAsset(asset: AssetUniverseItem, startDate: string, endDate: string, forceRefresh: boolean): Promise<ScannerResponse> {
   if (asset.marketDataProvider === 'EODHD_FUND' || asset.instrumentType === 'MUTUAL_FUND') {
     const isin = asset.isin ?? asset.ticker;
@@ -134,9 +218,10 @@ async function loadAsset(asset: AssetUniverseItem, startDate: string, endDate: s
 }
 
 export class AssetUniverseScanner {
-  static async scan(universe: AssetUniverseItem[], startDate: string, endDate: string, options: { forceRefresh?: boolean; concurrency?: number; maxSelected?: number; minimumBars?: number; maxDataAgeDays?: number } = {}): Promise<AssetUniverseScanResult> {
+  static async scan(universe: AssetUniverseItem[], startDate: string, endDate: string, options: AssetUniverseScanOptions = {}): Promise<AssetUniverseScanResult> {
     const minimumBars = options.minimumBars ?? 252; const maxDataAgeDays = options.maxDataAgeDays ?? 7;
-    const candidates = await mapLimit(universe, options.concurrency ?? 3, async asset => {
+    const expanded = await expandCurrentOperationalUniverse(universe, endDate, options.currentOpenDiscovery);
+    const candidates = await mapLimit(expanded.universe, options.concurrency ?? 3, async asset => {
       try {
         const response = await loadAsset(asset, startDate, endDate, options.forceRefresh ?? false);
         const providerCurrency = response.metadata.currency;
@@ -174,6 +259,16 @@ export class AssetUniverseScanner {
     const selected = chooseDiversified(candidates, Math.min(options.maxSelected ?? 8, 10));
     if (selected.length < 1) throw new Error('El escáner no encontró ninguna exposición REAL válida.');
     const rejectionCounts: Record<string, number> = {}; for (const c of candidates.filter(c => c.status === 'REJECTED')) rejectionCounts[c.reason ?? 'UNKNOWN'] = (rejectionCounts[c.reason ?? 'UNKNOWN'] ?? 0) + 1;
-    return { scanned: candidates.length, accepted: acceptedCandidates.length, rejected: candidates.length - acceptedCandidates.length, selected, candidates, dataset: toDataset(selected), acceptedDataset: toDataset(acceptedCandidates), rejectionCounts };
+    return {
+      scanned: candidates.length,
+      accepted: acceptedCandidates.length,
+      rejected: candidates.length - acceptedCandidates.length,
+      selected,
+      candidates,
+      dataset: toDataset(selected),
+      acceptedDataset: toDataset(acceptedCandidates),
+      rejectionCounts,
+      currentOpenDiscovery: expanded.audit
+    };
   }
 }
