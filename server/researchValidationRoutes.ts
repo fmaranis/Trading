@@ -4,8 +4,17 @@ import { spawn } from 'node:child_process';
 export const researchValidationRouter = express.Router();
 
 type JobStatus = 'IDLE' | 'RUNNING' | 'PASSED' | 'FAILED';
+type JobVisibility = 'CURRENT' | 'ARCHIVED';
 interface Step { label: string; command: string; args: string[]; }
-interface JobDefinition { id: string; name: string; description: string; steps: Step[]; marker?: string; }
+interface JobDefinition {
+  id: string;
+  name: string;
+  description: string;
+  steps: Step[];
+  marker?: string;
+  visibility: JobVisibility;
+  historyLabel?: string;
+}
 interface JobState {
   status: JobStatus;
   startedAt: string | null;
@@ -22,8 +31,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'forward-risk-v8-fragmentation-diagnostic',
     name: 'Forward Risk V8 · diagnóstico de fragmentación',
-    description: 'Mide cuánto alterna la señal V8 vintage-safe ON/OFF sobre sesiones reales de EUNL, duración de tramos y concentración temporal. No simula operaciones, no cambia thresholds y no optimiza ninguna política. Requiere FRED_API_KEY; no usa Gemini ni GitHub Actions.',
+    description: 'Diagnóstico histórico archivado. Confirmó fragmentación de la señal V8; no forma parte del flujo operativo actual.',
     marker: 'FORWARD_RISK_V8_FRAGMENTATION_RESULT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'V8 · diagnóstico completado',
     steps: [
       { label: 'Guard V8 fragmentación', command: 'npx', args: ['tsx', 'tests/forwardRiskV8FragmentationDiagnostic.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
@@ -33,7 +44,9 @@ const JOBS: JobDefinition[] = [
   {
     id: 'forward-risk-v9-policy-guard',
     name: 'Forward Risk V9 · guard de política congelada',
-    description: 'Valida únicamente la máquina de estados V9 congelada, el sellado del holdout y TypeScript. No descarga ni abre los seis activos blind, no ejecuta replay largo, no usa Gemini ni GitHub Actions.',
+    description: 'Guard histórico archivado de V9.',
+    visibility: 'ARCHIVED',
+    historyLabel: 'V9 · guard completado',
     steps: [
       { label: 'Guard V9 máquina de estados', command: 'npx', args: ['tsx', 'tests/forwardRiskV9StateMachine.unit.ts'] },
       { label: 'Guard V9 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV9ValidationProtocol.unit.ts'] },
@@ -42,9 +55,11 @@ const JOBS: JobDefinition[] = [
   },
   {
     id: 'forward-risk-v9-blind-validation',
-    name: 'Forward Risk V9 · validación blind de una sola ejecución',
-    description: 'Abre por primera vez los seis activos blind sellados y evalúa V9_POLICY_1 con los gates predictivo y económico congelados. Antes de abrirlos vuelve a comprobar guards y TypeScript. Guarda el resultado localmente y bloquea una segunda ejecución completada. Requiere FRED_API_KEY; no usa Gemini ni GitHub Actions.',
+    name: 'Forward Risk V9 · validación blind',
+    description: 'Validación histórica consumida. V9_POLICY_1 falló el blind y está retirada.',
     marker: 'FORWARD_RISK_V9_BLIND_RESULT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'V9 · blind FAIL · retirada',
     steps: [
       { label: 'Guard V9 máquina de estados', command: 'npx', args: ['tsx', 'tests/forwardRiskV9StateMachine.unit.ts'] },
       { label: 'Guard V9 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV9ValidationProtocol.unit.ts'] },
@@ -56,11 +71,27 @@ const JOBS: JobDefinition[] = [
   {
     id: 'forward-risk-v10-policy-guard',
     name: 'Forward Risk V10 · guard de política riesgo + oportunidad',
-    description: 'Valida la política V10 congelada de dinero nuevo, el sellado del nuevo holdout y TypeScript. Comprueba que V10 nunca venda posiciones existentes y que oportunidad ELIGIBLE pueda anular un aplazamiento por riesgo. No descarga ni abre los seis activos V10 blind, no ejecuta replay largo, no usa Gemini ni GitHub Actions.',
+    description: 'Guard V10 ya superado y archivado tras registrar PASS.',
+    visibility: 'ARCHIVED',
+    historyLabel: 'V10 · guard PASS',
     steps: [
       { label: 'Guard V10 política de dinero nuevo', command: 'npx', args: ['tsx', 'tests/forwardRiskV10Policy.unit.ts'] },
       { label: 'Guard V10 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV10ValidationProtocol.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+    ]
+  },
+  {
+    id: 'forward-risk-v10-blind-validation',
+    name: 'Forward Risk · V10 · validación blind',
+    description: 'Validación actual. Compara aportaciones mensuales inmediatas con V10_POLICY_1: sólo aplaza dinero nuevo cuando coinciden riesgo V8 y ausencia de oportunidad ELIGIBLE. Nunca vende posiciones existentes. Abre una única vez los seis activos V10 sellados, usa NEXT_OPEN y ejecuta todo en el backend local sin IA ni GitHub Actions.',
+    marker: 'FORWARD_RISK_V10_BLIND_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard V10 política de dinero nuevo', command: 'npx', args: ['tsx', 'tests/forwardRiskV10Policy.unit.ts'] },
+      { label: 'Guard V10 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV10ValidationProtocol.unit.ts'] },
+      { label: 'Guard V10 runner blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV10BlindValidation.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'V10 validación blind one-shot', command: 'npx', args: ['tsx', 'scripts/forwardRiskV10BlindValidationLive.ts'] }
     ]
   }
 ];
@@ -162,18 +193,21 @@ function publicJob(job: JobDefinition) {
 }
 
 researchValidationRouter.get('/jobs', (_req: Request, res: Response) => {
-  res.json({ aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', jobs: JOBS.map(publicJob) });
+  const currentJobs = JOBS.filter(job => job.visibility === 'CURRENT').map(publicJob);
+  const history = JOBS.filter(job => job.visibility === 'ARCHIVED').map(job => ({ id: job.id, label: job.historyLabel ?? job.name }));
+  res.json({ aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', jobs: currentJobs, history });
 });
 
 researchValidationRouter.get('/jobs/:id', (req: Request, res: Response) => {
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
-  res.json({ aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', job: publicJob(job) });
+  res.json({ aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', archived: job.visibility === 'ARCHIVED', job: publicJob(job) });
 });
 
 researchValidationRouter.post('/jobs/:id/run', (req: Request, res: Response) => {
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
+  if (job.visibility === 'ARCHIVED') { res.status(409).json({ error: 'VALIDATION_ARCHIVED_READ_ONLY', job: publicJob(job) }); return; }
   const state = stateFor(job.id);
   if (state.status === 'RUNNING') { res.status(409).json({ error: 'VALIDATION_ALREADY_RUNNING', job: publicJob(job) }); return; }
   void runJob(job);
