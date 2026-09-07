@@ -39,7 +39,7 @@ No reintroducir la salida reactiva tardía del core.
 - V7: RETIRADO como arquitectura autónoma; sólo se conserva su señal congelada `>=80` dentro de V8.
 - V8: **información predictiva confirmada y vintage-safe, pero política transaccional económica FALLIDA y señal diaria demasiado fragmentada; RESEARCH_ONLY**.
 - V9: **BLIND FAIL / RETIRADO**. No V9.1 sobre la muestra abierta.
-- V10: **POLICY_FROZEN / HOLDOUT_SEALED_PENDING_LOCAL_IMPLEMENTATION_GATES / RESEARCH_ONLY**.
+- V10: **POLICY_FROZEN / LOCAL_GUARDS_PASS / HOLDOUT_SEALED_READY_FOR_ONE_SHOT_OPEN / RESEARCH_ONLY**.
 
 Regla V8 permanece congelada:
 `V5 vulnerability >=80 OR V7 options >=80`.
@@ -183,6 +183,8 @@ Archivos:
 - `src/investment/decision/forwardRiskV10ValidationProtocol.ts`;
 - `tests/forwardRiskV10Policy.unit.ts`;
 - `tests/forwardRiskV10ValidationProtocol.unit.ts`;
+- `tests/forwardRiskV10BlindValidation.unit.ts`;
+- `scripts/forwardRiskV10BlindValidationLive.ts`;
 - `docs/forward_risk_v10_preregistration.md`.
 
 Política congelada:
@@ -225,7 +227,7 @@ Semántica económica:
 - cash histórico ECB DFR floor 0 after-tax;
 - V10 no genera ventas, por lo que no genera plusvalías realizadas por su propia acción; sí fiscalidad del interés de cash.
 
-## Holdout histórico V10 — SELLADO, NO ABIERTO
+## Holdout histórico V10 — SELLADO Y LISTO, TODAVÍA NO ABIERTO
 Selección sólo estructural, sin consultar rentabilidades/drawdowns/volatilidad/resultados V10:
 - `V10_BLIND_VGVF` — `VGVF.DE` — IE00BK5BQV03 — Developed World;
 - `V10_BLIND_VNRA` — `VNRA.DE` — IE00BK5BQW10 — North America;
@@ -241,7 +243,7 @@ No sustituir activos después de abrir el holdout.
 Antes de evaluar:
 - >=756 barras;
 - >=36 aportaciones mensuales;
-- >=6 aportaciones efectivamente aplazadas por activo;
+- >=6 aportaciones efectivamente aplazadas y completadas por activo;
 - fechas únicas;
 - open/close positivos;
 - ningún salto close-to-close absoluto >40% en una sesión.
@@ -256,7 +258,7 @@ Para cada aportación aplazada se observa el baseline inmediato durante 63 sesio
 - `UP_FIRST`: toca +5% antes que -5%;
 - `NEITHER`: ninguno.
 
-Así V10 mide explícitamente ambos lados: caída evitada y subida perdida.
+Así V10 mide explícitamente ambos lados: caída evitada y subida perdida. Esta clasificación es sólo auditoría posterior y nunca alimenta la decisión histórica.
 
 ## Gate económico V10
 PASS individual:
@@ -271,6 +273,14 @@ PASS agregado:
 
 Sin grid ni tuning tras abrir el holdout.
 
+## Guard local V10 — PASS
+Ejecutado localmente el 2026-09-07:
+- `forwardRiskV10Policy.unit: PASS`;
+- `forwardRiskV10ValidationProtocol.unit: PASS`;
+- `npm run lint` / `tsc --noEmit: PASS`.
+
+El PASS se registró sin cambiar `V10_POLICY_1`, holdout, gates ni fingerprint.
+
 ## Confirmación temporal futura V10
 Reservada desde 2026-09-08 inclusive.
 No puede usarse para tuning.
@@ -281,25 +291,22 @@ No puede usarse para tuning.
 Pantalla: `ResearchValidationCenter`.
 Ruta backend: `/api/alerts/research-validation/*`.
 
-Jobs relevantes:
+La interfaz muestra **sólo la validación Forward Risk vigente**. Las validaciones V8/V9 y guards cerrados permanecen archivados para trazabilidad, sin botones ejecutables.
 
-### `forward-risk-v8-fragmentation-diagnostic`
-Diagnóstico V8 real-session.
+Job visible actual:
 
-### `forward-risk-v9-policy-guard`
-Guard histórico V9; V9 ya está retirado.
-
-### `forward-risk-v9-blind-validation`
-Blind V9 one-shot ya consumido. No volver a usarlo como nueva evidencia.
-
-### `forward-risk-v10-policy-guard`
-**Forward Risk V10 · guard de política riesgo + oportunidad**.
-Ejecuta únicamente:
+### `forward-risk-v10-blind-validation`
+**Forward Risk · V10 · validación blind**.
+Ejecuta en orden:
 1. `npx tsx tests/forwardRiskV10Policy.unit.ts`;
 2. `npx tsx tests/forwardRiskV10ValidationProtocol.unit.ts`;
-3. `npm run lint`.
+3. `npx tsx tests/forwardRiskV10BlindValidation.unit.ts`;
+4. `npm run lint`;
+5. `npx tsx scripts/forwardRiskV10BlindValidationLive.ts`.
 
-No descarga ni abre los seis activos V10 blind. No usa Gemini, agentes ni GitHub Actions.
+El runner reconstruye `PortfolioCandidateGate.apply` causalmente en cada fecha usando sólo el prefijo de precios disponible. Sólo después de guards + TypeScript abre los seis históricos V10. Guarda el resultado local y bloquea una segunda ejecución completada.
+
+No usa Gemini, agentes ni GitHub Actions.
 
 ---
 
@@ -341,11 +348,9 @@ Pendiente de simplificación:
 ---
 
 # Próxima secuencia
-1. Sincronizar `main` y ejecutar por botón **Forward Risk V10 · guard de política riesgo + oportunidad**.
-2. Si PASS, registrar `localImplementationGates.status = PASS` sin cambiar `V10_POLICY_1` ni fingerprint.
-3. Sólo después construir el runner blind V10 one-shot y su guard.
-4. Exponer un botón blind separado que ejecute guards + TypeScript antes de abrir históricos.
-5. Ejecutar el blind V10 una sola vez en el backend local.
-6. Registrar PASS / FAIL / INCONCLUSIVE sin retuning.
-7. Si pasa, mantener además confirmación future-forward desde 2026-09-08 antes de considerar cualquier integración productiva.
-8. Después continuar `OPEN_MARKET_DISCOVERY_V1` y `CORE_ELIGIBILITY_V2`.
+1. Sincronizar `main` y ejecutar por el único botón visible **Forward Risk · V10 · validación blind**.
+2. El job repetirá guards + TypeScript antes de abrir el holdout.
+3. Ejecutar el blind V10 una sola vez en el backend local.
+4. Registrar PASS / FAIL / INCONCLUSIVE sin retuning y marcar los seis activos V10 como consumidos.
+5. Si pasa, mantener además confirmación future-forward desde 2026-09-08 antes de considerar cualquier integración productiva.
+6. Después continuar `OPEN_MARKET_DISCOVERY_V1` y `CORE_ELIGIBILITY_V2`.
