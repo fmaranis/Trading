@@ -1,9 +1,9 @@
-# Forward Risk V10 — preregistro congelado
+# Forward Risk V10 — preregistro congelado y resultado blind
 
 Fecha de sellado: **2026-09-07**  
 Protocolo: `V10_PREREG_2026_09_07`  
 Política: `V10_POLICY_1`  
-Estado: **POLICY_FROZEN / LOCAL_GUARDS_PASS / HOLDOUT_SEALED_READY_FOR_ONE_SHOT_OPEN / RESEARCH_ONLY**
+Estado: **BLIND_FAIL / POLICY_RETIRED / HOLDOUT_CONSUMED / RESEARCH_ONLY**
 
 Fingerprint congelado:
 
@@ -11,7 +11,7 @@ Fingerprint congelado:
 
 ## 1. Motivo del cambio arquitectónico
 
-V8 demostró información anticipativa útil pero falló como interruptor transaccional directo. V9 añadió histéresis, redujo el chattering, pero el blind histórico falló tanto en anticipación agregada como, sobre todo, en economía. La lección admisible para V10 es únicamente arquitectónica: **no convertir automáticamente una señal de riesgo en una venta de posiciones existentes**.
+V8 demostró información anticipativa útil pero falló como interruptor transaccional directo. V9 añadió histéresis, redujo el chattering, pero el blind histórico falló tanto en anticipación agregada como, sobre todo, en economía. La lección admisible para V10 fue únicamente arquitectónica: **no convertir automáticamente una señal de riesgo en una venta de posiciones existentes**.
 
 No se permite usar los resultados V9 para optimizar porcentajes, ventanas, thresholds o gates V10.
 
@@ -51,9 +51,9 @@ Semántica económica:
 - sin impuesto de plusvalías por V10 porque V10 no vende posiciones; sólo fiscalidad del interés de cash;
 - baseline: cada aportación se invierte inmediatamente `NEXT_OPEN`.
 
-## 4. Holdout V10 sellado
+## 4. Holdout V10 — abierto y consumido
 
-Selección exclusivamente estructural, antes de abrir históricos para V10. Ninguno aparece en `EUR_ASSET_UNIVERSE`, `EUR_VALIDATION_HOLDOUT_UNIVERSE` ni en el holdout V9.
+La selección se hizo exclusivamente por criterios estructurales antes de abrir históricos para V10. Ninguno aparecía en `EUR_ASSET_UNIVERSE`, `EUR_VALIDATION_HOLDOUT_UNIVERSE` ni en el holdout V9.
 
 - `V10_BLIND_VGVF` — `VGVF.DE` — IE00BK5BQV03 — FTSE Developed World.
 - `V10_BLIND_VNRA` — `VNRA.DE` — IE00BK5BQW10 — FTSE North America.
@@ -62,34 +62,32 @@ Selección exclusivamente estructural, antes de abrir históricos para V10. Ning
 - `V10_BLIND_VGEK` — `VGEK.DE` — IE00BK5BQZ41 — FTSE Developed Asia Pacific ex Japan.
 - `V10_BLIND_VJPN` — `VJPN.DE` — IE00B95PGT31 — FTSE Japan.
 
-Los seis activos V9 (`SPPW.DE`, `SPY5.DE`, `SPYM.DE`, `ZPRS.DE`, `VGEU.DE`, `ZPDJ.DE`) quedan contaminados y no pueden reutilizarse como validación V10.
+Los seis activos V9 (`SPPW.DE`, `SPY5.DE`, `SPYM.DE`, `ZPRS.DE`, `VGEU.DE`, `ZPDJ.DE`) ya estaban contaminados y no se reutilizaron.
 
-No se permite sustituir un activo tras abrir el holdout, tampoco por datos insuficientes o por fallo de calidad.
+Los seis activos V10 anteriores quedaron **consumidos permanentemente** al completarse la ejecución blind. No pueden utilizarse para retuning, V10.1 ni como blind limpio de un sucesor.
 
 ## 5. Gate previo de calidad de datos
 
-Antes de calcular resultados V10, cada serie debe cumplir:
+Cada serie debía cumplir:
 
 - >=756 barras válidas;
 - >=36 eventos mensuales de aportación;
-- >=6 aportaciones realmente aplazadas y completadas para que la evaluación individual sea informativa;
+- >=6 aportaciones realmente aplazadas y completadas;
 - fechas únicas;
 - open/close positivos;
 - ninguna variación close-to-close absoluta de una sola sesión >40%.
 
-Una anomalía de este tipo deja el activo `INVALID_DATA`. Si quedan menos de 6 válidos, el blind agregado será `INCONCLUSIVE`. No se reemplaza el caso.
-
-Este gate se fijó antes de abrir el holdout para evitar repetir el problema de datos observado retrospectivamente en ZPDJ durante V9.
+Los **6/6 activos** superaron este gate y fueron válidos. Por tanto, el resultado no es `INCONCLUSIVE` por calidad o falta de datos.
 
 ## 6. Gate de balance caída/subida
 
-Para cada aportación que V10 decida aplazar, se observa **sólo como auditoría posterior** la trayectoria que habría seguido el baseline inmediato durante las siguientes 63 sesiones y se clasifica el primer evento:
+Para cada aportación que V10 decide aplazar, se observa **sólo como auditoría posterior** la trayectoria que habría seguido el baseline inmediato durante las siguientes 63 sesiones y se clasifica el primer evento:
 
 - `DOWN_FIRST`: alcanza -5% antes que +5%;
 - `UP_FIRST`: alcanza +5% antes que -5%;
 - `NEITHER`: ninguno de los dos.
 
-Esta clasificación nunca interviene en la decisión histórica. Sirve para medir directamente si esperar evita más caídas de las que hace perder subidas.
+Esta clasificación nunca interviene en la decisión histórica.
 
 ## 7. Gate económico congelado
 
@@ -109,9 +107,11 @@ No hay grid ni ajuste de 63 sesiones, ±5%, 1.000 €, número mínimo de casos 
 
 ## 8. Causalidad del lado oportunidad
 
-La validación blind debe reutilizar `PortfolioCandidateGate.apply` exactamente. Para cada fecha histórica se reconstruye un `AssetUniverseScanResult` usando **sólo el prefijo de barras disponible hasta esa fecha**. Así, `ELIGIBLE` se obtiene con el mismo cash hurdle, consenso, estructura de tendencia y `EntryTimingEngine` que el motor, sin usar precios posteriores.
+La validación blind reutiliza `PortfolioCandidateGate.apply` exactamente. Para cada fecha histórica se reconstruye un `AssetUniverseScanResult` usando **sólo el prefijo de barras disponible hasta esa fecha**. Así, `ELIGIBLE` se obtiene con el mismo cash hurdle, consenso, estructura de tendencia y `EntryTimingEngine` que el motor, sin usar precios posteriores.
 
-## 9. Guard local — PASS
+La clasificación `DOWN_FIRST / UP_FIRST / NEITHER` se calcula después de la decisión y nunca la alimenta.
+
+## 9. Guard local — PASS previo a apertura
 
 Ejecutado localmente el **2026-09-07** antes de abrir el holdout:
 
@@ -119,21 +119,58 @@ Ejecutado localmente el **2026-09-07** antes de abrir el holdout:
 - `forwardRiskV10ValidationProtocol.unit: PASS`;
 - `npm run lint` / `tsc --noEmit: PASS`.
 
-El fingerprint y todas las reglas anteriores permanecen sin cambios.
+El fingerprint y todas las reglas anteriores permanecieron sin cambios.
 
-## 10. Confirmación temporal futura
+## 10. Resultado blind one-shot
 
-Reservada desde **2026-09-08** inclusive. Ningún dato posterior a esa fecha puede usarse para tuning V10.
+Ejecución completada localmente el **2026-09-07**, evaluada hasta **2026-09-01**.
 
-## 11. Secuencia vigente
+Veredicto:
 
-1. **COMPLETADO:** guard local V10 PASS.
-2. **COMPLETADO:** registrar `localImplementationGates.status = PASS` sin cambiar política ni fingerprint.
-3. **COMPLETADO:** construir runner blind one-shot causal y su guard estático.
-4. Ejecutar desde la app **Forward Risk · V10 · validación blind**. El job vuelve a ejecutar guards + TypeScript antes de abrir los seis históricos.
-5. PASS, FAIL o INCONCLUSIVE se registra tal cual; no se retunea V10 sobre la muestra abierta.
-6. Los seis activos quedan consumidos para V10 al completarse la apertura, cualquiera que sea el resultado.
+`V10_BLIND_FAIL_RETIRE_V10_POLICY_1`
 
-La interfaz muestra sólo la validación Forward Risk vigente. V8, V9 y guards ya cerrados quedan archivados para trazabilidad, sin acumular botones ejecutables.
+Resultado agregado:
+- activos válidos: **6/6**;
+- PASS individuales: **0/6**;
+- mediana `finalDeltaEur`: **-219,25 €**;
+- mediana `medianDeferredExecutionPriceImprovementPct`: **-1,1907%**;
+- `DOWN_FIRST`: **34**;
+- `UP_FIRST`: **28**;
+- `NEITHER`: **9**;
+- aportaciones aplazadas totales: **71**.
+
+Resumen por activo:
+
+| Ticker | Aportaciones | Aplazadas | Delta final V10 vs baseline | Mejora mediana precio aplazado | DOWN_FIRST | UP_FIRST | NEITHER | PASS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| VGVF.DE | 79 | 8 | -138,50 € | -1,1286% | 5 | 3 | 0 | NO |
+| VNRA.DE | 85 | 10 | -337,18 € | -1,2529% | 4 | 6 | 0 | NO |
+| VFEM.DE | 107 | 18 | -334,85 € | -1,3930% | 7 | 7 | 4 | NO |
+| VERE.DE | 86 | 10 | -11,58 € | -1,2901% | 5 | 4 | 1 | NO |
+| VGEK.DE | 84 | 8 | -74,19 € | -1,1096% | 4 | 3 | 1 | NO |
+| VJPN.DE | 107 | 17 | -300,00 € | +0,0391% | 9 | 5 | 3 | NO |
+
+## 11. Interpretación cerrada
+
+El blind separa dos hechos distintos:
+
+1. **La señal de riesgo conserva cierta información direccional.** En el agregado, las aportaciones aplazadas registran más `DOWN_FIRST` que `UP_FIRST` (34 frente a 28).
+2. **La política económica de espera V10 no monetiza esa información.** En 5/6 activos el precio mediano al liberar el cash fue peor que el precio de compra inmediata y los 6/6 terminaron con delta final negativo.
+
+Por tanto, detectar una caída futura con cierta frecuencia **no basta** para mejorar el momento de entrada. La regla `riesgo ON -> esperar hasta riesgo OFF / oportunidad ELIGIBLE / 63 sesiones` tiende a liberar el dinero después de parte de la recuperación y pierde precio de entrada.
+
+Esto no autoriza a probar sobre estos mismos seis activos otras ventanas, porcentajes, umbrales, confirmaciones o reglas de liberación. `V10_POLICY_1` queda retirada.
+
+## 12. Confirmación temporal futura
+
+La ventana future-forward reservada desde **2026-09-08** no se utiliza para promocionar V10 porque la política ya ha fallado el blind histórico.
+
+Tampoco puede usarse para retuning de `V10_POLICY_1`.
+
+## 13. Consecuencia metodológica
+
+Si Forward Risk continúa, debe hacerlo como **arquitectura nueva**, con política preregistrada y holdout histórico independiente todavía no inspeccionado. El aprendizaje admisible de V10 es arquitectónico: el control binario de aplazar el 100% hasta una señal de liberación sigue siendo demasiado tardío para monetizar la información de riesgo.
+
+La interfaz archiva V10 como `blind FAIL · retirada` y no deja un botón V10 relanzable.
 
 Nunca usar GitHub Actions, Gemini ni agentes para el cálculo largo.
