@@ -11,6 +11,7 @@ const live = source('scripts/openMarketDiscoveryV1Live.ts');
 const replay = source('src/investment/decision/dynamicHistoricalReplayCore.ts');
 const scanner = source('src/investment/decision/assetUniverseScanner.ts');
 const gate = source('src/investment/decision/portfolioCandidateGate.ts');
+const validationUi = source('src/components/ResearchValidationCenter.tsx');
 
 assert.match(domain, /OPEN_MARKET_DISCOVERY_V1_QUERIES/);
 assert.match(domain, /historicalPointInTimeSafe: false/);
@@ -29,6 +30,9 @@ assert.match(core, /minimumHistoryBars: 756/);
 assert.match(core, /minimumMedianDailyTurnoverEur: 250_000/);
 assert.match(scanner, /sourceType: 'REAL'/);
 assert.match(gate, /PortfolioCandidateGate/);
+assert.match(validationUi, /result\.version === 'OPEN_MARKET_DISCOVERY_V1'/);
+assert.match(validationUi, /Histórico de investigación/);
+assert.doesNotMatch(validationUi, /Se muestra únicamente la validación Forward Risk vigente/);
 
 // Critical anti-lookahead boundary: the historical replay engine must never call
 // current Yahoo discovery to reconstruct a past universe.
