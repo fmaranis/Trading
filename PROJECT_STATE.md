@@ -40,7 +40,7 @@ No reintroducir la salida reactiva tardía del core.
 - V8: información predictiva confirmada y vintage-safe, pero gate económico FAIL y señal fragmentada; RESEARCH_ONLY.
 - V9: `V9_BLIND_FAIL_RETIRE_V9_POLICY_1`; política retirada y holdout consumido.
 - V10: `V10_BLIND_FAIL_RETIRE_V10_POLICY_1`; política retirada y holdout consumido.
-- V11: **POLICY_FROZEN / HOLDOUT_SEALED_PENDING_LOCAL_IMPLEMENTATION_GATES / RESEARCH_ONLY**. No conectado a producción.
+- V11: **POLICY_FROZEN / LOCAL_GUARDS_PASS / HOLDOUT_SEALED_READY_FOR_ONE_SHOT_OPEN / RESEARCH_ONLY**. No conectado a producción.
 
 ## V8 — hechos cerrados
 - Regla binaria histórica: `V5 vulnerability >=80 OR V7 options >=80`.
@@ -168,7 +168,7 @@ Mismos flujos y gate:
 
 Así el único delta experimental es Forward Risk como sizing overlay.
 
-## Holdout V11 — SELLADO, NO ABIERTO
+## Holdout V11 — SELLADO Y LISTO, TODAVÍA NO ABIERTO
 Seleccionado exclusivamente por metadata estructural antes de cualquier histórico V11. La muestra final usa clases acumulativas para evitar sesgo por dividendos no modelados en el histórico causal `Close`:
 - `IUSQ.DE` — MSCI ACWI — IE00B6R52259;
 - `SXR4.DE` — MSCI USA — IE00B52SFT06;
@@ -210,11 +210,20 @@ PASS agregado:
 
 No hay grid ni tuning después de abrir el holdout.
 
+## Guard local V11 — PASS
+Ejecutado localmente el 2026-09-07 antes de abrir el holdout:
+- `forwardRiskV11SizingOverlay.unit: PASS`;
+- `forwardRiskV11ValidationProtocol.unit: PASS`;
+- `forwardRiskV11BlindValidation.unit: PASS`;
+- `npm run lint` / `tsc --noEmit: PASS`.
+
+El PASS se registró sin cambiar `V11_POLICY_1`, fingerprint, muestra ni gates.
+
 ## Estado de preregistro V11
 - política: FROZEN;
-- holdout: SEALED;
-- runner blind: implementado pero bloqueado por protocolo;
-- localImplementationGates: **PENDING**;
+- holdout: `SEALED_READY_FOR_ONE_SHOT_OPEN`;
+- runner blind: implementado;
+- localImplementationGates: **PASS**;
 - producción: desconectada;
 - future-forward: reservado desde 2026-09-08 sólo si el histórico blind pasa.
 
@@ -228,23 +237,25 @@ La interfaz muestra un único job Forward Risk vigente; los anteriores son archi
 
 Job visible actual:
 
-### `forward-risk-v11-policy-guard`
-**Forward Risk · V11 · guard de sizing continuo**.
+### `forward-risk-v11-blind-validation`
+**Forward Risk · V11 · validación blind**.
 
-Ejecuta únicamente:
+Ejecuta en orden:
 1. `npx tsx tests/forwardRiskV11SizingOverlay.unit.ts`;
 2. `npx tsx tests/forwardRiskV11ValidationProtocol.unit.ts`;
 3. `npx tsx tests/forwardRiskV11BlindValidation.unit.ts`;
-4. `npm run lint`.
+4. `npm run lint`;
+5. `npx tsx scripts/forwardRiskV11BlindValidationLive.ts`.
 
-No abre ni descarga los seis históricos V11 blind. El runner completo ya existe, pero `assertForwardRiskV11HistoricalHoldoutUnlocked()` lo bloquea mientras el PASS local no quede registrado.
+Los cuatro primeros pasos deben pasar antes de abrir los seis históricos. El runner usa `assertForwardRiskV11HistoricalHoldoutUnlocked()`, abre el blind una sola vez, guarda `validation-runs/forward-risk-v11-blind-result.json` y bloquea una segunda ejecución completada.
 
 Histórico archivado:
 - V8 · diagnóstico completado;
 - V9 · guard completado;
 - V9 · blind FAIL · retirada;
 - V10 · guard PASS;
-- V10 · blind FAIL · retirada.
+- V10 · blind FAIL · retirada;
+- V11 · guard PASS.
 
 No usar Gemini, agentes ni GitHub Actions para cálculos largos.
 
@@ -288,11 +299,10 @@ Pendiente de simplificación:
 ---
 
 # Próxima secuencia
-1. Sincronizar `main`.
-2. Ejecutar el único botón visible **Forward Risk · V11 · guard de sizing continuo**.
-3. Si PASS, registrar `localImplementationGates.status=PASS` sin modificar política, fingerprint, holdout ni gates.
-4. Sustituir el mismo bloque visible por **Forward Risk · V11 · validación blind**; el runner ya está implementado.
-5. Ejecutar blind V11 una sola vez en backend local.
-6. Registrar PASS / FAIL / INCONCLUSIVE sin retuning y consumir los seis activos.
-7. Sólo si PASS, mantener confirmación future-forward desde 2026-09-08 antes de cualquier integración productiva.
-8. Mantener `CORE_ARCHITECTURE_V1` sin Forward Risk productivo hasta completar esa secuencia.
+1. Sincronizar `main` al HEAD actual.
+2. Ejecutar el único botón visible **Forward Risk · V11 · validación blind**.
+3. El job repetirá guards + TypeScript antes de abrir el holdout.
+4. Ejecutar el blind V11 una sola vez en backend local.
+5. Registrar PASS / FAIL / INCONCLUSIVE sin retuning y consumir los seis activos.
+6. Sólo si PASS, mantener confirmación future-forward desde 2026-09-08 antes de cualquier integración productiva.
+7. Mantener `CORE_ARCHITECTURE_V1` sin Forward Risk productivo hasta completar esa secuencia.
