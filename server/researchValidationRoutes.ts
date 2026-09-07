@@ -29,6 +29,16 @@ const JOBS: JobDefinition[] = [
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'V8 diagnóstico de estados ON/OFF', command: 'npx', args: ['tsx', 'scripts/forwardRiskV8FragmentationDiagnosticLive.ts'] }
     ]
+  },
+  {
+    id: 'forward-risk-v9-policy-guard',
+    name: 'Forward Risk V9 · guard de política congelada',
+    description: 'Valida únicamente la máquina de estados V9 congelada, el sellado del holdout y TypeScript. No descarga ni abre los seis activos blind, no ejecuta replay largo, no usa Gemini ni GitHub Actions.',
+    steps: [
+      { label: 'Guard V9 máquina de estados', command: 'npx', args: ['tsx', 'tests/forwardRiskV9StateMachine.unit.ts'] },
+      { label: 'Guard V9 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV9ValidationProtocol.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+    ]
   }
 ];
 
