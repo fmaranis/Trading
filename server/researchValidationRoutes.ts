@@ -39,6 +39,19 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard V9 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV9ValidationProtocol.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
     ]
+  },
+  {
+    id: 'forward-risk-v9-blind-validation',
+    name: 'Forward Risk V9 · validación blind de una sola ejecución',
+    description: 'Abre por primera vez los seis activos blind sellados y evalúa V9_POLICY_1 con los gates predictivo y económico congelados. Antes de abrirlos vuelve a comprobar guards y TypeScript. Guarda el resultado localmente y bloquea una segunda ejecución completada. Requiere FRED_API_KEY; no usa Gemini ni GitHub Actions.',
+    marker: 'FORWARD_RISK_V9_BLIND_RESULT',
+    steps: [
+      { label: 'Guard V9 máquina de estados', command: 'npx', args: ['tsx', 'tests/forwardRiskV9StateMachine.unit.ts'] },
+      { label: 'Guard V9 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV9ValidationProtocol.unit.ts'] },
+      { label: 'Guard V9 runner blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV9BlindValidation.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'V9 validación blind one-shot', command: 'npx', args: ['tsx', 'scripts/forwardRiskV9BlindValidationLive.ts'] }
+    ]
   }
 ];
 
