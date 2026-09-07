@@ -94,6 +94,18 @@ const JOBS: JobDefinition[] = [
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'V10 validación blind one-shot', command: 'npx', args: ['tsx', 'scripts/forwardRiskV10BlindValidationLive.ts'] }
     ]
+  },
+  {
+    id: 'forward-risk-v11-policy-guard',
+    name: 'Forward Risk · V11 · guard de sizing continuo',
+    description: 'Valida V11_POLICY_1, su fingerprint, el sellado de seis activos blind nuevos, la causalidad estática del runner y TypeScript. No abre ni descarga los históricos V11 blind. V11 mantiene el PortfolioCandidateGate como gate de compra y sólo escala dinero nuevo entre 100% y 50% con el score continuo de riesgo.',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard V11 sizing continuo', command: 'npx', args: ['tsx', 'tests/forwardRiskV11SizingOverlay.unit.ts'] },
+      { label: 'Guard V11 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11ValidationProtocol.unit.ts'] },
+      { label: 'Guard V11 runner blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11BlindValidation.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+    ]
   }
 ];
 
@@ -120,8 +132,8 @@ function extractJsonAfterMarker(output: string, marker?: string): unknown | null
   let depth = 0;
   let inString = false;
   let escaped = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
+  for (let index = 0; index < text.length; index++) {
+    const ch = text[index];
     if (inString) {
       if (escaped) escaped = false;
       else if (ch === '\\') escaped = true;
@@ -133,13 +145,12 @@ function extractJsonAfterMarker(output: string, marker?: string): unknown | null
     else if (ch === '}') {
       depth--;
       if (depth === 0) {
-        try { return JSON.parse(text.slice(0, i + 1)); } catch { return null; }
+        try { return JSON.parse(text.slice(0, index + 1)); } catch { return null; }
       }
     }
   }
   return null;
 }
-
 function runStep(step: Step, state: JobState): Promise<number> {
   return new Promise(resolve => {
     state.currentStep = step.label;
@@ -155,7 +166,6 @@ function runStep(step: Step, state: JobState): Promise<number> {
     child.on('close', code => resolve(code ?? 1));
   });
 }
-
 async function runJob(job: JobDefinition): Promise<void> {
   const state = stateFor(job.id);
   state.status = 'RUNNING';
@@ -188,7 +198,6 @@ async function runJob(job: JobDefinition): Promise<void> {
     state.finishedAt = new Date().toISOString();
   }
 }
-
 function publicJob(job: JobDefinition) {
   return { id: job.id, name: job.name, description: job.description, ...stateFor(job.id) };
 }
@@ -198,13 +207,11 @@ researchValidationRouter.get('/jobs', (_req: Request, res: Response) => {
   const history = JOBS.filter(job => job.visibility === 'ARCHIVED').map(job => ({ id: job.id, label: job.historyLabel ?? job.name }));
   res.json({ aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', jobs: currentJobs, history });
 });
-
 researchValidationRouter.get('/jobs/:id', (req: Request, res: Response) => {
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
   res.json({ aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', archived: job.visibility === 'ARCHIVED', job: publicJob(job) });
 });
-
 researchValidationRouter.post('/jobs/:id/run', (req: Request, res: Response) => {
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
