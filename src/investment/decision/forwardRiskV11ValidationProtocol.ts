@@ -10,12 +10,11 @@ export interface ForwardRiskV11LocalGateRecord {
 }
 
 /**
- * V11 preregistration boundary.
+ * V11 preregistration boundary and immutable blind outcome record.
  *
- * V9 and V10 blind instruments are permanently contaminated for successor
- * design. The V11 holdout below was selected only from structural metadata:
- * UCITS equity exposure, long-lived EUR Xetra listing, accumulating share
- * classes, and absence from existing catalogues and prior blind samples.
+ * The policy, sample and gates below were frozen before the historical blind
+ * was opened. V9/V10/V11 blind instruments are permanently contaminated for
+ * any successor design.
  */
 export const FORWARD_RISK_V11_VALIDATION_PROTOCOL = {
   protocolVersion: 'V11_PREREG_2026_09_07',
@@ -31,13 +30,14 @@ export const FORWARD_RISK_V11_VALIDATION_PROTOCOL = {
     v10: 'BLIND_FAIL_RETIRED',
     permanentlyContaminatedTickers: [
       'SPPW.DE', 'SPY5.DE', 'SPYM.DE', 'ZPRS.DE', 'VGEU.DE', 'ZPDJ.DE',
-      'VGVF.DE', 'VNRA.DE', 'VFEM.DE', 'VERE.DE', 'VGEK.DE', 'VJPN.DE'
+      'VGVF.DE', 'VNRA.DE', 'VFEM.DE', 'VERE.DE', 'VGEK.DE', 'VJPN.DE',
+      'IUSQ.DE', 'SXR4.DE', 'EUNM.DE', 'EUNK.DE', 'SXR1.DE', 'SXRZ.DE'
     ] as const,
-    rule: 'Prior failures may motivate the architectural move to continuous sizing but may not tune V11 score mapping, sizing floor, validation gates or blind sample.'
+    rule: 'Prior failures may motivate architectural changes but may not tune successor score maps, sizing floors, validation gates or blind samples.'
   },
 
   historicalBlindHoldout: {
-    status: 'SEALED_READY_FOR_ONE_SHOT_OPEN',
+    status: 'OPENED_CONSUMED_FAIL_2026_09_07',
     selectionBasis: 'STRUCTURAL_ONLY_NO_RETURN_DRAWDOWN_VOLATILITY_OR_V11_OUTCOME_QUERY',
     eligibility: [
       'UCITS broad or regional equity ETF',
@@ -117,10 +117,33 @@ export const FORWARD_RISK_V11_VALIDATION_PROTOCOL = {
     minimumMedianWealthEfficiencyRatio: 1
   },
 
+  blindOutcome: {
+    status: 'FAIL',
+    executedAt: '2026-09-07',
+    evaluatedThrough: '2026-09-01',
+    verdict: 'V11_BLIND_FAIL_RETIRE_V11_POLICY_1',
+    validBlindAssets: 6,
+    individualPasses: 0,
+    medianFinalDeltaEur: -313.28916973865125,
+    medianFinalDeltaPctOfContributions: -0.17228997229935705,
+    medianDrawdownReductionPctPoints: 0.009056077417447739,
+    medianWealthEfficiencyRatio: 0.9994131001985229,
+    cases: [
+      { ticker: 'IUSQ.DE', finalDeltaEur: -422.2800211024587, finalDeltaPctOfContributions: -0.23591062631422274, drawdownReductionPctPoints: 0.0013004229541166978, wealthEfficiencyRatio: 0.9990922566360789, individualPass: false },
+      { ticker: 'SXR4.DE', finalDeltaEur: -1741.6988170801196, finalDeltaPctOfContributions: -0.9264355410000636, drawdownReductionPctPoints: 0.02081892764948634, wealthEfficiencyRatio: 0.9974214083857286, individualPass: false },
+      { ticker: 'EUNM.DE', finalDeltaEur: -204.2983183748438, finalDeltaPctOfContributions: -0.10866931828449138, drawdownReductionPctPoints: 0.21916527717208822, wealthEfficiencyRatio: 1.0010701701825857, individualPass: false },
+      { ticker: 'EUNK.DE', finalDeltaEur: -106.41674831992714, finalDeltaPctOfContributions: -0.05660465336166337, drawdownReductionPctPoints: -0.00002693826530730803, wealthEfficiencyRatio: 0.9997342335990757, individualPass: false },
+      { ticker: 'SXR1.DE', finalDeltaEur: -83.5295685097808, finalDeltaPctOfContributions: -0.04443062154775575, drawdownReductionPctPoints: 0.015618287342867632, wealthEfficiencyRatio: 0.9998669408261138, individualPass: false },
+      { ticker: 'SXRZ.DE', finalDeltaEur: -3238.2398814588087, finalDeltaPctOfContributions: -1.722468022052558, drawdownReductionPctPoints: 0.002493867492027846, wealthEfficiencyRatio: 0.9931190942727332, individualPass: false }
+    ] as const,
+    interpretation: 'Continuous sizing reduced exposure only modestly and produced almost no drawdown improvement. The median return sacrifice was small, but it did not buy the preregistered >=0.5pp median drawdown reduction or non-worsening median wealth efficiency.',
+    disposition: 'RETIRED_NO_V11_1_ON_OPENED_HOLDOUT'
+  } as const,
+
   futureForwardConfirmation: {
-    status: 'RESERVED',
+    status: 'CANCELLED_AFTER_HISTORICAL_BLIND_FAIL',
     startDateInclusive: '2026-09-08',
-    purpose: 'TEMPORALLY_VIRGIN_CONFIRMATION_IF_AND_ONLY_IF_HISTORICAL_BLIND_PASSES',
+    purpose: 'NOT_USED_FOR_PROMOTION_AFTER_V11_BLIND_FAIL',
     tuningAllowedAfterStart: false
   },
 
@@ -138,13 +161,12 @@ export const FORWARD_RISK_V11_VALIDATION_PROTOCOL = {
 } as const;
 
 export function assertForwardRiskV11HistoricalHoldoutUnlocked(): string {
+  if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.historicalBlindHoldout.status === 'OPENED_CONSUMED_FAIL_2026_09_07') {
+    throw new Error('V11_BLIND_HOLDOUT_ALREADY_CONSUMED');
+  }
   const freeze: ForwardRiskV11PolicyFreeze = FORWARD_RISK_V11_VALIDATION_PROTOCOL.policyFreeze;
   const localGates: ForwardRiskV11LocalGateRecord = FORWARD_RISK_V11_VALIDATION_PROTOCOL.localImplementationGates;
-  if (freeze.status !== 'FROZEN' || !freeze.fingerprint) {
-    throw new Error('V11_BLIND_HOLDOUT_LOCKED_POLICY_NOT_FROZEN');
-  }
-  if (localGates.status !== 'PASS') {
-    throw new Error('V11_BLIND_HOLDOUT_LOCKED_LOCAL_GATES_NOT_RECORDED');
-  }
+  if (freeze.status !== 'FROZEN' || !freeze.fingerprint) throw new Error('V11_BLIND_HOLDOUT_LOCKED_POLICY_NOT_FROZEN');
+  if (localGates.status !== 'PASS') throw new Error('V11_BLIND_HOLDOUT_LOCKED_LOCAL_GATES_NOT_RECORDED');
   return freeze.fingerprint;
 }
