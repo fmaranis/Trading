@@ -123,6 +123,21 @@ const JOBS: JobDefinition[] = [
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'V11 validación blind one-shot', command: 'npx', args: ['tsx', 'scripts/forwardRiskV11BlindValidationLive.ts'] }
     ]
+  },
+  {
+    id: 'open-market-discovery-v1-validation',
+    name: 'Mercado abierto · V1 · discovery + core shadow',
+    description: 'Valida localmente y sin IA la nueva capa server-side de descubrimiento actual: queries estructurales Yahoo -> universo EUR -> AssetUniverseScanner -> CORE_ELIGIBILITY_V2 en shadow -> PortfolioCandidateGate. No modifica producción ni usa búsqueda Yahoo actual para reconstruir el pasado.',
+    marker: 'OPEN_MARKET_DISCOVERY_V1_LIVE_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard discovery V1', command: 'npx', args: ['tsx', 'tests/openMarketDiscoveryV1.unit.ts'] },
+      { label: 'Guard core eligibility V2', command: 'npx', args: ['tsx', 'tests/coreEligibilityV2.unit.ts'] },
+      { label: 'Guard arquitectura discovery', command: 'npx', args: ['tsx', 'tests/openMarketDiscoveryArchitecture.unit.ts'] },
+      { label: 'Guard búsqueda manual replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Smoke REAL discovery + scanner + gate', command: 'npx', args: ['tsx', 'scripts/openMarketDiscoveryV1Live.ts'] }
+    ]
   }
 ];
 
