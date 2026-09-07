@@ -16,7 +16,7 @@ function stable(value: unknown): string {
     const object = value as Record<string, unknown>;
     return `{${Object.keys(object).sort().map(key => `${JSON.stringify(key)}:${stable(object[key])}`).join(',')}}`;
   }
-  return JSON.stringify(value);
+  return JSON.stringify(value) ?? 'null';
 }
 
 if (FORWARD_RISK_V11_POLICY.policyVersion !== 'V11_POLICY_1') throw new Error('FORWARD_RISK_V11_POLICY_GUARD_FAIL:VERSION');
