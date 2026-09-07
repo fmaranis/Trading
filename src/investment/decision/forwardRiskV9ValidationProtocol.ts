@@ -13,9 +13,8 @@ export interface ForwardRiskV9LocalGateRecord {
  * V9 pre-registration boundary.
  *
  * The blind sample was sealed before the state-machine policy was designed.
- * The policy is now frozen, but opening the blind holdout remains blocked until
- * the local TypeScript/unit guards have passed. Historical blind data must not
- * be fetched by the V9 workflow before both conditions are true.
+ * The policy and local implementation guards are now frozen/PASS. Historical
+ * blind data may be opened only by the dedicated one-shot blind validation job.
  */
 export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
   protocolVersion: 'V9_PREREG_2026_09_07',
@@ -48,7 +47,7 @@ export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
   },
 
   historicalBlindHoldout: {
-    status: 'SEALED_PENDING_LOCAL_IMPLEMENTATION_GATES',
+    status: 'SEALED_READY_FOR_ONE_SHOT_OPEN',
     selectionBasis: 'STRUCTURAL_ONLY_NO_HISTORICAL_OUTCOME_QUERY_FOR_V9',
     eligibility: [
       'UCITS equity ETF',
@@ -84,13 +83,19 @@ export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
   } satisfies ForwardRiskV9PolicyFreeze,
 
   localImplementationGates: {
-    status: 'PENDING',
+    status: 'PASS',
+    recordedAt: '2026-09-07',
+    evidence: [
+      'forwardRiskV9StateMachine.unit: PASS',
+      'forwardRiskV9ValidationProtocol.unit: PASS',
+      'npm run lint / tsc --noEmit: PASS'
+    ],
     required: [
       'npx tsx tests/forwardRiskV9StateMachine.unit.ts',
       'npx tsx tests/forwardRiskV9ValidationProtocol.unit.ts',
       'npm run lint'
     ]
-  } satisfies ForwardRiskV9LocalGateRecord & { readonly required: readonly string[] },
+  } satisfies ForwardRiskV9LocalGateRecord & { readonly recordedAt: string; readonly evidence: readonly string[]; readonly required: readonly string[] },
 
   frozenPolicySummary: {
     policyVersion: 'V9_POLICY_1',
