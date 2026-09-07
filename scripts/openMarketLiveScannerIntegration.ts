@@ -76,13 +76,23 @@ async function main() {
       replayHistoricalModified: false,
       automaticPromotionScope: 'EUR_ETF_ONLY',
       discoveryAudit: audit,
+      discovery: {
+        queryCount: 12,
+        acceptedEurCandidates: audit.promotedAssets
+      },
       scanner: {
         scanned: scan.scanned,
         accepted: scan.accepted,
         rejected: scan.rejected,
         openCandidates: openCandidates.length,
         openAccepted: openAccepted.length,
-        openReal: openReal.length
+        openReal: openReal.length,
+        discoveredReal: openReal.length
+      },
+      coreEligibilityV2: {
+        eligible: 'shadow-no-promotion',
+        reviewRequired: 'N/D',
+        rejected: 'N/D'
       },
       candidateGate: {
         openEntries: openGateEntries.length,
@@ -98,6 +108,7 @@ async function main() {
         'Decision de hoy and backend alerts already call this same scanner with EUR_PORTFOLIO_DISCOVERY_UNIVERSE, so no new UI/module path is required.',
         'Automatic V1 promotion is restricted to current/live EUR ETFs discovered by Yahoo; explicit manual search remains broader.',
         'PortfolioCandidateGate keeps economic authority. Discovery cannot bypass it.',
+        'CORE_ELIGIBILITY_V2 remains shadow-only and does not alter this live decision path.',
         'Historical replay does not call current Yahoo discovery and remains unchanged.'
       ]
     };
