@@ -113,7 +113,7 @@ async function main() {
       candidateGate: {
         entries: gate.entries.length,
         eligible: gate.entries.filter(entry => entry.status === 'ELIGIBLE').length,
-        discoveredEntries: gate.entries.filter(entry => discoveryIds.has(entry.assetId)).map(entry => ({ assetId: entry.assetId, ticker: entry.ticker, status: entry.status, reasons: entry.reasons }))
+        discoveredEntries: gate.entries.filter(entry => discoveryIds.has(entry.assetId)).map(entry => ({ assetId: entry.assetId, ticker: entry.ticker, status: entry.status, reason: entry.reason }))
       },
       notes: [
         'Infrastructure audit only: PASS does not validate investment performance or promote CORE_ELIGIBILITY_V2 into production.',
