@@ -20,6 +20,16 @@ assert.match(scanner, /mergeOpenMarketAssets/);
 assert.match(scanner, /currentOpenDiscovery/);
 assert.match(scanner, /temporary Yahoo\/search failure must not disable/);
 
+// Node/server discovery must address the internal API router, not APP_URL. In
+// preview environments APP_URL can be the SPA host and return index.html for
+// an API path, which is not a valid discovery snapshot.
+assert.match(scanner, /OPEN_MARKET_DISCOVERY_INTERNAL_BASE_URL/);
+assert.match(scanner, /ALERT_INTERNAL_BASE_URL/);
+assert.match(scanner, /127\.0\.0\.1:3000/);
+assert.match(scanner, /OPEN_MARKET_DISCOVERY_NON_JSON_RESPONSE/);
+const baseUrlFunction = scanner.slice(scanner.indexOf('function currentDiscoveryBaseUrl'), scanner.indexOf('function promotableCurrentDiscovery'));
+assert.doesNotMatch(baseUrlFunction, /process\.env\.APP_URL/);
+
 // Existing current/live consumers keep using the same scanner and canonical
 // universe, so they inherit discovery without a new screen or parallel engine.
 assert.match(decision, /AssetUniverseScanner\.scan\(/);
