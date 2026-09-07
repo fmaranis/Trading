@@ -83,9 +83,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'forward-risk-v10-blind-validation',
     name: 'Forward Risk · V10 · validación blind',
-    description: 'Validación actual. Compara aportaciones mensuales inmediatas con V10_POLICY_1: sólo aplaza dinero nuevo cuando coinciden riesgo V8 y ausencia de oportunidad ELIGIBLE. Nunca vende posiciones existentes. Abre una única vez los seis activos V10 sellados, usa NEXT_OPEN y ejecuta todo en el backend local sin IA ni GitHub Actions.',
+    description: 'Validación histórica consumida. V10_POLICY_1 terminó correctamente a nivel técnico, pero falló el gate económico blind y queda retirada. No puede relanzarse ni retunearse sobre estos seis activos.',
     marker: 'FORWARD_RISK_V10_BLIND_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'V10 · blind FAIL · retirada',
     steps: [
       { label: 'Guard V10 política de dinero nuevo', command: 'npx', args: ['tsx', 'tests/forwardRiskV10Policy.unit.ts'] },
       { label: 'Guard V10 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV10ValidationProtocol.unit.ts'] },
