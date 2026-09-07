@@ -37,11 +37,11 @@ const ANCHOR_IDS = new Set(['EUNL', 'VAGF', 'EUNA', 'IBCI', 'EUN6', 'DBX0AN', 'X
 const SIGNAL_CATALOG = EUR_ASSET_UNIVERSE.filter(asset => ANCHOR_IDS.has(asset.assetId));
 const BLIND_CATALOG: AssetUniverseItem[] = [
   { assetId: 'V11_BLIND_IUSQ', ticker: 'IUSQ.DE', isin: 'IE00B6R52259', name: 'iShares MSCI ACWI UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
-  { assetId: 'V11_BLIND_IUSA', ticker: 'IUSA.DE', isin: 'IE0031442068', name: 'iShares Core S&P 500 UCITS ETF USD (Dist)', category: 'US_EQUITY', currency: 'EUR' },
+  { assetId: 'V11_BLIND_SXR4', ticker: 'SXR4.DE', isin: 'IE00B52SFT06', name: 'iShares MSCI USA UCITS ETF USD (Acc)', category: 'US_EQUITY', currency: 'EUR' },
   { assetId: 'V11_BLIND_EUNM', ticker: 'EUNM.DE', isin: 'IE00B4L5YC18', name: 'iShares MSCI EM UCITS ETF USD (Acc)', category: 'EMERGING_EQUITY', currency: 'EUR' },
   { assetId: 'V11_BLIND_EUNK', ticker: 'EUNK.DE', isin: 'IE00B4K48X80', name: 'iShares Core MSCI Europe UCITS ETF EUR (Acc)', category: 'EUROPE_EQUITY', currency: 'EUR' },
   { assetId: 'V11_BLIND_SXR1', ticker: 'SXR1.DE', isin: 'IE00B52MJY50', name: 'iShares Core MSCI Pacific ex-Japan UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
-  { assetId: 'V11_BLIND_IQQJ', ticker: 'IQQJ.DE', isin: 'IE00B02KXH56', name: 'iShares MSCI Japan UCITS ETF USD (Dist)', category: 'JAPAN_EQUITY', currency: 'EUR' }
+  { assetId: 'V11_BLIND_SXRZ', ticker: 'SXRZ.DE', isin: 'IE00B52MJD48', name: 'iShares Nikkei 225 UCITS ETF JPY (Acc)', category: 'JAPAN_EQUITY', currency: 'EUR' }
 ];
 
 type V5Point = { informationDate: string; vulnerabilityScorePct: number };
@@ -467,8 +467,12 @@ async function main() {
     const v5Result = runForwardRiskVulnerabilityV5({ dataset: signalScan.acceptedDataset, diagnosticDataset: diagnostic.dataset, macroData: macro, startDate: START_DATE, endDate: FINAL_END_DATE });
     const v7Result = runForwardRiskOptionsV7({ coreBars: core.bars, optionsData: options, startDate: START_DATE, endDate: FINAL_END_DATE });
     if (v5Result.status !== 'VALID' || v7Result.status !== 'VALID') throw new Error('V11_BLIND_REQUIRES_VALID_FROZEN_V5_V7');
-    const v5: V5Point[] = v5Result.points.map(point => ({ informationDate: point.informationDate, vulnerabilityScorePct: point.vulnerabilityScorePct }));
-    const v7: V7Point[] = v7Result.points.map(point => ({ informationDate: point.informationDate, signalScorePct: point.signalScorePct }));
+    const v5: V5Point[] = v5Result.points
+      .map(point => ({ informationDate: point.informationDate, vulnerabilityScorePct: point.vulnerabilityScorePct }))
+      .sort((a, b) => a.informationDate.localeCompare(b.informationDate));
+    const v7: V7Point[] = v7Result.points
+      .map(point => ({ informationDate: point.informationDate, signalScorePct: point.signalScorePct }))
+      .sort((a, b) => a.informationDate.localeCompare(b.informationDate));
 
     // First and only historical V11 opening of the preregistered blind catalogue.
     const blindScan = await AssetUniverseScanner.scan(BLIND_CATALOG, DATA_FROM, FINAL_END_DATE, { forceRefresh: false, concurrency: 2, maxSelected: BLIND_CATALOG.length, minimumBars: 252, maxDataAgeDays: 7 });
@@ -527,6 +531,7 @@ async function main() {
       notes: [
         'V11 cannot make a PortfolioCandidateGate REJECTED asset eligible.',
         'Existing holdings are never sold or reduced.',
+        'The blind catalogue uses accumulating ETF share classes to avoid unmodelled cash-distribution bias in causal Close-based histories.',
         'The risk score changes deployment continuously from 100% at score <=80 to 50% at score 100.',
         'Flow-adjusted unit NAV is used for max drawdown so equal external monthly contributions do not create artificial drawdown differences.',
         'Any invalid blind asset makes the aggregate INCONCLUSIVE when fewer than six remain; replacements are forbidden.',
