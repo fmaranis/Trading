@@ -43,23 +43,15 @@ if (FORWARD_RISK_V9_VALIDATION_PROTOCOL.frozenSignalInput.v5ThresholdPct !== 80 
   throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:V8_THRESHOLDS_CHANGED');
 }
 
-const localStatus = FORWARD_RISK_V9_VALIDATION_PROTOCOL.localImplementationGates.status;
-if (localStatus !== 'PENDING' && localStatus !== 'PASS') {
-  throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:INVALID_LOCAL_GATE_STATUS');
+// The local implementation gate was already executed and recorded PASS before
+// the blind runner was exposed. From this point onward the guard must assert
+// that immutable progressed state instead of retaining an unreachable PENDING
+// branch, which TypeScript correctly rejects once the protocol constant is PASS.
+if (FORWARD_RISK_V9_VALIDATION_PROTOCOL.localImplementationGates.status !== 'PASS') {
+  throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:LOCAL_IMPLEMENTATION_GATES_NOT_PASS');
 }
-
-if (localStatus === 'PENDING') {
-  let locked = false;
-  try {
-    assertForwardRiskV9HistoricalHoldoutUnlocked();
-  } catch (error) {
-    locked = error instanceof Error && error.message === 'V9_BLIND_HOLDOUT_LOCKED_LOCAL_GATES_NOT_RECORDED';
-  }
-  if (!locked) throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:HOLDOUT_MUST_STAY_LOCKED_UNTIL_LOCAL_GATES_PASS');
-} else {
-  if (assertForwardRiskV9HistoricalHoldoutUnlocked() !== expectedFingerprint) {
-    throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:UNLOCKED_FINGERPRINT_MISMATCH');
-  }
+if (assertForwardRiskV9HistoricalHoldoutUnlocked() !== expectedFingerprint) {
+  throw new Error('FORWARD_RISK_V9_PROTOCOL_GUARD_FAIL:UNLOCKED_FINGERPRINT_MISMATCH');
 }
 
 requireText(protocolSource, 'Do not fetch or inspect historical price series for V9 blind assets before policyFreeze.status is FROZEN and localImplementationGates.status is PASS.', 'ANTI_LEAKAGE_RULE_MISSING');
