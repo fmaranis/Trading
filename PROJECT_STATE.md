@@ -31,6 +31,23 @@ Replay auditado:
 
 # Forward Risk — estado cerrado hasta V11
 
+## PRINCIPIO PERMANENTE DE CONTINUIDAD — NO PERDER V8
+
+**V8 sí mostró capacidad útil para anticipar futuras caídas relevantes.**
+
+Los FAIL económicos de V8/V9/V10/V11 **no deben reinterpretarse como “Forward Risk no sirve”**. Lo que falló hasta V11 fueron las políticas ensayadas para monetizar/ejecutar esa información: venta/recompra, espera binaria y sizing posterior al gate.
+
+La evidencia V8 se preserva como **activo predictivo reutilizable** para investigación futura en riesgo, oportunidad, ranking, alertas, stress, margen de seguridad, priorización, asignación o modelos conjuntos.
+
+Antes de cualquier trabajo futuro relacionado con esas áreas, consultar:
+- `docs/forward_risk_v8_retained_predictive_value.md`;
+- `docs/forward_risk_retained_research_findings_v8_v11.md`.
+
+Regla conceptual:
+> **separar siempre calidad de señal y calidad de política económica. V8 puede contener información valiosa aunque una regla que actúe sobre ella pierda dinero.**
+
+No usar esta conclusión para retunear políticas sobre holdouts consumidos. Cualquier nuevo uso económico requiere hipótesis distinta, preregistro y muestra virgen.
+
 ## V8 — información predictiva, no ejecutable directamente
 Regla histórica congelada:
 `V5 vulnerability >=80 OR V7 options >=80`.
@@ -40,8 +57,11 @@ Hechos cerrados:
 - Seis holdouts: 72/83 = 86,75% anticipados; lead mediano 40; falsa señal 26,33%; 6/6 PASS predictivo.
 - Gate económico: 0/6 PASS; mediana `finalDeltaEur = -13.971,89 €`; mediana reducción drawdown +5,52 pp.
 - Fragmentación: 3.974 sesiones, 1.059 ON (26,65%), 111 runs ON, duración mediana 2 sesiones, 222 transiciones.
+- 72,1% de los runs ON duraron <=3 sesiones y 82,0% <=5 sesiones: el ON/OFF diario es una mala interfaz ejecutiva aunque el score subyacente pueda ser informativo.
 
-Conclusión: V8 contiene información anticipativa, pero no sirve como interruptor directo de transacciones.
+Conclusión: V8 contiene información anticipativa útil sobre caídas futuras, pero no sirve como interruptor directo de transacciones.
+
+V5/V7 se conservan como inputs/features de investigación. No asumir que cada componente individual tiene valor autónomo demostrado, pero tampoco eliminarlos: curva de tipos, crédito, liquidez/régimen y estrés de opciones pueden volver a ser útiles en modelos futuros.
 
 ## V9 — máquina de estados retirada
 Veredicto:
@@ -73,7 +93,7 @@ Resultado:
 - mediana mejora de precio aplazado `-1,1907%`;
 - `DOWN_FIRST=34`, `UP_FIRST=28`, `NEITHER=9`.
 
-Interpretación: la señal conservaba algo de dirección, pero esperar al 100% tendía a reentrar después de parte de la recuperación.
+Interpretación: la política de espera falló, pero `DOWN_FIRST > UP_FIRST` es evidencia compatible con que la señal conservaba información direccional bajista. No valida V10 ni autoriza tuning; sí es un hallazgo que debe recordarse.
 
 No V10.1 ni tuning sobre esa muestra.
 
@@ -127,6 +147,16 @@ Por activo:
 - SXR1.DE: delta -83,53 €; DD +0,0156 pp; efficiency 0,999867; FAIL.
 - SXRZ.DE: delta -3.238,24 €; DD +0,0025 pp; efficiency 0,993119; FAIL.
 
+### Hallazgo estructural V11 que debe conservarse
+En los seis activos hubo:
+- 272 decisiones `ELIGIBLE`;
+- sólo 51 decisiones `ELIGIBLE` con riesgo >80 realmente moduladas;
+- solapamiento = **18,75%**.
+
+Por activo: IUSQ 9/52, SXR4 10/53, EUNM 7/35, EUNK 8/55, SXR1 8/40, SXRZ 9/37.
+
+Interpretación: `PortfolioCandidateGate` ya excluye muchas situaciones de riesgo alto. Colocar Forward Risk sólo **después** de que el gate haya dicho `ELIGIBLE` deja poco margen incremental para cambiar el resultado. Esto probablemente contribuye a que V11 apenas redujera drawdown. No usar esta observación para retocar V11; sí conservarla para diseñar arquitecturas futuras realmente distintas.
+
 Interpretación cerrada:
 - V11 logra que el coste de rentabilidad mediano sea pequeño, pero prácticamente **no reduce drawdown**.
 - Sólo EUNM mejora ligeramente wealth-efficiency, pero su reducción DD (+0,219 pp) sigue muy por debajo del mínimo preregistrado (+0,5 pp).
@@ -147,13 +177,15 @@ Documento de cierre:
 
 # Qué hemos aprendido de V8 → V11
 
-1. Forward Risk sí ha mostrado información anticipativa en investigación predictiva.
-2. Convertirla en venta/recompra (V8/V9) destruyó demasiado upside y generó coste/rotación.
-3. Convertirla en espera binaria de dinero nuevo (V10) también perdió recuperación.
-4. Convertirla en sizing continuo 100%→50% (V11) redujo muy poco la exposición efectiva y no produjo una mejora material de drawdown.
-5. Por tanto, **no seguir encadenando V12/V13 como variaciones del mismo overlay** sin una hipótesis arquitectónica realmente distinta y un nuevo holdout virgen.
+1. **V8 sí mostró información anticipativa útil sobre futuras caídas y debe preservarse como activo de investigación.**
+2. La señal binaria V8 es muy fragmentada; usar cada ON/OFF como orden destruye utilidad económica.
+3. Convertir la señal en venta/recompra (V8/V9) destruyó demasiado upside y generó coste/rotación.
+4. Convertirla en espera binaria de dinero nuevo (V10) perdió recuperación, aunque `DOWN_FIRST > UP_FIRST` mantuvo una pequeña evidencia direccional bajista.
+5. Convertirla en sizing continuo 100%→50% después de `PortfolioCandidateGate` (V11) tuvo poca capacidad marginal: sólo 18,75% de las decisiones ELIGIBLE fueron realmente moduladas por riesgo >80.
+6. Por tanto, **no seguir encadenando V12/V13 como variaciones del mismo overlay**. Si se reutiliza V8, debe ser mediante una hipótesis arquitectónica realmente distinta y un nuevo holdout virgen.
+7. Posibles usos futuros a investigar: ranking, penalización de riesgo relativo, confianza de oportunidad, alertas adelantadas, stress, margen de seguridad, priorización de revisión/rebalanceo y features de un modelo conjunto riesgo+oportunidad.
 
-Forward Risk queda como investigación no productiva. La evidencia predictiva V8 puede conservarse como diagnóstico/telemetría, pero no como orden ni overlay productivo demostrado.
+Forward Risk queda fuera de producción, pero **V8/V5/V7 no se consideran conocimiento descartado**. Se conservan como información/telemetría/features potenciales hasta que un uso futuro sea preregistrado y validado.
 
 ---
 
@@ -190,7 +222,8 @@ Replay manual abierto puede buscar Yahoo LIVE por nombre/ticker/ISIN y registrar
 3. Volver al lado de generación de rentabilidad/oportunidades y cerrar `OPEN_MARKET_DISCOVERY_V1` server-side compartido por decisión/alertas/replay/estudio.
 4. Después cerrar `CORE_ELIGIBILITY_V2` con criterios auditables de índice amplio/diversificado, histórico, liquidez/divisa y calidad de datos.
 5. Integrar mejor `OPPORTUNITY_THRESHOLD_RESEARCH` con el motor existente sólo si holdout + walk-forward justifican promoción, sin crear un motor paralelo.
-6. Forward Risk sólo se retoma si aparece una hipótesis realmente distinta y preregistrable que no sea otra variante de vender/esperar/escalar la misma señal.
+6. Al diseñar ranking/oportunidad, **recordar V8 como feature/contexto de riesgo candidato**, no como orden automática; cualquier integración requiere validación nueva y causal.
+7. Forward Risk como política ejecutiva sólo se retoma si aparece una hipótesis realmente distinta y preregistrable que no sea otra variante de vender/esperar/escalar la misma señal.
 
 ---
 
