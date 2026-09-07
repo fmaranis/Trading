@@ -74,14 +74,18 @@ Así el único cambio experimental es el **sizing incremental de Forward Risk**.
 
 ## 5. Holdout V11 sellado
 
-Selección exclusivamente estructural antes de cualquier descarga histórica V11. Los seis son UCITS de renta variable, con cotización EUR en Deutsche Börse/Xetra y antigüedad estructural suficiente. No aparecen en `EUR_ASSET_UNIVERSE`, `EUR_VALIDATION_HOLDOUT_UNIVERSE` ni en los blind V9/V10.
+Selección exclusivamente estructural antes de cualquier descarga histórica V11. Los seis son UCITS de renta variable, con cotización EUR en Deutsche Börse/Xetra, antigüedad estructural suficiente y **clases acumulativas**. Esta última condición evita sesgar a favor del cash cuando el histórico causal usa `Close` split-adjusted y no modela distribuciones de dividendos como flujos separados.
+
+No aparecen en `EUR_ASSET_UNIVERSE`, `EUR_VALIDATION_HOLDOUT_UNIVERSE` ni en los blind V9/V10.
 
 - `V11_BLIND_IUSQ` — `IUSQ.DE` — IE00B6R52259 — MSCI ACWI — Xetra desde 2012-04-02.
-- `V11_BLIND_IUSA` — `IUSA.DE` — IE0031442068 — S&P 500 — Xetra desde 2002-03-15.
+- `V11_BLIND_SXR4` — `SXR4.DE` — IE00B52SFT06 — MSCI USA — Xetra desde 2010-03-10.
 - `V11_BLIND_EUNM` — `EUNM.DE` — IE00B4L5YC18 — MSCI Emerging Markets — Xetra desde 2009-10-20.
 - `V11_BLIND_EUNK` — `EUNK.DE` — IE00B4K48X80 — MSCI Europe — Xetra desde 2009-10-20.
 - `V11_BLIND_SXR1` — `SXR1.DE` — IE00B52MJY50 — MSCI Pacific ex Japan — Xetra desde 2010-03-10.
-- `V11_BLIND_IQQJ` — `IQQJ.DE` — IE00B02KXH56 — MSCI Japan — Xetra desde 2004-10-01.
+- `V11_BLIND_SXRZ` — `SXRZ.DE` — IE00B52MJD48 — Nikkei 225 — Xetra desde 2010-03-10.
+
+La sustitución estructural de las dos clases distributivas inicialmente consideradas por `SXR4.DE` y `SXRZ.DE` se hizo **antes de cualquier apertura histórica V11**, exclusivamente para eliminar el sesgo de dividendos no modelados. No se consultaron resultados, rentabilidades, drawdowns ni volatilidades V11 para esa decisión.
 
 Contaminados y prohibidos como sucesores:
 - V9: `SPPW.DE`, `SPY5.DE`, `SPYM.DE`, `ZPRS.DE`, `VGEU.DE`, `ZPDJ.DE`;
