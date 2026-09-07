@@ -127,9 +127,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'open-market-discovery-v1-validation',
     name: 'Mercado abierto · V1 · discovery + core shadow',
-    description: 'Valida localmente y sin IA la nueva capa server-side de descubrimiento actual: queries estructurales Yahoo -> universo EUR -> AssetUniverseScanner -> CORE_ELIGIBILITY_V2 en shadow -> PortfolioCandidateGate. No modifica producción ni usa búsqueda Yahoo actual para reconstruir el pasado.',
+    description: 'Validación de infraestructura consumida con PASS el 2026-09-07. Confirmó Yahoo current/live -> scanner REAL -> CORE_ELIGIBILITY_V2 shadow -> PortfolioCandidateGate, sin modificar el replay histórico.',
     marker: 'OPEN_MARKET_DISCOVERY_V1_LIVE_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'Mercado abierto V1 · infraestructura PASS',
     steps: [
       { label: 'Guard discovery V1', command: 'npx', args: ['tsx', 'tests/openMarketDiscoveryV1.unit.ts'] },
       { label: 'Guard core eligibility V2', command: 'npx', args: ['tsx', 'tests/coreEligibilityV2.unit.ts'] },
@@ -137,6 +138,22 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard búsqueda manual replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Smoke REAL discovery + scanner + gate', command: 'npx', args: ['tsx', 'scripts/openMarketDiscoveryV1Live.ts'] }
+    ]
+  },
+  {
+    id: 'open-market-live-scanner-integration',
+    name: 'Mercado abierto · V1 · integración en scanner live',
+    description: 'Comprueba que el AssetUniverseScanner existente incorpora automáticamente discovery sólo en CURRENT/LIVE y que Decisión de hoy + alertas heredan la ampliación sin nuevas pantallas ni motor paralelo. El replay histórico permanece aislado.',
+    marker: 'OPEN_MARKET_LIVE_SCANNER_INTEGRATION_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard discovery V1', command: 'npx', args: ['tsx', 'tests/openMarketDiscoveryV1.unit.ts'] },
+      { label: 'Guard core eligibility V2 shadow', command: 'npx', args: ['tsx', 'tests/coreEligibilityV2.unit.ts'] },
+      { label: 'Guard arquitectura discovery', command: 'npx', args: ['tsx', 'tests/openMarketDiscoveryArchitecture.unit.ts'] },
+      { label: 'Guard integración scanner live', command: 'npx', args: ['tsx', 'tests/openMarketLiveScannerIntegration.unit.ts'] },
+      { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Smoke REAL scanner live + gate', command: 'npx', args: ['tsx', 'scripts/openMarketLiveScannerIntegration.ts'] }
     ]
   }
 ];
