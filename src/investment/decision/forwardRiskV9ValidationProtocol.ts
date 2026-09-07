@@ -5,14 +5,17 @@ export interface ForwardRiskV9PolicyFreeze {
   readonly fingerprint: string | null;
 }
 
+export interface ForwardRiskV9LocalGateRecord {
+  readonly status: 'PENDING' | 'PASS';
+}
+
 /**
  * V9 pre-registration boundary.
  *
- * IMPORTANT: this file intentionally does NOT implement the V9 state machine.
- * The historical blind holdout is sealed before transition rules, durations,
- * action sizes or recovery rules are designed. Those rules may be developed
- * only on the acknowledged development sample and must receive a committed
- * fingerprint here before the blind holdout can be opened.
+ * The blind sample was sealed before the state-machine policy was designed.
+ * The policy is now frozen, but opening the blind holdout remains blocked until
+ * the local TypeScript/unit guards have passed. Historical blind data must not
+ * be fetched by the V9 workflow before both conditions are true.
  */
 export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
   protocolVersion: 'V9_PREREG_2026_09_07',
@@ -45,7 +48,7 @@ export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
   },
 
   historicalBlindHoldout: {
-    status: 'SEALED',
+    status: 'SEALED_PENDING_LOCAL_IMPLEMENTATION_GATES',
     selectionBasis: 'STRUCTURAL_ONLY_NO_HISTORICAL_OUTCOME_QUERY_FOR_V9',
     eligibility: [
       'UCITS equity ETF',
@@ -62,7 +65,7 @@ export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
       { assetId: 'V9_BLIND_VGEU', ticker: 'VGEU.DE', name: 'Vanguard FTSE Developed Europe UCITS ETF', exposure: 'EUROPE_EQUITY' },
       { assetId: 'V9_BLIND_ZPDJ', ticker: 'ZPDJ.DE', name: 'State Street SPDR MSCI Japan UCITS ETF', exposure: 'JAPAN_EQUITY' }
     ] as const,
-    openPolicy: 'ONE_SHOT_AFTER_POLICY_FINGERPRINT_IS_COMMITTED',
+    openPolicy: 'ONE_SHOT_AFTER_POLICY_FINGERPRINT_AND_LOCAL_GATES',
     replacementAfterOpeningAllowed: false,
     insufficientDataReplacementAllowed: false
   },
@@ -76,9 +79,29 @@ export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
   },
 
   policyFreeze: {
-    status: 'NOT_FROZEN',
-    fingerprint: null
+    status: 'FROZEN',
+    fingerprint: 'sha256:219a83f8ba3205c33de96a73105e31ee927312b0fc655eaf24edd3bfc8c19fb0'
   } satisfies ForwardRiskV9PolicyFreeze,
+
+  localImplementationGates: {
+    status: 'PENDING',
+    required: [
+      'npx tsx tests/forwardRiskV9StateMachine.unit.ts',
+      'npx tsx tests/forwardRiskV9ValidationProtocol.unit.ts',
+      'npm run lint'
+    ]
+  } satisfies ForwardRiskV9LocalGateRecord & { readonly required: readonly string[] },
+
+  frozenPolicySummary: {
+    policyVersion: 'V9_POLICY_1',
+    alertOnHitsRequired: 2,
+    alertWindowSessions: 3,
+    recoveryOffSessionsRequired: 5,
+    protectionReductionPct: 25,
+    executionMode: 'NEXT_OPEN',
+    predictiveGate: 'anticipation>=50%, medianLead>=10 sessions, falseProtectedTime<=35%, 6 valid blind assets',
+    economicGate: 'same V8 gate: individual finalDelta>=0, drawdown reduction>=1pp, netBreachProtection>0; 6 valid, >=4 passes, median finalDelta>=0, median drawdown reduction>=1pp'
+  },
 
   mandatoryFreezeBeforeOpeningHoldout: [
     'complete causal transition table',
@@ -87,11 +110,12 @@ export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
     'NEXT_OPEN execution semantics',
     'fees, cash remuneration and Spanish tax treatment',
     'predictive and economic PASS/FAIL gates',
-    'single immutable policy fingerprint committed to main'
+    'single immutable policy fingerprint committed to main',
+    'local TypeScript and V9 unit guards recorded PASS'
   ],
 
   antiLeakageRules: [
-    'Do not fetch or inspect historical price series for V9 blind assets before policyFreeze.status is FROZEN.',
+    'Do not fetch or inspect historical price series for V9 blind assets before policyFreeze.status is FROZEN and localImplementationGates.status is PASS.',
     'Do not select, replace or drop blind assets using returns, drawdowns, volatility, crisis behavior or V9 outcomes.',
     'Do not alter V8 thresholds in V9.',
     'Do not tune V9 after the historical blind holdout is opened.',
@@ -102,8 +126,12 @@ export const FORWARD_RISK_V9_VALIDATION_PROTOCOL = {
 
 export function assertForwardRiskV9HistoricalHoldoutUnlocked(): string {
   const freeze: ForwardRiskV9PolicyFreeze = FORWARD_RISK_V9_VALIDATION_PROTOCOL.policyFreeze;
+  const localGates: ForwardRiskV9LocalGateRecord = FORWARD_RISK_V9_VALIDATION_PROTOCOL.localImplementationGates;
   if (freeze.status !== 'FROZEN' || !freeze.fingerprint) {
     throw new Error('V9_BLIND_HOLDOUT_LOCKED_POLICY_NOT_FROZEN');
+  }
+  if (localGates.status !== 'PASS') {
+    throw new Error('V9_BLIND_HOLDOUT_LOCKED_LOCAL_GATES_NOT_RECORDED');
   }
   return freeze.fingerprint;
 }
