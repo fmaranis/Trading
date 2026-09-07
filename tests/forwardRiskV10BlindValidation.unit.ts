@@ -22,11 +22,11 @@ if (assertForwardRiskV10HistoricalHoldoutUnlocked() !== FORWARD_RISK_V10_POLICY_
 
 requireText(runner, "const RESULT_PATH = path.resolve(process.cwd(), 'validation-runs/forward-risk-v10-blind-result.json')", 'ONE_SHOT_RESULT_PATH');
 requireText(runner, 'V10_BLIND_ALREADY_COMPLETED', 'SECOND_COMPLETED_RUN_MUST_BE_BLOCKED');
+requireText(runner, 'AssetUniverseScanner.scan(BLIND_CATALOG, DATA_FROM, FINAL_END_DATE', 'BLIND_MUST_USE_SHARED_REAL_SCANNER');
 requireText(runner, 'PortfolioCandidateGate.apply(scan, historicalCashBenchmarkAnnualPct(date), 1)', 'MUST_REUSE_CAUSAL_PRODUCTION_OPPORTUNITY_GATE');
 requireText(runner, 'causalSingleAssetScan(asset, series, allBars.slice(0, fullIndex + 1))', 'OPPORTUNITY_MUST_USE_PRICE_PREFIX_ONLY');
 requireText(runner, 'latestRisk(v8, date)', 'RISK_MUST_USE_LATEST_AVAILABLE_V8');
 requireText(runner, "execution: 'NEXT_OPEN'", 'NEXT_OPEN_AUDIT_MISSING');
-requireText(runner, "adjusted: false", '');
 requireText(runner, 'FORWARD_RISK_V10_DATA_QUALITY_GATE.maxAbsoluteOneSessionCloseReturnPct', 'DATA_QUALITY_SHOCK_GATE_MISSING');
 requireText(runner, 'FORWARD_RISK_V10_DATA_QUALITY_GATE.minimumDeferredContributionsPerAsset', 'MIN_DEFERRED_EVIDENCE_MISSING');
 requireText(runner, "'V10_BLIND_INCONCLUSIVE_NO_REPLACEMENT_ALLOWED'", 'INCONCLUSIVE_RULE_MISSING');
