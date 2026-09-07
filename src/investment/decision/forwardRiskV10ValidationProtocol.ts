@@ -49,7 +49,7 @@ export const FORWARD_RISK_V10_VALIDATION_PROTOCOL = {
   },
 
   historicalBlindHoldout: {
-    status: 'SEALED_PENDING_LOCAL_IMPLEMENTATION_GATES',
+    status: 'SEALED_READY_FOR_ONE_SHOT_OPEN',
     selectionBasis: 'STRUCTURAL_ONLY_NO_RETURN_DRAWDOWN_VOLATILITY_OR_V10_OUTCOME_QUERY',
     eligibility: [
       'UCITS equity ETF',
@@ -87,13 +87,19 @@ export const FORWARD_RISK_V10_VALIDATION_PROTOCOL = {
   } satisfies ForwardRiskV10PolicyFreeze,
 
   localImplementationGates: {
-    status: 'PENDING',
+    status: 'PASS',
+    recordedAt: '2026-09-07',
+    evidence: [
+      'forwardRiskV10Policy.unit: PASS',
+      'forwardRiskV10ValidationProtocol.unit: PASS',
+      'npm run lint / tsc --noEmit: PASS'
+    ],
     required: [
       'npx tsx tests/forwardRiskV10Policy.unit.ts',
       'npx tsx tests/forwardRiskV10ValidationProtocol.unit.ts',
       'npm run lint'
     ]
-  } satisfies ForwardRiskV10LocalGateRecord & { readonly required: readonly string[] },
+  } satisfies ForwardRiskV10LocalGateRecord & { readonly recordedAt: string; readonly evidence: readonly string[]; readonly required: readonly string[] },
 
   dataQualityContract: {
     minimumBars: 756,
