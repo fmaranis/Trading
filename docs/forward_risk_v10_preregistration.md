@@ -3,7 +3,7 @@
 Fecha de sellado: **2026-09-07**  
 Protocolo: `V10_PREREG_2026_09_07`  
 Política: `V10_POLICY_1`  
-Estado: **POLICY_FROZEN / HOLDOUT_SEALED_PENDING_LOCAL_IMPLEMENTATION_GATES / RESEARCH_ONLY**
+Estado: **POLICY_FROZEN / LOCAL_GUARDS_PASS / HOLDOUT_SEALED_READY_FOR_ONE_SHOT_OPEN / RESEARCH_ONLY**
 
 Fingerprint congelado:
 
@@ -72,24 +72,24 @@ Antes de calcular resultados V10, cada serie debe cumplir:
 
 - >=756 barras válidas;
 - >=36 eventos mensuales de aportación;
-- >=6 aportaciones realmente aplazadas para que la evaluación individual sea informativa;
+- >=6 aportaciones realmente aplazadas y completadas para que la evaluación individual sea informativa;
 - fechas únicas;
 - open/close positivos;
 - ninguna variación close-to-close absoluta de una sola sesión >40%.
 
 Una anomalía de este tipo deja el activo `INVALID_DATA`. Si quedan menos de 6 válidos, el blind agregado será `INCONCLUSIVE`. No se reemplaza el caso.
 
-Este gate se fija antes de abrir el holdout para evitar repetir el problema de datos observado retrospectivamente en ZPDJ durante V9.
+Este gate se fijó antes de abrir el holdout para evitar repetir el problema de datos observado retrospectivamente en ZPDJ durante V9.
 
 ## 6. Gate de balance caída/subida
 
-Para cada aportación que V10 decida aplazar, se observa causalmente la trayectoria que habría seguido el baseline inmediato durante las siguientes 63 sesiones y se clasifica el primer evento:
+Para cada aportación que V10 decida aplazar, se observa **sólo como auditoría posterior** la trayectoria que habría seguido el baseline inmediato durante las siguientes 63 sesiones y se clasifica el primer evento:
 
 - `DOWN_FIRST`: alcanza -5% antes que +5%;
 - `UP_FIRST`: alcanza +5% antes que -5%;
 - `NEITHER`: ninguno de los dos.
 
-Esto mide directamente si esperar evita más caídas de las que hace perder subidas.
+Esta clasificación nunca interviene en la decisión histórica. Sirve para medir directamente si esperar evita más caídas de las que hace perder subidas.
 
 ## 7. Gate económico congelado
 
@@ -107,17 +107,33 @@ PASS agregado:
 
 No hay grid ni ajuste de 63 sesiones, ±5%, 1.000 €, número mínimo de casos o criterio de PASS tras ver resultados.
 
-## 8. Confirmación temporal futura
+## 8. Causalidad del lado oportunidad
+
+La validación blind debe reutilizar `PortfolioCandidateGate.apply` exactamente. Para cada fecha histórica se reconstruye un `AssetUniverseScanResult` usando **sólo el prefijo de barras disponible hasta esa fecha**. Así, `ELIGIBLE` se obtiene con el mismo cash hurdle, consenso, estructura de tendencia y `EntryTimingEngine` que el motor, sin usar precios posteriores.
+
+## 9. Guard local — PASS
+
+Ejecutado localmente el **2026-09-07** antes de abrir el holdout:
+
+- `forwardRiskV10Policy.unit: PASS`;
+- `forwardRiskV10ValidationProtocol.unit: PASS`;
+- `npm run lint` / `tsc --noEmit: PASS`.
+
+El fingerprint y todas las reglas anteriores permanecen sin cambios.
+
+## 10. Confirmación temporal futura
 
 Reservada desde **2026-09-08** inclusive. Ningún dato posterior a esa fecha puede usarse para tuning V10.
 
-## 9. Secuencia de ejecución
+## 11. Secuencia vigente
 
-1. Ejecutar localmente `Forward Risk V10 · guard de política riesgo + oportunidad`.
-2. Si PASS, registrar `localImplementationGates.status = PASS` sin cambiar política ni fingerprint.
-3. Sólo entonces construir el runner blind one-shot.
-4. El botón blind deberá volver a ejecutar guards + TypeScript antes de abrir los seis históricos.
-5. Ejecutar el blind una sola vez en el backend local.
-6. PASS, FAIL o INCONCLUSIVE se registra tal cual; no se retunea V10 sobre la muestra abierta.
+1. **COMPLETADO:** guard local V10 PASS.
+2. **COMPLETADO:** registrar `localImplementationGates.status = PASS` sin cambiar política ni fingerprint.
+3. **COMPLETADO:** construir runner blind one-shot causal y su guard estático.
+4. Ejecutar desde la app **Forward Risk · V10 · validación blind**. El job vuelve a ejecutar guards + TypeScript antes de abrir los seis históricos.
+5. PASS, FAIL o INCONCLUSIVE se registra tal cual; no se retunea V10 sobre la muestra abierta.
+6. Los seis activos quedan consumidos para V10 al completarse la apertura, cualquiera que sea el resultado.
+
+La interfaz muestra sólo la validación Forward Risk vigente. V8, V9 y guards ya cerrados quedan archivados para trazabilidad, sin acumular botones ejecutables.
 
 Nunca usar GitHub Actions, Gemini ni agentes para el cálculo largo.
