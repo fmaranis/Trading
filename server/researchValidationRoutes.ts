@@ -20,14 +20,14 @@ interface JobState {
 const MAX_OUTPUT_CHARS = 1_500_000;
 const JOBS: JobDefinition[] = [
   {
-    id: 'forward-risk-v8-economic-gate',
-    name: 'Forward Risk V8 · gate económico causal',
-    description: 'Mide si la señal V8 vintage-safe genera beneficio económico real con una política congelada del 25% ejecutada NEXT_OPEN, efectivo BCE histórico, comisiones y fiscalidad existentes. EUNL + seis HOLDOUT. Requiere FRED_API_KEY; no usa Gemini ni GitHub Actions.',
-    marker: 'FORWARD_RISK_V8_ECONOMIC_RESULT',
+    id: 'forward-risk-v8-fragmentation-diagnostic',
+    name: 'Forward Risk V8 · diagnóstico de fragmentación',
+    description: 'Mide cuánto alterna la señal V8 vintage-safe ON/OFF sobre sesiones reales de EUNL, duración de tramos y concentración temporal. No simula operaciones, no cambia thresholds y no optimiza ninguna política. Requiere FRED_API_KEY; no usa Gemini ni GitHub Actions.',
+    marker: 'FORWARD_RISK_V8_FRAGMENTATION_RESULT',
     steps: [
-      { label: 'Guard V8 económico', command: 'npx', args: ['tsx', 'tests/forwardRiskV8EconomicGate.unit.ts'] },
+      { label: 'Guard V8 fragmentación', command: 'npx', args: ['tsx', 'tests/forwardRiskV8FragmentationDiagnostic.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'V8 contrafactual económico NEXT_OPEN', command: 'npx', args: ['tsx', 'scripts/forwardRiskV8EconomicGateLive.ts'] }
+      { label: 'V8 diagnóstico de estados ON/OFF', command: 'npx', args: ['tsx', 'scripts/forwardRiskV8FragmentationDiagnosticLive.ts'] }
     ]
   }
 ];
