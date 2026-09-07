@@ -15,6 +15,7 @@ interface ValidationJob {
   result: any;
   error: string | null;
 }
+interface ValidationHistoryItem { id: string; label: string; }
 interface ProviderStatus { provider: string; configured: boolean; role?: string; primaryProvider?: string; }
 
 const BASE = '/api/alerts/research-validation';
@@ -56,6 +57,14 @@ function downloadResultJson(job: ValidationJob): void {
 function resultSummary(result: any): React.ReactNode {
   if (!result) return null;
   const aggregate = result.aggregate ?? {};
+  if (aggregate.medianFinalDeltaEur != null || aggregate.medianDeferredExecutionPriceImprovementPct != null) {
+    return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Veredicto</div><b className="text-xs text-white">{String(result.verdict ?? 'N/D')}</b></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Δ final mediano</div><b className="text-sm text-white">{aggregate.medianFinalDeltaEur == null ? 'N/D' : `${Number(aggregate.medianFinalDeltaEur).toFixed(0)} €`}</b></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Mejora precio aplazado</div><b className="text-sm text-white">{aggregate.medianDeferredExecutionPriceImprovementPct == null ? 'N/D' : `${Number(aggregate.medianDeferredExecutionPriceImprovementPct).toFixed(2)}%`}</b></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">−5% antes / +5% antes</div><b className="text-sm text-white">{aggregate.downFirstCount ?? 'N/D'} / {aggregate.upFirstCount ?? 'N/D'}</b></div>
+    </div>;
+  }
   const falseSignal = aggregate.falseSignalTimePct ?? aggregate.falseDivergenceTimePct ?? aggregate.falseVulnerabilityTimePct ?? null;
   return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
     <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Veredicto</div><b className="text-xs text-white">{String(result.verdict ?? 'N/D')}</b></div>
@@ -67,6 +76,7 @@ function resultSummary(result: any): React.ReactNode {
 
 export const ResearchValidationCenter: React.FC = () => {
   const [jobs, setJobs] = useState<ValidationJob[]>([]);
+  const [history, setHistory] = useState<ValidationHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [eodhd, setEodhd] = useState<ProviderStatus | null>(null);
@@ -82,6 +92,7 @@ export const ResearchValidationCenter: React.FC = () => {
       const payload = await jobsResponse.json();
       if (!jobsResponse.ok) throw new Error(payload?.error || `HTTP_${jobsResponse.status}`);
       setJobs(Array.isArray(payload.jobs) ? payload.jobs : []);
+      setHistory(Array.isArray(payload.history) ? payload.history : []);
       if (eodhdResponse.ok) setEodhd(await eodhdResponse.json());
       if (alphaResponse.ok) setAlpha(await alphaResponse.json());
       setError(null);
@@ -110,7 +121,7 @@ export const ResearchValidationCenter: React.FC = () => {
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex items-start gap-3">
         <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-2"><TerminalSquare className="h-5 w-5 text-cyan-200"/></div>
-        <div><h2 className="font-bold text-white">Validaciones de investigación</h2><p className="mt-1 max-w-3xl text-[11px] text-slate-400">Ejecuta los gates directamente en el backend Node de esta app. No llama a Gemini, no consume tokens de AI Studio y no usa GitHub Actions. Cada resultado estructurado puede descargarse como JSON.</p></div>
+        <div><h2 className="font-bold text-white">Validación de investigación</h2><p className="mt-1 max-w-3xl text-[11px] text-slate-400">Se muestra únicamente la validación Forward Risk vigente. Las versiones cerradas quedan archivadas como trazabilidad, sin acumular botones. Todo se ejecuta en el backend local, sin IA ni GitHub Actions.</p></div>
       </div>
       <button type="button" onClick={() => void refresh()} className="rounded-lg border border-slate-700 px-3 py-2 text-[10px] font-bold text-slate-300 hover:bg-slate-900"><RefreshCw className="mr-1 inline h-3 w-3"/>Actualizar</button>
     </div>
@@ -128,13 +139,18 @@ export const ResearchValidationCenter: React.FC = () => {
           <div><div className="flex items-center gap-2"><Activity className="h-4 w-4 text-violet-300"/><b className="text-sm text-white">{job.name}</b><span className={`rounded-full border px-2 py-0.5 text-[8px] font-black ${badge(job.status)}`}>{job.status}</span></div><p className="mt-1 text-[10px] text-slate-500">{job.description}</p>{job.currentStep && <div className="mt-2 text-[10px] text-cyan-200">Ejecutando: {job.currentStep}</div>}</div>
           <div className="flex flex-wrap gap-2">
             {job.result != null && <button type="button" onClick={() => downloadResultJson(job)} className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-[10px] font-black text-cyan-100"><Download className="mr-1 inline h-3 w-3"/>Descargar JSON</button>}
-            <button type="button" disabled={loading || job.status === 'RUNNING'} onClick={() => void run(job.id)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[10px] font-black text-emerald-100 disabled:opacity-40"><Play className="mr-1 inline h-3 w-3"/>{job.status === 'RUNNING' ? 'En ejecución' : 'Ejecutar sin IA'}</button>
+            <button type="button" disabled={loading || job.status === 'RUNNING'} onClick={() => void run(job.id)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[10px] font-black text-emerald-100 disabled:opacity-40"><Play className="mr-1 inline h-3 w-3"/>{job.status === 'RUNNING' ? 'En ejecución' : 'Ejecutar validación'}</button>
           </div>
         </div>
         {resultSummary(job.result)}
         {(job.output || job.error) && <details className="mt-3"><summary className="cursor-pointer text-[9px] font-bold text-slate-500">Salida técnica</summary><pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-black/40 p-3 text-[9px] text-slate-400">{job.error ? `${job.error}\n\n` : ''}{job.output}</pre></details>}
       </div>)}
-      {!jobs.length && !error && <div className="text-[10px] text-slate-500">Cargando validaciones disponibles…</div>}
+      {!jobs.length && !error && <div className="text-[10px] text-slate-500">Cargando validación vigente…</div>}
     </div>
+
+    {history.length > 0 && <details className="mt-4 border-t border-slate-800 pt-3">
+      <summary className="cursor-pointer text-[9px] font-bold text-slate-500">Histórico Forward Risk · {history.length} controles archivados</summary>
+      <div className="mt-2 text-[9px] text-slate-600">{history.map(item => item.label).join(' · ')}</div>
+    </details>}
   </section>;
 };
