@@ -8,6 +8,8 @@ export * from './assetUniverseScanner';
 export * from './assetSelectionQuality';
 export * from './qualitySizingPolicy';
 export * from './portfolioDiscoveryUniverse';
+export * from './openMarketDiscoveryV1';
+export * from './coreEligibilityV2';
 export * from './portfolioCandidateGate';
 export * from './portfolioPositionHealth';
 export * from './portfolioAssetRole';
