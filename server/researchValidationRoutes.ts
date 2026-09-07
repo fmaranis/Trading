@@ -98,13 +98,28 @@ const JOBS: JobDefinition[] = [
   {
     id: 'forward-risk-v11-policy-guard',
     name: 'Forward Risk · V11 · guard de sizing continuo',
-    description: 'Valida V11_POLICY_1, su fingerprint, el sellado de seis activos blind nuevos, la causalidad estática del runner y TypeScript. No abre ni descarga los históricos V11 blind. V11 mantiene el PortfolioCandidateGate como gate de compra y sólo escala dinero nuevo entre 100% y 50% con el score continuo de riesgo.',
-    visibility: 'CURRENT',
+    description: 'Guard V11 superado localmente antes de abrir el holdout.',
+    visibility: 'ARCHIVED',
+    historyLabel: 'V11 · guard PASS',
     steps: [
       { label: 'Guard V11 sizing continuo', command: 'npx', args: ['tsx', 'tests/forwardRiskV11SizingOverlay.unit.ts'] },
       { label: 'Guard V11 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11ValidationProtocol.unit.ts'] },
       { label: 'Guard V11 runner blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11BlindValidation.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+    ]
+  },
+  {
+    id: 'forward-risk-v11-blind-validation',
+    name: 'Forward Risk · V11 · validación blind',
+    description: 'Validación vigente one-shot. Compara el motor actual contra el mismo motor con V11_POLICY_1 como overlay continuo de sizing sobre dinero nuevo ELIGIBLE. Repite guards y TypeScript antes de abrir los seis históricos blind; usa NEXT_OPEN, drawdown unitizado por flujos y backend local sin IA ni GitHub Actions.',
+    marker: 'FORWARD_RISK_V11_BLIND_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard V11 sizing continuo', command: 'npx', args: ['tsx', 'tests/forwardRiskV11SizingOverlay.unit.ts'] },
+      { label: 'Guard V11 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11ValidationProtocol.unit.ts'] },
+      { label: 'Guard V11 runner blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11BlindValidation.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'V11 validación blind one-shot', command: 'npx', args: ['tsx', 'scripts/forwardRiskV11BlindValidationLive.ts'] }
     ]
   }
 ];
