@@ -29,6 +29,116 @@ Replay auditado:
 
 ---
 
+# OPEN_MARKET_DISCOVERY_V1 — fase actual
+
+Estado:
+**IMPLEMENTED_FOR_LOCAL_VALIDATION / CURRENT_LIVE_DISCOVERY / CORE_ELIGIBILITY_V2_SHADOW / NOT_YET_PRODUCTION_PROMOTED**.
+
+Objetivo: dejar de depender de una lista fija sin crear otro motor. La cadena sigue siendo una sola:
+
+`current discovery -> AssetUniverseScanner -> CORE_ELIGIBILITY_V2 shadow -> PortfolioCandidateGate -> motor existente`.
+
+Archivos principales:
+- `src/investment/decision/openMarketDiscoveryV1.ts`;
+- `src/investment/decision/coreEligibilityV2.ts`;
+- `server/assetDiscoveryRoutes.ts`;
+- `scripts/openMarketDiscoveryV1Live.ts`;
+- `tests/openMarketDiscoveryV1.unit.ts`;
+- `tests/coreEligibilityV2.unit.ts`;
+- `tests/openMarketDiscoveryArchitecture.unit.ts`;
+- `tests/openMarketReplayDiscovery.unit.ts`;
+- `docs/open_market_discovery_v1.md`.
+
+## Discovery V1 actual
+Endpoint:
+`GET /api/alerts/asset-discovery/open-universe`.
+
+Hace un query sweep estructural Yahoo sobre familias de mercado, no una lista de tickers elegida por resultados:
+- global/world/all-country;
+- USA/S&P 500;
+- Europa amplia;
+- emergentes;
+- Japón;
+- small cap;
+- tecnología;
+- salud;
+- energía;
+- aggregate bond EUR hedged;
+- money market EUR;
+- oro.
+
+Reglas:
+- barrido autónomo limitado a ETF/EQUITY;
+- sólo divisa real EUR;
+- inspección mínima 252 barras;
+- dedupe por ticker;
+- caché server-side 6 h;
+- los precios usados por decisiones se vuelven a cargar mediante `AssetUniverseScanner` con provenance REAL;
+- discovery sólo propone candidatos: `PortfolioCandidateGate` conserva la autoridad económica.
+
+La búsqueda manual `Buscar mercado` del replay sigue existiendo por ticker/nombre/ISIN.
+
+## Frontera histórica no negociable
+Yahoo Search es **CURRENT/LIVE**, no un instrument master histórico point-in-time.
+
+Por tanto:
+- `historicalPointInTimeSafe = false` en V1;
+- `retrospectiveYahooSearchAllowed = false` en el smoke;
+- el motor de replay no llama a `/asset-discovery` ni `/open-universe`;
+- por cada fecha histórica ya exige las barras mínimas disponibles hasta esa fecha, evitando utilizar un activo antes de existir historia suficiente;
+- `filterCatalogByHistoricalAvailability` formaliza esa disponibilidad para catálogos conocidos;
+- esto evita pre-listing lookahead, pero **no elimina por completo survivorship bias** del catálogo actual.
+
+No afirmar “mercado abierto histórico completo” hasta disponer de instrument master point-in-time con altas y delistings/bajas.
+
+## CORE_ELIGIBILITY_V2
+Estado:
+`SHADOW_AUDIT_NOT_PRODUCTION_GATE`.
+
+No sustituye todavía `PortfolioCandidateGate`, `DynamicCoreSelectorV1` ni ninguna decisión productiva.
+
+Criterios estructurales fijados antes del smoke REAL:
+- EUR;
+- provenance REAL;
+- scanner ACCEPTED;
+- >=756 barras;
+- categoría amplia `GLOBAL_EQUITY / US_EQUITY / EUROPE_EQUITY / JAPAN_EQUITY / EMERGING_EQUITY`;
+- una acción individual `EQ_*` nunca es core;
+- `OPEN_*` / `DYNAMIC_*` necesita evidencia explícita `BROAD`; sin metadata -> `REVIEW_REQUIRED`;
+- listados: >=80% de cobertura de volumen positiva en 60 barras y mediana de negociación diaria >=250.000 EUR;
+- fondos NAV REAL directos no se rechazan por carecer de volumen bursátil; disponibilidad de broker es otra comprobación.
+
+El criterio de liquidez V2 es por ahora estructural/shadow, no un threshold de rentabilidad promovido.
+
+## Validación preparada
+Único job vigente en `ResearchValidationCenter`:
+
+**Mercado abierto · V1 · discovery + core shadow**.
+
+Ejecuta:
+1. `openMarketDiscoveryV1.unit`;
+2. `coreEligibilityV2.unit`;
+3. `openMarketDiscoveryArchitecture.unit`;
+4. `openMarketReplayDiscovery.unit`;
+5. `npm run lint` / `tsc --noEmit`;
+6. smoke REAL `openMarketDiscoveryV1Live`.
+
+Smoke REAL:
+`Yahoo current discovery -> merge catálogo existente -> AssetUniverseScanner -> CORE_ELIGIBILITY_V2 shadow -> PortfolioCandidateGate`.
+
+No compra, no vende y no cambia cartera.
+
+Semántica:
+- `PASS`: infraestructura current/live coherente, candidatos EUR únicos y al menos un descubierto aceptado con provenance REAL;
+- `INCONCLUSIVE_EXTERNAL_DISCOVERY_COVERAGE`: Yahoo no aportó cobertura suficiente en esa ejecución;
+- guard/TypeScript/runner roto: fallo técnico a corregir.
+
+Un PASS **no demuestra rentabilidad** y no promociona automáticamente CORE_ELIGIBILITY_V2 ni discovery a decisiones productivas.
+
+Tras PASS técnico: revisar cobertura/anomalías y sólo entonces integrar el snapshot current/live en universo compartido de decisión de hoy + alertas. Replay histórico abierto queda condicionado a catálogo point-in-time.
+
+---
+
 # Forward Risk — estado cerrado hasta V11
 
 ## PRINCIPIO PERMANENTE DE CONTINUIDAD — NO PERDER V8
@@ -193,19 +303,21 @@ Forward Risk queda fuera de producción, pero **V8/V5/V7 no se consideran conoci
 Pantalla: `ResearchValidationCenter`.
 Ruta backend: `/api/alerts/research-validation/*`.
 
-Estado actual:
-- V8 diagnóstico: archivado.
-- V9 guard/blind: archivados; V9 retirada.
-- V10 guard/blind: archivados; V10 retirada.
-- V11 guard/blind: archivados; V11 retirada.
-- **No hay un job Forward Risk pendiente de ejecutar.**
+Archivado:
+- V8 diagnóstico;
+- V9 guard/blind; V9 retirada;
+- V10 guard/blind; V10 retirada;
+- V11 guard/blind; V11 retirada.
+
+Job vigente:
+- `open-market-discovery-v1-validation` — **Mercado abierto · V1 · discovery + core shadow**.
 
 No usar Gemini, agentes ni GitHub Actions para cálculos largos.
 
 ---
 
 # Datos de mercado
-- Yahoo Finance: primario para acciones/ETF y búsqueda abierta.
+- Yahoo Finance: primario para acciones/ETF, búsqueda manual y `OPEN_MARKET_DISCOVERY_V1` current/live.
 - EODHD: secundario y NAV de fondos por ISIN si hay API key.
 - Alpha Vantage: contraste secundario si hay API key.
 - Cboe: VIX/VIX9D/VVIX de V7/V8.
@@ -217,13 +329,16 @@ Replay manual abierto puede buscar Yahoo LIVE por nombre/ticker/ISIN y registrar
 
 # Próxima secuencia recomendada
 
-1. **No crear V11.1 ni un V12 paramétrico.**
-2. Mantener `CORE_ARCHITECTURE_V1` sin Forward Risk productivo.
-3. Volver al lado de generación de rentabilidad/oportunidades y cerrar `OPEN_MARKET_DISCOVERY_V1` server-side compartido por decisión/alertas/replay/estudio.
-4. Después cerrar `CORE_ELIGIBILITY_V2` con criterios auditables de índice amplio/diversificado, histórico, liquidez/divisa y calidad de datos.
-5. Integrar mejor `OPPORTUNITY_THRESHOLD_RESEARCH` con el motor existente sólo si holdout + walk-forward justifican promoción, sin crear un motor paralelo.
-6. Al diseñar ranking/oportunidad, **recordar V8 como feature/contexto de riesgo candidato**, no como orden automática; cualquier integración requiere validación nueva y causal.
-7. Forward Risk como política ejecutiva sólo se retoma si aparece una hipótesis realmente distinta y preregistrable que no sea otra variante de vender/esperar/escalar la misma señal.
+1. Ejecutar localmente **Mercado abierto · V1 · discovery + core shadow**.
+2. Corregir cualquier fallo de guards/TypeScript antes de interpretar cobertura externa.
+3. Si el smoke REAL es PASS, registrar cobertura y revisar candidatos/anomalías sin usar rentabilidad futura para seleccionar.
+4. Integrar el snapshot `OPEN_MARKET_DISCOVERY_V1` current/live en el universo compartido de decisión de hoy y alertas; mantener fallback explícito al catálogo conocido si Yahoo discovery no está disponible.
+5. Mantener `CORE_ELIGIBILITY_V2` en shadow hasta comprobar que sus reglas estructurales no eliminan cores válidos por errores de metadata/liquidez.
+6. Sólo después promover V2 a pre-gate estructural compartido, sin sustituir `PortfolioCandidateGate`.
+7. Para replay histórico abierto: obtener/construir un instrument master point-in-time con altas y delistings. No sustituirlo por Yahoo Search actual.
+8. Con universo causal ampliado, volver a oportunidad/ranking y validar qué comprar sobre candidatos no elegidos retrospectivamente.
+9. Al diseñar ranking/oportunidad, **recordar V8 como feature/contexto de riesgo candidato**, no como orden automática; cualquier integración requiere validación nueva y causal.
+10. No crear V11.1 ni un V12 paramétrico.
 
 ---
 
