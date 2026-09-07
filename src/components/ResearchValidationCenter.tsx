@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, Play, RefreshCw, TerminalSquare } from 'lucide-react';
+import { Activity, Download, Play, RefreshCw, TerminalSquare } from 'lucide-react';
 
 type Status = 'IDLE' | 'RUNNING' | 'PASSED' | 'FAILED';
 interface ValidationJob {
@@ -27,6 +27,30 @@ function badge(status: Status): string {
 }
 function providerClass(configured: boolean | null): string {
   return configured === true ? 'text-emerald-200' : configured === false ? 'text-amber-200' : 'text-slate-400';
+}
+function safeFileTimestamp(value: string | null): string {
+  const source = value || new Date().toISOString();
+  return source.replace(/[:.]/g, '-').replace(/[^0-9TZ-]/g, '_');
+}
+function downloadResultJson(job: ValidationJob): void {
+  if (job.result == null) return;
+  const payload = {
+    jobId: job.id,
+    jobName: job.name,
+    status: job.status,
+    startedAt: job.startedAt,
+    finishedAt: job.finishedAt,
+    result: job.result
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `${job.id}-${safeFileTimestamp(job.finishedAt)}.json`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 function resultSummary(result: any): React.ReactNode {
@@ -86,7 +110,7 @@ export const ResearchValidationCenter: React.FC = () => {
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex items-start gap-3">
         <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-2"><TerminalSquare className="h-5 w-5 text-cyan-200"/></div>
-        <div><h2 className="font-bold text-white">Validaciones de investigación</h2><p className="mt-1 max-w-3xl text-[11px] text-slate-400">Ejecuta los gates directamente en el backend Node de esta app. No llama a Gemini, no consume tokens de AI Studio y no usa GitHub Actions.</p></div>
+        <div><h2 className="font-bold text-white">Validaciones de investigación</h2><p className="mt-1 max-w-3xl text-[11px] text-slate-400">Ejecuta los gates directamente en el backend Node de esta app. No llama a Gemini, no consume tokens de AI Studio y no usa GitHub Actions. Cada resultado estructurado puede descargarse como JSON.</p></div>
       </div>
       <button type="button" onClick={() => void refresh()} className="rounded-lg border border-slate-700 px-3 py-2 text-[10px] font-bold text-slate-300 hover:bg-slate-900"><RefreshCw className="mr-1 inline h-3 w-3"/>Actualizar</button>
     </div>
@@ -102,7 +126,10 @@ export const ResearchValidationCenter: React.FC = () => {
       {jobs.map(job => <div key={job.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><div className="flex items-center gap-2"><Activity className="h-4 w-4 text-violet-300"/><b className="text-sm text-white">{job.name}</b><span className={`rounded-full border px-2 py-0.5 text-[8px] font-black ${badge(job.status)}`}>{job.status}</span></div><p className="mt-1 text-[10px] text-slate-500">{job.description}</p>{job.currentStep && <div className="mt-2 text-[10px] text-cyan-200">Ejecutando: {job.currentStep}</div>}</div>
-          <button type="button" disabled={loading || job.status === 'RUNNING'} onClick={() => void run(job.id)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[10px] font-black text-emerald-100 disabled:opacity-40"><Play className="mr-1 inline h-3 w-3"/>{job.status === 'RUNNING' ? 'En ejecución' : 'Ejecutar sin IA'}</button>
+          <div className="flex flex-wrap gap-2">
+            {job.result != null && <button type="button" onClick={() => downloadResultJson(job)} className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-[10px] font-black text-cyan-100"><Download className="mr-1 inline h-3 w-3"/>Descargar JSON</button>}
+            <button type="button" disabled={loading || job.status === 'RUNNING'} onClick={() => void run(job.id)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[10px] font-black text-emerald-100 disabled:opacity-40"><Play className="mr-1 inline h-3 w-3"/>{job.status === 'RUNNING' ? 'En ejecución' : 'Ejecutar sin IA'}</button>
+          </div>
         </div>
         {resultSummary(job.result)}
         {(job.output || job.error) && <details className="mt-3"><summary className="cursor-pointer text-[9px] font-bold text-slate-500">Salida técnica</summary><pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-black/40 p-3 text-[9px] text-slate-400">{job.error ? `${job.error}\n\n` : ''}{job.output}</pre></details>}
