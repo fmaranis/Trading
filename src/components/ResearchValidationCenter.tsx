@@ -145,7 +145,7 @@ export const ResearchValidationCenter: React.FC = () => {
         {resultSummary(job.result)}
         {(job.output || job.error) && <details className="mt-3"><summary className="cursor-pointer text-[9px] font-bold text-slate-500">Salida técnica</summary><pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-black/40 p-3 text-[9px] text-slate-400">{job.error ? `${job.error}\n\n` : ''}{job.output}</pre></details>}
       </div>)}
-      {!jobs.length && !error && <div className="text-[10px] text-slate-500">Cargando validación vigente…</div>}
+      {!jobs.length && !error && <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-[10px] text-slate-500">No hay una validación Forward Risk pendiente. La última política cerrada está archivada en el histórico.</div>}
     </div>
 
     {history.length > 0 && <details className="mt-4 border-t border-slate-800 pt-3">
