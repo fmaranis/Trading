@@ -23,7 +23,7 @@ const universeSource = source('src/investment/decision/assetUniverse.ts');
 const v9Source = source('src/investment/decision/forwardRiskV9ValidationProtocol.ts');
 const v10Source = source('src/investment/decision/forwardRiskV10ValidationProtocol.ts');
 const protocolSource = source('src/investment/decision/forwardRiskV11ValidationProtocol.ts');
-const expectedTickers = ['IUSQ.DE', 'IUSA.DE', 'EUNM.DE', 'EUNK.DE', 'SXR1.DE', 'IQQJ.DE'];
+const expectedTickers = ['IUSQ.DE', 'SXR4.DE', 'EUNM.DE', 'EUNK.DE', 'SXR1.DE', 'SXRZ.DE'];
 const actualTickers = FORWARD_RISK_V11_VALIDATION_PROTOCOL.historicalBlindHoldout.assets.map(asset => asset.ticker);
 if (JSON.stringify(actualTickers) !== JSON.stringify(expectedTickers)) throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:BLIND_SAMPLE_CHANGED');
 
@@ -60,6 +60,7 @@ requireText(protocolSource, 'Do not fetch or inspect historical price series for
 requireText(protocolSource, 'Do not use V9 or V10 blind assets as V11 validation assets or replacements.', 'CONTAMINATION_BOUNDARY_MISSING');
 requireText(protocolSource, 'Do not let Forward Risk make a rejected PortfolioCandidateGate asset eligible.', 'BASE_GATE_OVERRIDE_FORBIDDEN');
 requireText(protocolSource, 'Do not add a risk-specific daily release/waiting state to V11.', 'NO_WAITING_STATE_RULE_MISSING');
+requireText(protocolSource, 'accumulating share class to avoid dividend-cashflow bias when using causal split-adjusted Close', 'ACCUMULATING_SAMPLE_RULE_MISSING');
 requireText(protocolSource, "drawdownMetric: 'FLOW_ADJUSTED_UNIT_NAV_MAX_DRAWDOWN'", 'FLOW_ADJUSTED_DRAWDOWN_MISSING');
 requireText(protocolSource, "failureSemantics: 'ASSET_INVALID_DATA_AND_AGGREGATE_INCONCLUSIVE_IF_FEWER_THAN_6_VALID_NO_REPLACEMENT'", 'DATA_FAILURE_SEMANTICS_MISSING');
 
