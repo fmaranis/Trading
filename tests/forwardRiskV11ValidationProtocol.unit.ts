@@ -15,9 +15,6 @@ function forbidText(file: string, text: string, label: string): void {
 function requireText(file: string, text: string, label: string): void {
   if (!file.includes(text)) throw new Error(`FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:${label}`);
 }
-function localStatus(): 'PENDING' | 'PASS' {
-  return FORWARD_RISK_V11_VALIDATION_PROTOCOL.localImplementationGates.status as 'PENDING' | 'PASS';
-}
 
 const universeSource = source('src/investment/decision/assetUniverse.ts');
 const v9Source = source('src/investment/decision/forwardRiskV9ValidationProtocol.ts');
@@ -36,25 +33,23 @@ for (const ticker of expectedTickers) {
 if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.policyFreeze.status !== 'FROZEN') throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:POLICY_NOT_FROZEN');
 if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.policyFreeze.fingerprint !== FORWARD_RISK_V11_POLICY_FINGERPRINT) throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:FINGERPRINT_CHANGED');
 if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.productionPromotionAllowed !== false) throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:PRODUCTION_PROMOTION_MUST_BE_FALSE');
-if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.futureForwardConfirmation.startDateInclusive !== '2026-09-08') throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:FUTURE_START_CHANGED');
+if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.historicalBlindHoldout.status !== 'OPENED_CONSUMED_FAIL_2026_09_07') throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:CONSUMED_STATUS_MISSING');
+if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.blindOutcome.verdict !== 'V11_BLIND_FAIL_RETIRE_V11_POLICY_1') throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:BLIND_OUTCOME_CHANGED');
+if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.blindOutcome.validBlindAssets !== 6 || FORWARD_RISK_V11_VALIDATION_PROTOCOL.blindOutcome.individualPasses !== 0) throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:BLIND_COUNTS_CHANGED');
+if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.futureForwardConfirmation.status !== 'CANCELLED_AFTER_HISTORICAL_BLIND_FAIL') throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:FUTURE_CONFIRMATION_MUST_BE_CANCELLED');
 if (FORWARD_RISK_V11_VALIDATION_PROTOCOL.historicalBlindHoldout.replacementAfterOpeningAllowed !== false
   || FORWARD_RISK_V11_VALIDATION_PROTOCOL.historicalBlindHoldout.insufficientDataReplacementAllowed !== false
   || FORWARD_RISK_V11_VALIDATION_PROTOCOL.historicalBlindHoldout.dataQualityFailureReplacementAllowed !== false) {
   throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:REPLACEMENT_MUST_BE_FORBIDDEN');
 }
 
-const status = localStatus();
-if (status === 'PENDING') {
-  let locked = false;
-  try {
-    assertForwardRiskV11HistoricalHoldoutUnlocked();
-  } catch (error) {
-    locked = error instanceof Error && error.message === 'V11_BLIND_HOLDOUT_LOCKED_LOCAL_GATES_NOT_RECORDED';
-  }
-  if (!locked) throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:HOLDOUT_MUST_BE_LOCKED');
-} else if (assertForwardRiskV11HistoricalHoldoutUnlocked() !== FORWARD_RISK_V11_POLICY_FINGERPRINT) {
-  throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:UNLOCKED_FINGERPRINT_MISMATCH');
+let consumedLocked = false;
+try {
+  assertForwardRiskV11HistoricalHoldoutUnlocked();
+} catch (error) {
+  consumedLocked = error instanceof Error && error.message === 'V11_BLIND_HOLDOUT_ALREADY_CONSUMED';
 }
+if (!consumedLocked) throw new Error('FORWARD_RISK_V11_PROTOCOL_GUARD_FAIL:CONSUMED_HOLDOUT_MUST_BE_LOCKED');
 
 requireText(protocolSource, 'Do not fetch or inspect historical price series for V11 blind assets before policyFreeze.status is FROZEN and localImplementationGates.status is PASS.', 'ANTI_LEAKAGE_RULE_MISSING');
 requireText(protocolSource, 'Do not use V9 or V10 blind assets as V11 validation assets or replacements.', 'CONTAMINATION_BOUNDARY_MISSING');
@@ -63,5 +58,6 @@ requireText(protocolSource, 'Do not add a risk-specific daily release/waiting st
 requireText(protocolSource, 'accumulating share class to avoid dividend-cashflow bias when using causal split-adjusted Close', 'ACCUMULATING_SAMPLE_RULE_MISSING');
 requireText(protocolSource, "drawdownMetric: 'FLOW_ADJUSTED_UNIT_NAV_MAX_DRAWDOWN'", 'FLOW_ADJUSTED_DRAWDOWN_MISSING');
 requireText(protocolSource, "failureSemantics: 'ASSET_INVALID_DATA_AND_AGGREGATE_INCONCLUSIVE_IF_FEWER_THAN_6_VALID_NO_REPLACEMENT'", 'DATA_FAILURE_SEMANTICS_MISSING');
+requireText(protocolSource, "disposition: 'RETIRED_NO_V11_1_ON_OPENED_HOLDOUT'", 'RETIRE_DISPOSITION_MISSING');
 
 console.log('forwardRiskV11ValidationProtocol.unit: PASS');
