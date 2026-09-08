@@ -155,6 +155,20 @@ The audit confirms that the main bottleneck is **downstream of candidate selecti
 
 The frozen QUALITY reliability/opportunity information is carried in `CurrentOpportunityAlert`, but the legacy capital-priority formula does not use those fields directly.
 
+### Exact downstream re-gating mechanism
+
+A code-path review after the reach audit identified the specific reason upstream selected-set changes have so little effect:
+
+1. `PortfolioCandidateGate.apply` creates `gatedScan` by replacing `selected` and `dataset`, but retains the original `scan.candidates` array.
+2. `PortfolioDecisionEngine` receives that gated scan.
+3. It then calls `CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct)`.
+4. `CurrentOpportunityAlertEngine.evaluate` calls `PortfolioCandidateGate.apply(scan, cashBenchmarkAnnualPct, 1000, selectionPolicy)`; the default `selectionPolicy` is `LEGACY`.
+5. Because the downstream call works again from `scan.candidates` with `maxSelected=1000`, the opportunity allocator can again see essentially all candidates that pass the hard gates, rather than being limited to the upstream top-12 selected set.
+
+This is not a hard-gate bypass: cash, consensus and timing are re-applied. But it means that an upstream ranking-only change to the top-12 set is largely **not the final economic priority surface** used for capital allocation.
+
+That mechanism explains why QUALITY could change 70 selected sets while changing only two executed-acquisition dates.
+
 Therefore increasing the ranking coefficient would be the wrong response. The evidence supports testing whether the already-frozen QUALITY signal can influence **capital priority among already-eligible opportunities**, under a bounded preregistered rule inside the existing allocator.
 
 ## Closed interpretation
