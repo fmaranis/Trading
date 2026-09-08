@@ -5,6 +5,7 @@ import { CashBenchmarkService } from './cashBenchmark';
 import { brokerCommission } from './costAwareExecutionPolicy';
 import { CurrentOpportunityAlertEngine, type CurrentOpportunityAlert } from './currentOpportunityAlerts';
 import { EntryTimingEngine, type EntryTimingPersistenceAssessment } from './entryTiming';
+import { candidateQualityAdjustment } from './portfolioCandidateGate';
 import type { InvestmentDecisionResult } from './types';
 import type { FundPosition } from './fundPortfolio';
 import type { PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
@@ -18,6 +19,8 @@ export type PortfolioPositionAction =
   | 'EXIT'
   | 'REVIEW_TRANSFER'
   | 'DATA_MISSING';
+
+export type OpportunityAllocationPolicy = 'LEGACY' | 'QUALITY_ALLOCATION_BRIDGE_V1';
 
 export interface PortfolioExposureLine {
   category: AssetUniverseCategory;
@@ -60,6 +63,7 @@ export interface ContributionRecommendation {
   targetCategoryGapEur: number;
   opportunityLevel?: CurrentOpportunityAlert['level'];
   priorityScore?: number;
+  qualityAllocationMultiplier?: number;
   currentAssetValueEur?: number;
   targetAssetValueEur?: number;
   executableTargetAssetValueEur?: number;
@@ -123,11 +127,30 @@ function opportunityLevelWeight(level: CurrentOpportunityAlert['level']): number
   return level === 'HIGH_CONVICTION' ? 4 : level === 'GOOD_ENTRY' ? 2.5 : 1;
 }
 
-function opportunityPriority(alert: CurrentOpportunityAlert): number {
+export function qualityAllocationMultiplierV1(
+  reliabilityScore: number | null | undefined,
+  opportunityScore: number | null | undefined
+): number {
+  // Reuse the already-frozen QUALITY_V1 adjustment instead of fitting another
+  // coefficient after seeing the consumed ranking windows. With both source
+  // scores bounded 0..100, candidateQualityAdjustment is theoretically -15..15.
+  // Interpreting those points as percentage points yields a deliberately bounded
+  // 0.85x..1.15x multiplier on the allocator's existing opportunity priority.
+  const adjustment = candidateQualityAdjustment(reliabilityScore, opportunityScore);
+  return Math.max(0.85, Math.min(1.15, 1 + adjustment / 100));
+}
+
+function opportunityPriority(
+  alert: CurrentOpportunityAlert,
+  allocationPolicy: OpportunityAllocationPolicy = 'LEGACY'
+): number {
   const excess = Math.max(0, Math.min(25, alert.excessVsCashPctPoints ?? 0));
   const consensus = Math.max(0, alert.consensusScore);
   const volatilityPenalty = Math.max(1, (alert.annualizedVolatilityPct ?? 20) / 20);
-  return (opportunityLevelWeight(alert.level) + consensus * 0.35 + excess * 0.08) / volatilityPenalty;
+  const legacy = (opportunityLevelWeight(alert.level) + consensus * 0.35 + excess * 0.08) / volatilityPenalty;
+  return allocationPolicy === 'QUALITY_ALLOCATION_BRIDGE_V1'
+    ? legacy * qualityAllocationMultiplierV1(alert.reliabilityScore, alert.opportunityScore)
+    : legacy;
 }
 
 function maxOpportunityPositions(risk: InvestmentDecisionResult['riskProfile']): number {
@@ -197,12 +220,14 @@ export class PortfolioDecisionEngine {
     positionHealth?: Record<string, PortfolioPositionHealthSnapshot | undefined>;
     materialDriftPctPoints?: number;
     cashBenchmarkAnnualPct?: number;
+    opportunityAllocationPolicy?: OpportunityAllocationPolicy;
   }): PortfolioDecisionResult {
     const { portfolio, scan, decision } = input;
     const materialDrift = input.materialDriftPctPoints ?? 5;
     const fundValues = input.fundMarketValues ?? {};
     const healthMap = input.positionHealth ?? {};
     const cashBenchmarkAnnualPct = input.cashBenchmarkAnnualPct ?? CashBenchmarkService.load();
+    const opportunityAllocationPolicy = input.opportunityAllocationPolicy ?? 'LEGACY';
     const assets = categoryMap(scan);
     const prices = new Map(
       scan.candidates
@@ -531,7 +556,13 @@ export class PortfolioDecisionEngine {
           return rotationDelta || b.rankingScore - a.rankingScore;
         })
         .slice(0, Math.max(shortlistLimit, existingOpportunities.length));
-      const priorities = shortlist.map(alert => ({ alert, priority: opportunityPriority(alert) }));
+      const priorities = shortlist.map(alert => ({
+        alert,
+        priority: opportunityPriority(alert, opportunityAllocationPolicy),
+        qualityMultiplier: opportunityAllocationPolicy === 'QUALITY_ALLOCATION_BRIDGE_V1'
+          ? qualityAllocationMultiplierV1(alert.reliabilityScore, alert.opportunityScore)
+          : 1
+      }));
       const totalPriority = priorities.reduce((sum, row) => sum + Math.max(0.01, row.priority), 0);
       const currentOpportunityValueEur = shortlist.reduce((sum, alert) => sum + Math.max(0, currentByAsset.get(alert.assetId) ?? 0), 0);
       const stableOpportunityPoolEur = deployableToAssetsEur + currentOpportunityValueEur;
@@ -542,7 +573,7 @@ export class PortfolioDecisionEngine {
       let newPositionsAllocated = 0;
       const newPositionBudget = Math.min(effectiveNewSlots, newPositionDecisionLimit);
 
-      const allocated = priorities.map<ContributionRecommendation | null>(({ alert, priority }) => {
+      const allocated = priorities.map<ContributionRecommendation | null>(({ alert, priority, qualityMultiplier }) => {
         const asset = assets.get(alert.assetId) ?? assets.get(alert.ticker.toUpperCase());
         if (!asset) return null;
         const currentAssetValueEur = Math.max(0, currentByAsset.get(alert.assetId) ?? 0);
@@ -605,6 +636,7 @@ export class PortfolioDecisionEngine {
           targetCategoryGapEur: theoreticalGap,
           opportunityLevel: alert.level,
           priorityScore: priority,
+          qualityAllocationMultiplier: qualityMultiplier,
           currentAssetValueEur,
           targetAssetValueEur,
           executableTargetAssetValueEur,
@@ -612,7 +644,7 @@ export class PortfolioDecisionEngine {
           suggestedInitialFraction,
           positionStage,
           portfolioShareCapPct: portfolioShareCap * 100,
-          reason: `${positionStage === 'ROTATION_ENTRY' ? 'Entrada por rotación persistente' : positionStage === 'BUILD' ? 'Construcción confirmada' : 'Starter'}: ${alert.level === 'HIGH_CONVICTION' ? 'ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'buena oportunidad' : 'entrada válida'}, consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Objetivo estratégico ${targetAssetValueEur.toFixed(2)} €; timing ${alert.timingState} autoriza hasta ${(suggestedInitialFraction * 100).toFixed(0)}%, pero la etapa ${positionStage} limita la posición al ${portfolioShareCap * 100}% del patrimonio (${portfolioCapValueEur.toFixed(2)} €). Ya hay ${currentAssetValueEur.toFixed(2)} €; orden pendiente ${amountEur.toFixed(2)} €.`
+          reason: `${positionStage === 'ROTATION_ENTRY' ? 'Entrada por rotación persistente' : positionStage === 'BUILD' ? 'Construcción confirmada' : 'Starter'}: ${alert.level === 'HIGH_CONVICTION' ? 'ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'buena oportunidad' : 'entrada válida'}, consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Prioridad de asignación ${opportunityAllocationPolicy === 'QUALITY_ALLOCATION_BRIDGE_V1' ? `QUALITY ×${qualityMultiplier.toFixed(3)}` : 'LEGACY'}. Objetivo estratégico ${targetAssetValueEur.toFixed(2)} €; timing ${alert.timingState} autoriza hasta ${(suggestedInitialFraction * 100).toFixed(0)}%, pero la etapa ${positionStage} limita la posición al ${portfolioShareCap * 100}% del patrimonio (${portfolioCapValueEur.toFixed(2)} €). Ya hay ${currentAssetValueEur.toFixed(2)} €; orden pendiente ${amountEur.toFixed(2)} €.`
         };
       });
       contributions = allocated.filter((row): row is ContributionRecommendation => row != null);
@@ -655,6 +687,7 @@ export class PortfolioDecisionEngine {
     if (rotationActions > 0) warnings.push(`Rotación competitiva persistente 1:1 activa: ${rotationActions} incumbent(s) liberan realmente su plaza para challenger(s) con fuerza reciente repetida y ventaja material. Proceeds teóricos liberados: ${plannedRotationProceedsEur.toFixed(2)} €; la ejecución real sigue sujeta a comisión, fiscalidad y efectivo realmente obtenido.`);
     if (opportunities.length > 0) warnings.push(`La asignación efectiva usa oportunidades que pasan cash + consenso + timing. El 25%/50% sigue siendo techo por timing, pero ya no obliga a construir una posición grande: starter/build y plazas de cartera añaden límites más estrictos.`);
     else warnings.push('No hay oportunidades actuales que pasen el gate: no se genera ninguna compra fallback. Los pesos teóricos quedan sólo como diagnóstico.');
+    if (opportunityAllocationPolicy === 'QUALITY_ALLOCATION_BRIDGE_V1') warnings.push('QUALITY_ALLOCATION_BRIDGE_V1 research-only: la corrección QUALITY_V1 congelada modula ±15% como máximo la prioridad relativa entre oportunidades ya elegibles. No altera cash, consenso, timing, slots, starter/build, caps, rotaciones ni hard gates; producción sigue LEGACY.');
 
     return {
       currentInvestedValueEur,
