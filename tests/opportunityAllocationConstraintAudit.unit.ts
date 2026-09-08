@@ -22,6 +22,11 @@ assert.match(runner, /finally\s*\{\s*PortfolioDecisionEngine\.evaluate = origina
 assert.doesNotMatch(runner, /PortfolioCandidateGate\.apply\s*=/);
 assert.match(runner, /bridgeAlreadyClosedAsInsufficientFromPriorRun: true/);
 assert.match(runner, /noBridgeAmplificationOrRetuningAllowed: true/);
+assert.match(runner, /executableTargetConstraintCounts/);
+assert.match(runner, /finalAmountConstraintCounts/);
+assert.match(runner, /TIMING_CAP/);
+assert.match(runner, /STAGE_CAP/);
+assert.match(runner, /DOWNSTREAM_CAPITAL_OR_CATEGORY_LIMIT/);
 
 assert.match(replayCore, /stagedCapitalPlan:\s*\{\s*availableEur:\s*0,\s*horizonMonths:\s*12,\s*preferredMode:\s*'MONTHLY'\s*\}/);
 assert.match(engine, /opportunityAllocationPolicy \?\? 'LEGACY'/);
