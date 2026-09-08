@@ -81,6 +81,19 @@ function resultSummary(result: any): React.ReactNode {
       <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">SLOPE vs LEGACY</div><b className="text-sm text-white">{delta(slope.medianFinalDeltaEurVsLegacy)}</b><div className="mt-1 text-[8px] text-slate-600">final wins {slope.finalValueWinsVsLegacy ?? 'N/D'}/3 · DD {dd(slope.medianDrawdownImprovementPctPointsVsLegacy)}</div></div>
     </div>;
   }
+  if (result.version === 'OPPORTUNITY_RANKING_REACH_AUDIT_V1') {
+    const aggregate = result.aggregate ?? {};
+    const legacy = aggregate.legacy ?? {};
+    const variants = Array.isArray(aggregate.variants) ? aggregate.variants : [];
+    const quality = variants.find((row: any) => row?.policy === 'QUALITY_V1') ?? {};
+    const slope = variants.find((row: any) => row?.policy === 'SLOPE_V1') ?? {};
+    return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Audit</div><b className="text-xs text-white">{String(result.status ?? 'N/D')}</b><div className="mt-1 text-[8px] text-slate-600">Producción sigue LEGACY</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Competencia selección</div><b className="text-sm text-white">{legacy.selectionCompetitionDecisionGatesAcrossWindows ?? 'N/D'} / {legacy.decisionGatesAcrossWindows ?? 'N/D'}</b><div className="mt-1 text-[8px] text-slate-600">gates con algún ELIGIBLE fuera</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">QUALITY llega a</div><b className="text-sm text-white">{quality.selectedSetChangedDecisionGatesAcrossWindows ?? 'N/D'} sets · {quality.executedAcquisitionDecisionDatesChangedAcrossWindows ?? 'N/D'} compras</b><div className="mt-1 text-[8px] text-slate-600">orden cambia {quality.rankOrderChangedDecisionGatesAcrossWindows ?? 'N/D'} gates</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">SLOPE llega a</div><b className="text-sm text-white">{slope.selectedSetChangedDecisionGatesAcrossWindows ?? 'N/D'} sets · {slope.executedAcquisitionDecisionDatesChangedAcrossWindows ?? 'N/D'} compras</b><div className="mt-1 text-[8px] text-slate-600">orden cambia {slope.rankOrderChangedDecisionGatesAcrossWindows ?? 'N/D'} gates</div></div>
+    </div>;
+  }
   const aggregate = result.aggregate ?? {};
   if (aggregate.medianFinalDeltaEur != null || aggregate.medianDeferredExecutionPriceImprovementPct != null) {
     return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
