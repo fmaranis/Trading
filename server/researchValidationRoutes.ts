@@ -176,9 +176,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'opportunity-ranking-reach-audit-v1',
     name: 'Oportunidad · auditoría de alcance del ranking',
-    description: 'Mide dentro del mismo replay CORE_ARCHITECTURE_V1 dónde llega o se pierde la información de ranking: cambio de orden -> cambio del conjunto seleccionado -> cambio del plan BUY/ADD -> cambio de compras ejecutadas. No cambia producción ni añade pantallas.',
+    description: 'Diagnóstico consumido el 2026-09-08. Confirmó 0 violaciones de elegibilidad y que QUALITY cambia orden/conjunto muchas veces pero casi nunca llega a compras ejecutadas. El cuello de botella está en asignación de capital, no en la selección.',
     marker: 'OPPORTUNITY_RANKING_REACH_AUDIT_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'Ranking reach audit · señal muere antes del capital',
     steps: [
       { label: 'Guard arquitectura ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingArchitecture.unit.ts'] },
       { label: 'Guard alcance ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingReachAudit.unit.ts'] },
@@ -186,6 +187,20 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Auditoría REAL 3 políticas × 3 ventanas', command: 'npx', args: ['tsx', 'scripts/opportunityRankingReachAuditLive.ts'] }
+    ]
+  },
+  {
+    id: 'opportunity-quality-allocation-bridge-v1',
+    name: 'Oportunidad · QUALITY bridge de asignación',
+    description: 'Compara LEGACY contra un bridge research-only dentro del PortfolioDecisionEngine existente. Mantiene el conjunto/gates LEGACY y sólo multiplica la prioridad de capital por la corrección QUALITY_V1 ya congelada (0,85×–1,15×). Misma CORE_ARCHITECTURE_V1; no promociona producción.',
+    marker: 'OPPORTUNITY_QUALITY_ALLOCATION_BRIDGE_V1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard QUALITY bridge', command: 'npx', args: ['tsx', 'tests/opportunityQualityAllocationBridge.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Diagnóstico REAL LEGACY vs QUALITY bridge · 3 ventanas', command: 'npx', args: ['tsx', 'scripts/opportunityQualityAllocationBridgeV1Live.ts'] }
     ]
   }
 ];
