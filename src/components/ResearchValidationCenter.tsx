@@ -105,6 +105,16 @@ function resultSummary(result: any): React.ReactNode {
       <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">DD mediano</div><b className="text-sm text-white">{dd(aggregate.medianDrawdownImprovementPctPointsVsLegacy)}</b><div className="mt-1 text-[8px] text-slate-600">notional distinto {Number.isFinite(Number(aggregate.totalAbsoluteExecutedNotionalDeltaEurAcrossWindows)) ? `${Number(aggregate.totalAbsoluteExecutedNotionalDeltaEurAcrossWindows).toFixed(0)} €` : 'N/D'}</div></div>
     </div>;
   }
+  if (result.version === 'REPLAY_EXPLICIT_CASH_FLOWS_V1') {
+    const aggregate = result.aggregate ?? {};
+    const eur = (value: unknown) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(0)} €` : 'N/D';
+    return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Flujos explícitos</div><b className="text-xs text-white">{String(result.status ?? 'N/D')}</b><div className="mt-1 text-[8px] text-slate-600">MONTHLY = revisión, no aportación</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Causalidad / contabilidad</div><b className="text-sm text-white">{aggregate.accountingAndCausalChecksPass === true ? 'PASS' : aggregate.accountingAndCausalChecksPass === false ? 'FAIL' : 'N/D'}</b><div className="mt-1 text-[8px] text-slate-600">fixture externo research-only</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Capital llega a compras</div><b className="text-sm text-white">{aggregate.fundingReachWindows ?? 'N/D'} / 3 ventanas</b><div className="mt-1 text-[8px] text-slate-600">Δ notional {eur(aggregate.executedAcquisitionNotionalDeltaEurExplicitVsClosedAcrossWindows)}</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">QUALITY con capital</div><b className="text-sm text-white">{aggregate.qualityAllocationPlanChangedDecisionGatesAcrossWindows ?? 'N/D'} planes</b><div className="mt-1 text-[8px] text-slate-600">{aggregate.qualityExecutedAcquisitionDatesChangedAcrossWindows ?? 'N/D'} fechas ejecutadas · producción LEGACY</div></div>
+    </div>;
+  }
   const aggregate = result.aggregate ?? {};
   if (aggregate.medianFinalDeltaEur != null || aggregate.medianDeferredExecutionPriceImprovementPct != null) {
     return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
