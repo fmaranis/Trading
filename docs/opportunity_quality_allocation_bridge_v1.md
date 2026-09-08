@@ -2,150 +2,152 @@
 
 Status date: 2026-09-08.
 
-## Purpose
+## Purpose and architecture
 
-`OPPORTUNITY_RANKING_REACH_AUDIT_V1` showed that QUALITY information frequently changes ranking and sometimes changes the selected candidate set, but almost never changes executed acquisitions.
+`OPPORTUNITY_RANKING_REACH_AUDIT_V1` showed that QUALITY information often changes ranking and sometimes the selected set, but almost never reaches executed acquisitions.
 
-Observed QUALITY reach across the three consumed windows:
-- 456 gate observations;
-- rank order changed in 282;
-- selected set changed in 70;
-- planned acquisitions changed on 4 dates;
-- executed acquisitions changed on only 2 dates;
-- eligibility parity violations: 0.
+The bridge therefore tested a different hypothesis **inside the existing `PortfolioDecisionEngine`**. No new product screen or production engine was created.
 
-Therefore the next question is not whether to increase ranking coefficients. It is whether the already-frozen QUALITY information can reach **capital allocation** inside the existing portfolio engine.
-
-## Architecture
-
-No new product screen or production engine is created.
-
-The production chain remains:
+Production remains:
 
 `AssetUniverseScanner -> PortfolioCandidateGate -> CurrentOpportunityAlertEngine -> PortfolioDecisionEngine -> CORE_ARCHITECTURE_V1 -> execution`.
 
-`PortfolioDecisionEngine` now accepts an optional internal allocation policy:
+Allocation policies:
 - `LEGACY` — default and production;
 - `QUALITY_ALLOCATION_BRIDGE_V1` — research-only.
 
-All normal callers omit the option and therefore remain `LEGACY`.
+All normal callers omit the research option and remain `LEGACY`.
 
-The historical diagnostic runner temporarily injects the research policy into the existing engine and restores the original method in `finally` after each run.
+## Frozen formula
 
-## Frozen bridge formula
-
-The bridge reuses the already-existing and already-consumed QUALITY_V1 adjustment:
+The bridge reused, without retuning, the already-consumed QUALITY adjustment:
 
 `candidateQualityAdjustment = (reliability - 50) * 0.10 + (opportunity - 50) * 0.20`
 
-No coefficient is refit.
-
-With reliability/opportunity scores bounded 0..100, the theoretical adjustment range is -15..+15.
-
-The bridge interprets this directly as a percentage modulation of the **existing** opportunity-priority score:
+and translated it into a bounded capital-priority multiplier:
 
 `qualityMultiplier = clamp(1 + candidateQualityAdjustment / 100, 0.85, 1.15)`
 
 `bridgePriority = legacyOpportunityPriority * qualityMultiplier`
 
-Therefore:
-- neutral QUALITY 50/50 -> 1.00x;
-- theoretical minimum -> 0.85x;
-- theoretical maximum -> 1.15x.
+The bridge could not change hard gates, cash target, consensus, Entry Timing, starter/build caps, asset/category caps, slots, order minimums, rotation rules, tax semantics or `CORE_ARCHITECTURE_V1`.
 
-This is intentionally bounded. It does not replace the allocator or create a second sizing engine.
-
-## What remains unchanged
-
-The bridge cannot change:
-- REAL-data requirement;
-- cash hurdle;
-- consensus BUY requirement;
-- structural-downtrend rejection;
-- Entry Timing WAIT rejection;
-- current gate selection policy in this diagnostic (`LEGACY`);
-- target cash;
-- starter/build semantics;
-- timing fractions;
-- max asset share;
-- max category share;
-- portfolio slots;
-- minimum meaningful order;
-- broker-cost checks;
-- rotation persistence/rules;
-- tax model;
-- `CORE_ARCHITECTURE_V1`.
-
-The only allowed difference is the relative priority used to distribute capital among current opportunities that already pass the existing rules.
-
-## Historical diagnostic protocol
+## Historical diagnostic protocol consumed
 
 Version:
 `OPPORTUNITY_QUALITY_ALLOCATION_BRIDGE_V1`.
 
-Data and replay configuration intentionally match the consumed ranking diagnostics:
+Configuration:
 - REAL only;
 - data request from 2014-09-01;
-- fixed end 2026-09-01;
-- current Yahoo open discovery disabled historically;
-- minimum 30 accepted REAL assets;
-- minimum 252 bars;
-- monthly decisions;
-- 13,000 EUR initial capital;
+- end fixed at 2026-09-01;
+- Yahoo current discovery OFF historically;
+- three windows: 10y / 6y / 3y;
+- monthly **decision cadence**;
+- initial capital 13,000 EUR;
 - MEDIUM risk;
 - 3-year horizon;
 - `CUSTODIA_ENGINE`;
-- historical ECB DFR cash benchmark with floor 0%;
-- existing tax semantics;
+- historical ECB DFR cash;
+- current replay tax semantics;
 - `CORE_ARCHITECTURE_V1`.
 
-Windows:
-1. LONG_10Y: 2016-09-01 -> 2026-09-01;
-2. MEDIUM_6Y: 2020-09-01 -> 2026-09-01;
-3. RECENT_3Y: 2023-09-01 -> 2026-09-01.
+Important semantic correction discovered after the run:
+**MONTHLY means monthly decision cadence, not a recurring monthly external contribution.**
+The historical portfolio builder currently sets:
+`stagedCapitalPlan.availableEur = 0`.
+Therefore `pendingCapitalEur` is normally zero in these replays unless another input path explicitly supplies external capital.
 
-Arms:
-- `LEGACY`;
-- `QUALITY_ALLOCATION_BRIDGE_V1`.
+## Consumed result
 
-Total: 6 local replays.
+Technical result:
+`PASS_HISTORICAL_ARCHITECTURE_DIAGNOSTIC_ONLY`.
 
-## Metrics
+Data quality:
+- catalogue 64;
+- scanned 64;
+- accepted REAL 60;
+- rejected 4;
+- provenance REAL-only;
+- Yahoo current discovery historical leak: 0;
+- decision-count parity violations: 0.
 
-The diagnostic reports, per window:
-- final value / total return / max drawdown;
-- fees / tax / cash interest;
-- BUY / ADD / REDUCE / EXIT counts;
-- structural-core benchmark relation;
-- bridge multiplier observations, mean/median/min/max;
-- pre-core contribution-plan decision gates changed;
-- plan asset-set changes vs amount-only changes;
-- planned acquisition dates changed;
-- executed acquisition dates changed;
-- total absolute executed-notional difference;
-- final-value / return / drawdown / fee / tax delta vs LEGACY.
+### LONG_10Y
+- LEGACY and bridge economically identical;
+- final value: **40,365.34 EUR**;
+- return: **210.50%**;
+- DD: **31.83%**;
+- changed allocation gates: 0;
+- planned acquisition dates changed: 0;
+- executed acquisition dates changed: 0;
+- final delta: **0 EUR**.
 
-Aggregate reports:
-- how often the bridge changes allocation plans;
-- how often it changes executed acquisition dates;
-- total executed-notional difference;
-- final-value wins/losses over the three windows;
-- median/worst/best final delta;
-- median drawdown change;
-- decision-count parity violations.
+### MEDIUM_6Y
+- LEGACY final: **26,992.46 EUR**;
+- bridge final: **26,991.42 EUR**;
+- changed allocation gates: 1, amount-only;
+- planned acquisition dates changed: 2;
+- executed acquisition dates changed: 2;
+- total absolute executed-notional difference: **25.61 EUR**;
+- final delta: **-1.04 EUR**;
+- return delta: **-0.0080 pp**;
+- DD change: effectively zero/slightly worse.
 
-## Interpretation contract
+### RECENT_3Y
+- LEGACY final: **20,779.26 EUR**;
+- bridge final: **20,776.92 EUR**;
+- changed allocation gates: 1, amount-only;
+- planned acquisition dates changed: 4;
+- executed acquisition dates changed: 1;
+- total absolute executed-notional difference: **4.28 EUR**;
+- final delta: **-2.35 EUR**;
+- return delta: **-0.0180 pp**;
+- DD improvement: only **+0.0036 pp**.
 
-These historical windows are already consumed. This run is therefore an **architecture/reach diagnostic only**.
+## Aggregate conclusion
 
-It cannot authorize production promotion even if the bridge wins historically.
+Across the three windows:
+- allocation-plan decision gates changed: **2**;
+- asset-set changes: **0**;
+- amount-only changes: **2**;
+- planned acquisition dates changed: **6**;
+- executed acquisition dates changed: **3**;
+- total absolute executed-notional difference: **29.89 EUR**;
+- final-value wins: **0/3**;
+- losses: **2/3**;
+- ties: **1/3**;
+- median final delta: **-1.04 EUR**;
+- worst final delta: **-2.35 EUR**;
+- median DD improvement: **0 pp**.
 
-Rules after reading the result:
-- no changing the 0.10 / 0.20 QUALITY coefficients;
-- no changing 0.85 / 1.15 bounds to improve these windows;
-- no changing cadence, caps or gates in response to these outcomes;
-- production remains `LEGACY`;
-- a bridge that demonstrates meaningful reach without obvious structural damage may proceed to a fresh future-forward confirmation;
-- a bridge that still barely reaches executed capital should be treated as insufficient rather than amplified until it works.
+Closed verdict:
+**TECHNICAL_PASS / REACH_INSUFFICIENT / NO_PROMOTION**.
 
-Forward Risk V8 is not used in this bridge. Its retained predictive downside information stays available for a later, separately preregistered hypothesis.
+The bridge demonstrably reaches the allocator, but its economic leverage in these replays is negligible. It must **not** be amplified by widening 0.85x–1.15x or changing QUALITY coefficients after seeing these outcomes.
+
+## Structural interpretation
+
+Two separate compression mechanisms are now known:
+
+1. `CurrentOpportunityAlertEngine` re-gates the full `scan.candidates` set with `maxSelected=1000` and LEGACY, so upstream top-12 ordering does not directly determine the allocator universe.
+2. Even after QUALITY reaches the allocator, the historical replay provides no recurring external monthly capital (`stagedCapitalPlan.availableEur = 0`) and the final contribution is further constrained by timing, starter/build stage caps, current position gap, category capacity, cash availability, order minimums and whole-share execution.
+
+Therefore the next step is **not another QUALITY parameter variant**. It is an allocation-constraint audit that measures where capital is actually being compressed.
+
+## Next diagnostic
+
+`ALLOCATION_CONSTRAINT_AUDIT_V1` reuses the same validation button and the same frozen bridge; no new UI or productive engine is created.
+
+It separately reports:
+- whether the executable target is limited by `TIMING_CAP` or `STAGE_CAP`;
+- whether the final amount reaches the target gap or is limited downstream by capital/category constraints;
+- decision gates with deployable cash;
+- decision gates with positive `pendingCapitalEur`;
+- opportunities present vs actual contribution plans;
+- deployable-capital utilization;
+- QUALITY-induced opportunity-order changes;
+- plan-to-execution compression.
+
+This audit changes no production policy and cannot authorize promotion.
+
+Forward Risk V8 remains separate and its retained predictive downside information is not used here.
