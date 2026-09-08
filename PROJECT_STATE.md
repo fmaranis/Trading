@@ -10,7 +10,7 @@
 - No recalibrar thresholds ni políticas sobre muestras ya usadas para decidir PASS/FAIL.
 - No crear motores paralelos: decisión, replay y alertas deben compartir scanner, gates y políticas productivas.
 - No crear apartados/pantallas nuevos cuando una capacidad puede integrarse en los flujos existentes.
-- Ningún dato financiero privado de usuario se embebe en código público.
+- Ningún dato financiero privado del usuario se embebe en código público.
 
 ---
 
@@ -140,153 +140,159 @@ Data quality:
 - Yahoo current discovery histórico OFF;
 - `OPEN_*` leak 0.
 
-## LEGACY: existe competencia real
-Across 10y/6y/3y:
-- gate observations: **456**;
-- selection competition: **292 / 456 = 64,04%**;
-- category competition: **292**;
-- eligible slots excluidos: **1.695**.
+LEGACY sí tuvo competencia real:
+- gate observations: 456;
+- selection competition: 292/456 = 64,04%;
+- eligible slots excluidos: 1.695.
 
-Por ventana:
-- LONG_10Y: 144/240 = 60,0%; mean eligible 10,0; mean selected 6,58; max eligible 31.
-- MEDIUM_6Y: 94/144 = 65,28%; mean eligible 11,39; mean selected 7,55; max 29.
-- RECENT_3Y: 54/72 = 75,0%; mean eligible 12,97; mean selected 8,50; max 29.
+QUALITY_V1 reach:
+- eligibility parity violations: 0;
+- rank-order changed gates: 282/456;
+- selected-set changed gates: 70/456;
+- planned acquisition dates changed: 4;
+- executed acquisition dates changed: 2;
+- executed reach sobre gates auditados: 2/456 = 0,44%.
 
-Conclusión: el escaso efecto económico del ranking **no** se debe a que nunca haya competencia de candidatos.
+SLOPE_V1 reach:
+- eligibility parity violations: 0;
+- rank-order changed gates: 316/456;
+- selected-set changed gates: 98/456;
+- planned acquisition dates changed: 6;
+- executed acquisition dates changed: 3;
+- worst final delta: -275,80 EUR.
 
-## QUALITY_V1 reach
-- eligibility parity violations: **0**;
-- rank-order changed gates: **282 / 456**;
-- selected-set changed gates: **70 / 456**;
-- rank changed but set unchanged: **212**;
-- planned acquisition dates changed: **4**;
-- executed acquisition dates changed: **2**;
-- median final delta: 0 EUR;
-- worst final delta: 0 EUR;
-- median DD improvement: 0 pp.
-
-Conversiones clave:
-- selected-set reach tras cambiar ranking: 70/282 = **24,82%**;
-- executed reach tras cambiar selected set: 2/70 = **2,86%**;
-- executed reach sobre gates auditados: 2/456 = **0,44%**.
-
-En 10y y 6y QUALITY cambió repetidamente orden y selected sets, pero cambió **cero** planes/compras y el resultado económico quedó idéntico.
-
-## SLOPE_V1 reach
-- eligibility parity violations: **0**;
-- rank-order changed gates: **316 / 456**;
-- selected-set changed gates: **98 / 456**;
-- planned acquisition dates changed: **6**;
-- executed acquisition dates changed: **3**;
-- median final delta 0 EUR;
-- worst final delta -275,80 EUR.
-
-## Hallazgo arquitectónico principal
-El cuello de botella está **después de la selección**.
-
-`PortfolioDecisionEngine` vuelve a calcular prioridad de capital con una función propia basada en:
-- nivel de oportunidad;
-- consenso;
-- exceso vs cash;
-- volatilidad;
-- starter/build;
-- timing fraction;
-- caps por activo/categoría;
-- slots;
-- mínimo de orden;
-- rotaciones.
-
-`CurrentOpportunityAlert` sí transporta `reliabilityScore` y `opportunityScore`, pero la fórmula productiva `LEGACY` de capital no usa esos campos directamente.
-
-Por eso aumentar el coeficiente de ranking sería la respuesta equivocada. El siguiente test debe hacer llegar la información QUALITY a la prioridad de capital **dentro del allocator existente** y de forma acotada.
+Hallazgo arquitectónico principal:
+el cuello de botella está después de la selección, dentro de la prioridad/capacidad efectiva de asignación de capital del `PortfolioDecisionEngine`.
 
 ---
 
-# FASE ACTUAL — QUALITY_ALLOCATION_BRIDGE_V1
+# QUALITY_ALLOCATION_BRIDGE_V1 — CONSUMIDO / ARCHIVADO
 
 Documento preregistrado:
 `docs/opportunity_quality_allocation_bridge_v1.md`.
 
-Objetivo:
-probar si la señal QUALITY ya congelada puede influir en cuánto capital recibe una oportunidad ya elegible, sin crear otro motor ni modificar hard gates.
+Objetivo probado:
+hacer llegar la señal QUALITY ya congelada a cuánto capital recibe una oportunidad elegible, dentro del allocator existente y sin tocar hard gates.
 
-## Integración
-`PortfolioDecisionEngine` existente acepta una opción interna:
-- `LEGACY` — default/productivo;
-- `QUALITY_ALLOCATION_BRIDGE_V1` — research-only.
+Integración research-only:
+- `LEGACY` = default/productivo;
+- `QUALITY_ALLOCATION_BRIDGE_V1` = opción interna de investigación;
+- callers normales siguen omitiendo la opción y por tanto usan `LEGACY`;
+- wrapper histórico restaura `PortfolioDecisionEngine.evaluate` en `finally`.
 
-Todos los callers normales omiten la opción y siguen en LEGACY.
-
-El runner histórico la activa temporalmente mediante wrapper y restaura `PortfolioDecisionEngine.evaluate` en `finally`.
-
-## Fórmula congelada antes del run
-Se reutiliza **sin retuning**:
+Fórmula congelada:
 `candidateQualityAdjustment = (reliability - 50) * 0.10 + (opportunity - 50) * 0.20`.
 
-Bridge:
 `qualityMultiplier = clamp(1 + candidateQualityAdjustment / 100, 0.85, 1.15)`.
 
 `bridgePriority = legacyOpportunityPriority * qualityMultiplier`.
 
-Interpretación:
-- QUALITY 50/50 -> 1,00x;
-- mínimo teórico -> 0,85x;
-- máximo teórico -> 1,15x.
+No se modificaron cash hurdle, consenso, timing, gates, starter/build, timing fractions, caps, slots, minimum order, rotaciones, fiscalidad ni `CORE_ARCHITECTURE_V1`.
 
-No se cambian:
-- cash hurdle;
-- consenso;
-- timing;
-- gate selection policy, que en este diagnóstico sigue LEGACY;
-- starter/build;
-- timing fractions;
-- caps;
-- slots;
-- minimum order;
-- rotaciones;
-- fiscalidad;
-- `CORE_ARCHITECTURE_V1`.
+Resultado consumido:
+- technical pass;
+- el bridge sí llegó al allocator;
+- el replay cerrado tuvo capital desplegable en sólo 3/228 decisiones;
+- por tanto el reach económico quedó insuficiente;
+- no promoción a producción;
+- no retuning de coeficientes ni bounds sobre estas ventanas.
 
-## Protocolo del diagnóstico
-Mismas ventanas consumidas, sólo para reach/arquitectura:
-- 10y / 6y / 3y;
-- LEGACY vs QUALITY bridge;
-- 6 replays;
-- REAL only;
-- Yahoo discovery histórico OFF;
-- monthly;
-- 13.000 EUR;
-- MEDIUM;
-- horizonte 3 años;
-- cash BCE;
-- fiscalidad actual;
-- CORE_ARCHITECTURE_V1.
+Interpretación retenida:
+la ausencia de efecto no demuestra que QUALITY carezca de información; demuestra que, con capital cerrado, el allocator casi nunca tuvo capital nuevo que repartir.
 
-Métricas:
-- planes de contribución modificados;
-- amount-only vs asset-set changes;
-- planned/executed acquisition dates changed;
-- total absolute executed notional delta;
-- multiplier observations min/mean/median/max;
-- final value / return / DD / fees / tax como diagnóstico económico;
-- parity de decisiones.
+El job anterior queda archivado:
+`opportunity-quality-allocation-bridge-v1` — **Oportunidad · QUALITY bridge de asignación**.
 
-Contrato:
-- producción sigue `LEGACY`;
-- estas ventanas están consumidas y **no pueden promocionar** el bridge;
-- no tocar coeficientes 0.10/0.20 ni bounds 0.85/1.15 tras ver resultados;
-- si demuestra reach significativo sin daño estructural evidente, el siguiente paso es fresh future-forward;
-- si sigue sin llegar al capital, no amplificarlo hasta que funcione.
+---
+
+# FASE ACTUAL — REPLAY_EXPLICIT_CASH_FLOWS_V1
 
 Job local vigente en `ResearchValidationCenter`:
-**Oportunidad · QUALITY bridge de asignación**.
+**Replay · flujos externos explícitos**
 
-Pasos:
-1. `opportunityQualityAllocationBridge.unit`;
-2. `portfolioCandidateGate.unit`;
-3. guard replay histórico;
-4. `tsc --noEmit`;
-5. diagnóstico REAL LEGACY vs QUALITY bridge en 3 ventanas.
+ID:
+`replay-explicit-cash-flows-v1`.
+
+Objetivo:
+validar dentro del replay existente que la frecuencia `MONTHLY` sea únicamente frecuencia de decisión y que aportaciones/retiradas fechadas entren causalmente como flujos externos explícitos. Después se usa ese capital externo sólo como brazo de investigación para comprobar si QUALITY alcanza realmente planes y compras cuando sí existe capital nuevo que repartir.
+
+## Semántica que no debe confundirse
+- `MONTHLY` = frecuencia de revisión/decisión; **no crea dinero**.
+- `stagedCapitalPlan` = capital ya disponible para despliegue escalonado; **no es una aportación recurrente**.
+- `externalCashFlows` = dinero que entra o sale de la cuenta por fecha explícita.
+
+## Fixture de investigación
+El runner usa **1.000 EUR/mes únicamente como fixture de investigación** para dar suficiente capital al allocator y medir reach.
+
+Esto queda explícitamente congelado como:
+- `researchContributionFixtureEurPerMonth: 1000`;
+- `researchContributionFixtureIsProductionDefault: false`;
+- `researchContributionFixtureIsUserCashFlowAssumption: false`;
+- `monthlyDecisionCadenceCreatesImplicitCash: false`.
+
+Por tanto:
+**1.000 EUR/mes no es una aportación predeterminada de la aplicación y no presupone que el usuario vaya a aportar esa cantidad.**
+
+## Brazos del diagnóstico
+Por cada ventana:
+1. `CLOSED_LEGACY` — capital cerrado, producción LEGACY.
+2. `EXPLICIT_LEGACY` — mismo replay con aportaciones externas explícitas, LEGACY.
+3. `EXPLICIT_QUALITY` — mismo flujo explícito con `QUALITY_ALLOCATION_BRIDGE_V1` research-only.
+
+Todos usan:
+- mismo dataset REAL;
+- mismo catálogo histórico actual con la limitación de survivorship ya conocida;
+- Yahoo current discovery histórico OFF;
+- `CORE_ARCHITECTURE_V1`;
+- MONTHLY;
+- 13.000 EUR iniciales;
+- MEDIUM;
+- horizonte 3 años;
+- cash histórico BCE;
+- fiscalidad actual;
+- ventanas 10y / 6y / 3y ya consumidas.
+
+Estas ventanas **no pueden promocionar QUALITY** y no autorizan retuning.
+
+## Causalidad y contabilidad
+Contrato implementado:
+- flujos se normalizan por fecha y signo;
+- una aportación/retirada se aplica antes de la siguiente decisión/ejecución que pueda observarla;
+- closed y explicit LEGACY deben ser idénticos antes del primer flujo externo;
+- las aportaciones no cuentan como rentabilidad;
+- existe `cashFlowAdjustedProfitEur` / `cashFlowAdjustedReturnPct` para separar P/L de dinero aportado;
+- retiradas V1 consumen sólo cash disponible;
+- si una retirada supera el cash, el replay falla explícitamente;
+- no hay ventas forzadas ocultas para financiar retiradas;
+- el benchmark de cash con flujos usa acumulador independiente para no contaminar el contexto fiscal/contable del portfolio;
+- el benchmark estructural one-shot queda N/D cuando hay flujos externos si no puede recibir los mismos flujos fechados de forma comparable.
+
+## Guards del job vigente
+1. `tests/replayExternalCashFlows.unit.ts`;
+2. `tests/replayExternalCashFlowIntegration.unit.ts`;
+3. `tests/dynamicHistoricalReplay.unit.ts`;
+4. `tests/replayInitialPortfolioModes.unit.ts`;
+5. `tests/portfolioCandidateGate.unit.ts`;
+6. `npm run lint`;
+7. sólo después: `scripts/replayExplicitCashFlowsV1Live.ts`.
+
+El paso 7 es el diagnóstico REAL largo y debe ejecutarse desde el Centro de validación/local backend, nunca mediante GitHub Actions o agentes.
+
+## Qué medirá el resultado
+- causalidad y contabilidad de flujos;
+- que el brazo cerrado tenga cero aportaciones implícitas;
+- ventanas donde el capital explícito aumente compras ejecutadas;
+- delta de notional ejecutado explicit vs closed;
+- gates con capital desplegable;
+- planes modificados por QUALITY con capital explícito;
+- fechas de compras ejecutadas modificadas por QUALITY;
+- delta absoluto de notional ejecutado;
+- economía final sólo como diagnóstico, no como permiso de promoción.
+
+Interpretación preregistrada:
+- si los flujos explícitos aumentan materialmente el reach del allocator, se podrá diseñar después una validación fresh future-forward de allocation;
+- si ni con capital explícito llega a compras, no amplificar QUALITY ni retunear parámetros;
+- producción permanece `LEGACY` en cualquier caso hasta nueva evidencia válida.
 
 ---
 
@@ -305,56 +311,32 @@ Documentos permanentes:
 - `docs/forward_risk_v8_retained_predictive_value.md`;
 - `docs/forward_risk_retained_research_findings_v8_v11.md`.
 
-## V8 — valor predictivo retenido
-Regla histórica:
-`V5 vulnerability >=80 OR V7 options >=80`.
-
-Evidencia:
+V8 — valor predictivo retenido:
 - EUNL: 11/19 anticipados = 57,89%; lead mediano 63 sesiones; falsa señal 16,73%.
 - seis holdouts: 72/83 = 86,75%; lead mediano 40; falsa señal 26,33%; 6/6 PASS predictivo.
 - señal fragmentada: 3.974 sesiones; 1.059 ON (26,65%); 111 runs ON; duración mediana 2 sesiones; 222 transiciones.
 - gate económico V8: 0/6 PASS; la traducción sell/rebuy perdió demasiado upside.
 
-Conclusión: V8 contiene información anticipativa útil, pero no debe usarse como interruptor transaccional directo.
-
-V5/V7 se conservan como features potenciales. No asumir que cada componente tenga valor autónomo demostrado.
-
-## V9 — retirada
+V9:
 `V9_BLIND_FAIL_RETIRE_V9_POLICY_1`.
-- holdout: SPPW.DE, SPY5.DE, SPYM.DE, ZPRS.DE, VGEU.DE, ZPDJ.DE;
 - predictivo 22/56 = 39,29%, FAIL;
 - económico 0/6 PASS;
-- mediana final delta ~-6.791 EUR;
 - no V9.1/tuning.
 
-## V10 — retirada
+V10:
 `V10_BLIND_FAIL_RETIRE_V10_POLICY_1`.
-- holdout: VGVF.DE, VNRA.DE, VFEM.DE, VERE.DE, VGEK.DE, VJPN.DE;
 - 6/6 válidos, 0/6 PASS;
 - 71 aportaciones aplazadas;
 - mediana final delta -219,25 EUR;
-- mejora precio aplazado -1,1907%;
 - DOWN_FIRST=34, UP_FIRST=28, NEITHER=9.
 
-Hallazgo retenido: DOWN_FIRST > UP_FIRST es compatible con información bajista útil, aunque la política falló.
-
-## V11 — retirada
+V11:
 `V11_BLIND_FAIL_RETIRE_V11_POLICY_1`.
-- holdout: IUSQ.DE, SXR4.DE, EUNM.DE, EUNK.DE, SXR1.DE, SXRZ.DE;
 - 6/6 válidos, 0/6 PASS;
 - mediana final delta -313,29 EUR;
-- mediana delta/contribuciones -0,17229%;
-- mediana reducción DD +0,00906 pp;
-- mediana wealthEfficiencyRatio 0,999413.
+- overlap riesgo >80 con decisiones ELIGIBLE: 18,75%.
 
-Hallazgo estructural:
-- 272 decisiones ELIGIBLE;
-- sólo 51 con riesgo >80;
-- overlap **18,75%**.
-
-Interpretación: poner Forward Risk después del gate deja poco margen incremental.
-
-## Conclusión V8 -> V11
+Conclusión V8 -> V11:
 1. V8 anticipa caídas con información útil y debe conservarse.
 2. ON/OFF diario es demasiado fragmentado.
 3. Sell/rebuy V8/V9 destruye upside.
@@ -363,7 +345,7 @@ Interpretación: poner Forward Risk después del gate deja poco margen increment
 6. No crear V12/V13 como variaciones paramétricas del mismo overlay.
 7. Posibles usos futuros: ranking, contexto de riesgo, alertas, stress, margen de seguridad, priorización y modelos conjuntos.
 
-En `QUALITY_ALLOCATION_BRIDGE_V1` **V8 no se usa** para no mezclar hipótesis. Podrá estudiarse después como contexto/downside feature con metodología separada.
+En `REPLAY_EXPLICIT_CASH_FLOWS_V1` V8 no se usa para no mezclar hipótesis.
 
 ---
 
@@ -382,10 +364,11 @@ Archivado:
 - Mercado abierto V1 infraestructura PASS;
 - Mercado abierto V1 integración live PASS;
 - Ranking causal V1 consumido;
-- Ranking reach audit V1 consumido.
+- Ranking reach audit V1 consumido;
+- `opportunity-quality-allocation-bridge-v1` consumido/archivado.
 
-Job vigente:
-- `opportunity-quality-allocation-bridge-v1` — **Oportunidad · QUALITY bridge de asignación**.
+Único job vigente:
+- `replay-explicit-cash-flows-v1` — **Replay · flujos externos explícitos**.
 
 Nunca usar Gemini, agentes ni GitHub Actions para estas ejecuciones largas.
 
@@ -403,15 +386,17 @@ Búsqueda manual del replay puede registrar instrumentos EUR por ticker/nombre/I
 ---
 
 # Próxima secuencia
-1. Ejecutar localmente **Oportunidad · QUALITY bridge de asignación**.
-2. Exigir guards + `tsc --noEmit` PASS antes de interpretar economía.
-3. Medir cuánto aumenta el reach desde plan hasta compra ejecutada sin cambiar gates ni selección LEGACY.
-4. Mantener producción `LEGACY` independientemente del resultado histórico consumido.
-5. No retunear coefficients/bounds con estas ventanas.
-6. Si el bridge demuestra reach suficiente y comportamiento razonable, preparar validación fresh future-forward desde la fecha posterior al cierre del diagnóstico.
-7. Sólo después considerar V8 como feature de downside separada.
-8. Mantener `CORE_ELIGIBILITY_V2` shadow.
-9. Instrument master point-in-time sigue pendiente para replay open-market histórico sin survivorship residual.
+1. No modificar parámetros del fixture, QUALITY ni reglas financieras antes de la ejecución.
+2. Ejecutar localmente **Replay · flujos externos explícitos** desde `ResearchValidationCenter`.
+3. Exigir PASS de todos los guards y `npm run lint` antes de interpretar el diagnóstico REAL.
+4. Verificar primero causalidad/contabilidad y ausencia de aportación implícita en el brazo cerrado.
+5. Después medir si el capital explícito llega a compras y si QUALITY modifica realmente planes/compras cuando existe capital nuevo.
+6. Mantener producción `LEGACY` independientemente del resultado de estas ventanas consumidas.
+7. No retunear coefficients/bounds con estas ventanas.
+8. Si el reach queda demostrado, diseñar validación fresh future-forward separada.
+9. Sólo después considerar V8 como feature de downside separada.
+10. Mantener `CORE_ELIGIBILITY_V2` shadow.
+11. Instrument master point-in-time sigue pendiente para replay open-market histórico sin survivorship residual.
 
 ---
 
@@ -424,7 +409,7 @@ Búsqueda manual del replay puede registrar instrumentos EUR por ticker/nombre/I
 - Alarmas backend.
 - Centro de validación existente.
 
-No crear nuevos apartados para discovery, core eligibility, ranking o allocation research si pueden vivir bajo estos flujos.
+No crear nuevos apartados para discovery, core eligibility, ranking, allocation research o flujos de validación si pueden vivir bajo estos flujos.
 
 Pendiente de simplificación:
 - fusionar ranking técnico con ranking del estudio cuando haya evidencia suficiente;
