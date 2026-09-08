@@ -30,7 +30,9 @@ requireText(core, 'PortfolioCandidateGate.apply', 'CUSTODIA_MODE_MUST_KEEP_EXIST
 
 // HOLD_ONLY is a mode of the same replay core: no decisions, same remunerated cash helpers.
 requireText(core, "if (simulationMode === 'HOLD_ONLY')", 'HOLD_ONLY_BRANCH_MISSING');
-requireText(core, 'accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, input.startDate, endDate)', 'HOLD_ONLY_MUST_USE_EXISTING_REMUNERATED_CASH');
+requireText(core, 'const advanceCashTo = (targetDate: string) =>', 'SHARED_CAUSAL_CASH_ADVANCE_HELPER_MISSING');
+requireText(core, 'const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, lastCashDate, targetDate)', 'SHARED_CASH_ADVANCE_MUST_USE_EXISTING_REMUNERATED_CASH');
+requireText(core, 'advanceCashTo(endDate);', 'HOLD_ONLY_MUST_ADVANCE_REMUNERATED_CASH_CAUSALLY_TO_END');
 requireText(core, "operationalParity: 'HOLD_ONLY_NO_DECISIONS'", 'HOLD_ONLY_MUST_DECLARE_NO_DECISIONS');
 requireText(core, 'decisions: 0', 'HOLD_ONLY_MUST_NOT_RUN_DECISIONS');
 
