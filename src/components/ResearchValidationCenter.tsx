@@ -94,6 +94,17 @@ function resultSummary(result: any): React.ReactNode {
       <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">SLOPE llega a</div><b className="text-sm text-white">{slope.selectedSetChangedDecisionGatesAcrossWindows ?? 'N/D'} sets · {slope.executedAcquisitionDecisionDatesChangedAcrossWindows ?? 'N/D'} compras</b><div className="mt-1 text-[8px] text-slate-600">orden cambia {slope.rankOrderChangedDecisionGatesAcrossWindows ?? 'N/D'} gates</div></div>
     </div>;
   }
+  if (result.version === 'OPPORTUNITY_QUALITY_ALLOCATION_BRIDGE_V1') {
+    const aggregate = result.aggregate ?? {};
+    const delta = (value: unknown) => Number.isFinite(Number(value)) ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(0)} €` : 'N/D';
+    const dd = (value: unknown) => Number.isFinite(Number(value)) ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(2)} pp` : 'N/D';
+    return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">QUALITY bridge</div><b className="text-xs text-white">{String(result.status ?? 'N/D')}</b><div className="mt-1 text-[8px] text-slate-600">Producción sigue LEGACY</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Planes cambiados</div><b className="text-sm text-white">{aggregate.allocationPlanChangedDecisionGatesAcrossWindows ?? 'N/D'}</b><div className="mt-1 text-[8px] text-slate-600">compras ejecutadas {aggregate.executedAcquisitionDatesChangedAcrossWindows ?? 'N/D'}</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Δ final mediano</div><b className="text-sm text-white">{delta(aggregate.medianFinalDeltaEurVsLegacy)}</b><div className="mt-1 text-[8px] text-slate-600">wins/losses {aggregate.finalValueWinsVsLegacy ?? 'N/D'} / {aggregate.finalValueLossesVsLegacy ?? 'N/D'}</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">DD mediano</div><b className="text-sm text-white">{dd(aggregate.medianDrawdownImprovementPctPointsVsLegacy)}</b><div className="mt-1 text-[8px] text-slate-600">notional distinto {Number.isFinite(Number(aggregate.totalAbsoluteExecutedNotionalDeltaEurAcrossWindows)) ? `${Number(aggregate.totalAbsoluteExecutedNotionalDeltaEurAcrossWindows).toFixed(0)} €` : 'N/D'}</div></div>
+    </div>;
+  }
   const aggregate = result.aggregate ?? {};
   if (aggregate.medianFinalDeltaEur != null || aggregate.medianDeferredExecutionPriceImprovementPct != null) {
     return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
