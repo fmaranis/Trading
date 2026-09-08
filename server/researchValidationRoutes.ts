@@ -192,15 +192,33 @@ const JOBS: JobDefinition[] = [
   {
     id: 'opportunity-quality-allocation-bridge-v1',
     name: 'Oportunidad · QUALITY bridge de asignación',
-    description: 'Compara LEGACY contra un bridge research-only dentro del PortfolioDecisionEngine existente. Mantiene el conjunto/gates LEGACY y sólo multiplica la prioridad de capital por la corrección QUALITY_V1 ya congelada (0,85×–1,15×). Misma CORE_ARCHITECTURE_V1; no promociona producción.',
+    description: 'Diagnóstico consumido. El bridge llegó al allocator, pero apenas movió capital porque el replay cerrado tuvo capital desplegable en sólo 3/228 decisiones. Resultado: technical pass, reach insuficiente y no promoción.',
     marker: 'OPPORTUNITY_QUALITY_ALLOCATION_BRIDGE_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'QUALITY bridge · capital disponible fue el cuello de botella',
     steps: [
       { label: 'Guard QUALITY bridge', command: 'npx', args: ['tsx', 'tests/opportunityQualityAllocationBridge.unit.ts'] },
+      { label: 'Guard restricciones de asignación', command: 'npx', args: ['tsx', 'tests/opportunityAllocationConstraintAudit.unit.ts'] },
       { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
       { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Diagnóstico REAL LEGACY vs QUALITY bridge · 3 ventanas', command: 'npx', args: ['tsx', 'scripts/opportunityQualityAllocationBridgeV1Live.ts'] }
+      { label: 'Diagnóstico REAL de restricciones', command: 'npx', args: ['tsx', 'scripts/opportunityQualityAllocationBridgeV1Live.ts'] }
+    ]
+  },
+  {
+    id: 'replay-explicit-cash-flows-v1',
+    name: 'Replay · flujos externos explícitos',
+    description: 'Valida dentro del replay existente que MONTHLY sea sólo frecuencia de decisión y que aportaciones/retiradas fechadas entren causalmente como flujos externos. Compara capital cerrado, aportaciones explícitas con LEGACY y el mismo flujo con QUALITY research-only; producción no cambia.',
+    marker: 'REPLAY_EXPLICIT_CASH_FLOWS_V1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard contabilidad de flujos', command: 'npx', args: ['tsx', 'tests/replayExternalCashFlows.unit.ts'] },
+      { label: 'Guard integración flujos/replay', command: 'npx', args: ['tsx', 'tests/replayExternalCashFlowIntegration.unit.ts'] },
+      { label: 'Guard replay dinámico existente', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
+      { label: 'Guard modos de cartera inicial', command: 'npx', args: ['tsx', 'tests/replayInitialPortfolioModes.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Diagnóstico REAL closed vs flujos explícitos vs QUALITY', command: 'npx', args: ['tsx', 'scripts/replayExplicitCashFlowsV1Live.ts'] }
     ]
   }
 ];
