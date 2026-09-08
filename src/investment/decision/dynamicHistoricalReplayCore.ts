@@ -14,6 +14,7 @@ import { accrueRemuneratedCash, allCashBenchmark } from './remuneratedCash';
 import {
   allCashBenchmarkWithAppliedFlows,
   cashFlowAdjustedPerformance,
+  createIndependentReplayCashAccumulator,
   normalizeReplayExternalCashFlows,
   type DynamicReplayAppliedCashFlow,
   type DynamicReplayExternalCashFlow
@@ -680,6 +681,9 @@ function buildDailyEquityPath(input: {
   if (!dates.length) return [];
   const flows = input.appliedExternalCashFlows ?? [];
   const flowsByDate = alignAppliedFlowsToTradingDates(flows, dates);
+  const independentBenchmark = flows.length
+    ? createIndependentReplayCashAccumulator({ initialCapitalEur: input.initialCapitalEur, annualPct: input.cashBenchmarkAnnualPct, startDate: input.startDate })
+    : null;
   const barsByAssetDate = new Map<string, Map<string, number>>();
   for (const asset of input.dataset.assets) barsByAssetDate.set(asset.assetId, new Map(asset.bars.map(bar => [isoDate(bar.timestamp), bar.close])));
   const lastPrice = new Map<string, number>();
@@ -694,9 +698,7 @@ function buildDailyEquityPath(input: {
   let regime = states[0]?.regime ?? 'UNKNOWN';
   let method = states[0]?.method ?? 'N/D';
   let cashEur = input.initialCapitalEur;
-  let benchmarkCashEur = input.initialCapitalEur;
   let lastCashDate = input.startDate;
-  let lastBenchmarkDate = input.startDate;
   let previousEquityEur: number | null = null;
   let cashFlowAdjustedEquityEur = input.initialCapitalEur;
   let cumulativeNetExternalCashFlowEur = 0;
@@ -707,16 +709,12 @@ function buildDailyEquityPath(input: {
       cashEur = accrueRemuneratedCash(cashEur, input.cashBenchmarkAnnualPct, lastCashDate, date).cashEur;
       lastCashDate = date;
     }
-    if (date > lastBenchmarkDate) {
-      benchmarkCashEur = accrueRemuneratedCash(benchmarkCashEur, input.cashBenchmarkAnnualPct, lastBenchmarkDate, date).cashEur;
-      lastBenchmarkDate = date;
-    }
+    independentBenchmark?.advanceTo(date);
     const dayFlows = flowsByDate.get(date) ?? [];
     const externalCashFlowEur = dayFlows.reduce((sum, flow) => sum + flow.amountEur, 0);
     if (externalCashFlowEur < 0 && cashEur + externalCashFlowEur < -0.01) throw new Error(`REPLAY_EXTERNAL_WITHDRAWAL_EXCEEDS_CASH_PATH:${date}`);
-    if (externalCashFlowEur < 0 && benchmarkCashEur + externalCashFlowEur < -0.01) throw new Error(`REPLAY_EXTERNAL_WITHDRAWAL_EXCEEDS_CASH_BENCHMARK_PATH:${date}`);
     cashEur = Math.max(0, cashEur + externalCashFlowEur);
-    benchmarkCashEur = Math.max(0, benchmarkCashEur + externalCashFlowEur);
+    for (const flow of dayFlows) independentBenchmark?.applyExternalFlow(flow.amountEur, date);
     cumulativeNetExternalCashFlowEur += externalCashFlowEur;
 
     while (stateIndex < states.length && states[stateIndex].date <= date) {
@@ -754,7 +752,7 @@ function buildDailyEquityPath(input: {
     }
     previousEquityEur = equityEur;
     const cashBenchmarkEur = flows.length
-      ? benchmarkCashEur
+      ? (independentBenchmark?.valueEur() ?? input.initialCapitalEur)
       : (date <= input.startDate ? input.initialCapitalEur : allCashBenchmark(input.initialCapitalEur, input.cashBenchmarkAnnualPct, input.startDate, date).finalEur);
     path.push({
       date,
@@ -1202,7 +1200,7 @@ export class DynamicHistoricalReplayEngine {
           if (!executablePair) {
             blockedRotationSellIds.add(salePlan.signal.assetId);
             blockedRotationBuyIds.add(challengerAssetId);
-            const auditSuffix = ' Ejecución bloqueada: la rotación 1:1 es atómica y el challenger no era realmente ejecutable en la misma fecha; se conserva el incumbent y no se abre la plaza.';
+            const auditSuffix = ' Ejecución bloqueada: la rotación 1:1 es atómica y el challenger no era realmente ejecutable en la misma fecha; se conserva el incumbent y no se abre una plaza ficticia.';
             salePlan.signal.reason += auditSuffix;
             if (challengerPlan) challengerPlan.signal.reason += auditSuffix;
           }
