@@ -21,7 +21,7 @@ for (const experiment of [quality, slope]) {
 assert.match(quality, /'QUALITY_V1'/);
 assert.match(slope, /'SLOPE_V1'/);
 assert.match(gate, /CandidateSelectionPolicy = 'LEGACY' \| 'QUALITY_V1' \| 'SLOPE_V1'/);
-assert.match(gate, /Experimental selection policies can only change relative ranking among those/);
+assert.match(gate, /Experimental selection policies can only change relative ranking/);
 assert.match(gate, /if \(cash\.passes !== true\)/);
 assert.match(gate, /if \(timing\.state === 'WAIT'\)/);
 assert.match(worker, /REPLAY_ROTATION_EXPERIMENT = 'CORE_ARCHITECTURE_V1'/);
