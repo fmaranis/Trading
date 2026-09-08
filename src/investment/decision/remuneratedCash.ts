@@ -9,6 +9,7 @@ import {
   setActiveReplayCashDate,
   type CashBenchmarkMode
 } from './cashBenchmark';
+import { activeReplayExternalCashFlowsBetween } from './replayExternalCashFlows';
 import { estimateSpanishTaxOnCashInterest } from './spanishTaxModel';
 
 export const DEFAULT_CASH_DAY_COUNT = 365;
@@ -51,7 +52,7 @@ function accrueFixedRemuneratedCash(cashEur: number, annualPct: number, fromDate
   return { cashEur: next, interestEur: next - cashEur, days };
 }
 
-export function accrueRemuneratedCash(cashEur: number, annualPct: number, fromDate: string, toDate: string): { cashEur: number; interestEur: number; days: number } {
+function accrueRemuneratedCashWithoutExternalFlows(cashEur: number, annualPct: number, fromDate: string, toDate: string): { cashEur: number; interestEur: number; days: number } {
   if (!isReplayCashContextActive()) return accrueFixedRemuneratedCash(cashEur, annualPct, fromDate, toDate);
   const context = activeReplayCashContextSnapshot();
   const taxSettings = activeReplayCashTaxSettings();
@@ -75,6 +76,40 @@ export function accrueRemuneratedCash(cashEur: number, annualPct: number, fromDa
   });
   setActiveReplayCashDate(toDate);
   return { cashEur: accrued.cashEur, interestEur: accrued.grossInterestEur, days: accrued.days };
+}
+
+/**
+ * Replay-aware cash accrual. External cash flows are pure dated account
+ * movements: only rows with fromDate < flow.date <= toDate are applied. This
+ * keeps a future contribution invisible to all earlier decisions and also makes
+ * weekend flows available to the first subsequent market/decision interval.
+ */
+export function accrueRemuneratedCash(cashEur: number, annualPct: number, fromDate: string, toDate: string): { cashEur: number; interestEur: number; days: number } {
+  const flows = activeReplayExternalCashFlowsBetween(fromDate, toDate);
+  if (!flows.length) return accrueRemuneratedCashWithoutExternalFlows(cashEur, annualPct, fromDate, toDate);
+
+  let currentCashEur = cashEur;
+  let grossInterestEur = 0;
+  let cursor = fromDate;
+  for (const flow of flows) {
+    if (flow.date > cursor) {
+      const accrued = accrueRemuneratedCashWithoutExternalFlows(currentCashEur, annualPct, cursor, flow.date);
+      currentCashEur = accrued.cashEur;
+      grossInterestEur += accrued.interestEur;
+      cursor = flow.date;
+    }
+    const nextCashEur = currentCashEur + flow.amountEur;
+    if (nextCashEur < -0.01) {
+      throw new Error(`REPLAY_EXTERNAL_WITHDRAWAL_EXCEEDS_AVAILABLE_CASH:${flow.date}:${Math.abs(flow.amountEur).toFixed(2)}`);
+    }
+    currentCashEur = Math.max(0, nextCashEur);
+  }
+  if (toDate > cursor) {
+    const accrued = accrueRemuneratedCashWithoutExternalFlows(currentCashEur, annualPct, cursor, toDate);
+    currentCashEur = accrued.cashEur;
+    grossInterestEur += accrued.interestEur;
+  }
+  return { cashEur: currentCashEur, interestEur: grossInterestEur, days: calendarDaysBetween(fromDate, toDate) };
 }
 
 export interface RemuneratedCashScenarioSegment {
@@ -153,37 +188,100 @@ export function accrueRemuneratedCashScenarioAfterTax(input: {
   return { cashEur, grossInterestEur, taxEur, netInterestEur: grossInterestEur - taxEur, days, segments };
 }
 
+function benchmarkReturnAdjustedForExternalFlows(
+  finalEur: number,
+  initialCapitalEur: number,
+  flows: ReturnType<typeof activeReplayExternalCashFlowsBetween>
+): number {
+  const contributionsEur = flows.reduce((sum, flow) => sum + Math.max(0, flow.amountEur), 0);
+  const withdrawalsEur = flows.reduce((sum, flow) => sum + Math.max(0, -flow.amountEur), 0);
+  const profitEur = finalEur + withdrawalsEur - initialCapitalEur - contributionsEur;
+  const grossContributedCapitalEur = Math.max(0, initialCapitalEur) + contributionsEur;
+  return grossContributedCapitalEur > 0 ? profitEur / grossContributedCapitalEur * 100 : 0;
+}
+
 export function allCashBenchmark(initialCapitalEur: number, annualPct: number, fromDate: string, toDate: string): { finalEur: number; returnPct: number; interestEur: number } {
-  if (!isReplayCashContextActive()) {
-    const accrued = accrueFixedRemuneratedCash(initialCapitalEur, annualPct, fromDate, toDate);
-    return {
-      finalEur: accrued.cashEur,
-      returnPct: initialCapitalEur > 0 ? (accrued.cashEur / initialCapitalEur - 1) * 100 : 0,
-      interestEur: accrued.interestEur
-    };
+  const externalFlows = activeReplayExternalCashFlowsBetween(fromDate, toDate);
+  if (!externalFlows.length) {
+    if (!isReplayCashContextActive()) {
+      const accrued = accrueFixedRemuneratedCash(initialCapitalEur, annualPct, fromDate, toDate);
+      return {
+        finalEur: accrued.cashEur,
+        returnPct: initialCapitalEur > 0 ? (accrued.cashEur / initialCapitalEur - 1) * 100 : 0,
+        interestEur: accrued.interestEur
+      };
+    }
+    const context = activeReplayCashContextSnapshot();
+    const taxSettings = activeReplayCashTaxSettings();
+    if (!context || !taxSettings) {
+      const accrued = accrueFixedRemuneratedCash(initialCapitalEur, annualPct, fromDate, toDate);
+      return { finalEur: accrued.cashEur, returnPct: initialCapitalEur > 0 ? (accrued.cashEur / initialCapitalEur - 1) * 100 : 0, interestEur: accrued.interestEur };
+    }
+    const simulatedByYear = new Map<string, number>();
+    const accrued = allCashBenchmarkScenarioAfterTax({
+      initialCapitalEur,
+      mode: context.mode,
+      fixedAnnualPct: context.fixedAnnualPct,
+      fromDate,
+      toDate,
+      taxOnInterest: (grossInterestEur, taxDate) => {
+        const year = taxDate.slice(0, 4);
+        const prior = simulatedByYear.get(year) ?? 0;
+        const tax = estimateSpanishTaxOnCashInterest(grossInterestEur, taxSettings, prior).estimatedTaxEur;
+        simulatedByYear.set(year, prior + Math.max(0, grossInterestEur));
+        return tax;
+      }
+    });
+    return { finalEur: accrued.finalEur, returnPct: accrued.returnPct, interestEur: accrued.grossInterestEur };
   }
+
+  let cashEur = Math.max(0, initialCapitalEur);
+  let grossInterestEur = 0;
+  let cursor = fromDate;
   const context = activeReplayCashContextSnapshot();
   const taxSettings = activeReplayCashTaxSettings();
-  if (!context || !taxSettings) {
-    const accrued = accrueFixedRemuneratedCash(initialCapitalEur, annualPct, fromDate, toDate);
-    return { finalEur: accrued.cashEur, returnPct: initialCapitalEur > 0 ? (accrued.cashEur / initialCapitalEur - 1) * 100 : 0, interestEur: accrued.interestEur };
-  }
   const simulatedByYear = new Map<string, number>();
-  const accrued = allCashBenchmarkScenarioAfterTax({
-    initialCapitalEur,
-    mode: context.mode,
-    fixedAnnualPct: context.fixedAnnualPct,
-    fromDate,
-    toDate,
-    taxOnInterest: (grossInterestEur, taxDate) => {
-      const year = taxDate.slice(0, 4);
-      const prior = simulatedByYear.get(year) ?? 0;
-      const tax = estimateSpanishTaxOnCashInterest(grossInterestEur, taxSettings, prior).estimatedTaxEur;
-      simulatedByYear.set(year, prior + Math.max(0, grossInterestEur));
-      return tax;
+
+  const accrueBenchmarkSegment = (segmentFrom: string, segmentTo: string) => {
+    if (segmentTo <= segmentFrom) return;
+    if (!context || !taxSettings) {
+      const accrued = accrueFixedRemuneratedCash(cashEur, annualPct, segmentFrom, segmentTo);
+      cashEur = accrued.cashEur;
+      grossInterestEur += accrued.interestEur;
+      return;
     }
-  });
-  return { finalEur: accrued.finalEur, returnPct: accrued.returnPct, interestEur: accrued.grossInterestEur };
+    const accrued = allCashBenchmarkScenarioAfterTax({
+      initialCapitalEur: cashEur,
+      mode: context.mode,
+      fixedAnnualPct: context.fixedAnnualPct,
+      fromDate: segmentFrom,
+      toDate: segmentTo,
+      taxOnInterest: (grossInterest, taxDate) => {
+        const year = taxDate.slice(0, 4);
+        const prior = simulatedByYear.get(year) ?? 0;
+        const tax = estimateSpanishTaxOnCashInterest(grossInterest, taxSettings, prior).estimatedTaxEur;
+        simulatedByYear.set(year, prior + Math.max(0, grossInterest));
+        return tax;
+      }
+    });
+    cashEur = accrued.finalEur;
+    grossInterestEur += accrued.grossInterestEur;
+  };
+
+  for (const flow of externalFlows) {
+    accrueBenchmarkSegment(cursor, flow.date);
+    const nextCashEur = cashEur + flow.amountEur;
+    if (nextCashEur < -0.01) throw new Error(`REPLAY_EXTERNAL_WITHDRAWAL_EXCEEDS_ALL_CASH_BENCHMARK:${flow.date}`);
+    cashEur = Math.max(0, nextCashEur);
+    cursor = flow.date;
+  }
+  accrueBenchmarkSegment(cursor, toDate);
+
+  return {
+    finalEur: cashEur,
+    returnPct: benchmarkReturnAdjustedForExternalFlows(cashEur, initialCapitalEur, externalFlows),
+    interestEur: grossInterestEur
+  };
 }
 
 export function allCashBenchmarkScenario(input: {
