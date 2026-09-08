@@ -1,4 +1,13 @@
-import { accrueRemuneratedCash } from './remuneratedCash';
+import {
+  activeReplayCashContextSnapshot,
+  activeReplayCashTaxSettings,
+  isReplayCashContextActive
+} from './cashBenchmark';
+import {
+  accrueRemuneratedCashScenarioAfterTax,
+  allCashBenchmark
+} from './remuneratedCash';
+import { estimateSpanishTaxOnCashInterest } from './spanishTaxModel';
 
 export type DynamicReplayExternalCashFlowKind = 'CONTRIBUTION' | 'WITHDRAWAL';
 
@@ -32,6 +41,15 @@ export interface DynamicReplayCashFlowSummary {
   withdrawalsEur: number;
   netExternalCashFlowEur: number;
   grossContributedCapitalEur: number;
+}
+
+export interface IndependentReplayCashAccumulator {
+  readonly startDate: string;
+  readonly annualPct: number;
+  currentDate(): string;
+  valueEur(): number;
+  advanceTo(date: string): number;
+  applyExternalFlow(amountEur: number, date: string): number;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -92,6 +110,64 @@ export function cashFlowAdjustedPerformance(input: {
   return { profitEur, returnPct, summary };
 }
 
+/**
+ * Independent cash accumulator for benchmarks/path comparisons.
+ * It reads the active replay cash mode/tax settings but never writes to the
+ * active replay context, so benchmark interest cannot contaminate portfolio
+ * interest, tax progression or the engine/path accounting phases.
+ */
+export function createIndependentReplayCashAccumulator(input: {
+  initialCapitalEur: number;
+  annualPct: number;
+  startDate: string;
+}): IndependentReplayCashAccumulator {
+  const context = activeReplayCashContextSnapshot();
+  const taxSettings = activeReplayCashTaxSettings();
+  const grossInterestByYear = new Map<string, number>();
+  let cashEur = Math.max(0, input.initialCapitalEur);
+  let cursor = input.startDate;
+
+  const advanceTo = (date: string): number => {
+    if (date < cursor) throw new Error(`REPLAY_INDEPENDENT_CASH_DATE_REGRESSION:${cursor}:${date}`);
+    if (date === cursor) return cashEur;
+    if (isReplayCashContextActive() && context && taxSettings) {
+      const accrued = accrueRemuneratedCashScenarioAfterTax({
+        cashEur,
+        mode: context.mode,
+        fixedAnnualPct: context.fixedAnnualPct,
+        fromDate: cursor,
+        toDate: date,
+        taxOnInterest: (grossInterestEur, taxDate) => {
+          const year = taxDate.slice(0, 4);
+          const prior = grossInterestByYear.get(year) ?? 0;
+          const tax = estimateSpanishTaxOnCashInterest(grossInterestEur, taxSettings, prior).estimatedTaxEur;
+          grossInterestByYear.set(year, prior + Math.max(0, grossInterestEur));
+          return tax;
+        }
+      });
+      cashEur = accrued.cashEur;
+    } else {
+      cashEur = allCashBenchmark(cashEur, input.annualPct, cursor, date).finalEur;
+    }
+    cursor = date;
+    return cashEur;
+  };
+
+  return {
+    startDate: input.startDate,
+    annualPct: input.annualPct,
+    currentDate: () => cursor,
+    valueEur: () => cashEur,
+    advanceTo,
+    applyExternalFlow: (amountEur: number, date: string) => {
+      advanceTo(date);
+      if (amountEur < 0 && cashEur + amountEur < -0.01) throw new Error(`REPLAY_EXTERNAL_WITHDRAWAL_EXCEEDS_CASH_BENCHMARK:${date}`);
+      cashEur = Math.max(0, cashEur + amountEur);
+      return cashEur;
+    }
+  };
+}
+
 export function allCashBenchmarkWithAppliedFlows(input: {
   initialCapitalEur: number;
   annualPct: number;
@@ -99,19 +175,16 @@ export function allCashBenchmarkWithAppliedFlows(input: {
   endDate: string;
   appliedFlows: readonly DynamicReplayAppliedCashFlow[];
 }): { finalEur: number; returnPct: number; profitEur: number } {
-  let cashEur = Math.max(0, input.initialCapitalEur);
-  let cursor = input.startDate;
+  const accumulator = createIndependentReplayCashAccumulator({
+    initialCapitalEur: input.initialCapitalEur,
+    annualPct: input.annualPct,
+    startDate: input.startDate
+  });
   for (const flow of [...input.appliedFlows].sort((a, b) => a.appliedDate.localeCompare(b.appliedDate) || a.id.localeCompare(b.id))) {
-    if (flow.appliedDate > cursor) {
-      cashEur = accrueRemuneratedCash(cashEur, input.annualPct, cursor, flow.appliedDate).cashEur;
-      cursor = flow.appliedDate;
-    }
-    if (flow.amountEur < 0 && cashEur + flow.amountEur < -0.01) {
-      throw new Error(`REPLAY_EXTERNAL_WITHDRAWAL_EXCEEDS_CASH:${flow.appliedDate}`);
-    }
-    cashEur = Math.max(0, cashEur + flow.amountEur);
+    accumulator.applyExternalFlow(flow.amountEur, flow.appliedDate);
   }
-  if (input.endDate > cursor) cashEur = accrueRemuneratedCash(cashEur, input.annualPct, cursor, input.endDate).cashEur;
-  const performance = cashFlowAdjustedPerformance({ finalValueEur: cashEur, initialCapitalEur: input.initialCapitalEur, appliedFlows: input.appliedFlows });
-  return { finalEur: cashEur, returnPct: performance.returnPct, profitEur: performance.profitEur };
+  accumulator.advanceTo(input.endDate);
+  const finalEur = accumulator.valueEur();
+  const performance = cashFlowAdjustedPerformance({ finalValueEur: finalEur, initialCapitalEur: input.initialCapitalEur, appliedFlows: input.appliedFlows });
+  return { finalEur, returnPct: performance.returnPct, profitEur: performance.profitEur };
 }
