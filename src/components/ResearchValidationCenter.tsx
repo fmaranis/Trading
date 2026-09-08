@@ -67,6 +67,20 @@ function resultSummary(result: any): React.ReactNode {
       <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Core V2 shadow</div><b className="text-sm text-white">{core.eligible ?? 'N/D'} elegibles</b><div className="mt-1 text-[8px] text-slate-600">{core.reviewRequired ?? 'N/D'} review · {core.rejected ?? 'N/D'} rechazados</div></div>
     </div>;
   }
+  if (result.version === 'OPPORTUNITY_RANKING_CAUSAL_COMPARISON_V1') {
+    const aggregate = Array.isArray(result.aggregate) ? result.aggregate : [];
+    const quality = aggregate.find((row: any) => row?.arm === 'QUALITY_V1') ?? {};
+    const slope = aggregate.find((row: any) => row?.arm === 'SLOPE_V1') ?? {};
+    const realAssets = result.dataQuality?.acceptedRealAssets ?? 'N/D';
+    const delta = (value: unknown) => Number.isFinite(Number(value)) ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(0)} €` : 'N/D';
+    const dd = (value: unknown) => Number.isFinite(Number(value)) ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(2)} pp` : 'N/D';
+    return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Comparación</div><b className="text-xs text-white">{String(result.status ?? 'N/D')}</b><div className="mt-1 text-[8px] text-slate-600">Producción sigue LEGACY</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Dataset REAL</div><b className="text-sm text-white">{realAssets} activos</b><div className="mt-1 text-[8px] text-slate-600">3 ventanas · discovery histórico OFF</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">QUALITY vs LEGACY</div><b className="text-sm text-white">{delta(quality.medianFinalDeltaEurVsLegacy)}</b><div className="mt-1 text-[8px] text-slate-600">final wins {quality.finalValueWinsVsLegacy ?? 'N/D'}/3 · DD {dd(quality.medianDrawdownImprovementPctPointsVsLegacy)}</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">SLOPE vs LEGACY</div><b className="text-sm text-white">{delta(slope.medianFinalDeltaEurVsLegacy)}</b><div className="mt-1 text-[8px] text-slate-600">final wins {slope.finalValueWinsVsLegacy ?? 'N/D'}/3 · DD {dd(slope.medianDrawdownImprovementPctPointsVsLegacy)}</div></div>
+    </div>;
+  }
   const aggregate = result.aggregate ?? {};
   if (aggregate.medianFinalDeltaEur != null || aggregate.medianDeferredExecutionPriceImprovementPct != null) {
     return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
