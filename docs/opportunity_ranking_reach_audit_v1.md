@@ -6,7 +6,7 @@ Status date: 2026-09-08.
 
 The completed `OPPORTUNITY_RANKING_CAUSAL_COMPARISON_V1` showed that `QUALITY_V1` and `SLOPE_V1` usually produced the same final portfolio as `LEGACY`.
 
-Observed historical diagnostic outcome:
+Observed historical comparison outcome:
 - LONG_10Y: QUALITY and SLOPE identical to LEGACY;
 - MEDIUM_6Y: QUALITY and SLOPE identical to LEGACY;
 - RECENT_3Y: QUALITY +291.24 EUR vs LEGACY, SLOPE -275.80 EUR vs LEGACY;
@@ -15,30 +15,29 @@ Observed historical diagnostic outcome:
 - production remains `LEGACY`;
 - no coefficient or threshold tuning is allowed on these consumed windows.
 
-This result suggests an architectural question rather than a parameter question: **does ranking information actually reach the downstream portfolio decision?**
+This suggested an architectural question rather than a parameter question: **does ranking information actually reach the downstream portfolio decision?**
 
-## Existing architecture being audited
+## Existing architecture audited
 
-No new product screen or production engine is created.
+No new product screen or production engine was created.
 
-The existing chain remains:
+The existing chain remained:
 
 `historical REAL prefix -> PortfolioCandidateGate -> selected candidate set -> InvestmentDecisionEngine -> PortfolioDecisionEngine / CORE_ARCHITECTURE_V1 -> execution`.
 
-`QUALITY_V1` and `SLOPE_V1` are ranking-only policies inside `PortfolioCandidateGate`. They are not allowed to change the hard eligibility rules.
+`QUALITY_V1` and `SLOPE_V1` are ranking-only policies inside `PortfolioCandidateGate`. They were not allowed to change the hard eligibility rules.
 
-The audit therefore measures four successive levels of reach:
-
-1. **Rank reach** — did the relative order of already-ELIGIBLE candidates change?
-2. **Selection reach** — did that order change which assets survived the gate's max-selected/category constraints?
-3. **Planning reach** — did the downstream engine emit a different BUY/ADD plan?
-4. **Execution reach** — did the executed BUY/ADD decisions actually change?
+The audit measured four successive levels of reach:
+1. rank reach;
+2. selection reach;
+3. planning reach;
+4. execution reach.
 
 ## Frozen audit protocol
 
 Version: `OPPORTUNITY_RANKING_REACH_AUDIT_V1`.
 
-Common configuration is intentionally identical to the consumed ranking comparison:
+Common configuration:
 - REAL data only;
 - data request from 2014-09-01;
 - fixed end 2026-09-01;
@@ -64,63 +63,108 @@ Policies:
 - `QUALITY_V1`;
 - `SLOPE_V1`.
 
-No new thresholds are introduced.
+No new thresholds were introduced.
 
-## Critical invariants
+## Observed result
 
-### Eligibility parity
+Local job completed technically with:
+`PASS_REACH_DIAGNOSTIC_ONLY`.
 
-Because QUALITY and SLOPE are supposed to be ranking-only, the set of `ELIGIBLE` candidates must be exactly the same as LEGACY at every decision gate.
+Data quality:
+- canonical catalogue: 64;
+- scanned: 64;
+- accepted REAL: 60;
+- rejected: 4;
+- accepted provenance REAL: 60/60;
+- current Yahoo discovery used historically: false;
+- current discovery leak count: 0.
 
-Any non-zero `eligibleSetParityViolations` invalidates the interpretation and must be treated as an architecture bug.
+### LEGACY competition
 
-### Selection competition
+Across the three overlapping windows:
+- decision-gate observations: **456**;
+- gates with selection competition: **292 / 456 = 64.04%**;
+- gates with category competition: **292**;
+- total excluded eligible slots: **1,695**.
 
-A ranking can only change the downstream candidate set when some eligible candidate is excluded by:
-- `maxSelected = 12`; or
-- the existing per-category cap.
+By window:
+- LONG_10Y: 144/240 gates with competition = 60.0%; mean 10.0 eligible, mean 6.58 selected, max eligible 31;
+- MEDIUM_6Y: 94/144 = 65.28%; mean 11.39 eligible, mean 7.55 selected, max eligible 29;
+- RECENT_3Y: 54/72 = 75.0%; mean 12.97 eligible, mean 8.50 selected, max eligible 29.
 
-The audit reports `selectionCompetitionDecisionGates` where `eligibleCount > selectedCount`.
+Therefore ranking did have substantial opportunity to affect the selected candidate set. The low economic effect was **not** caused by a universal absence of candidate competition.
 
-If this is rare, a ranking-only adjustment naturally has little economic leverage even when its scores change substantially.
+### QUALITY_V1 reach
 
-## Reported metrics
+Across the three windows:
+- eligibility parity violations: **0**;
+- rank-order changed gates: **282 / 456**;
+- selected-set changed gates: **70 / 456**;
+- rank changed while selected set stayed identical: **212**;
+- planned acquisition decision dates changed: **4**;
+- executed acquisition decision dates changed: **2**;
+- median final-value delta vs LEGACY: **0 EUR**;
+- worst final-value delta vs LEGACY: **0 EUR**;
+- median drawdown improvement: **0 pp**.
 
-Per historical window, LEGACY reports:
-- number of gate decisions;
-- mean/median eligible candidates;
-- mean selected candidates;
-- number and percentage of gates with selection competition;
-- category-competition gates;
-- total eligible candidates excluded by gate selection;
-- maximum eligible count.
+The key conversion ratios are:
+- selected-set reach after a rank change: 70/282 = **24.82%**;
+- executed-acquisition reach after a selected-set change: 2/70 = **2.86%**;
+- executed-acquisition reach across all audited gate observations: 2/456 = **0.44%**.
 
-Each variant vs LEGACY reports:
-- eligible-set parity violations;
-- decisions where eligible rank order changed;
-- decisions where selected order changed;
-- decisions where the selected **set** changed;
-- rank changes that died before selection because the selected set stayed identical;
-- symmetric-difference size of selected sets;
-- mean/max absolute rank shift;
-- planned BUY/ADD decision dates changed;
-- executed BUY/ADD decision dates changed;
-- final-value delta;
-- return delta;
-- drawdown delta;
-- samples of selection and acquisition dates that changed.
+In LONG_10Y and MEDIUM_6Y, QUALITY changed rank and selected sets repeatedly but changed **zero** planned or executed acquisition dates and produced exactly the same economic result as LEGACY.
 
-## Interpretation contract
+Only RECENT_3Y reached execution:
+- rank changes: 56;
+- selected-set changes: 11;
+- planned acquisition dates changed: 4;
+- executed acquisition dates changed: 2;
+- final delta vs LEGACY: +291.24 EUR;
+- drawdown change: -0.0578 pp (slightly worse).
 
-This is an **architecture reach diagnostic**, not another performance optimization run.
+### SLOPE_V1 reach
 
-The known comparison outcome is already consumed:
-- `QUALITY_V1` remains research-only and informationally interesting but insufficient;
-- `SLOPE_V1` is not a promotion candidate in its current form;
+Across the three windows:
+- eligibility parity violations: **0**;
+- rank-order changed gates: **316 / 456**;
+- selected-set changed gates: **98 / 456**;
+- rank changed while selected set stayed identical: **218**;
+- planned acquisition decision dates changed: **6**;
+- executed acquisition decision dates changed: **3**;
+- median final-value delta vs LEGACY: **0 EUR**;
+- worst final-value delta vs LEGACY: **-275.80 EUR**;
+- median drawdown improvement: **0 pp**.
+
+SLOPE reaches the selected set somewhat more often than QUALITY but still almost never reaches actual executed acquisitions. When it did in RECENT_3Y, the economic result was worse than LEGACY.
+
+## Architectural finding
+
+The audit confirms that the main bottleneck is **downstream of candidate selection**.
+
+`PortfolioCandidateGate` can substantially reorder and even change the selected set, but `PortfolioDecisionEngine` subsequently constructs current opportunities and allocates capital using its own opportunity-priority function based on:
+- opportunity level;
+- consensus score;
+- excess return vs cash;
+- volatility;
+- starter/build rules;
+- timing fraction;
+- category/asset caps;
+- portfolio slots;
+- execution minimums;
+- rotation constraints.
+
+The frozen QUALITY reliability/opportunity information is carried in `CurrentOpportunityAlert`, but the legacy capital-priority formula does not use those fields directly.
+
+Therefore increasing the ranking coefficient would be the wrong response. The evidence supports testing whether the already-frozen QUALITY signal can influence **capital priority among already-eligible opportunities**, under a bounded preregistered rule inside the existing allocator.
+
+## Closed interpretation
+
 - `LEGACY` remains production.
+- `QUALITY_V1` remains research-only; no QUALITY_V1.1 or coefficient tuning on these windows.
+- `SLOPE_V1` is not a promotion candidate in its current form; no SLOPE_V1.1 tuning on these windows.
+- The next architecture hypothesis is `QUALITY_ALLOCATION_BRIDGE_V1` inside the existing `PortfolioDecisionEngine`.
+- The bridge must not change hard gates, cash, consensus, timing, slots, starter/build caps or rotation policy.
+- Historical runs on these same windows are architecture diagnostics only and cannot authorize production promotion.
+- Any promotion requires fresh future-forward evidence.
 
-The audit may justify a new architecture hypothesis, but it cannot justify tuning QUALITY/SLOPE coefficients on these same windows.
-
-If the audit confirms that rank changes rarely reach selection or purchases, the next research question should be how an opportunity signal can influence capital **within the existing architecture and under a preregistered rule**, rather than increasing ranking coefficients until historical results improve.
-
-Forward Risk V8 remains separate. Its retained predictive downside information is not used in this audit.
+Forward Risk V8 remains separate. Its retained predictive downside information is not used in this allocation bridge phase.
