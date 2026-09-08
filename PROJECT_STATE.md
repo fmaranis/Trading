@@ -29,7 +29,8 @@ Replay auditado:
 - ejecución causal posterior a señal / NEXT_OPEN;
 - cash histórico BCE y fiscalidad siguen integrados;
 - el replay histórico no usa Yahoo Search actual para inventar el universo pasado;
-- Forward Risk no modifica producción, Custodia, replay ni live.
+- Forward Risk no modifica producción, Custodia, replay ni live;
+- la asignación productiva de oportunidad permanece `LEGACY`.
 
 ---
 
@@ -45,55 +46,35 @@ Objetivo cumplido: ampliar candidatos actuales sin crear otro motor ni otra pant
 Documento de cierre:
 `docs/open_market_discovery_v1_integration_state.md`.
 
-## Resultado final local 2026-09-08
-Job:
-`open-market-live-scanner-integration`.
-
-Resultado:
-- status: `PASS`;
+Resultado final local 2026-09-08:
+- status `PASS`;
 - 12 familias estructurales de búsqueda;
-- discovery intentado: sí;
-- error discovery: `null`;
-- universo base: 64;
-- ETF current/live promovidos: 2;
-- total escaneados: 66;
-- aceptados scanner: 62;
-- rechazados scanner: 4;
-- `OPEN_*`: 2;
-- `OPEN_*` aceptados con provenance REAL: 2/2;
-- `PortfolioCandidateGate`: 0/2 elegibles;
-- `XAD5.MI`: `REJECTED / DOES_NOT_BEAT_CASH`;
-- `SGLE.MI`: `REJECTED / DOES_NOT_BEAT_CASH`;
-- `CORE_ELIGIBILITY_V2`: shadow-only;
-- nueva sección UI: false;
-- replay histórico modificado: false.
+- universo base 64;
+- 2 ETF current/live promovidos;
+- 66 escaneados;
+- 62 aceptados;
+- 2 `OPEN_*` aceptados con provenance REAL;
+- ambos quedaron `REJECTED / DOES_NOT_BEAT_CASH`;
+- `CORE_ELIGIBILITY_V2` siguió shadow;
+- replay histórico no modificado;
+- ninguna nueva sección UI.
 
-Interpretación: discovery puede incorporar candidatos REAL al mismo scanner, pero no puede forzar compras ni saltarse el gate económico.
+Invariantes:
+- automático V1 sólo ETF current/live EUR con >=252 barras inspeccionadas;
+- `AssetUniverseScanner` es el único punto de integración;
+- fallo temporal discovery -> fallback al catálogo validado;
+- merge estrictamente aditivo;
+- aliases base con mismo ISIN se conservan;
+- Yahoo Search actual nunca reconstruye universos históricos.
 
-## Invariantes de integración
-- V1 automático sólo promociona ETF current/live cotizados en EUR y con >=252 barras inspeccionadas.
-- `AssetUniverseScanner` es el punto único de integración; Decisión de hoy y alertas lo heredan por su flujo existente.
-- fallo temporal de discovery = fallback al catálogo validado; no bloquea decisiones.
-- merge estrictamente aditivo: jamás reducir/reemplazar el catálogo base.
-- se conservan aliases intencionados del catálogo aunque compartan ISIN (`IS3N/EIMI`, `DBX0AN/XEON`).
-- URL interna server-side: `OPEN_MARKET_DISCOVERY_INTERNAL_BASE_URL -> ALERT_INTERNAL_BASE_URL -> http://127.0.0.1:3000`; `APP_URL` no se usa para esta llamada técnica.
-
-## Frontera histórica
-Yahoo Search sigue siendo **CURRENT/LIVE**, no un instrument master point-in-time.
-
-Por tanto:
-- replay histórico no llama `/asset-discovery` ni `/open-universe`;
-- `historicalPointInTimeSafe = false` para discovery V1;
-- se puede bloquear pre-listing lookahead con las barras disponibles por fecha;
-- survivorship bias no queda completamente resuelto sin instrument master histórico con altas y delistings.
-
-No afirmar “mercado abierto histórico completo” hasta resolver ese punto.
+Limitación histórica pendiente:
+no afirmar “mercado abierto histórico completo” hasta disponer de instrument master point-in-time con altas y delistings.
 
 ## CORE_ELIGIBILITY_V2
 Estado:
 `SHADOW_AUDIT_NOT_PRODUCTION_GATE`.
 
-No sustituye `PortfolioCandidateGate`, `DynamicCoreSelectorV1` ni ninguna decisión productiva. Se mantiene para auditar EUR, provenance REAL, historia suficiente, categoría amplia, estructura y liquidez sin alterar producción.
+No sustituye `PortfolioCandidateGate`, `DynamicCoreSelectorV1` ni decisiones productivas.
 
 ---
 
@@ -103,88 +84,174 @@ Documento:
 `docs/opportunity_ranking_causal_comparison_v1.md`.
 
 Políticas comparadas:
-- `LEGACY` — producción actual;
-- `QUALITY_V1` — Reliability/Opportunity;
-- `SLOPE_V1` — estructura de pendientes.
+- `LEGACY`;
+- `QUALITY_V1`;
+- `SLOPE_V1`.
 
-Los tres brazos mantuvieron los mismos hard gates:
+Hard gates idénticos:
 `REAL -> beats cash -> consensus BUY -> no structural downtrend -> EntryTiming != WAIT`.
 
 Configuración consumida:
 - REAL only;
-- carga 2014-09-01 -> fin 2026-09-01;
+- carga 2014-09-01 -> 2026-09-01;
 - Yahoo current discovery histórico OFF;
 - ventanas 10y / 6y / 3y;
 - MONTHLY;
 - 13.000 EUR;
-- riesgo MEDIUM;
+- MEDIUM;
 - horizonte 3 años;
 - `CUSTODIA_ENGINE`;
 - cash histórico BCE;
-- fiscalidad actual del replay;
+- fiscalidad actual;
 - `CORE_ARCHITECTURE_V1`.
 
-## Resultado consumido 2026-09-08
+Resultado:
+- LONG_10Y: QUALITY = LEGACY; SLOPE = LEGACY; final 40.365,34 EUR; DD 31,83%; diferencias adquisiciones 0.
+- MEDIUM_6Y: QUALITY = LEGACY; SLOPE = LEGACY; final 26.992,46 EUR; DD 20,42%; diferencias adquisiciones 0.
+- RECENT_3Y: LEGACY 20.779,26 EUR; QUALITY +291,24 EUR con DD ligeramente peor; SLOPE -275,80 EUR y DD peor.
+- QUALITY agregado: 1/3 wins, 2 ties, mediana delta 0 EUR.
+- SLOPE agregado: 0/3 wins, 2 ties, mediana delta 0 EUR.
+
+Conclusión cerrada:
+- producción permanece `LEGACY`;
+- `QUALITY_V1` = research-only / información interesante pero efecto insuficiente;
+- `SLOPE_V1` = no candidato de promoción en forma actual;
+- no `QUALITY_V1.1`, no `SLOPE_V1.1`, no tuning sobre estas ventanas.
+
+---
+
+# OPPORTUNITY_RANKING_REACH_AUDIT_V1 — CONSUMIDO
+
+Documento:
+`docs/opportunity_ranking_reach_audit_v1.md`.
+
+Objetivo:
+medir `rank cambia -> conjunto cambia -> plan BUY/ADD cambia -> compra ejecutada cambia`.
+
+Resultado local:
+`PASS_REACH_DIAGNOSTIC_ONLY`.
+
 Data quality:
 - catálogo 64;
 - scanned 64;
 - accepted REAL 60;
 - rejected 4;
-- no `OPEN_*` histórico;
-- provenance REAL-only.
+- provenance REAL-only;
+- Yahoo current discovery histórico OFF;
+- `OPEN_*` leak 0.
 
-LONG_10Y:
-- QUALITY = LEGACY exacto;
-- SLOPE = LEGACY exacto;
-- final 40.365,34 EUR;
-- DD 31,83%;
-- diferencias de adquisiciones: 0.
+## LEGACY: existe competencia real
+Across 10y/6y/3y:
+- gate observations: **456**;
+- selection competition: **292 / 456 = 64,04%**;
+- category competition: **292**;
+- eligible slots excluidos: **1.695**.
 
-MEDIUM_6Y:
-- QUALITY = LEGACY exacto;
-- SLOPE = LEGACY exacto;
-- final 26.992,46 EUR;
-- DD 20,42%;
-- diferencias de adquisiciones: 0.
+Por ventana:
+- LONG_10Y: 144/240 = 60,0%; mean eligible 10,0; mean selected 6,58; max eligible 31.
+- MEDIUM_6Y: 94/144 = 65,28%; mean eligible 11,39; mean selected 7,55; max 29.
+- RECENT_3Y: 54/72 = 75,0%; mean eligible 12,97; mean selected 8,50; max 29.
 
-RECENT_3Y:
-- LEGACY final 20.779,26 EUR; retorno 59,84%; CAGR 16,93%; DD 21,17%;
-- QUALITY final 21.070,50 EUR; delta +291,24 EUR; retorno +2,2403 pp; DD ligeramente peor en -0,0578 pp; diferencia de adquisiciones 2;
-- SLOPE final 20.503,47 EUR; delta -275,80 EUR; retorno -2,1215 pp; DD peor en -0,1748 pp; diferencia de adquisiciones 3.
+Conclusión: el escaso efecto económico del ranking **no** se debe a que nunca haya competencia de candidatos.
 
-Agregado:
-- QUALITY: 1/3 wins, 2/3 ties, 0/3 DD wins, mediana delta 0 EUR;
-- SLOPE: 0/3 wins, 2/3 ties, 0/3 DD wins, mediana delta 0 EUR.
+## QUALITY_V1 reach
+- eligibility parity violations: **0**;
+- rank-order changed gates: **282 / 456**;
+- selected-set changed gates: **70 / 456**;
+- rank changed but set unchanged: **212**;
+- planned acquisition dates changed: **4**;
+- executed acquisition dates changed: **2**;
+- median final delta: 0 EUR;
+- worst final delta: 0 EUR;
+- median DD improvement: 0 pp.
 
-Conclusión cerrada:
-- producción permanece `LEGACY`;
-- `QUALITY_V1` = research-only / informativamente interesante pero efecto insuficiente;
-- `SLOPE_V1` = no candidato de promoción en su forma actual;
-- no `QUALITY_V1.1`, no `SLOPE_V1.1`, no aumento de coeficientes ni tuning sobre estas ventanas consumidas.
+Conversiones clave:
+- selected-set reach tras cambiar ranking: 70/282 = **24,82%**;
+- executed reach tras cambiar selected set: 2/70 = **2,86%**;
+- executed reach sobre gates auditados: 2/456 = **0,44%**.
 
-Hallazgo arquitectónico:
-`PortfolioCandidateGate` puede cambiar el orden de candidatos ya `ELIGIBLE`, pero si el conjunto seleccionado no cambia, `InvestmentDecisionEngine` vuelve a calcular pesos sobre el mismo conjunto y el ranking puede desaparecer antes de llegar al capital.
+En 10y y 6y QUALITY cambió repetidamente orden y selected sets, pero cambió **cero** planes/compras y el resultado económico quedó idéntico.
+
+## SLOPE_V1 reach
+- eligibility parity violations: **0**;
+- rank-order changed gates: **316 / 456**;
+- selected-set changed gates: **98 / 456**;
+- planned acquisition dates changed: **6**;
+- executed acquisition dates changed: **3**;
+- median final delta 0 EUR;
+- worst final delta -275,80 EUR.
+
+## Hallazgo arquitectónico principal
+El cuello de botella está **después de la selección**.
+
+`PortfolioDecisionEngine` vuelve a calcular prioridad de capital con una función propia basada en:
+- nivel de oportunidad;
+- consenso;
+- exceso vs cash;
+- volatilidad;
+- starter/build;
+- timing fraction;
+- caps por activo/categoría;
+- slots;
+- mínimo de orden;
+- rotaciones.
+
+`CurrentOpportunityAlert` sí transporta `reliabilityScore` y `opportunityScore`, pero la fórmula productiva `LEGACY` de capital no usa esos campos directamente.
+
+Por eso aumentar el coeficiente de ranking sería la respuesta equivocada. El siguiente test debe hacer llegar la información QUALITY a la prioridad de capital **dentro del allocator existente** y de forma acotada.
 
 ---
 
-# FASE ACTUAL — OPPORTUNITY_RANKING_REACH_AUDIT_V1
-
-Objetivo:
-medir exactamente dónde llega o se pierde la información del ranking dentro de la arquitectura existente.
+# FASE ACTUAL — QUALITY_ALLOCATION_BRIDGE_V1
 
 Documento preregistrado:
-`docs/opportunity_ranking_reach_audit_v1.md`.
+`docs/opportunity_quality_allocation_bridge_v1.md`.
 
-No se crea ninguna pantalla nueva. Se reutiliza `ResearchValidationCenter` y el mismo replay `CORE_ARCHITECTURE_V1`.
+Objetivo:
+probar si la señal QUALITY ya congelada puede influir en cuánto capital recibe una oportunidad ya elegible, sin crear otro motor ni modificar hard gates.
 
-Cadena auditada:
-`rank cambia -> conjunto seleccionado cambia -> plan BUY/ADD cambia -> compra ejecutada cambia`.
+## Integración
+`PortfolioDecisionEngine` existente acepta una opción interna:
+- `LEGACY` — default/productivo;
+- `QUALITY_ALLOCATION_BRIDGE_V1` — research-only.
 
-## Protocolo congelado
-Misma configuración histórica ya consumida para evitar introducir nuevas elecciones oportunistas:
-- 3 ventanas: 10y / 6y / 3y;
-- 3 políticas: LEGACY / QUALITY_V1 / SLOPE_V1;
-- 9 replays;
+Todos los callers normales omiten la opción y siguen en LEGACY.
+
+El runner histórico la activa temporalmente mediante wrapper y restaura `PortfolioDecisionEngine.evaluate` en `finally`.
+
+## Fórmula congelada antes del run
+Se reutiliza **sin retuning**:
+`candidateQualityAdjustment = (reliability - 50) * 0.10 + (opportunity - 50) * 0.20`.
+
+Bridge:
+`qualityMultiplier = clamp(1 + candidateQualityAdjustment / 100, 0.85, 1.15)`.
+
+`bridgePriority = legacyOpportunityPriority * qualityMultiplier`.
+
+Interpretación:
+- QUALITY 50/50 -> 1,00x;
+- mínimo teórico -> 0,85x;
+- máximo teórico -> 1,15x.
+
+No se cambian:
+- cash hurdle;
+- consenso;
+- timing;
+- gate selection policy, que en este diagnóstico sigue LEGACY;
+- starter/build;
+- timing fractions;
+- caps;
+- slots;
+- minimum order;
+- rotaciones;
+- fiscalidad;
+- `CORE_ARCHITECTURE_V1`.
+
+## Protocolo del diagnóstico
+Mismas ventanas consumidas, sólo para reach/arquitectura:
+- 10y / 6y / 3y;
+- LEGACY vs QUALITY bridge;
+- 6 replays;
 - REAL only;
 - Yahoo discovery histórico OFF;
 - monthly;
@@ -193,41 +260,33 @@ Misma configuración histórica ya consumida para evitar introducir nuevas elecc
 - horizonte 3 años;
 - cash BCE;
 - fiscalidad actual;
-- `CORE_ARCHITECTURE_V1`;
-- `maxSelected = 12`.
+- CORE_ARCHITECTURE_V1.
 
-Métricas principales:
-- gates totales;
-- candidatos ELIGIBLE por gate;
-- gates donde `eligibleCount > selectedCount` y por tanto existe competencia real de selección;
-- competición por categoría (>2 ELIGIBLE en una categoría);
-- cambios de orden QUALITY/SLOPE vs LEGACY;
-- cambios del conjunto seleccionado;
-- cambios de ranking que mueren antes de cambiar el conjunto;
-- cambios de plan BUY/ADD;
-- cambios de compras BUY/ADD ejecutadas;
-- delta final y DD sólo como trazabilidad, no para tuning.
-
-Invariante crítica:
-**QUALITY/SLOPE deben producir exactamente el mismo conjunto ELIGIBLE que LEGACY en cada gate.**
-Cualquier `eligibleSetParityViolations > 0` significa que una política supuestamente ranking-only contaminó elegibilidad y la interpretación queda invalidada.
+Métricas:
+- planes de contribución modificados;
+- amount-only vs asset-set changes;
+- planned/executed acquisition dates changed;
+- total absolute executed notional delta;
+- multiplier observations min/mean/median/max;
+- final value / return / DD / fees / tax como diagnóstico económico;
+- parity de decisiones.
 
 Contrato:
-- producción permanece `LEGACY`;
-- este audit no puede promover ninguna política;
-- no tuning en las ventanas consumidas;
-- el siguiente diseño arquitectónico deberá apoyarse en lo que revele este audit, no en subir pesos de QUALITY hasta que el backtest mejore.
+- producción sigue `LEGACY`;
+- estas ventanas están consumidas y **no pueden promocionar** el bridge;
+- no tocar coeficientes 0.10/0.20 ni bounds 0.85/1.15 tras ver resultados;
+- si demuestra reach significativo sin daño estructural evidente, el siguiente paso es fresh future-forward;
+- si sigue sin llegar al capital, no amplificarlo hasta que funcione.
 
 Job local vigente en `ResearchValidationCenter`:
-**Oportunidad · auditoría de alcance del ranking**.
+**Oportunidad · QUALITY bridge de asignación**.
 
 Pasos:
-1. `opportunityRankingArchitecture.unit`;
-2. `opportunityRankingReachAudit.unit`;
-3. `portfolioCandidateGate.unit`;
-4. guard replay histórico;
-5. `tsc --noEmit`;
-6. auditoría REAL 3 políticas x 3 ventanas.
+1. `opportunityQualityAllocationBridge.unit`;
+2. `portfolioCandidateGate.unit`;
+3. guard replay histórico;
+4. `tsc --noEmit`;
+5. diagnóstico REAL LEGACY vs QUALITY bridge en 3 ventanas.
 
 ---
 
@@ -258,70 +317,42 @@ Evidencia:
 
 Conclusión: V8 contiene información anticipativa útil, pero no debe usarse como interruptor transaccional directo.
 
-V5/V7 se conservan como features potenciales: curva de tipos, crédito, liquidez/régimen y estrés de opciones. No asumir que cada componente individual tenga valor autónomo demostrado.
+V5/V7 se conservan como features potenciales. No asumir que cada componente tenga valor autónomo demostrado.
 
 ## V9 — retirada
-Veredicto:
 `V9_BLIND_FAIL_RETIRE_V9_POLICY_1`.
-
-Holdout consumido:
-`SPPW.DE`, `SPY5.DE`, `SPYM.DE`, `ZPRS.DE`, `VGEU.DE`, `ZPDJ.DE`.
-
-- predictivo: 22/56 = 39,29% frente a gate >=50%; FAIL;
-- económico: 0/6 PASS;
-- mediana final delta ~ -6.791 EUR;
-- mediana reducción DD ~ +5,96 pp.
-
-No V9.1 ni tuning.
+- holdout: SPPW.DE, SPY5.DE, SPYM.DE, ZPRS.DE, VGEU.DE, ZPDJ.DE;
+- predictivo 22/56 = 39,29%, FAIL;
+- económico 0/6 PASS;
+- mediana final delta ~-6.791 EUR;
+- no V9.1/tuning.
 
 ## V10 — retirada
-Veredicto:
 `V10_BLIND_FAIL_RETIRE_V10_POLICY_1`.
-
-Holdout consumido:
-`VGVF.DE`, `VNRA.DE`, `VFEM.DE`, `VERE.DE`, `VGEK.DE`, `VJPN.DE`.
-
-- 6/6 válidos;
-- 0/6 PASS;
+- holdout: VGVF.DE, VNRA.DE, VFEM.DE, VERE.DE, VGEK.DE, VJPN.DE;
+- 6/6 válidos, 0/6 PASS;
 - 71 aportaciones aplazadas;
 - mediana final delta -219,25 EUR;
-- mediana mejora de precio aplazado -1,1907%;
-- `DOWN_FIRST=34`, `UP_FIRST=28`, `NEITHER=9`.
+- mejora precio aplazado -1,1907%;
+- DOWN_FIRST=34, UP_FIRST=28, NEITHER=9.
 
-Hallazgo retenido: `DOWN_FIRST > UP_FIRST` es compatible con información bajista útil, aunque la política de aplazamiento falló.
-
-No V10.1 ni tuning.
+Hallazgo retenido: DOWN_FIRST > UP_FIRST es compatible con información bajista útil, aunque la política falló.
 
 ## V11 — retirada
-Política:
-`V11_POLICY_1`.
-
-Fingerprint:
-`sha256:945f39501b58c40735eeb9fc7dbd7ea128985e45b991f3c947c925cbc5cb94c1`.
-
-Holdout consumido:
-`IUSQ.DE`, `SXR4.DE`, `EUNM.DE`, `EUNK.DE`, `SXR1.DE`, `SXRZ.DE`.
-
-Veredicto:
 `V11_BLIND_FAIL_RETIRE_V11_POLICY_1`.
-
-Agregado:
-- 6/6 válidos;
-- 0/6 PASS;
+- holdout: IUSQ.DE, SXR4.DE, EUNM.DE, EUNK.DE, SXR1.DE, SXRZ.DE;
+- 6/6 válidos, 0/6 PASS;
 - mediana final delta -313,29 EUR;
-- mediana delta / contribuciones -0,17229%;
+- mediana delta/contribuciones -0,17229%;
 - mediana reducción DD +0,00906 pp;
 - mediana wealthEfficiencyRatio 0,999413.
 
-Hallazgo estructural muy importante:
-- 272 decisiones `ELIGIBLE`;
-- sólo 51 también tenían riesgo >80;
-- solapamiento = **18,75%**.
+Hallazgo estructural:
+- 272 decisiones ELIGIBLE;
+- sólo 51 con riesgo >80;
+- overlap **18,75%**.
 
-Interpretación: `PortfolioCandidateGate` ya excluía muchas situaciones de alto riesgo; poner Forward Risk sólo después del gate deja poco margen incremental. No usar esto para V11.1; sí conservarlo para arquitecturas futuras distintas.
-
-Documento:
-`docs/forward_risk_v11_blind_outcome.md`.
+Interpretación: poner Forward Risk después del gate deja poco margen incremental.
 
 ## Conclusión V8 -> V11
 1. V8 anticipa caídas con información útil y debe conservarse.
@@ -330,9 +361,9 @@ Documento:
 4. Espera binaria V10 pierde recuperación.
 5. Sizing V11 posterior al gate casi no reduce DD.
 6. No crear V12/V13 como variaciones paramétricas del mismo overlay.
-7. Usos futuros posibles: ranking, contexto de riesgo, alertas, stress, margen de seguridad, priorización y modelos conjuntos.
+7. Posibles usos futuros: ranking, contexto de riesgo, alertas, stress, margen de seguridad, priorización y modelos conjuntos.
 
-En el audit actual **V8 no se usa todavía** para no mezclar hipótesis. Tras entender dónde llega el ranking podrá estudiarse en shadow si discrimina downside entre candidatos elegibles, con metodología causal separada.
+En `QUALITY_ALLOCATION_BRIDGE_V1` **V8 no se usa** para no mezclar hipótesis. Podrá estudiarse después como contexto/downside feature con metodología separada.
 
 ---
 
@@ -350,10 +381,11 @@ Archivado:
 - V11 guard/blind;
 - Mercado abierto V1 infraestructura PASS;
 - Mercado abierto V1 integración live PASS;
-- Ranking causal V1 LEGACY vs QUALITY vs SLOPE consumido.
+- Ranking causal V1 consumido;
+- Ranking reach audit V1 consumido.
 
 Job vigente:
-- `opportunity-ranking-reach-audit-v1` — **Oportunidad · auditoría de alcance del ranking**.
+- `opportunity-quality-allocation-bridge-v1` — **Oportunidad · QUALITY bridge de asignación**.
 
 Nunca usar Gemini, agentes ni GitHub Actions para estas ejecuciones largas.
 
@@ -366,19 +398,20 @@ Nunca usar Gemini, agentes ni GitHub Actions para estas ejecuciones largas.
 - Cboe: VIX/VIX9D/VVIX de V7/V8.
 - FRED/ALFRED: macro point-in-time V5/V8; `FRED_API_KEY` server-side.
 
-Búsqueda manual del replay puede registrar instrumentos EUR por ticker/nombre/ISIN, pero eso no autoriza a usar Yahoo Search actual como catálogo histórico point-in-time.
+Búsqueda manual del replay puede registrar instrumentos EUR por ticker/nombre/ISIN, pero Yahoo Search actual no es un catálogo histórico point-in-time.
 
 ---
 
 # Próxima secuencia
-1. Ejecutar localmente **Oportunidad · auditoría de alcance del ranking**.
-2. Exigir `eligibleSetParityViolations = 0`; cualquier valor distinto invalida el supuesto ranking-only.
-3. Medir cuántas veces QUALITY/SLOPE cambian orden, conjunto, plan y compra ejecutada.
-4. Mantener producción `LEGACY` y no retunear QUALITY/SLOPE.
-5. Si el audit confirma que el ranking cambia mucho el orden pero rara vez el conjunto/pesos, diseñar una nueva hipótesis preregistrada para que Opportunity pueda influir de forma acotada en asignación dentro de `CORE_ARCHITECTURE_V1`, no un motor paralelo.
-6. Sólo después considerar V8 como contexto/downside feature separada y shadow.
-7. Mantener `CORE_ELIGIBILITY_V2` shadow hasta evidencia suficiente para promoción estructural.
-8. Instrument master point-in-time sigue pendiente para un replay verdaderamente open-market histórico sin survivorship bias residual.
+1. Ejecutar localmente **Oportunidad · QUALITY bridge de asignación**.
+2. Exigir guards + `tsc --noEmit` PASS antes de interpretar economía.
+3. Medir cuánto aumenta el reach desde plan hasta compra ejecutada sin cambiar gates ni selección LEGACY.
+4. Mantener producción `LEGACY` independientemente del resultado histórico consumido.
+5. No retunear coefficients/bounds con estas ventanas.
+6. Si el bridge demuestra reach suficiente y comportamiento razonable, preparar validación fresh future-forward desde la fecha posterior al cierre del diagnóstico.
+7. Sólo después considerar V8 como feature de downside separada.
+8. Mantener `CORE_ELIGIBILITY_V2` shadow.
+9. Instrument master point-in-time sigue pendiente para replay open-market histórico sin survivorship residual.
 
 ---
 
@@ -391,11 +424,11 @@ Búsqueda manual del replay puede registrar instrumentos EUR por ticker/nombre/I
 - Alarmas backend.
 - Centro de validación existente.
 
-No crear nuevos apartados para discovery, core eligibility ni ranking si pueden vivir bajo estos flujos.
+No crear nuevos apartados para discovery, core eligibility, ranking o allocation research si pueden vivir bajo estos flujos.
 
 Pendiente de simplificación:
 - fusionar ranking técnico con ranking del estudio cuando haya evidencia suficiente;
-- consolidar cobertura/proveedores y controles técnicos en un bloque avanzado.
+- consolidar cobertura/proveedores y controles técnicos en bloque avanzado.
 
 ---
 
