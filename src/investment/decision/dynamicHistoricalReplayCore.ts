@@ -11,6 +11,13 @@ import { PortfolioCandidateGate } from './portfolioCandidateGate';
 import { PortfolioDecisionEngine, type PortfolioPositionDecision } from './portfolioDecisionEngine';
 import { assessDeteriorationStreak, classifyPositionHealth, isDiversifiedCoreCategory, type PortfolioPositionHealthSnapshot, type PositionHealthContext } from './portfolioPositionHealth';
 import { accrueRemuneratedCash, allCashBenchmark } from './remuneratedCash';
+import {
+  allCashBenchmarkWithAppliedFlows,
+  cashFlowAdjustedPerformance,
+  normalizeReplayExternalCashFlows,
+  type DynamicReplayAppliedCashFlow,
+  type DynamicReplayExternalCashFlow
+} from './replayExternalCashFlows';
 import { estimateSpanishTaxOnRealizedGain, type SpanishTaxSettings } from './spanishTaxModel';
 import { StrategyConsensusEngine, type StrategyConsensusAssessment, type TrendStructureState } from './strategyConsensusEngine';
 import { classifyTrendProtectionV1, type TrendProtectionAction } from './trendProtectionPolicy';
@@ -106,6 +113,9 @@ export interface DynamicReplayEquityPoint {
   cashBenchmarkEur: number;
   regime: string;
   method: string;
+  externalCashFlowEur?: number;
+  cumulativeNetExternalCashFlowEur?: number;
+  cashFlowAdjustedEquityEur?: number;
 }
 
 export interface DynamicReplayDeploymentHorizon {
@@ -141,6 +151,13 @@ export interface DynamicHistoricalReplayResult {
   initialCapitalEur: number;
   simulationMode?: DynamicReplaySimulationMode;
   initialPortfolioSource?: DynamicReplayInitialPortfolioSource;
+  externalCashFlowMode: 'NONE' | 'EXPLICIT';
+  appliedExternalCashFlows: DynamicReplayAppliedCashFlow[];
+  totalExternalContributionsEur: number;
+  totalExternalWithdrawalsEur: number;
+  netExternalCashFlowEur: number;
+  cashFlowAdjustedProfitEur: number;
+  cashFlowAdjustedReturnPct: number;
   finalValueEur: number;
   totalReturnPct: number;
   staticBuyHoldFinalEur: number | null;
@@ -379,8 +396,9 @@ function pathMaxDrawdown(path: DynamicReplayEquityPoint[]): number {
   let peak = 0;
   let max = 0;
   for (const point of path) {
-    peak = Math.max(peak, point.equityEur);
-    if (peak > 0) max = Math.max(max, (peak - point.equityEur) / peak * 100);
+    const value = point.cashFlowAdjustedEquityEur ?? point.equityEur;
+    peak = Math.max(peak, value);
+    if (peak > 0) max = Math.max(max, (peak - value) / peak * 100);
   }
   return max;
 }
@@ -586,7 +604,7 @@ function buildHistoricalHealthMap(input: {
       category: context.category,
       isDiversifiedCore: context.isDiversifiedCore,
       currentReturnPct: context.currentReturnPct,
-      mfePct: context.mfePct,
+      mfePct,
       givebackFromMfePctPoints: context.givebackFromMfePctPoints,
       deteriorationStreakSessions: context.deteriorationStreakSessions,
       momentum20Pct: context.momentum20Pct,
@@ -639,6 +657,15 @@ function orderEconomicallyExecutable(notionalEur: number, totalCapitalEur: numbe
   const fee = brokerCommission(notionalEur);
   return fee / notionalEur * 100 <= policy.maximumOrderFeeDragPct + 1e-9;
 }
+function alignAppliedFlowsToTradingDates(flows: readonly DynamicReplayAppliedCashFlow[], dates: readonly string[]): Map<string, DynamicReplayAppliedCashFlow[]> {
+  const out = new Map<string, DynamicReplayAppliedCashFlow[]>();
+  for (const flow of flows) {
+    const pathDate = dates.find(date => date >= flow.appliedDate) ?? dates.at(-1);
+    if (!pathDate) continue;
+    out.set(pathDate, [...(out.get(pathDate) ?? []), flow]);
+  }
+  return out;
+}
 function buildDailyEquityPath(input: {
   dataset: MultiAssetDataset;
   signals: DynamicReplaySignal[];
@@ -647,9 +674,12 @@ function buildDailyEquityPath(input: {
   startDate: string;
   endDate: string;
   decisionStates: DecisionState[];
+  appliedExternalCashFlows?: DynamicReplayAppliedCashFlow[];
 }): DynamicReplayEquityPoint[] {
   const dates = tradingDates(input.dataset, input.startDate, input.endDate);
   if (!dates.length) return [];
+  const flows = input.appliedExternalCashFlows ?? [];
+  const flowsByDate = alignAppliedFlowsToTradingDates(flows, dates);
   const barsByAssetDate = new Map<string, Map<string, number>>();
   for (const asset of input.dataset.assets) barsByAssetDate.set(asset.assetId, new Map(asset.bars.map(bar => [isoDate(bar.timestamp), bar.close])));
   const lastPrice = new Map<string, number>();
@@ -664,7 +694,12 @@ function buildDailyEquityPath(input: {
   let regime = states[0]?.regime ?? 'UNKNOWN';
   let method = states[0]?.method ?? 'N/D';
   let cashEur = input.initialCapitalEur;
+  let benchmarkCashEur = input.initialCapitalEur;
   let lastCashDate = input.startDate;
+  let lastBenchmarkDate = input.startDate;
+  let previousEquityEur: number | null = null;
+  let cashFlowAdjustedEquityEur = input.initialCapitalEur;
+  let cumulativeNetExternalCashFlowEur = 0;
   const path: DynamicReplayEquityPoint[] = [];
 
   for (const date of dates) {
@@ -672,6 +707,18 @@ function buildDailyEquityPath(input: {
       cashEur = accrueRemuneratedCash(cashEur, input.cashBenchmarkAnnualPct, lastCashDate, date).cashEur;
       lastCashDate = date;
     }
+    if (date > lastBenchmarkDate) {
+      benchmarkCashEur = accrueRemuneratedCash(benchmarkCashEur, input.cashBenchmarkAnnualPct, lastBenchmarkDate, date).cashEur;
+      lastBenchmarkDate = date;
+    }
+    const dayFlows = flowsByDate.get(date) ?? [];
+    const externalCashFlowEur = dayFlows.reduce((sum, flow) => sum + flow.amountEur, 0);
+    if (externalCashFlowEur < 0 && cashEur + externalCashFlowEur < -0.01) throw new Error(`REPLAY_EXTERNAL_WITHDRAWAL_EXCEEDS_CASH_PATH:${date}`);
+    if (externalCashFlowEur < 0 && benchmarkCashEur + externalCashFlowEur < -0.01) throw new Error(`REPLAY_EXTERNAL_WITHDRAWAL_EXCEEDS_CASH_BENCHMARK_PATH:${date}`);
+    cashEur = Math.max(0, cashEur + externalCashFlowEur);
+    benchmarkCashEur = Math.max(0, benchmarkCashEur + externalCashFlowEur);
+    cumulativeNetExternalCashFlowEur += externalCashFlowEur;
+
     while (stateIndex < states.length && states[stateIndex].date <= date) {
       regime = states[stateIndex].regime;
       method = states[stateIndex].method;
@@ -693,8 +740,34 @@ function buildDailyEquityPath(input: {
     }
     let investedEur = 0;
     for (const [assetId, units] of holdings) investedEur += units * (lastPrice.get(assetId) ?? 0);
-    const cashBenchmarkEur = date <= input.startDate ? input.initialCapitalEur : allCashBenchmark(input.initialCapitalEur, input.cashBenchmarkAnnualPct, input.startDate, date).finalEur;
-    path.push({ date, equityEur: cashEur + investedEur, cashEur, investedEur, cashBenchmarkEur, regime, method });
+    const equityEur = cashEur + investedEur;
+    if (flows.length) {
+      if (previousEquityEur == null) {
+        const base = Math.max(1e-9, input.initialCapitalEur + externalCashFlowEur);
+        cashFlowAdjustedEquityEur = input.initialCapitalEur * equityEur / base;
+      } else {
+        const capitalAtRisk = previousEquityEur + externalCashFlowEur;
+        if (capitalAtRisk > 1e-9) cashFlowAdjustedEquityEur *= equityEur / capitalAtRisk;
+      }
+    } else {
+      cashFlowAdjustedEquityEur = equityEur;
+    }
+    previousEquityEur = equityEur;
+    const cashBenchmarkEur = flows.length
+      ? benchmarkCashEur
+      : (date <= input.startDate ? input.initialCapitalEur : allCashBenchmark(input.initialCapitalEur, input.cashBenchmarkAnnualPct, input.startDate, date).finalEur);
+    path.push({
+      date,
+      equityEur,
+      cashEur,
+      investedEur,
+      cashBenchmarkEur,
+      regime,
+      method,
+      externalCashFlowEur,
+      cumulativeNetExternalCashFlowEur,
+      cashFlowAdjustedEquityEur
+    });
   }
   return path;
 }
@@ -772,6 +845,7 @@ export class DynamicHistoricalReplayEngine {
     taxSettings?: SpanishTaxSettings;
     simulationMode?: DynamicReplaySimulationMode;
     initialPortfolio?: DynamicReplayInitialPortfolio;
+    externalCashFlows?: DynamicReplayExternalCashFlow[];
   }): DynamicHistoricalReplayResult {
     if (!(input.initialCapitalEur > 0)) throw new Error('El capital del replay dinámico debe ser > 0.');
     const frequency = input.frequency ?? 'MONTHLY';
@@ -782,6 +856,7 @@ export class DynamicHistoricalReplayEngine {
     const taxSettings = input.taxSettings ?? DEFAULT_TAX_SETTINGS;
     const endDate = latestDatasetDate(input.dataset);
     if (input.startDate >= endDate) throw new Error('La fecha inicial debe ser anterior al último dato REAL.');
+    const normalizedExternalCashFlows = normalizeReplayExternalCashFlows(input.externalCashFlows, input.startDate, endDate);
 
     const seeded = seedInitialPortfolio({ dataset: input.dataset, catalog: input.catalog, startDate: input.startDate, initialCapitalEur: input.initialCapitalEur, initialPortfolio: input.initialPortfolio });
     const holdings = seeded.holdings;
@@ -790,6 +865,8 @@ export class DynamicHistoricalReplayEngine {
     const events: DynamicReplayEvent[] = [];
     const decisionStates: DecisionState[] = [];
     const positiveGainByYear = new Map<string, number>();
+    const appliedExternalCashFlows: DynamicReplayAppliedCashFlow[] = [];
+    let nextExternalFlowIndex = 0;
     let cashEur = seeded.cashEur;
     let cashInterestEur = 0;
     let totalFeesEur = 0;
@@ -800,20 +877,63 @@ export class DynamicHistoricalReplayEngine {
     let lastDecisionDate: string | null = null;
     let decisions = 0;
 
+    const applyExternalFlow = (flow: DynamicReplayExternalCashFlow, appliedDate: string) => {
+      if (flow.amountEur < 0 && cashEur + flow.amountEur < -0.01) {
+        throw new Error(`REPLAY_EXTERNAL_WITHDRAWAL_EXCEEDS_CASH:${flow.date}:${Math.abs(flow.amountEur).toFixed(2)}`);
+      }
+      cashEur = Math.max(0, cashEur + flow.amountEur);
+      appliedExternalCashFlows.push({
+        id: String(flow.id),
+        scheduledDate: flow.date,
+        appliedDate,
+        amountEur: flow.amountEur,
+        kind: flow.amountEur > 0 ? 'CONTRIBUTION' : 'WITHDRAWAL',
+        label: String(flow.label)
+      });
+    };
+
+    const advanceCashTo = (targetDate: string) => {
+      if (!lastCashDate) {
+        lastCashDate = targetDate;
+        while (nextExternalFlowIndex < normalizedExternalCashFlows.length && normalizedExternalCashFlows[nextExternalFlowIndex].date <= targetDate) {
+          applyExternalFlow(normalizedExternalCashFlows[nextExternalFlowIndex], targetDate);
+          nextExternalFlowIndex++;
+        }
+        return;
+      }
+      while (nextExternalFlowIndex < normalizedExternalCashFlows.length && normalizedExternalCashFlows[nextExternalFlowIndex].date <= targetDate) {
+        const flow = normalizedExternalCashFlows[nextExternalFlowIndex];
+        const flowDate = flow.date < lastCashDate ? lastCashDate : flow.date;
+        if (flowDate > lastCashDate) {
+          const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, lastCashDate, flowDate);
+          cashEur = accrued.cashEur;
+          cashInterestEur += accrued.interestEur;
+          lastCashDate = flowDate;
+        }
+        applyExternalFlow(flow, flowDate);
+        nextExternalFlowIndex++;
+      }
+      if (targetDate > lastCashDate) {
+        const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, lastCashDate, targetDate);
+        cashEur = accrued.cashEur;
+        cashInterestEur += accrued.interestEur;
+        lastCashDate = targetDate;
+      }
+    };
+
     if (simulationMode === 'HOLD_ONLY') {
       firstDecisionDate = input.startDate;
       lastCashDate = input.startDate;
-      if (endDate > input.startDate) {
-        const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, input.startDate, endDate);
-        cashEur = accrued.cashEur;
-        cashInterestEur = accrued.interestEur;
-      }
+      advanceCashTo(endDate);
       decisionStates.push({ date: input.startDate, regime: 'HOLD_ONLY', method: 'SIN_MOTOR' });
       const finalPortfolio = portfolioValue(input.dataset, holdings, cashEur, endDate);
       const finalValueEur = finalPortfolio.equityEur;
-      const totalReturnPct = (finalValueEur / input.initialCapitalEur - 1) * 100;
-      const allCash = allCashBenchmark(input.initialCapitalEur, cashBenchmarkAnnualPct, input.startDate, endDate);
-      const equityPath = buildDailyEquityPath({ dataset: input.dataset, signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: input.startDate, endDate, decisionStates });
+      const performance = cashFlowAdjustedPerformance({ finalValueEur, initialCapitalEur: input.initialCapitalEur, appliedFlows: appliedExternalCashFlows });
+      const totalReturnPct = normalizedExternalCashFlows.length ? performance.returnPct : (finalValueEur / input.initialCapitalEur - 1) * 100;
+      const allCash = normalizedExternalCashFlows.length
+        ? allCashBenchmarkWithAppliedFlows({ initialCapitalEur: input.initialCapitalEur, annualPct: cashBenchmarkAnnualPct, startDate: input.startDate, endDate, appliedFlows: appliedExternalCashFlows })
+        : allCashBenchmark(input.initialCapitalEur, cashBenchmarkAnnualPct, input.startDate, endDate);
+      const equityPath = buildDailyEquityPath({ dataset: input.dataset, signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: input.startDate, endDate, decisionStates, appliedExternalCashFlows });
       const deploymentHorizons = buildDeploymentHorizons({ path: equityPath, signals, initialCapitalEur: input.initialCapitalEur });
       return {
         requestedStartDate: input.startDate,
@@ -823,6 +943,13 @@ export class DynamicHistoricalReplayEngine {
         initialCapitalEur: input.initialCapitalEur,
         simulationMode,
         initialPortfolioSource,
+        externalCashFlowMode: normalizedExternalCashFlows.length ? 'EXPLICIT' : 'NONE',
+        appliedExternalCashFlows,
+        totalExternalContributionsEur: performance.summary.contributionsEur,
+        totalExternalWithdrawalsEur: performance.summary.withdrawalsEur,
+        netExternalCashFlowEur: performance.summary.netExternalCashFlowEur,
+        cashFlowAdjustedProfitEur: performance.profitEur,
+        cashFlowAdjustedReturnPct: performance.returnPct,
         finalValueEur,
         totalReturnPct,
         staticBuyHoldFinalEur: finalValueEur,
@@ -855,6 +982,7 @@ export class DynamicHistoricalReplayEngine {
         notes: [
           'Modo MANTENER CARTERA: las posiciones iniciales se valoran a lo largo del periodo sin BUY/ADD/WATCH/REDUCE/EXIT/ROTATE del motor.',
           'El efectivo no invertido conserva exactamente la misma remuneración histórica/configurada y fiscalidad del cash que el replay normal.',
+          normalizedExternalCashFlows.length ? `Flujos externos explícitos: ${performance.summary.contributionsEur.toFixed(2)} € aportados y ${performance.summary.withdrawalsEur.toFixed(2)} € retirados. MONTHLY no crea dinero por sí mismo.` : 'No hay flujos externos: MONTHLY sigue siendo sólo frecuencia de revisión.',
           'Las posiciones iniciales son estado de partida definido por el usuario; no son recomendaciones ni decisiones de Custodia.',
           'Toda la valoración usa únicamente precios REAL disponibles en el dataset del replay.'
         ]
@@ -868,11 +996,8 @@ export class DynamicHistoricalReplayEngine {
       if (decisionDate >= endDate || decisionDate === lastDecisionDate) continue;
       if (lastDecisionDate && decisionDate < lastDecisionDate) continue;
 
-      if (!firstDecisionDate) { firstDecisionDate = decisionDate; lastCashDate = decisionDate; }
-      else if (lastCashDate && decisionDate > lastCashDate) {
-        const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, lastCashDate, decisionDate);
-        cashEur = accrued.cashEur; cashInterestEur += accrued.interestEur; lastCashDate = decisionDate;
-      }
+      if (!firstDecisionDate) firstDecisionDate = decisionDate;
+      advanceCashTo(decisionDate);
 
       const current = portfolioValue(input.dataset, holdings, cashEur, decisionDate);
       const dateScan = buildHistoricalFullScan({ dataset: input.dataset, catalog: input.catalog, date: decisionDate, minimumBars });
@@ -1020,10 +1145,7 @@ export class DynamicHistoricalReplayEngine {
       const nextDates = tradePlans.map(plan => nextBarAfter(input.dataset, plan.signal.assetId, decisionDate)).filter(Boolean).map(bar => isoDate(bar!.timestamp));
       const commonExecutionDate = nextDates.length === tradePlans.length && nextDates.length ? [...nextDates].sort().at(-1)! : null;
 
-      if (commonExecutionDate && lastCashDate && commonExecutionDate > lastCashDate) {
-        const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, lastCashDate, commonExecutionDate);
-        cashEur = accrued.cashEur; cashInterestEur += accrued.interestEur; lastCashDate = commonExecutionDate;
-      }
+      if (commonExecutionDate) advanceCashTo(commonExecutionDate);
 
       if (commonExecutionDate) {
         const blockedRotationSellIds = new Set<string>();
@@ -1185,31 +1307,31 @@ export class DynamicHistoricalReplayEngine {
     }
 
     if (!firstDecisionDate) throw new Error('No hay una fecha con suficiente historia causal para iniciar el replay dinámico.');
-    if (lastCashDate && endDate > lastCashDate) {
-      const accrued = accrueRemuneratedCash(cashEur, cashBenchmarkAnnualPct, lastCashDate, endDate);
-      cashEur = accrued.cashEur; cashInterestEur += accrued.interestEur;
-    }
+    advanceCashTo(endDate);
     const resultStartDate = input.initialPortfolio ? input.startDate : firstDecisionDate;
     const finalPortfolio = portfolioValue(input.dataset, holdings, cashEur, endDate);
     const finalValueEur = finalPortfolio.equityEur;
-    const totalReturnPct = (finalValueEur / input.initialCapitalEur - 1) * 100;
-    const allCash = allCashBenchmark(input.initialCapitalEur, cashBenchmarkAnnualPct, resultStartDate, endDate);
+    const performance = cashFlowAdjustedPerformance({ finalValueEur, initialCapitalEur: input.initialCapitalEur, appliedFlows: appliedExternalCashFlows });
+    const totalReturnPct = normalizedExternalCashFlows.length ? performance.returnPct : (finalValueEur / input.initialCapitalEur - 1) * 100;
+    const allCash = normalizedExternalCashFlows.length
+      ? allCashBenchmarkWithAppliedFlows({ initialCapitalEur: input.initialCapitalEur, annualPct: cashBenchmarkAnnualPct, startDate: resultStartDate, endDate, appliedFlows: appliedExternalCashFlows })
+      : allCashBenchmark(input.initialCapitalEur, cashBenchmarkAnnualPct, resultStartDate, endDate);
 
     let staticFinal: number | null = null;
     let staticReturn: number | null = null;
     if (input.initialPortfolio) {
       const holdStates: DecisionState[] = [{ date: input.startDate, regime: 'HOLD_ONLY', method: 'SIN_MOTOR' }];
-      const holdPath = buildDailyEquityPath({ dataset: input.dataset, signals: seeded.signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: input.startDate, endDate, decisionStates: holdStates });
+      const holdPath = buildDailyEquityPath({ dataset: input.dataset, signals: seeded.signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: input.startDate, endDate, decisionStates: holdStates, appliedExternalCashFlows });
       staticFinal = holdPath.at(-1)?.equityEur ?? null;
-      staticReturn = staticFinal == null ? null : (staticFinal / input.initialCapitalEur - 1) * 100;
-    } else {
+      staticReturn = staticFinal == null ? null : cashFlowAdjustedPerformance({ finalValueEur: staticFinal, initialCapitalEur: input.initialCapitalEur, appliedFlows: appliedExternalCashFlows }).returnPct;
+    } else if (!normalizedExternalCashFlows.length) {
       const staticResult = HistoricalDecisionReplayEngine.run({ dataset: input.dataset, catalog: input.catalog, requestedDates: [input.startDate], initialCapitalEur: input.initialCapitalEur, riskProfile: input.riskProfile, horizonYears: input.horizonYears, cashBenchmarkAnnualPct, minimumBars }).cases[0] ?? null;
       staticFinal = staticResult?.finalValueEur ?? null;
       staticReturn = staticResult?.totalReturnPct ?? null;
     }
 
     const material = signals.filter(signal => !signal.isInitialAllocation && ['BUY', 'ADD', 'REDUCE', 'EXIT'].includes(signal.action));
-    const equityPath = buildDailyEquityPath({ dataset: input.dataset, signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: resultStartDate, endDate, decisionStates });
+    const equityPath = buildDailyEquityPath({ dataset: input.dataset, signals, initialCapitalEur: input.initialCapitalEur, cashBenchmarkAnnualPct, startDate: resultStartDate, endDate, decisionStates, appliedExternalCashFlows });
     const timingStateCounts = timingCounts(signals);
     const trendProtectionV1Counts = trendProtectionCounts(signals);
     const deploymentHorizons = buildDeploymentHorizons({ path: equityPath, signals, initialCapitalEur: input.initialCapitalEur });
@@ -1217,6 +1339,13 @@ export class DynamicHistoricalReplayEngine {
     return {
       requestedStartDate: input.startDate, startDate: resultStartDate, endDate, frequency, initialCapitalEur: input.initialCapitalEur,
       simulationMode, initialPortfolioSource,
+      externalCashFlowMode: normalizedExternalCashFlows.length ? 'EXPLICIT' : 'NONE',
+      appliedExternalCashFlows,
+      totalExternalContributionsEur: performance.summary.contributionsEur,
+      totalExternalWithdrawalsEur: performance.summary.withdrawalsEur,
+      netExternalCashFlowEur: performance.summary.netExternalCashFlowEur,
+      cashFlowAdjustedProfitEur: performance.profitEur,
+      cashFlowAdjustedReturnPct: performance.returnPct,
       finalValueEur, totalReturnPct, staticBuyHoldFinalEur: staticFinal, staticBuyHoldReturnPct: staticReturn,
       allCashFinalEur: allCash.finalEur, allCashReturnPct: allCash.returnPct,
       excessFinalEurVsStatic: staticFinal == null ? null : finalValueEur - staticFinal,
@@ -1236,6 +1365,15 @@ export class DynamicHistoricalReplayEngine {
         input.initialPortfolio
           ? `El replay parte de una cartera inicial ${initialPortfolioSource}: ${input.initialPortfolio.allocations.length} posiciones y ${input.initialPortfolio.cashEur.toFixed(2)} € de cash; esa asignación es estado inicial y no una decisión del motor.`
           : 'El replay parte de cero, exactamente como el comportamiento histórico anterior a esta ampliación.',
+        normalizedExternalCashFlows.length
+          ? `Flujos externos EXPLÍCITOS: ${performance.summary.contributionsEur.toFixed(2)} € de aportaciones y ${performance.summary.withdrawalsEur.toFixed(2)} € de retiradas. Se aplican causalmente antes de la siguiente decisión/ejecución que pueda observarlos. MONTHLY sigue siendo sólo frecuencia de decisión.`
+          : 'No hay flujos externos: MONTHLY/DAILY/WEEKLY/QUARTERLY sólo controlan la frecuencia de decisión y nunca crean aportaciones implícitas.',
+        normalizedExternalCashFlows.length
+          ? `Rentabilidad ajustada por flujos: beneficio ${performance.profitEur.toFixed(2)} € y retorno simple ${performance.returnPct.toFixed(2)}% sobre capital bruto aportado; las aportaciones no cuentan como rendimiento.`
+          : 'Sin flujos externos, totalReturnPct conserva exactamente la semántica histórica previa.',
+        normalizedExternalCashFlows.length && !input.initialPortfolio
+          ? 'Con flujos externos y replay desde cero, el benchmark estático one-shot se deja N/D: no se inventa cómo habría invertido aportaciones futuras un benchmark que no soporta flujos.'
+          : 'El benchmark estático conserva su semántica anterior cuando es comparable.',
         'Cada fecha reconstruye la misma cadena operativa in-universe que usa la pantalla actual: universo REAL → cash+consenso → PortfolioCandidateGate → InvestmentDecisionEngine → PortfolioDecisionEngine con objetivos estables → salud individual para WATCH/REDUCE/EXIT.',
         'Cada decisión usa exclusivamente datos disponibles hasta esa fecha; nunca se eligen compras o ventas mirando el resultado futuro.',
         'La fecha operativa de señal es siempre la fecha de decisión solicitada; el asOfDate de los datos puede ser anterior sin desplazar la señal fuera de la ventana del replay.',
@@ -1250,6 +1388,9 @@ export class DynamicHistoricalReplayEngine {
         'La salud histórica de posiciones del universo usa la misma función pura classifyPositionHealth.',
         'Fondo→fondo se empareja como traspaso fiscalmente diferido cuando coincide en el mismo cambio. La parte no diferida soporta la reserva fiscal estimada.',
         taxSettings.contextConfirmed ? 'La fiscalidad usa la escala española del ahorro y la base previa configurada.' : 'El contexto fiscal anual no está confirmado: las plusvalías imponibles reservan conservadoramente el 30%.',
+        normalizedExternalCashFlows.length
+          ? 'Las retiradas externas sólo consumen cash disponible; este V1 no fuerza ventas ocultas para financiar una retirada. Si no hay cash suficiente, el replay falla explícitamente.'
+          : 'No se ha activado lógica de flujos externos.',
         'La trayectoria se valora en cada sesión disponible y se compara con mantener todo el capital en la cuenta remunerada.',
         'Permanece el sesgo de supervivencia del catálogo actual y no se reconstruyen cambios históricos de comercialización/disponibilidad del broker.'
       ]
