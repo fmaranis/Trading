@@ -40,6 +40,13 @@ function result(input: {
 }): DynamicHistoricalReplayResult {
   return {
     requestedStartDate: '2024-01-01', startDate: '2024-01-01', endDate: '2025-01-01', frequency: 'MONTHLY', initialCapitalEur: 10000,
+    externalCashFlowMode: 'NONE',
+    appliedExternalCashFlows: [],
+    totalExternalContributionsEur: 0,
+    totalExternalWithdrawalsEur: 0,
+    netExternalCashFlowEur: 0,
+    cashFlowAdjustedProfitEur: input.final - 10000,
+    cashFlowAdjustedReturnPct: input.ret,
     finalValueEur: input.final, totalReturnPct: input.ret,
     staticBuyHoldFinalEur: input.staticExcess == null ? null : input.final - input.staticExcess,
     staticBuyHoldReturnPct: input.staticPp == null ? null : input.ret - input.staticPp,
