@@ -9,11 +9,12 @@
 - Replay causal: sólo información disponible hasta la fecha; ejecución posterior a señal; sin lookahead.
 - No recalibrar thresholds ni políticas sobre muestras ya usadas para decidir PASS/FAIL.
 - No crear motores paralelos: decisión, replay y alertas deben compartir scanner, gates y políticas productivas.
+- No crear apartados/pantallas nuevos cuando una capacidad puede integrarse en los flujos existentes.
 - Ningún dato financiero privado de usuario se embebe en código público.
 
 ---
 
-# Estado vigente — 2026-09-07
+# Estado vigente — 2026-09-08
 
 ## Motor productivo
 La arquitectura productiva cerrada sigue siendo `CORE_ARCHITECTURE_V1`.
@@ -22,337 +23,322 @@ Flujo live:
 `AssetUniverseScanner -> PortfolioCandidateGate -> InvestmentDecisionEngine -> evaluatePortfolioDecision -> ejecución/seguimiento`.
 
 Replay auditado:
+- baseline productivo/replay: `CORE_ARCHITECTURE_V1`;
 - comparte `PortfolioCandidateGate`, `InvestmentDecisionEngine` y `classifyPositionHealth`;
 - mantiene `Desde cero / manual / cartera actual` y `Motor Custodia / mantener cartera` dentro del mismo replay;
-- cash histórico y fiscalidad siguen integrados;
-- Forward Risk **no modifica** producción, Custodia, replay ni live.
+- ejecución causal posterior a señal / NEXT_OPEN;
+- cash histórico BCE y fiscalidad siguen integrados;
+- el replay histórico no usa Yahoo Search actual para inventar el universo pasado;
+- Forward Risk no modifica producción, Custodia, replay ni live.
 
 ---
 
-# OPEN_MARKET_DISCOVERY_V1 — fase actual
+# OPEN_MARKET_DISCOVERY_V1 — CERRADO EN PASS CURRENT/LIVE
 
 Estado:
-**IMPLEMENTED_FOR_LOCAL_VALIDATION / CURRENT_LIVE_DISCOVERY / CORE_ELIGIBILITY_V2_SHADOW / NOT_YET_PRODUCTION_PROMOTED**.
+**CURRENT_LIVE_INTEGRATION_PASS / CORE_ELIGIBILITY_V2_SHADOW / HISTORICAL_REPLAY_UNCHANGED**.
 
-Objetivo: dejar de depender de una lista fija sin crear otro motor. La cadena sigue siendo una sola:
+Objetivo cumplido: ampliar candidatos actuales sin crear otro motor ni otra pantalla. La cadena sigue siendo una sola:
 
 `current discovery -> AssetUniverseScanner -> CORE_ELIGIBILITY_V2 shadow -> PortfolioCandidateGate -> motor existente`.
 
-Archivos principales:
-- `src/investment/decision/openMarketDiscoveryV1.ts`;
-- `src/investment/decision/coreEligibilityV2.ts`;
-- `server/assetDiscoveryRoutes.ts`;
-- `scripts/openMarketDiscoveryV1Live.ts`;
-- `tests/openMarketDiscoveryV1.unit.ts`;
-- `tests/coreEligibilityV2.unit.ts`;
-- `tests/openMarketDiscoveryArchitecture.unit.ts`;
-- `tests/openMarketReplayDiscovery.unit.ts`;
-- `docs/open_market_discovery_v1.md`.
+Documento de cierre:
+`docs/open_market_discovery_v1_integration_state.md`.
 
-## Discovery V1 actual
-Endpoint:
-`GET /api/alerts/asset-discovery/open-universe`.
+## Resultado final local 2026-09-08
+Job:
+`open-market-live-scanner-integration`.
 
-Hace un query sweep estructural Yahoo sobre familias de mercado, no una lista de tickers elegida por resultados:
-- global/world/all-country;
-- USA/S&P 500;
-- Europa amplia;
-- emergentes;
-- Japón;
-- small cap;
-- tecnología;
-- salud;
-- energía;
-- aggregate bond EUR hedged;
-- money market EUR;
-- oro.
+Resultado:
+- status: `PASS`;
+- 12 familias estructurales de búsqueda;
+- discovery intentado: sí;
+- error discovery: `null`;
+- universo base: 64;
+- ETF current/live promovidos: 2;
+- total escaneados: 66;
+- aceptados scanner: 62;
+- rechazados scanner: 4;
+- `OPEN_*`: 2;
+- `OPEN_*` aceptados con provenance REAL: 2/2;
+- `PortfolioCandidateGate`: 0/2 elegibles;
+- `XAD5.MI`: `REJECTED / DOES_NOT_BEAT_CASH`;
+- `SGLE.MI`: `REJECTED / DOES_NOT_BEAT_CASH`;
+- `CORE_ELIGIBILITY_V2`: shadow-only;
+- nueva sección UI: false;
+- replay histórico modificado: false.
 
-Reglas:
-- barrido autónomo limitado a ETF/EQUITY;
-- sólo divisa real EUR;
-- inspección mínima 252 barras;
-- dedupe por ticker;
-- caché server-side 6 h;
-- los precios usados por decisiones se vuelven a cargar mediante `AssetUniverseScanner` con provenance REAL;
-- discovery sólo propone candidatos: `PortfolioCandidateGate` conserva la autoridad económica.
+Interpretación: discovery puede incorporar candidatos REAL al mismo scanner, pero no puede forzar compras ni saltarse el gate económico.
 
-La búsqueda manual `Buscar mercado` del replay sigue existiendo por ticker/nombre/ISIN.
+## Invariantes de integración
+- V1 automático sólo promociona ETF current/live cotizados en EUR y con >=252 barras inspeccionadas.
+- `AssetUniverseScanner` es el punto único de integración; Decisión de hoy y alertas lo heredan por su flujo existente.
+- fallo temporal de discovery = fallback al catálogo validado; no bloquea decisiones.
+- merge estrictamente aditivo: jamás reducir/reemplazar el catálogo base.
+- se conservan aliases intencionados del catálogo aunque compartan ISIN (`IS3N/EIMI`, `DBX0AN/XEON`).
+- URL interna server-side: `OPEN_MARKET_DISCOVERY_INTERNAL_BASE_URL -> ALERT_INTERNAL_BASE_URL -> http://127.0.0.1:3000`; `APP_URL` no se usa para esta llamada técnica.
 
-## Frontera histórica no negociable
-Yahoo Search es **CURRENT/LIVE**, no un instrument master histórico point-in-time.
+## Frontera histórica
+Yahoo Search sigue siendo **CURRENT/LIVE**, no un instrument master point-in-time.
 
 Por tanto:
-- `historicalPointInTimeSafe = false` en V1;
-- `retrospectiveYahooSearchAllowed = false` en el smoke;
-- el motor de replay no llama a `/asset-discovery` ni `/open-universe`;
-- por cada fecha histórica ya exige las barras mínimas disponibles hasta esa fecha, evitando utilizar un activo antes de existir historia suficiente;
-- `filterCatalogByHistoricalAvailability` formaliza esa disponibilidad para catálogos conocidos;
-- esto evita pre-listing lookahead, pero **no elimina por completo survivorship bias** del catálogo actual.
+- replay histórico no llama `/asset-discovery` ni `/open-universe`;
+- `historicalPointInTimeSafe = false` para discovery V1;
+- se puede bloquear pre-listing lookahead con las barras disponibles por fecha;
+- survivorship bias no queda completamente resuelto sin instrument master histórico con altas y delistings.
 
-No afirmar “mercado abierto histórico completo” hasta disponer de instrument master point-in-time con altas y delistings/bajas.
+No afirmar “mercado abierto histórico completo” hasta resolver ese punto.
 
 ## CORE_ELIGIBILITY_V2
 Estado:
 `SHADOW_AUDIT_NOT_PRODUCTION_GATE`.
 
-No sustituye todavía `PortfolioCandidateGate`, `DynamicCoreSelectorV1` ni ninguna decisión productiva.
-
-Criterios estructurales fijados antes del smoke REAL:
-- EUR;
-- provenance REAL;
-- scanner ACCEPTED;
-- >=756 barras;
-- categoría amplia `GLOBAL_EQUITY / US_EQUITY / EUROPE_EQUITY / JAPAN_EQUITY / EMERGING_EQUITY`;
-- una acción individual `EQ_*` nunca es core;
-- `OPEN_*` / `DYNAMIC_*` necesita evidencia explícita `BROAD`; sin metadata -> `REVIEW_REQUIRED`;
-- listados: >=80% de cobertura de volumen positiva en 60 barras y mediana de negociación diaria >=250.000 EUR;
-- fondos NAV REAL directos no se rechazan por carecer de volumen bursátil; disponibilidad de broker es otra comprobación.
-
-El criterio de liquidez V2 es por ahora estructural/shadow, no un threshold de rentabilidad promovido.
-
-## Validación preparada
-Único job vigente en `ResearchValidationCenter`:
-
-**Mercado abierto · V1 · discovery + core shadow**.
-
-Ejecuta:
-1. `openMarketDiscoveryV1.unit`;
-2. `coreEligibilityV2.unit`;
-3. `openMarketDiscoveryArchitecture.unit`;
-4. `openMarketReplayDiscovery.unit`;
-5. `npm run lint` / `tsc --noEmit`;
-6. smoke REAL `openMarketDiscoveryV1Live`.
-
-Smoke REAL:
-`Yahoo current discovery -> merge catálogo existente -> AssetUniverseScanner -> CORE_ELIGIBILITY_V2 shadow -> PortfolioCandidateGate`.
-
-No compra, no vende y no cambia cartera.
-
-Semántica:
-- `PASS`: infraestructura current/live coherente, candidatos EUR únicos y al menos un descubierto aceptado con provenance REAL;
-- `INCONCLUSIVE_EXTERNAL_DISCOVERY_COVERAGE`: Yahoo no aportó cobertura suficiente en esa ejecución;
-- guard/TypeScript/runner roto: fallo técnico a corregir.
-
-Un PASS **no demuestra rentabilidad** y no promociona automáticamente CORE_ELIGIBILITY_V2 ni discovery a decisiones productivas.
-
-Tras PASS técnico: revisar cobertura/anomalías y sólo entonces integrar el snapshot current/live en universo compartido de decisión de hoy + alertas. Replay histórico abierto queda condicionado a catálogo point-in-time.
+No sustituye `PortfolioCandidateGate`, `DynamicCoreSelectorV1` ni ninguna decisión productiva. Se mantiene para auditar EUR, provenance REAL, historia suficiente, categoría amplia, estructura y liquidez sin alterar producción.
 
 ---
 
-# Forward Risk — estado cerrado hasta V11
+# FASE ACTUAL — OPPORTUNITY / RANKING CAUSAL COMPARISON V1
 
-## PRINCIPIO PERMANENTE DE CONTINUIDAD — NO PERDER V8
+Objetivo: mejorar **qué comprar**, no seguir creando overlays de Forward Risk.
+
+No se crea pantalla nueva. Se reutiliza `ResearchValidationCenter`, el mismo replay y `PortfolioCandidateGate`.
+
+Documento preregistrado:
+`docs/opportunity_ranking_causal_comparison_v1.md`.
+
+## Políticas existentes comparadas
+`PortfolioCandidateGate` ya contiene:
+- `LEGACY` — producción actual;
+- `QUALITY_V1` — ranking adicional por Reliability/Opportunity;
+- `SLOPE_V1` — ranking adicional acotado por estructura de pendientes.
+
+Los tres brazos mantienen exactamente los mismos hard gates:
+`REAL -> beats cash -> consensus BUY -> no structural downtrend -> EntryTiming != WAIT`.
+
+`QUALITY_V1` y `SLOPE_V1` sólo pueden cambiar el orden relativo entre candidatos ya `ELIGIBLE`; no cambian gates ni sizing.
+
+Antes de ejecutar la comparación, los dos wrappers experimentales fueron alineados al replay productivo actual `CORE_ARCHITECTURE_V1`; dejaron de usar como baseline el wrapper antiguo `STRATEGIC_CORE_HOLD_V1`.
+
+## Protocolo congelado antes de resultados
+Versión:
+`OPPORTUNITY_RANKING_CAUSAL_COMPARISON_V1`.
+
+Dataset:
+- REAL only;
+- carga desde 2014-09-01;
+- fin fijo 2026-09-01;
+- Yahoo current open discovery desactivado;
+- mínimo 30 activos REAL aceptados;
+- mínimo 252 barras por decisión.
+
+Tres ventanas:
+1. 2016-09-01 -> 2026-09-01 (`LONG_10Y`);
+2. 2020-09-01 -> 2026-09-01 (`MEDIUM_6Y`);
+3. 2023-09-01 -> 2026-09-01 (`RECENT_3Y`).
+
+Ajustes comunes:
+- MONTHLY;
+- 13.000 EUR;
+- riesgo MEDIUM;
+- horizonte 3 años;
+- `CUSTODIA_ENGINE`;
+- cash histórico BCE DFR con suelo 0%;
+- fiscalidad del replay actual;
+- `CORE_ARCHITECTURE_V1`.
+
+Ejecuciones: **3 políticas x 3 ventanas = 9 replays**, todos sobre el mismo dataset y configuración.
+
+Métricas:
+- final value / retorno / CAGR;
+- max drawdown;
+- fees / tax / cash interest;
+- BUY / ADD / REDUCE / EXIT;
+- benchmark structural core y exceso;
+- diferencia de adquisiciones frente a LEGACY.
+
+Interpretación:
+- diagnóstico histórico בלבד; no blind de promoción;
+- producción permanece `LEGACY` aunque un brazo gane;
+- no tuning después de ver el resultado;
+- cualquier candidato útil requiere future-forward antes de proponer promoción;
+- limitación residual: catálogo conocido actual, survivorship bias no completamente eliminado.
+
+Job local vigente en `ResearchValidationCenter`:
+**Oportunidad · ranking causal · LEGACY vs QUALITY vs SLOPE**.
+
+Pasos automáticos:
+1. `opportunityRankingArchitecture.unit`;
+2. `opportunityRankingComparison.unit`;
+3. `portfolioCandidateGate.unit`;
+4. guard del replay histórico existente;
+5. `tsc --noEmit`;
+6. comparación REAL 3 políticas x 3 ventanas.
+
+---
+
+# Forward Risk — CERRADO HASTA V11, PERO V8 SE CONSERVA
+
+## PRINCIPIO PERMANENTE — NO PERDER V8
 
 **V8 sí mostró capacidad útil para anticipar futuras caídas relevantes.**
 
-Los FAIL económicos de V8/V9/V10/V11 **no deben reinterpretarse como “Forward Risk no sirve”**. Lo que falló hasta V11 fueron las políticas ensayadas para monetizar/ejecutar esa información: venta/recompra, espera binaria y sizing posterior al gate.
+Los FAIL económicos de V8/V9/V10/V11 no significan “Forward Risk no sirve”. Fallaron las políticas probadas para monetizar/ejecutar esa información: venta/recompra, máquina de estados, espera binaria y sizing posterior al gate.
 
-La evidencia V8 se preserva como **activo predictivo reutilizable** para investigación futura en riesgo, oportunidad, ranking, alertas, stress, margen de seguridad, priorización, asignación o modelos conjuntos.
+Separar siempre:
+**calidad de señal != calidad de política económica**.
 
-Antes de cualquier trabajo futuro relacionado con esas áreas, consultar:
+Documentos permanentes:
 - `docs/forward_risk_v8_retained_predictive_value.md`;
 - `docs/forward_risk_retained_research_findings_v8_v11.md`.
 
-Regla conceptual:
-> **separar siempre calidad de señal y calidad de política económica. V8 puede contener información valiosa aunque una regla que actúe sobre ella pierda dinero.**
-
-No usar esta conclusión para retunear políticas sobre holdouts consumidos. Cualquier nuevo uso económico requiere hipótesis distinta, preregistro y muestra virgen.
-
-## V8 — información predictiva, no ejecutable directamente
-Regla histórica congelada:
+## V8 — valor predictivo retenido
+Regla histórica:
 `V5 vulnerability >=80 OR V7 options >=80`.
 
-Hechos cerrados:
-- EUNL: 11/19 episodios anticipados = 57,89%; lead mediano 63; falsa señal 16,73%.
-- Seis holdouts: 72/83 = 86,75% anticipados; lead mediano 40; falsa señal 26,33%; 6/6 PASS predictivo.
-- Gate económico: 0/6 PASS; mediana `finalDeltaEur = -13.971,89 €`; mediana reducción drawdown +5,52 pp.
-- Fragmentación: 3.974 sesiones, 1.059 ON (26,65%), 111 runs ON, duración mediana 2 sesiones, 222 transiciones.
-- 72,1% de los runs ON duraron <=3 sesiones y 82,0% <=5 sesiones: el ON/OFF diario es una mala interfaz ejecutiva aunque el score subyacente pueda ser informativo.
+Evidencia:
+- EUNL: 11/19 anticipados = 57,89%; lead mediano 63 sesiones; falsa señal 16,73%.
+- seis holdouts: 72/83 = 86,75%; lead mediano 40; falsa señal 26,33%; 6/6 PASS predictivo.
+- señal fragmentada: 3.974 sesiones; 1.059 ON (26,65%); 111 runs ON; duración mediana 2 sesiones; 222 transiciones.
+- gate económico V8: 0/6 PASS; la traducción sell/rebuy perdió demasiado upside.
 
-Conclusión: V8 contiene información anticipativa útil sobre caídas futuras, pero no sirve como interruptor directo de transacciones.
+Conclusión: V8 contiene información anticipativa útil, pero no debe usarse como interruptor transaccional directo.
 
-V5/V7 se conservan como inputs/features de investigación. No asumir que cada componente individual tiene valor autónomo demostrado, pero tampoco eliminarlos: curva de tipos, crédito, liquidez/régimen y estrés de opciones pueden volver a ser útiles en modelos futuros.
+V5/V7 se conservan como features potenciales: curva de tipos, crédito, liquidez/régimen y estrés de opciones. No asumir que cada componente individual tenga valor autónomo demostrado.
 
-## V9 — máquina de estados retirada
+## V9 — retirada
 Veredicto:
 `V9_BLIND_FAIL_RETIRE_V9_POLICY_1`.
 
 Holdout consumido:
 `SPPW.DE`, `SPY5.DE`, `SPYM.DE`, `ZPRS.DE`, `VGEU.DE`, `ZPDJ.DE`.
 
-Resultado:
-- predictivo: 22/56 anticipados = 39,29% frente a gate >=50%; FAIL;
+- predictivo: 22/56 = 39,29% frente a gate >=50%; FAIL;
 - económico: 0/6 PASS;
-- mediana `finalDeltaEur ~ -6.791 €`;
-- mediana reducción drawdown ~+5,96 pp.
+- mediana final delta ~ -6.791 EUR;
+- mediana reducción DD ~ +5,96 pp.
 
-No V9.1 ni tuning sobre esa muestra.
+No V9.1 ni tuning.
 
-## V10 — aplazamiento binario de dinero nuevo retirado
+## V10 — retirada
 Veredicto:
 `V10_BLIND_FAIL_RETIRE_V10_POLICY_1`.
 
 Holdout consumido:
 `VGVF.DE`, `VNRA.DE`, `VFEM.DE`, `VERE.DE`, `VGEK.DE`, `VJPN.DE`.
 
-Resultado:
 - 6/6 válidos;
 - 0/6 PASS;
 - 71 aportaciones aplazadas;
-- mediana `finalDeltaEur = -219,25 €`;
-- mediana mejora de precio aplazado `-1,1907%`;
+- mediana final delta -219,25 EUR;
+- mediana mejora de precio aplazado -1,1907%;
 - `DOWN_FIRST=34`, `UP_FIRST=28`, `NEITHER=9`.
 
-Interpretación: la política de espera falló, pero `DOWN_FIRST > UP_FIRST` es evidencia compatible con que la señal conservaba información direccional bajista. No valida V10 ni autoriza tuning; sí es un hallazgo que debe recordarse.
+Hallazgo retenido: `DOWN_FIRST > UP_FIRST` es compatible con información bajista útil, aunque la política de aplazamiento falló.
 
-No V10.1 ni tuning sobre esa muestra.
+No V10.1 ni tuning.
 
-## V11 — sizing continuo retirado
-Objetivo probado: usar Forward Risk sólo para modular cuánto dinero nuevo desplegar cuando `PortfolioCandidateGate` ya es `ELIGIBLE`, sin vender ni reducir posiciones.
-
+## V11 — retirada
 Política:
 `V11_POLICY_1`.
 
 Fingerprint:
 `sha256:945f39501b58c40735eeb9fc7dbd7ea128985e45b991f3c947c925cbc5cb94c1`.
 
-Sizing congelado:
-- score <=80 -> 100%;
-- 85 -> 87,5%;
-- 90 -> 75%;
-- 95 -> 62,5%;
-- 100 -> 50%;
-- fórmula `score<=80 ? 1 : 1 - 0.5*((score-80)/20)`.
-
-Sin timer de 63 sesiones, sin waiting state, sin ventas. Cash no desplegado remunerado y siguiente revisión mensual normal.
-
-Holdout V11 consumido:
+Holdout consumido:
 `IUSQ.DE`, `SXR4.DE`, `EUNM.DE`, `EUNK.DE`, `SXR1.DE`, `SXRZ.DE`.
 
-Resultado blind ejecutado localmente el 2026-09-07, evaluado hasta 2026-09-01:
-
+Veredicto:
 `V11_BLIND_FAIL_RETIRE_V11_POLICY_1`.
 
 Agregado:
-- activos válidos: **6/6**;
-- PASS individuales: **0/6**;
-- mediana `finalDeltaEur = -313,29 €`;
-- mediana `finalDeltaPctOfContributions = -0,17229%`;
-- mediana reducción de drawdown = **+0,00906 pp**;
-- mediana `wealthEfficiencyRatio = 0,999413`;
-- gate agregado: FAIL.
-
-Gate congelado exigía:
 - 6/6 válidos;
-- >=4/6 PASS individuales;
-- mediana reducción DD >=0,5 pp;
-- mediana delta final >=-0,5% del capital aportado;
-- mediana wealth-efficiency ratio >=1.
+- 0/6 PASS;
+- mediana final delta -313,29 EUR;
+- mediana delta / contribuciones -0,17229%;
+- mediana reducción DD +0,00906 pp;
+- mediana wealthEfficiencyRatio 0,999413.
 
-Por activo:
-- IUSQ.DE: delta -422,28 €; DD +0,0013 pp; efficiency 0,999092; FAIL.
-- SXR4.DE: delta -1.741,70 €; DD +0,0208 pp; efficiency 0,997421; FAIL.
-- EUNM.DE: delta -204,30 €; DD +0,2192 pp; efficiency 1,001070; FAIL.
-- EUNK.DE: delta -106,42 €; DD -0,00003 pp; efficiency 0,999734; FAIL.
-- SXR1.DE: delta -83,53 €; DD +0,0156 pp; efficiency 0,999867; FAIL.
-- SXRZ.DE: delta -3.238,24 €; DD +0,0025 pp; efficiency 0,993119; FAIL.
-
-### Hallazgo estructural V11 que debe conservarse
-En los seis activos hubo:
+Hallazgo estructural muy importante:
 - 272 decisiones `ELIGIBLE`;
-- sólo 51 decisiones `ELIGIBLE` con riesgo >80 realmente moduladas;
+- sólo 51 también tenían riesgo >80;
 - solapamiento = **18,75%**.
 
-Por activo: IUSQ 9/52, SXR4 10/53, EUNM 7/35, EUNK 8/55, SXR1 8/40, SXRZ 9/37.
+Interpretación: `PortfolioCandidateGate` ya excluía muchas situaciones de alto riesgo; poner Forward Risk sólo después del gate deja poco margen incremental. No usar esto para V11.1; sí conservarlo para arquitecturas futuras distintas.
 
-Interpretación: `PortfolioCandidateGate` ya excluye muchas situaciones de riesgo alto. Colocar Forward Risk sólo **después** de que el gate haya dicho `ELIGIBLE` deja poco margen incremental para cambiar el resultado. Esto probablemente contribuye a que V11 apenas redujera drawdown. No usar esta observación para retocar V11; sí conservarla para diseñar arquitecturas futuras realmente distintas.
-
-Interpretación cerrada:
-- V11 logra que el coste de rentabilidad mediano sea pequeño, pero prácticamente **no reduce drawdown**.
-- Sólo EUNM mejora ligeramente wealth-efficiency, pero su reducción DD (+0,219 pp) sigue muy por debajo del mínimo preregistrado (+0,5 pp).
-- No hay problema de calidad que permita declarar INCONCLUSIVE: 6/6 activos son válidos.
-- El fallo es económico/metodológico, no técnico.
-
-Consecuencias:
-- `V11_POLICY_1` retirada;
-- no V11.1 ni tuning de threshold 80, pendiente de sizing, floor 50%, cadence o gates sobre estos seis activos;
-- los seis quedan consumidos para cualquier sucesor;
-- future-forward V11 desde 2026-09-08 cancelado para promoción porque el blind histórico ya falló;
-- V11 no se integra en producción.
-
-Documento de cierre:
+Documento:
 `docs/forward_risk_v11_blind_outcome.md`.
 
----
+## Conclusión V8 -> V11
+1. V8 anticipa caídas con información útil y debe conservarse.
+2. ON/OFF diario es demasiado fragmentado.
+3. Sell/rebuy V8/V9 destruye upside.
+4. Espera binaria V10 pierde recuperación.
+5. Sizing V11 posterior al gate casi no reduce DD.
+6. No crear V12/V13 como variaciones paramétricas del mismo overlay.
+7. Usos futuros posibles: ranking, contexto de riesgo, alertas, stress, margen de seguridad, priorización y modelos conjuntos.
 
-# Qué hemos aprendido de V8 → V11
-
-1. **V8 sí mostró información anticipativa útil sobre futuras caídas y debe preservarse como activo de investigación.**
-2. La señal binaria V8 es muy fragmentada; usar cada ON/OFF como orden destruye utilidad económica.
-3. Convertir la señal en venta/recompra (V8/V9) destruyó demasiado upside y generó coste/rotación.
-4. Convertirla en espera binaria de dinero nuevo (V10) perdió recuperación, aunque `DOWN_FIRST > UP_FIRST` mantuvo una pequeña evidencia direccional bajista.
-5. Convertirla en sizing continuo 100%→50% después de `PortfolioCandidateGate` (V11) tuvo poca capacidad marginal: sólo 18,75% de las decisiones ELIGIBLE fueron realmente moduladas por riesgo >80.
-6. Por tanto, **no seguir encadenando V12/V13 como variaciones del mismo overlay**. Si se reutiliza V8, debe ser mediante una hipótesis arquitectónica realmente distinta y un nuevo holdout virgen.
-7. Posibles usos futuros a investigar: ranking, penalización de riesgo relativo, confianza de oportunidad, alertas adelantadas, stress, margen de seguridad, priorización de revisión/rebalanceo y features de un modelo conjunto riesgo+oportunidad.
-
-Forward Risk queda fuera de producción, pero **V8/V5/V7 no se consideran conocimiento descartado**. Se conservan como información/telemetría/features potenciales hasta que un uso futuro sea preregistrado y validado.
+En la fase ranking actual **V8 no se usa todavía** para no mezclar hipótesis. Después de entender LEGACY vs QUALITY vs SLOPE podrá estudiarse en shadow si discrimina downside entre candidatos ya elegibles/rankeados, con nueva metodología causal.
 
 ---
 
 # Validaciones locales
-Pantalla: `ResearchValidationCenter`.
-Ruta backend: `/api/alerts/research-validation/*`.
+Pantalla existente:
+`ResearchValidationCenter`.
+
+Backend:
+`/api/alerts/research-validation/*`.
 
 Archivado:
 - V8 diagnóstico;
-- V9 guard/blind; V9 retirada;
-- V10 guard/blind; V10 retirada;
-- V11 guard/blind; V11 retirada.
+- V9 guard/blind;
+- V10 guard/blind;
+- V11 guard/blind;
+- Mercado abierto V1 infraestructura PASS;
+- Mercado abierto V1 integración live PASS.
 
 Job vigente:
-- `open-market-discovery-v1-validation` — **Mercado abierto · V1 · discovery + core shadow**.
+- `opportunity-ranking-causal-comparison-v1` — **Oportunidad · ranking causal · LEGACY vs QUALITY vs SLOPE**.
 
-No usar Gemini, agentes ni GitHub Actions para cálculos largos.
+Nunca usar Gemini, agentes ni GitHub Actions para estas ejecuciones largas.
 
 ---
 
 # Datos de mercado
-- Yahoo Finance: primario para acciones/ETF, búsqueda manual y `OPEN_MARKET_DISCOVERY_V1` current/live.
-- EODHD: secundario y NAV de fondos por ISIN si hay API key.
-- Alpha Vantage: contraste secundario si hay API key.
+- Yahoo Finance: primario para acciones/ETF y discovery current/live.
+- EODHD: secundario y NAV de fondos por ISIN cuando está configurado.
+- Alpha Vantage: contraste secundario cuando está configurado.
 - Cboe: VIX/VIX9D/VVIX de V7/V8.
-- FRED/ALFRED API: macro point-in-time V5/V8/V11; `FRED_API_KEY` es secreto server-side.
+- FRED/ALFRED: macro point-in-time V5/V8; `FRED_API_KEY` server-side.
 
-Replay manual abierto puede buscar Yahoo LIVE por nombre/ticker/ISIN y registrar instrumentos dinámicos EUR.
-
----
-
-# Próxima secuencia recomendada
-
-1. Ejecutar localmente **Mercado abierto · V1 · discovery + core shadow**.
-2. Corregir cualquier fallo de guards/TypeScript antes de interpretar cobertura externa.
-3. Si el smoke REAL es PASS, registrar cobertura y revisar candidatos/anomalías sin usar rentabilidad futura para seleccionar.
-4. Integrar el snapshot `OPEN_MARKET_DISCOVERY_V1` current/live en el universo compartido de decisión de hoy y alertas; mantener fallback explícito al catálogo conocido si Yahoo discovery no está disponible.
-5. Mantener `CORE_ELIGIBILITY_V2` en shadow hasta comprobar que sus reglas estructurales no eliminan cores válidos por errores de metadata/liquidez.
-6. Sólo después promover V2 a pre-gate estructural compartido, sin sustituir `PortfolioCandidateGate`.
-7. Para replay histórico abierto: obtener/construir un instrument master point-in-time con altas y delistings. No sustituirlo por Yahoo Search actual.
-8. Con universo causal ampliado, volver a oportunidad/ranking y validar qué comprar sobre candidatos no elegidos retrospectivamente.
-9. Al diseñar ranking/oportunidad, **recordar V8 como feature/contexto de riesgo candidato**, no como orden automática; cualquier integración requiere validación nueva y causal.
-10. No crear V11.1 ni un V12 paramétrico.
+Búsqueda manual del replay puede registrar instrumentos EUR por ticker/nombre/ISIN, pero eso no autoriza a usar Yahoo Search actual como catálogo histórico point-in-time.
 
 ---
 
-# Producto / web
-Núcleo a mantener:
+# Próxima secuencia
+1. Ejecutar localmente **Oportunidad · ranking causal · LEGACY vs QUALITY vs SLOPE**.
+2. Si falla guard/TypeScript, corregir infraestructura antes de interpretar resultados.
+3. Si completa, analizar diferencias reales de compras y economía entre los tres brazos sin retunear.
+4. Mantener producción `LEGACY`.
+5. Si QUALITY o SLOPE muestra señal consistente, reservar confirmación future-forward; no promover desde las ventanas históricas conocidas.
+6. Después evaluar, como hipótesis separada, si V8 aporta información de downside para desempate/contexto entre oportunidades ya elegibles.
+7. Mantener `CORE_ELIGIBILITY_V2` shadow hasta disponer de evidencia suficiente para una promoción estructural.
+8. Instrument master point-in-time sigue pendiente para un replay verdaderamente open-market histórico sin survivorship bias residual.
+
+---
+
+# Producto / UI — núcleo a mantener
 - Decisión de hoy.
 - Registrar compra ejecutada.
 - Mi cartera real / salud.
 - Estudio individual.
 - Replay histórico auditado.
 - Alarmas backend.
+- Centro de validación existente.
+
+No crear nuevos apartados para discovery, core eligibility ni ranking si pueden vivir bajo estos flujos.
 
 Pendiente de simplificación:
-- fusionar ranking técnico con ranking del estudio;
+- fusionar ranking técnico con ranking del estudio cuando haya evidencia suficiente;
 - consolidar cobertura/proveedores y controles técnicos en un bloque avanzado.
 
 ---
