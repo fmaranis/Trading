@@ -160,9 +160,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'opportunity-ranking-causal-comparison-v1',
     name: 'Oportunidad · ranking causal · LEGACY vs QUALITY vs SLOPE',
-    description: 'Compara localmente tres rankings ya existentes sobre el mismo replay CORE_ARCHITECTURE_V1. Sólo cambia el orden relativo entre candidatos que ya han pasado REAL + cash + consenso BUY + Entry Timing. Usa tres ventanas históricas fijas y discovery Yahoo actual desactivado. Es diagnóstico histórico: no puede promocionar producción.',
+    description: 'Diagnóstico histórico consumido el 2026-09-08. QUALITY quedó research-only con efecto insuficiente; SLOPE no es candidato de promoción en su forma actual; producción continúa LEGACY. No se permite tuning sobre estas ventanas.',
     marker: 'OPPORTUNITY_RANKING_CAUSAL_COMPARISON_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'Ranking causal V1 · QUALITY insuficiente · SLOPE no mejora',
     steps: [
       { label: 'Guard arquitectura ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingArchitecture.unit.ts'] },
       { label: 'Guard protocolo ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingComparison.unit.ts'] },
@@ -170,6 +171,21 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Comparación REAL 3 políticas × 3 ventanas', command: 'npx', args: ['tsx', 'scripts/opportunityRankingCausalComparisonLive.ts'] }
+    ]
+  },
+  {
+    id: 'opportunity-ranking-reach-audit-v1',
+    name: 'Oportunidad · auditoría de alcance del ranking',
+    description: 'Mide dentro del mismo replay CORE_ARCHITECTURE_V1 dónde llega o se pierde la información de ranking: cambio de orden -> cambio del conjunto seleccionado -> cambio del plan BUY/ADD -> cambio de compras ejecutadas. No cambia producción ni añade pantallas.',
+    marker: 'OPPORTUNITY_RANKING_REACH_AUDIT_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard arquitectura ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingArchitecture.unit.ts'] },
+      { label: 'Guard alcance ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingReachAudit.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Auditoría REAL 3 políticas × 3 ventanas', command: 'npx', args: ['tsx', 'scripts/opportunityRankingReachAuditLive.ts'] }
     ]
   }
 ];
