@@ -1,5 +1,3 @@
-import { accrueRemuneratedCash } from './remuneratedCash';
-
 export type DynamicReplayExternalCashFlowKind = 'CONTRIBUTION' | 'WITHDRAWAL';
 
 /**
@@ -35,6 +33,7 @@ export interface DynamicReplayCashFlowSummary {
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+let activeReplayExternalCashFlows: DynamicReplayExternalCashFlow[] | null = null;
 
 export function normalizeReplayExternalCashFlows(
   rows: readonly DynamicReplayExternalCashFlow[] | null | undefined,
@@ -48,7 +47,8 @@ export function normalizeReplayExternalCashFlows(
       const amountEur = Number(row?.amountEur);
       if (!ISO_DATE.test(date)) throw new Error(`REPLAY_EXTERNAL_CASH_FLOW_INVALID_DATE:${date || index}`);
       if (!Number.isFinite(amountEur) || Math.abs(amountEur) < 0.005) throw new Error(`REPLAY_EXTERNAL_CASH_FLOW_INVALID_AMOUNT:${date}`);
-      if (date < startDate || date > endDate) throw new Error(`REPLAY_EXTERNAL_CASH_FLOW_OUTSIDE_REPLAY:${date}`);
+      if (date <= startDate) throw new Error(`REPLAY_EXTERNAL_CASH_FLOW_MUST_BE_AFTER_START:${date}`);
+      if (date > endDate) throw new Error(`REPLAY_EXTERNAL_CASH_FLOW_OUTSIDE_REPLAY:${date}`);
       const inferredKind: DynamicReplayExternalCashFlowKind = amountEur > 0 ? 'CONTRIBUTION' : 'WITHDRAWAL';
       if (row.kind && row.kind !== inferredKind) throw new Error(`REPLAY_EXTERNAL_CASH_FLOW_KIND_AMOUNT_MISMATCH:${date}`);
       return {
@@ -60,6 +60,52 @@ export function normalizeReplayExternalCashFlows(
       };
     })
     .sort((a, b) => a.date.localeCompare(b.date) || String(a.id).localeCompare(String(b.id)));
+}
+
+export function beginReplayExternalCashFlowContext(
+  rows: readonly DynamicReplayExternalCashFlow[] | null | undefined,
+  startDate: string,
+  endDate: string
+): DynamicReplayExternalCashFlow[] {
+  const normalized = normalizeReplayExternalCashFlows(rows, startDate, endDate);
+  activeReplayExternalCashFlows = normalized;
+  return normalized.map(row => ({ ...row }));
+}
+
+export function endReplayExternalCashFlowContext(): void {
+  activeReplayExternalCashFlows = null;
+}
+
+export function isReplayExternalCashFlowContextActive(): boolean {
+  return activeReplayExternalCashFlows != null;
+}
+
+export function activeReplayExternalCashFlowsSnapshot(): DynamicReplayExternalCashFlow[] {
+  return (activeReplayExternalCashFlows ?? []).map(row => ({ ...row }));
+}
+
+/**
+ * Cash flows are calendar-dated account movements. A weekend contribution is
+ * therefore part of the first cash interval that crosses that calendar date and
+ * is visible only to decisions after it. This is causal and does not require a
+ * fictitious market session on the flow date.
+ */
+export function activeReplayExternalCashFlowsBetween(fromDate: string, toDate: string): DynamicReplayExternalCashFlow[] {
+  if (!activeReplayExternalCashFlows?.length || toDate <= fromDate) return [];
+  return activeReplayExternalCashFlows
+    .filter(row => row.date > fromDate && row.date <= toDate)
+    .map(row => ({ ...row }));
+}
+
+export function appliedReplayExternalCashFlowsSnapshot(): DynamicReplayAppliedCashFlow[] {
+  return (activeReplayExternalCashFlows ?? []).map(row => ({
+    id: String(row.id),
+    scheduledDate: row.date,
+    appliedDate: row.date,
+    amountEur: row.amountEur,
+    kind: row.amountEur > 0 ? 'CONTRIBUTION' : 'WITHDRAWAL',
+    label: String(row.label)
+  }));
 }
 
 export function summarizeAppliedCashFlows(
@@ -92,26 +138,28 @@ export function cashFlowAdjustedPerformance(input: {
   return { profitEur, returnPct, summary };
 }
 
-export function allCashBenchmarkWithAppliedFlows(input: {
-  initialCapitalEur: number;
-  annualPct: number;
-  startDate: string;
-  endDate: string;
+export function flowAdjustedEquityValue(
+  equityEur: number,
+  flows: readonly DynamicReplayAppliedCashFlow[],
+  date: string
+): number {
+  const netExternalToDate = flows
+    .filter(flow => flow.appliedDate <= date)
+    .reduce((sum, flow) => sum + flow.amountEur, 0);
+  return equityEur - netExternalToDate;
+}
+
+export function flowAdjustedMaxDrawdownPct(input: {
+  equityPath: readonly { date: string; equityEur: number }[];
   appliedFlows: readonly DynamicReplayAppliedCashFlow[];
-}): { finalEur: number; returnPct: number; profitEur: number } {
-  let cashEur = Math.max(0, input.initialCapitalEur);
-  let cursor = input.startDate;
-  for (const flow of [...input.appliedFlows].sort((a, b) => a.appliedDate.localeCompare(b.appliedDate) || a.id.localeCompare(b.id))) {
-    if (flow.appliedDate > cursor) {
-      cashEur = accrueRemuneratedCash(cashEur, input.annualPct, cursor, flow.appliedDate).cashEur;
-      cursor = flow.appliedDate;
-    }
-    if (flow.amountEur < 0 && cashEur + flow.amountEur < -0.01) {
-      throw new Error(`REPLAY_EXTERNAL_WITHDRAWAL_EXCEEDS_CASH:${flow.appliedDate}`);
-    }
-    cashEur = Math.max(0, cashEur + flow.amountEur);
+}): number {
+  let peak = 0;
+  let maximum = 0;
+  for (const point of input.equityPath) {
+    const adjusted = flowAdjustedEquityValue(point.equityEur, input.appliedFlows, point.date);
+    if (!(adjusted > 0)) continue;
+    peak = Math.max(peak, adjusted);
+    if (peak > 0) maximum = Math.max(maximum, (peak - adjusted) / peak * 100);
   }
-  if (input.endDate > cursor) cashEur = accrueRemuneratedCash(cashEur, input.annualPct, cursor, input.endDate).cashEur;
-  const performance = cashFlowAdjustedPerformance({ finalValueEur: cashEur, initialCapitalEur: input.initialCapitalEur, appliedFlows: input.appliedFlows });
-  return { finalEur: cashEur, returnPct: performance.returnPct, profitEur: performance.profitEur };
+  return maximum;
 }
