@@ -67,12 +67,13 @@ assert.equal(noFlows.appliedExternalCashFlows.length, 0, 'MONTHLY decision caden
 
 const contributionDate = dateAt(270).slice(0, 10);
 const withdrawalDate = dateAt(285).slice(0, 10);
+const externalFlows = [
+  { id: 'contribution', date: contributionDate, amountEur: 1_000, kind: 'CONTRIBUTION' as const, label: 'Explicit contribution' },
+  { id: 'withdrawal', date: withdrawalDate, amountEur: -500, kind: 'WITHDRAWAL' as const, label: 'Explicit withdrawal' }
+];
 const withFlows = DynamicHistoricalReplayEngine.run({
   ...common,
-  externalCashFlows: [
-    { id: 'contribution', date: contributionDate, amountEur: 1_000, kind: 'CONTRIBUTION', label: 'Explicit contribution' },
-    { id: 'withdrawal', date: withdrawalDate, amountEur: -500, kind: 'WITHDRAWAL', label: 'Explicit withdrawal' }
-  ]
+  externalCashFlows
 });
 
 assert.equal(withFlows.externalCashFlowMode, 'EXPLICIT');
@@ -97,6 +98,26 @@ assert.ok(Math.abs(withFlows.allCashReturnPct) < 1e-9, 'all-cash benchmark must 
 assert.equal(withFlows.structuralCoreBenchmarkFinalEur, null, 'structural benchmark V1 must be N/D when it cannot receive the same external flows');
 assert.ok(withFlows.equityPath.some(point => point.externalCashFlowEur === 1_000));
 assert.ok(withFlows.equityPath.some(point => point.externalCashFlowEur === -500));
+
+const withInterest = DynamicHistoricalReplayEngine.run({
+  ...common,
+  cashBenchmarkAnnualPct: 8,
+  externalCashFlows
+});
+assert.ok(withInterest.cashInterestEur > 0, 'non-zero cash rate must accrue interest in the replay');
+assert.ok(withInterest.cashInterestTaxEur > 0, 'cash interest must retain its own tax accounting');
+assert.ok(
+  Math.abs(withInterest.finalValueEur - withInterest.allCashFinalEur) < 0.01,
+  'independent all-cash benchmark must match HOLD_ONLY cash with identical dated flows and must not contaminate replay cash/tax state'
+);
+assert.ok(
+  Math.abs(withInterest.cashFlowAdjustedReturnPct - withInterest.allCashReturnPct) < 1e-9,
+  'flow-adjusted HOLD_ONLY return and independent cash benchmark return must remain identical under non-zero interest'
+);
+assert.ok(
+  Math.abs(withInterest.totalEstimatedTaxEur - withInterest.cashInterestTaxEur) < 0.01,
+  'HOLD_ONLY has no trading tax, so total estimated tax must equal cash-interest tax without benchmark double counting'
+);
 
 const accounting = cashFlowAdjustedPerformance({
   finalValueEur: 12_000,
