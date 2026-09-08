@@ -73,7 +73,7 @@ const externalFlows = [
 ];
 const withFlows = DynamicHistoricalReplayEngine.run({
   ...common,
-  externalCashFlows
+  externalCashFlows: externalFlows
 });
 
 assert.equal(withFlows.externalCashFlowMode, 'EXPLICIT');
@@ -102,7 +102,7 @@ assert.ok(withFlows.equityPath.some(point => point.externalCashFlowEur === -500)
 const withInterest = DynamicHistoricalReplayEngine.run({
   ...common,
   cashBenchmarkAnnualPct: 8,
-  externalCashFlows
+  externalCashFlows: externalFlows
 });
 assert.ok(withInterest.cashInterestEur > 0, 'non-zero cash rate must accrue interest in the replay');
 assert.ok(withInterest.cashInterestTaxEur > 0, 'cash interest must retain its own tax accounting');
