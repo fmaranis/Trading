@@ -143,9 +143,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'open-market-live-scanner-integration',
     name: 'Mercado abierto · V1 · integración en scanner live',
-    description: 'Comprueba que el AssetUniverseScanner existente incorpora automáticamente discovery sólo en CURRENT/LIVE y que Decisión de hoy + alertas heredan la ampliación sin nuevas pantallas ni motor paralelo. El replay histórico permanece aislado.',
+    description: 'Integración CURRENT/LIVE cerrada con PASS el 2026-09-08: 64 activos base + 2 ETF descubiertos = 66 escaneados; 2 OPEN_* aceptados con provenance REAL; ambos quedaron REJECTED por DOES_NOT_BEAT_CASH. CORE_ELIGIBILITY_V2 siguió shadow y el replay histórico no se modificó.',
     marker: 'OPEN_MARKET_LIVE_SCANNER_INTEGRATION_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'Mercado abierto V1 · integración live PASS',
     steps: [
       { label: 'Guard discovery V1', command: 'npx', args: ['tsx', 'tests/openMarketDiscoveryV1.unit.ts'] },
       { label: 'Guard core eligibility V2 shadow', command: 'npx', args: ['tsx', 'tests/coreEligibilityV2.unit.ts'] },
@@ -154,6 +155,21 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Smoke REAL scanner live + gate', command: 'npx', args: ['tsx', 'scripts/openMarketLiveScannerIntegration.ts'] }
+    ]
+  },
+  {
+    id: 'opportunity-ranking-causal-comparison-v1',
+    name: 'Oportunidad · ranking causal · LEGACY vs QUALITY vs SLOPE',
+    description: 'Compara localmente tres rankings ya existentes sobre el mismo replay CORE_ARCHITECTURE_V1. Sólo cambia el orden relativo entre candidatos que ya han pasado REAL + cash + consenso BUY + Entry Timing. Usa tres ventanas históricas fijas y discovery Yahoo actual desactivado. Es diagnóstico histórico: no puede promocionar producción.',
+    marker: 'OPPORTUNITY_RANKING_CAUSAL_COMPARISON_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard arquitectura ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingArchitecture.unit.ts'] },
+      { label: 'Guard protocolo ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingComparison.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Comparación REAL 3 políticas × 3 ventanas', command: 'npx', args: ['tsx', 'scripts/opportunityRankingCausalComparisonLive.ts'] }
     ]
   }
 ];
