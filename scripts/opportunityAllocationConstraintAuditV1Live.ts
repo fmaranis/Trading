@@ -34,14 +34,8 @@ const POLICIES: readonly OpportunityAllocationPolicy[] = ['LEGACY', 'QUALITY_ALL
 
 type Policy = typeof POLICIES[number];
 type Evaluate = typeof PortfolioDecisionEngine.evaluate;
-
-type BindingConstraint =
-  | 'TIMING_CAP'
-  | 'STAGE_CAP'
-  | 'TIMING_AND_STAGE_EQUAL'
-  | 'TARGET_GAP'
-  | 'DOWNSTREAM_CAPITAL_OR_CATEGORY_LIMIT'
-  | 'UNCLASSIFIED';
+type ExecutableTargetConstraint = 'TIMING_CAP' | 'STAGE_CAP' | 'TIMING_AND_STAGE_EQUAL' | 'UNCLASSIFIED';
+type FinalAmountConstraint = 'TARGET_GAP' | 'DOWNSTREAM_CAPITAL_OR_CATEGORY_LIMIT' | 'UNCLASSIFIED';
 
 interface ContributionTraceRow {
   assetId: string;
@@ -54,7 +48,8 @@ interface ContributionTraceRow {
   suggestedInitialFraction: number | null;
   portfolioShareCapPct: number | null;
   positionStage: string | null;
-  bindingConstraint: BindingConstraint;
+  executableTargetConstraint: ExecutableTargetConstraint;
+  finalAmountConstraint: FinalAmountConstraint;
 }
 
 interface AllocationTrace {
@@ -65,7 +60,6 @@ interface AllocationTrace {
   totalPlannedCapitalEur: number;
   targetCashEur: number;
   deployableToAssetsEur: number;
-  plannedRotationProceedsEur: number;
   recommendedNewInvestmentEur: number;
   residualPlannedCashEur: number;
   availablePortfolioSlots: number;
@@ -138,10 +132,10 @@ function legacyOpportunityPriority(alert: CurrentOpportunityAlert): number {
 }
 
 function opportunityOrderAudit(alerts: CurrentOpportunityAlert[]) {
-  const legacy = [...alerts]
+  const legacy = alerts
     .map(alert => ({ assetId: alert.assetId, priority: legacyOpportunityPriority(alert) }))
     .sort((a, b) => b.priority - a.priority || a.assetId.localeCompare(b.assetId));
-  const quality = [...alerts]
+  const quality = alerts
     .map(alert => ({
       assetId: alert.assetId,
       priority: legacyOpportunityPriority(alert) * qualityAllocationMultiplierV1(alert.reliabilityScore, alert.opportunityScore),
@@ -157,26 +151,37 @@ function opportunityOrderAudit(alerts: CurrentOpportunityAlert[]) {
   };
 }
 
-function classifyContributionConstraint(row: PortfolioDecisionResult['contributions'][number], totalPlannedCapitalEur: number): BindingConstraint {
+function classifyContributionConstraints(
+  row: PortfolioDecisionResult['contributions'][number],
+  totalPlannedCapitalEur: number
+): { executableTargetConstraint: ExecutableTargetConstraint; finalAmountConstraint: FinalAmountConstraint } {
   const target = row.targetAssetValueEur;
   const executable = row.executableTargetAssetValueEur;
   const timingFraction = row.suggestedInitialFraction;
   const stagePct = row.portfolioShareCapPct;
   const current = Math.max(0, row.currentAssetValueEur ?? 0);
-  if (target == null || executable == null || timingFraction == null || stagePct == null) return 'UNCLASSIFIED';
-  const timingCap = Math.max(0, target * timingFraction);
-  const stageCap = Math.max(0, totalPlannedCapitalEur * stagePct / 100);
-  const expected = Math.min(timingCap, stageCap);
-  const tolerance = Math.max(0.02, expected * 1e-6);
-  if (Math.abs(executable - expected) <= tolerance) {
-    if (Math.abs(timingCap - stageCap) <= tolerance) return 'TIMING_AND_STAGE_EQUAL';
-    if (timingCap < stageCap) return 'TIMING_CAP';
-    return 'STAGE_CAP';
+
+  let executableTargetConstraint: ExecutableTargetConstraint = 'UNCLASSIFIED';
+  if (target != null && executable != null && timingFraction != null && stagePct != null) {
+    const timingCap = Math.max(0, target * timingFraction);
+    const stageCap = Math.max(0, totalPlannedCapitalEur * stagePct / 100);
+    const expected = Math.min(timingCap, stageCap);
+    const tolerance = Math.max(0.02, expected * 1e-6);
+    if (Math.abs(executable - expected) <= tolerance) {
+      if (Math.abs(timingCap - stageCap) <= tolerance) executableTargetConstraint = 'TIMING_AND_STAGE_EQUAL';
+      else executableTargetConstraint = timingCap < stageCap ? 'TIMING_CAP' : 'STAGE_CAP';
+    }
   }
-  const targetGap = Math.max(0, executable - current);
-  if (Math.abs(row.amountEur - targetGap) <= Math.max(0.02, targetGap * 1e-6)) return 'TARGET_GAP';
-  if (row.amountEur < targetGap - 0.02) return 'DOWNSTREAM_CAPITAL_OR_CATEGORY_LIMIT';
-  return 'UNCLASSIFIED';
+
+  let finalAmountConstraint: FinalAmountConstraint = 'UNCLASSIFIED';
+  if (executable != null) {
+    const targetGap = Math.max(0, executable - current);
+    const tolerance = Math.max(0.02, targetGap * 1e-6);
+    if (Math.abs(row.amountEur - targetGap) <= tolerance) finalAmountConstraint = 'TARGET_GAP';
+    else if (row.amountEur < targetGap - tolerance) finalAmountConstraint = 'DOWNSTREAM_CAPITAL_OR_CATEGORY_LIMIT';
+  }
+
+  return { executableTargetConstraint, finalAmountConstraint };
 }
 
 function acquisitionMap(result: DynamicHistoricalReplayResult, executedOnly: boolean): Map<string, Map<string, number>> {
@@ -264,15 +269,21 @@ function compareTraces(legacy: AllocationTrace[], bridge: AllocationTrace[]) {
 
 function constraintStats(traces: AllocationTrace[]) {
   const rows = traces.flatMap(trace => trace.contributions);
-  const counts: Record<BindingConstraint, number> = {
+  const executableTargetConstraintCounts: Record<ExecutableTargetConstraint, number> = {
     TIMING_CAP: 0,
     STAGE_CAP: 0,
     TIMING_AND_STAGE_EQUAL: 0,
+    UNCLASSIFIED: 0
+  };
+  const finalAmountConstraintCounts: Record<FinalAmountConstraint, number> = {
     TARGET_GAP: 0,
     DOWNSTREAM_CAPITAL_OR_CATEGORY_LIMIT: 0,
     UNCLASSIFIED: 0
   };
-  for (const row of rows) counts[row.bindingConstraint] += 1;
+  for (const row of rows) {
+    executableTargetConstraintCounts[row.executableTargetConstraint] += 1;
+    finalAmountConstraintCounts[row.finalAmountConstraint] += 1;
+  }
   const utilization = traces
     .filter(trace => trace.deployableToAssetsEur > 0.01)
     .map(trace => Math.min(1, trace.recommendedNewInvestmentEur / trace.deployableToAssetsEur));
@@ -286,11 +297,24 @@ function constraintStats(traces: AllocationTrace[]) {
     contributionPositiveDecisionGates: traces.filter(trace => trace.contributions.length > 0).length,
     noContributionDespiteDeployableAndOpportunityDecisionGates: traces.filter(trace => trace.deployableToAssetsEur > 0.01 && trace.opportunityCount > 0 && trace.contributions.length === 0).length,
     contributionRows: rows.length,
-    bindingConstraintCounts: counts,
+    executableTargetConstraintCounts,
+    finalAmountConstraintCounts,
     meanDeployableUtilizationPct: mean(utilization.map(value => value * 100)),
     medianDeployableUtilizationPct: median(utilization.map(value => value * 100)),
     opportunityObservations: traces.reduce((sum, trace) => sum + trace.opportunityCount, 0),
     qualityModulatedOpportunityObservations: traces.reduce((sum, trace) => sum + trace.qualityModulatedOpportunityCount, 0)
+  };
+}
+
+function bridgeMultiplierStats(traces: AllocationTrace[]) {
+  const values = traces.flatMap(trace => trace.contributions.map(row => row.multiplier));
+  return {
+    observations: values.length,
+    modulatedObservations: values.filter(value => Math.abs(value - 1) > 1e-9).length,
+    meanMultiplier: mean(values),
+    medianMultiplier: median(values),
+    minimumMultiplier: values.length ? Math.min(...values) : null,
+    maximumMultiplier: values.length ? Math.max(...values) : null
   };
 }
 
@@ -330,25 +354,27 @@ function runPolicy(input: DynamicHistoricalReplayInput, policy: Policy): PolicyR
         totalPlannedCapitalEur: result.totalPlannedCapitalEur,
         targetCashEur: result.targetCashEur,
         deployableToAssetsEur: result.deployableToAssetsEur,
-        plannedRotationProceedsEur: result.plannedRotationProceedsEur,
         recommendedNewInvestmentEur: result.recommendedNewInvestmentEur,
         residualPlannedCashEur: result.residualPlannedCashEur,
         availablePortfolioSlots: result.availablePortfolioSlots,
         ...opportunityAudit,
         contributions: result.contributions
-          .map(row => ({
-            assetId: row.assetId,
-            amountEur: row.amountEur,
-            multiplier: row.qualityAllocationMultiplier ?? 1,
-            priorityScore: row.priorityScore ?? null,
-            currentAssetValueEur: Math.max(0, row.currentAssetValueEur ?? 0),
-            targetAssetValueEur: row.targetAssetValueEur ?? null,
-            executableTargetAssetValueEur: row.executableTargetAssetValueEur ?? null,
-            suggestedInitialFraction: row.suggestedInitialFraction ?? null,
-            portfolioShareCapPct: row.portfolioShareCapPct ?? null,
-            positionStage: row.positionStage ?? null,
-            bindingConstraint: classifyContributionConstraint(row, result.totalPlannedCapitalEur)
-          }))
+          .map(row => {
+            const constraints = classifyContributionConstraints(row, result.totalPlannedCapitalEur);
+            return {
+              assetId: row.assetId,
+              amountEur: row.amountEur,
+              multiplier: row.qualityAllocationMultiplier ?? 1,
+              priorityScore: row.priorityScore ?? null,
+              currentAssetValueEur: Math.max(0, row.currentAssetValueEur ?? 0),
+              targetAssetValueEur: row.targetAssetValueEur ?? null,
+              executableTargetAssetValueEur: row.executableTargetAssetValueEur ?? null,
+              suggestedInitialFraction: row.suggestedInitialFraction ?? null,
+              portfolioShareCapPct: row.portfolioShareCapPct ?? null,
+              positionStage: row.positionStage ?? null,
+              ...constraints
+            };
+          })
           .sort((a, b) => a.assetId.localeCompare(b.assetId))
       });
       return result;
@@ -384,6 +410,7 @@ async function main() {
     registry.register(new RealMarketDataProvider(`${baseUrl}/api/market-data/history`));
     registry.setDefaultProvider('yahoo_finance');
     HistoricalMarketDataService.setRegistry(registry);
+
     const scan = await AssetUniverseScanner.scan(EUR_PORTFOLIO_DISCOVERY_UNIVERSE, DATA_START_DATE, END_DATE, {
       forceRefresh: false,
       concurrency: 3,
@@ -428,6 +455,7 @@ async function main() {
         bridge: resultMetrics(bridge.result),
         legacyConstraintStats: constraintStats(legacy.traces),
         bridgeConstraintStats: constraintStats(bridge.traces),
+        bridgeMultiplierStats: bridgeMultiplierStats(bridge.traces),
         traceComparison,
         plannedAcquisitionComparison: plannedComparison,
         executedAcquisitionComparison: executedComparison,
@@ -492,7 +520,7 @@ async function main() {
       notes: [
         'This reuses the existing QUALITY bridge validation button; no new product section or productive engine is created.',
         'The historical portfolio builder currently sets stagedCapitalPlan.availableEur = 0, so MONTHLY is a decision cadence, not recurring external monthly capital.',
-        'The audit measures how deployable cash, timing/stage caps, portfolio/category limits and final execution compress a bounded QUALITY priority modulation.',
+        'Executable-target limits (timing vs starter/build stage) and final-amount limits (target gap vs downstream capital/category) are reported separately.',
         'The QUALITY multiplier and all production gates/caps remain frozen; this audit cannot authorize promotion or tuning.'
       ]
     };
