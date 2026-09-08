@@ -27,6 +27,12 @@ export type {
   DynamicReplayTimingStateCounts,
   DynamicReplayTrendProtectionV1Counts
 } from './dynamicHistoricalReplayCore';
+export type {
+  DynamicReplayExternalCashFlowKind,
+  DynamicReplayExternalCashFlow,
+  DynamicReplayAppliedCashFlow,
+  DynamicReplayCashFlowSummary
+} from './replayExternalCashFlows';
 
 export interface DynamicHistoricalReplayResult extends CoreDynamicHistoricalReplayResult {
   cashBenchmarkMode: CashBenchmarkMode;
@@ -84,6 +90,11 @@ function calendarDaysBetween(startDate: string, endDate: string): number {
 }
 
 function structuralCoreBenchmark(input: DynamicHistoricalReplayInput, result: CoreDynamicHistoricalReplayResult) {
+  // A benchmark that receives only the initial lump sum is not economically
+  // comparable with a replay that later receives/withdraws external money.
+  // Do not silently credit Custodia with those flows while starving the benchmark.
+  if (result.appliedExternalCashFlows.length > 0) return null;
+
   const fallbackIds = input.catalog
     .filter(asset => asset.category === 'GLOBAL_EQUITY' && !asset.assetId.startsWith('EQ_'))
     .map(asset => asset.assetId);
@@ -106,9 +117,6 @@ function structuralCoreBenchmark(input: DynamicHistoricalReplayInput, result: Co
     const benchmarkEndDate = isoDate(endBar.timestamp);
     if (benchmarkEndDate < benchmarkStartDate) continue;
 
-    // A benchmark must cover the same economic period. Do not silently accept a
-    // preferred mutual fund whose provider history starts years after the replay;
-    // fall through to another structural-core instrument with genuine coverage.
     const startLagDays = calendarDaysBetween(result.startDate, benchmarkStartDate);
     const endLagDays = calendarDaysBetween(benchmarkEndDate, result.endDate);
     if (startLagDays > MAX_CORE_BENCHMARK_EDGE_LAG_DAYS || endLagDays > MAX_CORE_BENCHMARK_EDGE_LAG_DAYS) continue;
@@ -183,6 +191,7 @@ export class DynamicHistoricalReplayEngine {
     const benchmark = structuralCoreBenchmark(input, coreResult!);
     const excessFinalEurVsStructuralCore = benchmark == null ? null : coreResult!.finalValueEur - benchmark.finalEur;
     const excessReturnVsStructuralCorePctPoints = benchmark == null ? null : coreResult!.totalReturnPct - benchmark.returnPct;
+    const hasExternalFlows = coreResult!.appliedExternalCashFlows.length > 0;
 
     return {
       ...coreResult!,
@@ -213,7 +222,9 @@ export class DynamicHistoricalReplayEngine {
           : 'Intereses de cash: se descuenta retencion del 19% al no existir contexto fiscal anual confirmado.',
         benchmark
           ? `Benchmark estructural: 100% del capital en ${benchmark.ticker} desde ${benchmark.startDate} hasta ${benchmark.endDate}, buy-and-hold sin market timing y con cobertura real del periodo completo (tolerancia de borde ≤${MAX_CORE_BENCHMARK_EDGE_LAG_DAYS} días). Final ${benchmark.finalEur.toFixed(2)} €, retorno ${benchmark.returnPct.toFixed(2)}%, CAGR ${benchmark.cagrPct == null ? 'N/D' : `${benchmark.cagrPct.toFixed(2)}%`}, DD máx. ${benchmark.maxDrawdownPct == null ? 'N/D' : `${benchmark.maxDrawdownPct.toFixed(2)}%`}. Este benchmark no participa en ninguna decisión del motor.`
-          : `Benchmark estructural no disponible: ningún core global del dataset cubre inicio y fin del replay con tolerancia ≤${MAX_CORE_BENCHMARK_EDGE_LAG_DAYS} días.`
+          : hasExternalFlows
+            ? 'Benchmark estructural N/D con flujos externos: el benchmark V1 sólo modela el capital inicial y no se permite compararlo contra una cartera que recibió aportaciones/retiradas posteriores.'
+            : `Benchmark estructural no disponible: ningún core global del dataset cubre inicio y fin del replay con tolerancia ≤${MAX_CORE_BENCHMARK_EDGE_LAG_DAYS} días.`
       ]
     };
   }
