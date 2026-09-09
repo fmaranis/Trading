@@ -162,6 +162,33 @@ export function rankDynamicMarketShortlist(candidates: AssetScanCandidate[], max
     })
     .slice(0, cap);
 }
+
+/**
+ * Historical/non-current behavior is intentionally preserved. Before the
+ * dynamic current-market architecture, scanner selection kept one candidate per
+ * category and inserted the best defensive exposure first. Replays and research
+ * that do not use current Yahoo discovery must keep that exact semantic so this
+ * current/live feature does not rewrite historical experiments.
+ */
+function chooseDiversifiedLegacy(candidates: AssetScanCandidate[], maxSelected: number): AssetScanCandidate[] {
+  const accepted = candidates
+    .filter(candidate => candidate.status === 'ACCEPTED' && candidate.score != null)
+    .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
+  const selected: AssetScanCandidate[] = [];
+  const usedCategories = new Set<string>();
+  const bestDefensive = accepted.find(candidate => candidate.asset.defensive);
+  if (bestDefensive) {
+    selected.push(bestDefensive);
+    usedCategories.add(bestDefensive.asset.category);
+  }
+  for (const candidate of accepted) {
+    if (selected.length >= maxSelected) break;
+    if (selected.some(row => row.asset.assetId === candidate.asset.assetId) || usedCategories.has(candidate.asset.category)) continue;
+    selected.push(candidate);
+    usedCategories.add(candidate.asset.category);
+  }
+  return selected;
+}
 function toDataset(candidates: AssetScanCandidate[]): MultiAssetDataset {
   return { timeframe: '1d', assets: candidates.map(c => ({ assetId: c.asset.assetId, ticker: c.asset.ticker, name: c.asset.name, currency: 'EUR', bars: c.response!.bars, provenance: c.response!.provenance })) };
 }
@@ -296,10 +323,9 @@ export class AssetUniverseScanner {
     // callers may still pass maxSelected:12 from the pre-dynamic era; that option
     // remains honored only for non-current/historical/research scans.
     const requestedMax = dynamicCurrentMarket ? DYNAMIC_MARKET_SHORTLIST_TARGET : (options.maxSelected ?? 8);
-    const legacyHistoricalCap = 10;
     const selected = dynamicCurrentMarket
       ? rankDynamicMarketShortlist(candidates, requestedMax)
-      : rankDynamicMarketShortlist(candidates, Math.min(requestedMax, legacyHistoricalCap));
+      : chooseDiversifiedLegacy(candidates, Math.min(requestedMax, 10));
     if (selected.length < 1) throw new Error('El escáner no encontró ninguna exposición REAL válida.');
     const rejectionCounts: Record<string, number> = {}; for (const c of candidates.filter(c => c.status === 'REJECTED')) rejectionCounts[c.reason ?? 'UNKNOWN'] = (rejectionCounts[c.reason ?? 'UNKNOWN'] ?? 0) + 1;
     return {
