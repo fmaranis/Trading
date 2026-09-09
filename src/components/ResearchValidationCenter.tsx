@@ -115,6 +115,19 @@ function resultSummary(result: any): React.ReactNode {
       <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">QUALITY con capital</div><b className="text-sm text-white">{aggregate.qualityAllocationPlanChangedDecisionGatesAcrossWindows ?? 'N/D'} planes</b><div className="mt-1 text-[8px] text-slate-600">{aggregate.qualityExecutedAcquisitionDatesChangedAcrossWindows ?? 'N/D'} fechas ejecutadas · producción LEGACY</div></div>
     </div>;
   }
+  if (result.version === 'QUALITY_ALLOCATION_FUTURE_FORWARD_V1') {
+    const maturity = result.maturity ?? {};
+    const reach = result.reach ?? {};
+    const economics = result.economics ?? null;
+    const pp = (value: unknown) => Number.isFinite(Number(value)) ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(3)} pp` : 'N/D';
+    const eur = (value: unknown) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(0)} €` : 'N/D';
+    return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Future-forward</div><b className="text-xs text-white">{String(result.status ?? 'N/D')}</b><div className="mt-1 text-[8px] text-slate-600">Producción LEGACY · QUALITY shadow</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Madurez</div><b className="text-sm text-white">{maturity.forwardSessionsObserved ?? 0} / {maturity.minimumForwardSessionsForEconomicEvaluation ?? 252} sesiones</b><div className="mt-1 text-[8px] text-slate-600">desde 10/09/2026 · sin backfill</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Reach QUALITY</div><b className="text-sm text-white">{result.reach == null ? 'Pendiente' : `${reach.changedDecisionGates ?? 0} planes · ${reach.executedAcquisitionDatesChanged ?? 0} fechas`}</b><div className="mt-1 text-[8px] text-slate-600">notional distinto {result.reach == null ? 'N/D' : eur(reach.absoluteExecutedNotionalDeltaEur)}</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Economía Phase A</div><b className="text-sm text-white">{economics == null ? 'BLOQUEADA HASTA 252' : pp(economics.cashFlowAdjustedReturnDeltaPctPointsQualityVsLegacy)}</b><div className="mt-1 text-[8px] text-slate-600">no tuning · Phase A no promociona</div></div>
+    </div>;
+  }
   const aggregate = result.aggregate ?? {};
   if (aggregate.medianFinalDeltaEur != null || aggregate.medianDeferredExecutionPriceImprovementPct != null) {
     return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
