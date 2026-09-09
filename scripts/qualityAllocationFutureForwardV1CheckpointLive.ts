@@ -201,23 +201,28 @@ function lockedHistoryPayload(run: ArmRun, throughDate: string) {
       ]),
     signals: run.result.signals
       .filter(signal => signal.signalDate >= PROTOCOL.eligibleStartDate && signal.signalDate <= throughDate)
-      .map(signal => [
-        signal.signalDate,
-        signal.executionDate,
-        signal.assetId,
-        signal.action,
-        signal.executed,
-        round(signal.targetWeight),
-        round(signal.currentWeight),
-        round(signal.recommendedAmountEur),
-        round(signal.unitsDelta),
-        round(signal.notionalEur),
-        round(signal.feeEur),
-        round(signal.estimatedTaxEur),
-        signal.consensusScore,
-        signal.timingState,
-        round(signal.timingScore)
-      ])
+      .map(signal => {
+        // A signal generated at the locked boundary may execute later at NEXT_OPEN.
+        // Only execution facts already observable by throughDate are immutable.
+        const executionObservedByBoundary = Boolean(signal.executionDate && signal.executionDate <= throughDate && signal.executed);
+        return [
+          signal.signalDate,
+          executionObservedByBoundary ? signal.executionDate : null,
+          signal.assetId,
+          signal.action,
+          executionObservedByBoundary,
+          round(signal.targetWeight),
+          round(signal.currentWeight),
+          round(signal.recommendedAmountEur),
+          executionObservedByBoundary ? round(signal.unitsDelta) : 0,
+          executionObservedByBoundary ? round(signal.notionalEur) : 0,
+          executionObservedByBoundary ? round(signal.feeEur) : 0,
+          executionObservedByBoundary ? round(signal.estimatedTaxEur) : 0,
+          signal.consensusScore,
+          signal.timingState,
+          round(signal.timingScore)
+        ];
+      })
   };
 }
 function lockedHistoryHash(run: ArmRun, throughDate: string): string {
