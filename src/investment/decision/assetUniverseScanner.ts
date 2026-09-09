@@ -49,6 +49,7 @@ export interface DynamicMarketShortlistAudit {
   candidatePoolSize: number;
   acceptedPoolSize: number;
   shortlistSize: number;
+  shortlistAssetIds: string[];
 }
 
 export interface AssetUniverseScanResult {
@@ -317,7 +318,8 @@ export class AssetUniverseScanner {
         applied: true,
         candidatePoolSize: candidates.length,
         acceptedPoolSize: acceptedCandidates.length,
-        shortlistSize: selected.length
+        shortlistSize: selected.length,
+        shortlistAssetIds: selected.map(candidate => candidate.asset.assetId)
       } : undefined,
       currentOpenDiscovery: expanded.audit
     };
