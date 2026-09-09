@@ -167,7 +167,7 @@ export class PortfolioCandidateGate {
     const asOfDate = scan.candidates.map(candidate => candidate.asOfDate).filter(Boolean).sort().at(-1) ?? new Date().toISOString().slice(0, 10);
     const effectiveCashBenchmarkAnnualPct = resolveReplayAwareCashBenchmarkAnnualPct(cashBenchmarkAnnualPct, asOfDate);
     const dynamicShortlistIds = scan.dynamicMarketShortlist?.applied
-      ? new Set(scan.selected.map(candidate => candidate.asset.assetId))
+      ? new Set(scan.dynamicMarketShortlist.shortlistAssetIds)
       : null;
 
     for (const candidate of scan.candidates) {
