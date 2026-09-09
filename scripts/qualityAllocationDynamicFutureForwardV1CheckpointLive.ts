@@ -1,6 +1,4 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
 import { HistoricalMarketDataService } from '../src/investment/data/marketData/historicalMarketDataService';
 import { MarketDataProviderRegistry } from '../src/investment/data/marketData/registry';
 import { RealMarketDataProvider } from '../src/investment/data/marketData/providers/realMarketDataProvider';
@@ -20,18 +18,19 @@ import {
   type PortfolioDecisionResult
 } from '../src/investment/decision/portfolioDecisionEngine';
 import {
+  QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS,
   QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_MARKER,
   QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL as PROTOCOL,
   absolutePlanDeltaEur,
   addImmutableObservation,
   addImmutableOutcome,
-  calendarMonthOf,
+  assessMonthlyCheckpointWindow,
   cashGrowthFactor,
-  createEmptyProspectiveState,
+  implementationFingerprintSha256,
   prospectivePhaseSummary,
   protocolFingerprintSha256,
   sha256Canonical,
-  verifyProspectiveState,
+  verifyFrozenImplementationSources,
   type QualityAllocationArmOutcome,
   type QualityAllocationArmSnapshot,
   type QualityAllocationForwardHorizon,
@@ -40,26 +39,45 @@ import {
   type QualityAllocationPlanRow,
   type QualityAllocationProspectiveState
 } from './qualityAllocationDynamicFutureForwardV1Protocol';
+import {
+  loadDurableProspectiveState,
+  saveDurableProspectiveState
+} from './qualityAllocationDynamicFutureForwardV1StateStore';
 
-const STATE_FILE = path.join(process.cwd(), '.runtime', 'qualityAllocationDynamicFutureForwardV1.json');
 const BASE_URL = (process.env.ALERT_INTERNAL_BASE_URL?.trim() || 'http://127.0.0.1:3000').replace(/\/$/, '');
 
 type PriceBar = { timestamp: string; open: number; high: number; low: number; close: number; volume?: number };
 
 function isoDate(value: Date): string { return value.toISOString().slice(0, 10); }
-function madridNow(): { iso: string; date: string; calendarMonth: string } {
+function madridNow(): { iso: string; date: string; calendarMonth: string; hour: number; minute: number } {
   const now = new Date();
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit'
+    timeZone: 'Europe/Madrid', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
   }).formatToParts(now);
   const read = (type: string) => parts.find(part => part.type === type)?.value ?? '';
   const date = `${read('year')}-${read('month')}-${read('day')}`;
-  return { iso: now.toISOString(), date, calendarMonth: date.slice(0, 7) };
+  return {
+    iso: now.toISOString(),
+    date,
+    calendarMonth: date.slice(0, 7),
+    hour: Number(read('hour')),
+    minute: Number(read('minute'))
+  };
 }
 function historyStart(endDate: string): string {
   const d = new Date(`${endDate}T00:00:00Z`);
   d.setUTCFullYear(d.getUTCFullYear() - 3);
   return isoDate(d);
+}
+function nextCalendarMonth(month: string): string {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const d = new Date(Date.UTC(year, monthNumber, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+function expectedObservationMonth(state: QualityAllocationProspectiveState): string {
+  const last = state.observations.at(-1)?.calendarMonth;
+  return last ? nextCalendarMonth(last) : PROTOCOL.firstEligibleCalendarMonth;
 }
 function marketAsOfDate(scan: AssetUniverseScanResult): string {
   const dates = scan.selected.map(row => row.asOfDate).filter((value): value is string => Boolean(value)).sort();
@@ -149,6 +167,10 @@ function buildObservationBody(input: {
     checkpointRunAt: input.runAt,
     checkpointRunDate: input.runDate,
     marketAsOfDate: marketAsOfDate(input.scan),
+    implementation: {
+      fingerprintSha256: implementationFingerprintSha256(),
+      frozenSourceCount: Object.keys(QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS).length
+    },
     researchFixture: {
       capitalEur: PROTOCOL.researchAllocationNotionalEur,
       riskProfile: PROTOCOL.riskProfile,
@@ -220,24 +242,6 @@ function validateFreshDynamicScan(scan: AssetUniverseScanResult): void {
   const selectedIds = new Set(shortlist.shortlistAssetIds);
   const nonReal = scan.acceptedDataset.assets.filter(asset => selectedIds.has(asset.assetId) && asset.provenance?.sourceType !== 'REAL');
   if (nonReal.length) throw new Error(`QUALITY_FF_NON_REAL_SHORTLIST:${nonReal.map(row => row.assetId).join(',')}`);
-}
-function loadState(nowIso: string, calendarMonth: string): { state: QualityAllocationProspectiveState; existed: boolean } {
-  if (!existsSync(STATE_FILE)) {
-    if (calendarMonth !== PROTOCOL.firstEligibleCalendarMonth) {
-      throw new Error(`QUALITY_FF_BASELINE_MISSING_AFTER_START_WINDOW:${calendarMonth}`);
-    }
-    return { state: createEmptyProspectiveState(nowIso), existed: false };
-  }
-  const state = JSON.parse(readFileSync(STATE_FILE, 'utf8')) as QualityAllocationProspectiveState;
-  verifyProspectiveState(state);
-  return { state, existed: true };
-}
-function saveState(state: QualityAllocationProspectiveState): void {
-  verifyProspectiveState(state);
-  mkdirSync(path.dirname(STATE_FILE), { recursive: true });
-  const temporary = `${STATE_FILE}.tmp`;
-  writeFileSync(temporary, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-  renameSync(temporary, STATE_FILE);
 }
 async function waitForHealth(timeoutMs: number): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
@@ -333,6 +337,29 @@ async function evaluateArmOutcome(
     evaluatedAssets: arm.contributions.length
   };
 }
+function maturityReferenceTicker(observation: QualityAllocationObservation): string | null {
+  for (const assetId of observation.scanner.shortlistAssetIds) {
+    const row = observation.scanner.candidatePool.find(candidate => candidate.assetId === assetId);
+    if (row?.ticker) return row.ticker;
+  }
+  return null;
+}
+async function enoughSessionsElapsed(
+  observation: QualityAllocationObservation,
+  horizonSessions: QualityAllocationForwardHorizon,
+  endDate: string,
+  barsCache: Map<string, PriceBar[] | null>
+): Promise<boolean> {
+  const ticker = maturityReferenceTicker(observation);
+  if (!ticker) return false;
+  const key = `${observation.id}:MATURITY:${ticker}`;
+  let bars = barsCache.get(key);
+  if (bars === undefined) {
+    bars = await forwardBars(ticker, observation.checkpointRunDate, endDate);
+    barsCache.set(key, bars);
+  }
+  return Boolean(bars && bars.length > horizonSessions);
+}
 async function resolveMaturedOutcomes(state: QualityAllocationProspectiveState, endDate: string) {
   const resolved: Array<{ observationId: string; horizonSessions: number; deltaPctPoints: number }> = [];
   const pending: Array<{ observationId: string; horizonSessions: number }> = [];
@@ -340,7 +367,7 @@ async function resolveMaturedOutcomes(state: QualityAllocationProspectiveState, 
   for (const observation of state.observations) {
     for (const horizonSessions of PROTOCOL.forwardOutcomeSessions) {
       if (state.outcomes.some(row => row.observationId === observation.id && row.horizonSessions === horizonSessions)) continue;
-      if (observation.arms.legacy.contributionCount === 0 && observation.arms.quality.contributionCount === 0) {
+      if (!(await enoughSessionsElapsed(observation, horizonSessions, endDate, barsCache))) {
         pending.push({ observationId: observation.id, horizonSessions });
         continue;
       }
@@ -369,69 +396,124 @@ async function resolveMaturedOutcomes(state: QualityAllocationProspectiveState, 
 
 async function main() {
   const clock = madridNow();
-  const loaded = loadState(clock.iso, clock.calendarMonth);
+  verifyFrozenImplementationSources();
+  const windowStatus = assessMonthlyCheckpointWindow({ localDate: clock.date, localHour: clock.hour, localMinute: clock.minute });
+  const loaded = await loadDurableProspectiveState(clock.iso, clock.calendarMonth);
   const state = loaded.state;
+  let remoteBlobSha = loaded.remoteBlobSha;
+  let persistence = loaded.persistence;
+  let durableCommitSha: string | null = null;
   const existingThisMonth = state.observations.find(row => row.calendarMonth === clock.calendarMonth) ?? null;
+  const expectedMonth = expectedObservationMonth(state);
   const local = await ensureLocalServer();
+
   try {
     configureRealProvider();
     const outcomeResolution = await resolveMaturedOutcomes(state, clock.date);
-    if (outcomeResolution.resolved.length) saveState(state);
+    if (outcomeResolution.resolved.length) {
+      const saved = await saveDurableProspectiveState(state, remoteBlobSha);
+      remoteBlobSha = saved.remoteBlobSha;
+      persistence = saved.persistence;
+      durableCommitSha = saved.commitSha;
+    }
 
     let observation: QualityAllocationObservation | null = existingThisMonth;
     let observationRecordedThisRun = false;
-    if (!existingThisMonth && state.observations.length < PROTOCOL.maximumCheckpoints) {
-      const scan = await AssetUniverseScanner.scan(
-        EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
-        historyStart(clock.date),
-        clock.date,
-        {
-          forceRefresh: true,
-          concurrency: 3,
-          maxSelected: PROTOCOL.dynamicShortlistTarget,
-          minimumBars: PROTOCOL.minimumBars,
-          maxDataAgeDays: PROTOCOL.maxDataAgeDays,
-          currentOpenDiscovery: true
-        }
-      );
-      validateFreshDynamicScan(scan);
+    let observationStatus: 'RECORDED' | 'ALREADY_RECORDED' | 'WAITING_FOR_WINDOW' | 'MAX_CHECKPOINTS_REACHED' = existingThisMonth
+      ? 'ALREADY_RECORDED'
+      : 'WAITING_FOR_WINDOW';
 
-      const gate = PortfolioCandidateGate.apply(scan, PROTOCOL.cashBenchmarkAnnualPct, 12, 'LEGACY');
-      const decision = gate.scan.selected.length > 0
-        ? InvestmentDecisionEngine.decide(
-          gate.scan.dataset,
-          { capitalEur: PROTOCOL.researchAllocationNotionalEur, riskProfile: PROTOCOL.riskProfile, horizonYears: PROTOCOL.horizonYears },
-          new Date(clock.iso)
-        )
-        : cashOnlyDecision(scan, PROTOCOL.researchAllocationNotionalEur, clock.date);
-      const portfolio = researchPortfolio(clock.iso);
-      const commonInput = {
-        portfolio,
-        scan: gate.scan,
-        decision,
-        fundMarketValues: {},
-        positionHealth: {},
-        cashBenchmarkAnnualPct: PROTOCOL.cashBenchmarkAnnualPct
-      };
-      const legacyResult = PortfolioDecisionEngine.evaluate({ ...commonInput, opportunityAllocationPolicy: 'LEGACY' });
-      const qualityResult = PortfolioDecisionEngine.evaluate({ ...commonInput, opportunityAllocationPolicy: 'QUALITY_ALLOCATION_BRIDGE_V1' });
-      const legacy = armSnapshot('LEGACY', legacyResult);
-      const quality = armSnapshot('QUALITY_ALLOCATION_BRIDGE_V1', qualityResult);
-      const body = buildObservationBody({ runAt: clock.iso, runDate: clock.date, calendarMonth: clock.calendarMonth, scan, gate, decision, legacy, quality });
-      observation = addImmutableObservation(state, body);
-      saveState(state);
-      observationRecordedThisRun = true;
+    if (!existingThisMonth && state.observations.length < PROTOCOL.maximumCheckpoints) {
+      if (clock.calendarMonth < expectedMonth) {
+        observationStatus = 'WAITING_FOR_WINDOW';
+      } else if (clock.calendarMonth > expectedMonth) {
+        throw new Error(`QUALITY_FF_MONTHLY_CHECKPOINT_GAP_PROTOCOL_INVALIDATED:${expectedMonth}:${clock.calendarMonth}`);
+      } else if (windowStatus === 'BEFORE_WINDOW') {
+        observationStatus = 'WAITING_FOR_WINDOW';
+      } else if (windowStatus === 'AFTER_WINDOW') {
+        throw new Error(`QUALITY_FF_CHECKPOINT_WINDOW_MISSED_PROTOCOL_INVALIDATED:${clock.calendarMonth}`);
+      } else {
+        const scan = await AssetUniverseScanner.scan(
+          EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
+          historyStart(clock.date),
+          clock.date,
+          {
+            forceRefresh: true,
+            concurrency: 3,
+            maxSelected: PROTOCOL.dynamicShortlistTarget,
+            minimumBars: PROTOCOL.minimumBars,
+            maxDataAgeDays: PROTOCOL.maxDataAgeDays,
+            currentOpenDiscovery: true
+          }
+        );
+        validateFreshDynamicScan(scan);
+
+        const gate = PortfolioCandidateGate.apply(scan, PROTOCOL.cashBenchmarkAnnualPct, 12, 'LEGACY');
+        const decision = gate.scan.selected.length > 0
+          ? InvestmentDecisionEngine.decide(
+            gate.scan.dataset,
+            { capitalEur: PROTOCOL.researchAllocationNotionalEur, riskProfile: PROTOCOL.riskProfile, horizonYears: PROTOCOL.horizonYears },
+            new Date(clock.iso)
+          )
+          : cashOnlyDecision(scan, PROTOCOL.researchAllocationNotionalEur, clock.date);
+        const portfolio = researchPortfolio(clock.iso);
+        const commonInput = {
+          portfolio,
+          scan: gate.scan,
+          decision,
+          fundMarketValues: {},
+          positionHealth: {},
+          cashBenchmarkAnnualPct: PROTOCOL.cashBenchmarkAnnualPct
+        };
+        const legacyResult = PortfolioDecisionEngine.evaluate({ ...commonInput, opportunityAllocationPolicy: 'LEGACY' });
+        const qualityResult = PortfolioDecisionEngine.evaluate({ ...commonInput, opportunityAllocationPolicy: 'QUALITY_ALLOCATION_BRIDGE_V1' });
+        const legacy = armSnapshot('LEGACY', legacyResult);
+        const quality = armSnapshot('QUALITY_ALLOCATION_BRIDGE_V1', qualityResult);
+        const body = buildObservationBody({ runAt: clock.iso, runDate: clock.date, calendarMonth: clock.calendarMonth, scan, gate, decision, legacy, quality });
+        observation = addImmutableObservation(state, body);
+
+        const saved = await saveDurableProspectiveState(state, remoteBlobSha);
+        remoteBlobSha = saved.remoteBlobSha;
+        persistence = saved.persistence;
+        durableCommitSha = saved.commitSha;
+        observationRecordedThisRun = true;
+        observationStatus = 'RECORDED';
+      }
+    } else if (!existingThisMonth && state.observations.length >= PROTOCOL.maximumCheckpoints) {
+      observationStatus = 'MAX_CHECKPOINTS_REACHED';
     }
 
+    const status = observationRecordedThisRun
+      ? 'PROSPECTIVE_CHECKPOINT_RECORDED'
+      : observationStatus === 'WAITING_FOR_WINDOW'
+        ? 'PROSPECTIVE_STATE_VERIFIED_WAITING_FOR_FROZEN_WINDOW'
+        : 'PROSPECTIVE_STATE_VERIFIED_NO_REWRITE';
     const result = {
       version: PROTOCOL.version,
-      status: observationRecordedThisRun ? 'PROSPECTIVE_CHECKPOINT_RECORDED' : 'PROSPECTIVE_STATE_VERIFIED_NO_REWRITE',
+      status,
       generatedAt: new Date().toISOString(),
       protocol: PROTOCOL,
       protocolFingerprintSha256: protocolFingerprintSha256(),
-      stateFile: '.runtime/qualityAllocationDynamicFutureForwardV1.json',
+      implementationFingerprintSha256: implementationFingerprintSha256(),
+      frozenImplementationSourceCount: Object.keys(QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS).length,
+      checkpointWindow: {
+        status: windowStatus,
+        localDate: clock.date,
+        localHour: clock.hour,
+        localMinute: clock.minute,
+        expectedObservationMonth: expectedMonth,
+        rule: PROTOCOL.checkpointWindow
+      },
+      persistence: {
+        ...persistence,
+        authoritative: true,
+        localRuntimeIsCacheOnly: true,
+        remoteBlobSha,
+        durableCommitSha
+      },
       stateExistedBeforeRun: loaded.existed,
       observationRecordedThisRun,
+      observationStatus,
       currentObservation: observation,
       outcomeResolution,
       phaseSummary: prospectivePhaseSummary(state),
@@ -439,7 +521,9 @@ async function main() {
         observationsAreImmutable: true,
         outcomesAreImmutable: true,
         duplicateMonthCannotOverwrite: true,
-        missingBaselineAfterFirstEligibleMonthFailsClosed: true,
+        missingOrSkippedMonthlyCheckpointFailsClosed: true,
+        durableOptimisticConcurrency: true,
+        frozenImplementationVerified: true,
         currentStateHashSha256: sha256Canonical(state)
       },
       interpretationContract: {
@@ -449,7 +533,8 @@ async function main() {
         noRetuningAfterObservedCheckpoint: true,
         independentResearchNotionalIsNotMonthlyContribution: true,
         historicalReplayUsed: false,
-        currentDynamicMarketRulesFrozenNotAssetNames: true
+        currentDynamicMarketRulesFrozenNotAssetNames: true,
+        methodologyCriticalImplementationFrozen: true
       }
     };
     console.log(`${QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_MARKER}${JSON.stringify(result)}`);
