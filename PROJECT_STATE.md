@@ -32,7 +32,7 @@ Reglas permanentes:
 - La identidad de los candidatos puede cambiar en cada evaluación.
 - `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` es bootstrap/seed/fallback operativo; no es la definición conceptual del mercado.
 - Discovery/ranking sólo produce candidatos; no autoriza compras.
-- Gates, cash hurdle, timing y allocation conservan autoridad.
+- Gates, cash hurdle, consenso, timing y allocation conservan autoridad.
 - “No comprar nada” es una salida válida.
 - En validaciones prospectivas se congelan las **reglas** de discovery/ranking/selección, no las identidades futuras de los activos.
 - En cada fecha prospectiva deben registrarse los candidatos realmente descubiertos y la shortlist resultante; los snapshots ya observados no pueden reescribirse.
@@ -81,31 +81,102 @@ Producción mantiene:
 - cash histórico BCE y fiscalidad integrados;
 - Yahoo Search current nunca reconstruye universo histórico.
 
-## Deuda arquitectónica actual de selección de mercado
+## Selección dinámica de mercado — IMPLEMENTADA EN CÓDIGO / VALIDACIÓN REAL PENDIENTE
 
-El objetivo final ya está fijado en `CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE`, pero la implementación actual todavía no lo completa:
+La deuda arquitectónica principal ha sido implementada dentro de la misma cadena productiva.
 
-- `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` contiene una base operativa de 64 instrumentos;
-- `OPEN_MARKET_DISCOVERY_V1` puede añadir candidatos current/live;
-- el scanner actual limita `selected` a un máximo de **10**;
-- el automatic discovery V1 promociona automáticamente sólo ETF EUR aunque la ruta pueda inspeccionar también equities;
-- por tanto todavía **no existe un verdadero Top 64 dinámico de mercado amplio**.
+### Invariantes de código
 
-Siguiente trabajo arquitectónico: cerrar esta diferencia sin crear un segundo motor.
+`src/investment/decision/portfolioDiscoveryUniverse.ts`:
+
+- `PRODUCT_MARKET_UNIVERSE_MODE = DYNAMIC_CURRENT_DISCOVERY`;
+- `DYNAMIC_MARKET_SHORTLIST_TARGET = 64`;
+- `FIXED_PRODUCT_UNIVERSE_FORBIDDEN = true`.
+
+### Discovery current/live
+
+`OPEN_MARKET_DISCOVERY_V1` sigue integrado en `AssetUniverseScanner` y ahora el sweep estructural incluye:
+
+- ETF/ETC amplios, sectoriales y defensivos;
+- acciones/listings EUR de mercados europeos;
+- familias de tecnología, semiconductores, salud, energía y dividendo;
+- búsqueda de listings EUR de grandes compañías US cuando Yahoo los exponga.
+
+Promoción automática current/live admitida:
+
+- `ETF` EUR;
+- `EQUITY` EUR;
+- >= 252 barras inspeccionadas;
+- `historicalPointInTimeSafe: false` explícito.
+
+El seed conocido continúa como fallback si Yahoo discovery falla temporalmente.
+
+### Ranking y Top64
+
+Versión de ranking productivo:
+
+`MARKET_SHORTLIST_LEGACY_SCORE_V1`
+
+El orden principal conserva el score scanner productivo existente:
+
+`0.20*mom20 + 0.35*mom60 + 0.45*mom120 - 0.30*volatilidad - 0.25*maxDrawdown + defensiveBonus`
+
+Desempates:
+
+1. Reliability;
+2. Opportunity;
+3. ticker.
+
+Esto evita promocionar indirectamente `QUALITY_V1` como política productiva.
+
+En current/live canónico:
+
+- los antiguos `maxSelected:8/10/12` ya no reducen la shortlist;
+- el scanner usa target 64;
+- no impone una exposición por categoría en discovery;
+- si existen menos de 64 válidos, utiliza sólo los válidos;
+- `dynamicMarketShortlist.shortlistAssetIds` conserva los IDs exactos del Top64 original.
+
+### Gate posterior
+
+`PortfolioCandidateGate` consume los IDs originales del Top64.
+
+Un candidato REAL aceptado por el scanner pero fuera de Top64 recibe:
+
+`OUTSIDE_DYNAMIC_MARKET_SHORTLIST`
+
+Después continúan sin cambios:
+
+- cash hurdle;
+- consenso;
+- Entry Timing;
+- ranking final LEGACY;
+- diversificación/caps del gate;
+- allocation.
+
+Por tanto Top64 = **candidatos para evaluar**, no compras.
+
+### Límite de cobertura declarado
+
+Yahoo Search es discovery amplio current/live, pero no un instrument master exhaustivo mundial.
+
+La afirmación correcta es:
+
+**Top64 del pool current/live descubierto y compatible con el motor EUR.**
+
+La arquitectura permite ampliar/cambiar el proveedor de discovery sin crear otro motor.
 
 ---
 
-# OPEN_MARKET_DISCOVERY_V1 — PASS DE INFRAESTRUCTURA CURRENT/LIVE
+# OPEN_MARKET_DISCOVERY_V1 — INFRAESTRUCTURA PASS / AMPLITUD ACTUALIZADA
 
-Estado:
+Estado histórico de infraestructura:
 
 `CURRENT_LIVE_INTEGRATION_PASS / CORE_ELIGIBILITY_V2_SHADOW / HISTORICAL_REPLAY_UNCHANGED`
 
-El discovery current/live está integrado en `AssetUniverseScanner` de forma aditiva.
+El PASS previo demostró integración aditiva y gates. Desde 2026-09-09 la amplitud de discovery se ha extendido a `ETF + EQUITY` EUR y se usa para construir la shortlist Top64 current/live.
 
-La validación consumida demostró que candidatos descubiertos pueden entrar al scanner con datos REAL y seguir sujetos a `PortfolioCandidateGate`.
-
-Este PASS valida infraestructura, no demuestra que la amplitud actual de discovery sea suficiente para el objetivo Top 64 dinámico.
+La nueva amplitud/Top64 debe validarse con el job vigente `dynamic-market-top64-v1` antes de marcar esta fase como PASS final.
 
 Limitación retenida: sin instrument master point-in-time no existe reconstrucción histórica abierta completa.
 
@@ -125,6 +196,8 @@ Histórico consumido:
 Hallazgo importante:
 
 el problema no estaba sólo en ordenar candidatos; con capital cerrado el allocator casi nunca tenía dinero nuevo que repartir.
+
+El nuevo Top64 dinámico **no promociona QUALITY**. Reliability/Opportunity son sólo evidencia/desempate de shortlist; el orden principal mantiene el score scanner productivo.
 
 ---
 
@@ -193,7 +266,7 @@ Consecuencias:
 - el código ejecutable específico de ese diseño fijo fue retirado;
 - cualquier nuevo future-forward debe congelar reglas de discovery/ranking y snapshots observados, no nombres futuros.
 
-No crear otro protocolo QUALITY prospectivo hasta que la selección dinámica de mercado esté correctamente integrada y auditable.
+No crear otro protocolo QUALITY prospectivo hasta cerrar en PASS la validación live del Top64 dinámico.
 
 ---
 
@@ -238,36 +311,50 @@ Backend:
 
 `/api/alerts/research-validation/*`
 
-Estado actual:
+Único job CURRENT:
 
-- diagnósticos consumidos: `ARCHIVED` / read-only;
-- `quality-allocation-future-forward-v1`: `ARCHIVED / VOID PRE-START`;
-- no debe existir por ahora un job largo CURRENT de QUALITY con universo fijo.
+`dynamic-market-top64-v1`
 
-El siguiente job CURRENT deberá aparecer sólo cuando esté implementada y guardada la arquitectura de shortlist dinámica de mercado.
+Nombre:
+
+**Mercado dinámico · Top 64 current/live**
+
+Orden:
+
+1. guard `dynamicMarketShortlist.unit`;
+2. guard integración discovery live;
+3. guard `CORE_ARCHITECTURE_V1`;
+4. guard `PortfolioCandidateGate`;
+5. `npm run lint` / `tsc --noEmit`;
+6. validación REAL `scripts/dynamicMarketTop64Live.ts`.
+
+El runner comprueba:
+
+- discovery actual ejecutado;
+- pool current/live;
+- shortlist <=64 y tamaño correcto;
+- REAL-only dentro de shortlist;
+- identidad original del Top64 auditable;
+- ningún candidato fuera del Top64 puede quedar ELIGIBLE;
+- snapshot + hash SHA-256;
+- replay histórico no se modifica.
+
+Resultado esperado si pasa:
+
+`PASS_DYNAMIC_MARKET_TOP64_CURRENT_LIVE`
+
+Todos los diagnósticos anteriores permanecen `ARCHIVED` / read-only.
+
+Nunca usar GitHub Actions ni agentes para esta validación.
 
 ---
 
 # Próxima secuencia técnica
 
-1. Mantener producción `LEGACY`.
-2. Implementar dentro de `AssetUniverseScanner`/flujo existente la selección **Top 64 dinámica**, sin whitelist productiva.
-3. Definir y congelar explícitamente las reglas de discovery/ranking que producen esa shortlist.
-4. Ampliar current/live discovery hasta una cobertura de mercado suficientemente amplia y auditable; no confundir el seed de 64 con el mercado.
-5. Registrar para cada evaluación: pool descubierto, rechazos, scores, ranking y shortlist final.
-6. Mantener `PortfolioCandidateGate`, timing y allocation como filtros posteriores; Top 64 no implica compra.
-7. Añadir guards que impidan volver a convertir los 64 nombres actuales en universo productivo fijo.
-8. Sólo después preregistrar una validación future-forward QUALITY sobre **reglas dinámicas congeladas**.
-9. Para replay histórico completo de selección dinámica, mantener pendiente instrument master point-in-time.
-
----
-
-# Regla de continuidad para chats futuros
-
-Antes de proponer cambios en discovery, ranking, opportunity o allocation:
-
-1. leer `PROJECT_STATE.md`;
-2. leer `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md`;
-3. comprobar el HEAD real de `main`;
-4. no inferir que “64 activos” significa universo fijo;
-5. recordar que el objetivo de producto es **mercado dinámico -> Top 64 dinámico -> decidir si alguno merece capital**.
+1. Sincronizar app con HEAD actual.
+2. Ejecutar localmente **Mercado dinámico · Top 64 current/live** desde `ResearchValidationCenter`.
+3. Si falla un guard, corregir implementación antes de ejecutar el live.
+4. Si el resultado REAL es `PASS_DYNAMIC_MARKET_TOP64_CURRENT_LIVE`, cerrar esta fase como PASS y archivar el job.
+5. Producción continúa `LEGACY`; Top64 no cambia allocation policy.
+6. Sólo después diseñar el nuevo future-forward QUALITY congelando reglas/snapshots, nunca nombres.
+7. Mantener pendiente una fuente instrument-master más exhaustiva para mejorar cobertura current/live y resolver survivorship histórico point-in-time cuando sea posible.
