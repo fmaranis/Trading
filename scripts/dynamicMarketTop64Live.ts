@@ -14,6 +14,7 @@ import { RealMarketDataProvider } from '../src/investment/data/marketData/provid
 
 const MARKER = 'DYNAMIC_MARKET_TOP64_LIVE_RESULT';
 const VERSION = 'DYNAMIC_MARKET_TOP64_V1' as const;
+const MIN_INDEPENDENT_OPEN_CANDIDATES = 64;
 
 function isoDate(date: Date): string { return date.toISOString().slice(0, 10); }
 function yearsAgo(years: number): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - years); return isoDate(d); }
@@ -48,10 +49,18 @@ async function main() {
     if (!discoveryResponse.ok) throw new Error(`DYNAMIC_MARKET_DISCOVERY_HTTP_${discoveryResponse.status}`);
     const discovery = await discoveryResponse.json() as OpenMarketDiscoveryV1Snapshot & {
       queryFailures?: Array<{ id: string; error: string }>;
+      lookupQueryCount?: number;
+      lookupFallbackQueryCount?: number;
+      lookupFailures?: Array<{ id: string; error: string }>;
+      searchRawCandidates?: number;
+      lookupRawCandidates?: number;
+      discoveryMechanismCounts?: Record<string, number>;
     };
     if (discovery.version !== OPEN_MARKET_DISCOVERY_V1) throw new Error('DYNAMIC_MARKET_DISCOVERY_VERSION_MISMATCH');
     if (discovery.historicalPointInTimeSafe !== false) throw new Error('DYNAMIC_MARKET_DISCOVERY_FALSE_HISTORICAL_SAFETY_CLAIM');
-    if (!Array.isArray(discovery.assets) || discovery.assets.length < 1) throw new Error('DYNAMIC_MARKET_DISCOVERY_NO_CURRENT_ASSETS');
+    if (!Array.isArray(discovery.assets) || discovery.assets.length < MIN_INDEPENDENT_OPEN_CANDIDATES) {
+      throw new Error(`DYNAMIC_MARKET_DISCOVERY_BREADTH_INSUFFICIENT:${discovery.assets?.length ?? 0}:${MIN_INDEPENDENT_OPEN_CANDIDATES}`);
+    }
 
     const registry = new MarketDataProviderRegistry();
     registry.register(new RealMarketDataProvider(`${baseUrl}/api/market-data/history`));
@@ -65,14 +74,16 @@ async function main() {
       { forceRefresh: false, concurrency: 3, maxSelected: 12, minimumBars: 252, maxDataAgeDays: 7 }
     );
 
-    // This validation is specifically about the dynamic current/live chain. A
-    // temporary Yahoo discovery failure may legitimately fall back to the seed in
-    // production, but that degraded mode must never be reported here as a Top64
-    // discovery PASS.
+    // Production may legitimately fall back to the seed on a temporary provider
+    // failure. Validation is stricter: it proves that current discovery can add at
+    // least a full shortlist worth of non-seed candidates before we call this
+    // architecture closed.
     const scannerDiscovery = scan.currentOpenDiscovery;
     if (scannerDiscovery?.attempted !== true) throw new Error('DYNAMIC_MARKET_DISCOVERY_NOT_ATTEMPTED');
     if (scannerDiscovery.error) throw new Error(`DYNAMIC_MARKET_SCANNER_DISCOVERY_ERROR:${scannerDiscovery.error}`);
-    if (scannerDiscovery.promotedAssets < 1) throw new Error('DYNAMIC_MARKET_DISCOVERY_NO_NOVEL_PROMOTED_ASSETS');
+    if (scannerDiscovery.promotedAssets < MIN_INDEPENDENT_OPEN_CANDIDATES) {
+      throw new Error(`DYNAMIC_MARKET_NOVEL_BREADTH_INSUFFICIENT:${scannerDiscovery.promotedAssets}:${MIN_INDEPENDENT_OPEN_CANDIDATES}`);
+    }
 
     const shortlist = scan.dynamicMarketShortlist;
     if (!shortlist?.applied || shortlist.mode !== 'DYNAMIC_CURRENT_DISCOVERY') throw new Error('DYNAMIC_MARKET_SHORTLIST_NOT_APPLIED');
@@ -126,6 +137,7 @@ async function main() {
       productInvariant: {
         marketUniverseMode: 'DYNAMIC_CURRENT_DISCOVERY',
         shortlistTarget: DYNAMIC_MARKET_SHORTLIST_TARGET,
+        minimumIndependentOpenCandidates: MIN_INDEPENDENT_OPEN_CANDIDATES,
         fixedProductUniverse: false,
         productionAllocationPolicy: 'LEGACY',
         shortlistAuthorizesPurchase: false
@@ -137,12 +149,18 @@ async function main() {
         retrospectiveYahooSearchAllowed: false,
         queryCount: discovery.queryCount,
         queryFailures: discovery.queryFailures ?? [],
+        lookupQueryCount: discovery.lookupQueryCount ?? 0,
+        lookupFallbackQueryCount: discovery.lookupFallbackQueryCount ?? 0,
+        lookupFailures: discovery.lookupFailures ?? [],
         rawCandidates: discovery.rawCandidates,
+        searchRawCandidates: discovery.searchRawCandidates ?? 0,
+        lookupRawCandidates: discovery.lookupRawCandidates ?? 0,
         acceptedEurCandidates: discovery.acceptedEurCandidates,
+        discoveryMechanismCounts: discovery.discoveryMechanismCounts ?? {},
         quoteTypeCounts: discoveryTypeCounts,
         promotedIntoCanonicalScan: scannerDiscovery.promotedAssets,
         scannerDiscoveryError: null,
-        providerLimitation: 'Yahoo query sweep is broad current/live discovery, not an exhaustive global instrument master.'
+        providerLimitation: 'Yahoo Lookup + Search provide broad current/live enumeration, not an exhaustive global instrument master.'
       },
       scanner: {
         seedFallbackSize: EUR_PORTFOLIO_DISCOVERY_UNIVERSE.length,
@@ -172,7 +190,7 @@ async function main() {
       },
       notes: [
         'The Top 64 is dynamic: identities come from the current discovered EUR-compatible pool and may change on every evaluation.',
-        'The seed catalogue is fallback/bootstrap only; it is not the definition of the market.',
+        'The seed catalogue is fallback/bootstrap only; final PASS requires at least 64 non-seed current candidates to prove independence from that bootstrap.',
         'MARKET_SHORTLIST_LEGACY_SCORE_V1 preserves the existing production scanner score. Reliability/Opportunity are tie-breakers only; QUALITY_V1 remains research-only.',
         'PortfolioCandidateGate, cash hurdle, consensus, timing and allocation retain investment authority after discovery.',
         'This current/live validation does not claim exhaustive global-market coverage and does not alter historical replay.'
