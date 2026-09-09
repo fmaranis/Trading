@@ -46,7 +46,8 @@ import {
 
 const BASE_URL = (process.env.ALERT_INTERNAL_BASE_URL?.trim() || 'http://127.0.0.1:3000').replace(/\/$/, '');
 
-type PriceBar = { timestamp: string; open: number; high: number; low: number; close: number; volume?: number };
+type MarketBar = { timestamp: string; open: number; high: number; low: number; close: number; volume?: number };
+type ForwardPricePoint = { timestamp: string; rawOpen: number; adjustedOpen: number; adjustedClose: number };
 
 function isoDate(value: Date): string { return value.toISOString().slice(0, 10); }
 function madridNow(): { iso: string; date: string; calendarMonth: string; hour: number; minute: number } {
@@ -268,13 +269,34 @@ function configureRealProvider(): void {
   registry.setDefaultProvider('yahoo_finance');
   HistoricalMarketDataService.setRegistry(registry);
 }
-async function forwardBars(ticker: string, startDate: string, endDate: string): Promise<PriceBar[] | null> {
+async function forwardPriceSeries(ticker: string, startDate: string, endDate: string): Promise<ForwardPricePoint[] | null> {
+  if (endDate <= startDate) return null;
   try {
-    const response = await HistoricalMarketDataService.getHistoricalBars({
-      symbol: ticker, startDate, endDate, timeframe: '1d', adjusted: true
-    }, { forceRefresh: true, providerId: 'yahoo_finance', maxRetries: 1 });
-    if (response.provenance?.sourceType !== 'REAL') return null;
-    return response.bars.filter(bar => bar.timestamp.slice(0, 10) > startDate) as PriceBar[];
+    const [raw, adjusted] = await Promise.all([
+      HistoricalMarketDataService.getHistoricalBars({
+        symbol: ticker, startDate, endDate, timeframe: '1d', adjusted: false
+      }, { forceRefresh: true, providerId: 'yahoo_finance', maxRetries: 1 }),
+      HistoricalMarketDataService.getHistoricalBars({
+        symbol: ticker, startDate, endDate, timeframe: '1d', adjusted: true
+      }, { forceRefresh: true, providerId: 'yahoo_finance', maxRetries: 1 })
+    ]);
+    if (raw.provenance?.sourceType !== 'REAL' || adjusted.provenance?.sourceType !== 'REAL') return null;
+    const rawByDate = new Map((raw.bars as MarketBar[]).map(bar => [bar.timestamp.slice(0, 10), bar]));
+    const adjustedByDate = new Map((adjusted.bars as MarketBar[]).map(bar => [bar.timestamp.slice(0, 10), bar]));
+    return [...rawByDate.keys()]
+      .filter(date => date > startDate && adjustedByDate.has(date))
+      .sort()
+      .map(date => {
+        const rawBar = rawByDate.get(date)!;
+        const adjustedBar = adjustedByDate.get(date)!;
+        return {
+          timestamp: date,
+          rawOpen: rawBar.open,
+          adjustedOpen: adjustedBar.open,
+          adjustedClose: adjustedBar.close
+        };
+      })
+      .filter(point => point.rawOpen > 0 && point.adjustedOpen > 0 && point.adjustedClose > 0);
   } catch {
     return null;
   }
@@ -294,7 +316,7 @@ async function evaluateArmOutcome(
   arm: QualityAllocationArmSnapshot,
   horizonSessions: QualityAllocationForwardHorizon,
   endDate: string,
-  barsCache: Map<string, PriceBar[] | null>
+  priceCache: Map<string, ForwardPricePoint[] | null>
 ): Promise<QualityAllocationArmOutcome | null> {
   const growth = cashGrowthFactor(horizonSessions);
   const requested = arm.contributions.reduce((sum, row) => sum + row.amountEur, 0);
@@ -304,27 +326,27 @@ async function evaluateArmOutcome(
 
   for (const row of arm.contributions) {
     const key = `${observation.id}:${row.ticker}`;
-    let bars = barsCache.get(key);
-    if (bars === undefined) {
-      bars = await forwardBars(row.ticker, observation.checkpointRunDate, endDate);
-      barsCache.set(key, bars);
+    let series = priceCache.get(key);
+    if (series === undefined) {
+      series = await forwardPriceSeries(row.ticker, observation.checkpointRunDate, endDate);
+      priceCache.set(key, series);
     }
-    if (!bars || bars.length <= horizonSessions) return null;
-    const entry = bars[0];
-    const mark = bars[horizonSessions];
-    if (!(entry.open > 0) || !(mark.close > 0)) return null;
+    if (!series || series.length <= horizonSessions) return null;
+    const entry = series[0];
+    const mark = series[horizonSessions];
+    const totalReturnFactor = mark.adjustedClose / entry.adjustedOpen;
+    if (!(entry.rawOpen > 0) || !(totalReturnFactor > 0) || !Number.isFinite(totalReturnFactor)) return null;
 
     if (row.instrumentType === 'MUTUAL_FUND') {
-      const units = row.amountEur / entry.open;
       investedAtEntryEur += row.amountEur;
-      finalValueEur += units * mark.close;
+      finalValueEur += row.amountEur * totalReturnFactor;
       continue;
     }
 
-    const executed = executableUnits(row.amountEur, entry.open);
+    const executed = executableUnits(row.amountEur, entry.rawOpen);
     investedAtEntryEur += executed.grossEur;
     entryFeesEur += executed.feeEur;
-    finalValueEur += executed.units * mark.close + executed.leftoverEur * growth;
+    finalValueEur += executed.grossEur * totalReturnFactor + executed.leftoverEur * growth;
   }
 
   return {
@@ -348,31 +370,31 @@ async function enoughSessionsElapsed(
   observation: QualityAllocationObservation,
   horizonSessions: QualityAllocationForwardHorizon,
   endDate: string,
-  barsCache: Map<string, PriceBar[] | null>
+  priceCache: Map<string, ForwardPricePoint[] | null>
 ): Promise<boolean> {
   const ticker = maturityReferenceTicker(observation);
   if (!ticker) return false;
   const key = `${observation.id}:MATURITY:${ticker}`;
-  let bars = barsCache.get(key);
-  if (bars === undefined) {
-    bars = await forwardBars(ticker, observation.checkpointRunDate, endDate);
-    barsCache.set(key, bars);
+  let series = priceCache.get(key);
+  if (series === undefined) {
+    series = await forwardPriceSeries(ticker, observation.checkpointRunDate, endDate);
+    priceCache.set(key, series);
   }
-  return Boolean(bars && bars.length > horizonSessions);
+  return Boolean(series && series.length > horizonSessions);
 }
 async function resolveMaturedOutcomes(state: QualityAllocationProspectiveState, endDate: string) {
   const resolved: Array<{ observationId: string; horizonSessions: number; deltaPctPoints: number }> = [];
   const pending: Array<{ observationId: string; horizonSessions: number }> = [];
-  const barsCache = new Map<string, PriceBar[] | null>();
+  const priceCache = new Map<string, ForwardPricePoint[] | null>();
   for (const observation of state.observations) {
     for (const horizonSessions of PROTOCOL.forwardOutcomeSessions) {
       if (state.outcomes.some(row => row.observationId === observation.id && row.horizonSessions === horizonSessions)) continue;
-      if (!(await enoughSessionsElapsed(observation, horizonSessions, endDate, barsCache))) {
+      if (!(await enoughSessionsElapsed(observation, horizonSessions, endDate, priceCache))) {
         pending.push({ observationId: observation.id, horizonSessions });
         continue;
       }
-      const legacy = await evaluateArmOutcome(observation, observation.arms.legacy, horizonSessions, endDate, barsCache);
-      const quality = await evaluateArmOutcome(observation, observation.arms.quality, horizonSessions, endDate, barsCache);
+      const legacy = await evaluateArmOutcome(observation, observation.arms.legacy, horizonSessions, endDate, priceCache);
+      const quality = await evaluateArmOutcome(observation, observation.arms.quality, horizonSessions, endDate, priceCache);
       if (!legacy || !quality) {
         pending.push({ observationId: observation.id, horizonSessions });
         continue;
@@ -524,6 +546,8 @@ async function main() {
         missingOrSkippedMonthlyCheckpointFailsClosed: true,
         durableOptimisticConcurrency: true,
         frozenImplementationVerified: true,
+        rawExecutionPriceUsedForWholeShareSizing: true,
+        adjustedTotalReturnUsedForForwardMark: true,
         currentStateHashSha256: sha256Canonical(state)
       },
       interpretationContract: {
