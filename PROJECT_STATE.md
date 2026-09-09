@@ -84,12 +84,16 @@ Producción mantiene:
 
 ---
 
-# Selección dinámica de mercado — BREADTH PASS / TOP64 PASS / RECHECK FINAL DE GATE PENDIENTE
+# Selección dinámica de mercado — CERRADA / PASS FINAL
 
 Documentos:
 
-- `docs/dynamic_market_top64_v1_outcome.md` — primer live insuficiente de breadth.
-- `docs/dynamic_market_top64_v1_final_outcome.md` — runs de cierre y corrección posterior.
+- `docs/dynamic_market_top64_v1_outcome.md` — primer live insuficiente de breadth, conservado como historial.
+- `docs/dynamic_market_top64_v1_final_outcome.md` — cierre definitivo.
+
+Estado:
+
+**DISCOVERY PASS / BREADTH PASS / TOP64 PASS / ECONOMIC-IDENTITY DEDUPE PASS / GATE-INTEGRATION PASS / ARCHIVED**
 
 ## Invariantes de código
 
@@ -99,7 +103,7 @@ Documentos:
 - `DYNAMIC_MARKET_SHORTLIST_TARGET = 64`;
 - `FIXED_PRODUCT_UNIVERSE_FORBIDDEN = true`.
 
-## Discovery actual
+## Discovery current/live
 
 Endpoint canónico:
 
@@ -110,11 +114,11 @@ La misma cadena combina:
 1. Yahoo Search estructural como complemento temático/categorial;
 2. Yahoo Lookup para enumeración current/live más amplia de listings EUR.
 
-Mercados/listings EUR operativos incluyen sufijos como:
+Listings EUR operativos incluyen sufijos como:
 
 `.DE`, `.PA`, `.MC`, `.MI`, `.AS`, `.BR`, `.VI`, `.HE`, `.LS`, `.IR`.
 
-Cada candidato sigue necesitando:
+Cada candidato actual debe cumplir:
 
 - moneda EUR;
 - tipo ETF/EQUITY admitido;
@@ -124,11 +128,11 @@ Cada candidato sigue necesitando:
 
 El seed de 64 es sólo fallback/bootstrap ante degradación temporal del proveedor.
 
-## Resultado live definitivo de breadth recibido
+## Run final de cierre
 
-Archivo:
+Archivo recibido:
 
-`d791ca51-7cdc-47dd-b071-81576792d407.json`
+`33648dc8-6a96-4eb9-b7b0-64e3f64c27d6.json`
 
 Job:
 
@@ -140,44 +144,42 @@ Resultado:
 
 Discovery:
 
-- 24 familias Search;
-- 36 consultas Lookup;
-- 26 consultas fallback Lookup;
-- 178 raw candidates;
-- 112 candidatos EUR aceptados;
-- 49 ETF;
-- 63 EQUITY;
-- 96 candidatos nuevos promovidos fuera del seed;
+- Search queries: **24**;
+- Search failures: **0**;
+- Lookup queries: **36**;
+- Lookup fallback queries: **26**;
+- Lookup failures: **0**;
+- raw candidates: **180**;
+- candidatos EUR aceptados: **113**;
+- ETF: **50**;
+- EQUITY: **63**;
+- candidatos nuevos promovidos fuera del seed: **98**;
 - `scannerDiscoveryError = null`.
-
-Fallos parciales tolerados sin pérdida de breadth:
-
-- `SMALL_CAP -> aborted`;
-- `LOOKUP_PREFIX_M -> Yahoo 502`.
 
 Scanner:
 
-- seed/fallback: 64;
-- pool escaneado: 160;
-- REAL aceptados: 155;
-- rechazados: 5;
+- seed/fallback: **64**;
+- pool escaneado: **162**;
+- REAL aceptados: **157**;
+- rechazados: **5**;
 - shortlist: **64**;
 - `OPEN_*` en Top64: **29**;
+- ranking: `MARKET_SHORTLIST_LEGACY_SCORE_V1`;
 - fingerprint: `e50aa8580459b50c032ad669e386dd1150a945d1406db869ae7f5853ed656c0f`.
 
-PortfolioCandidateGate en ese run:
+PortfolioCandidateGate:
 
-- policy: LEGACY;
-- entries: 160;
-- elegibles antes de diversificación final: 11;
-- seleccionados: 9;
-- aceptados fuera del Top64: 91;
-- auditados fuera del Top64: 91;
+- policy: **LEGACY**;
+- entries: **162**;
+- elegibles antes de diversificación final: **11**;
+- seleccionados después del gate: **11**;
+- aceptados fuera del Top64: **93**;
+- auditados fuera del Top64: **93**;
 - leak elegible fuera del Top64: **0**.
 
 Conclusión:
 
-**la cobertura actual ya demuestra independencia del seed.**
+**la cobertura current/live demuestra independencia del seed y la corrección downstream de acciones individuales está validada.**
 
 La afirmación válida es:
 
@@ -187,46 +189,33 @@ No se afirma que Yahoo sea un instrument master global exhaustivo.
 
 ---
 
-# Identidad económica y diversificación current/live
+# Identidad económica y diversificación current/live — CERRADO
 
-El run de breadth reveló aliases/cross-listings del mismo producto, por ejemplo `VUSA.DE/VUSA.AS` y `XEON.DE/XEON.MI`.
+El proceso detectó aliases/cross-listings del mismo producto, por ejemplo `VUSA.DE/VUSA.AS` y `XEON.DE/XEON.MI`.
 
-Corrección aplicada:
+Corrección vigente:
 
 - dedupe por ticker/ISIN cuando existe;
 - coincidencia fuerte de nombre/producto;
 - mismo root + prefijo de identidad cuando procede;
 - guard específico evita fusionar activos distintos como Santander `SAN.MC` y Sanofi `SAN.PA`.
 
-El run posterior al dedupe mantuvo Top64 completo y breadth suficiente.
-
-## Corrección posterior al último run: acciones individuales
-
 Yahoo Lookup clasifica muchas compañías individuales con la etiqueta amplia `EUROPE_EQUITY`.
 
-El gate legacy histórico limitaba a 2 seleccionados por categoría. Aplicarlo literalmente a current/live haría que docenas de acciones diferentes compitiesen por sólo 2 plazas antes del allocator.
+Para no convertir esa limitación de metadatos en un cuello artificial:
 
-Corrección estructural implementada:
-
-- el merge conserva transitoriamente el Yahoo `quoteType` de candidatos current/live;
 - en current/live una **acción individual** usa bucket de diversificación por identidad de activo;
 - ETF/fondos mantienen el cap de 2 por categoría en `PortfolioCandidateGate`;
 - en histórico/research se conserva exactamente el comportamiento anterior;
 - los caps monetarios posteriores de `PortfolioDecisionEngine` siguen limitando concentración por categoría/activo y número de posiciones.
 
-No se ha cambiado ningún score, threshold económico ni política QUALITY para corregir este punto.
+El run final confirmó **11 elegibles -> 11 seleccionados**, manteniendo **0 leaks fuera del Top64**.
 
-Guards añadidos:
-
-- 3 acciones current/live de la misma categoría amplia pueden llegar al allocator si superan gates;
-- 3 ETF de la misma categoría siguen limitados a 2;
-- histórico conserva cap legacy previo.
-
-Esta corrección necesita el último recheck integrado del job current antes de archivarlo.
+No se cambió ningún score, threshold económico ni política QUALITY para corregir este punto.
 
 ---
 
-# Ranking productivo Top64 — congelado durante esta fase
+# Ranking productivo Top64 — CONGELADO EN ESTA FASE
 
 Versión:
 
@@ -253,7 +242,7 @@ Desempates:
 
 **Reliability y Opportunity NO forman parte del score productivo principal del Top64; sólo desempatan.**
 
-Eso significa que un activo de momentum extremo puede quedar arriba aunque su Reliability sea mediocre. El ejemplo observado de Verimatrix es diagnóstico, no autorización para retunear sobre esta misma muestra.
+Los snapshots observados el 2026-09-09 no pueden utilizarse para retunear retrospectivamente esta fórmula.
 
 ## Reliability
 
@@ -266,7 +255,7 @@ Diagnóstico causal absoluto 0..100:
 
 ## Opportunity
 
-Diagnóstico causal 0..100 que combina:
+Diagnóstico causal 0..100:
 
 - Reliability: 30%;
 - momentum120: 25%;
@@ -275,7 +264,7 @@ Diagnóstico causal 0..100 que combina:
 - aceleración: 10%;
 - drawdown actual: 10%.
 
-`QUALITY_V1` permanece research-only. No introducirlo en producción por la puerta trasera.
+`QUALITY_V1` permanece research-only.
 
 ---
 
@@ -292,7 +281,7 @@ Top64 = candidatos para evaluar, nunca compra.
 5. Entry Timing distinto de `WAIT`;
 6. ranking final LEGACY entre elegibles;
 7. diversificación/caps;
-8. allocator/PortfolioDecisionEngine decide capital y puede decidir no invertir.
+8. allocator/`PortfolioDecisionEngine` decide capital y puede decidir no invertir.
 
 Cash hurdle actual usa un proxy anualizado causal del momentum120:
 
@@ -392,7 +381,9 @@ Consecuencias:
 - job archivado/read-only;
 - cualquier nuevo future-forward debe congelar reglas de discovery/ranking y snapshots observados, nunca nombres futuros.
 
-No crear nuevo future-forward QUALITY hasta archivar formalmente la integración Top64 current/live.
+El bloqueo previo “no crear nuevo future-forward hasta cerrar Top64” queda satisfecho: **Top64 ya está cerrado**.
+
+No implica que deba abrirse inmediatamente otro protocolo; primero continuar la secuencia vigente del proyecto y evitar expansión de alcance hasta cerrar lo empezado.
 
 ---
 
@@ -437,46 +428,27 @@ Backend:
 
 `/api/alerts/research-validation/*`
 
-Único job CURRENT:
+`dynamic-market-top64-v1` está ahora:
 
-`dynamic-market-top64-v1`
+**ARCHIVED / read-only**
 
-Nombre:
+Historial visible:
 
-**Mercado dinámico · Top 64 current/live**
+`Mercado dinámico Top64 · PASS final · cerrado`
 
-Se mantiene CURRENT únicamente para revalidar la corrección downstream de diversificación de acciones.
+No debe volver a relanzarse para volver a demostrar lo mismo.
 
-Orden:
+Los futuros jobs CURRENT deben corresponder únicamente al siguiente bloque real de trabajo, no a repeticiones de esta fase.
 
-1. `dynamicMarketShortlist.unit`;
-2. `openMarketLiveScannerIntegration.unit`;
-3. `coreArchitectureV1.unit`;
-4. `portfolioCandidateGate.unit`;
-5. `npm run lint` / `tsc --noEmit`;
-6. validación REAL `dynamicMarketTop64Live.ts`.
-
-El job debe seguir comprobando:
-
-- Search + Lookup current/live;
-- >=64 candidatos open válidos;
-- >=64 candidatos no-seed promovidos;
-- Top64 REAL;
-- dedupe económico;
-- identidad original del Top64 auditable;
-- 0 candidatos elegibles fuera del Top64;
-- replay histórico intacto.
-
-Nunca usar GitHub Actions ni agentes para esta validación.
+Nunca usar GitHub Actions ni agentes para validaciones largas.
 
 ---
 
 # Próxima secuencia técnica
 
-1. Sincronizar con HEAD actual.
-2. Ejecutar **una última vez** `Mercado dinámico · Top 64 current/live`.
-3. Si guards + TypeScript + live pasan, archivar `dynamic-market-top64-v1` como **PASS final**.
-4. No volver a modificar discovery/Top64 salvo bug o cambio explícito de producto.
-5. Producción continúa `LEGACY`.
-6. Después diseñar el siguiente protocolo de selección/calidad de forma metodológicamente limpia, sin retunear la fórmula Top64 con los snapshots 2026-09-09 ya observados.
-7. Mantener pendiente instrument master point-in-time para survivorship histórico completo.
+1. **No reabrir discovery/Top64** salvo bug objetivo o cambio explícito de producto.
+2. Producción continúa `LEGACY`.
+3. Mantener la cadena current/live ya cerrada como base del producto.
+4. Continuar con el siguiente bloque pendiente de la secuencia existente del proyecto antes de abrir mejoras nuevas del motor.
+5. Cualquier mejora futura de monedas, superwinners, señales, ranking o selección debe abrirse después como fase separada, no mezclarse con este cierre.
+6. Mantener pendiente instrument master point-in-time para resolver survivorship histórico completo.
