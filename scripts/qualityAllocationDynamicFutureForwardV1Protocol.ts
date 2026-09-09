@@ -1,7 +1,41 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1 = 'QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1' as const;
 export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_MARKER = 'QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_RESULT' as const;
+
+/**
+ * Methodology-critical implementation files are frozen by their Git blob SHA-1.
+ * The experiment may continue while unrelated UI/product code evolves, but if
+ * one of these files changes the existing Phase A must stop rather than silently
+ * mixing a new policy implementation into the same prospective sample.
+ */
+export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS = {
+  'server/assetDiscoveryRoutes.ts': '0879aa660c12d2f962bbb6d564f057e42a616642',
+  'server/marketDataRoutes.ts': '125547bc9f6de117918c2e4ed951edcaf52ee9d9',
+  'src/investment/data/marketData/historicalMarketDataService.ts': '76e402e779ff53d308449fde9cdbe6bed04d2e47',
+  'src/investment/data/marketData/providers/realMarketDataProvider.ts': 'dc99dd4193f018f56aea91eb5ad772f37e44c44b',
+  'src/investment/decision/assetUniverseScanner.ts': '6a8d09f136909bf7a15acbf4b40ed40dfc1115b4',
+  'src/investment/decision/assetSelectionQuality.ts': '75bc51cb673cfc6b975e79130dc637d0ffd9503e',
+  'src/investment/decision/openMarketDiscoveryV1.ts': 'dfa6b8a92f1fb05da67ba530b81d2773ea726369',
+  'src/investment/decision/portfolioDiscoveryUniverse.ts': 'f34772dc64daac5a947d50ad55037f69edd5c78c',
+  'src/investment/decision/portfolioCandidateGate.ts': 'adb8b18b48b4d3188c0d235d901982d9d5c93a88',
+  'src/investment/decision/strategyConsensusEngine.ts': '1562f219a073d31f4ff107cbab33f43aa4a4a25d',
+  'src/investment/decision/entryTiming.ts': 'dd99821d797da27861f9e64956a2c840c3dc1beb',
+  'src/investment/decision/currentOpportunityAlerts.ts': '85f654df9862c8f15149612c33f415fef6eac9ef',
+  'src/investment/decision/investmentDecisionEngine.ts': 'bc7bcf5fb5a31fd3c1189f87fa13cca9572a8ee3',
+  'src/investment/decision/portfolioDecisionEngine.ts': 'c7e81633db4fac5278784262f72c0e5d7fb05c8b',
+  'src/investment/decision/adaptiveExecutionPolicy.ts': '0d0ca2da99ac7ff26b2752b4f2d557664c6ba5a0',
+  'src/investment/decision/costAwareExecutionPolicy.ts': 'f6bde7b63d104d12a63737dfb8e1c9bc59042bf5',
+  'src/investment/decision/brokerExecution.ts': 'dbe4fd3dc1ff39d44533f65b2670b04445d9a829',
+  'src/investment/decision/cashBenchmark.ts': 'baa6d0ebc9e6bc4b5225e36572fd085b1d39844f',
+  'src/investment/portfolioAnalytics/allocationStrategies.ts': 'dc3b165099112c615be356eef9ee705765ac08ad',
+  'src/investment/portfolioAnalytics/realPortfolioAnalytics.ts': '84a6f3c77e3f1cc2e89fd8adedde058340dee3fe',
+  'src/investment/portfolioAnalytics/portfolioRisk.ts': '864ba2734f62b27906954951f43b62ac8ee35cee',
+  'src/investment/portfolioRegimes/deterministicRegimeClassifier.ts': 'fffe0f922f4727a5d52f3c7994c831cb23225bb4',
+  'src/investment/portfolioBacktesting/multiAssetDataAligner.ts': '3960f5a697b92e8fcd02926b2a971b4abe50b9ef'
+} as const;
 
 export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL = {
   version: QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1,
@@ -22,6 +56,14 @@ export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL = {
   maxDataAgeDays: 7,
   checkpointCadence: 'MONTHLY',
   firstEligibleCalendarMonth: '2026-09',
+  checkpointWindow: {
+    timeZone: 'Europe/Madrid',
+    startDayOfMonth: 9,
+    startHourLocal: 22,
+    startMinuteLocal: 30,
+    durationMinutes: 450,
+    rule: 'ONLY_NEW_OBSERVATION_DURING_FROZEN_MONTHLY_WINDOW_NO_BACKFILL'
+  },
   maximumCheckpoints: 12,
   researchAllocationNotionalEur: 13_000,
   researchNotionalSemantics: 'INDEPENDENT_ALLOCATION_PROBE_NOT_RECURRING_CONTRIBUTION',
@@ -35,6 +77,10 @@ export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL = {
   residualCashTreatment: 'COMPOUND_AT_FROZEN_2_5_PCT_ANNUAL_252_SESSIONS',
   observationIdentityPolicy: 'ONE_IMMUTABLE_OBSERVATION_PER_CALENDAR_MONTH',
   observationContinuityPolicy: 'HASH_CHAIN_NO_REWRITE_NO_BACKFILL',
+  implementationContinuityPolicy: 'FROZEN_METHODOLOGY_CRITICAL_GIT_BLOB_MANIFEST',
+  durableStateAuthority: 'GITHUB_REPLAY_RESULTS',
+  durableStatePath: 'validation-runs/quality-allocation-dynamic-future-forward-v1-state.json',
+  localRuntimeStateIsAuthoritative: false,
   historicalReplayUsed: false,
   historicalYahooReconstructionAllowed: false,
   productionPromotionAllowedFromPhaseA: false,
@@ -49,6 +95,7 @@ export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL = {
 
 export type QualityAllocationProspectivePolicy = 'LEGACY' | 'QUALITY_ALLOCATION_BRIDGE_V1';
 export type QualityAllocationForwardHorizon = 20 | 60;
+export type QualityAllocationCheckpointWindowStatus = 'OPEN' | 'BEFORE_WINDOW' | 'AFTER_WINDOW';
 
 export interface QualityAllocationCandidateSnapshotRow {
   assetId: string;
@@ -94,6 +141,10 @@ export interface QualityAllocationObservationBody {
   checkpointRunAt: string;
   checkpointRunDate: string;
   marketAsOfDate: string;
+  implementation: {
+    fingerprintSha256: string;
+    frozenSourceCount: number;
+  };
   researchFixture: {
     capitalEur: number;
     riskProfile: string;
@@ -202,7 +253,48 @@ export function sha256Canonical(value: unknown): string {
 }
 
 export function protocolFingerprintSha256(): string {
-  return sha256Canonical(QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL);
+  return sha256Canonical({
+    protocol: QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL,
+    frozenGitBlobs: QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS
+  });
+}
+
+function gitBlobSha1(buffer: Buffer): string {
+  return createHash('sha1').update(`blob ${buffer.length}\0`).update(buffer).digest('hex');
+}
+
+export function currentImplementationGitBlobShas(): Record<string, string> {
+  return Object.fromEntries(Object.keys(QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS).map(filePath => {
+    const absolute = path.resolve(process.cwd(), filePath);
+    return [filePath, gitBlobSha1(readFileSync(absolute))];
+  }));
+}
+
+export function implementationFingerprintSha256(): string {
+  return sha256Canonical(QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS);
+}
+
+export function verifyFrozenImplementationSources(): void {
+  const current = currentImplementationGitBlobShas();
+  for (const [filePath, expected] of Object.entries(QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS)) {
+    const actual = current[filePath];
+    if (actual !== expected) throw new Error(`QUALITY_FF_FROZEN_IMPLEMENTATION_CHANGED:${filePath}:${expected}:${actual}`);
+  }
+}
+
+export function assessMonthlyCheckpointWindow(input: {
+  localDate: string;
+  localHour: number;
+  localMinute: number;
+}): QualityAllocationCheckpointWindowStatus {
+  const day = Number(input.localDate.slice(8, 10));
+  const minuteIndex = (day - 1) * 1440 + input.localHour * 60 + input.localMinute;
+  const window = QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL.checkpointWindow;
+  const start = (window.startDayOfMonth - 1) * 1440 + window.startHourLocal * 60 + window.startMinuteLocal;
+  const end = start + window.durationMinutes;
+  if (minuteIndex < start) return 'BEFORE_WINDOW';
+  if (minuteIndex >= end) return 'AFTER_WINDOW';
+  return 'OPEN';
 }
 
 export function createEmptyProspectiveState(createdAt: string): QualityAllocationProspectiveState {
@@ -227,6 +319,10 @@ export function addImmutableObservation(
   }
   if (state.observations.length >= QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL.maximumCheckpoints) {
     throw new Error('QUALITY_FF_MAX_CHECKPOINTS_REACHED');
+  }
+  const priorMonth = state.observations.at(-1)?.calendarMonth ?? null;
+  if (priorMonth && body.calendarMonth <= priorMonth) {
+    throw new Error(`QUALITY_FF_NON_MONOTONIC_OBSERVATION_MONTH:${priorMonth}:${body.calendarMonth}`);
   }
   const previousChainHashSha256 = state.observations.at(-1)?.chainHashSha256 ?? null;
   const observationHashSha256 = sha256Canonical(body);
@@ -268,8 +364,10 @@ export function verifyProspectiveState(state: QualityAllocationProspectiveState)
   if (state.protocolFingerprintSha256 !== protocolFingerprintSha256()) throw new Error('QUALITY_FF_PROTOCOL_FINGERPRINT_MISMATCH');
   const months = new Set<string>();
   let previous: string | null = null;
+  let priorMonth: string | null = null;
   for (const observation of state.observations) {
     if (months.has(observation.calendarMonth)) throw new Error(`QUALITY_FF_DUPLICATE_MONTH:${observation.calendarMonth}`);
+    if (priorMonth && observation.calendarMonth <= priorMonth) throw new Error(`QUALITY_FF_NON_MONOTONIC_STATE_MONTH:${priorMonth}:${observation.calendarMonth}`);
     months.add(observation.calendarMonth);
     if (observation.previousChainHashSha256 !== previous) throw new Error(`QUALITY_FF_CHAIN_PREVIOUS_MISMATCH:${observation.id}`);
     const { previousChainHashSha256, observationHashSha256, chainHashSha256, ...body } = observation;
@@ -278,6 +376,7 @@ export function verifyProspectiveState(state: QualityAllocationProspectiveState)
     const expectedChainHash = sha256Canonical({ previousChainHashSha256, observationHashSha256 });
     if (expectedChainHash !== chainHashSha256) throw new Error(`QUALITY_FF_CHAIN_HASH_MISMATCH:${observation.id}`);
     previous = chainHashSha256;
+    priorMonth = observation.calendarMonth;
   }
   const outcomeKeys = new Set<string>();
   for (const outcome of state.outcomes) {
@@ -313,6 +412,8 @@ export function prospectivePhaseSummary(state: QualityAllocationProspectiveState
   const sixty = state.outcomes.filter(row => row.horizonSessions === 60);
   const changedObservationIds = new Set(state.observations.filter(row => row.arms.planChanged).map(row => row.id));
   const changedSixty = sixty.filter(row => changedObservationIds.has(row.observationId));
+  const resolvedChangedIds = new Set(changedSixty.map(row => row.observationId));
+  const unresolvedChangedPlan60SessionOutcomes = [...changedObservationIds].filter(id => !resolvedChangedIds.has(id)).length;
   const deltas = changedSixty.map(row => row.qualityMinusLegacyPctPoints).sort((a, b) => a - b);
   const median = deltas.length
     ? deltas.length % 2 ? deltas[Math.floor(deltas.length / 2)] : (deltas[deltas.length / 2 - 1] + deltas[deltas.length / 2]) / 2
@@ -320,15 +421,17 @@ export function prospectivePhaseSummary(state: QualityAllocationProspectiveState
   const wins = deltas.filter(value => value > 0).length;
   const winRatePct = deltas.length ? wins / deltas.length * 100 : null;
   const gate = QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL.phaseAInterpretation;
+  const reachedMaximumCheckpoints = state.observations.length >= QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL.maximumCheckpoints;
   let status = 'COLLECTING';
   if (changedSixty.length >= gate.minimumResolvedChangedPlan60SessionObservationsForDirectionalRead) {
     status = (median ?? -Infinity) > gate.directionalPositiveRequiresMedianDeltaPctPointsAbove
       && (winRatePct ?? 0) >= gate.directionalPositiveRequiresWinRatePctAtLeast
       ? 'DIRECTIONALLY_POSITIVE_FOR_SEPARATE_PHASE_B'
       : 'NO_DIRECTIONAL_EVIDENCE_FOR_PHASE_B';
-  } else if (state.observations.length >= QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL.maximumCheckpoints
-    && changedSixty.length < gate.minimumResolvedChangedPlan60SessionObservationsForDirectionalRead) {
+  } else if (reachedMaximumCheckpoints && changedObservationIds.size < gate.minimumResolvedChangedPlan60SessionObservationsForDirectionalRead) {
     status = 'INSUFFICIENT_REACH';
+  } else if (reachedMaximumCheckpoints && unresolvedChangedPlan60SessionOutcomes > 0) {
+    status = 'AWAITING_60_SESSION_MATURITY';
   }
   return {
     status,
@@ -337,6 +440,7 @@ export function prospectivePhaseSummary(state: QualityAllocationProspectiveState
     resolved20SessionOutcomes: state.outcomes.filter(row => row.horizonSessions === 20).length,
     resolved60SessionOutcomes: sixty.length,
     resolvedChangedPlan60SessionOutcomes: changedSixty.length,
+    unresolvedChangedPlan60SessionOutcomes,
     medianQualityMinusLegacy60PctPoints: median,
     winRateQualityVsLegacy60Pct: winRatePct,
     productionPolicyRemains: 'LEGACY',
