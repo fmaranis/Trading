@@ -402,7 +402,7 @@ export function verifyProspectiveState(state: QualityAllocationProspectiveState)
     outcomeKeys.add(key);
     if (!state.observations.some(row => row.id === outcome.observationId)) throw new Error(`QUALITY_FF_ORPHAN_OUTCOME:${key}`);
     const { outcomeHashSha256, ...body } = outcome;
-    if (sha256Canonical(body) !== outcome.outcomeHashSha256) throw new Error(`QUALITY_FF_OUTCOME_HASH_MISMATCH:${key}`);
+    if (sha256Canonical(body) !== outcomeHashSha256) throw new Error(`QUALITY_FF_OUTCOME_HASH_MISMATCH:${key}`);
   }
 }
 
