@@ -79,13 +79,17 @@ Producción mantiene:
 - replay causal / `NEXT_OPEN` donde corresponde;
 - modos `Desde cero / manual / cartera actual` y `Motor Custodia / mantener cartera` dentro del mismo replay;
 - cash histórico BCE y fiscalidad integrados;
-- Yahoo Search current nunca reconstruye universo histórico.
+- Yahoo Search/Lookup current nunca reconstruye universo histórico.
 
-## Selección dinámica de mercado — IMPLEMENTADA EN CÓDIGO / VALIDACIÓN REAL PENDIENTE
+---
 
-La deuda arquitectónica principal ha sido implementada dentro de la misma cadena productiva.
+# Selección dinámica de mercado — PIPELINE PASS / BREADTH TODAVÍA EN VALIDACIÓN
 
-### Invariantes de código
+Documento del primer resultado live:
+
+`docs/dynamic_market_top64_v1_outcome.md`
+
+## Invariantes de código
 
 `src/investment/decision/portfolioDiscoveryUniverse.ts`:
 
@@ -93,31 +97,13 @@ La deuda arquitectónica principal ha sido implementada dentro de la misma caden
 - `DYNAMIC_MARKET_SHORTLIST_TARGET = 64`;
 - `FIXED_PRODUCT_UNIVERSE_FORBIDDEN = true`.
 
-### Discovery current/live
-
-`OPEN_MARKET_DISCOVERY_V1` sigue integrado en `AssetUniverseScanner` y ahora el sweep estructural incluye:
-
-- ETF/ETC amplios, sectoriales y defensivos;
-- acciones/listings EUR de mercados europeos;
-- familias de tecnología, semiconductores, salud, energía y dividendo;
-- búsqueda de listings EUR de grandes compañías US cuando Yahoo los exponga.
-
-Promoción automática current/live admitida:
-
-- `ETF` EUR;
-- `EQUITY` EUR;
-- >= 252 barras inspeccionadas;
-- `historicalPointInTimeSafe: false` explícito.
-
-El seed conocido continúa como fallback si Yahoo discovery falla temporalmente.
-
-### Ranking y Top64
+## Ranking y Top64
 
 Versión de ranking productivo:
 
 `MARKET_SHORTLIST_LEGACY_SCORE_V1`
 
-El orden principal conserva el score scanner productivo existente:
+Orden principal:
 
 `0.20*mom20 + 0.35*mom60 + 0.45*mom120 - 0.30*volatilidad - 0.25*maxDrawdown + defensiveBonus`
 
@@ -127,25 +113,27 @@ Desempates:
 2. Opportunity;
 3. ticker.
 
-Esto evita promocionar indirectamente `QUALITY_V1` como política productiva.
+Esto preserva el score productivo anterior y evita promocionar indirectamente `QUALITY_V1`.
 
 En current/live canónico:
 
-- los antiguos `maxSelected:8/10/12` ya no reducen la shortlist;
+- los antiguos `maxSelected:8/10/12` no reducen la shortlist;
 - el scanner usa target 64;
-- no impone una exposición por categoría en discovery;
-- si existen menos de 64 válidos, utiliza sólo los válidos;
-- `dynamicMarketShortlist.shortlistAssetIds` conserva los IDs exactos del Top64 original.
+- no impone una exposición por categoría durante discovery;
+- si existen menos de 64 válidos, usa sólo los válidos;
+- `dynamicMarketShortlist.shortlistAssetIds` conserva los IDs originales de la shortlist.
 
-### Gate posterior
+En histórico/no-current se conserva el selector diversificado legacy previo, incluida su semántica por categoría. El Top64 current/live no reescribe replays pasados.
 
-`PortfolioCandidateGate` consume los IDs originales del Top64.
+## Gate posterior
 
-Un candidato REAL aceptado por el scanner pero fuera de Top64 recibe:
+`PortfolioCandidateGate` consume la identidad original de la shortlist.
+
+Un candidato aceptado por datos pero fuera del Top64 queda:
 
 `OUTSIDE_DYNAMIC_MARKET_SHORTLIST`
 
-Después continúan sin cambios:
+Después continúan:
 
 - cash hurdle;
 - consenso;
@@ -154,31 +142,147 @@ Después continúan sin cambios:
 - diversificación/caps del gate;
 - allocation.
 
-Por tanto Top64 = **candidatos para evaluar**, no compras.
-
-### Límite de cobertura declarado
-
-Yahoo Search es discovery amplio current/live, pero no un instrument master exhaustivo mundial.
-
-La afirmación correcta es:
-
-**Top64 del pool current/live descubierto y compatible con el motor EUR.**
-
-La arquitectura permite ampliar/cambiar el proveedor de discovery sin crear otro motor.
+Top64 = candidatos para evaluar, nunca autorización de compra.
 
 ---
 
-# OPEN_MARKET_DISCOVERY_V1 — INFRAESTRUCTURA PASS / AMPLITUD ACTUALIZADA
+# DYNAMIC_MARKET_TOP64_V1 — PRIMER LIVE: PIPELINE PASS / MARKET BREADTH INSUFFICIENT
 
-Estado histórico de infraestructura:
+Run recibido:
+
+`dynamic-market-top64-v1-2026-09-09T15-03-07-126Z.zip`
+
+El job terminó `PASSED` y emitió:
+
+`PASS_DYNAMIC_MARKET_TOP64_CURRENT_LIVE`
+
+Ese literal se interpreta sólo como **PASS técnico de la cadena original**, no como cierre de amplitud de mercado.
+
+## Resultado observado
+
+Discovery:
+
+- 24 familias de búsqueda;
+- 2 fallos Yahoo 502: `EQ_FRANCE` y `EQ_DIVIDEND`;
+- 24 raw candidates;
+- sólo **3 candidatos EUR aceptados**;
+- sólo **3 candidatos nuevos promovidos** al scanner;
+- `scannerDiscoveryError = null`.
+
+Los tres `OPEN_*` fueron:
+
+- `XAD5.MI` — Xtrackers Physical Gold ETC (EUR);
+- `XAD5.DE` — Xtrackers Physical Gold ETC (EUR);
+- `SGLE.MI` — Invesco Physical Gold ETC EUR Hedged.
+
+Los tres aportes nuevos efectivos estaban concentrados en oro. Por tanto el Search semántico no estaba enumerando un mercado suficientemente amplio.
+
+Scanner:
+
+- seed/fallback: 64;
+- pool escaneado: 67;
+- REAL aceptados: 63;
+- rechazados: 4;
+- shortlist: **63**;
+- `OPEN_*` en shortlist: **3**;
+- fingerprint: `d88b9691657ff2111f79a17f5cd493827f5ac8bf2e19d724c91a36da93256279`.
+
+Que hubiera 63 y no 64 fue correcto: nunca rellenar con inválidos sólo para llegar al target.
+
+PortfolioCandidateGate:
+
+- policy: LEGACY;
+- entries: 67;
+- elegibles antes de diversificación final: 10;
+- seleccionados después del gate: 8;
+- aceptados fuera del Top64: 0;
+- leak elegible fuera del Top64: **0**.
+
+Conclusión:
+
+- ranking: funcional;
+- trazabilidad Top64: funcional;
+- gates: funcional;
+- no-leak: funcional;
+- replay histórico: sin cambios;
+- **cuello de botella actual: discovery breadth**.
+
+Esta fase NO se archiva todavía.
+
+---
+
+# Discovery current/live — Yahoo Search + Lookup en la misma cadena
+
+Tras el primer live, `/api/alerts/asset-discovery/open-universe` se amplió **sin crear un motor nuevo**.
+
+La misma ruta combina ahora:
+
+1. **Yahoo Search** estructural para discovery temático/categorial;
+2. **Yahoo Lookup** para enumeración current/live más amplia de instrumentos.
+
+Yahoo Lookup es sólo una fuente de candidatos del mismo `AssetUniverseScanner`; no tiene autoridad de decisión.
+
+La enumeración prioriza listings EUR con sufijos operativos como:
+
+- `.DE`;
+- `.PA`;
+- `.MC`;
+- `.MI`;
+- `.AS`;
+- `.BR`;
+- `.VI`;
+- `.HE`;
+- `.LS`;
+- `.IR`.
+
+Cada símbolo sigue necesitando inspección de Yahoo Chart y debe cumplir:
+
+- moneda EUR;
+- tipo ETF/EQUITY admitido;
+- al menos 252 barras;
+- procedencia REAL.
+
+Search conserva categorías temáticas cuando identifica el mismo ticker; Lookup aporta amplitud de enumeración.
+
+El seed de 64 continúa únicamente como fallback operativo ante fallo temporal del proveedor.
+
+## Criterio de cierre endurecido
+
+El primer PASS demostró que aceptar `>=1` candidato nuevo era demasiado débil para probar independencia del seed.
+
+El runner live exige ahora:
+
+- al menos **64 candidatos actuales válidos en discovery abierto**;
+- al menos **64 candidatos no-seed promovidos** al scanner canónico.
+
+Errores explícitos:
+
+- `DYNAMIC_MARKET_DISCOVERY_BREADTH_INSUFFICIENT`;
+- `DYNAMIC_MARKET_NOVEL_BREADTH_INSUFFICIENT`.
+
+Este 64 no es un threshold de trading ni tuning económico. Es una condición arquitectónica: para afirmar que existe un Top64 dinámico independiente del bootstrap, el discovery debe poder aportar al menos una shortlist completa sin depender de los 64 nombres conocidos.
+
+Limitación retenida:
+
+Yahoo Search + Lookup sigue siendo discovery current/live amplio, no un instrument master mundial exhaustivo. La afirmación correcta sigue siendo:
+
+**Top64 del pool current/live descubierto y compatible con el motor EUR.**
+
+---
+
+# OPEN_MARKET_DISCOVERY_V1 — INFRAESTRUCTURA
+
+Estado histórico:
 
 `CURRENT_LIVE_INTEGRATION_PASS / CORE_ELIGIBILITY_V2_SHADOW / HISTORICAL_REPLAY_UNCHANGED`
 
-El PASS previo demostró integración aditiva y gates. Desde 2026-09-09 la amplitud de discovery se ha extendido a `ETF + EQUITY` EUR y se usa para construir la shortlist Top64 current/live.
+El PASS histórico demostró integración aditiva, REAL provenance y autoridad del gate.
 
-La nueva amplitud/Top64 debe validarse con el job vigente `dynamic-market-top64-v1` antes de marcar esta fase como PASS final.
+El resultado del 2026-09-09 mostró que la amplitud basada sólo en Search era insuficiente y motivó la incorporación de Lookup dentro del mismo endpoint.
 
-Limitación retenida: sin instrument master point-in-time no existe reconstrucción histórica abierta completa.
+No usar los resultados current/live para inventar retrospectivamente el mercado disponible en fechas pasadas.
+
+Sin instrument master point-in-time persiste la limitación de survivorship histórico.
 
 ---
 
@@ -191,13 +295,13 @@ Histórico consumido:
 - `QUALITY_V1`: mostró información pero reach/economía insuficientes para promoción;
 - `SLOPE_V1`: no justificó promoción;
 - `QUALITY_ALLOCATION_BRIDGE_V1`: integrado research-only dentro de `PortfolioDecisionEngine`;
-- su fórmula permanece congelada y no se retunea sobre las ventanas ya vistas.
+- su fórmula permanece congelada y no se retunea sobre ventanas consumidas.
 
-Hallazgo importante:
+Hallazgo anterior:
 
 el problema no estaba sólo en ordenar candidatos; con capital cerrado el allocator casi nunca tenía dinero nuevo que repartir.
 
-El nuevo Top64 dinámico **no promociona QUALITY**. Reliability/Opportunity son sólo evidencia/desempate de shortlist; el orden principal mantiene el score scanner productivo.
+El Top64 dinámico no promociona QUALITY. Reliability/Opportunity son sólo evidencia/desempate de shortlist; el orden principal mantiene el score scanner productivo.
 
 ---
 
@@ -207,7 +311,7 @@ Documento:
 
 `docs/replay_explicit_cash_flows_v1_outcome.md`
 
-Resultado 2026-09-09:
+Resultado:
 
 `PASS_EXPLICIT_CASH_FLOW_INTEGRATION`
 
@@ -235,7 +339,7 @@ QUALITY con el mismo capital explícito:
 
 Conclusión:
 
-QUALITY sí alcanza ejecución cuando existe capital accionable, pero el efecto económico observado en esas ventanas consumidas fue pequeño y no permite promoción ni retuning.
+QUALITY sí alcanza ejecución cuando existe capital accionable, pero el efecto económico observado en ventanas consumidas fue pequeño y no permite promoción ni retuning.
 
 Producción continúa LEGACY.
 
@@ -253,20 +357,17 @@ Estado:
 
 Motivo:
 
-el primer diseño congelaba nominalmente los 64 activos del catálogo y por tanto confundía una shortlist dinámica con un universo fijo.
-
-Eso contradice `CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE`.
+el primer diseño congelaba nominalmente los 64 activos del catálogo y confundía shortlist dinámica con universo fijo.
 
 Consecuencias:
 
 - no se ejecuta;
 - no genera evidencia;
 - no consume muestra future-forward;
-- el job está `ARCHIVED` y read-only;
-- el código ejecutable específico de ese diseño fijo fue retirado;
+- job ARCHIVED/read-only;
 - cualquier nuevo future-forward debe congelar reglas de discovery/ranking y snapshots observados, no nombres futuros.
 
-No crear otro protocolo QUALITY prospectivo hasta cerrar en PASS la validación live del Top64 dinámico.
+No crear nuevo protocolo QUALITY prospectivo hasta cerrar la cobertura current/live dinámica.
 
 ---
 
@@ -319,6 +420,8 @@ Nombre:
 
 **Mercado dinámico · Top 64 current/live**
 
+Se mantiene CURRENT porque el primer run sólo cerró pipeline, no breadth.
+
 Orden:
 
 1. guard `dynamicMarketShortlist.unit`;
@@ -328,10 +431,11 @@ Orden:
 5. `npm run lint` / `tsc --noEmit`;
 6. validación REAL `scripts/dynamicMarketTop64Live.ts`.
 
-El runner comprueba:
+El nuevo runner comprueba además:
 
-- discovery actual ejecutado;
-- pool current/live;
+- discovery Search + Lookup ejecutado;
+- al menos 64 candidatos open válidos;
+- al menos 64 candidatos no-seed promovidos;
 - shortlist <=64 y tamaño correcto;
 - REAL-only dentro de shortlist;
 - identidad original del Top64 auditable;
@@ -339,11 +443,11 @@ El runner comprueba:
 - snapshot + hash SHA-256;
 - replay histórico no se modifica.
 
-Resultado esperado si pasa:
+Resultado final de cierre sólo si pasa el nuevo criterio:
 
 `PASS_DYNAMIC_MARKET_TOP64_CURRENT_LIVE`
 
-Todos los diagnósticos anteriores permanecen `ARCHIVED` / read-only.
+Los diagnósticos anteriores permanecen ARCHIVED/read-only.
 
 Nunca usar GitHub Actions ni agentes para esta validación.
 
@@ -351,10 +455,11 @@ Nunca usar GitHub Actions ni agentes para esta validación.
 
 # Próxima secuencia técnica
 
-1. Sincronizar app con HEAD actual.
-2. Ejecutar localmente **Mercado dinámico · Top 64 current/live** desde `ResearchValidationCenter`.
-3. Si falla un guard, corregir implementación antes de ejecutar el live.
-4. Si el resultado REAL es `PASS_DYNAMIC_MARKET_TOP64_CURRENT_LIVE`, cerrar esta fase como PASS y archivar el job.
-5. Producción continúa `LEGACY`; Top64 no cambia allocation policy.
-6. Sólo después diseñar el nuevo future-forward QUALITY congelando reglas/snapshots, nunca nombres.
-7. Mantener pendiente una fuente instrument-master más exhaustiva para mejorar cobertura current/live y resolver survivorship histórico point-in-time cuando sea posible.
+1. Sincronizar la app con el HEAD actual.
+2. Ejecutar de nuevo localmente **Mercado dinámico · Top 64 current/live**.
+3. Si falla un guard, corregir implementación antes del live.
+4. Si falla por `DISCOVERY_BREADTH_INSUFFICIENT` o `NOVEL_BREADTH_INSUFFICIENT`, tratarlo como problema de cobertura/proveedor, no como señal para retunear ranking/gates.
+5. Si pasa con >=64 candidatos nuevos, cerrar y archivar esta fase.
+6. Producción continúa `LEGACY`; Top64 no cambia allocation policy.
+7. Sólo después diseñar un nuevo future-forward QUALITY congelando reglas/snapshots, nunca nombres.
+8. Mantener pendiente una fuente instrument-master point-in-time para survivorship histórico completo.
