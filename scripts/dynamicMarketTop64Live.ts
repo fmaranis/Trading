@@ -51,6 +51,7 @@ async function main() {
     };
     if (discovery.version !== OPEN_MARKET_DISCOVERY_V1) throw new Error('DYNAMIC_MARKET_DISCOVERY_VERSION_MISMATCH');
     if (discovery.historicalPointInTimeSafe !== false) throw new Error('DYNAMIC_MARKET_DISCOVERY_FALSE_HISTORICAL_SAFETY_CLAIM');
+    if (!Array.isArray(discovery.assets) || discovery.assets.length < 1) throw new Error('DYNAMIC_MARKET_DISCOVERY_NO_CURRENT_ASSETS');
 
     const registry = new MarketDataProviderRegistry();
     registry.register(new RealMarketDataProvider(`${baseUrl}/api/market-data/history`));
@@ -68,8 +69,10 @@ async function main() {
     // temporary Yahoo discovery failure may legitimately fall back to the seed in
     // production, but that degraded mode must never be reported here as a Top64
     // discovery PASS.
-    if (scan.currentOpenDiscovery?.attempted !== true) throw new Error('DYNAMIC_MARKET_DISCOVERY_NOT_ATTEMPTED');
-    if (scan.currentOpenDiscovery.error) throw new Error(`DYNAMIC_MARKET_SCANNER_DISCOVERY_ERROR:${scan.currentOpenDiscovery.error}`);
+    const scannerDiscovery = scan.currentOpenDiscovery;
+    if (scannerDiscovery?.attempted !== true) throw new Error('DYNAMIC_MARKET_DISCOVERY_NOT_ATTEMPTED');
+    if (scannerDiscovery.error) throw new Error(`DYNAMIC_MARKET_SCANNER_DISCOVERY_ERROR:${scannerDiscovery.error}`);
+    if (scannerDiscovery.promotedAssets < 1) throw new Error('DYNAMIC_MARKET_DISCOVERY_NO_NOVEL_PROMOTED_ASSETS');
 
     const shortlist = scan.dynamicMarketShortlist;
     if (!shortlist?.applied || shortlist.mode !== 'DYNAMIC_CURRENT_DISCOVERY') throw new Error('DYNAMIC_MARKET_SHORTLIST_NOT_APPLIED');
@@ -137,7 +140,7 @@ async function main() {
         rawCandidates: discovery.rawCandidates,
         acceptedEurCandidates: discovery.acceptedEurCandidates,
         quoteTypeCounts: discoveryTypeCounts,
-        promotedIntoCanonicalScan: scan.currentOpenDiscovery.promotedAssets,
+        promotedIntoCanonicalScan: scannerDiscovery.promotedAssets,
         scannerDiscoveryError: null,
         providerLimitation: 'Yahoo query sweep is broad current/live discovery, not an exhaustive global instrument master.'
       },
