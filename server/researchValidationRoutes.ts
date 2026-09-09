@@ -138,7 +138,7 @@ const JOBS: JobDefinition[] = [
   {
     id: 'quality-allocation-dynamic-future-forward-v1',
     name: 'QUALITY allocation · future-forward dinámico',
-    description: 'Checkpoint prospectivo mensual sobre el Top64 current/live dinámico. Compara el mismo snapshot y el mismo notional de investigación entre LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Congela reglas, no nombres; no usa cartera privada, no crea aportaciones mensuales y no puede promocionar producción desde Phase A.',
+    description: 'Phase A prospectiva sobre Top64 current/live dinámico. Una única foto mensual consecutiva en la ventana congelada del día 9, 22:30-24:00 Europe/Madrid; mismo snapshot y 13.000 EUR de notional research para LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Reglas e implementación crítica quedan fingerprintadas, el estado autoritativo se encadena en replay-results y producción continúa LEGACY.',
     marker: 'QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_RESULT',
     visibility: 'CURRENT',
     steps: [
@@ -257,6 +257,10 @@ researchValidationRouter.get('/jobs/:id', (req: Request, res: Response) => {
   res.json({ aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', archived: job.visibility === 'ARCHIVED', job: publicJob(job) });
 });
 researchValidationRouter.post('/jobs/:id/run', (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY', execution: 'LOCAL_APP_BACKEND' });
+    return;
+  }
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
   if (job.visibility === 'ARCHIVED') { res.status(409).json({ error: 'VALIDATION_ARCHIVED_READ_ONLY', job: publicJob(job) }); return; }
