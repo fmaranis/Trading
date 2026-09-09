@@ -24,8 +24,9 @@ assert.match(scanner, /temporary Yahoo\/search failure must not disable/);
 assert.match(scanner, /dynamicCurrentMarket \? DYNAMIC_MARKET_SHORTLIST_TARGET/);
 assert.match(scanner, /dynamicMarketShortlist: dynamicCurrentMarket/);
 assert.match(scanner, /MARKET_SHORTLIST_LEGACY_SCORE_V1/);
-assert.doesNotMatch(scanner, /chooseDiversified/);
-assert.doesNotMatch(scanner, /usedCategories/);
+assert.match(scanner, /dynamicCurrentMarket\s*\? rankDynamicMarketShortlist\(candidates, requestedMax\)\s*:\s*chooseDiversifiedLegacy\(candidates, Math\.min\(requestedMax, 10\)\)/s);
+assert.match(scanner, /function chooseDiversifiedLegacy/);
+assert.match(scanner, /usedCategories/);
 assert.match(gate, /OUTSIDE_DYNAMIC_MARKET_SHORTLIST/);
 assert.match(gate, /scan\.dynamicMarketShortlist\?\.applied/);
 assert.match(universe, /DYNAMIC_MARKET_SHORTLIST_TARGET = 64/);
@@ -54,8 +55,8 @@ assert.match(decision, /EUR_PORTFOLIO_DISCOVERY_UNIVERSE/);
 assert.match(alerts, /AssetUniverseScanner\.scan\(EUR_PORTFOLIO_DISCOVERY_UNIVERSE/);
 assert.match(alerts, /PortfolioCandidateGate\.apply/);
 
-// Historical replay remains isolated from current Yahoo discovery and therefore
-// is not silently changed by the current/live Top 64 implementation.
+// Historical replay remains isolated from current Yahoo discovery and the
+// scanner explicitly preserves its pre-existing diversified selection branch.
 assert.doesNotMatch(replay, /asset-discovery/);
 assert.doesNotMatch(replay, /open-universe/);
 assert.doesNotMatch(replay, /currentOpenDiscovery/);
