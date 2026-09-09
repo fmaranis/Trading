@@ -1,15 +1,60 @@
 # Trading — Estado Canónico del Proyecto
 
-> Repositorio canónico: `fmaranis/Trading/main`. Leer este archivo y comprobar HEAD antes de retomar trabajo técnico.
+> Repositorio canónico: `fmaranis/Trading/main`.
+>
+> Al retomar trabajo técnico: comprobar HEAD, leer este archivo y después consultar los documentos enlazados. Si un chat antiguo contradice el repo actual, manda el repo.
 
-## Reglas no negociables
+# INVARIANTE PRINCIPAL DE PRODUCTO — NO VOLVER A CONFUNDIR
+
+Documento normativo:
+
+`docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md`
+
+La app **NO** tiene como objetivo invertir dentro de una whitelist fija de 64 activos.
+
+El objetivo central es:
+
+> **buscar dinámicamente el mercado actual, identificar los activos más atractivos y fiables disponibles en ese momento, formar una shortlist dinámica de hasta 64 candidatos y decidir después si merece la pena entrar en alguno, cuánto asignar y por qué.**
+
+Cadena conceptual:
+
+`mercado actual`
+`-> AssetUniverseScanner [current/live discovery + calidad de datos + ranking]`
+`-> Top 64 dinámico`
+`-> PortfolioCandidateGate`
+`-> InvestmentDecisionEngine`
+`-> PortfolioDecisionEngine/evaluatePortfolioDecision`
+`-> ejecución/seguimiento`
+
+Reglas permanentes:
+
+- **64 = máximo/objetivo de shortlist dinámica, no 64 nombres permanentes.**
+- La identidad de los candidatos puede cambiar en cada evaluación.
+- `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` es bootstrap/seed/fallback operativo; no es la definición conceptual del mercado.
+- Discovery/ranking sólo produce candidatos; no autoriza compras.
+- Gates, cash hurdle, timing y allocation conservan autoridad.
+- “No comprar nada” es una salida válida.
+- En validaciones prospectivas se congelan las **reglas** de discovery/ranking/selección, no las identidades futuras de los activos.
+- En cada fecha prospectiva deben registrarse los candidatos realmente descubiertos y la shortlist resultante; los snapshots ya observados no pueden reescribirse.
+- Yahoo current/live discovery nunca se usa para reconstruir retrospectivamente un universo histórico.
+- Para replay histórico dinámico completo sigue faltando instrument master point-in-time con altas/bajas/delistings.
+
+Esta invariante es parte de la arquitectura de producto, no una hipótesis de research.
+
+---
+
+# Reglas no negociables
+
 - Nunca usar GitHub Actions para replays o validaciones largas.
-- ChatGPT modifica `main`; los cálculos pesados los ejecuta el motor local/backend de la app.
+- Los cálculos pesados los ejecuta el motor local/backend de la app, normalmente desde `ResearchValidationCenter` cuando exista un job integrado.
 - REAL / STATIC_REFERENCE / SYNTHETIC siempre explícito; sin fallback sintético silencioso.
-- Replay causal: sólo información disponible hasta la fecha; ejecución posterior a señal; sin lookahead.
+- Replay causal: sólo información disponible hasta la fecha; ejecución posterior a señal; `NEXT_OPEN` cuando corresponda; sin lookahead.
 - No recalibrar thresholds, coeficientes ni políticas sobre muestras consumidas.
 - No crear motores paralelos: scanner, gates, decisión, allocation, replay y seguimiento comparten arquitectura.
 - No crear pantallas nuevas cuando la capacidad cabe en los flujos existentes.
+- `MONTHLY/WEEKLY/DAILY/QUARTERLY` controlan frecuencia de decisión, nunca crean dinero.
+- `stagedCapitalPlan` es capital ya disponible para desplegar; no es una aportación recurrente.
+- Aportaciones/retiradas se modelan mediante `externalCashFlows` explícitos y fechados.
 - Ningún dato financiero privado del usuario se embebe en código público.
 
 ---
@@ -17,11 +62,12 @@
 # Estado vigente — 2026-09-09
 
 ## Motor productivo
+
 Arquitectura productiva cerrada:
 
 `CORE_ARCHITECTURE_V1`
 
-Cadena:
+Cadena productiva:
 
 `AssetUniverseScanner -> PortfolioCandidateGate -> InvestmentDecisionEngine -> PortfolioDecisionEngine/evaluatePortfolioDecision -> ejecución/seguimiento`
 
@@ -30,302 +76,155 @@ Producción mantiene:
 - allocation de oportunidad: **LEGACY**;
 - `CORE_ELIGIBILITY_V2`: shadow;
 - Forward Risk: no modifica producción;
-- replay causal / NEXT_OPEN donde corresponde;
+- replay causal / `NEXT_OPEN` donde corresponde;
 - modos `Desde cero / manual / cartera actual` y `Motor Custodia / mantener cartera` dentro del mismo replay;
 - cash histórico BCE y fiscalidad integrados;
 - Yahoo Search current nunca reconstruye universo histórico.
 
+## Deuda arquitectónica actual de selección de mercado
+
+El objetivo final ya está fijado en `CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE`, pero la implementación actual todavía no lo completa:
+
+- `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` contiene una base operativa de 64 instrumentos;
+- `OPEN_MARKET_DISCOVERY_V1` puede añadir candidatos current/live;
+- el scanner actual limita `selected` a un máximo de **10**;
+- el automatic discovery V1 promociona automáticamente sólo ETF EUR aunque la ruta pueda inspeccionar también equities;
+- por tanto todavía **no existe un verdadero Top 64 dinámico de mercado amplio**.
+
+Siguiente trabajo arquitectónico: cerrar esta diferencia sin crear un segundo motor.
+
 ---
 
-# OPEN_MARKET_DISCOVERY_V1 — CERRADO EN PASS CURRENT/LIVE
+# OPEN_MARKET_DISCOVERY_V1 — PASS DE INFRAESTRUCTURA CURRENT/LIVE
 
 Estado:
 
 `CURRENT_LIVE_INTEGRATION_PASS / CORE_ELIGIBILITY_V2_SHADOW / HISTORICAL_REPLAY_UNCHANGED`
 
-El discovery current/live se integra en el scanner existente. No existe un segundo motor.
+El discovery current/live está integrado en `AssetUniverseScanner` de forma aditiva.
 
-Limitación retenida: no existe todavía instrument master point-in-time completo con altas, bajas y delistings históricos.
+La validación consumida demostró que candidatos descubiertos pueden entrar al scanner con datos REAL y seguir sujetos a `PortfolioCandidateGate`.
 
----
+Este PASS valida infraestructura, no demuestra que la amplitud actual de discovery sea suficiente para el objetivo Top 64 dinámico.
 
-# OPPORTUNITY / RANKING — HISTÓRICO CONSUMIDO
-
-Se compararon:
-
-- `LEGACY`;
-- `QUALITY_V1`;
-- `SLOPE_V1`.
-
-Conclusiones cerradas:
-
-- producción permanece LEGACY;
-- QUALITY mostró información pero efecto económico/reach insuficiente en la comparación inicial;
-- SLOPE no justificó promoción;
-- las ventanas 10y / 6y / 3y utilizadas quedan consumidas;
-- no QUALITY_V1.1 ni SLOPE_V1.1 retuneados sobre esas ventanas.
-
-La auditoría de reach confirmó que QUALITY cambiaba ranking/selección con frecuencia, pero con capital cerrado casi nunca llegaba a compras ejecutadas.
+Limitación retenida: sin instrument master point-in-time no existe reconstrucción histórica abierta completa.
 
 ---
 
-# QUALITY_ALLOCATION_BRIDGE_V1 — CONGELADO / RESEARCH-ONLY
+# OPPORTUNITY / RANKING / ALLOCATION — ESTADO
 
-Integrado dentro del `PortfolioDecisionEngine` existente.
+Producción permanece `LEGACY`.
 
-Default productivo:
+Histórico consumido:
 
-`LEGACY`
+- `QUALITY_V1`: mostró información pero reach/economía insuficientes para promoción;
+- `SLOPE_V1`: no justificó promoción;
+- `QUALITY_ALLOCATION_BRIDGE_V1`: integrado research-only dentro de `PortfolioDecisionEngine`;
+- su fórmula permanece congelada y no se retunea sobre las ventanas ya vistas.
 
-Opción research-only:
+Hallazgo importante:
 
-`QUALITY_ALLOCATION_BRIDGE_V1`
-
-Fórmula congelada:
-
-`candidateQualityAdjustment = (reliability - 50) * 0.10 + (opportunity - 50) * 0.20`
-
-`qualityMultiplier = clamp(1 + candidateQualityAdjustment / 100, 0.85, 1.15)`
-
-`bridgePriority = legacyOpportunityPriority * qualityMultiplier`
-
-No se modifican hard gates, cash hurdle, consenso, timing, starter/build, timing fractions, caps, slots, minimum order, rotaciones ni fiscalidad.
-
-El primer diagnóstico cerrado mostró que el bridge llegaba al allocator, pero el capital cerrado sólo era desplegable en 3/228 decisiones. Esa muestra quedó consumida y el bridge no se promocionó.
+el problema no estaba sólo en ordenar candidatos; con capital cerrado el allocator casi nunca tenía dinero nuevo que repartir.
 
 ---
 
 # REPLAY_EXPLICIT_CASH_FLOWS_V1 — PASS / CONSUMIDO / ARCHIVADO
 
-Documento de cierre:
+Documento:
 
 `docs/replay_explicit_cash_flows_v1_outcome.md`
 
-Resultado local: **2026-09-09**.
-
-Estado:
+Resultado 2026-09-09:
 
 `PASS_EXPLICIT_CASH_FLOW_INTEGRATION`
 
-## Causalidad / contabilidad
+Comprobado:
 
-- `accountingAndCausalChecksPass: true`;
-- 64 activos escaneados;
-- 60 REAL aceptados;
-- 4 rechazados;
-- synthetic leak: 0;
-- `OPEN_*` histórico: 0;
+- causalidad/contabilidad de flujos: PASS;
+- `MONTHLY` no crea aportaciones;
 - brazo cerrado: 0 aportaciones implícitas;
 - closed vs explicit LEGACY idénticos antes del primer flujo;
-- aportaciones externas no cuentan como rentabilidad;
-- benchmark cash con acumulador independiente;
-- benchmark estructural bajo flujos: N/D.
+- externalCashFlows no cuentan como rentabilidad;
+- benchmark cash independiente;
+- REAL-only, sin synthetic leak ni `OPEN_*` retrospectivos.
 
-## Hallazgo de capital
+Reach agregado 10y/6y/3y:
 
-Agregado 10y / 6y / 3y:
-
-- gates con capital desplegable closed: **3**;
-- gates con capital desplegable explicit LEGACY: **22**;
-- gates con plan de contribución closed: **3**;
-- gates con plan explicit LEGACY: **12**;
+- gates con capital desplegable: **3 -> 22**;
 - delta de notional ejecutado explicit vs closed: **+212.386,21 EUR**;
 - funding reach: **3/3 ventanas**.
 
-Conclusión:
-
-**la falta de capital nuevo era un cuello de botella real del reach económico del allocator.**
-
-## QUALITY con capital explícito
-
-Con los mismos flujos externos en LEGACY y QUALITY:
+QUALITY con el mismo capital explícito:
 
 - planes de allocation cambiados: **10**;
 - fechas de adquisiciones ejecutadas distintas: **23**;
-- delta absoluto de notional ejecutado: **1.969,94 EUR**.
+- diferencia absoluta de notional ejecutado: **1.969,94 EUR**.
 
-QUALITY sí puede alcanzar ejecución cuando existe capital accionable.
+Conclusión:
 
-Economía observada, sólo diagnóstica porque las ventanas están consumidas:
-
-- 10y: +40,93 EUR; +0,0310 pp retorno ajustado; DD igual;
-- 6y: -0,82 EUR; -0,0010 pp; DD prácticamente igual;
-- 3y: +4,74 EUR; +0,0099 pp; DD +0,0055 pp mejor.
-
-No permite promoción ni retuning.
+QUALITY sí alcanza ejecución cuando existe capital accionable, pero el efecto económico observado en esas ventanas consumidas fue pequeño y no permite promoción ni retuning.
 
 Producción continúa LEGACY.
 
 ---
 
-# FASE ACTUAL — QUALITY_ALLOCATION_FUTURE_FORWARD_V1
+# QUALITY_ALLOCATION_FUTURE_FORWARD_V1 — VOID PRE-START
 
-Documento preregistrado:
+Documento histórico:
 
 `docs/quality_allocation_future_forward_v1_preregistration.md`
 
-Código de protocolo:
+Estado:
 
-`src/investment/decision/qualityAllocationFutureForwardV1.ts`
+**ANULADO ANTES DE PRIMER OUTCOME / NO CONSUME MUESTRA**
 
-Runner:
+Motivo:
 
-`scripts/qualityAllocationFutureForwardV1CheckpointLive.ts`
+el primer diseño congelaba nominalmente los 64 activos del catálogo y por tanto confundía una shortlist dinámica con un universo fijo.
 
-Guard:
+Eso contradice `CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE`.
 
-`tests/qualityAllocationFutureForwardV1.unit.ts`
+Consecuencias:
 
-Job CURRENT del `ResearchValidationCenter`:
+- no se ejecuta;
+- no genera evidencia;
+- no consume muestra future-forward;
+- el job está `ARCHIVED` y read-only;
+- el código ejecutable específico de ese diseño fijo fue retirado;
+- cualquier nuevo future-forward debe congelar reglas de discovery/ranking y snapshots observados, no nombres futuros.
 
-**QUALITY allocation · future-forward V1**
-
-ID:
-
-`quality-allocation-future-forward-v1`
-
-## Congelación
-
-- fecha de preregistro: **2026-09-09**;
-- primera fecha elegible de outcome: **2026-09-10**;
-- HEAD previo al preregistro: `479b1a1efa2576caf2be11790d9fc9a6cd2fb10c`;
-- control/productivo: `LEGACY`;
-- candidato shadow: `QUALITY_ALLOCATION_BRIDGE_V1`;
-- arquitectura: `CORE_ARCHITECTURE_V1`;
-- QUALITY no se retunea;
-- Forward Risk no entra en esta hipótesis.
-
-## Universo prospectivo congelado
-
-Se congeló una copia independiente de los **64 activos** que constituían `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` el 2026-09-09.
-
-No entran después de la congelación:
-
-- nuevos `OPEN_*`;
-- `EUR_VALIDATION_HOLDOUT_UNIVERSE`;
-- nuevas altas del catálogo productivo.
-
-Esto impide alterar retrospectivamente la muestra por cambios futuros del catálogo.
-
-Las barras anteriores al 2026-09-10 son sólo warmup causal de features. No cuentan como outcome Phase A.
-
-## Continuidad prospectiva inmutable
-
-Estado runtime local:
-
-`.runtime/quality-allocation-future-forward-v1-state.json`
-
-`.runtime/` está ignorado por Git. Este mecanismo no utiliza GitHub Actions, agentes ni auto-commits.
-
-El baseline debe crearse antes de que existan datos REAL posteriores a la primera fecha elegible. Si el baseline falta una vez empezados los outcomes, la fase se invalida y no se permite reconstrucción retrospectiva.
-
-El estado conserva:
-
-- SHA-256 del protocolo congelado;
-- SHA-256 del universo congelado;
-- última fecha de datos bloqueada;
-- hash del prefijo LEGACY ya observado;
-- hash del prefijo QUALITY ya observado.
-
-Cada checkpoint posterior debe reproducir exactamente el prefijo ya visto. Si cambia una decisión, plan o ejecución que ya era observable hasta la fecha cerrada, el runner no sobreescribe el lock y devuelve:
-
-`PHASE_A_INVALIDATED_FORWARD_HISTORY_DRIFT_KEEP_LEGACY`
-
-Una señal del último día puede ejecutarse después vía NEXT_OPEN sin provocar falso drift: sólo se congelan hechos de ejecución que ya eran observables en la fecha bloqueada.
-
-Otros estados de integridad:
-
-- protocolo/universo cambiado: `PHASE_A_INVALIDATED_FROZEN_CONTRACT_DRIFT_KEEP_LEGACY`;
-- baseline ausente después de comenzar outcomes: `PHASE_A_INVALIDATED_MISSING_FORWARD_BASELINE_KEEP_LEGACY`.
-
-En cualquier invalidación producción sigue LEGACY y no se permite tuning/promoción.
-
-## Configuración congelada
-
-- frecuencia: MONTHLY;
-- capital inicial: 13.000 EUR;
-- riesgo: MEDIUM;
-- horizonte: 3 años;
-- cash: histórico BCE;
-- fiscalidad existente;
-- minimumBars: 252;
-- current Yahoo discovery: OFF.
-
-Fixture de reach:
-
-**1.000 EUR/mes research-only**, igual en LEGACY y QUALITY.
-
-No es default de producción ni supuesto sobre el ahorro real del usuario.
-
-`MONTHLY` sigue siendo sólo frecuencia de decisión.
-
-## Madurez Phase A
-
-No existe interpretación económica antes de:
-
-**252 sesiones forward**.
-
-Hasta entonces:
-
-`ACCUMULATING_FUTURE_DATA`
-
-Los deltas económicos previos pueden almacenarse como telemetría, pero no usarse para PASS/FAIL ni para tuning.
-
-## Gate de reach congelado
-
-A partir de 252 sesiones deben cumplirse simultáneamente:
-
-- >= 3 gates con plan de allocation distinto;
-- >= 8 fechas con adquisiciones ejecutadas distintas;
-- >= 1.000 EUR de diferencia absoluta de notional ejecutado.
-
-Si no:
-
-`PHASE_A_INCONCLUSIVE_INSUFFICIENT_REACH_KEEP_LEGACY`
-
-No se retunea.
-
-## Gate económico congelado
-
-Sólo si reach pasa:
-
-- delta de retorno ajustado QUALITY - LEGACY >= **+0,50 pp**;
-- delta de valor final > **0 EUR**;
-- max drawdown de QUALITY no puede empeorar más de **1,0 pp**.
-
-FAIL:
-
-`PHASE_A_FAIL_KEEP_LEGACY`
-
-PASS de Phase A:
-
-`PHASE_A_CANDIDATE_FOR_CONFIRMATION`
-
-Importante:
-
-**Phase A no puede promocionar QUALITY directamente.** Un PASS sólo permitiría diseñar una segunda confirmación fresh separada y congelada.
-
-Producción permanece LEGACY durante toda la fase.
+No crear otro protocolo QUALITY prospectivo hasta que la selección dinámica de mercado esté correctamente integrada y auditable.
 
 ---
 
-# Forward Risk — VALOR V8 RETENIDO / V9-V11 RETIRADAS
+# Forward Risk — V8 PREDICTIVO RETENIDO / V9-V11 RETIRADAS
 
 Principio permanente:
 
 **calidad de señal != calidad de política económica**.
 
-V8 sí anticipó una parte importante de futuras caídas y su información debe conservarse.
+V8 sí mostró capacidad de anticipar parte importante de futuras caídas.
 
-Los FAIL de V8/V9/V10/V11 corresponden a políticas de monetización probadas, no a ausencia de información predictiva.
+Los FAIL económicos posteriores no anulan ese valor predictivo; fallaron políticas para monetizarlo.
 
-- V8 ON/OFF diario: no reutilizar directamente;
-- V9: retirada;
-- V10: retirada;
-- V11: retirada;
-- no crear V12/V13 como tuning retrospectivo.
+- V8 no volverá a usarse como ON/OFF diario directo sin nueva justificación;
+- V9 retirada;
+- V10 retirada;
+- V11 retirada;
+- no V12/V13 como tuning retrospectivo;
+- V5/V7/V8 pueden estudiarse como contexto/riesgo/ranking/stress bajo protocolos nuevos y separados.
 
-Posibles usos futuros de V5/V7/V8 requieren protocolo separado. No se mezclan con `QUALITY_ALLOCATION_FUTURE_FORWARD_V1`.
+---
+
+# Cash, fiscalidad y benchmarks
+
+- cash histórico: facilidad de depósito BCE con suelo nominal 0% cuando se selecciona ese modo;
+- remuneración y fiscalidad integradas causalmente;
+- benchmark cash con contabilidad independiente;
+- no doble conteo de intereses/impuestos;
+- aportaciones externas no son rentabilidad;
+- con flujos externos usar métricas ajustadas por flujos;
+- benchmark incapaz de recibir los mismos flujos de forma comparable => N/D.
 
 ---
 
@@ -339,35 +238,36 @@ Backend:
 
 `/api/alerts/research-validation/*`
 
-Único job ejecutable vigente:
+Estado actual:
 
-`quality-allocation-future-forward-v1`
+- diagnósticos consumidos: `ARCHIVED` / read-only;
+- `quality-allocation-future-forward-v1`: `ARCHIVED / VOID PRE-START`;
+- no debe existir por ahora un job largo CURRENT de QUALITY con universo fijo.
 
-Todos los diagnósticos anteriores están `ARCHIVED` y son read-only; sus comandos largos ya no forman parte de los jobs ejecutables.
-
-Orden del job vigente:
-
-1. guard protocolo future-forward + continuidad inmutable;
-2. guard QUALITY bridge congelado;
-3. guard contabilidad de flujos;
-4. guard replay dinámico existente;
-5. guard PortfolioCandidateGate;
-6. `npm run lint` / `tsc --noEmit`;
-7. sólo después: checkpoint REAL future-forward.
-
-Nunca usar Gemini, agentes ni GitHub Actions para esta ejecución.
+El siguiente job CURRENT deberá aparecer sólo cuando esté implementada y guardada la arquitectura de shortlist dinámica de mercado.
 
 ---
 
-# Próxima secuencia
+# Próxima secuencia técnica
 
-1. Sincronizar la app con HEAD actual.
-2. Ejecutar localmente **QUALITY allocation · future-forward V1** desde `ResearchValidationCenter` antes de que existan outcomes posteriores al 2026-09-10, para crear el baseline prospectivo de continuidad.
-3. El resultado inicial esperado es `ACCUMULATING_FUTURE_DATA`; eso no es FAIL.
-4. Conservar `.runtime/quality-allocation-future-forward-v1-state.json` entre actualizaciones de la app; no borrarlo mientras Phase A esté activa.
-5. En checkpoints posteriores, exigir continuidad del prefijo histórico antes de añadir nueva evidencia.
-6. No cambiar parámetros ni universo mientras acumula evidencia.
-7. No interpretar económicamente antes de 252 sesiones forward.
-8. Producción permanece LEGACY.
-9. Mantener `CORE_ELIGIBILITY_V2` shadow.
-10. Mantener pendiente instrument master point-in-time para eliminar survivorship histórico residual.
+1. Mantener producción `LEGACY`.
+2. Implementar dentro de `AssetUniverseScanner`/flujo existente la selección **Top 64 dinámica**, sin whitelist productiva.
+3. Definir y congelar explícitamente las reglas de discovery/ranking que producen esa shortlist.
+4. Ampliar current/live discovery hasta una cobertura de mercado suficientemente amplia y auditable; no confundir el seed de 64 con el mercado.
+5. Registrar para cada evaluación: pool descubierto, rechazos, scores, ranking y shortlist final.
+6. Mantener `PortfolioCandidateGate`, timing y allocation como filtros posteriores; Top 64 no implica compra.
+7. Añadir guards que impidan volver a convertir los 64 nombres actuales en universo productivo fijo.
+8. Sólo después preregistrar una validación future-forward QUALITY sobre **reglas dinámicas congeladas**.
+9. Para replay histórico completo de selección dinámica, mantener pendiente instrument master point-in-time.
+
+---
+
+# Regla de continuidad para chats futuros
+
+Antes de proponer cambios en discovery, ranking, opportunity o allocation:
+
+1. leer `PROJECT_STATE.md`;
+2. leer `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md`;
+3. comprobar el HEAD real de `main`;
+4. no inferir que “64 activos” significa universo fijo;
+5. recordar que el objetivo de producto es **mercado dinámico -> Top 64 dinámico -> decidir si alguno merece capital**.
