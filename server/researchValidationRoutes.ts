@@ -124,17 +124,33 @@ const JOBS: JobDefinition[] = [
   archivedJob(
     'quality-allocation-future-forward-v1',
     'QUALITY allocation · future-forward V1',
-    'ANULADO ANTES DE ARRANCAR/ANTES DE OUTCOMES. Congelaba 64 nombres y por tanto contradecía la arquitectura productiva: el mercado debe descubrirse dinámicamente y 64 significa shortlist dinámica, no whitelist. No consumió muestra ni genera evidencia. Debe sustituirse por un protocolo que congele reglas de discovery/ranking y registre snapshots de candidatos por fecha.',
+    'ANULADO ANTES DE ARRANCAR/ANTES DE OUTCOMES. Congelaba 64 nombres y por tanto contradecía la arquitectura productiva. No consumió muestra ni genera evidencia.',
     'QUALITY future-forward V1 · VOID pre-start · universo fijo incorrecto',
     'QUALITY_ALLOCATION_FUTURE_FORWARD_V1_RESULT'
   ),
   archivedJob(
     'dynamic-market-top64-v1',
     'Mercado dinámico · Top 64 current/live',
-    'PASS FINAL el 2026-09-09. Cerró discovery Search+Lookup, independencia del seed, Top64 REAL, dedupe económico, autoridad de PortfolioCandidateGate, 0 leaks fuera del Top64 y corrección current/live para que acciones individuales no queden artificialmente limitadas por la etiqueta amplia EUROPE_EQUITY. Producción continúa LEGACY y replay histórico permanece intacto.',
+    'PASS FINAL el 2026-09-09. Cerró discovery Search+Lookup, independencia del seed, Top64 REAL, dedupe económico, autoridad de PortfolioCandidateGate, 0 leaks fuera del Top64 y corrección current/live para acciones individuales. Producción continúa LEGACY y replay histórico permanece intacto.',
     'Mercado dinámico Top64 · PASS final · cerrado',
     'DYNAMIC_MARKET_TOP64_LIVE_RESULT'
-  )
+  ),
+  {
+    id: 'quality-allocation-dynamic-future-forward-v1',
+    name: 'QUALITY allocation · future-forward dinámico',
+    description: 'Checkpoint prospectivo mensual sobre el Top64 current/live dinámico. Compara el mismo snapshot y el mismo notional de investigación entre LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Congela reglas, no nombres; no usa cartera privada, no crea aportaciones mensuales y no puede promocionar producción desde Phase A.',
+    marker: 'QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard future-forward dinámico', command: 'npx', args: ['tsx', 'tests/qualityAllocationDynamicFutureForwardV1.unit.ts'] },
+      { label: 'Guard QUALITY bridge congelado', command: 'npx', args: ['tsx', 'tests/opportunityQualityAllocationBridge.unit.ts'] },
+      { label: 'Guard Top64 dinámico', command: 'npx', args: ['tsx', 'tests/dynamicMarketShortlist.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Checkpoint prospectivo REAL', command: 'npx', args: ['tsx', 'scripts/qualityAllocationDynamicFutureForwardV1CheckpointLive.ts'] }
+    ]
+  }
 ];
 
 const states = new Map<string, JobState>();
