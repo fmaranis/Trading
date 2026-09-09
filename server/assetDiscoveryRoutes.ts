@@ -23,6 +23,8 @@ const ISIN_PATTERN = /^[A-Z]{2}[A-Z0-9]{10}$/;
 const ALLOWED_TYPES = new Set(['ETF', 'MUTUALFUND', 'EQUITY']);
 const OPEN_SWEEP_TYPES = new Set(['ETF', 'EQUITY']);
 const OPEN_SWEEP_CACHE_MS = 6 * 60 * 60 * 1000;
+const OPEN_SWEEP_QUOTES_PER_QUERY = 16;
+const OPEN_SWEEP_ROWS_PER_QUERY = 6;
 let openSweepCache: { at: number; payload: unknown } | null = null;
 
 function timeoutMs(): number { return Number(process.env.MARKET_DATA_TIMEOUT_MS) || 10000; }
@@ -88,16 +90,18 @@ async function buildOpenSweep() {
   const generatedAt = new Date().toISOString();
   const queryResults = await mapLimit(OPEN_MARKET_DISCOVERY_V1_QUERIES, 3, async family => {
     try {
-      const quotes = await yahooSearch(family.query, 12);
+      const quotes = await yahooSearch(family.query, OPEN_SWEEP_QUOTES_PER_QUERY);
       return { family, quotes, error: null as string | null };
     } catch (error: any) {
       return { family, quotes: [] as YahooQuote[], error: error?.message || String(error) };
     }
   });
 
+  // Cap each structural family rather than taking an unbounded global prefix so
+  // one Yahoo query cannot crowd every other market/sector out of discovery.
   const raw = queryResults.flatMap(({ family, quotes }) => quotes
     .filter(q => q.symbol && OPEN_SWEEP_TYPES.has(String(q.quoteType ?? '').toUpperCase()))
-    .slice(0, 8)
+    .slice(0, OPEN_SWEEP_ROWS_PER_QUERY)
     .map(q => ({ family, quote: q })));
 
   const unique = new Map<string, (typeof raw)[number]>();
@@ -116,22 +120,24 @@ async function buildOpenSweep() {
     const symbol = String(row.quote.symbol ?? '').trim().toUpperCase();
     const type = String(row.quote.quoteType ?? row.inspection?.instrumentType ?? '').toUpperCase();
     const currency = String(row.inspection?.currency ?? '').toUpperCase();
-    if (!symbol || currency !== 'EUR' || !row.inspection || row.inspection.bars < 252) continue;
+    if (!symbol || currency !== 'EUR' || !row.inspection || row.inspection.bars < 252 || !OPEN_SWEEP_TYPES.has(type)) continue;
     const isEquity = type === 'EQUITY';
     assets.push({
       asset: {
         assetId: openAssetId(symbol),
         ticker: symbol,
         name: row.quote.longname || row.quote.shortname || symbol,
-        category: isEquity ? 'EUROPE_EQUITY' : row.family.category,
+        category: row.family.category,
         currency: 'EUR',
         defensive: isEquity ? false : row.family.defensive,
+        // Existing execution semantics group EUR-listed whole-share instruments
+        // under ETF_ETC. This is not a claim that an EQUITY is economically an ETF.
         instrumentType: 'ETF_ETC',
         marketDataProvider: 'YAHOO'
       },
       source: 'YAHOO_LIVE_QUERY_SWEEP',
       queryFamily: row.family.id,
-      breadth: isEquity ? 'UNKNOWN' : row.family.breadth,
+      breadth: row.family.breadth,
       discoveredAt: generatedAt,
       quoteType: type,
       exchange: row.quote.exchDisp || row.quote.exchange || null,
