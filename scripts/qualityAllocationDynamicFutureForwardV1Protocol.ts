@@ -9,12 +9,16 @@ export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_MARKER = 'QUALITY_ALLO
  * Methodology-critical implementation files are frozen by their Git blob SHA-1.
  * The experiment may continue while unrelated UI/product code evolves, but if
  * one of these files changes the existing Phase A must stop rather than silently
- * mixing a new policy implementation into the same prospective sample.
+ * mixing a new implementation into the same prospective sample.
+ *
+ * The protocol file itself is protected by protocolFingerprintSha256(), so it is
+ * deliberately not self-listed here. The runner/state-store can be listed without
+ * a circular dependency because changing this protocol does not change their blobs.
  */
 export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS = {
   'server/assetDiscoveryRoutes.ts': '0879aa660c12d2f962bbb6d564f057e42a616642',
   'server/marketDataRoutes.ts': '125547bc9f6de117918c2e4ed951edcaf52ee9d9',
-  'src/investment/data/marketData/historicalMarketDataService.ts': '76e402e779ff53d308449fde9cdbe6bed04d2e47',
+  'src/investment/data/marketData/historicalMarketDataService.ts': '76eec06e4ea9ed3604492887c4e80c75f58f1887',
   'src/investment/data/marketData/providers/realMarketDataProvider.ts': 'dc99dd4193f018f56aea91eb5ad772f37e44c44b',
   'src/investment/decision/assetUniverseScanner.ts': '6a8d09f136909bf7a15acbf4b40ed40dfc1115b4',
   'src/investment/decision/assetSelectionQuality.ts': '75bc51cb673cfc6b975e79130dc637d0ffd9503e',
@@ -34,7 +38,9 @@ export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS = {
   'src/investment/portfolioAnalytics/realPortfolioAnalytics.ts': '84a6f3c77e3f1cc2e89fd8adedde058340dee3fe',
   'src/investment/portfolioAnalytics/portfolioRisk.ts': '864ba2734f62b27906954951f43b62ac8ee35cee',
   'src/investment/portfolioRegimes/deterministicRegimeClassifier.ts': 'fffe0f922f4727a5d52f3c7994c831cb23225bb4',
-  'src/investment/portfolioBacktesting/multiAssetDataAligner.ts': '3960f5a697b92e8fcd02926b2a971b4abe50b9ef'
+  'src/investment/portfolioBacktesting/multiAssetDataAligner.ts': '3960f5a697b92e8fcd02926b2a971b4abe50b9ef',
+  'scripts/qualityAllocationDynamicFutureForwardV1CheckpointLive.ts': '596d943c2298dd88b34e362a095da376c1380072',
+  'scripts/qualityAllocationDynamicFutureForwardV1StateStore.ts': '162e001ca4c5ae0ab7549a1cfbac8ef2853bf0a7'
 } as const;
 
 export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL = {
@@ -61,22 +67,23 @@ export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL = {
     startDayOfMonth: 9,
     startHourLocal: 22,
     startMinuteLocal: 30,
-    durationMinutes: 450,
-    rule: 'ONLY_NEW_OBSERVATION_DURING_FROZEN_MONTHLY_WINDOW_NO_BACKFILL'
+    durationMinutes: 90,
+    rule: 'DAY_9_AFTER_EUROPEAN_CLOSE_UNTIL_MIDNIGHT_ONLY_NO_BACKFILL'
   },
   maximumCheckpoints: 12,
+  requiredConsecutiveCalendarMonths: true,
   researchAllocationNotionalEur: 13_000,
   researchNotionalSemantics: 'INDEPENDENT_ALLOCATION_PROBE_NOT_RECURRING_CONTRIBUTION',
   riskProfile: 'MEDIUM',
   horizonYears: 3,
   cashBenchmarkAnnualPct: 2.5,
   forwardOutcomeSessions: [20, 60] as const,
-  executionAnchor: 'FIRST_REAL_OPEN_STRICTLY_AFTER_CHECKPOINT_RUN_DATE',
+  executionAnchor: 'FIRST_REAL_OPEN_STRICTLY_AFTER_CHECKPOINT_RUN_DATE_FIXED_AFTER_CLOSE_WINDOW',
   outcomeMark: 'CLOSE_AFTER_N_SUBSEQUENT_SESSIONS_FROM_EXECUTION_SESSION',
   brokerExecution: 'ETF_ETC_INTEGER_UNITS_WITH_EXISTING_BROKER_COMMISSION_MUTUAL_FUNDS_FRACTIONAL',
   residualCashTreatment: 'COMPOUND_AT_FROZEN_2_5_PCT_ANNUAL_252_SESSIONS',
   observationIdentityPolicy: 'ONE_IMMUTABLE_OBSERVATION_PER_CALENDAR_MONTH',
-  observationContinuityPolicy: 'HASH_CHAIN_NO_REWRITE_NO_BACKFILL',
+  observationContinuityPolicy: 'HASH_CHAIN_NO_REWRITE_NO_BACKFILL_NO_SKIPPED_MONTHS',
   implementationContinuityPolicy: 'FROZEN_METHODOLOGY_CRITICAL_GIT_BLOB_MANIFEST',
   durableStateAuthority: 'GITHUB_REPLAY_RESULTS',
   durableStatePath: 'validation-runs/quality-allocation-dynamic-future-forward-v1-state.json',
@@ -86,7 +93,9 @@ export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL = {
   productionPromotionAllowedFromPhaseA: false,
   parameterRetuningAllowedAfterObservation: false,
   phaseAInterpretation: {
-    minimumResolvedChangedPlan60SessionObservationsForDirectionalRead: 6,
+    minimumChangedPlanObservationsForEconomicRead: 6,
+    finalEconomicReadRequiresMaximumCheckpoints: true,
+    finalEconomicReadRequiresAllChangedPlan60SessionOutcomesResolved: true,
     directionalPositiveRequiresMedianDeltaPctPointsAbove: 0,
     directionalPositiveRequiresWinRatePctAtLeast: 60,
     directProductionPromotion: false
@@ -297,6 +306,12 @@ export function assessMonthlyCheckpointWindow(input: {
   return 'OPEN';
 }
 
+function nextCalendarMonth(month: string): string {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const d = new Date(Date.UTC(year, monthNumber, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 export function createEmptyProspectiveState(createdAt: string): QualityAllocationProspectiveState {
   return {
     version: QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1,
@@ -321,8 +336,9 @@ export function addImmutableObservation(
     throw new Error('QUALITY_FF_MAX_CHECKPOINTS_REACHED');
   }
   const priorMonth = state.observations.at(-1)?.calendarMonth ?? null;
-  if (priorMonth && body.calendarMonth <= priorMonth) {
-    throw new Error(`QUALITY_FF_NON_MONOTONIC_OBSERVATION_MONTH:${priorMonth}:${body.calendarMonth}`);
+  const expectedMonth = priorMonth ? nextCalendarMonth(priorMonth) : QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL.firstEligibleCalendarMonth;
+  if (body.calendarMonth !== expectedMonth) {
+    throw new Error(`QUALITY_FF_NON_CONSECUTIVE_OBSERVATION_MONTH:${expectedMonth}:${body.calendarMonth}`);
   }
   const previousChainHashSha256 = state.observations.at(-1)?.chainHashSha256 ?? null;
   const observationHashSha256 = sha256Canonical(body);
@@ -367,7 +383,8 @@ export function verifyProspectiveState(state: QualityAllocationProspectiveState)
   let priorMonth: string | null = null;
   for (const observation of state.observations) {
     if (months.has(observation.calendarMonth)) throw new Error(`QUALITY_FF_DUPLICATE_MONTH:${observation.calendarMonth}`);
-    if (priorMonth && observation.calendarMonth <= priorMonth) throw new Error(`QUALITY_FF_NON_MONOTONIC_STATE_MONTH:${priorMonth}:${observation.calendarMonth}`);
+    const expectedMonth = priorMonth ? nextCalendarMonth(priorMonth) : QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL.firstEligibleCalendarMonth;
+    if (observation.calendarMonth !== expectedMonth) throw new Error(`QUALITY_FF_NON_CONSECUTIVE_STATE_MONTH:${expectedMonth}:${observation.calendarMonth}`);
     months.add(observation.calendarMonth);
     if (observation.previousChainHashSha256 !== previous) throw new Error(`QUALITY_FF_CHAIN_PREVIOUS_MISMATCH:${observation.id}`);
     const { previousChainHashSha256, observationHashSha256, chainHashSha256, ...body } = observation;
@@ -385,7 +402,7 @@ export function verifyProspectiveState(state: QualityAllocationProspectiveState)
     outcomeKeys.add(key);
     if (!state.observations.some(row => row.id === outcome.observationId)) throw new Error(`QUALITY_FF_ORPHAN_OUTCOME:${key}`);
     const { outcomeHashSha256, ...body } = outcome;
-    if (sha256Canonical(body) !== outcomeHashSha256) throw new Error(`QUALITY_FF_OUTCOME_HASH_MISMATCH:${key}`);
+    if (sha256Canonical(body) !== outcome.outcomeHashSha256) throw new Error(`QUALITY_FF_OUTCOME_HASH_MISMATCH:${key}`);
   }
 }
 
@@ -423,15 +440,17 @@ export function prospectivePhaseSummary(state: QualityAllocationProspectiveState
   const gate = QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL.phaseAInterpretation;
   const reachedMaximumCheckpoints = state.observations.length >= QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL.maximumCheckpoints;
   let status = 'COLLECTING';
-  if (changedSixty.length >= gate.minimumResolvedChangedPlan60SessionObservationsForDirectionalRead) {
-    status = (median ?? -Infinity) > gate.directionalPositiveRequiresMedianDeltaPctPointsAbove
-      && (winRatePct ?? 0) >= gate.directionalPositiveRequiresWinRatePctAtLeast
-      ? 'DIRECTIONALLY_POSITIVE_FOR_SEPARATE_PHASE_B'
-      : 'NO_DIRECTIONAL_EVIDENCE_FOR_PHASE_B';
-  } else if (reachedMaximumCheckpoints && changedObservationIds.size < gate.minimumResolvedChangedPlan60SessionObservationsForDirectionalRead) {
-    status = 'INSUFFICIENT_REACH';
-  } else if (reachedMaximumCheckpoints && unresolvedChangedPlan60SessionOutcomes > 0) {
-    status = 'AWAITING_60_SESSION_MATURITY';
+  if (reachedMaximumCheckpoints) {
+    if (changedObservationIds.size < gate.minimumChangedPlanObservationsForEconomicRead) {
+      status = 'INSUFFICIENT_REACH';
+    } else if (unresolvedChangedPlan60SessionOutcomes > 0) {
+      status = 'AWAITING_60_SESSION_MATURITY';
+    } else {
+      status = (median ?? -Infinity) > gate.directionalPositiveRequiresMedianDeltaPctPointsAbove
+        && (winRatePct ?? 0) >= gate.directionalPositiveRequiresWinRatePctAtLeast
+        ? 'DIRECTIONALLY_POSITIVE_FOR_SEPARATE_PHASE_B'
+        : 'NO_DIRECTIONAL_EVIDENCE_FOR_PHASE_B';
+    }
   }
   return {
     status,
