@@ -209,6 +209,37 @@ Esto impide alterar retrospectivamente la muestra por cambios futuros del catál
 
 Las barras anteriores al 2026-09-10 son sólo warmup causal de features. No cuentan como outcome Phase A.
 
+## Continuidad prospectiva inmutable
+
+Estado runtime local:
+
+`.runtime/quality-allocation-future-forward-v1-state.json`
+
+`.runtime/` está ignorado por Git. Este mecanismo no utiliza GitHub Actions, agentes ni auto-commits.
+
+El baseline debe crearse antes de que existan datos REAL posteriores a la primera fecha elegible. Si el baseline falta una vez empezados los outcomes, la fase se invalida y no se permite reconstrucción retrospectiva.
+
+El estado conserva:
+
+- SHA-256 del protocolo congelado;
+- SHA-256 del universo congelado;
+- última fecha de datos bloqueada;
+- hash del prefijo LEGACY ya observado;
+- hash del prefijo QUALITY ya observado.
+
+Cada checkpoint posterior debe reproducir exactamente el prefijo ya visto. Si cambia una decisión, plan o ejecución que ya era observable hasta la fecha cerrada, el runner no sobreescribe el lock y devuelve:
+
+`PHASE_A_INVALIDATED_FORWARD_HISTORY_DRIFT_KEEP_LEGACY`
+
+Una señal del último día puede ejecutarse después vía NEXT_OPEN sin provocar falso drift: sólo se congelan hechos de ejecución que ya eran observables en la fecha bloqueada.
+
+Otros estados de integridad:
+
+- protocolo/universo cambiado: `PHASE_A_INVALIDATED_FROZEN_CONTRACT_DRIFT_KEEP_LEGACY`;
+- baseline ausente después de comenzar outcomes: `PHASE_A_INVALIDATED_MISSING_FORWARD_BASELINE_KEEP_LEGACY`.
+
+En cualquier invalidación producción sigue LEGACY y no se permite tuning/promoción.
+
 ## Configuración congelada
 
 - frecuencia: MONTHLY;
@@ -316,7 +347,7 @@ Todos los diagnósticos anteriores están `ARCHIVED` y son read-only; sus comand
 
 Orden del job vigente:
 
-1. guard protocolo future-forward;
+1. guard protocolo future-forward + continuidad inmutable;
 2. guard QUALITY bridge congelado;
 3. guard contabilidad de flujos;
 4. guard replay dinámico existente;
@@ -331,10 +362,12 @@ Nunca usar Gemini, agentes ni GitHub Actions para esta ejecución.
 # Próxima secuencia
 
 1. Sincronizar la app con HEAD actual.
-2. Ejecutar localmente **QUALITY allocation · future-forward V1** desde `ResearchValidationCenter`.
-3. Hoy/antes de disponer de outcomes suficientes, esperar `ACCUMULATING_FUTURE_DATA`; eso no es FAIL.
-4. No cambiar parámetros ni universo mientras acumula evidencia.
-5. No interpretar económicamente antes de 252 sesiones forward.
-6. Producción permanece LEGACY.
-7. Mantener `CORE_ELIGIBILITY_V2` shadow.
-8. Mantener pendiente instrument master point-in-time para eliminar survivorship histórico residual.
+2. Ejecutar localmente **QUALITY allocation · future-forward V1** desde `ResearchValidationCenter` antes de que existan outcomes posteriores al 2026-09-10, para crear el baseline prospectivo de continuidad.
+3. El resultado inicial esperado es `ACCUMULATING_FUTURE_DATA`; eso no es FAIL.
+4. Conservar `.runtime/quality-allocation-future-forward-v1-state.json` entre actualizaciones de la app; no borrarlo mientras Phase A esté activa.
+5. En checkpoints posteriores, exigir continuidad del prefijo histórico antes de añadir nueva evidencia.
+6. No cambiar parámetros ni universo mientras acumula evidencia.
+7. No interpretar económicamente antes de 252 sesiones forward.
+8. Producción permanece LEGACY.
+9. Mantener `CORE_ELIGIBILITY_V2` shadow.
+10. Mantener pendiente instrument master point-in-time para eliminar survivorship histórico residual.
