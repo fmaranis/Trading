@@ -73,8 +73,24 @@ assert.match(runner, /PHASE_A_INCONCLUSIVE_INSUFFICIENT_REACH_KEEP_LEGACY/);
 assert.match(runner, /PHASE_A_CANDIDATE_FOR_CONFIRMATION/);
 assert.match(runner, /PHASE_A_FAIL_KEEP_LEGACY/);
 assert.match(runner, /forwardDates\.length >= PROTOCOL\.minimumForwardSessionsForEconomicEvaluation/);
+
+// Future-forward evidence must be append-only in meaning: no later code/data run may silently rewrite an already observed prefix.
+assert.match(runner, /\.runtime\/quality-allocation-future-forward-v1-state\.json/);
+assert.match(runner, /createHash\('sha256'\)/);
+assert.match(runner, /legacyHistoryHash/);
+assert.match(runner, /qualityHistoryHash/);
+assert.match(runner, /lastLockedDataDate/);
+assert.match(runner, /lockedHistoryHash\(legacy, continuityState\.lastLockedDataDate\)/);
+assert.match(runner, /lockedHistoryHash\(quality, continuityState\.lastLockedDataDate\)/);
+assert.match(runner, /PHASE_A_INVALIDATED_FORWARD_HISTORY_DRIFT_KEEP_LEGACY/);
+assert.match(runner, /PHASE_A_INVALIDATED_FROZEN_CONTRACT_DRIFT_KEEP_LEGACY/);
+assert.match(runner, /PHASE_A_INVALIDATED_MISSING_FORWARD_BASELINE_KEEP_LEGACY/);
+assert.match(runner, /if \(!continuityState && endDate && endDate > PROTOCOL\.eligibleStartDate\)/);
+assert.match(runner, /saveContinuityState\(nextState\)/);
+assert.match(runner, /previouslyObservedForwardHistoryIsImmutable: true/);
 assert.doesNotMatch(runner, /EUR_PORTFOLIO_DISCOVERY_UNIVERSE/);
 assert.doesNotMatch(runner, /EUR_VALIDATION_HOLDOUT_UNIVERSE/);
 assert.doesNotMatch(runner, /PortfolioCandidateGate\.apply\s*=/);
+assert.doesNotMatch(runner, /recordValidationResult/);
 
 console.log('qualityAllocationFutureForwardV1.unit: PASS');
