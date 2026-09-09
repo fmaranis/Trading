@@ -7,6 +7,17 @@ import {
 import { portfolioAssetRole } from '../src/investment/decision/portfolioAssetRole';
 import { applyStrategicCoreShortTermProtection } from '../src/investment/decision/strategicCorePolicy';
 import type { PortfolioDecisionResult } from '../src/investment/decision/portfolioDecisionEngine';
+import {
+  DYNAMIC_MARKET_SHORTLIST_TARGET,
+  FIXED_PRODUCT_UNIVERSE_FORBIDDEN,
+  PRODUCT_MARKET_UNIVERSE_MODE
+} from '../src/investment/decision/portfolioDiscoveryUniverse';
+
+// Permanent product invariant: the app searches/ranks the current market and 64
+// is the dynamic shortlist target, never a fixed whitelist of instrument names.
+assert.equal(PRODUCT_MARKET_UNIVERSE_MODE, 'DYNAMIC_CURRENT_DISCOVERY');
+assert.equal(DYNAMIC_MARKET_SHORTLIST_TARGET, 64);
+assert.equal(FIXED_PRODUCT_UNIVERSE_FORBIDDEN, true);
 
 const coreAsset = {
   assetId: 'FUND_VANGUARD_GLOBAL', ticker: 'IE00B03HD191', isin: 'IE00B03HD191',
