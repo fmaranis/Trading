@@ -221,7 +221,7 @@ El job antiguo continúa ARCHIVED/read-only y no se reactiva.
 
 ---
 
-# 9. QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1 — ARMADO / SIN PRIMER OUTCOME
+# 9. QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1 — ARMADO / PRE-START
 
 Preregistro normativo:
 
@@ -231,33 +231,38 @@ Código:
 
 - `scripts/qualityAllocationDynamicFutureForwardV1Protocol.ts`
 - `scripts/qualityAllocationDynamicFutureForwardV1CheckpointLive.ts`
+- `scripts/qualityAllocationDynamicFutureForwardV1StateStore.ts`
 - `tests/qualityAllocationDynamicFutureForwardV1.unit.ts`
+- `src/components/ResearchValidationCenter.tsx`
 
-Estado actual:
+Estado:
 
-**ARMED / PROSPECTIVE / PRODUCTION LEGACY / NO PROMOTION FROM PHASE A**
+**ARMED / PROSPECTIVE / NO OBSERVATION / NO OUTCOME / PRODUCTION LEGACY / NO PROMOTION FROM PHASE A**
 
-La primera ejecución todavía debe pasar el job integrado antes de crear la primera observación.
+El 2026-09-09 se realizó una segunda auditoría **antes de arrancar**. Se comprobó directamente que el archivo prospectivo no existía todavía en `replay-results`; no había muestra consumida. La auditoría detectó y corrigió omisiones de persistencia, timing, continuidad de código, madurez y pricing de outcomes.
 
 ## Pregunta
 
-¿El bridge congelado `QUALITY_ALLOCATION_BRIDGE_V1`, aplicado al mismo mercado dinámico y al mismo capital, distribuye prospectivamente mejor que LEGACY?
+¿`QUALITY_ALLOCATION_BRIDGE_V1`, aplicado al mismo mercado dinámico y al mismo capital, distribuye prospectivamente mejor que LEGACY?
 
 ## Diseño congelado
 
-- Phase A: allocation shots prospectivos independientes;
+- Phase A: allocation shots independientes;
 - frecuencia: MONTHLY;
 - primer mes elegible: 2026-09;
 - máximo: 12 checkpoints;
-- notional de investigación: 13.000 EUR por checkpoint independiente;
-- no es cartera real del usuario;
+- meses naturales consecutivos obligatorios;
+- ventana de alta de una observación: **día 9, 22:30-24:00 Europe/Madrid**;
+- no backfill ni salto de meses;
+- notional research: 13.000 EUR por checkpoint;
+- no es cartera real;
 - no es aportación mensual;
-- no se acumula entre meses;
-- riesgo: MEDIUM;
-- horizonte de decisión: 3 años;
-- cash benchmark comparativo congelado: 2,5%;
-- current dynamic discovery obligatorio;
-- mínimo 64 candidatos promovidos fuera del seed;
+- no se acumula;
+- riesgo MEDIUM;
+- horizonte 3 años;
+- cash comparativo congelado 2,5%;
+- discovery current/live obligatorio;
+- mínimo 64 promovidos fuera del seed;
 - Top64 completo;
 - REAL-only;
 - mínimo 252 barras;
@@ -267,90 +272,110 @@ Ambos brazos comparten:
 
 `scanner -> Top64 -> PortfolioCandidateGate LEGACY -> InvestmentDecisionEngine`
 
-Sólo difiere la opción pasada al mismo `PortfolioDecisionEngine`:
+Sólo cambia en el mismo `PortfolioDecisionEngine`:
 
 - control: `LEGACY`;
 - shadow: `QUALITY_ALLOCATION_BRIDGE_V1`.
 
-## Causalidad de outcomes
+## Persistencia autoritativa
 
-Entrada económica:
+El estado ya no depende de `.runtime`.
 
-**primera apertura REAL estrictamente posterior a la fecha real del checkpoint**.
+Autoridad:
 
-Outcomes:
+- repo `fmaranis/Trading`;
+- branch `replay-results` por defecto;
+- `validation-runs/quality-allocation-dynamic-future-forward-v1-state.json`.
+
+`.runtime/qualityAllocationDynamicFutureForwardV1.json` = caché local únicamente.
+
+`GITHUB_REPLAY_SYNC_TOKEN` es obligatorio para leer/escribir el estado durable. Un fallo de credenciales/escritura impide considerar consumido el checkpoint.
+
+La escritura usa el blob SHA previamente leído para impedir overwrite concurrente silencioso.
+
+## Continuidad de implementación
+
+El protocolo congela no sólo parámetros sino la implementación crítica con `QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS`.
+
+Incluye discovery, market-data route/provider, scanner, QUALITY, gate, consensus, timing, decision engine, allocator, costes, cash, analytics/regime/alignment, runner y state-store.
+
+Antes de cada ejecución se recalculan Git blob SHA-1. Si alguno cambia:
+
+`QUALITY_FF_FROZEN_IMPLEMENTATION_CHANGED`
+
+La Phase A existente se detiene; no se mezclan políticas diferentes en la misma muestra.
+
+## Causalidad y pricing de outcomes
+
+Entrada:
+
+**primera apertura REAL posterior a `checkpointRunDate`**.
+
+La ventana termina antes de medianoche para que esta regla sea inequívoca con barras diarias.
+
+Horizontes:
 
 - 20 sesiones;
 - 60 sesiones.
 
-ETF/acciones bajo la semántica `ETF_ETC`:
+Para unidades/comisión se usa el **open RAW** de la sesión de ejecución.
 
-- unidades enteras;
-- comisión existente del broker;
-- cash no ejecutado permanece cash.
+Para retorno posterior:
 
-Mutual funds:
+`adjustedClose_mark / adjustedOpen_entry`
 
-- fraccionables según semántica vigente.
+Tratamiento congelado:
+
+`RAW_NEXT_OPEN_FOR_UNIT_SIZING_PLUS_ADJUSTED_TOTAL_RETURN_FACTOR_TO_MARK`.
 
 Cash residual:
 
 `(1 + 0.025)^(N/252)`
 
-No se fuerza un outcome si faltan datos REAL; queda pending.
+Si ambos brazos quedan 100% cash, un ticker REAL del Top64 sirve sólo como calendario para comprobar que realmente han transcurrido 20/60 sesiones; no se resuelve el futuro anticipadamente.
+
+No se fuerza outcome si falta información REAL.
 
 ## Inmutabilidad
 
-Estado local:
-
-`.runtime/qualityAllocationDynamicFutureForwardV1.json`
-
-Cada observación contiene:
-
-- pool descubierto;
-- aceptados/rechazados;
-- Top64 + hash;
-- gate;
-- decisión común + hash;
-- plan LEGACY + hash;
-- plan QUALITY + hash;
-- hash de observación;
-- hash encadenado con observación anterior.
+Cada observación guarda pool, Top64, gate, decisión común, planes LEGACY/QUALITY, fingerprint de implementación, hashes propios y chain hash.
 
 Reglas:
 
-- una observación por mes natural;
-- rerun del mismo mes no puede sobreescribirla;
-- outcomes resueltos son append-only y hasheados;
-- manipulación o discontinuidad de cadena => FAIL;
-- si falta la baseline después del primer mes elegible => FAIL CLOSED; no backfill.
+- una observación por mes;
+- meses consecutivos;
+- rerun no reemplaza snapshot;
+- outcomes append-only y hasheados;
+- discontinuidad/tampering => FAIL;
+- baseline durable ausente después del comienzo => FAIL CLOSED;
+- ventana perdida => protocolo invalidado; no backfill.
 
 ## Interpretación Phase A
 
-Phase A nunca puede promover producción.
+No se emite veredicto económico definitivo antes de 12 checkpoints.
 
-Lectura direccional sólo con >=6 outcomes de 60 sesiones de checkpoints donde QUALITY cambió el plan.
+Después:
+
+1. `<6` checkpoints con `planChanged` -> `INSUFFICIENT_REACH`;
+2. `>=6` pero algún changed-plan outcome 60s pendiente -> `AWAITING_60_SESSION_MATURITY`;
+3. todos maduros -> lectura económica final.
 
 `DIRECTIONALLY_POSITIVE_FOR_SEPARATE_PHASE_B` exige:
 
-- mediana QUALITY-LEGACY > 0 pp;
+- mediana QUALITY-LEGACY >0 pp;
 - win rate >=60%.
 
-Si no se cumple con reach suficiente:
+Si no se cumplen ambas con reach suficiente:
 
 `NO_DIRECTIONAL_EVIDENCE_FOR_PHASE_B`.
 
-Si tras 12 observaciones no hay 6 outcomes changed-plan:
-
-`INSUFFICIENT_REACH`.
-
-Un resultado positivo sólo permitiría diseñar después otro Phase B blind; nunca promoción directa.
+Ninguna etiqueta autoriza promoción directa. Producción continúa `LEGACY`.
 
 ---
 
-# 10. Centro de validación — job CURRENT
+# 10. Centro de validación — único job CURRENT
 
-Único job CURRENT:
+ID:
 
 `quality-allocation-dynamic-future-forward-v1`
 
@@ -358,7 +383,7 @@ Nombre:
 
 **QUALITY allocation · future-forward dinámico**
 
-Orden de ejecución:
+Orden:
 
 1. guard `qualityAllocationDynamicFutureForwardV1.unit`;
 2. guard bridge QUALITY congelado;
@@ -368,7 +393,11 @@ Orden de ejecución:
 6. `npm run lint` / TypeScript;
 7. checkpoint REAL prospectivo.
 
-Un guard/TypeScript FAIL impide grabar el checkpoint.
+El guard prospectivo cubre 21 invariantes, incluidos ventana fija, manifest de blobs, meses consecutivos, cadena/hash, no-rewrite, reach y madurez final.
+
+Un guard/TypeScript FAIL impide ejecutar el checkpoint REAL.
+
+El POST de ejecución devuelve `RESEARCH_VALIDATION_LOCAL_ONLY` si `NODE_ENV=production`; no puede consumirse una muestra prospectiva desde el despliegue público.
 
 No usar GitHub Actions ni agentes para este job.
 
@@ -406,10 +435,12 @@ Estas ideas pueden estudiarse después de terminar la secuencia vigente de la ap
 
 # 13. Próxima secuencia técnica
 
-1. Ejecutar una única vez el job **QUALITY allocation · future-forward dinámico** para armar la primera observación prospectiva de 2026-09.
-2. Si falla un guard o TypeScript, corregir implementación antes de consumir snapshot.
-3. Si falla discovery current/live, no consumir el mes con fallback.
-4. Si pasa, guardar la primera observación hasheada y dejar Phase A en `COLLECTING`.
-5. No repetir el checkpoint durante el mismo mes salvo para verificar estado/resolver outcomes; nunca reemplaza la observación.
-6. Mientras Phase A madura, continuar cerrando otras partes de la aplicación; no esperar meses bloqueando desarrollo.
-7. Producción permanece `LEGACY` durante toda Phase A.
+1. Sincronizar el HEAD canónico actual y abrir el único job **QUALITY allocation · future-forward dinámico**.
+2. Sólo una observación nueva es válida en la ventana mensual congelada del día 9, 22:30-24:00 Europe/Madrid.
+3. Guards, manifest de blobs y TypeScript deben pasar antes del snapshot REAL.
+4. Si faltan/son inválidas las credenciales de persistencia durable, no se consume observación.
+5. Si discovery current/live falla, puede reintentarse únicamente dentro de la misma ventana; nunca se sustituye por fallback.
+6. Si el mes esperado se pierde, no se salta ni se reconstruye: esta Phase A queda invalidada y requeriría un protocolo nuevo.
+7. Tras un checkpoint válido, estado `COLLECTING`; reruns posteriores sólo verifican estado/maduran outcomes.
+8. Mientras Phase A madura, continuar cerrando otras partes no congeladas de la aplicación.
+9. Producción permanece `LEGACY` durante toda Phase A.
