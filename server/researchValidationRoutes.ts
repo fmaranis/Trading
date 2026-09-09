@@ -128,21 +128,13 @@ const JOBS: JobDefinition[] = [
     'QUALITY future-forward V1 · VOID pre-start · universo fijo incorrecto',
     'QUALITY_ALLOCATION_FUTURE_FORWARD_V1_RESULT'
   ),
-  {
-    id: 'dynamic-market-top64-v1',
-    name: 'Mercado dinámico · Top 64 current/live',
-    description: 'Valida la invariante central de producto: discovery current/live amplio sobre seed/fallback, ranking reproducible y Top 64 dinámico antes de PortfolioCandidateGate. Incluye ETF y acciones EUR descubiertas; no cambia LEGACY, no toca replay histórico y no afirma cobertura exhaustiva mundial.',
-    marker: 'DYNAMIC_MARKET_TOP64_LIVE_RESULT',
-    visibility: 'CURRENT',
-    steps: [
-      { label: 'Guard Top 64 dinámico', command: 'npx', args: ['tsx', 'tests/dynamicMarketShortlist.unit.ts'] },
-      { label: 'Guard integración discovery live', command: 'npx', args: ['tsx', 'tests/openMarketLiveScannerIntegration.unit.ts'] },
-      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
-      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Validación REAL Top 64 current/live', command: 'npx', args: ['tsx', 'scripts/dynamicMarketTop64Live.ts'] }
-    ]
-  }
+  archivedJob(
+    'dynamic-market-top64-v1',
+    'Mercado dinámico · Top 64 current/live',
+    'PASS FINAL el 2026-09-09. Cerró discovery Search+Lookup, independencia del seed, Top64 REAL, dedupe económico, autoridad de PortfolioCandidateGate, 0 leaks fuera del Top64 y corrección current/live para que acciones individuales no queden artificialmente limitadas por la etiqueta amplia EUROPE_EQUITY. Producción continúa LEGACY y replay histórico permanece intacto.',
+    'Mercado dinámico Top64 · PASS final · cerrado',
+    'DYNAMIC_MARKET_TOP64_LIVE_RESULT'
+  )
 ];
 
 const states = new Map<string, JobState>();
