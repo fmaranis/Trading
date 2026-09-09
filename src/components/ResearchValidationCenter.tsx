@@ -115,6 +115,17 @@ function resultSummary(result: any): React.ReactNode {
       <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">QUALITY con capital</div><b className="text-sm text-white">{aggregate.qualityAllocationPlanChangedDecisionGatesAcrossWindows ?? 'N/D'} planes</b><div className="mt-1 text-[8px] text-slate-600">{aggregate.qualityExecutedAcquisitionDatesChangedAcrossWindows ?? 'N/D'} fechas ejecutadas · producción LEGACY</div></div>
     </div>;
   }
+  if (result.version === 'QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1') {
+    const phase = result.phaseSummary ?? {};
+    const persistence = result.persistence ?? {};
+    const window = result.checkpointWindow ?? {};
+    return <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Future-forward dinámico</div><b className="text-xs text-white">{String(result.status ?? 'N/D')}</b><div className="mt-1 text-[8px] text-slate-600">Phase A: {String(phase.status ?? 'N/D')} · producción LEGACY</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Observaciones</div><b className="text-sm text-white">{phase.observations ?? 0} / 12</b><div className="mt-1 text-[8px] text-slate-600">planes distintos {phase.planChangedObservations ?? 0} · meses consecutivos</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Outcomes</div><b className="text-sm text-white">20s {phase.resolved20SessionOutcomes ?? 0} · 60s {phase.resolved60SessionOutcomes ?? 0}</b><div className="mt-1 text-[8px] text-slate-600">60s cambiados pendientes {phase.unresolvedChangedPlan60SessionOutcomes ?? 0}</div></div>
+      <div className="rounded-lg bg-slate-950 p-3"><div className="text-[8px] uppercase text-slate-500">Anclaje / ventana</div><b className="text-sm text-white">{persistence.mode === 'GITHUB_REPLAY_RESULTS' ? 'GitHub durable' : 'N/D'} · {String(window.status ?? 'N/D')}</b><div className="mt-1 text-[8px] text-slate-600">{String(persistence.branch ?? 'replay-results')} · hash chain · sin backfill</div></div>
+    </div>;
+  }
   if (result.version === 'QUALITY_ALLOCATION_FUTURE_FORWARD_V1') {
     const maturity = result.maturity ?? {};
     const reach = result.reach ?? {};
