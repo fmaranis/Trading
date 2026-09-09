@@ -64,6 +64,13 @@ async function main() {
       { forceRefresh: false, concurrency: 3, maxSelected: 12, minimumBars: 252, maxDataAgeDays: 7 }
     );
 
+    // This validation is specifically about the dynamic current/live chain. A
+    // temporary Yahoo discovery failure may legitimately fall back to the seed in
+    // production, but that degraded mode must never be reported here as a Top64
+    // discovery PASS.
+    if (scan.currentOpenDiscovery?.attempted !== true) throw new Error('DYNAMIC_MARKET_DISCOVERY_NOT_ATTEMPTED');
+    if (scan.currentOpenDiscovery.error) throw new Error(`DYNAMIC_MARKET_SCANNER_DISCOVERY_ERROR:${scan.currentOpenDiscovery.error}`);
+
     const shortlist = scan.dynamicMarketShortlist;
     if (!shortlist?.applied || shortlist.mode !== 'DYNAMIC_CURRENT_DISCOVERY') throw new Error('DYNAMIC_MARKET_SHORTLIST_NOT_APPLIED');
     if (shortlist.targetSize !== DYNAMIC_MARKET_SHORTLIST_TARGET) throw new Error('DYNAMIC_MARKET_SHORTLIST_TARGET_DRIFT');
@@ -130,8 +137,8 @@ async function main() {
         rawCandidates: discovery.rawCandidates,
         acceptedEurCandidates: discovery.acceptedEurCandidates,
         quoteTypeCounts: discoveryTypeCounts,
-        promotedIntoCanonicalScan: scan.currentOpenDiscovery?.promotedAssets ?? 0,
-        scannerDiscoveryError: scan.currentOpenDiscovery?.error ?? null,
+        promotedIntoCanonicalScan: scan.currentOpenDiscovery.promotedAssets,
+        scannerDiscoveryError: null,
         providerLimitation: 'Yahoo query sweep is broad current/live discovery, not an exhaustive global instrument master.'
       },
       scanner: {
