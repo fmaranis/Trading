@@ -142,6 +142,12 @@ function baseEntry(input: {
 /**
  * New-money candidates must earn the right to enter the allocator.
  *
+ * In current/live product mode the AssetUniverseScanner first forms the dynamic
+ * market shortlist. This gate may only consider accepted candidates inside that
+ * recorded shortlist; accepted pool members outside it are explicitly audited
+ * as OUTSIDE_DYNAMIC_MARKET_SHORTLIST. Historical/research scans without the
+ * dynamic-shortlist marker preserve their previous behavior.
+ *
  * REAL data + cash hurdle + BUY consensus decide whether an asset deserves
  * consideration; EntryTimingEngine decides whether TODAY is acceptable.
  * Experimental selection policies can only change relative ranking among those
@@ -160,6 +166,9 @@ export class PortfolioCandidateGate {
     const eligible: Array<{ candidate: AssetScanCandidate; rankingScore: number }> = [];
     const asOfDate = scan.candidates.map(candidate => candidate.asOfDate).filter(Boolean).sort().at(-1) ?? new Date().toISOString().slice(0, 10);
     const effectiveCashBenchmarkAnnualPct = resolveReplayAwareCashBenchmarkAnnualPct(cashBenchmarkAnnualPct, asOfDate);
+    const dynamicShortlistIds = scan.dynamicMarketShortlist?.applied
+      ? new Set(scan.selected.map(candidate => candidate.asset.assetId))
+      : null;
 
     for (const candidate of scan.candidates) {
       const quality = candidate.status === 'ACCEPTED' ? qualityForCandidate(scan, candidate) : null;
@@ -169,6 +178,10 @@ export class PortfolioCandidateGate {
       };
       if (candidate.status !== 'ACCEPTED') {
         entries.push(baseEntry({ candidate, status: 'REJECTED', reason: candidate.reason ?? 'DATA_REJECTED', ...qualityFields }));
+        continue;
+      }
+      if (dynamicShortlistIds && !dynamicShortlistIds.has(candidate.asset.assetId)) {
+        entries.push(baseEntry({ candidate, status: 'REJECTED', reason: 'OUTSIDE_DYNAMIC_MARKET_SHORTLIST', ...qualityFields }));
         continue;
       }
 
