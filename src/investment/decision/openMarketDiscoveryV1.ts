@@ -14,11 +14,16 @@ export interface OpenMarketDiscoveryQuery {
 }
 
 /**
- * Query families are structural discovery prompts, not a hand-picked security list.
- * Yahoo remains only a CURRENT/LIVE discovery provider. These searches must never
- * be replayed retrospectively and described as a point-in-time historical universe.
+ * Structural CURRENT/LIVE discovery prompts, never a hand-picked security list.
+ * The sweep deliberately includes both collective instruments and listed equity
+ * families so the operational candidate pool can change with the market.
+ *
+ * Yahoo Search is not a complete instrument master. These rules broaden the
+ * current candidate pool but must never be described as an exhaustive census of
+ * every investable security, nor replayed retrospectively as a historical universe.
  */
 export const OPEN_MARKET_DISCOVERY_V1_QUERIES: readonly OpenMarketDiscoveryQuery[] = [
+  // Broad/sector ETF and ETC families.
   { id: 'GLOBAL', query: 'UCITS ETF world global all country', category: 'GLOBAL_EQUITY', breadth: 'BROAD' },
   { id: 'US', query: 'UCITS ETF S&P 500 USA', category: 'US_EQUITY', breadth: 'BROAD' },
   { id: 'EUROPE', query: 'UCITS ETF Europe broad market', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
@@ -30,7 +35,22 @@ export const OPEN_MARKET_DISCOVERY_V1_QUERIES: readonly OpenMarketDiscoveryQuery
   { id: 'ENERGY', query: 'UCITS ETF energy', category: 'ENERGY', breadth: 'SECTOR' },
   { id: 'AGG_BOND', query: 'UCITS ETF global aggregate bond EUR hedged', category: 'AGG_BONDS', breadth: 'DEFENSIVE', defensive: true },
   { id: 'MONEY_MARKET', query: 'UCITS ETF EUR overnight money market', category: 'MONEY_MARKET', breadth: 'DEFENSIVE', defensive: true },
-  { id: 'GOLD', query: 'physical gold ETC EUR', category: 'GOLD', breadth: 'DEFENSIVE', defensive: true }
+  { id: 'GOLD', query: 'physical gold ETC EUR', category: 'GOLD', breadth: 'DEFENSIVE', defensive: true },
+
+  // Listed-equity families. Currency/history inspection still decides whether a
+  // returned listing is usable by the current EUR-only engine.
+  { id: 'EQ_EUROPE_LARGE', query: 'Europe large cap stock EUR', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
+  { id: 'EQ_GERMANY', query: 'Germany DAX stock Xetra', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
+  { id: 'EQ_FRANCE', query: 'France CAC 40 stock Euronext Paris', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
+  { id: 'EQ_SPAIN', query: 'Spain IBEX 35 stock Madrid', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
+  { id: 'EQ_ITALY', query: 'Italy FTSE MIB stock Milan', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
+  { id: 'EQ_NETHERLANDS', query: 'Netherlands AEX stock Amsterdam', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
+  { id: 'EQ_TECH', query: 'European technology stock EUR', category: 'TECHNOLOGY', breadth: 'SECTOR' },
+  { id: 'EQ_SEMICONDUCTORS', query: 'European semiconductor stock EUR', category: 'SEMICONDUCTORS', breadth: 'SECTOR' },
+  { id: 'EQ_HEALTH', query: 'European healthcare stock EUR', category: 'HEALTHCARE', breadth: 'SECTOR' },
+  { id: 'EQ_ENERGY', query: 'European energy stock EUR', category: 'ENERGY', breadth: 'SECTOR' },
+  { id: 'EQ_DIVIDEND', query: 'European dividend stock EUR', category: 'DIVIDEND', breadth: 'SECTOR' },
+  { id: 'EQ_US_EUR_LISTING', query: 'US mega cap stock EUR Germany', category: 'US_EQUITY', breadth: 'BROAD' }
 ] as const;
 
 export interface OpenMarketDiscoveryV1Asset {
@@ -66,7 +86,7 @@ function normalizedIsin(asset: AssetUniverseItem): string | null {
 }
 
 /**
- * Discovery is strictly additive to the already validated operational catalogue.
+ * Discovery is strictly additive to the already validated operational seed.
  * The base array is preserved exactly/in-order, including intentional multiple
  * exchange aliases that may share an ISIN. Only newly discovered rows are
  * deduplicated against existing ticker/ISIN identities and against each other.
@@ -125,6 +145,7 @@ export function filterCatalogByHistoricalAvailability(
 
 export const OPEN_MARKET_DISCOVERY_V1_LIMITATIONS = [
   'Yahoo query search is a current/live discovery source and is not point-in-time historical instrument-master data.',
+  'The query sweep is broad but not exhaustive; Top 64 means the best ranked candidates in the current discovered EUR-compatible pool, not a claim to have enumerated every global security.',
   'Historical replay may use only a frozen catalogue plus REAL bars available by each decision date; it must not call current Yahoo search to invent the past universe.',
   'Pre-listing look-ahead is blocked by minimum historical bars at the decision date.',
   'Survivorship bias is not fully removed until a provider supplies point-in-time listings and delistings; V1 must label historical coverage accordingly.',
