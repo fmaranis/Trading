@@ -73,6 +73,10 @@ export interface OpenMarketDiscoveryV1Snapshot {
   limitations: readonly string[];
 }
 
+type CurrentDiscoveryTaggedAsset = AssetUniverseItem & {
+  currentDiscoveryQuoteType?: string;
+};
+
 function normalizedTicker(asset: AssetUniverseItem): string {
   return String(asset.ticker).trim().toUpperCase();
 }
@@ -110,6 +114,18 @@ function sameEconomicListing(a: AssetUniverseItem, b: AssetUniverseItem): boolea
 }
 
 /**
+ * Current/live equity identity is retained through the merge so the downstream
+ * diversification stage can distinguish an individual listed company from a
+ * broad ETF/fund category. Static curated equities use the canonical EQ_* id;
+ * dynamically discovered equities carry their Yahoo quoteType in-memory.
+ * Historical scans without the dynamic shortlist never depend on this marker.
+ */
+export function isCurrentListedEquityAsset(asset: AssetUniverseItem): boolean {
+  if (asset.assetId.startsWith('EQ_')) return true;
+  return String((asset as CurrentDiscoveryTaggedAsset).currentDiscoveryQuoteType ?? '').toUpperCase() === 'EQUITY';
+}
+
+/**
  * Discovery is additive to the validated seed, but the operational pool must
  * represent economic instruments rather than multiple exchange aliases of the
  * same product. The base itself is preserved exactly for backward compatibility;
@@ -117,6 +133,10 @@ function sameEconomicListing(a: AssetUniverseItem, b: AssetUniverseItem): boolea
  * ISIN, clearly identical product name, or a same-root cross-listing with the
  * same issuer/product-name prefix. This prevents e.g. VUSA.DE + VUSA.AS or
  * XEON.DE + XEON.MI from consuming two Top64 slots or receiving double allocation.
+ *
+ * For accepted new rows we preserve the current Yahoo quote type as transient
+ * metadata. It is current/live classification only and is never used to invent
+ * historical instrument identity.
  */
 export function mergeOpenMarketAssets(
   base: readonly AssetUniverseItem[],
@@ -126,7 +146,10 @@ export function mergeOpenMarketAssets(
 
   for (const row of discovered) {
     if (merged.some(existing => sameEconomicListing(existing, row.asset))) continue;
-    merged.push(row.asset);
+    merged.push({
+      ...row.asset,
+      currentDiscoveryQuoteType: String(row.quoteType ?? '').toUpperCase()
+    } as CurrentDiscoveryTaggedAsset);
   }
   return merged;
 }
