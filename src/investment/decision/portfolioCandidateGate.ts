@@ -6,6 +6,7 @@ import {
 } from './assetSelectionQuality';
 import { assessAgainstCashBenchmark, resolveReplayAwareCashBenchmarkAnnualPct } from './cashBenchmark';
 import { EntryTimingEngine, type EntryTimingSetup, type EntryTimingState } from './entryTiming';
+import { isCurrentListedEquityAsset } from './openMarketDiscoveryV1';
 import { StrategyConsensusEngine } from './strategyConsensusEngine';
 
 export type PortfolioCandidateGateStatus = 'ELIGIBLE' | 'REJECTED';
@@ -139,6 +140,20 @@ function baseEntry(input: {
   };
 }
 
+function diversificationBucket(candidate: AssetScanCandidate, dynamicCurrentMarket: boolean): string {
+  // The historical/research selector keeps its original category semantics.
+  // In current/live mode an individual listed company must not consume the same
+  // two-slot category quota as every other EUR company merely because Lookup has
+  // only the broad EUROPE_EQUITY classification. Monetary concentration remains
+  // controlled later by PortfolioDecisionEngine category/asset caps and position
+  // limits; this gate only prevents a metadata artefact from suppressing valid
+  // competitors before the allocator sees them.
+  if (dynamicCurrentMarket && isCurrentListedEquityAsset(candidate.asset)) {
+    return `EQUITY:${candidate.asset.assetId}`;
+  }
+  return `CATEGORY:${candidate.asset.category}`;
+}
+
 /**
  * New-money candidates must earn the right to enter the allocator.
  *
@@ -254,14 +269,15 @@ export class PortfolioCandidateGate {
 
     eligible.sort((a, b) => b.rankingScore - a.rankingScore);
     const selected: AssetScanCandidate[] = [];
-    const perCategory = new Map<string, number>();
+    const perDiversificationBucket = new Map<string, number>();
+    const dynamicCurrentMarket = Boolean(scan.dynamicMarketShortlist?.applied);
     for (const row of eligible) {
       if (selected.length >= maxSelected) break;
-      const category = row.candidate.asset.category;
-      const used = perCategory.get(category) ?? 0;
+      const bucket = diversificationBucket(row.candidate, dynamicCurrentMarket);
+      const used = perDiversificationBucket.get(bucket) ?? 0;
       if (used >= 2) continue;
       selected.push(row.candidate);
-      perCategory.set(category, used + 1);
+      perDiversificationBucket.set(bucket, used + 1);
     }
 
     const dataset = buildDataset(scan, selected);
