@@ -14,28 +14,31 @@ La aplicación **NO** invierte dentro de una whitelist fija de 64 nombres.
 
 Objetivo:
 
-> **buscar dinámicamente el mercado actual, identificar los activos más atractivos y fiables disponibles en ese momento, formar una shortlist dinámica de hasta 64 candidatos y decidir después si merece la pena entrar en alguno, cuánto asignar y por qué.**
+> buscar dinámicamente el mercado actual, identificar los activos más atractivos y fiables disponibles en ese momento, formar una shortlist dinámica de hasta 64 candidatos y decidir después si merece la pena entrar en alguno, cuánto asignar y por qué.
 
-Cadena canónica:
+Cadena canónica productiva:
 
 `mercado actual`
 `-> AssetUniverseScanner`
 `-> Top64 dinámico`
 `-> PortfolioCandidateGate`
 `-> InvestmentDecisionEngine`
-`-> PortfolioDecisionEngine/evaluatePortfolioDecision`
+`-> PortfolioDecisionEngine`
+`-> evaluatePortfolioDecision`
+`-> CORE_GATE_V1`
+`-> CORE_ARCHITECTURE_V1`
 `-> ejecución y seguimiento`
 
 Reglas permanentes:
 
-- 64 = target/máximo de shortlist dinámica, no nombres permanentes.
-- La identidad de los candidatos puede cambiar en cada evaluación.
-- `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` = seed/bootstrap/fallback operativo, no definición del mercado.
-- Top64 sólo identifica candidatos; no autoriza compra.
+- 64 = target/máximo dinámico, no nombres permanentes.
+- Las identidades pueden cambiar en cada evaluación.
+- `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` = seed/bootstrap/fallback, no definición del mercado.
+- Top64 no autoriza compra.
 - Cash hurdle, consenso, timing, gates y allocation mantienen autoridad.
 - “No comprar nada” sigue siendo una salida válida.
-- En validación prospectiva se congelan reglas, no nombres futuros.
-- Yahoo current/live nunca se utiliza para inventar retrospectivamente el universo histórico.
+- Yahoo Search/Lookup actual nunca reconstruye retrospectivamente el universo histórico.
+- No deben existir superficies productivas capaces de emitir recomendaciones por una cadena paralela.
 
 ---
 
@@ -72,6 +75,14 @@ Producción mantiene:
 - modos integrados `Motor Custodia / mantener cartera`;
 - cash histórico BCE y fiscalidad causalmente integrados.
 
+Entrada productiva de cartera:
+
+`evaluatePortfolioDecision(...)`
+
+Esta función ejecuta:
+
+`PortfolioDecisionEngine.evaluate -> applyCoreGateV1 -> applyCoreArchitectureV1`.
+
 ---
 
 # 4. Mercado dinámico current/live — CERRADO / PASS FINAL
@@ -85,7 +96,7 @@ Estado:
 
 **DISCOVERY PASS / BREADTH PASS / TOP64 PASS / DEDUPE PASS / GATE-INTEGRATION PASS / ARCHIVED**
 
-Run final de cierre del 2026-09-09:
+Run final 2026-09-09:
 
 - Search queries: 24; failures: 0;
 - Lookup queries: 36 + 26 fallback; failures: 0;
@@ -102,7 +113,7 @@ Run final de cierre del 2026-09-09:
 - gate LEGACY: 11 elegibles -> 11 seleccionados;
 - leak elegible fuera del Top64: 0.
 
-Ranking productivo congelado durante esa fase:
+Ranking congelado durante esa fase:
 
 `MARKET_SHORTLIST_LEGACY_SCORE_V1`
 
@@ -110,22 +121,28 @@ Ranking productivo congelado durante esa fase:
 
 Reliability/Opportunity sólo desempatan el Top64 productivo.
 
-No utilizar los snapshots del 2026-09-09 para retunear esa fórmula.
+No utilizar snapshots del 2026-09-09 para retunear esa fórmula.
 
 Identidad/diversificación current/live:
 
-- aliases/cross-listings evidentes se deduplican antes de competir por Top64;
-- acciones individuales current/live no quedan limitadas artificialmente por la etiqueta amplia `EUROPE_EQUITY`;
-- ETF/fondos conservan el cap legacy de 2 por categoría en `PortfolioCandidateGate`;
-- histórico/research conserva su semántica anterior.
+- aliases/cross-listings evidentes se deduplican antes del Top64;
+- acciones individuales current/live no quedan limitadas por la etiqueta amplia `EUROPE_EQUITY` en `PortfolioCandidateGate`;
+- ETF/fondos conservan cap legacy de 2 por categoría;
+- histórico/research conserva semántica anterior.
 
 El job `dynamic-market-top64-v1` está ARCHIVED/read-only.
+
+### Limitación de metadata detectada
+
+Yahoo Lookup no aporta todavía una taxonomía sectorial robusta para todos los ETF/acciones descubiertos. En el snapshot prospectivo 2026-09, por ejemplo, `OPEN_EXV1_DE` apareció con categoría genérica `GLOBAL_EQUITY` aunque económicamente es un ETF sectorial bancario europeo.
+
+Esto **no** puede convertirlo en core estructural porque `STRATEGIC_GROWTH_CORE_ASSET_IDS` es una lista explícita y EXV1 no pertenece a ella. Sí puede afectar comparaciones/caps de categoría. No inventar sectores sin metadata fiable. Esta limitación queda registrada para una corrección separada; no se modifica ahora ninguno de los 25 archivos congelados del future-forward.
 
 ---
 
 # 5. Replay histórico — causal, con limitación de universo
 
-El replay sí decide en cada fecha histórica usando sólo datos disponibles hasta ese día.
+El replay decide en cada fecha histórica usando sólo datos disponibles hasta ese día.
 
 En cada `decisionDate`:
 
@@ -134,14 +151,14 @@ En cada `decisionDate`:
 - calcula momentum/volatilidad/drawdown causalmente;
 - aplica `PortfolioCandidateGate`;
 - llama `InvestmentDecisionEngine` con timestamp histórico;
-- llama `PortfolioDecisionEngine`;
+- llama la cadena de portfolio correspondiente;
 - ejecuta después de señal.
 
-Pero no reconstruye todavía el mercado completo point-in-time de aquella fecha.
+No reconstruye todavía el mercado completo point-in-time de aquella fecha.
 
 Yahoo Search/Lookup actual **no participa** en replay histórico.
 
-El replay usa el catálogo conocido más la disponibilidad causal de barras. Persiste survivorship hasta disponer de instrument master point-in-time con listings/delistings históricos.
+Persiste survivorship hasta disponer de instrument master point-in-time con altas/bajas/delistings históricos.
 
 ---
 
@@ -159,7 +176,7 @@ Comprobado:
 
 - `MONTHLY` no crea aportaciones;
 - brazo cerrado: 0 flujos implícitos;
-- externalCashFlows explícitos y causales;
+- `externalCashFlows` explícitos y causales;
 - aportaciones no cuentan como rentabilidad;
 - benchmark cash independiente;
 - REAL-only;
@@ -168,9 +185,9 @@ Comprobado:
 Reach agregado 10y/6y/3y:
 
 - gates con capital desplegable: 3 -> 22;
-- notional ejecutado adicional con flujos explícitos: +212.386,21 EUR;
+- notional ejecutado adicional: +212.386,21 EUR;
 - QUALITY cambió 10 planes y 23 fechas ejecutadas;
-- efecto económico observado pequeño, sin base para promoción ni retuning.
+- efecto económico observado pequeño.
 
 Producción sigue LEGACY.
 
@@ -184,7 +201,7 @@ Consumido:
 - `SLOPE_V1`: no justificó promoción;
 - `QUALITY_ALLOCATION_BRIDGE_V1`: research-only dentro de `PortfolioDecisionEngine`.
 
-Fórmula bridge congelada:
+Fórmula congelada:
 
 `candidateQualityAdjustment = (reliability - 50)*0.10 + (opportunity - 50)*0.20`
 
@@ -192,14 +209,9 @@ Fórmula bridge congelada:
 
 `bridgePriority = legacyOpportunityPriority * qualityMultiplier`
 
-No retunear 0.10 / 0.20 / 0.85 / 1.15 sobre ventanas ya observadas.
+No retunear 0.10 / 0.20 / 0.85 / 1.15 usando ventanas observadas.
 
-Hallazgo de los diagnósticos consumidos:
-
-- QUALITY sí llega al allocator;
-- con capital cerrado apenas había reach económico;
-- externalCashFlows demostraron que, cuando existe capital, QUALITY puede cambiar planes/ejecución;
-- todavía no existe evidencia fresh suficiente para cambiar producción.
+Producción continúa `LEGACY`.
 
 ---
 
@@ -213,19 +225,21 @@ Estado:
 
 **ANULADO ANTES DE PRIMER OUTCOME / NO CONSUMIÓ MUESTRA**
 
-Motivo:
+Motivo: congelaba 64 nombres y confundía shortlist dinámica con universo fijo.
 
-congelaba 64 nombres y confundía shortlist dinámica con universo fijo.
-
-El job antiguo continúa ARCHIVED/read-only y no se reactiva.
+No se reactiva.
 
 ---
 
-# 9. QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1 — ARMADO / PRE-START
+# 9. QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1 — COLLECTING
 
-Preregistro normativo:
+Preregistro normativo congelado:
 
 `docs/quality_allocation_dynamic_future_forward_v1_preregistration.md`
+
+Estado corriente separado del preregistro:
+
+`docs/quality_allocation_dynamic_future_forward_v1_status.md`
 
 Código:
 
@@ -235,145 +249,149 @@ Código:
 - `tests/qualityAllocationDynamicFutureForwardV1.unit.ts`
 - `src/components/ResearchValidationCenter.tsx`
 
-Estado:
+Estado actual:
 
-**ARMED / PROSPECTIVE / NO OBSERVATION / NO OUTCOME / PRODUCTION LEGACY / NO PROMOTION FROM PHASE A**
+**COLLECTING / 1 DE 12 OBSERVACIONES / 0 OUTCOMES MADUROS / PRODUCTION LEGACY / NO PROMOTION FROM PHASE A**
 
-El 2026-09-09 se realizó una segunda auditoría **antes de arrancar**. Se comprobó directamente que el archivo prospectivo no existía todavía en `replay-results`; no había muestra consumida. La auditoría detectó y corrigió omisiones de persistencia, timing, continuidad de código, madurez y pricing de outcomes.
+### Primer checkpoint válido
 
-## Pregunta
+Fecha local: **2026-09-09 23:37 Europe/Madrid**.
 
-¿`QUALITY_ALLOCATION_BRIDGE_V1`, aplicado al mismo mercado dinámico y al mismo capital, distribuye prospectivamente mejor que LEGACY?
+Persistencia autoritativa:
 
-## Diseño congelado
+- repo: `fmaranis/Trading`;
+- branch: `replay-results`;
+- path: `validation-runs/quality-allocation-dynamic-future-forward-v1-state.json`;
+- durable commit: `fbae24fd46c751a71e059bb4f99b2de73c784dae`;
+- remote blob: `4006754a0d627f0846ef6d21a340f7c2ea9c633f`;
+- state SHA-256: `f3fd8e4d7ce4825351a23908c460285431abb751851ed9034ac2ff903a7e2bec`.
 
-- Phase A: allocation shots independientes;
-- frecuencia: MONTHLY;
-- primer mes elegible: 2026-09;
-- máximo: 12 checkpoints;
-- meses naturales consecutivos obligatorios;
-- ventana de alta de una observación: **día 9, 22:30-24:00 Europe/Madrid**;
-- no backfill ni salto de meses;
-- notional research: 13.000 EUR por checkpoint;
-- no es cartera real;
-- no es aportación mensual;
-- no se acumula;
-- riesgo MEDIUM;
-- horizonte 3 años;
-- cash comparativo congelado 2,5%;
-- discovery current/live obligatorio;
-- mínimo 64 promovidos fuera del seed;
-- Top64 completo;
-- REAL-only;
-- mínimo 252 barras;
-- datos <=7 días.
+Fingerprints:
 
-Ambos brazos comparten:
+- protocol: `1220601b4d5fead26b68c48a198c7a5bac2220898c99fef1171452653d8ac82b`;
+- implementation: `ba1b286ac6920495b7b5d853b6ca78fb5e1de356fc5ab3d4fb56bc34e1e51bff`;
+- frozen critical sources: 25.
 
-`scanner -> Top64 -> PortfolioCandidateGate LEGACY -> InvestmentDecisionEngine`
+Snapshot:
 
-Sólo cambia en el mismo `PortfolioDecisionEngine`:
+- discovery promoted: 99;
+- scanned: 163;
+- accepted REAL: 158;
+- rejected: 5;
+- Top64: 64;
+- gate LEGACY eligible/selected: 11/11;
+- market regime: `BULL_LOW_VOL`;
+- decision confidence: HIGH 95;
+- production policy remains LEGACY.
 
-- control: `LEGACY`;
-- shadow: `QUALITY_ALLOCATION_BRIDGE_V1`.
+Allocator probe:
 
-## Persistencia autoritativa
+LEGACY:
 
-El estado ya no depende de `.runtime`.
+- new investment: 1.728,4054 EUR;
+- residual planned cash: 11.271,5946 EUR;
+- contributions: 4.
 
-Autoridad:
+QUALITY:
 
-- repo `fmaranis/Trading`;
-- branch `replay-results` por defecto;
-- `validation-runs/quality-allocation-dynamic-future-forward-v1-state.json`.
+- new investment: 1.726,1896 EUR;
+- residual planned cash: 11.273,8104 EUR;
+- contributions: 4.
 
-`.runtime/qualityAllocationDynamicFutureForwardV1.json` = caché local únicamente.
+`planChanged = true`.
 
-`GITHUB_REPLAY_SYNC_TOKEN` es obligatorio para leer/escribir el estado durable. Un fallo de credenciales/escritura impide considerar consumido el checkpoint.
+Absolute planned notional delta: 2,6887 EUR.
 
-La escritura usa el blob SHA previamente leído para impedir overwrite concurrente silencioso.
+EXV1.DE en ambos brazos:
 
-## Continuidad de implementación
+- `HIGH_CONVICTION`;
+- `ENTRY_STRONG`;
+- initial fraction 50%;
+- amount 650 EUR.
 
-El protocolo congela no sólo parámetros sino la implementación crítica con `QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS`.
+QUALITY elevó prioridad relativa pero no cambió el importe por caps compartidos.
 
-Incluye discovery, market-data route/provider, scanner, QUALITY, gate, consensus, timing, decision engine, allocator, costes, cash, analytics/regime/alignment, runner y state-store.
+No existe todavía outcome 20/60 sesiones; no hay conclusión económica.
 
-Antes de cada ejecución se recalculan Git blob SHA-1. Si alguno cambia:
+### Alcance metodológico
 
-`QUALITY_FF_FROZEN_IMPLEMENTATION_CHANGED`
+Phase A es deliberadamente un **allocation probe**:
 
-La Phase A existente se detiene; no se mezclan políticas diferentes en la misma muestra.
+`Yahoo current/live -> scanner -> Top64 -> PortfolioCandidateGate LEGACY -> InvestmentDecisionEngine -> PortfolioDecisionEngine`
 
-## Causalidad y pricing de outcomes
+El mismo `PortfolioDecisionEngine.evaluate(...)` se ejecuta con:
 
-Entrada:
+- `LEGACY`;
+- `QUALITY_ALLOCATION_BRIDGE_V1`.
 
-**primera apertura REAL posterior a `checkpointRunDate`**.
+Sólo cambia `opportunityAllocationPolicy`.
 
-La ventana termina antes de medianoche para que esta regla sea inequívoca con barras diarias.
+No es una validación end-to-end de `CORE_ARCHITECTURE_V1`; no puede promocionar producción. Una eventual Phase B separada sería necesaria incluso con evidencia direccional positiva.
 
-Horizontes:
+### Ventana y continuidad
 
-- 20 sesiones;
-- 60 sesiones.
-
-Para unidades/comisión se usa el **open RAW** de la sesión de ejecución.
-
-Para retorno posterior:
-
-`adjustedClose_mark / adjustedOpen_entry`
-
-Tratamiento congelado:
-
-`RAW_NEXT_OPEN_FOR_UNIT_SIZING_PLUS_ADJUSTED_TOTAL_RETURN_FACTOR_TO_MARK`.
-
-Cash residual:
-
-`(1 + 0.025)^(N/252)`
-
-Si ambos brazos quedan 100% cash, un ticker REAL del Top64 sirve sólo como calendario para comprobar que realmente han transcurrido 20/60 sesiones; no se resuelve el futuro anticipadamente.
-
-No se fuerza outcome si falta información REAL.
-
-## Inmutabilidad
-
-Cada observación guarda pool, Top64, gate, decisión común, planes LEGACY/QUALITY, fingerprint de implementación, hashes propios y chain hash.
-
-Reglas:
-
-- una observación por mes;
+- cadencia MONTHLY;
+- máximo 12 checkpoints;
 - meses consecutivos;
-- rerun no reemplaza snapshot;
-- outcomes append-only y hasheados;
-- discontinuidad/tampering => FAIL;
-- baseline durable ausente después del comienzo => FAIL CLOSED;
-- ventana perdida => protocolo invalidado; no backfill.
+- nueva observación sólo día 9, 22:30-24:00 Europe/Madrid;
+- no backfill;
+- una observación por mes;
+- duplicate month no overwrite;
+- hash-chain;
+- outcomes append-only;
+- estado durable en GitHub;
+- RAW next-open para unidades/comisión;
+- adjusted total-return factor para 20/60 sesiones.
 
-## Interpretación Phase A
+Siguiente observación nueva válida: **2026-10-09 22:30-24:00 Europe/Madrid**.
 
-No se emite veredicto económico definitivo antes de 12 checkpoints.
-
-Después:
-
-1. `<6` checkpoints con `planChanged` -> `INSUFFICIENT_REACH`;
-2. `>=6` pero algún changed-plan outcome 60s pendiente -> `AWAITING_60_SESSION_MATURITY`;
-3. todos maduros -> lectura económica final.
-
-`DIRECTIONALLY_POSITIVE_FOR_SEPARATE_PHASE_B` exige:
-
-- mediana QUALITY-LEGACY >0 pp;
-- win rate >=60%.
-
-Si no se cumplen ambas con reach suficiente:
-
-`NO_DIRECTIONAL_EVIDENCE_FOR_PHASE_B`.
-
-Ninguna etiqueta autoriza promoción directa. Producción continúa `LEGACY`.
+No repetir septiembre.
 
 ---
 
-# 10. Centro de validación — único job CURRENT
+# 10. Superficie productiva de recomendaciones — UNIFICACIÓN CORREGIDA 2026-09-09
+
+Se detectó que `App.tsx` todavía montaba componentes heredados capaces de mantener una arquitectura paralela de producto, aunque la cadena canónica nueva ya existía.
+
+Problema encontrado:
+
+- `GrowthTradingBot` usaba `ALL_AVAILABLE_ASSETS + LiveSimulationEngine`;
+- antiguo `InvestmentDecisionCenter` escaneaba su propio universo y llamaba directamente a `InvestmentDecisionEngine`;
+- `PortfolioOverview` mostraba un estado `PortfolioEngine` simulado distinto de `UserPortfolioService`.
+
+Esto era incompatible con la regla de una sola cadena productiva.
+
+Corrección aplicada sin tocar los 25 blobs congelados del future-forward:
+
+- `GrowthTradingBot.tsx` = compatibility adapter -> `InteractiveInvestmentDecisionCenter`;
+- `InvestmentDecisionCenter.tsx` = compatibility adapter -> `InteractiveInvestmentDecisionCenter`;
+- `PortfolioOverview.tsx` = compatibility adapter -> `InteractiveInvestmentDecisionCenter`.
+
+Las superficies operativas del centro canónico usan:
+
+- `CurrentOpportunityAlertsPanel -> evaluatePortfolioDecision`;
+- `RealPurchaseRegistrationPanel -> evaluatePortfolioDecision`;
+- `PortfolioExecutionPlanPanel -> evaluatePortfolioDecision`.
+
+Por tanto las recomendaciones productivas convergen en:
+
+`AssetUniverseScanner -> PortfolioCandidateGate -> InvestmentDecisionEngine -> evaluatePortfolioDecision -> ejecución/seguimiento`.
+
+Guard añadido:
+
+`tests/productDecisionSurface.unit.ts`
+
+Protege 15 invariantes y falla si se vuelve a activar `LiveSimulationEngine`, `ALL_AVAILABLE_ASSETS` o un scanner/decision center paralelo en esas superficies.
+
+### Deuda residual de producto
+
+`App.tsx`, `Navbar`, `RiskAnalysisCenter`, `MarketTracker`, `AlertsManager` y algunos modales conservan todavía tipos/estado heredados de simulación para funciones secundarias. Tras la corrección anterior **ya no deben ser fuente de una recomendación productiva de compra**, pero la limpieza visual/estado secundario queda pendiente para evitar etiquetas como “Bot 2X” y métricas de la antigua cartera simulada.
+
+No reintroducir ninguna recomendación desde esos módulos. La única recomendación accionable debe venir del centro canónico.
+
+---
+
+# 11. Centro de validación — único job CURRENT
 
 ID:
 
@@ -383,27 +401,13 @@ Nombre:
 
 **QUALITY allocation · future-forward dinámico**
 
-Orden:
+El job ejecuta guards rápidos, TypeScript/lint y el checkpoint REAL prospectivo. No usar GitHub Actions ni agentes.
 
-1. guard `qualityAllocationDynamicFutureForwardV1.unit`;
-2. guard bridge QUALITY congelado;
-3. guard Top64 dinámico;
-4. guard `CORE_ARCHITECTURE_V1`;
-5. guard `PortfolioCandidateGate`;
-6. `npm run lint` / TypeScript;
-7. checkpoint REAL prospectivo.
-
-El guard prospectivo cubre 21 invariantes, incluidos ventana fija, manifest de blobs, meses consecutivos, cadena/hash, no-rewrite, reach y madurez final.
-
-Un guard/TypeScript FAIL impide ejecutar el checkpoint REAL.
-
-El POST de ejecución devuelve `RESEARCH_VALIDATION_LOCAL_ONLY` si `NODE_ENV=production`; no puede consumirse una muestra prospectiva desde el despliegue público.
-
-No usar GitHub Actions ni agentes para este job.
+Tras el checkpoint 2026-09 ya registrado, un rerun en el mismo mes nunca crea otra observación; sólo puede verificar estado o madurar outcomes.
 
 ---
 
-# 11. Forward Risk
+# 12. Forward Risk
 
 V8 conserva valor predictivo de downside.
 
@@ -418,9 +422,9 @@ No se mezclan en el future-forward QUALITY actual.
 
 ---
 
-# 12. Mejoras futuras explícitamente DEFERRED
+# 13. Mejoras futuras explícitamente DEFERRED
 
-No abrir durante la fase actual de cierre del producto:
+No abrir hasta cerrar la secuencia vigente:
 
 - USD/Nasdaq/NYSE discovery;
 - detección temprana de multibaggers/SNDK-like;
@@ -429,18 +433,14 @@ No abrir durante la fase actual de cierre del producto:
 - retuning de Reliability/Opportunity/Top64;
 - nuevos Forward Risk V12/V13.
 
-Estas ideas pueden estudiarse después de terminar la secuencia vigente de la app.
-
 ---
 
-# 13. Próxima secuencia técnica
+# 14. Próxima secuencia técnica
 
-1. Sincronizar el HEAD canónico actual y abrir el único job **QUALITY allocation · future-forward dinámico**.
-2. Sólo una observación nueva es válida en la ventana mensual congelada del día 9, 22:30-24:00 Europe/Madrid.
-3. Guards, manifest de blobs y TypeScript deben pasar antes del snapshot REAL.
-4. Si faltan/son inválidas las credenciales de persistencia durable, no se consume observación.
-5. Si discovery current/live falla, puede reintentarse únicamente dentro de la misma ventana; nunca se sustituye por fallback.
-6. Si el mes esperado se pierde, no se salta ni se reconstruye: esta Phase A queda invalidada y requeriría un protocolo nuevo.
-7. Tras un checkpoint válido, estado `COLLECTING`; reruns posteriores sólo verifican estado/maduran outcomes.
-8. Mientras Phase A madura, continuar cerrando otras partes no congeladas de la aplicación.
-9. Producción permanece `LEGACY` durante toda Phase A.
+1. Verificar una sola vez la corrección de superficie productiva con `tests/productDecisionSurface.unit.ts` + TypeScript/lint en local.
+2. No repetir el checkpoint de septiembre: ya está persistido y consumido como primera observación.
+3. Mientras madura el future-forward, terminar la limpieza de UI/estado heredado sin tocar los 25 blobs metodológicos congelados.
+4. No ejecutar una recomendación real si la pantalla no permite identificar que procede del centro canónico y del `evaluatePortfolioDecision` actual.
+5. Registrar como deuda separada la taxonomía genérica de algunos `OPEN_*` descubiertos por Lookup; no inventar sectores ni modificar discovery congelado dentro de Phase A.
+6. Próximo checkpoint nuevo: 2026-10-09, 22:30-24:00 Europe/Madrid.
+7. Producción permanece `LEGACY` durante toda Phase A.
