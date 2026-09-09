@@ -39,7 +39,7 @@ export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_FROZEN_GIT_BLOBS = {
   'src/investment/portfolioAnalytics/portfolioRisk.ts': '864ba2734f62b27906954951f43b62ac8ee35cee',
   'src/investment/portfolioRegimes/deterministicRegimeClassifier.ts': 'fffe0f922f4727a5d52f3c7994c831cb23225bb4',
   'src/investment/portfolioBacktesting/multiAssetDataAligner.ts': '3960f5a697b92e8fcd02926b2a971b4abe50b9ef',
-  'scripts/qualityAllocationDynamicFutureForwardV1CheckpointLive.ts': '596d943c2298dd88b34e362a095da376c1380072',
+  'scripts/qualityAllocationDynamicFutureForwardV1CheckpointLive.ts': 'b55ebc611b95e91060d7c7e8aacb0fef00c6839c',
   'scripts/qualityAllocationDynamicFutureForwardV1StateStore.ts': '162e001ca4c5ae0ab7549a1cfbac8ef2853bf0a7'
 } as const;
 
@@ -81,6 +81,7 @@ export const QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL = {
   executionAnchor: 'FIRST_REAL_OPEN_STRICTLY_AFTER_CHECKPOINT_RUN_DATE_FIXED_AFTER_CLOSE_WINDOW',
   outcomeMark: 'CLOSE_AFTER_N_SUBSEQUENT_SESSIONS_FROM_EXECUTION_SESSION',
   brokerExecution: 'ETF_ETC_INTEGER_UNITS_WITH_EXISTING_BROKER_COMMISSION_MUTUAL_FUNDS_FRACTIONAL',
+  outcomePriceTreatment: 'RAW_NEXT_OPEN_FOR_UNIT_SIZING_PLUS_ADJUSTED_TOTAL_RETURN_FACTOR_TO_MARK',
   residualCashTreatment: 'COMPOUND_AT_FROZEN_2_5_PCT_ANNUAL_252_SESSIONS',
   observationIdentityPolicy: 'ONE_IMMUTABLE_OBSERVATION_PER_CALENDAR_MONTH',
   observationContinuityPolicy: 'HASH_CHAIN_NO_REWRITE_NO_BACKFILL_NO_SKIPPED_MONTHS',
