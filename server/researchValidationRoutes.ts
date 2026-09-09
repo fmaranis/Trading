@@ -121,22 +121,13 @@ const JOBS: JobDefinition[] = [
     'Flujos explícitos V1 · PASS · reach de capital demostrado',
     'REPLAY_EXPLICIT_CASH_FLOWS_V1_RESULT'
   ),
-  {
-    id: 'quality-allocation-future-forward-v1',
-    name: 'QUALITY allocation · future-forward V1',
-    description: 'Checkpoint prospectivo congelado el 09/09/2026. Desde 10/09/2026 compara LEGACY productivo con QUALITY_ALLOCATION_BRIDGE_V1 shadow sobre un universo fijo de 64 activos y los mismos flujos explícitos research-only. Antes de 252 sesiones sólo acumula evidencia; no permite tuning ni promoción.',
-    marker: 'QUALITY_ALLOCATION_FUTURE_FORWARD_V1_RESULT',
-    visibility: 'CURRENT',
-    steps: [
-      { label: 'Guard protocolo future-forward', command: 'npx', args: ['tsx', 'tests/qualityAllocationFutureForwardV1.unit.ts'] },
-      { label: 'Guard QUALITY bridge congelado', command: 'npx', args: ['tsx', 'tests/opportunityAllocationConstraintAudit.unit.ts'] },
-      { label: 'Guard contabilidad de flujos', command: 'npx', args: ['tsx', 'tests/replayExternalCashFlows.unit.ts'] },
-      { label: 'Guard replay dinámico existente', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
-      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Checkpoint REAL future-forward', command: 'npx', args: ['tsx', 'scripts/qualityAllocationFutureForwardV1CheckpointLive.ts'] }
-    ]
-  }
+  archivedJob(
+    'quality-allocation-future-forward-v1',
+    'QUALITY allocation · future-forward V1',
+    'ANULADO ANTES DE ARRANCAR/ANTES DE OUTCOMES. Congelaba 64 nombres y por tanto contradecía la arquitectura productiva: el mercado debe descubrirse dinámicamente y 64 significa shortlist dinámica, no whitelist. No consumió muestra ni genera evidencia. Debe sustituirse por un protocolo que congele reglas de discovery/ranking y registre snapshots de candidatos por fecha.',
+    'QUALITY future-forward V1 · VOID pre-start · universo fijo incorrecto',
+    'QUALITY_ALLOCATION_FUTURE_FORWARD_V1_RESULT'
+  )
 ];
 
 const states = new Map<string, JobState>();
