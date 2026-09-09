@@ -8,6 +8,11 @@ import {
   FIXED_PRODUCT_UNIVERSE_FORBIDDEN,
   PRODUCT_MARKET_UNIVERSE_MODE
 } from '../src/investment/decision/portfolioDiscoveryUniverse';
+import {
+  mergeOpenMarketAssets,
+  type OpenMarketDiscoveryV1Asset
+} from '../src/investment/decision/openMarketDiscoveryV1';
+import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse';
 
 function candidate(index: number, input: {
   score?: number;
@@ -39,6 +44,20 @@ function candidate(index: number, input: {
     positiveRolling60Pct: 60,
     positiveRolling120Pct: 60,
     score: input.score ?? 100 - index
+  };
+}
+
+function discovered(asset: AssetUniverseItem): OpenMarketDiscoveryV1Asset {
+  return {
+    asset,
+    source: 'YAHOO_LIVE_QUERY_SWEEP',
+    queryFamily: 'TEST',
+    breadth: 'BROAD',
+    discoveredAt: '2026-09-09T00:00:00.000Z',
+    quoteType: 'ETF',
+    exchange: null,
+    historyBars3y: 756,
+    historicalPointInTimeSafe: false
   };
 }
 
@@ -82,5 +101,31 @@ assert.deepEqual(tiedRanked.map(row => row.asset.ticker), ['AAA.DE', 'DDD.DE', '
 
 // Caller requests cannot make the canonical shortlist larger than 64.
 assert.equal(rankDynamicMarketShortlist(sameCategoryPool, 999).length, 64);
+
+// Discovery ranks economic instruments, not duplicate exchange listings. The
+// seed remains untouched, but obvious aliases of an existing product must not
+// consume another Top64 slot or later receive a second allocation.
+const base: AssetUniverseItem[] = [
+  { assetId: 'VUSA', ticker: 'VUSA.DE', name: 'Vanguard S&P 500 UCITS ETF', category: 'US_EQUITY', currency: 'EUR' },
+  { assetId: 'XEON', ticker: 'XEON.DE', name: 'Xtrackers II EUR Overnight Rate Swap UCITS ETF', category: 'MONEY_MARKET', currency: 'EUR', defensive: true },
+  { assetId: 'SANTANDER', ticker: 'SAN.MC', name: 'Banco Santander', category: 'DIVIDEND', currency: 'EUR' },
+  { assetId: 'WORLD_DE', ticker: 'EUNL.DE', name: 'iShares Core MSCI World UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' }
+];
+const merged = mergeOpenMarketAssets(base, [
+  discovered({ assetId: 'OPEN_VUSA_AS', ticker: 'VUSA.AS', name: 'Vanguard S&P 500 UCITS ETF', category: 'US_EQUITY', currency: 'EUR' }),
+  discovered({ assetId: 'OPEN_XEON_MI', ticker: 'XEON.MI', name: 'XTRACKERS II EUR OVNI RATE SWA ', category: 'MONEY_MARKET', currency: 'EUR', defensive: true }),
+  discovered({ assetId: 'OPEN_IWDA_AS', ticker: 'IWDA.AS', name: 'iShares Core MSCI World UCITS E', category: 'GLOBAL_EQUITY', currency: 'EUR' }),
+  discovered({ assetId: 'OPEN_SAN_PA', ticker: 'SAN.PA', name: 'Sanofi', category: 'HEALTHCARE', currency: 'EUR' }),
+  discovered({ assetId: 'OPEN_NEW_AS', ticker: 'NEW.AS', name: 'Distinct New Asset', category: 'EUROPE_EQUITY', currency: 'EUR' })
+]);
+assert.deepEqual(merged.slice(0, base.length), base);
+assert.equal(merged.some(row => row.assetId === 'OPEN_VUSA_AS'), false);
+assert.equal(merged.some(row => row.assetId === 'OPEN_XEON_MI'), false);
+assert.equal(merged.some(row => row.assetId === 'OPEN_IWDA_AS'), false);
+// Same root is not enough to merge unrelated instruments: Santander SAN.MC and
+// Sanofi SAN.PA remain separate because their names/economic identities differ.
+assert.equal(merged.some(row => row.assetId === 'OPEN_SAN_PA'), true);
+assert.equal(merged.some(row => row.assetId === 'OPEN_NEW_AS'), true);
+assert.equal(merged.length, base.length + 2);
 
 console.log('dynamicMarketShortlist.unit: PASS');
