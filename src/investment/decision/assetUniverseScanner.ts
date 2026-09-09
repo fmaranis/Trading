@@ -3,7 +3,10 @@ import { FundMarketDataService } from '../data/marketData/fundMarketData';
 import { MultiAssetDataset, computeAssetDatasetFingerprint } from '../portfolioBacktesting';
 import { assessAssetSelectionQuality } from './assetSelectionQuality';
 import { AssetUniverseItem } from './assetUniverse';
-import { EUR_PORTFOLIO_DISCOVERY_UNIVERSE } from './portfolioDiscoveryUniverse';
+import {
+  DYNAMIC_MARKET_SHORTLIST_TARGET,
+  EUR_PORTFOLIO_DISCOVERY_UNIVERSE
+} from './portfolioDiscoveryUniverse';
 import {
   OPEN_MARKET_DISCOVERY_V1,
   mergeOpenMarketAssets,
@@ -38,6 +41,16 @@ export interface AssetScanCandidate {
   response?: ScannerResponse;
 }
 
+export interface DynamicMarketShortlistAudit {
+  mode: 'DYNAMIC_CURRENT_DISCOVERY';
+  rankingVersion: 'MARKET_SHORTLIST_LEGACY_SCORE_V1';
+  targetSize: number;
+  applied: boolean;
+  candidatePoolSize: number;
+  acceptedPoolSize: number;
+  shortlistSize: number;
+}
+
 export interface AssetUniverseScanResult {
   scanned: number;
   accepted: number;
@@ -47,6 +60,7 @@ export interface AssetUniverseScanResult {
   dataset: MultiAssetDataset;
   acceptedDataset: MultiAssetDataset;
   rejectionCounts: Record<string, number>;
+  dynamicMarketShortlist?: DynamicMarketShortlistAudit;
   currentOpenDiscovery?: {
     version: typeof OPEN_MARKET_DISCOVERY_V1;
     attempted: boolean;
@@ -124,23 +138,39 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
   async function worker() { while (true) { const index = cursor++; if (index >= items.length) return; results[index] = await fn(items[index]); } }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker())); return results;
 }
-function chooseDiversified(candidates: AssetScanCandidate[], maxSelected: number): AssetScanCandidate[] {
-  const accepted = candidates.filter(c => c.status === 'ACCEPTED' && c.score != null).sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
-  const selected: AssetScanCandidate[] = []; const usedCategories = new Set<string>();
-  const bestDefensive = accepted.find(c => c.asset.defensive);
-  if (bestDefensive) { selected.push(bestDefensive); usedCategories.add(bestDefensive.asset.category); }
-  for (const candidate of accepted) {
-    if (selected.length >= maxSelected) break;
-    if (selected.some(s => s.asset.assetId === candidate.asset.assetId) || usedCategories.has(candidate.asset.category)) continue;
-    selected.push(candidate); usedCategories.add(candidate.asset.category);
-  }
-  return selected;
+
+/**
+ * Current-market shortlist ranking. V1 deliberately preserves the scanner score
+ * already used by production (multi-horizon momentum minus volatility/drawdown)
+ * instead of promoting the research-only QUALITY policy through a side door.
+ * Reliability/Opportunity are deterministic tie-breakers only. The shortlist
+ * is discovery evidence; diversification and economic authority stay downstream.
+ */
+export function rankDynamicMarketShortlist(candidates: AssetScanCandidate[], maxSelected: number): AssetScanCandidate[] {
+  const cap = Math.max(0, Math.min(DYNAMIC_MARKET_SHORTLIST_TARGET, Math.floor(maxSelected)));
+  return candidates
+    .filter(candidate => candidate.status === 'ACCEPTED' && Number.isFinite(candidate.score))
+    .sort((a, b) => {
+      const scoreDelta = Number(b.score) - Number(a.score);
+      if (Math.abs(scoreDelta) > 1e-12) return scoreDelta;
+      const reliabilityDelta = Number(b.reliabilityScore ?? -Infinity) - Number(a.reliabilityScore ?? -Infinity);
+      if (Math.abs(reliabilityDelta) > 1e-12) return reliabilityDelta;
+      const opportunityDelta = Number(b.opportunityScore ?? -Infinity) - Number(a.opportunityScore ?? -Infinity);
+      if (Math.abs(opportunityDelta) > 1e-12) return opportunityDelta;
+      return a.asset.ticker.localeCompare(b.asset.ticker);
+    })
+    .slice(0, cap);
 }
 function toDataset(candidates: AssetScanCandidate[]): MultiAssetDataset {
   return { timeframe: '1d', assets: candidates.map(c => ({ assetId: c.asset.assetId, ticker: c.asset.ticker, name: c.asset.name, currency: 'EUR', bars: c.response!.bars, provenance: c.response!.provenance })) };
 }
 
 function todayIso(): string { return new Date().toISOString().slice(0, 10); }
+function isCurrentDynamicMarketScan(universe: AssetUniverseItem[], endDate: string, option: boolean | undefined): boolean {
+  return option !== false
+    && universe === EUR_PORTFOLIO_DISCOVERY_UNIVERSE
+    && daysBetween(endDate, todayIso()) <= 7;
+}
 function currentDiscoveryBaseUrl(): string {
   if (typeof window !== 'undefined') return '';
   const configured = typeof process !== 'undefined'
@@ -152,13 +182,12 @@ function currentDiscoveryBaseUrl(): string {
   return configured ? configured.replace(/\/$/, '') : 'http://127.0.0.1:3000';
 }
 function promotableCurrentDiscovery(rows: readonly OpenMarketDiscoveryV1Asset[]): OpenMarketDiscoveryV1Asset[] {
-  // Automatic discovery is intentionally narrower than manual search. V1 may
-  // autonomously propose listed ETFs/ETCs; individual equities remain only in
-  // the curated catalogue or explicit user-directed search until separately
-  // validated for automatic open-market promotion.
+  // Current/live dynamic discovery may propose EUR-listed ETFs/ETCs and equities.
+  // They still have no investment authority: the scanner ranking, candidate gate,
+  // cash hurdle, consensus, timing and allocator remain mandatory downstream.
   return rows.filter(row =>
     row.asset.currency === 'EUR'
-    && row.quoteType === 'ETF'
+    && (row.quoteType === 'ETF' || row.quoteType === 'EQUITY')
     && row.historyBars3y >= 252
     && row.historicalPointInTimeSafe === false
   );
@@ -168,9 +197,7 @@ async function expandCurrentOperationalUniverse(
   endDate: string,
   option: boolean | undefined
 ): Promise<{ universe: AssetUniverseItem[]; audit: NonNullable<AssetUniverseScanResult['currentOpenDiscovery']> }> {
-  const liveDate = daysBetween(endDate, todayIso()) <= 7;
-  const canonicalOperationalUniverse = universe === EUR_PORTFOLIO_DISCOVERY_UNIVERSE;
-  const shouldAttempt = option !== false && liveDate && canonicalOperationalUniverse;
+  const shouldAttempt = isCurrentDynamicMarketScan(universe, endDate, option);
   const audit: NonNullable<AssetUniverseScanResult['currentOpenDiscovery']> = {
     version: OPEN_MARKET_DISCOVERY_V1,
     attempted: shouldAttempt,
@@ -197,7 +224,7 @@ async function expandCurrentOperationalUniverse(
     return { universe: expanded, audit };
   } catch (error: any) {
     // Discovery is additive. A temporary Yahoo/search failure must not disable
-    // the already-validated curated decision universe.
+    // the already-validated curated seed/fallback universe.
     audit.error = error?.message || String(error);
     return { universe, audit };
   }
@@ -227,6 +254,7 @@ async function loadAsset(asset: AssetUniverseItem, startDate: string, endDate: s
 export class AssetUniverseScanner {
   static async scan(universe: AssetUniverseItem[], startDate: string, endDate: string, options: AssetUniverseScanOptions = {}): Promise<AssetUniverseScanResult> {
     const minimumBars = options.minimumBars ?? 252; const maxDataAgeDays = options.maxDataAgeDays ?? 7;
+    const dynamicCurrentMarket = isCurrentDynamicMarketScan(universe, endDate, options.currentOpenDiscovery);
     const expanded = await expandCurrentOperationalUniverse(universe, endDate, options.currentOpenDiscovery);
     const candidates = await mapLimit(expanded.universe, options.concurrency ?? 3, async asset => {
       try {
@@ -263,7 +291,11 @@ export class AssetUniverseScanner {
       }
     });
     const acceptedCandidates = candidates.filter(c => c.status === 'ACCEPTED');
-    const selected = chooseDiversified(candidates, Math.min(options.maxSelected ?? 8, 10));
+    const requestedMax = options.maxSelected ?? (dynamicCurrentMarket ? DYNAMIC_MARKET_SHORTLIST_TARGET : 8);
+    const legacyHistoricalCap = 10;
+    const selected = dynamicCurrentMarket
+      ? rankDynamicMarketShortlist(candidates, requestedMax)
+      : rankDynamicMarketShortlist(candidates, Math.min(requestedMax, legacyHistoricalCap));
     if (selected.length < 1) throw new Error('El escáner no encontró ninguna exposición REAL válida.');
     const rejectionCounts: Record<string, number> = {}; for (const c of candidates.filter(c => c.status === 'REJECTED')) rejectionCounts[c.reason ?? 'UNKNOWN'] = (rejectionCounts[c.reason ?? 'UNKNOWN'] ?? 0) + 1;
     return {
@@ -275,6 +307,15 @@ export class AssetUniverseScanner {
       dataset: toDataset(selected),
       acceptedDataset: toDataset(acceptedCandidates),
       rejectionCounts,
+      dynamicMarketShortlist: dynamicCurrentMarket ? {
+        mode: 'DYNAMIC_CURRENT_DISCOVERY',
+        rankingVersion: 'MARKET_SHORTLIST_LEGACY_SCORE_V1',
+        targetSize: DYNAMIC_MARKET_SHORTLIST_TARGET,
+        applied: true,
+        candidatePoolSize: candidates.length,
+        acceptedPoolSize: acceptedCandidates.length,
+        shortlistSize: selected.length
+      } : undefined,
       currentOpenDiscovery: expanded.audit
     };
   }
