@@ -18,12 +18,11 @@ export interface OpenMarketDiscoveryQuery {
  * The sweep deliberately includes both collective instruments and listed equity
  * families so the operational candidate pool can change with the market.
  *
- * Yahoo Search is not a complete instrument master. These rules broaden the
- * current candidate pool but must never be described as an exhaustive census of
- * every investable security, nor replayed retrospectively as a historical universe.
+ * Yahoo Search/Lookup is not a complete instrument master. These rules broaden
+ * the current candidate pool but must never be described as an exhaustive census
+ * of every investable security, nor replayed retrospectively as a historical universe.
  */
 export const OPEN_MARKET_DISCOVERY_V1_QUERIES: readonly OpenMarketDiscoveryQuery[] = [
-  // Broad/sector ETF and ETC families.
   { id: 'GLOBAL', query: 'UCITS ETF world global all country', category: 'GLOBAL_EQUITY', breadth: 'BROAD' },
   { id: 'US', query: 'UCITS ETF S&P 500 USA', category: 'US_EQUITY', breadth: 'BROAD' },
   { id: 'EUROPE', query: 'UCITS ETF Europe broad market', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
@@ -36,9 +35,6 @@ export const OPEN_MARKET_DISCOVERY_V1_QUERIES: readonly OpenMarketDiscoveryQuery
   { id: 'AGG_BOND', query: 'UCITS ETF global aggregate bond EUR hedged', category: 'AGG_BONDS', breadth: 'DEFENSIVE', defensive: true },
   { id: 'MONEY_MARKET', query: 'UCITS ETF EUR overnight money market', category: 'MONEY_MARKET', breadth: 'DEFENSIVE', defensive: true },
   { id: 'GOLD', query: 'physical gold ETC EUR', category: 'GOLD', breadth: 'DEFENSIVE', defensive: true },
-
-  // Listed-equity families. Currency/history inspection still decides whether a
-  // returned listing is usable by the current EUR-only engine.
   { id: 'EQ_EUROPE_LARGE', query: 'Europe large cap stock EUR', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
   { id: 'EQ_GERMANY', query: 'Germany DAX stock Xetra', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
   { id: 'EQ_FRANCE', query: 'France CAC 40 stock Euronext Paris', category: 'EUROPE_EQUITY', breadth: 'BROAD' },
@@ -84,39 +80,57 @@ function normalizedIsin(asset: AssetUniverseItem): string | null {
   const value = String(asset.isin ?? '').trim().toUpperCase();
   return value || null;
 }
+function normalizedName(asset: AssetUniverseItem): string {
+  return String(asset.name ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, '');
+}
+function tickerRoot(asset: AssetUniverseItem): string {
+  const ticker = normalizedTicker(asset);
+  const dot = ticker.lastIndexOf('.');
+  return dot > 0 ? ticker.slice(0, dot) : ticker;
+}
+function nearSameProductName(a: AssetUniverseItem, b: AssetUniverseItem): boolean {
+  const left = normalizedName(a);
+  const right = normalizedName(b);
+  if (left.length < 12 || right.length < 12) return false;
+  if (left === right) return true;
+  const shorter = left.length <= right.length ? left : right;
+  const longer = left.length <= right.length ? right : left;
+  return shorter.length >= 20 && longer.length - shorter.length <= 4 && longer.startsWith(shorter);
+}
+function sameEconomicListing(a: AssetUniverseItem, b: AssetUniverseItem): boolean {
+  if (normalizedTicker(a) === normalizedTicker(b)) return true;
+  const aIsin = normalizedIsin(a);
+  const bIsin = normalizedIsin(b);
+  if (aIsin && bIsin && aIsin === bIsin) return true;
+  if (nearSameProductName(a, b)) return true;
+  return tickerRoot(a) === tickerRoot(b)
+    && normalizedName(a).slice(0, 12) === normalizedName(b).slice(0, 12)
+    && normalizedName(a).length >= 12
+    && normalizedName(b).length >= 12;
+}
 
 /**
- * Discovery is strictly additive to the already validated operational seed.
- * The base array is preserved exactly/in-order, including intentional multiple
- * exchange aliases that may share an ISIN. Only newly discovered rows are
- * deduplicated against existing ticker/ISIN identities and against each other.
+ * Discovery is additive to the validated seed, but the operational pool must
+ * represent economic instruments rather than multiple exchange aliases of the
+ * same product. The base itself is preserved exactly for backward compatibility;
+ * newly discovered rows are rejected when they duplicate an existing ticker,
+ * ISIN, clearly identical product name, or a same-root cross-listing with the
+ * same issuer/product-name prefix. This prevents e.g. VUSA.DE + VUSA.AS or
+ * XEON.DE + XEON.MI from consuming two Top64 slots or receiving double allocation.
  */
 export function mergeOpenMarketAssets(
   base: readonly AssetUniverseItem[],
   discovered: readonly OpenMarketDiscoveryV1Asset[]
 ): AssetUniverseItem[] {
   const merged = [...base];
-  const seenTickers = new Set(base.map(normalizedTicker));
-  const seenIsins = new Set(base.map(normalizedIsin).filter((value): value is string => Boolean(value)));
 
   for (const row of discovered) {
-    const ticker = normalizedTicker(row.asset);
-    const isin = normalizedIsin(row.asset);
-    if (seenTickers.has(ticker) || Boolean(isin && seenIsins.has(isin))) continue;
+    if (merged.some(existing => sameEconomicListing(existing, row.asset))) continue;
     merged.push(row.asset);
-    seenTickers.add(ticker);
-    if (isin) seenIsins.add(isin);
   }
   return merged;
 }
 
-/**
- * Historical availability boundary for a known catalogue.
- * An instrument cannot participate before enough REAL bars actually existed.
- * This removes pre-listing look-ahead, but it does NOT solve catalogue
- * survivorship. A full historical open-market claim requires a point-in-time
- * instrument master including delistings; V1 reports that limitation explicitly.
- */
 export function historicallyAvailableAssetIds(
   dataset: MultiAssetDataset,
   decisionDate: string,
@@ -144,9 +158,10 @@ export function filterCatalogByHistoricalAvailability(
 }
 
 export const OPEN_MARKET_DISCOVERY_V1_LIMITATIONS = [
-  'Yahoo query search is a current/live discovery source and is not point-in-time historical instrument-master data.',
-  'The query sweep is broad but not exhaustive; Top 64 means the best ranked candidates in the current discovered EUR-compatible pool, not a claim to have enumerated every global security.',
-  'Historical replay may use only a frozen catalogue plus REAL bars available by each decision date; it must not call current Yahoo search to invent the past universe.',
+  'Yahoo Search/Lookup is a current/live discovery source and is not point-in-time historical instrument-master data.',
+  'The sweep is broad but not exhaustive; Top 64 means the best ranked candidates in the current discovered EUR-compatible pool, not a claim to have enumerated every global security.',
+  'Current discovery deduplicates obvious cross-listed representations of the same economic instrument before ranking; provider-wide ISIN coverage is still incomplete.',
+  'Historical replay may use only a frozen catalogue plus REAL bars available by each decision date; it must not call current Yahoo discovery to invent the past universe.',
   'Pre-listing look-ahead is blocked by minimum historical bars at the decision date.',
   'Survivorship bias is not fully removed until a provider supplies point-in-time listings and delistings; V1 must label historical coverage accordingly.',
   'Discovery proposes candidates only. AssetUniverseScanner and PortfolioCandidateGate retain their existing authority.'
