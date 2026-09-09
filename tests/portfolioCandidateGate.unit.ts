@@ -52,6 +52,20 @@ function candidate(assetId: string, ticker: string, category: string, bars: any[
   };
 }
 
+function datasetFor(rows: any[], barsById: Record<string, any[]>): any {
+  return {
+    timeframe: '1d',
+    assets: rows.map(c => ({
+      assetId: c.asset.assetId,
+      ticker: c.asset.ticker,
+      name: c.asset.name,
+      currency: 'EUR',
+      bars: barsById[c.asset.assetId],
+      provenance: { sourceType: 'REAL', provider: 'unit', symbol: c.asset.ticker, isReproducible: true }
+    }))
+  };
+}
+
 const strongBars = flatThenPopBars();
 const strongerBars = risingBars(1.0012);
 const weakBars = risingBars(1.00005);
@@ -63,10 +77,12 @@ const candidates: any[] = [
   candidate('WEAK', 'WEAK.DE', 'DIVIDEND', weakBars, 0.6, 8, 4, 2),
   candidate('FALLING', 'FALLING.DE', 'ENERGY', fallingBars, -20, 25, 30, -20)
 ];
-const acceptedDataset: any = {
-  timeframe: '1d',
-  assets: candidates.map((c, index) => ({ assetId: c.asset.assetId, ticker: c.asset.ticker, name: c.asset.name, currency: 'EUR', bars: [strongBars, strongerBars, weakBars, fallingBars][index], provenance: { sourceType: 'REAL', provider: 'unit', symbol: c.asset.ticker, isReproducible: true } }))
-};
+const acceptedDataset: any = datasetFor(candidates, {
+  STRONG_A: strongBars,
+  STRONG_B: strongerBars,
+  WEAK: weakBars,
+  FALLING: fallingBars
+});
 const scan: any = { scanned: 4, accepted: 4, rejected: 0, selected: candidates, candidates, acceptedDataset, dataset: acceptedDataset, rejectionCounts: {} };
 
 const result = PortfolioCandidateGate.apply(scan, 2.5, 12);
@@ -123,4 +139,45 @@ const slopeResult = PortfolioCandidateGate.apply(scan, 2.5, 12, 'SLOPE_V1');
 check('717 SLOPE_V1 is explicit and computes finite causal slope quality for eligible candidates', slopeResult.selectionPolicy === 'SLOPE_V1' && slopeResult.entries.filter(e => e.status === 'ELIGIBLE').every(e => Number.isFinite(e.slopeQualityScore)));
 check('718 SLOPE_V1 changes ranking evidence only and cannot bypass cash or structural gates', !slopeResult.scan.selected.some(c => c.asset.assetId === 'WEAK') && !slopeResult.scan.selected.some(c => c.asset.assetId === 'FALLING'));
 
-console.log(`Portfolio candidate gate: ${passed}/18 invariants passed.`);
+// Current/live dynamic discovery may return many individual companies with the
+// broad EUROPE_EQUITY label. That metadata limitation must not turn the legacy
+// two-per-category ETF diversification cap into a two-stocks-total bottleneck.
+const liveRows: any[] = [
+  candidate('EQ_LIVE_A', 'LIVA.DE', 'EUROPE_EQUITY', strongerBars, 20, 14, 8, 30),
+  candidate('EQ_LIVE_B', 'LIVB.DE', 'EUROPE_EQUITY', strongerBars, 20, 14, 8, 29),
+  candidate('EQ_LIVE_C', 'LIVC.DE', 'EUROPE_EQUITY', strongerBars, 20, 14, 8, 28),
+  candidate('ETF_LIVE_A', 'ETFA.DE', 'GLOBAL_EQUITY', strongerBars, 20, 14, 8, 27),
+  candidate('ETF_LIVE_B', 'ETFB.DE', 'GLOBAL_EQUITY', strongerBars, 20, 14, 8, 26),
+  candidate('ETF_LIVE_C', 'ETFC.DE', 'GLOBAL_EQUITY', strongerBars, 20, 14, 8, 25)
+];
+const liveDataset = datasetFor(liveRows, Object.fromEntries(liveRows.map(row => [row.asset.assetId, strongerBars])));
+const liveScan: any = {
+  scanned: liveRows.length,
+  accepted: liveRows.length,
+  rejected: 0,
+  selected: liveRows,
+  candidates: liveRows,
+  acceptedDataset: liveDataset,
+  dataset: liveDataset,
+  rejectionCounts: {},
+  dynamicMarketShortlist: {
+    mode: 'DYNAMIC_CURRENT_DISCOVERY',
+    rankingVersion: 'MARKET_SHORTLIST_LEGACY_SCORE_V1',
+    targetSize: 64,
+    applied: true,
+    candidatePoolSize: liveRows.length,
+    acceptedPoolSize: liveRows.length,
+    shortlistSize: liveRows.length,
+    shortlistAssetIds: liveRows.map(row => row.asset.assetId)
+  }
+};
+const liveGate = PortfolioCandidateGate.apply(liveScan, 2.5, 12);
+const liveSelectedIds = new Set(liveGate.scan.selected.map(row => row.asset.assetId));
+check('719 current/live individual equities do not share one artificial two-slot EUROPE_EQUITY bucket', ['EQ_LIVE_A', 'EQ_LIVE_B', 'EQ_LIVE_C'].every(id => liveSelectedIds.has(id)));
+check('720 current/live collective instruments retain the two-per-category diversification cap', ['ETF_LIVE_A', 'ETF_LIVE_B', 'ETF_LIVE_C'].filter(id => liveSelectedIds.has(id)).length === 2);
+
+const historicalLiveLikeScan: any = { ...liveScan, dynamicMarketShortlist: undefined };
+const historicalGate = PortfolioCandidateGate.apply(historicalLiveLikeScan, 2.5, 12);
+check('721 historical/research semantics remain unchanged: the original two-per-category cap still applies', historicalGate.scan.selected.filter(row => row.asset.category === 'EUROPE_EQUITY').length <= 2);
+
+console.log(`Portfolio candidate gate: ${passed}/21 invariants passed.`);
