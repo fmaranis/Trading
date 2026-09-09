@@ -291,7 +291,10 @@ export class AssetUniverseScanner {
       }
     });
     const acceptedCandidates = candidates.filter(c => c.status === 'ACCEPTED');
-    const requestedMax = options.maxSelected ?? (dynamicCurrentMarket ? DYNAMIC_MARKET_SHORTLIST_TARGET : 8);
+    // Current/live production always evaluates the canonical Top 64 target. Old
+    // callers may still pass maxSelected:12 from the pre-dynamic era; that option
+    // remains honored only for non-current/historical/research scans.
+    const requestedMax = dynamicCurrentMarket ? DYNAMIC_MARKET_SHORTLIST_TARGET : (options.maxSelected ?? 8);
     const legacyHistoricalCap = 10;
     const selected = dynamicCurrentMarket
       ? rankDynamicMarketShortlist(candidates, requestedMax)
