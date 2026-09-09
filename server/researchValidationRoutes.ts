@@ -27,198 +27,114 @@ interface JobState {
 }
 
 const MAX_OUTPUT_CHARS = 1_500_000;
+
+function archivedJob(id: string, name: string, description: string, historyLabel: string, marker?: string): JobDefinition {
+  return { id, name, description, marker, visibility: 'ARCHIVED', historyLabel, steps: [] };
+}
+
 const JOBS: JobDefinition[] = [
+  archivedJob(
+    'forward-risk-v8-fragmentation-diagnostic',
+    'Forward Risk V8 · diagnóstico de fragmentación',
+    'Diagnóstico histórico consumido. Confirmó fragmentación de la señal V8; su valor predictivo retenido se conserva, pero este job no puede relanzarse.',
+    'V8 · diagnóstico completado',
+    'FORWARD_RISK_V8_FRAGMENTATION_RESULT'
+  ),
+  archivedJob(
+    'forward-risk-v9-policy-guard',
+    'Forward Risk V9 · guard de política congelada',
+    'Guard histórico consumido de V9.',
+    'V9 · guard completado'
+  ),
+  archivedJob(
+    'forward-risk-v9-blind-validation',
+    'Forward Risk V9 · validación blind',
+    'Validación histórica consumida. V9_POLICY_1 falló el blind y está retirada.',
+    'V9 · blind FAIL · retirada',
+    'FORWARD_RISK_V9_BLIND_RESULT'
+  ),
+  archivedJob(
+    'forward-risk-v10-policy-guard',
+    'Forward Risk V10 · guard de política riesgo + oportunidad',
+    'Guard V10 consumido y archivado.',
+    'V10 · guard PASS'
+  ),
+  archivedJob(
+    'forward-risk-v10-blind-validation',
+    'Forward Risk · V10 · validación blind',
+    'Validación histórica consumida. V10_POLICY_1 falló el gate económico blind y queda retirada.',
+    'V10 · blind FAIL · retirada',
+    'FORWARD_RISK_V10_BLIND_RESULT'
+  ),
+  archivedJob(
+    'forward-risk-v11-policy-guard',
+    'Forward Risk · V11 · guard de sizing continuo',
+    'Guard V11 consumido y archivado.',
+    'V11 · guard PASS'
+  ),
+  archivedJob(
+    'forward-risk-v11-blind-validation',
+    'Forward Risk · V11 · validación blind',
+    'Validación histórica consumida. V11_POLICY_1 falló el gate blind de retorno/riesgo y queda retirada.',
+    'V11 · blind FAIL · retirada',
+    'FORWARD_RISK_V11_BLIND_RESULT'
+  ),
+  archivedJob(
+    'open-market-discovery-v1-validation',
+    'Mercado abierto · V1 · discovery + core shadow',
+    'Validación de infraestructura consumida con PASS. Confirmó discovery current/live integrado sin modificar el replay histórico.',
+    'Mercado abierto V1 · infraestructura PASS',
+    'OPEN_MARKET_DISCOVERY_V1_LIVE_RESULT'
+  ),
+  archivedJob(
+    'open-market-live-scanner-integration',
+    'Mercado abierto · V1 · integración en scanner live',
+    'Integración current/live consumida con PASS; CORE_ELIGIBILITY_V2 continúa shadow.',
+    'Mercado abierto V1 · integración live PASS',
+    'OPEN_MARKET_LIVE_SCANNER_INTEGRATION_RESULT'
+  ),
+  archivedJob(
+    'opportunity-ranking-causal-comparison-v1',
+    'Oportunidad · ranking causal · LEGACY vs QUALITY vs SLOPE',
+    'Diagnóstico histórico consumido. QUALITY quedó research-only con efecto insuficiente; SLOPE no justificó promoción; producción continúa LEGACY.',
+    'Ranking causal V1 · QUALITY insuficiente · SLOPE no mejora',
+    'OPPORTUNITY_RANKING_CAUSAL_COMPARISON_RESULT'
+  ),
+  archivedJob(
+    'opportunity-ranking-reach-audit-v1',
+    'Oportunidad · auditoría de alcance del ranking',
+    'Diagnóstico consumido. QUALITY cambiaba ranking/selección pero apenas alcanzaba compras con capital cerrado.',
+    'Ranking reach audit · señal moría antes del capital',
+    'OPPORTUNITY_RANKING_REACH_AUDIT_RESULT'
+  ),
+  archivedJob(
+    'opportunity-quality-allocation-bridge-v1',
+    'Oportunidad · QUALITY bridge de asignación',
+    'Diagnóstico consumido. El bridge llegó al allocator, pero el replay cerrado sólo tuvo capital desplegable en 3/228 decisiones.',
+    'QUALITY bridge · capital disponible fue el cuello de botella',
+    'OPPORTUNITY_QUALITY_ALLOCATION_BRIDGE_V1_RESULT'
+  ),
+  archivedJob(
+    'replay-explicit-cash-flows-v1',
+    'Replay · flujos externos explícitos',
+    'PASS consumido el 2026-09-09. Confirmó causalidad/contabilidad de externalCashFlows y que el capital explícito aumentó el reach: gates desplegables 3 -> 22 y +212.386,21 EUR de notional ejecutado; QUALITY alcanzó 10 planes y 23 fechas ejecutadas, sin evidencia económica suficiente para promoción.',
+    'Flujos explícitos V1 · PASS · reach de capital demostrado',
+    'REPLAY_EXPLICIT_CASH_FLOWS_V1_RESULT'
+  ),
   {
-    id: 'forward-risk-v8-fragmentation-diagnostic',
-    name: 'Forward Risk V8 · diagnóstico de fragmentación',
-    description: 'Diagnóstico histórico archivado. Confirmó fragmentación de la señal V8; no forma parte del flujo operativo actual.',
-    marker: 'FORWARD_RISK_V8_FRAGMENTATION_RESULT',
-    visibility: 'ARCHIVED',
-    historyLabel: 'V8 · diagnóstico completado',
-    steps: [
-      { label: 'Guard V8 fragmentación', command: 'npx', args: ['tsx', 'tests/forwardRiskV8FragmentationDiagnostic.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'V8 diagnóstico de estados ON/OFF', command: 'npx', args: ['tsx', 'scripts/forwardRiskV8FragmentationDiagnosticLive.ts'] }
-    ]
-  },
-  {
-    id: 'forward-risk-v9-policy-guard',
-    name: 'Forward Risk V9 · guard de política congelada',
-    description: 'Guard histórico archivado de V9.',
-    visibility: 'ARCHIVED',
-    historyLabel: 'V9 · guard completado',
-    steps: [
-      { label: 'Guard V9 máquina de estados', command: 'npx', args: ['tsx', 'tests/forwardRiskV9StateMachine.unit.ts'] },
-      { label: 'Guard V9 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV9ValidationProtocol.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
-    ]
-  },
-  {
-    id: 'forward-risk-v9-blind-validation',
-    name: 'Forward Risk V9 · validación blind',
-    description: 'Validación histórica consumida. V9_POLICY_1 falló el blind y está retirada.',
-    marker: 'FORWARD_RISK_V9_BLIND_RESULT',
-    visibility: 'ARCHIVED',
-    historyLabel: 'V9 · blind FAIL · retirada',
-    steps: [
-      { label: 'Guard V9 máquina de estados', command: 'npx', args: ['tsx', 'tests/forwardRiskV9StateMachine.unit.ts'] },
-      { label: 'Guard V9 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV9ValidationProtocol.unit.ts'] },
-      { label: 'Guard V9 runner blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV9BlindValidation.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'V9 validación blind one-shot', command: 'npx', args: ['tsx', 'scripts/forwardRiskV9BlindValidationLive.ts'] }
-    ]
-  },
-  {
-    id: 'forward-risk-v10-policy-guard',
-    name: 'Forward Risk V10 · guard de política riesgo + oportunidad',
-    description: 'Guard V10 ya superado y archivado tras registrar PASS.',
-    visibility: 'ARCHIVED',
-    historyLabel: 'V10 · guard PASS',
-    steps: [
-      { label: 'Guard V10 política de dinero nuevo', command: 'npx', args: ['tsx', 'tests/forwardRiskV10Policy.unit.ts'] },
-      { label: 'Guard V10 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV10ValidationProtocol.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
-    ]
-  },
-  {
-    id: 'forward-risk-v10-blind-validation',
-    name: 'Forward Risk · V10 · validación blind',
-    description: 'Validación histórica consumida. V10_POLICY_1 terminó correctamente a nivel técnico, pero falló el gate económico blind y queda retirada. No puede relanzarse ni retunearse sobre estos seis activos.',
-    marker: 'FORWARD_RISK_V10_BLIND_RESULT',
-    visibility: 'ARCHIVED',
-    historyLabel: 'V10 · blind FAIL · retirada',
-    steps: [
-      { label: 'Guard V10 política de dinero nuevo', command: 'npx', args: ['tsx', 'tests/forwardRiskV10Policy.unit.ts'] },
-      { label: 'Guard V10 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV10ValidationProtocol.unit.ts'] },
-      { label: 'Guard V10 runner blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV10BlindValidation.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'V10 validación blind one-shot', command: 'npx', args: ['tsx', 'scripts/forwardRiskV10BlindValidationLive.ts'] }
-    ]
-  },
-  {
-    id: 'forward-risk-v11-policy-guard',
-    name: 'Forward Risk · V11 · guard de sizing continuo',
-    description: 'Guard V11 superado localmente antes de abrir el holdout.',
-    visibility: 'ARCHIVED',
-    historyLabel: 'V11 · guard PASS',
-    steps: [
-      { label: 'Guard V11 sizing continuo', command: 'npx', args: ['tsx', 'tests/forwardRiskV11SizingOverlay.unit.ts'] },
-      { label: 'Guard V11 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11ValidationProtocol.unit.ts'] },
-      { label: 'Guard V11 runner blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11BlindValidation.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
-    ]
-  },
-  {
-    id: 'forward-risk-v11-blind-validation',
-    name: 'Forward Risk · V11 · validación blind',
-    description: 'Validación histórica consumida. V11_POLICY_1 terminó correctamente a nivel técnico, pero falló el gate blind de retorno/riesgo y queda retirada. No puede relanzarse ni retunearse sobre estos seis activos.',
-    marker: 'FORWARD_RISK_V11_BLIND_RESULT',
-    visibility: 'ARCHIVED',
-    historyLabel: 'V11 · blind FAIL · retirada',
-    steps: [
-      { label: 'Preflight FRED/ALFRED', command: 'npx', args: ['tsx', 'scripts/forwardRiskV11RuntimePreflight.ts'] },
-      { label: 'Guard V11 sizing continuo', command: 'npx', args: ['tsx', 'tests/forwardRiskV11SizingOverlay.unit.ts'] },
-      { label: 'Guard V11 protocolo blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11ValidationProtocol.unit.ts'] },
-      { label: 'Guard V11 runner blind', command: 'npx', args: ['tsx', 'tests/forwardRiskV11BlindValidation.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'V11 validación blind one-shot', command: 'npx', args: ['tsx', 'scripts/forwardRiskV11BlindValidationLive.ts'] }
-    ]
-  },
-  {
-    id: 'open-market-discovery-v1-validation',
-    name: 'Mercado abierto · V1 · discovery + core shadow',
-    description: 'Validación de infraestructura consumida con PASS el 2026-09-07. Confirmó Yahoo current/live -> scanner REAL -> CORE_ELIGIBILITY_V2 shadow -> PortfolioCandidateGate, sin modificar el replay histórico.',
-    marker: 'OPEN_MARKET_DISCOVERY_V1_LIVE_RESULT',
-    visibility: 'ARCHIVED',
-    historyLabel: 'Mercado abierto V1 · infraestructura PASS',
-    steps: [
-      { label: 'Guard discovery V1', command: 'npx', args: ['tsx', 'tests/openMarketDiscoveryV1.unit.ts'] },
-      { label: 'Guard core eligibility V2', command: 'npx', args: ['tsx', 'tests/coreEligibilityV2.unit.ts'] },
-      { label: 'Guard arquitectura discovery', command: 'npx', args: ['tsx', 'tests/openMarketDiscoveryArchitecture.unit.ts'] },
-      { label: 'Guard búsqueda manual replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Smoke REAL discovery + scanner + gate', command: 'npx', args: ['tsx', 'scripts/openMarketDiscoveryV1Live.ts'] }
-    ]
-  },
-  {
-    id: 'open-market-live-scanner-integration',
-    name: 'Mercado abierto · V1 · integración en scanner live',
-    description: 'Integración CURRENT/LIVE cerrada con PASS el 2026-09-08: 64 activos base + 2 ETF descubiertos = 66 escaneados; 2 OPEN_* aceptados con provenance REAL; ambos quedaron REJECTED por DOES_NOT_BEAT_CASH. CORE_ELIGIBILITY_V2 siguió shadow y el replay histórico no se modificó.',
-    marker: 'OPEN_MARKET_LIVE_SCANNER_INTEGRATION_RESULT',
-    visibility: 'ARCHIVED',
-    historyLabel: 'Mercado abierto V1 · integración live PASS',
-    steps: [
-      { label: 'Guard discovery V1', command: 'npx', args: ['tsx', 'tests/openMarketDiscoveryV1.unit.ts'] },
-      { label: 'Guard core eligibility V2 shadow', command: 'npx', args: ['tsx', 'tests/coreEligibilityV2.unit.ts'] },
-      { label: 'Guard arquitectura discovery', command: 'npx', args: ['tsx', 'tests/openMarketDiscoveryArchitecture.unit.ts'] },
-      { label: 'Guard integración scanner live', command: 'npx', args: ['tsx', 'tests/openMarketLiveScannerIntegration.unit.ts'] },
-      { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Smoke REAL scanner live + gate', command: 'npx', args: ['tsx', 'scripts/openMarketLiveScannerIntegration.ts'] }
-    ]
-  },
-  {
-    id: 'opportunity-ranking-causal-comparison-v1',
-    name: 'Oportunidad · ranking causal · LEGACY vs QUALITY vs SLOPE',
-    description: 'Diagnóstico histórico consumido el 2026-09-08. QUALITY quedó research-only con efecto insuficiente; SLOPE no es candidato de promoción en su forma actual; producción continúa LEGACY. No se permite tuning sobre estas ventanas.',
-    marker: 'OPPORTUNITY_RANKING_CAUSAL_COMPARISON_RESULT',
-    visibility: 'ARCHIVED',
-    historyLabel: 'Ranking causal V1 · QUALITY insuficiente · SLOPE no mejora',
-    steps: [
-      { label: 'Guard arquitectura ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingArchitecture.unit.ts'] },
-      { label: 'Guard protocolo ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingComparison.unit.ts'] },
-      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
-      { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Comparación REAL 3 políticas × 3 ventanas', command: 'npx', args: ['tsx', 'scripts/opportunityRankingCausalComparisonLive.ts'] }
-    ]
-  },
-  {
-    id: 'opportunity-ranking-reach-audit-v1',
-    name: 'Oportunidad · auditoría de alcance del ranking',
-    description: 'Diagnóstico consumido el 2026-09-08. Confirmó 0 violaciones de elegibilidad y que QUALITY cambia orden/conjunto muchas veces pero casi nunca llega a compras ejecutadas. El cuello de botella está en asignación de capital, no en la selección.',
-    marker: 'OPPORTUNITY_RANKING_REACH_AUDIT_RESULT',
-    visibility: 'ARCHIVED',
-    historyLabel: 'Ranking reach audit · señal muere antes del capital',
-    steps: [
-      { label: 'Guard arquitectura ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingArchitecture.unit.ts'] },
-      { label: 'Guard alcance ranking', command: 'npx', args: ['tsx', 'tests/opportunityRankingReachAudit.unit.ts'] },
-      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
-      { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Auditoría REAL 3 políticas × 3 ventanas', command: 'npx', args: ['tsx', 'scripts/opportunityRankingReachAuditLive.ts'] }
-    ]
-  },
-  {
-    id: 'opportunity-quality-allocation-bridge-v1',
-    name: 'Oportunidad · QUALITY bridge de asignación',
-    description: 'Diagnóstico consumido. El bridge llegó al allocator, pero apenas movió capital porque el replay cerrado tuvo capital desplegable en sólo 3/228 decisiones. Resultado: technical pass, reach insuficiente y no promoción.',
-    marker: 'OPPORTUNITY_QUALITY_ALLOCATION_BRIDGE_V1_RESULT',
-    visibility: 'ARCHIVED',
-    historyLabel: 'QUALITY bridge · capital disponible fue el cuello de botella',
-    steps: [
-      { label: 'Guard QUALITY bridge', command: 'npx', args: ['tsx', 'tests/opportunityQualityAllocationBridge.unit.ts'] },
-      { label: 'Guard restricciones de asignación', command: 'npx', args: ['tsx', 'tests/opportunityAllocationConstraintAudit.unit.ts'] },
-      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
-      { label: 'Guard replay existente', command: 'npx', args: ['tsx', 'tests/openMarketReplayDiscovery.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Diagnóstico REAL de restricciones', command: 'npx', args: ['tsx', 'scripts/opportunityQualityAllocationBridgeV1Live.ts'] }
-    ]
-  },
-  {
-    id: 'replay-explicit-cash-flows-v1',
-    name: 'Replay · flujos externos explícitos',
-    description: 'Valida dentro del replay existente que MONTHLY sea sólo frecuencia de decisión y que aportaciones/retiradas fechadas entren causalmente como flujos externos. Compara capital cerrado, aportaciones explícitas con LEGACY y el mismo flujo con QUALITY research-only; producción no cambia.',
-    marker: 'REPLAY_EXPLICIT_CASH_FLOWS_V1_RESULT',
+    id: 'quality-allocation-future-forward-v1',
+    name: 'QUALITY allocation · future-forward V1',
+    description: 'Checkpoint prospectivo congelado el 09/09/2026. Desde 10/09/2026 compara LEGACY productivo con QUALITY_ALLOCATION_BRIDGE_V1 shadow sobre un universo fijo de 64 activos y los mismos flujos explícitos research-only. Antes de 252 sesiones sólo acumula evidencia; no permite tuning ni promoción.',
+    marker: 'QUALITY_ALLOCATION_FUTURE_FORWARD_V1_RESULT',
     visibility: 'CURRENT',
     steps: [
+      { label: 'Guard protocolo future-forward', command: 'npx', args: ['tsx', 'tests/qualityAllocationFutureForwardV1.unit.ts'] },
+      { label: 'Guard QUALITY bridge congelado', command: 'npx', args: ['tsx', 'tests/opportunityAllocationConstraintAudit.unit.ts'] },
       { label: 'Guard contabilidad de flujos', command: 'npx', args: ['tsx', 'tests/replayExternalCashFlows.unit.ts'] },
-      { label: 'Guard integración flujos/replay', command: 'npx', args: ['tsx', 'tests/replayExternalCashFlowIntegration.unit.ts'] },
       { label: 'Guard replay dinámico existente', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
-      { label: 'Guard modos de cartera inicial', command: 'npx', args: ['tsx', 'tests/replayInitialPortfolioModes.unit.ts'] },
       { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Diagnóstico REAL closed vs flujos explícitos vs QUALITY', command: 'npx', args: ['tsx', 'scripts/replayExplicitCashFlowsV1Live.ts'] }
+      { label: 'Checkpoint REAL future-forward', command: 'npx', args: ['tsx', 'scripts/qualityAllocationFutureForwardV1CheckpointLive.ts'] }
     ]
   }
 ];
