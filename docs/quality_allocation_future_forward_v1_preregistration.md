@@ -61,6 +61,46 @@ Limitación retenida: sigue sin ser un instrument master histórico point-in-tim
 - las decisiones sólo utilizan prefixes disponibles en su fecha;
 - ejecución posterior a señal según la arquitectura existente.
 
+## Continuidad prospectiva / historial inmutable
+
+La fase no puede recalcular dentro de unos meses el período forward completo con código nuevo y aceptar silenciosamente una historia diferente.
+
+Por ello existe un estado runtime local:
+
+`.runtime/quality-allocation-future-forward-v1-state.json`
+
+`.runtime/` está excluido de Git y este mecanismo no usa GitHub Actions ni auto-commits.
+
+El primer checkpoint debe crear el baseline **antes de que existan outcomes posteriores a la fecha elegible**. Si el baseline falta cuando los datos REAL ya superan el 2026-09-10, la fase no puede reconstruirse retrospectivamente y queda invalidada.
+
+El estado conserva:
+
+- fingerprint SHA-256 del protocolo congelado;
+- fingerprint SHA-256 del universo congelado;
+- última fecha REAL cerrada;
+- hash del prefijo de decisiones LEGACY ya observado;
+- hash del prefijo de decisiones QUALITY ya observado.
+
+En cada checkpoint posterior se vuelve a calcular únicamente para verificar continuidad. Todo prefijo ya observado debe coincidir exactamente con el hash anterior.
+
+Si cambia una decisión pasada, un plan pasado o una ejecución que ya era observable en la fecha bloqueada, el estado es:
+
+`PHASE_A_INVALIDATED_FORWARD_HISTORY_DRIFT_KEEP_LEGACY`.
+
+El hash previo no se sobreescribe.
+
+Una señal generada en el último día bloqueado puede ejecutarse legítimamente después mediante `NEXT_OPEN`; esa ejecución futura no se considera reescritura porque sólo se bloquean hechos de ejecución ya observables hasta la fecha cerrada.
+
+Si cambia el protocolo o el universo respecto al fingerprint persistido:
+
+`PHASE_A_INVALIDATED_FROZEN_CONTRACT_DRIFT_KEEP_LEGACY`.
+
+Si falta el baseline después de comenzar los outcomes:
+
+`PHASE_A_INVALIDATED_MISSING_FORWARD_BASELINE_KEEP_LEGACY`.
+
+En cualquier invalidación producción continúa `LEGACY`; no se permite tuning ni promoción.
+
 ## Configuración común
 
 - frecuencia: MONTHLY;
@@ -92,7 +132,7 @@ No se permite interpretación económica Phase A antes de:
 
 **252 sesiones forward**.
 
-Hasta entonces el único estado válido es:
+Hasta entonces el estado normal es:
 
 `ACCUMULATING_FUTURE_DATA`.
 
@@ -138,9 +178,17 @@ Producción permanece `LEGACY` durante toda Phase A.
 
 ## Estados permitidos
 
+Estados normales:
+
 - `ACCUMULATING_FUTURE_DATA`;
 - `PHASE_A_INCONCLUSIVE_INSUFFICIENT_REACH_KEEP_LEGACY`;
 - `PHASE_A_FAIL_KEEP_LEGACY`;
 - `PHASE_A_CANDIDATE_FOR_CONFIRMATION`.
+
+Estados de invalidación de integridad:
+
+- `PHASE_A_INVALIDATED_FORWARD_HISTORY_DRIFT_KEEP_LEGACY`;
+- `PHASE_A_INVALIDATED_FROZEN_CONTRACT_DRIFT_KEEP_LEGACY`;
+- `PHASE_A_INVALIDATED_MISSING_FORWARD_BASELINE_KEEP_LEGACY`.
 
 No existe un estado de promoción directa en V1.
