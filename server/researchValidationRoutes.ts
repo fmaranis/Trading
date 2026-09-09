@@ -127,7 +127,22 @@ const JOBS: JobDefinition[] = [
     'ANULADO ANTES DE ARRANCAR/ANTES DE OUTCOMES. Congelaba 64 nombres y por tanto contradecía la arquitectura productiva: el mercado debe descubrirse dinámicamente y 64 significa shortlist dinámica, no whitelist. No consumió muestra ni genera evidencia. Debe sustituirse por un protocolo que congele reglas de discovery/ranking y registre snapshots de candidatos por fecha.',
     'QUALITY future-forward V1 · VOID pre-start · universo fijo incorrecto',
     'QUALITY_ALLOCATION_FUTURE_FORWARD_V1_RESULT'
-  )
+  ),
+  {
+    id: 'dynamic-market-top64-v1',
+    name: 'Mercado dinámico · Top 64 current/live',
+    description: 'Valida la invariante central de producto: discovery current/live amplio sobre seed/fallback, ranking reproducible y Top 64 dinámico antes de PortfolioCandidateGate. Incluye ETF y acciones EUR descubiertas; no cambia LEGACY, no toca replay histórico y no afirma cobertura exhaustiva mundial.',
+    marker: 'DYNAMIC_MARKET_TOP64_LIVE_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard Top 64 dinámico', command: 'npx', args: ['tsx', 'tests/dynamicMarketShortlist.unit.ts'] },
+      { label: 'Guard integración discovery live', command: 'npx', args: ['tsx', 'tests/openMarketLiveScannerIntegration.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Validación REAL Top 64 current/live', command: 'npx', args: ['tsx', 'scripts/dynamicMarketTop64Live.ts'] }
+    ]
+  }
 ];
 
 const states = new Map<string, JobState>();
