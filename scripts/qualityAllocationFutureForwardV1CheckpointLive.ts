@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { HistoricalMarketDataService } from '../src/investment/data/marketData/historicalMarketDataService';
 import { MarketDataProviderRegistry } from '../src/investment/data/marketData/registry';
 import { RealMarketDataProvider } from '../src/investment/data/marketData/providers/realMarketDataProvider';
@@ -21,6 +24,7 @@ import { runDynamicReplayWithRotationExperiment } from '../src/investment/decisi
 
 const MARKER = 'QUALITY_ALLOCATION_FUTURE_FORWARD_V1_RESULT';
 const LOOKBACK_START_DATE = '2025-01-01';
+const STATE_RELATIVE_PATH = '.runtime/quality-allocation-future-forward-v1-state.json';
 type Evaluate = typeof PortfolioDecisionEngine.evaluate;
 
 interface AllocationTrace {
@@ -35,9 +39,74 @@ interface ArmRun {
   result: DynamicHistoricalReplayResult;
   traces: AllocationTrace[];
 }
+interface ForwardContinuityState {
+  version: 'QUALITY_ALLOCATION_FUTURE_FORWARD_V1_STATE';
+  createdAt: string;
+  updatedAt: string;
+  protocolFingerprint: string;
+  universeFingerprint: string;
+  lastLockedDataDate: string | null;
+  legacyHistoryHash: string | null;
+  qualityHistoryHash: string | null;
+}
 
 function todayUtc(): string { return new Date().toISOString().slice(0, 10); }
 function isoDate(timestamp: string): string { return timestamp.slice(0, 10); }
+function round(value: unknown): number | null {
+  const number = Number(value);
+  return Number.isFinite(number) ? Number(number.toFixed(6)) : null;
+}
+function hashJson(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+function protocolFingerprint(): string { return hashJson(PROTOCOL); }
+function universeFingerprint(): string {
+  return hashJson(FROZEN_UNIVERSE.map(asset => ({
+    assetId: asset.assetId,
+    ticker: asset.ticker,
+    isin: asset.isin ?? null,
+    name: asset.name,
+    category: asset.category,
+    currency: asset.currency,
+    instrumentType: asset.instrumentType ?? 'ETF_ETC',
+    marketDataProvider: asset.marketDataProvider ?? 'YAHOO'
+  })));
+}
+function statePath(): string { return resolve(process.cwd(), STATE_RELATIVE_PATH); }
+function loadContinuityState(): ForwardContinuityState | null {
+  const path = statePath();
+  if (!existsSync(path)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as ForwardContinuityState;
+    return parsed?.version === 'QUALITY_ALLOCATION_FUTURE_FORWARD_V1_STATE' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+function saveContinuityState(state: ForwardContinuityState): void {
+  const path = statePath();
+  const temp = `${path}.tmp`;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(temp, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  renameSync(temp, path);
+}
+function newContinuityState(): ForwardContinuityState {
+  const now = new Date().toISOString();
+  return {
+    version: 'QUALITY_ALLOCATION_FUTURE_FORWARD_V1_STATE',
+    createdAt: now,
+    updatedAt: now,
+    protocolFingerprint: protocolFingerprint(),
+    universeFingerprint: universeFingerprint(),
+    lastLockedDataDate: null,
+    legacyHistoryHash: null,
+    qualityHistoryHash: null
+  };
+}
+function stateMatchesFrozenContract(state: ForwardContinuityState): boolean {
+  return state.protocolFingerprint === protocolFingerprint()
+    && state.universeFingerprint === universeFingerprint();
+}
 function latestDatasetDate(dataset: { assets: Array<{ bars: Array<{ timestamp: string }> }> }): string | null {
   const dates = dataset.assets.flatMap(asset => asset.bars.slice(-1).map(bar => isoDate(bar.timestamp))).sort();
   return dates.at(-1) ?? null;
@@ -117,6 +186,43 @@ function runArm(input: DynamicHistoricalReplayInput, policy: OpportunityAllocati
     PortfolioDecisionEngine.evaluate = originalEvaluate;
   }
 }
+function lockedHistoryPayload(run: ArmRun, throughDate: string) {
+  return {
+    policy: run.policy,
+    throughDate,
+    traces: run.traces
+      .filter(trace => trace.asOfDate <= throughDate)
+      .map(trace => [
+        trace.asOfDate,
+        round(trace.currentCashEur),
+        round(trace.deployableToAssetsEur),
+        round(trace.recommendedNewInvestmentEur),
+        trace.contributions.map(row => [row.assetId, round(row.amountEur)])
+      ]),
+    signals: run.result.signals
+      .filter(signal => signal.signalDate >= PROTOCOL.eligibleStartDate && signal.signalDate <= throughDate)
+      .map(signal => [
+        signal.signalDate,
+        signal.executionDate,
+        signal.assetId,
+        signal.action,
+        signal.executed,
+        round(signal.targetWeight),
+        round(signal.currentWeight),
+        round(signal.recommendedAmountEur),
+        round(signal.unitsDelta),
+        round(signal.notionalEur),
+        round(signal.feeEur),
+        round(signal.estimatedTaxEur),
+        signal.consensusScore,
+        signal.timingState,
+        round(signal.timingScore)
+      ])
+  };
+}
+function lockedHistoryHash(run: ArmRun, throughDate: string): string {
+  return hashJson(lockedHistoryPayload(run, throughDate));
+}
 function summarizeArm(run: ArmRun) {
   return {
     policy: run.policy,
@@ -190,6 +296,8 @@ async function main() {
 
     const endDate = latestDatasetDate(dataset);
     const forwardDates = endDate ? forwardTradingDates(dataset, endDate) : [];
+    let continuityState = loadContinuityState();
+    const continuityContractValid = continuityState == null || stateMatchesFrozenContract(continuityState);
     const common = {
       version: PROTOCOL.version,
       generatedAt: new Date().toISOString(),
@@ -209,25 +317,72 @@ async function main() {
         minimumForwardSessionsForEconomicEvaluation: PROTOCOL.minimumForwardSessionsForEconomicEvaluation,
         economicEvaluationMature: forwardDates.length >= PROTOCOL.minimumForwardSessionsForEconomicEvaluation
       },
+      continuity: {
+        statePath: STATE_RELATIVE_PATH,
+        statePresentBeforeRun: continuityState != null,
+        frozenContractMatchesPersistedState: continuityContractValid,
+        lastLockedDataDateBeforeRun: continuityState?.lastLockedDataDate ?? null,
+        retroactiveHistoryDriftDetected: false
+      },
       interpretationContract: {
         productionAllocationPolicyRemains: 'LEGACY',
         qualityRemainsShadowResearchOnly: true,
         noEconomicInterpretationBeforeMaturity: true,
         noParameterRetuningAllowed: true,
         phaseACannotPromoteDirectly: true,
-        onlyOutcomesOnOrAfter: PROTOCOL.eligibleStartDate
+        onlyOutcomesOnOrAfter: PROTOCOL.eligibleStartDate,
+        previouslyObservedForwardHistoryIsImmutable: true
       }
     };
+
+    if (continuityState && !continuityContractValid) {
+      emit({
+        ...common,
+        status: 'PHASE_A_INVALIDATED_FROZEN_CONTRACT_DRIFT_KEEP_LEGACY',
+        reach: null,
+        economics: null,
+        notes: [
+          'The persisted future-forward state no longer matches the frozen protocol or 64-asset universe fingerprint.',
+          'The phase is invalidated rather than silently accepting a changed protocol. Production remains LEGACY.'
+        ]
+      });
+      return;
+    }
+
+    if (!continuityState && endDate && endDate > PROTOCOL.eligibleStartDate) {
+      emit({
+        ...common,
+        status: 'PHASE_A_INVALIDATED_MISSING_FORWARD_BASELINE_KEEP_LEGACY',
+        reach: null,
+        economics: null,
+        notes: [
+          `No continuity baseline exists, but REAL data already extend beyond ${PROTOCOL.eligibleStartDate}.`,
+          'The protocol forbids creating the baseline retrospectively after forward outcomes exist. Production remains LEGACY.'
+        ]
+      });
+      return;
+    }
+
+    if (!continuityState) {
+      continuityState = newContinuityState();
+      saveContinuityState(continuityState);
+    }
 
     if (!endDate || endDate <= PROTOCOL.eligibleStartDate) {
       emit({
         ...common,
+        continuity: {
+          ...common.continuity,
+          baselineInitializedThisRun: common.continuity.statePresentBeforeRun === false,
+          lastLockedDataDateAfterRun: continuityState.lastLockedDataDate
+        },
         status: 'ACCUMULATING_FUTURE_DATA',
         reach: null,
         economics: null,
         notes: [
-          `No evaluable forward outcome yet: latest REAL date ${endDate ?? 'N/D'} must be after ${PROTOCOL.eligibleStartDate}.`,
+          `Prospective baseline locked before evaluable outcomes. Latest REAL date ${endDate ?? 'N/D'} must be after ${PROTOCOL.eligibleStartDate} for an outcome checkpoint.`,
           'Historical bars before the eligible start are warmup features only and are never counted as Phase A outcome evidence.',
+          'The local continuity state will reject later attempts to rewrite already-observed forward decisions.',
           'Production remains LEGACY; QUALITY remains frozen shadow-only.'
         ]
       });
@@ -260,6 +415,33 @@ async function main() {
       throw new Error('QUALITY_FF_V1_PRESTART_SIGNAL_LEAK');
     }
 
+    if (continuityState.lastLockedDataDate) {
+      const legacyPriorHash = lockedHistoryHash(legacy, continuityState.lastLockedDataDate);
+      const qualityPriorHash = lockedHistoryHash(quality, continuityState.lastLockedDataDate);
+      const drift = legacyPriorHash !== continuityState.legacyHistoryHash || qualityPriorHash !== continuityState.qualityHistoryHash;
+      if (drift) {
+        emit({
+          ...common,
+          continuity: {
+            ...common.continuity,
+            lastLockedDataDateBeforeRun: continuityState.lastLockedDataDate,
+            retroactiveHistoryDriftDetected: true,
+            legacyPriorHashMatches: legacyPriorHash === continuityState.legacyHistoryHash,
+            qualityPriorHashMatches: qualityPriorHash === continuityState.qualityHistoryHash
+          },
+          status: 'PHASE_A_INVALIDATED_FORWARD_HISTORY_DRIFT_KEEP_LEGACY',
+          reach: null,
+          economics: null,
+          notes: [
+            `A previously locked forward decision prefix through ${continuityState.lastLockedDataDate} changed on recomputation.`,
+            'The checkpoint refuses to rewrite past forward evidence. The persisted lock is not overwritten.',
+            'Production remains LEGACY and the candidate cannot be promoted or retuned from this invalidated phase.'
+          ]
+        });
+        return;
+      }
+    }
+
     const plan = traceComparison(legacy.traces, quality.traces);
     const execution = compareAcquisitions(legacy.result, quality.result);
     const reached = reachPass(plan, execution);
@@ -284,8 +466,23 @@ async function main() {
           ? 'PHASE_A_CANDIDATE_FOR_CONFIRMATION'
           : 'PHASE_A_FAIL_KEEP_LEGACY';
 
+    const nextState: ForwardContinuityState = {
+      ...continuityState,
+      updatedAt: new Date().toISOString(),
+      lastLockedDataDate: endDate,
+      legacyHistoryHash: lockedHistoryHash(legacy, endDate),
+      qualityHistoryHash: lockedHistoryHash(quality, endDate)
+    };
+    saveContinuityState(nextState);
+
     emit({
       ...common,
+      continuity: {
+        ...common.continuity,
+        lastLockedDataDateAfterRun: nextState.lastLockedDataDate,
+        retroactiveHistoryDriftDetected: false,
+        lockedPrefixPersisted: true
+      },
       status,
       flowFixture: {
         count: flows.length,
@@ -306,6 +503,7 @@ async function main() {
       notes: [
         'Only sessions from 2026-09-10 onward count as forward outcome evidence. Older REAL bars are causal feature warmup only.',
         'The same frozen 64-asset universe and the same explicit research-only cash-flow fixture are used in both arms.',
+        'Every completed checkpoint locks the observed LEGACY and QUALITY decision prefix with SHA-256 in .runtime; a later rewrite invalidates Phase A.',
         'QUALITY_ALLOCATION_BRIDGE_V1 remains frozen at the already-consumed coefficients/bounds; this checkpoint cannot retune it.',
         'Before 252 forward sessions, economic deltas are diagnostic telemetry only and cannot be interpreted as PASS/FAIL.',
         'Even PHASE_A_CANDIDATE_FOR_CONFIRMATION does not promote QUALITY; it only permits a separately frozen fresh confirmation phase.',
