@@ -1,6 +1,17 @@
 import { EUR_ASSET_UNIVERSE, type AssetUniverseItem } from './assetUniverse';
 
 /**
+ * CORE PRODUCT INVARIANT.
+ *
+ * The product market is dynamic current/live discovery. The number 64 means
+ * shortlist target/capacity, never a permanent whitelist of these catalogue
+ * rows. See docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md.
+ */
+export const PRODUCT_MARKET_UNIVERSE_MODE = 'DYNAMIC_CURRENT_DISCOVERY' as const;
+export const DYNAMIC_MARKET_SHORTLIST_TARGET = 64 as const;
+export const FIXED_PRODUCT_UNIVERSE_FORBIDDEN = true as const;
+
+/**
  * Production discovery expansion for portfolio candidates.
  *
  * This list is deliberately separate from EUR_VALIDATION_HOLDOUT_UNIVERSE so
@@ -59,9 +70,12 @@ function dedupe(items: AssetUniverseItem[]): AssetUniverseItem[] {
 }
 
 /**
- * Candidate universe used by the live portfolio decision path. It is broader
- * than the original ETF/fund set but remains independent from the validation
- * holdout universe.
+ * Validated bootstrap/seed/fallback for the live portfolio decision path.
+ *
+ * IMPORTANT: this array is NOT the final product market universe and must not
+ * be frozen as the future candidate set. Current/live discovery is expected to
+ * expand/renew the pool before dynamic ranking selects up to
+ * DYNAMIC_MARKET_SHORTLIST_TARGET candidates.
  */
 export const EUR_PORTFOLIO_DISCOVERY_UNIVERSE: AssetUniverseItem[] = dedupe([
   ...EUR_ASSET_UNIVERSE,
