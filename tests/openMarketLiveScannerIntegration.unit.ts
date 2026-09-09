@@ -7,6 +7,7 @@ function source(file: string): string { return fs.readFileSync(path.resolve(proc
 const scanner = source('src/investment/decision/assetUniverseScanner.ts');
 const replay = source('src/investment/decision/dynamicHistoricalReplayCore.ts');
 const route = source('server/assetDiscoveryRoutes.ts');
+const discovery = source('src/investment/decision/openMarketDiscoveryV1.ts');
 const decision = source('src/components/InteractiveInvestmentDecisionCenter.tsx');
 const alerts = source('server/alertAutomation.ts');
 const gate = source('src/investment/decision/portfolioCandidateGate.ts');
@@ -30,6 +31,8 @@ assert.match(scanner, /function chooseDiversifiedLegacy/);
 assert.match(scanner, /usedCategories/);
 assert.match(gate, /OUTSIDE_DYNAMIC_MARKET_SHORTLIST/);
 assert.match(gate, /scan\.dynamicMarketShortlist\?\.applied/);
+assert.match(gate, /isCurrentListedEquityAsset/);
+assert.match(gate, /EQUITY:\$\{candidate\.asset\.assetId\}/);
 assert.match(universe, /DYNAMIC_MARKET_SHORTLIST_TARGET = 64/);
 assert.match(universe, /FIXED_PRODUCT_UNIVERSE_FORBIDDEN = true/);
 
@@ -46,6 +49,14 @@ assert.match(route, /LOOKUP_PREFIXES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'\.split\(''\)
 assert.match(route, /queryFamily: row\.mechanism === 'LOOKUP'/);
 assert.match(route, /category: isEquity \? 'EUROPE_EQUITY' : classified\.category/);
 assert.match(route, /historicalPointInTimeSafe: false/);
+
+// The merge preserves Yahoo's current quote type as transient classification so
+// downstream current/live diversification can distinguish individual companies
+// from collective category exposures without changing historical catalogue types.
+assert.match(discovery, /CurrentDiscoveryTaggedAsset/);
+assert.match(discovery, /currentDiscoveryQuoteType/);
+assert.match(discovery, /isCurrentListedEquityAsset/);
+assert.match(discovery, /row\.quoteType/);
 
 // A final live PASS must prove independence from the 64-name seed: current open
 // discovery must add at least one complete shortlist worth of novel candidates.
