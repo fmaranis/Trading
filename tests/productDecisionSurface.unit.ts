@@ -29,10 +29,13 @@ check('interactive center uses AssetUniverseScanner', interactive.includes('Asse
 check('interactive center applies PortfolioCandidateGate', interactive.includes('PortfolioCandidateGate.apply'));
 check('interactive center calls InvestmentDecisionEngine', interactive.includes('InvestmentDecisionEngine.decide'));
 check('headline opportunity panel uses evaluatePortfolioDecision', alerts.includes('evaluatePortfolioDecision'));
+check('headline buys come from canonical portfolioDecision contributions', alerts.includes('canonicalBuys = portfolioDecision.contributions'));
+check('headline sales come from canonical portfolioDecision existingPositions', alerts.includes('canonicalSales = portfolioDecision.existingPositions'));
+check('headline cannot call parallel PortfolioRotationReviewEngine', !alerts.includes('PortfolioRotationReviewEngine'));
 check('real purchase registration uses evaluatePortfolioDecision', registration.includes('evaluatePortfolioDecision'));
 check('execution plan uses evaluatePortfolioDecision', execution.includes('evaluatePortfolioDecision'));
 check('canonical portfolio wrapper starts from PortfolioDecisionEngine', core.includes('PortfolioDecisionEngine.evaluate(normalizedInput)'));
 check('canonical portfolio wrapper applies CORE_GATE_V1', core.includes('applyCoreGateV1(normalizedInput, baseline)'));
 check('canonical portfolio wrapper applies CORE_ARCHITECTURE_V1', core.includes('applyCoreArchitectureV1(normalizedInput, gated)'));
 
-console.log(`Canonical product decision surface: ${passed}/15 invariants passed.`);
+console.log(`Canonical product decision surface: ${passed}/18 invariants passed.`);
