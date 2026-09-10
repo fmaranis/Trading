@@ -40,7 +40,7 @@ function confidenceClass(level: string): string {
 }
 function portfolioDeployableCapital(): number {
   const p = UserPortfolioService.load();
-  return Math.max(1, (p.stagedCapitalPlan?.availableEur ?? 0) + p.cashEur);
+  return Math.max(0, (p.stagedCapitalPlan?.availableEur ?? 0) + p.cashEur);
 }
 function methodFor(profile: InvestorRiskProfile): InvestmentDecisionResult['recommendedMethod'] {
   return profile === 'LOW' ? 'INVERSE_VOLATILITY' : profile === 'MEDIUM' ? 'RISK_PARITY_ERC' : 'RELATIVE_MOMENTUM';
@@ -88,8 +88,25 @@ function cashOnlyDecision(scan: AssetUniverseScanResult, capitalEur: number, ris
     recommendedMethod: methodFor(riskProfile), cashWeight: 1, cashAmountEur: capitalEur, assets: [],
     portfolioDatasetFingerprint: `CASH_ONLY:${asOfDate}`, evidence: 'REAL_ONLY',
     warnings: ['Ningún candidato supera simultáneamente la referencia de efectivo y el consenso mínimo para dinero nuevo. No se fuerza una inversión.'],
-    summary: `Ningún candidato supera los gates actuales; mantener ${capitalEur.toFixed(2)} € en efectivo hasta que aparezca una alternativa que justifique el riesgo frente a la cuenta remunerada.`,
+    summary: capitalEur > 0
+      ? `Ningún candidato supera los gates actuales; mantener ${capitalEur.toFixed(2)} € en efectivo hasta que aparezca una alternativa que justifique el riesgo frente a la cuenta remunerada.`
+      : 'No hay liquidez nueva disponible y ningún candidato supera los gates actuales; no se genera ninguna orden.',
     methodology: ['Descubrimiento amplio REAL.', 'Filtro previo: superar efectivo + consenso BUY.', 'Si ningún activo pasa, el resultado correcto es 100% cash.']
+  };
+}
+function decisionWithZeroDeployableCapital(scan: AssetUniverseScanResult, riskProfile: InvestorRiskProfile, horizonYears: InvestmentHorizonYears): InvestmentDecisionResult {
+  // InvestmentDecisionEngine requires a strictly positive request only to scale
+  // monetary outputs. Its market regime and portfolio weights are capital-scale
+  // invariant. Use 1 EUR internally, then explicitly zero every monetary output
+  // so the product never invents deployable cash when the real balance is zero.
+  const analytical = InvestmentDecisionEngine.decide(scan.dataset, { capitalEur: 1, riskProfile, horizonYears });
+  return {
+    ...analytical,
+    capitalEur: 0,
+    cashAmountEur: 0,
+    assets: analytical.assets.map(asset => ({ ...asset, amountEur: 0 })),
+    warnings: [...analytical.warnings, 'NO_DEPLOYABLE_CAPITAL_ANALYTICAL_WEIGHTS_ONLY'],
+    summary: 'No hay liquidez nueva disponible. Se conserva el análisis REAL de régimen y pesos relativos, pero no se genera ninguna orden ni se crea dinero ficticio.'
   };
 }
 
@@ -228,7 +245,9 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
     if (!scan) return;
     try {
       const next = scan.selected.length > 0
-        ? InvestmentDecisionEngine.decide(scan.dataset, { capitalEur: capital, riskProfile, horizonYears: horizon })
+        ? capital > 0
+          ? InvestmentDecisionEngine.decide(scan.dataset, { capitalEur: capital, riskProfile, horizonYears: horizon })
+          : decisionWithZeroDeployableCapital(scan, riskProfile, horizon)
         : cashOnlyDecision(scan, capital, riskProfile, horizon);
       setResult(next); setLocalRevision(v => v + 1); setError(null);
     } catch (e: any) { setResult(null); setError(e?.message || String(e)); }
@@ -249,7 +268,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
     {workspace === 'PORTFOLIO' && <>
       <section className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/35 via-slate-900 to-slate-950 p-4 sm:p-6">
         <div className="max-w-3xl"><div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-emerald-300"/><h1 className="text-xl sm:text-2xl font-bold text-white">Mi cartera real</h1></div><p className="mt-2 text-sm text-slate-300">La pantalla responde primero si hay que mover dinero hoy. Después puedes abrir las razones, controles y metodología.</p></div>
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3"><span className="text-[10px] uppercase text-emerald-300">Liquidez para nuevas operaciones</span><div className="mt-1 text-xl font-mono font-bold">{capital.toFixed(2)} €</div></div><label className="rounded-xl border border-sky-500/25 bg-sky-500/5 p-3"><span className="text-[10px] uppercase text-sky-300">Cuenta operativa remunerada</span><div className="mt-1 flex items-center gap-2"><input type="number" min="0" max="50" step="0.1" value={cashBenchmarkAnnualPct} onChange={e => CashBenchmarkService.set(Number(e.target.value))} className="w-24 rounded-lg border border-sky-500/30 bg-slate-950 px-2 py-1.5 text-right font-mono text-sm font-bold text-white"/><span className="text-xs font-bold text-sky-200">% TAE</span></div><span className="mt-1 block text-[9px] text-slate-500">Editable. Se usa como hurdle y remunera el cash no invertido.</span></label><label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Riesgo</span><select value={riskProfile} onChange={e=>setRiskProfile(e.target.value as InvestorRiskProfile)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value="LOW">Bajo</option><option className="bg-slate-900" value="MEDIUM">Medio</option><option className="bg-slate-900" value="HIGH">Alto</option></select></label><label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Horizonte</span><select value={horizon} onChange={e=>setHorizon(Number(e.target.value) as InvestmentHorizonYears)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value={1}>1 año</option><option className="bg-slate-900" value={3}>3 años</option><option className="bg-slate-900" value={5}>5 años</option></select></label></div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4"><div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3"><span className="text-[10px] uppercase text-emerald-300">Liquidez para nuevas operaciones</span><div className="mt-1 text-xl font-mono font-bold">{capital.toFixed(2)} €</div><div className="mt-1 text-[9px] text-slate-500">Saldo real; nunca se fuerza un mínimo técnico.</div></div><label className="rounded-xl border border-sky-500/25 bg-sky-500/5 p-3"><span className="text-[10px] uppercase text-sky-300">Cuenta operativa remunerada</span><div className="mt-1 flex items-center gap-2"><input type="number" min="0" max="50" step="0.1" value={cashBenchmarkAnnualPct} onChange={e => CashBenchmarkService.set(Number(e.target.value))} className="w-24 rounded-lg border border-sky-500/30 bg-slate-950 px-2 py-1.5 text-right font-mono text-sm font-bold text-white"/><span className="text-xs font-bold text-sky-200">% TAE</span></div><span className="mt-1 block text-[9px] text-slate-500">Editable. Se usa como hurdle y remunera el cash no invertido.</span></label><label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Riesgo</span><select value={riskProfile} onChange={e=>setRiskProfile(e.target.value as InvestorRiskProfile)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value="LOW">Bajo</option><option className="bg-slate-900" value="MEDIUM">Medio</option><option className="bg-slate-900" value="HIGH">Alto</option></select></label><label className="rounded-xl border border-slate-700 bg-slate-950/70 p-3"><span className="text-[10px] uppercase text-slate-400">Horizonte</span><select value={horizon} onChange={e=>setHorizon(Number(e.target.value) as InvestmentHorizonYears)} className="mt-1 w-full bg-transparent text-sm font-semibold outline-none"><option className="bg-slate-900" value={1}>1 año</option><option className="bg-slate-900" value={3}>3 años</option><option className="bg-slate-900" value={5}>5 años</option></select></label></div>
         <button onClick={()=>void refreshMarket(true)} disabled={marketLoading} className="touch-target mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${marketLoading?'animate-spin':''}`}/>{marketLoading?'Actualizando mercado…':'Actualizar mercado y recomendación'}</button>
         <div className="mt-2 flex flex-wrap gap-2 text-[9px] text-slate-500"><span>Mercado: {lastMarketRefresh ?? 'pendiente'} · recalculo #{localRevision}</span>{candidateGate && <><span>· descubrimiento {rawScan?.accepted ?? 0} válidos</span><span>· superan cash+consenso {candidateGate.eligibleCount}</span><span>· asignador {candidateGate.selectedCount}</span></>}{positionHealthLoading && <span>· cerrando salud de posiciones…</span>}</div>
       </section>
