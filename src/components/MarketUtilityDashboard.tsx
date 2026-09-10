@@ -31,7 +31,10 @@ interface Props {
 export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
   const [taxRevision, setTaxRevision] = useState(0);
   const cashBenchmarkAnnualPct = CashBenchmarkService.load();
-  const portfolio = UserPortfolioService.load();
+  // A portfolio save in the parent triggers a fresh positionHealth object before
+  // this dashboard becomes actionable again. Memoizing the load prevents an
+  // unrelated child render from rebuilding Date.now()-based execution-line IDs.
+  const portfolio = useMemo(() => UserPortfolioService.load(), [positionHealth, decision.asOfDate]);
 
   useEffect(() => {
     const refreshTax = () => setTaxRevision(value => value + 1);
@@ -45,7 +48,7 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
     decision,
     positionHealth: positionHealth?.byKey,
     cashBenchmarkAnnualPct
-  }), [scan, decision, positionHealth, cashBenchmarkAnnualPct, portfolio.updatedAt]);
+  }), [portfolio, scan, decision, positionHealth, cashBenchmarkAnnualPct]);
 
   const executionPlan = useMemo(() => {
     const raw = buildPortfolioExecutionPlan({
