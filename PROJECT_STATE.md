@@ -27,6 +27,7 @@ Cadena canónica productiva:
 `-> evaluatePortfolioDecision`
 `-> CORE_GATE_V1`
 `-> CORE_ARCHITECTURE_V1`
+`-> plan ejecutable`
 `-> ejecución y seguimiento`
 
 Reglas permanentes:
@@ -39,6 +40,7 @@ Reglas permanentes:
 - “No comprar nada” sigue siendo una salida válida.
 - Yahoo Search/Lookup actual nunca reconstruye retrospectivamente el universo histórico.
 - No deben existir superficies productivas capaces de emitir recomendaciones por una cadena paralela.
+- `COMPRAR AHORA / VENDER AHORA / TRASPASAR AHORA` sólo puede mostrarse si existe una línea ejecutable después de los controles de ejecución disponibles; una propuesta teórica suprimida por coste, títulos enteros, cash, datos o fiscalidad debe mostrarse como `REVIEW`, no como orden.
 
 ---
 
@@ -56,6 +58,7 @@ Reglas permanentes:
 - `stagedCapitalPlan` = capital ya disponible; no aportación recurrente.
 - Aportaciones/retiradas = `externalCashFlows` explícitos y fechados.
 - Ningún dato financiero privado del usuario se embebe en código público.
+- La UI no puede inventar un mínimo técnico de capital. Si la liquidez real es 0 €, debe mostrarse 0 € y no generarse una orden. Un notional técnico interno sólo puede utilizarse para análisis adimensional y debe quedar explícitamente neutralizado en todos los importes monetarios visibles/productivos.
 
 ---
 
@@ -83,6 +86,12 @@ Esta función ejecuta:
 
 `PortfolioDecisionEngine.evaluate -> applyCoreGateV1 -> applyCoreArchitectureV1`.
 
+La UI productiva añade después un único plan de ejecución:
+
+`buildPortfolioExecutionPlan -> applyTaxAwareExecutionOverlay`.
+
+Ese plan puede convertir una intención teórica en `REVIEW` por ejecución/fiscalidad, pero no vuelve a seleccionar activos ni crea otra estrategia.
+
 ---
 
 # 4. Entrada web y superficie productiva — IMPLEMENTADA / PENDIENTE VERIFICACIÓN FINAL
@@ -109,63 +118,68 @@ Los compatibility adapters de `GrowthTradingBot`, antiguo `InvestmentDecisionCen
 Estado de validación:
 
 - inspección estática completada;
-- falta una única ejecución local de guards + TypeScript y una comprobación manual móvil antes de declararlo cerrado.
+- falta una única ejecución local de guards + TypeScript y una comprobación manual móvil antes de declararlo PASS final.
 
 ---
 
-# 5. Acción productiva visible — AUDITORÍA CORRECTIVA 2026-09-10
+# 5. Acción productiva visible — CIERRE ARQUITECTÓNICO IMPLEMENTADO 2026-09-10
 
-Durante la revisión posterior al primer cierre se detectó un problema real en `CurrentOpportunityAlertsPanel`:
+La auditoría posterior al primer cierre encontró tres problemas reales:
 
-- compras: procedían de `evaluatePortfolioDecision`;
-- ventas: se tomaban directamente de `positionHealth`;
-- rotaciones: podían proceder de `PortfolioRotationReviewEngine` separado.
+1. La tarjeta “decisión de hoy” mezclaba compras de `evaluatePortfolioDecision`, ventas directas de `positionHealth` y rotaciones de `PortfolioRotationReviewEngine`.
+2. Varios componentes recalculaban `evaluatePortfolioDecision()` por separado.
+3. Una contribución teórica podía mostrarse como “COMPRAR AHORA” antes de que títulos enteros, costes o fiscalidad la convirtieran en `REVIEW`.
 
-Eso mezclaba tres fuentes en la tarjeta que afirmaba ser la “decisión de hoy”.
+Corrección final aplicada:
 
-Corrección aplicada:
+- `MarketUtilityDashboard` calcula **una sola vez** `portfolioDecision = evaluatePortfolioDecision(...)`;
+- el mismo dashboard construye **un solo** `executionPlan = buildPortfolioExecutionPlan(...) -> applyTaxAwareExecutionOverlay(...)`;
+- `CurrentOpportunityAlertsPanel`, `RealPurchaseRegistrationPanel` y `PortfolioExecutionPlanPanel` reciben esos mismos objetos y no vuelven a calcular cartera ni candidate gate;
+- `PortfolioExecutionPlanPanel` ya no vuelve a ejecutar `PortfolioCandidateGate(..., 1000)`, `StrategyConsensusEngine` ni `evaluatePortfolioDecision`;
+- `CurrentOpportunityAlertsPanel` no usa `PortfolioRotationReviewEngine` para la orden principal;
+- `CurrentOpportunityAlertEngine` permanece como metadata/evidencia secundaria de oportunidad, sin autoridad para crear la orden de cartera;
+- compras visibles como **COMPRAR AHORA** = líneas `BUY_ETF / SUBSCRIBE_FUND` realmente pendientes del plan ejecutable;
+- ventas visibles como **REDUCIR/SALIR AHORA** = líneas `SELL_ETF / REDEEM_FUND` realmente pendientes;
+- traspasos visibles = líneas `TRANSFER_FUND` realmente pendientes;
+- líneas `REVIEW` quedan en un bloque explícito “no son orden ejecutable hoy”;
+- la tarjeta distingue `importe teórico del motor` de `importe ejecutable`, evitando que redondeo por títulos/comisiones se confunda con sizing productivo;
+- contribuciones de core añadidas o redirigidas por `CORE_GATE_V1 / CORE_ARCHITECTURE_V1` no se ocultan por faltar un `CurrentOpportunityAlert` original;
+- la explicación de cadena está plegada dentro de la misma tarjeta, después de la acción.
 
-- compras visibles = `portfolioDecision.contributions` del resultado final;
-- ventas/reducciones visibles = `portfolioDecision.existingPositions` con acción `REDUCE/EXIT`;
-- WATCH visible = `portfolioDecision.existingPositions` con acción `WATCH`;
-- rotaciones visibles = únicamente rotaciones presentes en ese mismo `portfolioDecision` final;
-- `PortfolioRotationReviewEngine` ya no puede emitir la acción principal;
-- contribuciones añadidas/reencaminadas por `CORE_GATE_V1` o `CORE_ARCHITECTURE_V1` ya no quedan ocultas por faltar un `CurrentOpportunityAlert` original.
-
-La explicación de cadena se integra plegada dentro de la misma tarjeta y utiliza **el mismo `portfolioDecision`**, en lugar de recalcular la decisión en un componente paralelo:
-
-`AssetUniverseScanner -> Top64 dinámico -> PortfolioCandidateGate -> InvestmentDecisionEngine -> evaluatePortfolioDecision -> CORE_GATE_V1 -> CORE_ARCHITECTURE_V1`
-
-Política visible:
-
-`PRODUCCIÓN · LEGACY`.
-
-Jerarquía de producto corregida:
+Jerarquía de producto:
 
 1. controles básicos;
 2. finalizar salud de posiciones;
-3. **qué hacer hoy**;
-4. registro/cartera;
-5. cash y controles técnicos como explicación secundaria.
+3. **decisión ejecutable de hoy**;
+4. registro de la ejecución / cartera real;
+5. explicación de cash, metodología y controles técnicos.
 
-La app ya no muestra órdenes mientras `PortfolioPositionHealthService` sigue calculando. Si la salud de cartera falla, la decisión operativa queda bloqueada en vez de enseñar una recomendación parcial que pueda cambiar segundos después.
+La app no muestra órdenes mientras `PortfolioPositionHealthService` sigue calculando. Si falla la salud de cartera, la decisión operativa queda bloqueada en vez de enseñar una recomendación parcial.
 
-El antiguo `ProductDecisionTracePanel.tsx` se eliminó porque duplicaba el cálculo y además colocaba metodología antes que la acción.
+El `portfolio` que alimenta el resultado canónico se memoiza mientras la misma salud/fecha siga vigente para evitar regenerar IDs de líneas de ejecución por renders secundarios.
 
-Guards:
+### Capital cero
 
-- `tests/productDecisionSurface.unit.ts`: 18 invariantes estáticos;
-- `tests/productSurfaceClosureV1.unit.ts`: 19 invariantes estáticos.
+`portfolioDeployableCapital()` conserva ahora 0 € reales; ya no fuerza `Math.max(1, ...)`.
 
-Pendiente: ejecución local única antes de marcar PASS final.
+Como el `InvestmentDecisionEngine` congelado exige capital estrictamente positivo para escalar importes, la UI usa 1 € únicamente como notional analítico interno cuando la liquidez real es 0 y neutraliza inmediatamente todos los importes monetarios a 0. Ese camino queda marcado con `NO_DEPLOYABLE_CAPITAL_ANALYTICAL_WEIGHTS_ONLY` y no genera órdenes.
+
+`DecisionGuardrailsPanel` tampoco sustituye ya 0 € por 1 € en su comparación histórica: con capital 0 la comparación queda deshabilitada.
+
+Guards actuales:
+
+- `tests/productDecisionSurface.unit.ts`: **20 invariantes estáticos**;
+- `tests/productSurfaceClosureV1.unit.ts`: **26 invariantes estáticos**.
+
+Pendiente: ejecutar ambos guards y `npm run lint` sobre este HEAD antes de marcar PASS final.
 
 ---
 
-# 6. JSON y móvil — IMPLEMENTADO / PENDIENTE PRUEBA REAL
+# 6. JSON, Future Forward y móvil — IMPLEMENTADO / PENDIENTE PRUEBA REAL DE DISPOSITIVO
 
 ## Centro de validación
 
-`Descargar JSON` del `ResearchValidationCenter` ya no crea Blob ni simula un click desde React.
+La descarga del `ResearchValidationCenter` no crea Blob ni simula un click desde React.
 
 Ruta nativa:
 
@@ -177,7 +191,23 @@ El backend responde con:
 - `Content-Disposition: attachment`;
 - `Cache-Control: no-store`.
 
-La UI utiliza un `<a href=.../result.json>` normal.
+La UI utiliza un `<a href=.../result.json>` normal y lo presenta como **Evidencia JSON**, no como la única respuesta comprensible.
+
+### Resultado humano de Future Forward
+
+`ResearchValidationCenter` interpreta en pantalla el resultado de `QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1`:
+
+- observaciones actuales / 12;
+- si esta ejecución creó o no una observación;
+- estado `ALREADY_RECORDED / PROSPECTIVE_STATE_VERIFIED_NO_REWRITE / BEFORE_WINDOW / AFTER_WINDOW`;
+- outcomes 20s y 60s maduros;
+- persistencia durable;
+- número de fuentes congeladas/fingerprint;
+- próxima ventana esperada (`día 9, 22:30–24:00 Madrid`).
+
+Para el caso ya observado el 2026-09-10 debe mostrar de forma legible **ESTADO VERIFICADO · SIN REESCRIBIR**, **NO CREÓ OBSERVACIÓN**, 1/12 y la siguiente ventana de octubre. El ZIP/JSON queda como evidencia secundaria.
+
+El botón se denomina `Comprobar / ejecutar checkpoint` para reflejar que, fuera de una ventana válida o si el mes ya existe, la acción puede limitarse a verificar estado sin consumir una observación.
 
 ## Replay histórico
 
@@ -187,11 +217,7 @@ La sesión del replay vive en `localStorage`, por lo que la exportación contin�
 
 Auditoría correctiva 2026-09-10:
 
-Se detectó que la primera mejora móvil había convertido `exportSession` en `async` e introducido un `await requestAnimationFrame()` antes de `anchor.click()`. En Safari/WebView eso puede hacer perder la activación transitoria originada por el toque y bloquear precisamente la descarga.
-
-Corrección:
-
-- `exportSession` vuelve a ser síncrono;
+- `exportSession` es síncrono;
 - serialización + `downloadJsonFile(...)` ocurren dentro de la tarea original del toque;
 - no existe `await` ni `requestAnimationFrame` antes de iniciar la descarga;
 - la Blob URL no se revoca inmediatamente y se conserva 30 s.
@@ -385,6 +411,20 @@ No hay todavía conclusión económica.
 
 Phase A es deliberadamente un **allocation probe** y no una validación end-to-end suficiente para promoción.
 
+### Verificación adicional 2026-09-10
+
+El usuario ejecutó de nuevo el job desde la app y aportó su artefacto. La ejecución terminó `PASSED` con:
+
+- `PROSPECTIVE_STATE_VERIFIED_NO_REWRITE`;
+- `observationRecordedThisRun = false`;
+- `observationStatus = ALREADY_RECORDED`;
+- observaciones = 1/12;
+- sin nueva escritura/observación de septiembre;
+- outcomes 20/60 todavía pendientes;
+- token durable disponible en ese runtime.
+
+Por tanto, el problema previo de `GITHUB_REPLAY_SYNC_TOKEN` estaba resuelto en esa ejecución. No asumir que un secreto estará disponible en otro runtime sin comprobar el preflight.
+
 Siguiente observación nueva válida:
 
 **2026-10-09 22:30-24:00 Europe/Madrid**.
@@ -393,7 +433,7 @@ No repetir septiembre.
 
 ### Integridad tras cambios de producto 2026-09-10
 
-Los cambios de producto/UI posteriores al checkpoint se mantienen fuera del manifiesto de 25 blobs metodológicos congelados.
+La comparación GitHub desde el último estado canónico previo al cierre muestra únicamente componentes/UI/tests. **Ninguno de los 25 archivos congelados aparece modificado.**
 
 No modificar durante Phase A:
 
@@ -404,9 +444,7 @@ No modificar durante Phase A:
 
 ### Token / preflight
 
-El entorno local/AI Studio debe proporcionar `GITHUB_REPLAY_SYNC_TOKEN` para el estado durable.
-
-`server/researchValidationRoutes.ts` hace ahora el preflight antes de lanzar guards o TypeScript:
+`server/researchValidationRoutes.ts` hace el preflight antes de lanzar guards o TypeScript:
 
 - si falta token: HTTP 412 + `QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED`;
 - el botón queda bloqueado y la UI muestra `FALTA TOKEN`;
@@ -470,10 +508,9 @@ No abrir como tuning productivo hasta cerrar la secuencia vigente:
 
 # 15. Próxima secuencia técnica
 
-1. Ejecutar **una sola comprobación local de cierre**: `npx tsx tests/productSurfaceClosureV1.unit.ts` + `npx tsx tests/productDecisionSurface.unit.ts` + `npm run lint`. No ejecutar replay ni future-forward.
-2. Comprobar manualmente en móvil, sin relanzar validaciones, dos cosas: el enlace HTTP `Descargar JSON` del Centro cuando haya resultado en memoria y `Exportar prueba JSON` del replay existente.
-3. Sólo después marcar entrada productiva/JSON/móvil como PASS final.
-4. Restaurar `GITHUB_REPLAY_SYNC_TOKEN` antes de necesitar escritura future-forward; no relanzar septiembre.
-5. Mantener producción `LEGACY` y los 25 blobs congelados intactos.
-6. Una vez cerrado lo anterior, retomar el diagnóstico económico HFG y otros boom->crash sin retunear sobre la muestra consumida.
-7. Próximo checkpoint prospectivo nuevo: 2026-10-09 22:30-24:00 Europe/Madrid.
+1. Ejecutar **una sola comprobación local de cierre** sobre el HEAD vigente: `npx tsx tests/productDecisionSurface.unit.ts` + `npx tsx tests/productSurfaceClosureV1.unit.ts` + `npm run lint`. No ejecutar replay ni future-forward para esta comprobación.
+2. Comprobar manualmente en el móvil, sin relanzar validaciones largas: `Evidencia JSON` del Centro cuando haya resultado en memoria y `Exportar prueba JSON` del replay existente.
+3. Si ambos puntos pasan, marcar entrada productiva/JSON/móvil como **PASS FINAL** sin más refactorizaciones.
+4. Mantener producción `LEGACY` y los 25 blobs congelados intactos.
+5. Después retomar el diagnóstico económico HFG y otros boom->crash sin retunear sobre la muestra consumida.
+6. Próximo checkpoint prospectivo nuevo: **2026-10-09 22:30-24:00 Europe/Madrid**.
