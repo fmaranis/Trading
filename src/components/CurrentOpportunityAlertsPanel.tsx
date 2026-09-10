@@ -3,21 +3,19 @@ import { BellRing, BarChart3, CheckCircle2, Eye, GitBranch, Repeat2, ShieldAlert
 import {
   CashBenchmarkService,
   CurrentOpportunityAlertEngine,
-  evaluatePortfolioDecision,
   resolveSecurityIsin,
-  UserPortfolioService,
   type AssetUniverseScanResult,
   type CurrentOpportunityAlert,
   type InvestmentDecisionResult,
-  type PortfolioPositionDecision,
-  type PortfolioPositionHealthResult
+  type PortfolioDecisionResult,
+  type PortfolioPositionDecision
 } from '../investment/decision';
 import { AlertAutomationStatusPanel } from './AlertAutomationStatusPanel';
 
 interface Props {
   scan: AssetUniverseScanResult;
   decision: InvestmentDecisionResult;
-  positionHealth: PortfolioPositionHealthResult | null;
+  portfolioDecision: PortfolioDecisionResult;
   onInspectAsset?: (symbolOrIsin: string) => void;
 }
 
@@ -52,17 +50,9 @@ function plannedSaleAmount(position: PortfolioPositionDecision): number | null {
   return position.currentValueEur * Math.max(0, Math.min(100, pct)) / 100;
 }
 
-export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
+export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision, portfolioDecision, onInspectAsset }) => {
   const cashBenchmark = CashBenchmarkService.load();
-  const portfolio = UserPortfolioService.load();
   const alerts = useMemo(() => CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmark), [scan, decision.asOfDate, cashBenchmark]);
-  const portfolioDecision = useMemo(() => evaluatePortfolioDecision({
-    portfolio,
-    scan,
-    decision,
-    positionHealth: positionHealth?.byKey,
-    cashBenchmarkAnnualPct: cashBenchmark
-  }), [scan, decision, positionHealth, cashBenchmark, portfolio.updatedAt]);
 
   const alertByAsset = useMemo(() => new Map(alerts.map(alert => [alert.assetId, alert])), [alerts]);
   const canonicalBuys = portfolioDecision.contributions.filter(row => row.amountEur > 0.01);
