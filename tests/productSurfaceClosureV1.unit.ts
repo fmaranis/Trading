@@ -84,7 +84,7 @@ check('1011 trace panel derives amounts from evaluatePortfolioDecision', () => {
 
 check('1012 trace panel declares current production allocation policy as LEGACY', () => {
   assert.match(tracePanel, /PRODUCCIÓN · LEGACY/);
-  assert.match(tracePanel, /política <b className="text-emerald-200">LEGACY<\/b>/);
+  assert.ok(tracePanel.includes('política <b className="text-emerald-200">LEGACY</b>'));
 });
 
 check('1013 trace panel names the complete canonical decision path', () => {
