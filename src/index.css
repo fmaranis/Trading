@@ -46,6 +46,26 @@
       font-size: 12px;
     }
   }
+
+  @media (max-width: 767px) {
+    /* The app already has a dedicated fixed bottom navigation + More sheet.
+       Hide the duplicated desktop tab strip and quick-action buttons on phones. */
+    #main-header nav,
+    #btn-quick-backtest,
+    #btn-switch-bot,
+    #btn-reset-portfolio {
+      display: none;
+    }
+
+    #research-validation-center {
+      padding: 1rem;
+    }
+
+    #research-validation-center button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
 }
 
 @layer utilities {
