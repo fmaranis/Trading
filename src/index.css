@@ -9,6 +9,42 @@
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  button,
+  summary,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  button,
+  summary {
+    -webkit-tap-highlight-color: rgba(56, 189, 248, 0.18);
+  }
+
+  @media (pointer: coarse) {
+    button,
+    summary,
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+      min-height: 44px;
+    }
+
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+
+    #research-validation-center button,
+    #research-validation-center summary {
+      font-size: 12px;
+    }
   }
 }
 
