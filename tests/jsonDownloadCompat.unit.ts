@@ -21,6 +21,9 @@ check('touch bridge has duplicate activation guard', compat.includes('TOUCH_RETR
 check('mobile controls use manipulation touch action', css.includes('touch-action: manipulation'));
 check('coarse pointer controls have 44px minimum target', css.includes('@media (pointer: coarse)') && css.includes('min-height: 44px'));
 check('mobile form controls avoid small-font zoom', css.includes('font-size: 16px'));
+check('phone layout hides duplicated desktop tab navigation', css.includes('#main-header nav') && css.includes('@media (max-width: 767px)'));
+check('phone layout hides duplicate quick desktop actions', css.includes('#btn-quick-backtest') && css.includes('#btn-switch-bot') && css.includes('#btn-reset-portfolio'));
+check('mobile validation actions expand to easy tap width', css.includes('#research-validation-center button') && css.includes('width: 100%'));
 check('ResearchValidationCenter still exports full JSON result payload', validation.includes("JSON.stringify(payload, null, 2)") && validation.includes('jobId: job.id') && validation.includes('result: job.result'));
 
-console.log(`JSON/mobile touch compatibility: ${passed}/10 invariants passed.`);
+console.log(`JSON/mobile touch compatibility: ${passed}/13 invariants passed.`);
