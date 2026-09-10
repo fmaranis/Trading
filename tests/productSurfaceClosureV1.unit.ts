@@ -19,6 +19,8 @@ const replayJsonControls = read('src/components/HistoricalAuditJsonControls.tsx'
 const jsonDownload = read('src/jsonDownload.ts');
 const marketDashboard = read('src/components/MarketUtilityDashboard.tsx');
 const alerts = read('src/components/CurrentOpportunityAlertsPanel.tsx');
+const registration = read('src/components/RealPurchaseRegistrationPanel.tsx');
+const execution = read('src/components/PortfolioExecutionPlanPanel.tsx');
 const futureForwardProtocol = read('scripts/qualityAllocationDynamicFutureForwardV1Protocol.ts');
 
 check('1001 root product starts at the canonical decision entrypoint', () => {
@@ -54,80 +56,116 @@ check('1006 future-forward token is preflighted before the job is launched', () 
   assert.match(validationRoutes, /QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED/);
 });
 
-check('1007 validation UI uses the native result endpoint rather than Blob download code', () => {
+check('1007 future-forward UI explains verification/no-rewrite without requiring JSON interpretation', () => {
+  assert.match(validationCenter, /ESTADO VERIFICADO · SIN REESCRIBIR/);
+  assert.match(validationCenter, /NO CREÓ OBSERVACIÓN/);
+  assert.match(validationCenter, /expectedObservationMonth/);
+  assert.match(validationCenter, /Evidencia JSON/);
+});
+
+check('1008 validation UI uses the native result endpoint rather than Blob download code', () => {
   assert.match(validationCenter, /result\.json/);
   assert.doesNotMatch(validationCenter, /new Blob|createObjectURL|downloadResultJson/);
 });
 
-check('1008 replay export uses the dedicated browser-storage JSON helper', () => {
+check('1009 replay export uses the dedicated browser-storage JSON helper', () => {
   assert.match(replayJsonControls, /downloadJsonFile/);
   assert.doesNotMatch(replayJsonControls, /URL\.revokeObjectURL/);
 });
 
-check('1009 browser-storage JSON helper does not revoke the Blob URL synchronously', () => {
+check('1010 browser-storage JSON helper does not revoke the Blob URL synchronously', () => {
   const click = jsonDownload.indexOf('anchor.click()');
   const timeout = jsonDownload.indexOf('window.setTimeout');
   const revoke = jsonDownload.lastIndexOf('URL.revokeObjectURL(url)');
   assert.ok(click >= 0 && timeout > click && revoke > timeout);
 });
 
-check('1010 replay export keeps transient mobile user activation until downloadJsonFile', () => {
+check('1011 replay export keeps transient mobile user activation until downloadJsonFile', () => {
   const start = replayJsonControls.indexOf('const exportSession = () =>');
   const download = replayJsonControls.indexOf('downloadJsonFile(', start);
   assert.ok(start >= 0 && download > start);
   assert.doesNotMatch(replayJsonControls.slice(start, download), /\bawait\b|requestAnimationFrame/);
 });
 
-check('1011 actionable decision is rendered before cash and secondary execution detail', () => {
+check('1012 actionable decision is rendered before cash and secondary technical detail', () => {
   const headline = interactive.indexOf('<MarketUtilityDashboard');
   const cash = interactive.indexOf('Papel del cash');
-  const execution = marketDashboard.indexOf('<PortfolioExecutionPlanPanel');
   assert.ok(headline >= 0 && cash > headline);
-  assert.ok(execution >= 0);
 });
 
-check('1012 actionable dashboard waits for portfolio health to finish', () => {
+check('1013 actionable dashboard waits for portfolio health to finish', () => {
   assert.match(interactive, /!positionHealthLoading && positionHealth != null && <MarketUtilityDashboard/);
   assert.match(interactive, /Decisión operativa bloqueada/);
 });
 
-check('1013 headline purchases come from final portfolioDecision contributions', () => {
-  assert.match(alerts, /canonicalBuys = portfolioDecision\.contributions/);
-  assert.match(alerts, /recommendedNewInvestmentEur/);
-  assert.doesNotMatch(alerts, /fundedAlerts\.map/);
+check('1014 real deployable capital can remain exactly zero', () => {
+  assert.match(interactive, /return Math\.max\(0,/);
+  assert.doesNotMatch(interactive, /return Math\.max\(1, \(p\.stagedCapitalPlan/);
+  assert.match(interactive, /NO_DEPLOYABLE_CAPITAL_ANALYTICAL_WEIGHTS_ONLY/);
 });
 
-check('1014 headline sales and watch states come from final portfolioDecision', () => {
-  assert.match(alerts, /canonicalSales = portfolioDecision\.existingPositions/);
-  assert.match(alerts, /canonicalWatch = portfolioDecision\.existingPositions/);
-  assert.doesNotMatch(alerts, /positionHealth\?\.positions\.filter/);
+check('1015 dashboard calculates the portfolio decision exactly once for actionable children', () => {
+  assert.match(marketDashboard, /const portfolioDecision = useMemo\(\(\) => evaluatePortfolioDecision/);
+  assert.match(marketDashboard, /<CurrentOpportunityAlertsPanel[\s\S]*portfolioDecision=\{portfolioDecision\}/);
+  assert.doesNotMatch(alerts, /evaluatePortfolioDecision\(/);
+  assert.doesNotMatch(registration, /evaluatePortfolioDecision\(/);
+  assert.doesNotMatch(execution, /evaluatePortfolioDecision\(/);
 });
 
-check('1015 no parallel rotation engine can emit the headline action', () => {
-  assert.doesNotMatch(alerts, /PortfolioRotationReviewEngine/);
-  assert.match(alerts, /canonicalRotations = canonicalSales\.filter/);
+check('1016 dashboard creates one tax-aware executable plan from the canonical decision', () => {
+  assert.match(marketDashboard, /buildPortfolioExecutionPlan\(/);
+  assert.match(marketDashboard, /applyTaxAwareExecutionOverlay\(/);
+  assert.match(marketDashboard, /executionPlan=\{executionPlan\}/);
+  assert.doesNotMatch(registration, /buildPortfolioExecutionPlan\(/);
+  assert.doesNotMatch(execution, /buildPortfolioExecutionPlan\(/);
 });
 
-check('1016 headline explains the complete canonical decision path from the same result', () => {
+check('1017 headline uses executable BUY SELL TRANSFER lines rather than theoretical actions', () => {
+  assert.match(alerts, /executionPlan\.lines\.filter/);
+  assert.match(alerts, /line\.action === 'BUY_ETF'/);
+  assert.match(alerts, /line\.action === 'SELL_ETF'/);
+  assert.match(alerts, /line\.action === 'TRANSFER_FUND'/);
+  assert.match(alerts, /Motor \{theoreticalBuyAmount\.toFixed\(2\)\} € · ejecutable/);
+});
+
+check('1018 theoretical movement suppressed by costs or tax is labeled REVIEW, not executable', () => {
+  assert.match(alerts, /line\.action === 'REVIEW'/);
+  assert.match(alerts, /no son orden ejecutable hoy/);
+  assert.match(execution, /SIN ORDEN EJECUTABLE · HAY PUNTOS A REVISAR/);
+});
+
+check('1019 headline cannot call a parallel rotation or portfolio engine', () => {
+  assert.doesNotMatch(alerts, /PortfolioRotationReviewEngine|PortfolioDecisionEngine|evaluatePortfolioDecision/);
+  assert.match(alerts, /portfolioDecision: PortfolioDecisionResult/);
+  assert.match(alerts, /executionPlan: PortfolioExecutionPlan/);
+});
+
+check('1020 registration accepts only executable purchases from the same plan', () => {
+  assert.match(registration, /executionPlan\.lines\.filter/);
+  assert.match(registration, /BUY_ETF/);
+  assert.match(registration, /SUBSCRIBE_FUND/);
+  assert.doesNotMatch(registration, /PortfolioCandidateGate|InvestmentDecisionEngine/);
+});
+
+check('1021 execution detail cannot rebuild the candidate gate or decision', () => {
+  assert.doesNotMatch(execution, /PortfolioCandidateGate|evaluatePortfolioDecision|StrategyConsensusEngine/);
+  assert.match(execution, /executionPlan: PortfolioExecutionPlan/);
+});
+
+check('1022 headline explains the complete canonical decision path', () => {
   for (const token of ['AssetUniverseScanner', 'Top64 dinámico', 'PortfolioCandidateGate', 'InvestmentDecisionEngine', 'evaluatePortfolioDecision', 'CORE_GATE_V1', 'CORE_ARCHITECTURE_V1']) {
     assert.ok(alerts.includes(token), `missing decision path token ${token}`);
   }
-  assert.match(alerts, /Política productiva de asignación:/);
+  assert.match(alerts, /Política productiva:/);
   assert.match(alerts, />LEGACY</);
 });
 
-check('1017 core or architecture-added contributions are not hidden when alert metadata is absent', () => {
-  assert.match(alerts, /canonicalBuys\.map/);
-  assert.match(alerts, /alertByAsset\.get\(contribution\.assetId\)/);
-  assert.match(alerts, /ASIGNACIÓN CORE/);
-});
-
-check('1018 future-forward frozen manifest still includes runner and durable state store', () => {
+check('1023 future-forward frozen manifest still includes runner and durable state store', () => {
   assert.match(futureForwardProtocol, /scripts\/qualityAllocationDynamicFutureForwardV1CheckpointLive\.ts/);
   assert.match(futureForwardProtocol, /scripts\/qualityAllocationDynamicFutureForwardV1StateStore\.ts/);
 });
 
-check('1019 mobile interaction baseline is explicitly present in the canonical stylesheet', () => {
+check('1024 mobile interaction baseline is explicitly present in the canonical stylesheet', () => {
   const css = read('src/index.css');
   assert.match(css, /touch-action:\s*manipulation/);
   assert.match(css, /\.touch-target/);
@@ -135,4 +173,4 @@ check('1019 mobile interaction baseline is explicitly present in the canonical s
   assert.match(css, /env\(safe-area-inset-bottom\)/);
 });
 
-console.log(`Product surface closure V1: ${passed}/19 invariants passed.`);
+console.log(`Product surface closure V1: ${passed}/24 invariants passed.`);
