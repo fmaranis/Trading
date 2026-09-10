@@ -14,6 +14,7 @@ interface JobDefinition {
   marker?: string;
   visibility: JobVisibility;
   historyLabel?: string;
+  requiresGithubReplayToken?: boolean;
 }
 interface JobState {
   status: JobStatus;
@@ -141,6 +142,7 @@ const JOBS: JobDefinition[] = [
     description: 'Phase A prospectiva sobre Top64 current/live dinámico. Una única foto mensual consecutiva en la ventana congelada del día 9, 22:30-24:00 Europe/Madrid; mismo snapshot y 13.000 EUR de notional research para LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Reglas e implementación crítica quedan fingerprintadas, el estado autoritativo se encadena en replay-results y producción continúa LEGACY.',
     marker: 'QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_RESULT',
     visibility: 'CURRENT',
+    requiresGithubReplayToken: true,
     steps: [
       { label: 'Guard future-forward dinámico', command: 'npx', args: ['tsx', 'tests/qualityAllocationDynamicFutureForwardV1.unit.ts'] },
       { label: 'Guard QUALITY bridge congelado', command: 'npx', args: ['tsx', 'tests/opportunityQualityAllocationBridge.unit.ts'] },
@@ -154,17 +156,21 @@ const JOBS: JobDefinition[] = [
 ];
 
 const states = new Map<string, JobState>();
+
 function initialState(): JobState {
   return { status: 'IDLE', startedAt: null, finishedAt: null, currentStep: null, exitCode: null, output: '', result: null, error: null };
 }
+
 function stateFor(id: string): JobState {
   const current = states.get(id) ?? initialState();
   if (!states.has(id)) states.set(id, current);
   return current;
 }
+
 function appendOutput(state: JobState, text: string): void {
   state.output = `${state.output}${text}`.slice(-MAX_OUTPUT_CHARS);
 }
+
 function extractJsonAfterMarker(output: string, marker?: string): unknown | null {
   if (!marker) return null;
   const markerIndex = output.lastIndexOf(marker);
@@ -195,6 +201,7 @@ function extractJsonAfterMarker(output: string, marker?: string): unknown | null
   }
   return null;
 }
+
 function runStep(step: Step, state: JobState): Promise<number> {
   return new Promise(resolve => {
     state.currentStep = step.label;
@@ -210,6 +217,14 @@ function runStep(step: Step, state: JobState): Promise<number> {
     child.on('close', code => resolve(code ?? 1));
   });
 }
+
+function prerequisiteError(job: JobDefinition): string | null {
+  if (job.requiresGithubReplayToken && !process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()) {
+    return 'QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED';
+  }
+  return null;
+}
+
 async function runJob(job: JobDefinition): Promise<void> {
   const state = stateFor(job.id);
   state.status = 'RUNNING';
@@ -221,6 +236,8 @@ async function runJob(job: JobDefinition): Promise<void> {
   state.result = null;
   state.error = null;
   try {
+    const missing = prerequisiteError(job);
+    if (missing) throw new Error(missing);
     for (const step of job.steps) {
       const code = await runStep(step, state);
       if (code !== 0) {
@@ -242,20 +259,62 @@ async function runJob(job: JobDefinition): Promise<void> {
     state.finishedAt = new Date().toISOString();
   }
 }
+
 function publicJob(job: JobDefinition) {
-  return { id: job.id, name: job.name, description: job.description, ...stateFor(job.id) };
+  const blockedReason = prerequisiteError(job);
+  return {
+    id: job.id,
+    name: job.name,
+    description: job.description,
+    readyToRun: blockedReason == null,
+    blockedReason,
+    ...stateFor(job.id)
+  };
+}
+
+function safeFilePart(value: string): string {
+  return value.replace(/[:.]/g, '-').replace(/[^0-9A-Za-zTZ_-]/g, '_').slice(0, 120) || 'result';
 }
 
 researchValidationRouter.get('/jobs', (_req: Request, res: Response) => {
   const currentJobs = JOBS.filter(job => job.visibility === 'CURRENT').map(publicJob);
   const history = JOBS.filter(job => job.visibility === 'ARCHIVED').map(job => ({ id: job.id, label: job.historyLabel ?? job.name }));
-  res.json({ aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', jobs: currentJobs, history });
+  res.json({
+    aiTokensUsed: false,
+    execution: 'LOCAL_APP_BACKEND',
+    prerequisites: {
+      githubReplaySyncConfigured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim())
+    },
+    jobs: currentJobs,
+    history
+  });
 });
+
+researchValidationRouter.get('/jobs/:id/result.json', (req: Request, res: Response) => {
+  const job = JOBS.find(item => item.id === req.params.id);
+  if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
+  const state = stateFor(job.id);
+  if (state.result == null) { res.status(404).json({ error: 'VALIDATION_RESULT_NOT_AVAILABLE' }); return; }
+  const stamp = safeFilePart(state.finishedAt || new Date().toISOString());
+  const filename = `${safeFilePart(job.id)}-${stamp}.json`;
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(200).json({
+    jobId: job.id,
+    jobName: job.name,
+    status: state.status,
+    startedAt: state.startedAt,
+    finishedAt: state.finishedAt,
+    result: state.result
+  });
+});
+
 researchValidationRouter.get('/jobs/:id', (req: Request, res: Response) => {
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
   res.json({ aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', archived: job.visibility === 'ARCHIVED', job: publicJob(job) });
 });
+
 researchValidationRouter.post('/jobs/:id/run', (req: Request, res: Response) => {
   if (process.env.NODE_ENV === 'production') {
     res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY', execution: 'LOCAL_APP_BACKEND' });
@@ -264,6 +323,15 @@ researchValidationRouter.post('/jobs/:id/run', (req: Request, res: Response) => 
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
   if (job.visibility === 'ARCHIVED') { res.status(409).json({ error: 'VALIDATION_ARCHIVED_READ_ONLY', job: publicJob(job) }); return; }
+  const missing = prerequisiteError(job);
+  if (missing) {
+    res.status(412).json({
+      error: missing,
+      detail: 'Configura GITHUB_REPLAY_SYNC_TOKEN en el backend local/AI Studio antes de ejecutar el future-forward. No se han lanzado guards ni cálculos.',
+      job: publicJob(job)
+    });
+    return;
+  }
   const state = stateFor(job.id);
   if (state.status === 'RUNNING') { res.status(409).json({ error: 'VALIDATION_ALREADY_RUNNING', job: publicJob(job) }); return; }
   void runJob(job);
