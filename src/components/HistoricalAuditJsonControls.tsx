@@ -153,19 +153,20 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
     return () => channel.close();
   }, []);
 
-  const exportSession = async () => {
+  const exportSession = () => {
     if (exporting) return;
     setError(null);
-    setMessage('Preparando el JSON completo del replay…');
+    setMessage(null);
     setExporting(true);
-    await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
     try {
+      // Keep serialization + download inside the original click task. Mobile Safari
+      // and embedded WebViews may drop transient user activation after any await.
       const session = currentSession();
       syncAuditExtensions(session);
       const filename = `trading-replay-${safePart(session.startDate, 'inicio')}-${safePart(session.summary?.endDate ?? session.path?.at(-1)?.date ?? 'parcial', 'parcial')}.json`;
       const disposition = downloadJsonFile(filename, buildPayload(session));
       setMessage(disposition === 'DOWNLOAD_TRIGGERED'
-        ? `Descarga iniciada: ${session.checkpoints.length} checkpoints · ${session.executions.length} operaciones · ${session.path.length} sesiones.`
+        ? `Solicitud de descarga enviada: ${session.checkpoints.length} checkpoints · ${session.executions.length} operaciones · ${session.path.length} sesiones.`
         : `El navegador abrió el JSON en otra pestaña: ${session.checkpoints.length} checkpoints · ${session.executions.length} operaciones · ${session.path.length} sesiones.`);
     } catch (e: any) { setError(e?.message || String(e)); }
     finally { setExporting(false); }
@@ -253,7 +254,7 @@ export const HistoricalAuditJsonControls: React.FC<Props> = ({ onImported }) => 
       <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
         <button type="button" onClick={() => void saveToProject()} disabled={savingProject} className="touch-target flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-bold text-emerald-100 disabled:opacity-50 sm:w-auto"><Save className="h-3.5 w-3.5"/>{savingProject ? 'Publicando JSON…' : 'Guardar + publicar para ChatGPT'}</button>
         <button type="button" onClick={() => void clearArchive()} disabled={clearingArchive} className="touch-target flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[10px] font-bold text-rose-100 disabled:opacity-50 sm:w-auto"><Trash2 className="h-3.5 w-3.5"/>{clearingArchive ? 'Borrando…' : 'Borrar histórico ChatGPT'}</button>
-        <button type="button" onClick={() => void exportSession()} disabled={exporting} className="touch-target flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[10px] font-bold text-cyan-100 disabled:opacity-50 sm:w-auto"><Download className="h-3.5 w-3.5"/>{exporting ? 'Preparando JSON…' : 'Exportar prueba JSON'}</button>
+        <button type="button" onClick={exportSession} disabled={exporting} className="touch-target flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[10px] font-bold text-cyan-100 disabled:opacity-50 sm:w-auto"><Download className="h-3.5 w-3.5"/>{exporting ? 'Preparando JSON…' : 'Exportar prueba JSON'}</button>
         <button type="button" onClick={() => fileRef.current?.click()} className="touch-target flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-[10px] font-bold text-violet-100 sm:w-auto"><Upload className="h-3.5 w-3.5"/>Importar prueba JSON</button>
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={e => void importFile(e.target.files?.[0] ?? null)}/>
       </div>
