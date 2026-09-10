@@ -47,10 +47,15 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
 
   const calculateHistorical = () => {
     if (historicalLoading) return;
+    if (!(capitalEur > 0)) {
+      setHistorical(null);
+      setHistoricalError('No hay liquidez disponible para esta comparación histórica. La app no inventa un capital mínimo para poder ejecutarla.');
+      return;
+    }
     setHistoricalLoading(true); setHistoricalError(null); setHistorical(null);
     window.setTimeout(() => {
       try {
-        const config = { initialCapital: Math.max(1, capitalEur), commissionPct: 0.05, slippagePct: 0.02, riskProfile, horizonYears, rebalanceFrequency: 'MONTHLY' as const };
+        const config = { initialCapital: capitalEur, commissionPct: 0.05, slippagePct: 0.02, riskProfile, horizonYears, rebalanceFrequency: 'MONTHLY' as const };
         const research = CausalUniverseBacktestEngine.run(scan.acceptedDataset, EUR_PORTFOLIO_DISCOVERY_UNIVERSE, config, 8);
         setHistorical(MixedInstrumentCausalReplayEngine.run({ universeDataset: scan.acceptedDataset, catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE, researchResult: research, config, cashBenchmarkAnnualPct: benchmark }));
       } catch (e: any) { setHistoricalError(e?.message || String(e)); }
@@ -58,7 +63,7 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
     }, 0);
   };
 
-  return <section className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/45 via-slate-900 to-slate-950 p-5">
+  return <section className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/45 via-slate-900 to-slate-950 p-4 sm:p-5">
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div className="max-w-3xl">
         <div className="flex items-center gap-2"><CircleDollarSign className="h-5 w-5 text-emerald-300"/><h2 className="text-lg font-bold text-white">¿Compensa invertir frente a dejar el dinero en MyInvestor?</h2></div>
@@ -77,7 +82,7 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
       <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-3"><div className="text-[10px] uppercase text-slate-500">Broker por confirmar</div><div className="mt-1 text-xl font-bold text-sky-300">{pendingBroker}</div></div>
     </div>
 
-    <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+    <div className="mobile-scroll-x mt-4 rounded-xl border border-slate-800">
       <table className="w-full min-w-[760px] text-xs">
         <thead className="bg-slate-950 text-[10px] uppercase text-slate-500"><tr><th className="p-3 text-left">Producto</th><th className="p-3 text-right">Mom. 120d</th><th className="p-3 text-right">Proxy anual</th><th className="p-3 text-right">vs cuenta</th><th className="p-3 text-left">Decisión económica</th><th className="p-3 text-left">MyInvestor</th></tr></thead>
         <tbody>{rows.map(({ candidate, assessment, broker }) => <tr key={candidate.asset.assetId} className="border-t border-slate-800 bg-slate-950/40">
@@ -93,9 +98,10 @@ export const DecisionGuardrailsPanel: React.FC<Props> = ({ scan, capitalEur, ris
 
     <div className="mt-5 rounded-xl border border-emerald-500/20 bg-slate-950/55 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div><div className="font-bold text-emerald-100">Estrategia histórica vs todo en efectivo remunerado</div><div className="mt-1 text-[10px] text-slate-500">Replay causal con {capitalEur.toFixed(2)} €, riesgo {riskProfile}, horizonte {horizonYears} años. El efectivo residual dentro de la estrategia también devenga {benchmark.toFixed(2)}% TAE por días naturales.</div><div className="mt-1 text-[9px] text-amber-300/80">Escenario de TAE constante: este replay aplica la TAE configurada durante toda la ventana. No reconstruye la remuneración bancaria histórica de cada año.</div></div>
-        <button onClick={calculateHistorical} disabled={historicalLoading} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><Calculator className="h-3.5 w-3.5"/>{historicalLoading ? 'Calculando…' : historical ? 'Recalcular' : 'Calcular comparación'}</button>
+        <div><div className="font-bold text-emerald-100">Estrategia histórica vs todo en efectivo remunerado</div><div className="mt-1 text-[10px] text-slate-500">{capitalEur > 0 ? `Replay causal con ${capitalEur.toFixed(2)} €, riesgo ${riskProfile}, horizonte ${horizonYears} años.` : 'No hay liquidez disponible para construir este replay comparativo.'} El efectivo residual dentro de la estrategia devenga {benchmark.toFixed(2)}% TAE por días naturales.</div><div className="mt-1 text-[9px] text-amber-300/80">Escenario de TAE constante: este comparador aplica la TAE configurada durante toda la ventana. No reconstruye la remuneración bancaria histórica de cada año.</div></div>
+        <button onClick={calculateHistorical} disabled={historicalLoading || capitalEur <= 0} className="touch-target flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"><Calculator className="h-3.5 w-3.5"/>{capitalEur <= 0 ? 'Sin capital disponible' : historicalLoading ? 'Calculando…' : historical ? 'Recalcular' : 'Calcular comparación'}</button>
       </div>
+      {capitalEur <= 0 && <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-[10px] text-slate-400">La comparación queda deshabilitada con 0 €. No se sustituye silenciosamente por 1 € ni por ningún otro capital ficticio.</div>}
       {historicalError && <div className="mt-3 rounded-lg border border-rose-500/25 bg-rose-500/10 p-3 text-xs text-rose-200">{historicalError}</div>}
       {historical && <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5 text-xs">
         <div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Estrategia final</div><b className="font-mono">{historical.finalEquityEur.toFixed(2)} €</b><div className="text-[10px] text-slate-500">{historical.totalReturnPct >= 0 ? '+' : ''}{historical.totalReturnPct.toFixed(2)}%</div></div>
