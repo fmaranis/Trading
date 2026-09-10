@@ -20,6 +20,11 @@ export interface ManualBrokerAvailabilityRecord {
 }
 
 const MANUAL_STORAGE_KEY = 'custodia_myinvestor_manual_availability_v1';
+export const MYINVESTOR_AVAILABILITY_UPDATED_EVENT = 'custodia:myinvestor-availability-updated';
+
+function notifyManualAvailabilityChanged(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(MYINVESTOR_AVAILABILITY_UPDATED_EVENT));
+}
 
 /**
  * Broker availability is deliberately separate from market-data validity.
@@ -81,6 +86,7 @@ export class ManualMyInvestorAvailabilityService {
       const all = this.loadAll();
       all[key] = record;
       window.localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify(all));
+      notifyManualAvailabilityChanged();
     }
     return record;
   }
@@ -90,9 +96,14 @@ export class ManualMyInvestorAvailabilityService {
     const all = this.loadAll();
     delete all[normalizeKey(isinOrTicker)];
     window.localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify(all));
+    notifyManualAvailabilityChanged();
   }
 
-  static clear(): void { if (typeof window !== 'undefined') window.localStorage.removeItem(MANUAL_STORAGE_KEY); }
+  static clear(): void {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(MANUAL_STORAGE_KEY);
+    notifyManualAvailabilityChanged();
+  }
 }
 
 export function getPublicMyInvestorAvailability(asset: AssetUniverseItem): BrokerAvailabilityRecord {
