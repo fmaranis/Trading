@@ -17,7 +17,7 @@ const validationCenter = read('src/components/ResearchValidationCenter.tsx');
 const replayJsonControls = read('src/components/HistoricalAuditJsonControls.tsx');
 const jsonDownload = read('src/jsonDownload.ts');
 const marketDashboard = read('src/components/MarketUtilityDashboard.tsx');
-const tracePanel = read('src/components/ProductDecisionTracePanel.tsx');
+const alerts = read('src/components/CurrentOpportunityAlertsPanel.tsx');
 const futureForwardProtocol = read('scripts/qualityAllocationDynamicFutureForwardV1Protocol.ts');
 
 check('1001 root product starts at the canonical decision entrypoint', () => {
@@ -70,35 +70,49 @@ check('1009 browser-storage JSON helper does not revoke the Blob URL synchronous
   assert.ok(click >= 0 && timeout > click && revoke > timeout);
 });
 
-check('1010 canonical dashboard exposes the decision trace before actionable alerts', () => {
-  const trace = marketDashboard.indexOf('<ProductDecisionTracePanel');
-  const alerts = marketDashboard.indexOf('<CurrentOpportunityAlertsPanel');
-  assert.ok(trace >= 0 && alerts >= 0 && trace < alerts);
+check('1010 actionable decision is rendered before secondary execution detail', () => {
+  const headline = marketDashboard.indexOf('<CurrentOpportunityAlertsPanel');
+  const execution = marketDashboard.indexOf('<PortfolioExecutionPlanPanel');
+  assert.ok(headline >= 0 && execution >= 0 && headline < execution);
 });
 
-check('1011 trace panel derives amounts from evaluatePortfolioDecision', () => {
-  assert.match(tracePanel, /evaluatePortfolioDecision\(/);
-  assert.match(tracePanel, /recommendedNewInvestmentEur/);
-  assert.match(tracePanel, /row\.amountEur/);
+check('1011 headline purchases come from final portfolioDecision contributions', () => {
+  assert.match(alerts, /canonicalBuys = portfolioDecision\.contributions/);
+  assert.match(alerts, /recommendedNewInvestmentEur/);
+  assert.doesNotMatch(alerts, /fundedAlerts\.map/);
 });
 
-check('1012 trace panel declares current production allocation policy as LEGACY', () => {
-  assert.match(tracePanel, /PRODUCCIÓN · LEGACY/);
-  assert.ok(tracePanel.includes('política <b className="text-emerald-200">LEGACY</b>'));
+check('1012 headline sales and watch states come from final portfolioDecision', () => {
+  assert.match(alerts, /canonicalSales = portfolioDecision\.existingPositions/);
+  assert.match(alerts, /canonicalWatch = portfolioDecision\.existingPositions/);
+  assert.doesNotMatch(alerts, /positionHealth\?\.positions\.filter/);
 });
 
-check('1013 trace panel names the complete canonical decision path', () => {
+check('1013 no parallel rotation engine can emit the headline action', () => {
+  assert.doesNotMatch(alerts, /PortfolioRotationReviewEngine/);
+  assert.match(alerts, /canonicalRotations = canonicalSales\.filter/);
+});
+
+check('1014 headline explains the complete canonical decision path from the same result', () => {
   for (const token of ['AssetUniverseScanner', 'Top64 dinámico', 'PortfolioCandidateGate', 'InvestmentDecisionEngine', 'evaluatePortfolioDecision', 'CORE_GATE_V1', 'CORE_ARCHITECTURE_V1']) {
-    assert.ok(tracePanel.includes(token), `missing trace token ${token}`);
+    assert.ok(alerts.includes(token), `missing decision path token ${token}`);
   }
+  assert.match(alerts, /Política productiva de asignación:/);
+  assert.match(alerts, />LEGACY</);
 });
 
-check('1014 future-forward frozen manifest still includes runner and durable state store', () => {
+check('1015 core or architecture-added contributions are not hidden when alert metadata is absent', () => {
+  assert.match(alerts, /canonicalBuys\.map/);
+  assert.match(alerts, /alertByAsset\.get\(contribution\.assetId\)/);
+  assert.match(alerts, /ASIGNACIÓN CORE/);
+});
+
+check('1016 future-forward frozen manifest still includes runner and durable state store', () => {
   assert.match(futureForwardProtocol, /scripts\/qualityAllocationDynamicFutureForwardV1CheckpointLive\.ts/);
   assert.match(futureForwardProtocol, /scripts\/qualityAllocationDynamicFutureForwardV1StateStore\.ts/);
 });
 
-check('1015 mobile interaction baseline is explicitly present in the canonical stylesheet', () => {
+check('1017 mobile interaction baseline is explicitly present in the canonical stylesheet', () => {
   const css = read('src/index.css');
   assert.match(css, /touch-action:\s*manipulation/);
   assert.match(css, /\.touch-target/);
@@ -106,4 +120,4 @@ check('1015 mobile interaction baseline is explicitly present in the canonical s
   assert.match(css, /env\(safe-area-inset-bottom\)/);
 });
 
-console.log(`Product surface closure V1: ${passed}/15 invariants passed.`);
+console.log(`Product surface closure V1: ${passed}/17 invariants passed.`);
