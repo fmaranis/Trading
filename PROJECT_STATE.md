@@ -85,7 +85,118 @@ Esta función ejecuta:
 
 ---
 
-# 4. Mercado dinámico current/live — CERRADO / PASS FINAL
+# 4. Entrada web y superficie productiva — CERRADA 2026-09-10
+
+La ruta real de producto es:
+
+`index.html -> src/decisionMain.tsx -> InteractiveInvestmentDecisionCenter + ResearchValidationCenter`
+
+Hallazgo importante de auditoría:
+
+- `index.html` **no** utilizaba el antiguo `App.tsx`;
+- el `App.tsx` heredado sólo seguía siendo accesible mediante `/legacy.html`;
+- `/legacy.html` era la vía restante hacia la antigua experiencia `Bot 2X / PortfolioEngine / LiveSimulationEngine`.
+
+Corrección:
+
+- `/legacy.html` ya no carga `src/main.tsx`; redirige a `/` y queda `noindex`;
+- `decisionMain.tsx` no enlaza a Legacy;
+- `/portfolio.html` se conserva como laboratorio cuantitativo separado, sin autoridad para emitir la recomendación productiva de cartera real;
+- la única superficie accionable normal es `InteractiveInvestmentDecisionCenter`.
+
+Los compatibility adapters previamente aplicados a `GrowthTradingBot`, antiguo `InvestmentDecisionCenter` y `PortfolioOverview` se conservan como defensa adicional, pero ya no constituyen una ruta productiva normal.
+
+Guard de cierre:
+
+`tests/productSurfaceClosureV1.unit.ts`
+
+Protege 15 invariantes de entrypoint, retirada de Legacy, descarga JSON, preflight, trazabilidad y móvil.
+
+El guard anterior `tests/productDecisionSurface.unit.ts` sigue protegiendo que no reaparezcan `LiveSimulationEngine`, `ALL_AVAILABLE_ASSETS` o un decision center paralelo en las superficies adaptadas.
+
+---
+
+# 5. Trazabilidad visible de cada recomendación — CERRADA 2026-09-10
+
+Componente:
+
+`src/components/ProductDecisionTracePanel.tsx`
+
+Se muestra antes de las recomendaciones accionables dentro de `MarketUtilityDashboard`.
+
+La pantalla declara explícitamente:
+
+`AssetUniverseScanner -> Top64 dinámico -> PortfolioCandidateGate -> InvestmentDecisionEngine -> evaluatePortfolioDecision -> CORE_GATE_V1 -> CORE_ARCHITECTURE_V1`
+
+Y muestra:
+
+- `PRODUCCIÓN · LEGACY`;
+- capital disponible;
+- inversión total recomendada ahora;
+- cash objetivo;
+- cash previsto después del plan;
+- para cada activo: `amountEur`, timing, etapa `STARTER/BUILD/ROTATION_ENTRY`, fracción inicial, cap de cartera, valor ya invertido, objetivo estratégico, objetivo ejecutable y orden pendiente;
+- explicación `reason` generada por el mismo `PortfolioDecisionEngine`.
+
+El panel **no crea otra recomendación**: vuelve a llamar a `evaluatePortfolioDecision(...)` con la misma cartera, scan, decision, salud de posiciones y cash benchmark para explicar el mismo sizing.
+
+Objetivo de producto: si aparece `EXV1 · 603 €`, el usuario puede comprobar en la propia app de dónde sale el importe sin inferir qué motor lo produjo.
+
+---
+
+# 6. JSON y usabilidad móvil — CERRADO FUNCIONALMENTE 2026-09-10
+
+## Centro de validación
+
+El antiguo `Descargar JSON` generaba un Blob en frontend y simulaba un `anchor.click()`. En algunos navegadores/WebViews móviles podía no producir una descarga visible.
+
+Ahora el Centro usa descarga HTTP nativa:
+
+`GET /api/alerts/research-validation/jobs/:id/result.json`
+
+El backend responde con:
+
+- JSON del resultado registrado;
+- `Content-Disposition: attachment`;
+- `Cache-Control: no-store`.
+
+`ResearchValidationCenter` utiliza un `<a href=.../result.json>` normal. Ya no usa `Blob`, `URL.createObjectURL` ni `downloadResultJson` para esa descarga.
+
+## Replay histórico
+
+El replay sí guarda su sesión completa en `localStorage`, por lo que su exportación sigue siendo client-side.
+
+Helper:
+
+`src/jsonDownload.ts`
+
+Reglas:
+
+- no revocar la Blob URL inmediatamente tras `click()`;
+- mantenerla 30 s para que navegadores móviles puedan consumirla;
+- mostrar feedback `Preparando JSON… / Descarga iniciada`;
+- fallback a nueva pestaña si el navegador lanza error al iniciar la descarga.
+
+`HistoricalAuditJsonControls` utiliza este helper y mantiene separados `Guardar + publicar para ChatGPT`, `Exportar prueba JSON` e `Importar prueba JSON`.
+
+## Base móvil
+
+`src/index.css` y `decisionMain.tsx` incorporan:
+
+- `touch-action: manipulation`;
+- utilidad `touch-target` de 44 px;
+- inputs/selects a 16 px en móvil para evitar zoom de foco;
+- safe-area inferior;
+- scrolling táctil horizontal;
+- header principal compacto;
+- acceso directo móvil a Validación y Lab;
+- botones relevantes del Centro/JSON apilados a ancho completo en teléfono.
+
+No se ha modificado lógica financiera para estos cambios.
+
+---
+
+# 7. Mercado dinámico current/live — CERRADO / PASS FINAL
 
 Documentos:
 
@@ -113,7 +224,7 @@ Run final 2026-09-09:
 - gate LEGACY: 11 elegibles -> 11 seleccionados;
 - leak elegible fuera del Top64: 0.
 
-Ranking congelado durante esa fase:
+Ranking:
 
 `MARKET_SHORTLIST_LEGACY_SCORE_V1`
 
@@ -123,46 +234,32 @@ Reliability/Opportunity sólo desempatan el Top64 productivo.
 
 No utilizar snapshots del 2026-09-09 para retunear esa fórmula.
 
-Identidad/diversificación current/live:
+### Limitación de metadata
 
-- aliases/cross-listings evidentes se deduplican antes del Top64;
-- acciones individuales current/live no quedan limitadas por la etiqueta amplia `EUROPE_EQUITY` en `PortfolioCandidateGate`;
-- ETF/fondos conservan cap legacy de 2 por categoría;
-- histórico/research conserva semántica anterior.
+Yahoo Lookup no aporta todavía una taxonomía sectorial robusta para todos los activos descubiertos. En 2026-09 `OPEN_EXV1_DE` apareció como `GLOBAL_EQUITY` aunque económicamente es un ETF sectorial bancario europeo.
 
-El job `dynamic-market-top64-v1` está ARCHIVED/read-only.
-
-### Limitación de metadata detectada
-
-Yahoo Lookup no aporta todavía una taxonomía sectorial robusta para todos los ETF/acciones descubiertos. En el snapshot prospectivo 2026-09, por ejemplo, `OPEN_EXV1_DE` apareció con categoría genérica `GLOBAL_EQUITY` aunque económicamente es un ETF sectorial bancario europeo.
-
-Esto **no** puede convertirlo en core estructural porque `STRATEGIC_GROWTH_CORE_ASSET_IDS` es una lista explícita y EXV1 no pertenece a ella. Sí puede afectar comparaciones/caps de categoría. No inventar sectores sin metadata fiable. Esta limitación queda registrada para una corrección separada; no se modifica ahora ninguno de los 25 archivos congelados del future-forward.
+Esto no puede convertirlo en core estructural porque el core utiliza IDs explícitos, pero sí puede afectar caps/comparaciones de categoría. Queda como deuda separada y no se toca durante el future-forward congelado.
 
 ---
 
-# 5. Replay histórico — causal, con limitación de universo
-
-El replay decide en cada fecha histórica usando sólo datos disponibles hasta ese día.
+# 8. Replay histórico — causal, con limitación de universo
 
 En cada `decisionDate`:
 
-- trunca barras a `<= decisionDate`;
-- exige mínimo histórico;
-- calcula momentum/volatilidad/drawdown causalmente;
+- usa sólo barras `<= decisionDate`;
+- calcula señales con histórico disponible;
 - aplica `PortfolioCandidateGate`;
 - llama `InvestmentDecisionEngine` con timestamp histórico;
-- llama la cadena de portfolio correspondiente;
+- aplica la cadena de portfolio correspondiente;
 - ejecuta después de señal.
 
-No reconstruye todavía el mercado completo point-in-time de aquella fecha.
+Yahoo Search/Lookup **actual** no reconstruye el universo histórico.
 
-Yahoo Search/Lookup actual **no participa** en replay histórico.
-
-Persiste survivorship hasta disponer de instrument master point-in-time con altas/bajas/delistings históricos.
+Persiste survivorship hasta disponer de instrument master point-in-time con altas, bajas y delistings.
 
 ---
 
-# 6. External cash flows — PASS / CONSUMIDO / ARCHIVADO
+# 9. External cash flows — PASS / CONSUMIDO / ARCHIVADO
 
 Documento:
 
@@ -193,7 +290,7 @@ Producción sigue LEGACY.
 
 ---
 
-# 7. Opportunity / QUALITY — historial metodológico
+# 10. Opportunity / QUALITY — historial metodológico
 
 Consumido:
 
@@ -215,195 +312,88 @@ Producción continúa `LEGACY`.
 
 ---
 
-# 8. Antiguo future-forward fijo — VOID PRE-START
+# 11. QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1 — COLLECTING
 
-Documento:
-
-`docs/quality_allocation_future_forward_v1_preregistration.md`
-
-Estado:
-
-**ANULADO ANTES DE PRIMER OUTCOME / NO CONSUMIÓ MUESTRA**
-
-Motivo: congelaba 64 nombres y confundía shortlist dinámica con universo fijo.
-
-No se reactiva.
-
----
-
-# 9. QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1 — COLLECTING
-
-Preregistro normativo congelado:
+Preregistro:
 
 `docs/quality_allocation_dynamic_future_forward_v1_preregistration.md`
 
-Estado corriente separado del preregistro:
+Estado corriente:
 
 `docs/quality_allocation_dynamic_future_forward_v1_status.md`
 
-Código:
-
-- `scripts/qualityAllocationDynamicFutureForwardV1Protocol.ts`
-- `scripts/qualityAllocationDynamicFutureForwardV1CheckpointLive.ts`
-- `scripts/qualityAllocationDynamicFutureForwardV1StateStore.ts`
-- `tests/qualityAllocationDynamicFutureForwardV1.unit.ts`
-- `src/components/ResearchValidationCenter.tsx`
-
-Estado actual:
+Estado:
 
 **COLLECTING / 1 DE 12 OBSERVACIONES / 0 OUTCOMES MADUROS / PRODUCTION LEGACY / NO PROMOTION FROM PHASE A**
 
-### Primer checkpoint válido
+Primer checkpoint válido:
 
-Fecha local: **2026-09-09 23:37 Europe/Madrid**.
+**2026-09-09 23:37 Europe/Madrid**.
 
 Persistencia autoritativa:
 
-- repo: `fmaranis/Trading`;
-- branch: `replay-results`;
-- path: `validation-runs/quality-allocation-dynamic-future-forward-v1-state.json`;
-- durable commit: `fbae24fd46c751a71e059bb4f99b2de73c784dae`;
-- remote blob: `4006754a0d627f0846ef6d21a340f7c2ea9c633f`;
-- state SHA-256: `f3fd8e4d7ce4825351a23908c460285431abb751851ed9034ac2ff903a7e2bec`.
+- branch `replay-results`;
+- path `validation-runs/quality-allocation-dynamic-future-forward-v1-state.json`;
+- durable commit `fbae24fd46c751a71e059bb4f99b2de73c784dae`;
+- remote blob `4006754a0d627f0846ef6d21a340f7c2ea9c633f`;
+- state SHA-256 `f3fd8e4d7ce4825351a23908c460285431abb751851ed9034ac2ff903a7e2bec`.
 
 Fingerprints:
 
-- protocol: `1220601b4d5fead26b68c48a198c7a5bac2220898c99fef1171452653d8ac82b`;
-- implementation: `ba1b286ac6920495b7b5d853b6ca78fb5e1de356fc5ab3d4fb56bc34e1e51bff`;
-- frozen critical sources: 25.
+- protocol `1220601b4d5fead26b68c48a198c7a5bac2220898c99fef1171452653d8ac82b`;
+- implementation `ba1b286ac6920495b7b5d853b6ca78fb5e1de356fc5ab3d4fb56bc34e1e51bff`;
+- **25 archivos metodológicos congelados**.
 
-Snapshot:
+Snapshot inicial:
 
 - discovery promoted: 99;
 - scanned: 163;
-- accepted REAL: 158;
+- REAL accepted: 158;
 - rejected: 5;
 - Top64: 64;
-- gate LEGACY eligible/selected: 11/11;
-- market regime: `BULL_LOW_VOL`;
-- decision confidence: HIGH 95;
-- production policy remains LEGACY.
+- gate LEGACY 11/11;
+- market regime `BULL_LOW_VOL`;
+- production `LEGACY`.
 
 Allocator probe:
 
-LEGACY:
+- LEGACY: 1.728,4054 EUR de inversión nueva;
+- QUALITY: 1.726,1896 EUR;
+- `planChanged = true`;
+- delta absoluto de notional planificado: 2,6887 EUR;
+- EXV1.DE: `HIGH_CONVICTION`, `ENTRY_STRONG`, fracción inicial 50%, 650 EUR en ambos brazos.
 
-- new investment: 1.728,4054 EUR;
-- residual planned cash: 11.271,5946 EUR;
-- contributions: 4.
+No hay todavía conclusión económica.
 
-QUALITY:
+Phase A es deliberadamente un **allocation probe** y no una validación end-to-end suficiente para promoción.
 
-- new investment: 1.726,1896 EUR;
-- residual planned cash: 11.273,8104 EUR;
-- contributions: 4.
+Siguiente observación nueva válida:
 
-`planChanged = true`.
-
-Absolute planned notional delta: 2,6887 EUR.
-
-EXV1.DE en ambos brazos:
-
-- `HIGH_CONVICTION`;
-- `ENTRY_STRONG`;
-- initial fraction 50%;
-- amount 650 EUR.
-
-QUALITY elevó prioridad relativa pero no cambió el importe por caps compartidos.
-
-No existe todavía outcome 20/60 sesiones; no hay conclusión económica.
-
-### Alcance metodológico
-
-Phase A es deliberadamente un **allocation probe**:
-
-`Yahoo current/live -> scanner -> Top64 -> PortfolioCandidateGate LEGACY -> InvestmentDecisionEngine -> PortfolioDecisionEngine`
-
-El mismo `PortfolioDecisionEngine.evaluate(...)` se ejecuta con:
-
-- `LEGACY`;
-- `QUALITY_ALLOCATION_BRIDGE_V1`.
-
-Sólo cambia `opportunityAllocationPolicy`.
-
-No es una validación end-to-end de `CORE_ARCHITECTURE_V1`; no puede promocionar producción. Una eventual Phase B separada sería necesaria incluso con evidencia direccional positiva.
-
-### Ventana y continuidad
-
-- cadencia MONTHLY;
-- máximo 12 checkpoints;
-- meses consecutivos;
-- nueva observación sólo día 9, 22:30-24:00 Europe/Madrid;
-- no backfill;
-- una observación por mes;
-- duplicate month no overwrite;
-- hash-chain;
-- outcomes append-only;
-- estado durable en GitHub;
-- RAW next-open para unidades/comisión;
-- adjusted total-return factor para 20/60 sesiones.
-
-Siguiente observación nueva válida: **2026-10-09 22:30-24:00 Europe/Madrid**.
+**2026-10-09 22:30-24:00 Europe/Madrid**.
 
 No repetir septiembre.
 
----
+### Integridad tras cierre de producto 2026-09-10
 
-# 10. Superficie productiva de recomendaciones — UNIFICACIÓN CORREGIDA 2026-09-09
+El diff de cierre de producto fue auditado contra el manifiesto de 25 blobs. **Ninguno de los 25 archivos congelados fue modificado.**
 
-Se detectó que `App.tsx` todavía montaba componentes heredados capaces de mantener una arquitectura paralela de producto, aunque la cadena canónica nueva ya existía.
+En particular permanecen intactos:
 
-Problema encontrado:
+- `scripts/qualityAllocationDynamicFutureForwardV1CheckpointLive.ts`;
+- `scripts/qualityAllocationDynamicFutureForwardV1StateStore.ts`;
+- scanner/gate/entry timing/decision/allocator y fuentes de mercado incluidas en el manifiesto.
 
-- `GrowthTradingBot` usaba `ALL_AVAILABLE_ASSETS + LiveSimulationEngine`;
-- antiguo `InvestmentDecisionCenter` escaneaba su propio universo y llamaba directamente a `InvestmentDecisionEngine`;
-- `PortfolioOverview` mostraba un estado `PortfolioEngine` simulado distinto de `UserPortfolioService`.
+### Token / preflight
 
-Esto era incompatible con la regla de una sola cadena productiva.
+El entorno local/AI Studio debe proporcionar `GITHUB_REPLAY_SYNC_TOKEN` para el estado durable.
 
-Corrección aplicada sin tocar los 25 blobs congelados del future-forward:
+Tras el fallo observado el 2026-09-10 por token ausente, `server/researchValidationRoutes.ts` hace ahora el preflight **antes de lanzar guards o TypeScript**:
 
-- `GrowthTradingBot.tsx` = compatibility adapter -> `InteractiveInvestmentDecisionCenter`;
-- `InvestmentDecisionCenter.tsx` = compatibility adapter -> `InteractiveInvestmentDecisionCenter`;
-- `PortfolioOverview.tsx` = compatibility adapter -> `InteractiveInvestmentDecisionCenter`.
+- si falta token: HTTP 412 + `QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED`;
+- el botón queda bloqueado y la UI muestra `FALTA TOKEN`;
+- no se inicia cálculo ni se consume observación.
 
-Las superficies operativas del centro canónico usan:
-
-- `CurrentOpportunityAlertsPanel -> evaluatePortfolioDecision`;
-- `RealPurchaseRegistrationPanel -> evaluatePortfolioDecision`;
-- `PortfolioExecutionPlanPanel -> evaluatePortfolioDecision`.
-
-Por tanto las recomendaciones productivas convergen en:
-
-`AssetUniverseScanner -> PortfolioCandidateGate -> InvestmentDecisionEngine -> evaluatePortfolioDecision -> ejecución/seguimiento`.
-
-Guard añadido:
-
-`tests/productDecisionSurface.unit.ts`
-
-Protege 15 invariantes y falla si se vuelve a activar `LiveSimulationEngine`, `ALL_AVAILABLE_ASSETS` o un scanner/decision center paralelo en esas superficies.
-
-### Deuda residual de producto
-
-`App.tsx`, `Navbar`, `RiskAnalysisCenter`, `MarketTracker`, `AlertsManager` y algunos modales conservan todavía tipos/estado heredados de simulación para funciones secundarias. Tras la corrección anterior **ya no deben ser fuente de una recomendación productiva de compra**, pero la limpieza visual/estado secundario queda pendiente para evitar etiquetas como “Bot 2X” y métricas de la antigua cartera simulada.
-
-No reintroducir ninguna recomendación desde esos módulos. La única recomendación accionable debe venir del centro canónico.
-
----
-
-# 11. Centro de validación — único job CURRENT
-
-ID:
-
-`quality-allocation-dynamic-future-forward-v1`
-
-Nombre:
-
-**QUALITY allocation · future-forward dinámico**
-
-El job ejecuta guards rápidos, TypeScript/lint y el checkpoint REAL prospectivo. No usar GitHub Actions ni agentes.
-
-Tras el checkpoint 2026-09 ya registrado, un rerun en el mismo mes nunca crea otra observación; sólo puede verificar estado o madurar outcomes.
+El runner/state store congelados no se modificaron para solucionar este problema.
 
 ---
 
@@ -422,25 +412,48 @@ No se mezclan en el future-forward QUALITY actual.
 
 ---
 
-# 13. Mejoras futuras explícitamente DEFERRED
+# 13. Diagnóstico HFG / grandes ganadores — DEFERRED
 
-No abrir hasta cerrar la secuencia vigente:
+Replay aportado por el usuario para diagnóstico:
 
-- USD/Nasdaq/NYSE discovery;
-- detección temprana de multibaggers/SNDK-like;
-- reducción del requisito de 252 sesiones para listings jóvenes;
-- fundamentales/revisiones de beneficios/volumen como nuevas features;
-- retuning de Reliability/Opportunity/Top64;
-- nuevos Forward Risk V12/V13.
+- ventana 2019-01-01 -> 2022-12-30;
+- 26.000 EUR iniciales;
+- 13.000 EUR HFG.DE + 13.000 EUR cash;
+- frecuencia mensual;
+- Motor Custodia.
+
+Hallazgos preliminares observados en el replay:
+
+- Custodia liquida HFG casi inmediatamente al comienzo;
+- posteriormente HFG reaparece repetidamente como candidato durante la gran tendencia;
+- en una fecha llega a `ENTRY_READY` pero no recibe compra financiada;
+- existe una posible cuestión semántica sobre el streak de deterioro aplicado a una posición inicial y otra sobre capital atrapado en core/reentrada.
+
+**No se modifica producción ni se retunea nada con esta muestra.**
+
+Este diagnóstico queda aparcado hasta terminar/verificar el cierre de producto. Después se estudiará como problema de calidad de política económica: salida inicial, reentrada, financiación de oportunidades y protección de ganancias.
 
 ---
 
-# 14. Próxima secuencia técnica
+# 14. Mejoras futuras DEFERRED
 
-1. Verificar una sola vez la corrección de superficie productiva con `tests/productDecisionSurface.unit.ts` + TypeScript/lint en local.
-2. No repetir el checkpoint de septiembre: ya está persistido y consumido como primera observación.
-3. Mientras madura el future-forward, terminar la limpieza de UI/estado heredado sin tocar los 25 blobs metodológicos congelados.
-4. No ejecutar una recomendación real si la pantalla no permite identificar que procede del centro canónico y del `evaluatePortfolioDecision` actual.
-5. Registrar como deuda separada la taxonomía genérica de algunos `OPEN_*` descubiertos por Lookup; no inventar sectores ni modificar discovery congelado dentro de Phase A.
-6. Próximo checkpoint nuevo: 2026-10-09, 22:30-24:00 Europe/Madrid.
-7. Producción permanece `LEGACY` durante toda Phase A.
+No abrir como tuning productivo hasta cerrar la secuencia vigente:
+
+- USD/Nasdaq/NYSE discovery con FX explícito;
+- listings jóvenes / requisito de 252 sesiones;
+- multibaggers/SNDK-like;
+- fundamentales, revisiones de beneficios y volumen;
+- taxonomía sectorial robusta de `OPEN_*`;
+- retuning de Reliability/Opportunity/Top64;
+- nuevas políticas Forward Risk V12/V13.
+
+---
+
+# 15. Próxima secuencia técnica
+
+1. Ejecutar **una sola comprobación local de cierre**: `npx tsx tests/productSurfaceClosureV1.unit.ts` + `npm run lint`. No ejecutar replays ni future-forward para esta comprobación.
+2. Comprobar manualmente en móvil, sin relanzar ninguna validación, que el enlace `Descargar JSON` del resultado existente responde como descarga HTTP cuando existe un resultado en memoria.
+3. Restaurar `GITHUB_REPLAY_SYNC_TOKEN` en el entorno antes de necesitar escritura future-forward; no hace falta relanzar septiembre.
+4. Mantener producción `LEGACY` y los 25 blobs congelados intactos.
+5. Una vez cerrado lo anterior, retomar el diagnóstico económico HFG y otros boom->crash sin retunear sobre la muestra consumida.
+6. Próximo checkpoint prospectivo nuevo: 2026-10-09 22:30-24:00 Europe/Madrid.
