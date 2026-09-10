@@ -100,14 +100,7 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
       </summary>
       <div className="mt-4 space-y-4">
         <StrategyConsensusPanel scan={scan} />
-        <PortfolioExecutionPlanPanel
-          scan={scan}
-          decision={decision}
-          positionHealth={positionHealth}
-          portfolioDecision={portfolioDecision}
-          executionPlan={executionPlan}
-          onInspectAsset={onInspectAsset}
-        />
+        <PortfolioExecutionPlanPanel scan={scan} executionPlan={executionPlan} onInspectAsset={onInspectAsset} />
       </div>
     </details>
   </section>;
