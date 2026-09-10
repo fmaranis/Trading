@@ -5,10 +5,17 @@ import {
   AssetUniverseScanResult,
   CASH_BENCHMARK_UPDATED_EVENT,
   CashBenchmarkService,
-  getMyInvestorAvailability
+  getMyInvestorAvailability,
+  type InvestmentHorizonYears,
+  type InvestorRiskProfile
 } from '../investment/decision';
 
-interface Props { scan: AssetUniverseScanResult; }
+interface Props {
+  scan: AssetUniverseScanResult;
+  capitalEur?: number;
+  riskProfile?: InvestorRiskProfile;
+  horizonYears?: InvestmentHorizonYears;
+}
 
 function brokerLabel(status: string, evidence: string): string {
   if (status === 'CONFIRMED_MYINVESTOR' && evidence === 'USER_CONFIRMED_MYINVESTOR') return 'Confirmado por ti';
