@@ -85,72 +85,89 @@ Esta función ejecuta:
 
 ---
 
-# 4. Entrada web y superficie productiva — CERRADA 2026-09-10
+# 4. Entrada web y superficie productiva — IMPLEMENTADA / PENDIENTE VERIFICACIÓN FINAL
 
 La ruta real de producto es:
 
 `index.html -> src/decisionMain.tsx -> InteractiveInvestmentDecisionCenter + ResearchValidationCenter`
 
-Hallazgo importante de auditoría:
+Hallazgo de auditoría:
 
-- `index.html` **no** utilizaba el antiguo `App.tsx`;
+- `index.html` no utilizaba el antiguo `App.tsx`;
 - el `App.tsx` heredado sólo seguía siendo accesible mediante `/legacy.html`;
 - `/legacy.html` era la vía restante hacia la antigua experiencia `Bot 2X / PortfolioEngine / LiveSimulationEngine`.
 
-Corrección:
+Corrección aplicada:
 
 - `/legacy.html` ya no carga `src/main.tsx`; redirige a `/` y queda `noindex`;
 - `decisionMain.tsx` no enlaza a Legacy;
 - `/portfolio.html` se conserva como laboratorio cuantitativo separado, sin autoridad para emitir la recomendación productiva de cartera real;
 - la única superficie accionable normal es `InteractiveInvestmentDecisionCenter`.
 
-Los compatibility adapters previamente aplicados a `GrowthTradingBot`, antiguo `InvestmentDecisionCenter` y `PortfolioOverview` se conservan como defensa adicional, pero ya no constituyen una ruta productiva normal.
+Los compatibility adapters de `GrowthTradingBot`, antiguo `InvestmentDecisionCenter` y `PortfolioOverview` permanecen como defensa adicional.
 
-Guard de cierre:
+Estado de validación:
 
-`tests/productSurfaceClosureV1.unit.ts`
-
-Protege 15 invariantes de entrypoint, retirada de Legacy, descarga JSON, preflight, trazabilidad y móvil.
-
-El guard anterior `tests/productDecisionSurface.unit.ts` sigue protegiendo que no reaparezcan `LiveSimulationEngine`, `ALL_AVAILABLE_ASSETS` o un decision center paralelo en las superficies adaptadas.
+- inspección estática completada;
+- falta una única ejecución local de guards + TypeScript y una comprobación manual móvil antes de declararlo cerrado.
 
 ---
 
-# 5. Trazabilidad visible de cada recomendación — CERRADA 2026-09-10
+# 5. Acción productiva visible — AUDITORÍA CORRECTIVA 2026-09-10
 
-Componente:
+Durante la revisión posterior al primer cierre se detectó un problema real en `CurrentOpportunityAlertsPanel`:
 
-`src/components/ProductDecisionTracePanel.tsx`
+- compras: procedían de `evaluatePortfolioDecision`;
+- ventas: se tomaban directamente de `positionHealth`;
+- rotaciones: podían proceder de `PortfolioRotationReviewEngine` separado.
 
-Se muestra antes de las recomendaciones accionables dentro de `MarketUtilityDashboard`.
+Eso mezclaba tres fuentes en la tarjeta que afirmaba ser la “decisión de hoy”.
 
-La pantalla declara explícitamente:
+Corrección aplicada:
+
+- compras visibles = `portfolioDecision.contributions` del resultado final;
+- ventas/reducciones visibles = `portfolioDecision.existingPositions` con acción `REDUCE/EXIT`;
+- WATCH visible = `portfolioDecision.existingPositions` con acción `WATCH`;
+- rotaciones visibles = únicamente rotaciones presentes en ese mismo `portfolioDecision` final;
+- `PortfolioRotationReviewEngine` ya no puede emitir la acción principal;
+- contribuciones añadidas/reencaminadas por `CORE_GATE_V1` o `CORE_ARCHITECTURE_V1` ya no quedan ocultas por faltar un `CurrentOpportunityAlert` original.
+
+La explicación de cadena se integra plegada dentro de la misma tarjeta y utiliza **el mismo `portfolioDecision`**, en lugar de recalcular la decisión en un componente paralelo:
 
 `AssetUniverseScanner -> Top64 dinámico -> PortfolioCandidateGate -> InvestmentDecisionEngine -> evaluatePortfolioDecision -> CORE_GATE_V1 -> CORE_ARCHITECTURE_V1`
 
-Y muestra:
+Política visible:
 
-- `PRODUCCIÓN · LEGACY`;
-- capital disponible;
-- inversión total recomendada ahora;
-- cash objetivo;
-- cash previsto después del plan;
-- para cada activo: `amountEur`, timing, etapa `STARTER/BUILD/ROTATION_ENTRY`, fracción inicial, cap de cartera, valor ya invertido, objetivo estratégico, objetivo ejecutable y orden pendiente;
-- explicación `reason` generada por el mismo `PortfolioDecisionEngine`.
+`PRODUCCIÓN · LEGACY`.
 
-El panel **no crea otra recomendación**: vuelve a llamar a `evaluatePortfolioDecision(...)` con la misma cartera, scan, decision, salud de posiciones y cash benchmark para explicar el mismo sizing.
+Jerarquía de producto corregida:
 
-Objetivo de producto: si aparece `EXV1 · 603 €`, el usuario puede comprobar en la propia app de dónde sale el importe sin inferir qué motor lo produjo.
+1. controles básicos;
+2. finalizar salud de posiciones;
+3. **qué hacer hoy**;
+4. registro/cartera;
+5. cash y controles técnicos como explicación secundaria.
+
+La app ya no muestra órdenes mientras `PortfolioPositionHealthService` sigue calculando. Si la salud de cartera falla, la decisión operativa queda bloqueada en vez de enseñar una recomendación parcial que pueda cambiar segundos después.
+
+El antiguo `ProductDecisionTracePanel.tsx` se eliminó porque duplicaba el cálculo y además colocaba metodología antes que la acción.
+
+Guards:
+
+- `tests/productDecisionSurface.unit.ts`: 18 invariantes estáticos;
+- `tests/productSurfaceClosureV1.unit.ts`: 19 invariantes estáticos.
+
+Pendiente: ejecución local única antes de marcar PASS final.
 
 ---
 
-# 6. JSON y usabilidad móvil — CERRADO FUNCIONALMENTE 2026-09-10
+# 6. JSON y móvil — IMPLEMENTADO / PENDIENTE PRUEBA REAL
 
 ## Centro de validación
 
-El antiguo `Descargar JSON` generaba un Blob en frontend y simulaba un `anchor.click()`. En algunos navegadores/WebViews móviles podía no producir una descarga visible.
+`Descargar JSON` del `ResearchValidationCenter` ya no crea Blob ni simula un click desde React.
 
-Ahora el Centro usa descarga HTTP nativa:
+Ruta nativa:
 
 `GET /api/alerts/research-validation/jobs/:id/result.json`
 
@@ -160,39 +177,40 @@ El backend responde con:
 - `Content-Disposition: attachment`;
 - `Cache-Control: no-store`.
 
-`ResearchValidationCenter` utiliza un `<a href=.../result.json>` normal. Ya no usa `Blob`, `URL.createObjectURL` ni `downloadResultJson` para esa descarga.
+La UI utiliza un `<a href=.../result.json>` normal.
 
 ## Replay histórico
 
-El replay sí guarda su sesión completa en `localStorage`, por lo que su exportación sigue siendo client-side.
+La sesión del replay vive en `localStorage`, por lo que la exportación continúa siendo client-side mediante:
 
-Helper:
+`src/jsonDownload.ts`.
 
-`src/jsonDownload.ts`
+Auditoría correctiva 2026-09-10:
 
-Reglas:
+Se detectó que la primera mejora móvil había convertido `exportSession` en `async` e introducido un `await requestAnimationFrame()` antes de `anchor.click()`. En Safari/WebView eso puede hacer perder la activación transitoria originada por el toque y bloquear precisamente la descarga.
 
-- no revocar la Blob URL inmediatamente tras `click()`;
-- mantenerla 30 s para que navegadores móviles puedan consumirla;
-- mostrar feedback `Preparando JSON… / Descarga iniciada`;
-- fallback a nueva pestaña si el navegador lanza error al iniciar la descarga.
+Corrección:
 
-`HistoricalAuditJsonControls` utiliza este helper y mantiene separados `Guardar + publicar para ChatGPT`, `Exportar prueba JSON` e `Importar prueba JSON`.
+- `exportSession` vuelve a ser síncrono;
+- serialización + `downloadJsonFile(...)` ocurren dentro de la tarea original del toque;
+- no existe `await` ni `requestAnimationFrame` antes de iniciar la descarga;
+- la Blob URL no se revoca inmediatamente y se conserva 30 s.
+
+No afirmar todavía que el export móvil está cerrado hasta probarlo físicamente en el navegador/WebView donde fallaba.
 
 ## Base móvil
 
-`src/index.css` y `decisionMain.tsx` incorporan:
+`src/index.css` y la superficie principal incluyen:
 
 - `touch-action: manipulation`;
-- utilidad `touch-target` de 44 px;
+- `touch-target` mínimo 44 px en controles principales;
 - inputs/selects a 16 px en móvil para evitar zoom de foco;
 - safe-area inferior;
 - scrolling táctil horizontal;
 - header principal compacto;
-- acceso directo móvil a Validación y Lab;
-- botones relevantes del Centro/JSON apilados a ancho completo en teléfono.
+- botones importantes apilados cuando procede.
 
-No se ha modificado lógica financiera para estos cambios.
+El tamaño táctil es ergonomía; no se considera solución por sí sola a fallos de ejecución.
 
 ---
 
@@ -373,21 +391,22 @@ Siguiente observación nueva válida:
 
 No repetir septiembre.
 
-### Integridad tras cierre de producto 2026-09-10
+### Integridad tras cambios de producto 2026-09-10
 
-El diff de cierre de producto fue auditado contra el manifiesto de 25 blobs. **Ninguno de los 25 archivos congelados fue modificado.**
+Los cambios de producto/UI posteriores al checkpoint se mantienen fuera del manifiesto de 25 blobs metodológicos congelados.
 
-En particular permanecen intactos:
+No modificar durante Phase A:
 
 - `scripts/qualityAllocationDynamicFutureForwardV1CheckpointLive.ts`;
 - `scripts/qualityAllocationDynamicFutureForwardV1StateStore.ts`;
-- scanner/gate/entry timing/decision/allocator y fuentes de mercado incluidas en el manifiesto.
+- `currentOpportunityAlerts.ts`;
+- scanner/gate/entry timing/decision/allocator ni las demás fuentes incluidas en el manifiesto.
 
 ### Token / preflight
 
 El entorno local/AI Studio debe proporcionar `GITHUB_REPLAY_SYNC_TOKEN` para el estado durable.
 
-Tras el fallo observado el 2026-09-10 por token ausente, `server/researchValidationRoutes.ts` hace ahora el preflight **antes de lanzar guards o TypeScript**:
+`server/researchValidationRoutes.ts` hace ahora el preflight antes de lanzar guards o TypeScript:
 
 - si falta token: HTTP 412 + `QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED`;
 - el botón queda bloqueado y la UI muestra `FALTA TOKEN`;
@@ -422,7 +441,7 @@ Replay aportado por el usuario para diagnóstico:
 - frecuencia mensual;
 - Motor Custodia.
 
-Hallazgos preliminares observados en el replay:
+Hallazgos preliminares:
 
 - Custodia liquida HFG casi inmediatamente al comienzo;
 - posteriormente HFG reaparece repetidamente como candidato durante la gran tendencia;
@@ -431,7 +450,7 @@ Hallazgos preliminares observados en el replay:
 
 **No se modifica producción ni se retunea nada con esta muestra.**
 
-Este diagnóstico queda aparcado hasta terminar/verificar el cierre de producto. Después se estudiará como problema de calidad de política económica: salida inicial, reentrada, financiación de oportunidades y protección de ganancias.
+Este diagnóstico queda aparcado hasta verificar el cierre de producto. Después se estudiará como problema de calidad de política económica: salida inicial, reentrada, financiación de oportunidades y protección de ganancias.
 
 ---
 
@@ -451,9 +470,10 @@ No abrir como tuning productivo hasta cerrar la secuencia vigente:
 
 # 15. Próxima secuencia técnica
 
-1. Ejecutar **una sola comprobación local de cierre**: `npx tsx tests/productSurfaceClosureV1.unit.ts` + `npm run lint`. No ejecutar replays ni future-forward para esta comprobación.
-2. Comprobar manualmente en móvil, sin relanzar ninguna validación, que el enlace `Descargar JSON` del resultado existente responde como descarga HTTP cuando existe un resultado en memoria.
-3. Restaurar `GITHUB_REPLAY_SYNC_TOKEN` en el entorno antes de necesitar escritura future-forward; no hace falta relanzar septiembre.
-4. Mantener producción `LEGACY` y los 25 blobs congelados intactos.
-5. Una vez cerrado lo anterior, retomar el diagnóstico económico HFG y otros boom->crash sin retunear sobre la muestra consumida.
-6. Próximo checkpoint prospectivo nuevo: 2026-10-09 22:30-24:00 Europe/Madrid.
+1. Ejecutar **una sola comprobación local de cierre**: `npx tsx tests/productSurfaceClosureV1.unit.ts` + `npx tsx tests/productDecisionSurface.unit.ts` + `npm run lint`. No ejecutar replay ni future-forward.
+2. Comprobar manualmente en móvil, sin relanzar validaciones, dos cosas: el enlace HTTP `Descargar JSON` del Centro cuando haya resultado en memoria y `Exportar prueba JSON` del replay existente.
+3. Sólo después marcar entrada productiva/JSON/móvil como PASS final.
+4. Restaurar `GITHUB_REPLAY_SYNC_TOKEN` antes de necesitar escritura future-forward; no relanzar septiembre.
+5. Mantener producción `LEGACY` y los 25 blobs congelados intactos.
+6. Una vez cerrado lo anterior, retomar el diagnóstico económico HFG y otros boom->crash sin retunear sobre la muestra consumida.
+7. Próximo checkpoint prospectivo nuevo: 2026-10-09 22:30-24:00 Europe/Madrid.
