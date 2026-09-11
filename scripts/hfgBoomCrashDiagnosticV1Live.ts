@@ -8,7 +8,8 @@ import {
   EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   type AssetUniverseItem,
   type DynamicHistoricalReplayInput,
-  type DynamicHistoricalReplayResult
+  type DynamicHistoricalReplayResult,
+  type DynamicReplayInitialPortfolio
 } from '../src/investment/decision';
 import {
   PortfolioDecisionEngine,
@@ -47,6 +48,12 @@ const RESEARCH_CATALOG: AssetUniverseItem[] = [
   HFG_RESEARCH_ITEM
 ];
 
+const INITIAL_PORTFOLIO: DynamicReplayInitialPortfolio = {
+  source: 'MANUAL',
+  cashEur: INITIAL_CASH_EUR,
+  allocations: [{ assetId: HFG_ASSET_ID, amountEur: INITIAL_HFG_EUR }]
+};
+
 const PROTOCOL = {
   version: VERSION,
   sampleStatus: 'CONSUMED_DIAGNOSTIC_ONLY',
@@ -63,11 +70,7 @@ const PROTOCOL = {
   endDate: END_DATE,
   frequency: 'MONTHLY',
   initialCapitalEur: INITIAL_CAPITAL_EUR,
-  initialPortfolio: {
-    source: 'MANUAL',
-    cashEur: INITIAL_CASH_EUR,
-    allocations: [{ assetId: HFG_ASSET_ID, amountEur: INITIAL_HFG_EUR }]
-  },
+  initialPortfolio: INITIAL_PORTFOLIO,
   riskProfile: 'MEDIUM',
   horizonYears: 3,
   cashBenchmarkMode: 'HISTORICAL_ECB_DFR_FLOOR_0',
@@ -251,7 +254,7 @@ async function main() {
       cashBenchmarkAnnualPct: PROTOCOL.cashBenchmarkAnnualPctFallback,
       minimumBars: PROTOCOL.minimumBars,
       taxSettings: PROTOCOL.taxSettings,
-      initialPortfolio: PROTOCOL.initialPortfolio,
+      initialPortfolio: INITIAL_PORTFOLIO,
       simulationMode: 'CUSTODIA_ENGINE'
     };
 
@@ -299,6 +302,7 @@ async function main() {
     const firstSaleTrace = firstExecutedSale ? traceOnDate(custodia.traces, firstExecutedSale.signalDate) : null;
     const firstSalePath = firstExecutedSale ? latestPathPointOnOrBefore(custodia.result, firstExecutedSale.signalDate) : null;
     const diagnosis = {
+      initialAllocation: signalSummary(initialSignal),
       initialExit: {
         signal: signalSummary(firstExecutedSale),
         baselineAllocator: firstSaleTrace,
