@@ -1,56 +1,86 @@
 # Custodia / Trading
 
-Aplicación experimental de investigación cuantitativa orientada a responder una pregunta sencilla: **qué asignación de cartera sugiere el motor con los últimos datos diarios disponibles**.
+Aplicación de decisión y seguimiento de inversión con arquitectura productiva integrada, replay histórico causal y herramientas de investigación separadas de la decisión operativa.
+
+La fuente de verdad es `fmaranis/Trading/main`.
+
+## Documentos de entrada
+
+Para entender el estado actual sin depender de chats antiguos:
+
+1. `PROJECT_STATE.md` — estado técnico actual y siguiente paso.
+2. `docs/APP_FLOW_AND_ROADMAP.md` — diagrama maestro y ruta de cierre.
+3. `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md` — reglas normativas de discovery/Top64.
+4. `docs/DECISIONS.md` — decisiones durables históricas, subordinadas al código y al estado canónico vigente cuando hayan quedado superadas.
+
+## Qué hace la app
+
+La cadena productiva vigente es:
+
+```text
+mercado actual REAL
+→ AssetUniverseScanner
+→ Top64 dinámico
+→ PortfolioCandidateGate
+→ InvestmentDecisionEngine
+→ PortfolioDecisionEngine / evaluatePortfolioDecision
+→ CORE_GATE_V1
+→ CORE_ARCHITECTURE_V1
+→ plan ejecutable único
+→ costes / broker / fiscalidad
+→ COMPRAR / VENDER / TRASPASAR / REVIEW / NO HACER NADA
+→ registro y seguimiento
+```
+
+La shortlist de 64 es dinámica. No existe una whitelist productiva fija de 64 nombres ni un universo productivo limitado a los cinco ETFs del prototipo inicial.
+
+La producción mantiene actualmente allocation/opportunity `LEGACY`; `CORE_ELIGIBILITY_V2` y otras políticas de research no adquieren autoridad productiva sin evidencia fresh suficiente.
 
 ## Rutas principales
 
-- `/` — **Decisión de inversión**. Introduce capital, riesgo y horizonte. La app descarga datos REAL, muestra la fecha del último cierre, clasifica el régimen y devuelve una asignación EUR con efectivo explícito.
-- `/portfolio.html` — **Portfolio Lab**. Backtesting multi-activo, correlaciones/covarianzas reales, Risk Parity, Inverse Volatility, Momentum y asignación rolling causal.
-- `/legacy.html` — **Laboratorio avanzado anterior**. Backtesting individual, cartera, riesgo, simulación y módulos históricos de la app.
+- `/` — superficie canónica de decisión y seguimiento.
+- `/portfolio.html` — laboratorio cuantitativo sin autoridad para emitir una recomendación productiva alternativa.
+- `/legacy.html` — no carga el producto antiguo; redirige a `/`.
 
-## Universo inicial de decisión
+## Replay histórico
 
-El flujo principal usa activos cotizados en EUR para evitar conversiones FX implícitas:
+El replay existente mantiene integrados:
 
-- `VWCE.DE` — renta variable global UCITS
-- `EQQQ.DE` — Nasdaq-100 UCITS
-- `4GLD.DE` — oro listado en EUR
-- `VAGF.DE` — bonos globales EUR hedged
-- `XEON.DE` — monetario EUR
+- `Desde cero / manual / cartera actual`;
+- `Motor Custodia / mantener cartera`;
+- `DAILY / WEEKLY / MONTHLY / QUARTERLY` como frecuencia de decisión;
+- ejecución causal posterior a señal / `NEXT_OPEN` cuando corresponde;
+- cash histórico BCE;
+- fiscalidad;
+- `externalCashFlows` explícitos y fechados;
+- benchmarks y métricas ajustadas por flujos.
 
-Si Yahoo Finance devuelve una divisa distinta de EUR para cualquiera de ellos, la decisión se bloquea.
+Yahoo current discovery no se usa para reconstruir retrospectivamente un universo histórico. Persiste una limitación de survivorship mientras no exista un instrument master point-in-time con listings/delistings.
 
-## Metodología de la pantalla principal
+## Datos
 
-1. Datos diarios históricos REAL mediante el proxy de Market Data.
-2. Intersección temporal de los activos sin forward-fill.
-3. Régimen causal `BULL / BEAR / SIDEWAYS × HIGH / LOW VOL`.
-4. Método base según riesgo:
-   - Bajo → Inverse Volatility
-   - Medio → Risk Parity ERC
-   - Alto → Relative Momentum
-5. Overlay de efectivo por riesgo y régimen.
-6. Límites de concentración por activo.
-7. Resultado trazable mediante `portfolioDatasetFingerprint`.
+La procedencia se etiqueta explícitamente como:
 
-La fecha `asOfDate` y la antigüedad de los datos se muestran siempre. Si los datos son antiguos o insuficientes, la confianza baja o la decisión se bloquea.
+- `REAL`;
+- `STATIC_REFERENCE`;
+- `SYNTHETIC`.
 
-## Validación local
+Una validación que exige datos REAL debe fallar si aparece información sintética. Yahoo Finance es la fuente principal current/live e histórica para acciones/ETF dentro del motor EUR; otros proveedores pueden aportar evidencia secundaria, sin fallback sintético silencioso.
 
-```bash
-npm run lint
-npm run test:decision
-npm run test:multi-asset
-npm run test:portfolio-analytics
-npm run test:rolling-allocation
-npm run test:portfolio-comparator
-npm run test:regimes
-npm run test:regime-selector
-npm run build
-```
+## Usuario, persistencia y despliegue
 
-No se requiere GitHub Actions.
+La capa privada está documentada en `docs/PRIVATE_USERS_DEPLOYMENT.md` e incluye Firebase Authentication, Firestore por UID, administración mediante custom claims y aislamiento de estado entre usuarios.
+
+La app sigue siendo de ejecución **manual/asistida**: construye planes y permite registrar operaciones, pero no existe una integración broker que coloque órdenes automáticamente.
+
+Las alertas de entrada y su persistencia están integradas; el cierre de autonomía 24/7 para `WATCH / REDUCE / EXIT` forma parte de la ruta de trabajo definida en `docs/APP_FLOW_AND_ROADMAP.md`.
+
+## Validación
+
+Los replays y validaciones largas se ejecutan en el motor local/backend de la propia aplicación. No se utilizan GitHub Actions para estos cálculos.
+
+El estado exacto de guards, tests, Future Forward y trabajos pendientes se mantiene en `PROJECT_STATE.md`.
 
 ## Alcance
 
-La aplicación es experimental y de investigación. No ejecuta órdenes reales, no garantiza rentabilidad y no sustituye asesoramiento financiero personalizado.
+La aplicación es una herramienta de decisión, seguimiento e investigación. No garantiza rentabilidad ni sustituye asesoramiento financiero personalizado. La validación técnica de una superficie no equivale por sí sola a demostrar ventaja económica de una política de inversión.
