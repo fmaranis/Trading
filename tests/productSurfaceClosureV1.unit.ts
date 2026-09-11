@@ -27,6 +27,7 @@ const futureForwardProtocol = read('scripts/qualityAllocationDynamicFutureForwar
 const accountRoutes = read('server/accountRoutes.ts');
 const accountApi = read('src/auth/accountApi.ts');
 const adminUsersPanel = read('src/components/AdminUsersPanel.tsx');
+const secureAppGate = read('src/auth/SecureAppGate.tsx');
 const authSecurity = read('server/authSecurity.ts');
 
 check('1001 root product starts at the canonical decision entrypoint', () => {
@@ -207,5 +208,16 @@ check('1032 Trading user runtime remains independent from the Cubetos reference 
     assert.doesNotMatch(runtimeSource, /Cubetos-y-balsas-sincronizado|calculator_cubetos|technical_report_pdf|reportCredits/);
   }
 });
+check('1033 managed-user access revocation cannot silently no-op and propagates to an already-open session', () => {
+  assert.match(accountRoutes, /ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST/);
+  assert.match(accountRoutes, /accountRouter\.get\('\/session-status'/);
+  assert.match(accountApi, /loadAccountSessionStatus/);
+  assert.match(adminUsersPanel, /!self && !row\.isAdmin/);
+  assert.match(adminUsersPanel, /Un ADMIN siempre tiene acceso/);
+  assert.match(secureAppGate, /ACCESS_REVALIDATION_MS/);
+  assert.match(secureAppGate, /loadAccountSessionStatus\(user\)/);
+  assert.match(secureAppGate, /document\.addEventListener\('visibilitychange'/);
+  assert.match(secureAppGate, /clearPrivateLocalState\(\)/);
+});
 
-console.log(`Product surface closure V1: ${passed}/32 invariants passed.`);
+console.log(`Product surface closure V1: ${passed}/33 invariants passed.`);
