@@ -118,7 +118,7 @@ Esta es la secuencia canónica de cierre. No abrir una fase posterior por aparec
 ```text
 FASE 0  MAPA MAESTRO / ESTADO CANÓNICO       ← DONE
 FASE 1  BASE PRODUCTIVA V1                    ← DONE salvo bug/regresión reproducible
-FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A QUICK CLOSURE PREVIO PASS + ACCIÓN ADMIN RUNTIME PASS · SESIÓN/ESTADO + QUICK CLOSURE FINAL PENDIENTES
+FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A RUNTIME PARCIAL PASS · SESIÓN/ESTADO + QUICK CLOSURE FINAL PENDIENTES
 FASE 3  PROTOCOLO ECONÓMICO FINAL             ← NEXT después de cerrar Fase 2
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← research fresh/blind/OOS
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← research fresh/blind/OOS
@@ -190,19 +190,19 @@ Baseline funcional validado antes de la Fase 0 documental:
 
 `a4b15eaf72960aef51f0e9e7691b487f9f46bf51`
 
-Quick closure anterior al último ajuste de UI ADMIN, ejecutado por el usuario el 2026-09-11:
+Último quick closure completo anterior al ajuste final de confirmación interna ADMIN, ejecutado por el usuario el 2026-09-11:
 
-- Guard cierre de superficie: PASS;
-- Guard usuarios privados: PASS;
-- Guard decisión productiva única: PASS;
-- Guard plan de ejecución: PASS;
-- Guard cartera: PASS;
-- Guard salud de posiciones: PASS;
-- Guard disponibilidad broker: PASS;
-- Guard fiscalidad de ejecución: PASS;
-- TypeScript `tsc --noEmit`: PASS.
+- Guard cierre de superficie: **33/33 PASS**;
+- Guard usuarios privados: **PRIVATE_USER_SECURITY_PASS**;
+- Guard decisión productiva única: **20/20 PASS**;
+- Guard plan de ejecución: **29/29 PASS**;
+- Guard cartera: **24/24 PASS**;
+- Guard salud de posiciones: **27/27 PASS**;
+- Guard disponibilidad broker: **7/7 PASS**;
+- Guard fiscalidad de ejecución: **7/7 PASS**;
+- TypeScript `tsc --noEmit`: **PASS**.
 
-Después de ese PASS se realizó un ajuste material sólo en `AdminUsersPanel` y sus guards para eliminar la dependencia funcional de `window.confirm`/clipboard. Por ello habrá **un único quick closure final** cuando termine el smoke runtime de 2A; no se repite entre cada paso del smoke.
+Después de ese PASS se modificó sólo `AdminUsersPanel` y sus dos guards para eliminar la dependencia funcional de `window.confirm`/clipboard. Por ello se hará **un único quick closure final** cuando termine el smoke runtime de 2A; no se repite entre cada paso del smoke.
 
 Móvil + exportación JSON física: **PASS 2026-09-11**.
 
@@ -530,97 +530,163 @@ Decisión de seguridad sobre audit log:
 - sólo backend/Admin SDK lo usa;
 - un ADMIN sigue sin endpoint para abrir la cartera privada de otro usuario.
 
+El usuario ejecutó un primer `Producto · cierre rápido` y obtuvo 32/32 + resto de guards + TypeScript PASS, pero el smoke posterior detectó un bug real. Después de la segunda auditoría se incorporó `Guard usuarios privados`; el quick closure actualizado posterior también pasó completo antes del último ajuste de confirmación interna de UI.
+
 ## 9.5 Smoke real 2026-09-11 — BUG “REVOCAR ACCESO NO VA”
 
-El usuario comprobó que **“Revocar acceso” no funcionaba** y después confirmó que tampoco respondían las demás acciones sensibles del ADMIN.
+El usuario comprobó que **“Revocar acceso” no funcionaba**.
 
 Clasificación: `BUG`.
 
+No se considera Fase 2A cerrada por el PASS automático anterior.
+
 Primera revisión del camino real detectó:
 
-1. **ADMIN no-op silencioso.** La UI permitía intentar revocar acceso a una cuenta ADMIN, pero la semántica del backend es que ADMIN implica acceso.
+1. **ADMIN no-op silencioso.** La UI permitía intentar revocar acceso a una cuenta ADMIN, pero la semántica del backend es que ADMIN implica acceso. La acción podía parecer aceptada sin cambiar el estado efectivo.
 2. **Sesión ya abierta sin revalidación activa.** Un usuario normal podía tener claims/tokens revocados, pero la app ya abierta conservaba la cartera renderizada hasta una nueva verificación.
 
 ## 9.6 Segunda auditoría completa posterior al bug
 
-Se revisó de nuevo el flujo completo:
+A petición expresa del usuario se volvió a revisar de nuevo el flujo completo:
 
 `AdminUsersPanel -> accountApi -> accountRoutes -> Firebase Auth/claims -> token revocation -> SecureAppGate -> local private cache/cloud sync -> quick closure -> documentación`.
 
-La revisión encontró además:
+La segunda revisión encontró además:
 
-3. lista ADMIN acoplada al audit log;
-4. riesgo de carrera entre limpieza local y autosync;
-5. fallo transitorio de revalidación tratado como revocación;
-6. mutación Auth correcta que podía parecer fallida si fallaba el espejo Firestore;
-7. `privateUserSecurity.unit.ts` no estaba dentro de `Producto · cierre rápido`;
-8. guards demasiado textuales;
-9. compactación documental excesiva de `PROJECT_STATE.md`, posteriormente restaurada.
+3. **Lista ADMIN acoplada al audit log.** `AdminUsersPanel.refresh()` usaba `Promise.all`. Si fallaba sólo la lectura del audit log, también se descartaba la lista fresca de usuarios. Una revocación efectiva podía seguir viéndose como `CONCEDIDO`, aparentando un no-op.
+4. **Riesgo de carrera entre limpieza local y autosync.** La sesión revocada limpiaba `localStorage` sin garantizar primero que el sincronizador privado estuviese parado. Se endureció el orden para impedir que una caché vaciada pueda intentar sustituir el estado durable.
+5. **Fallo transitorio de revalidación tratado demasiado agresivamente.** Un error de red/servidor durante la comprobación periódica no debe confundirse con revocación. Ahora la UI falla cerrada, detiene autosync y conserva la caché local; sólo una revocación/disabled confirmada limpia y cierra sesión.
+6. **Mutación Auth correcta podía parecer fallida por el espejo Firestore.** Si Firebase Auth ya había aplicado la revocación pero luego fallaba `writeProfile`, el endpoint podía devolver error aunque la autoridad real hubiera cambiado. Ahora Auth es la autoridad de la mutación; el perfil es un mirror best-effort y la respuesta indica `profileSynced`.
+7. **`privateUserSecurity.unit.ts` no estaba realmente dentro de `Producto · cierre rápido`.** Se estaba usando como evidencia estática sin que el job que pulsaba el usuario lo ejecutase. Ahora se ha integrado como un paso del mismo job existente; no se creó otro job.
+8. **Los guards eran principalmente textuales.** Se añadió una política pura `resolveManagedUserPatch(...)` y aserciones de comportamiento para normal revoke, ADMIN direct revoke, demotion y demotion+revoke.
+9. **Error documental propio.** Al registrar el primer fix se compactó demasiado `PROJECT_STATE.md`, eliminando detalle histórico/metodológico útil. Se restauró la memoria canónica completa y los nuevos hallazgos se añaden sin sustituirla por un resumen.
 
-## 9.7 Fix backend/gate y tercer hallazgo runtime de UI
+## 9.7 Fix 2A backend/gate vigente
 
-Backend/gate vigentes:
+### Backend — `server/accountRoutes.ts`
 
-- `resolveManagedUserPatch(...)` centraliza semántica de acceso/ADMIN/disabled;
-- ADMIN + revocación directa => `ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST`;
-- `/session-status` devuelve estado real actual;
-- revocaciones relevantes revocan refresh tokens;
-- Auth es autoridad; profile mirror es best-effort;
-- sesiones abiertas revalidan cada 15 s y al recuperar foco;
-- autosync se detiene antes de limpiar la caché;
-- fallos genéricos de red fallan cerrado sin borrar caché como si fueran revocación.
+- `resolveManagedUserPatch(...)` centraliza semántica de acceso/ADMIN/disabled.
+- usuario normal + `accessGranted:false` => acceso efectivo false.
+- ADMIN + revocación directa sin retirar ADMIN => `ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST`.
+- retirar ADMIN sin pedir revocación conserva acceso como usuario normal.
+- retirar ADMIN + revocar en la misma mutación deja ambos false.
+- `/session-status` devuelve estado real actual de `disabled/isAdmin/accessGranted`.
+- revocar acceso, deshabilitar o retirar privilegios relevantes revoca refresh tokens.
+- Auth es autoridad del cambio; si falla el mirror de perfil tras una mutación Auth correcta:
+  - no se devuelve un falso fallo de la revocación;
+  - se registra `ADMIN_USER_PROFILE_SYNC_FAILED`;
+  - respuesta `profileSynced:false`;
+  - audit metadata registra ese estado.
 
-Tercer hallazgo runtime:
+### Cliente API — `src/auth/accountApi.ts`
 
-> todas las acciones sensibles del panel (`revocar/conceder acceso`, `ADMIN`, `bloquear/reactivar`, `borrar`) dependían de `window.confirm(...)`. En el entorno preview/iframe usado por la app ese diálogo nativo podía quedar bloqueado, por lo que los botones parecían muertos antes de alcanzar el backend. La generación/copia de enlaces dependía además de `navigator.clipboard`, también restringible por el entorno.
+- `loadAccountSessionStatus(...)`.
+- respuesta de `updateManagedUser(...)` tipada con `ManagedUserUpdateResult`, incluyendo `profileSynced` y `auditLogged`.
 
-Corrección en HEAD `a22c4de9940d974a32045e2f10adf21731a1f3eb`:
+### ADMIN — `src/components/AdminUsersPanel.tsx`
 
-- se elimina `window.confirm` como dependencia funcional;
-- todas las acciones sensibles usan una confirmación interna renderizada dentro de `AdminUsersPanel`;
-- todos los botones son `type="button"` explícito;
-- los enlaces de contraseña quedan visibles en el panel aunque clipboard falle;
-- clipboard queda como mejora opcional, no condición de éxito;
+- ADMIN muestra acceso `POR ADMIN`.
+- no se ofrece botón de revocación directa mientras conserve ADMIN.
+- explicación: primero retirar ADMIN y después revocar.
+- carga de usuarios y audit log desacoplada mediante `Promise.allSettled`:
+  - si audit falla, la lista de usuarios se actualiza igualmente;
+  - se muestra un warning separado de auditoría;
+  - una lista stale ya no puede ocultar una revocación por culpa del audit log.
+- si Auth se actualiza pero el profile mirror falla, el panel lo comunica sin presentar el cambio como inexistente.
+
+### Gate — `src/auth/SecureAppGate.tsx`
+
+- revalida acceso cada 15 s;
+- revalida también al recuperar foco/visibilidad;
+- una revocación/disabled confirmada:
+  - para autosync primero;
+  - limpia estado privado local después;
+  - cierra sesión;
+  - deja de renderizar la cartera.
+- un token revocado se trata como pérdida real de acceso.
+- un fallo genérico de red/servidor:
+  - para autosync;
+  - falla cerrado en UI;
+  - **no borra** la caché privada local como si fuera una revocación.
+- reintentar verificación para autosync antes de rehidratar/rearrancar sincronización, evitando carreras.
+
+### Guards y Centro de validación
+
+- `tests/productSurfaceClosureV1.unit.ts`: 33 invariantes antes del ajuste final de UI; guard actualizado después para la confirmación interna.
+- `tests/privateUserSecurity.unit.ts`:
+  - invariantes estructurales;
+  - aserciones reales de `resolveManagedUserPatch`;
+  - stop-sync-before-clear;
+  - audit failure independiente de lista;
+  - profile mirror best-effort.
+- `Producto · cierre rápido` incorpora **`Guard usuarios privados`** ejecutando `tests/privateUserSecurity.unit.ts`.
+- no se creó otro job/panel.
+
+## 9.7.1 Tercer hallazgo runtime — botones ADMIN bloqueados por APIs nativas
+
+Después del quick closure actualizado PASS, el usuario comprobó que no sólo `Revocar acceso`, sino **las demás acciones sensibles del ADMIN tampoco respondían**.
+
+Revisión del camino común encontró:
+
+- `revocar/conceder acceso`, `hacer/quitar ADMIN`, `bloquear/reactivar` y `borrar` dependían de `window.confirm(...)`;
+- el preview/iframe donde se usa la app puede bloquear ese diálogo nativo;
+- en ese caso la acción se corta **antes** de llamar al backend, por lo que todos los botones parecen muertos aunque las rutas API estén correctas;
+- los enlaces de contraseña dependían además de `navigator.clipboard`, que también puede estar restringido en previews/iframes.
+
+Corrección en `a22c4de9940d974a32045e2f10adf21731a1f3eb`:
+
+- eliminado `window.confirm` como dependencia funcional;
+- confirmación sensible renderizada dentro del propio `AdminUsersPanel`;
+- botones `type="button"` explícitos;
+- enlaces de configuración/reset visibles en el panel aunque clipboard falle;
+- clipboard queda como mejora opcional;
 - guards prohíben reintroducir `window.confirm` y exigen confirmación interna/fallback visible.
 
-Evidencia runtime del usuario sobre ese HEAD:
+Evidencia runtime:
 
-- la confirmación interna aparece;
-- la acción ADMIN probada vuelve a responder correctamente con el nuevo botón;
-- por tanto el fallo común de “botones muertos” queda **confirmado y corregido en runtime** para ese camino de acción.
+- el usuario confirmó que la nueva confirmación interna aparece;
+- al utilizar el nuevo botón de confirmación, la acción ADMIN vuelve a funcionar;
+- el fallo común de “botones muertos” queda **confirmado y corregido en runtime** para la acción probada.
 
-Revisión de alcance:
+Revisión de alcance del ajuste final:
 
-- cambios desde el HEAD anterior limitados a `AdminUsersPanel.tsx` y sus dos guards;
-- no scanner/Top64/gates/motores/replay/fiscalidad/alertas/Telegram/Future Forward;
-- sin dependencias nuevas.
+- sólo `src/components/AdminUsersPanel.tsx`;
+- `tests/privateUserSecurity.unit.ts`;
+- `tests/productSurfaceClosureV1.unit.ts`;
+- ningún motor financiero;
+- ningún replay;
+- ninguna lógica de alertas/Telegram;
+- ningún archivo congelado de Future Forward;
+- ninguna dependencia nueva.
 
 **Estado 2A: RUNTIME PARCIAL PASS. NO DONE todavía.**
 
 ## 9.8 Validación exacta restante de Fase 2A
 
-No repetir tests entre cada paso. Completar primero el smoke con una cuenta de prueba **normal, NO-ADMIN y NO-bootstrap**:
+Completar primero el smoke real con una cuenta de prueba **normal, NO-ADMIN y NO-bootstrap**:
 
-1. revocar acceso y confirmar que la lista queda `PENDIENTE`;
+1. revocar acceso y confirmar que la lista pasa a `PENDIENTE`;
 2. si esa cuenta tiene otra sesión abierta, volver a esa ventana: debe perder acceso al recuperar foco o en ≤15 s;
 3. confirmar que el estado durable/Firestore del usuario no se ha borrado;
 4. volver a conceder acceso;
-5. volver a iniciar sesión si los refresh tokens revocados lo exigen;
+5. debido a la revocación de refresh tokens, la recuperación normal puede requerir **volver a iniciar sesión**;
 6. confirmar que recupera exactamente su propio estado privado;
 7. confirmar que la cartera del usuario principal sigue intacta;
-8. comprobar de forma mínima que ADMIN/bloquear/reactivar usan la misma confirmación interna y responden; no hace falta destruir datos para probar `Borrar`.
+8. comprobar de forma mínima que `ADMIN` y `bloquear/reactivar` usan la misma confirmación interna y responden; no hace falta borrar una cuenta para demostrar el flujo común.
 
-Al terminar ese smoke, ejecutar **una única vez `Producto · cierre rápido`** sobre el HEAD final de 2A. Deben pasar:
+Después del smoke, ejecutar **una sola vez `Producto · cierre rápido`** sobre el HEAD final de 2A.
 
-- Guard cierre de superficie;
-- Guard usuarios privados `PRIVATE_USER_SECURITY_PASS`;
-- decisión productiva única;
-- plan de ejecución;
-- cartera;
-- salud de posiciones;
-- broker;
-- fiscalidad;
-- TypeScript.
+Esperado:
+
+- Guard cierre de superficie: PASS;
+- Guard usuarios privados: `PRIVATE_USER_SECURITY_PASS`;
+- decisión productiva única: PASS;
+- plan de ejecución: PASS;
+- cartera: PASS;
+- salud de posiciones: PASS;
+- broker: PASS;
+- fiscalidad: PASS;
+- TypeScript: PASS.
 
 No ejecutar replay largo ni Future Forward.
 
