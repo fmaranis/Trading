@@ -2,13 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { createUserWithEmailAndPassword, getIdToken, onAuthStateChanged, reload, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { KeyRound, LogOut, MailCheck, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
 import { AdminUsersPanel } from '../components/AdminUsersPanel';
-import { bootstrapAccount, loadAccountMe, type AccountMe } from './accountApi';
+import { bootstrapAccount, loadAccountMe, loadAccountSessionStatus, type AccountMe } from './accountApi';
 import { loadFirebaseClientRuntime, type FirebaseClientRuntime } from './firebaseClient';
 import { clearPrivateLocalState, UserCloudStateService } from './userCloudState';
 
 interface Props { children: React.ReactNode; }
 
 type GateState = 'LOADING' | 'LOGIN' | 'PENDING' | 'READY' | 'DEV_BYPASS' | 'ERROR';
+const ACCESS_REVALIDATION_MS = 15_000;
+
+function isRevokedCredentialError(error: unknown): boolean {
+  const text = String((error as any)?.message ?? error ?? '');
+  return text.includes('INVALID_OR_REVOKED_AUTH_TOKEN')
+    || text.includes('auth/id-token-revoked')
+    || text.includes('auth/user-disabled');
+}
 
 export const SecureAppGate: React.FC<Props> = ({ children }) => {
   const [runtime, setRuntime] = useState<FirebaseClientRuntime | null>(null);
@@ -45,7 +53,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
           if (boot.tokenRefreshRequired) await getIdToken(current, true);
           const account = await loadAccountMe(current);
           setMe(account);
-          if (!account.accessGranted) { setGate('PENDING'); return; }
+          if (!account.accessGranted || account.disabled) { setGate('PENDING'); return; }
           const hydration = await UserCloudStateService.hydrate(current);
           syncStop = UserCloudStateService.startAutoSync(current);
           if (hydration.migratedLegacy) setMessage('La cartera local existente se ha vinculado a esta cuenta privada.');
@@ -53,12 +61,67 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
         } catch (error: any) {
           const text = String(error?.message || error);
           if (text.includes('ACCOUNT_ACCESS_PENDING_OR_REVOKED')) setGate('PENDING');
-          else { setMessage(text); setGate('ERROR'); }
+          else if (isRevokedCredentialError(error)) {
+            clearPrivateLocalState();
+            await signOut(rt.auth).catch(() => undefined);
+            setGate('LOGIN');
+          } else { setMessage(text); setGate('ERROR'); }
         }
       });
     }).catch(error => { if (alive) { setMessage(error?.message || String(error)); setGate('ERROR'); } });
     return () => { alive = false; unsubscribe?.(); syncStop?.(); };
   }, []);
+
+  useEffect(() => {
+    if (gate !== 'READY' || !user || !runtime?.auth) return;
+    let stopped = false;
+    let checking = false;
+
+    const closeRevokedSession = async () => {
+      if (stopped) return;
+      clearPrivateLocalState();
+      setAdminOpen(false);
+      setMe(null);
+      setGate('LOGIN');
+      await signOut(runtime.auth!).catch(() => undefined);
+    };
+
+    const revalidateAccess = async () => {
+      if (checking || stopped) return;
+      checking = true;
+      try {
+        const status = await loadAccountSessionStatus(user);
+        if (status.disabled || !status.accessGranted) {
+          await closeRevokedSession();
+          return;
+        }
+        setMe(current => current ? { ...current, disabled: status.disabled, isAdmin: status.isAdmin, accessGranted: status.accessGranted } : current);
+      } catch (error: any) {
+        if (isRevokedCredentialError(error)) {
+          await closeRevokedSession();
+          return;
+        }
+        clearPrivateLocalState();
+        setMessage(String(error?.message || error));
+        setGate('ERROR');
+      } finally {
+        checking = false;
+      }
+    };
+
+    const onFocus = () => { void revalidateAccess(); };
+    const onVisibilityChange = () => { if (document.visibilityState === 'visible') void revalidateAccess(); };
+    const intervalId = window.setInterval(() => { void revalidateAccess(); }, ACCESS_REVALIDATION_MS);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      stopped = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [gate, user, runtime?.auth]);
 
   const authenticate = async () => {
     if (!runtime?.auth) return;
@@ -86,7 +149,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
       if (boot.tokenRefreshRequired) await getIdToken(user, true);
       const account = await loadAccountMe(user);
       setMe(account);
-      if (!account.accessGranted) { setMessage(user.emailVerified ? 'La cuenta sigue pendiente de aprobación.' : 'Verifica primero el correo y vuelve a comprobar el acceso.'); return; }
+      if (!account.accessGranted || account.disabled) { setMessage(user.emailVerified ? 'La cuenta sigue pendiente de aprobación.' : 'Verifica primero el correo y vuelve a comprobar el acceso.'); return; }
       await UserCloudStateService.hydrate(user);
       setGate('READY');
     } catch (error: any) { setMessage(error?.message || String(error)); setGate('ERROR'); }
