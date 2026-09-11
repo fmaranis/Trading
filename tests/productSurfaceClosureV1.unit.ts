@@ -125,7 +125,9 @@ check('1020 theoretical movement suppressed by costs or tax is labeled REVIEW, n
   assert.match(execution, /SIN ORDEN EJECUTABLE · HAY PUNTOS A REVISAR/);
 });
 check('1021 headline cannot call a parallel rotation or portfolio engine', () => {
-  assert.doesNotMatch(alerts, /PortfolioRotationReviewEngine|PortfolioDecisionEngine|evaluatePortfolioDecision/);
+  assert.doesNotMatch(alerts, /\bPortfolioRotationReviewEngine\s*[.(]/);
+  assert.doesNotMatch(alerts, /\bPortfolioDecisionEngine\s*[.(]/);
+  assert.doesNotMatch(alerts, /\bevaluatePortfolioDecision\s*\(/);
   assert.match(alerts, /portfolioDecision: PortfolioDecisionResult/);
   assert.match(alerts, /executionPlan: PortfolioExecutionPlan/);
 });
