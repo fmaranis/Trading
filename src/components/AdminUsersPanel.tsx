@@ -13,9 +13,19 @@ import {
 } from '../auth/accountApi';
 
 interface Props { user: User; onClose: () => void; }
+type ManagedUserPatch = { accessGranted?: boolean; disabled?: boolean; isAdmin?: boolean };
+type PendingAdminAction =
+  | { kind: 'update'; key: string; title: string; message: string; row: AdminUserRow; patch: ManagedUserPatch }
+  | { kind: 'delete'; key: string; title: string; message: string; row: AdminUserRow };
+interface GeneratedLink { label: string; url: string; }
 
-async function copyText(value: string): Promise<void> {
-  await navigator.clipboard.writeText(value);
+async function copyText(value: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function auditActionLabel(action: string): string {
@@ -39,6 +49,8 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [auditError, setAuditError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAdminAction | null>(null);
+  const [generatedLink, setGeneratedLink] = useState<GeneratedLink | null>(null);
 
   const refresh = async () => {
     setError(null);
@@ -77,8 +89,11 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
   const create = () => run('create', async () => {
     const result = await createManagedUser(user, { email, displayName, accessGranted: true });
     setEmail(''); setDisplayName('');
-    setNotice(`Cuenta creada: ${result.email}. Copia y envía el enlace de configuración de contraseña.`);
-    await copyText(result.passwordSetupLink).catch(() => undefined);
+    setGeneratedLink({ label: `Configuración de contraseña · ${result.email}`, url: result.passwordSetupLink });
+    const copied = await copyText(result.passwordSetupLink);
+    setNotice(copied
+      ? `Cuenta creada: ${result.email}. El enlace de configuración se ha copiado y queda visible abajo.`
+      : `Cuenta creada: ${result.email}. El navegador no permitió copiar automáticamente; el enlace queda visible abajo.`);
     return result;
   });
 
@@ -86,21 +101,49 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
     setBusy(`reset:${row.uid}`); setError(null); setNotice(null);
     try {
       const result = await createPasswordResetLink(user, row.uid);
-      await copyText(result.passwordResetLink);
+      setGeneratedLink({ label: `Restablecimiento de contraseña · ${result.email}`, url: result.passwordResetLink });
+      const copied = await copyText(result.passwordResetLink);
       await refresh();
-      setNotice(`Enlace de contraseña de ${result.email} copiado al portapapeles.`);
+      setNotice(copied
+        ? `Enlace de contraseña de ${result.email} copiado. También queda visible abajo.`
+        : `Enlace de contraseña generado para ${result.email}. El navegador no permitió copiar automáticamente; queda visible abajo.`);
     } catch (cause: any) { setError(cause?.message || String(cause)); setBusy(null); }
     finally { setBusy(null); }
   };
 
-  const confirmUpdate = (row: AdminUserRow, key: string, message: string, patch: { accessGranted?: boolean; disabled?: boolean; isAdmin?: boolean }) => {
-    if (!window.confirm(message)) return;
-    void run(`${key}:${row.uid}`, () => updateManagedUser(user, row.uid, patch));
+  const requestUpdate = (row: AdminUserRow, key: string, title: string, message: string, patch: ManagedUserPatch) => {
+    setError(null); setNotice(null);
+    setPendingAction({ kind: 'update', key, title, message, row, patch });
   };
 
-  const remove = (row: AdminUserRow) => {
-    if (!window.confirm(`Borrar definitivamente la cuenta ${row.email ?? row.uid} y sus datos privados? Esta acción no se puede deshacer.`)) return;
-    void run(`delete:${row.uid}`, () => deleteManagedUser(user, row.uid));
+  const requestRemove = (row: AdminUserRow) => {
+    setError(null); setNotice(null);
+    setPendingAction({
+      kind: 'delete',
+      key: 'delete',
+      title: 'Borrar cuenta',
+      message: `Borrar definitivamente la cuenta ${row.email ?? row.uid} y sus datos privados? Esta acción no se puede deshacer.`,
+      row
+    });
+  };
+
+  const confirmPendingAction = async () => {
+    const action = pendingAction;
+    if (!action || busy != null) return;
+    setPendingAction(null);
+    if (action.kind === 'update') {
+      await run(`${action.key}:${action.row.uid}`, () => updateManagedUser(user, action.row.uid, action.patch));
+      return;
+    }
+    await run(`delete:${action.row.uid}`, () => deleteManagedUser(user, action.row.uid));
+  };
+
+  const copyGeneratedLink = async () => {
+    if (!generatedLink) return;
+    const copied = await copyText(generatedLink.url);
+    setNotice(copied
+      ? 'Enlace copiado al portapapeles.'
+      : 'El navegador no permite copiar automáticamente. Selecciona el enlace visible y cópialo manualmente.');
   };
 
   const needle = query.trim().toLowerCase();
@@ -111,18 +154,36 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
     <div className="mx-auto max-w-5xl rounded-2xl border border-violet-500/30 bg-slate-950 p-5 shadow-2xl">
       <div className="flex items-start justify-between gap-3">
         <div><div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-violet-300"/><h2 className="font-bold text-white">Administración de cuentas</h2></div><p className="mt-1 text-[11px] text-slate-400">El rol ADMIN se valida mediante Firebase Custom Claims. Los usuarios no pueden darse acceso ni privilegios desde Firestore. Las operaciones administrativas sensibles quedan auditadas en el backend de Trading.</p></div>
-        <button onClick={onClose} className="rounded-lg border border-slate-700 p-2 text-slate-400"><X className="h-4 w-4"/></button>
+        <button type="button" onClick={onClose} className="rounded-lg border border-slate-700 p-2 text-slate-400"><X className="h-4 w-4"/></button>
       </div>
 
       {error && <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">{error}</div>}
       {notice && <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200">{notice}</div>}
 
+      {pendingAction && <div className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+        <div className="text-xs font-bold text-amber-200">Confirmar acción · {pendingAction.title}</div>
+        <div className="mt-1 text-xs text-slate-300">{pendingAction.message}</div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" disabled={busy != null} onClick={() => void confirmPendingAction()} className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Confirmar acción</button>
+          <button type="button" disabled={busy != null} onClick={() => setPendingAction(null)} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-300 disabled:opacity-50">Cancelar</button>
+        </div>
+      </div>}
+
       <div className="mt-4 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
         <input value={email} onChange={e => setEmail(e.target.value)} placeholder="correo@ejemplo.com" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"/>
         <input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Nombre (opcional)" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"/>
-        <button disabled={!email.trim() || busy != null} onClick={create} className="flex items-center justify-center gap-1 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"><UserPlus className="h-4 w-4"/>Crear con acceso</button>
+        <button type="button" disabled={!email.trim() || busy != null} onClick={create} className="flex items-center justify-center gap-1 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"><UserPlus className="h-4 w-4"/>Crear con acceso</button>
       </div>
-      <div className="mt-2 text-[10px] text-slate-500">La contraseña inicial es aleatoria y no se muestra. Al crear la cuenta se genera un enlace de configuración/restablecimiento que se copia al portapapeles.</div>
+      <div className="mt-2 text-[10px] text-slate-500">La contraseña inicial es aleatoria y no se muestra. Al crear la cuenta se genera un enlace de configuración/restablecimiento. El enlace queda visible en el panel aunque el navegador bloquee el portapapeles.</div>
+
+      {generatedLink && <div className="mt-3 rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3">
+        <div className="text-[10px] font-bold text-cyan-200">{generatedLink.label}</div>
+        <div className="mt-2 flex flex-col gap-2 md:flex-row">
+          <input readOnly value={generatedLink.url} onFocus={event => event.currentTarget.select()} className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-[10px] text-slate-200"/>
+          <button type="button" onClick={() => void copyGeneratedLink()} className="flex items-center justify-center gap-1 rounded border border-cyan-500/30 px-3 py-2 text-[10px] font-bold text-cyan-200"><Copy className="h-3.5 w-3.5"/>Copiar enlace</button>
+          <button type="button" onClick={() => setGeneratedLink(null)} className="rounded border border-slate-700 px-3 py-2 text-[10px] text-slate-400">Ocultar</button>
+        </div>
+      </div>}
 
       <div className="mt-4 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2">
         <Search className="h-4 w-4 text-slate-500"/>
@@ -142,11 +203,11 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
               <td className="p-2 text-center"><span className={row.disabled ? 'text-rose-300' : 'text-emerald-300'}>{row.disabled ? 'BLOQUEADA' : 'ACTIVA'}</span></td>
               <td className="p-2 text-slate-500">{row.lastSignInAt ? new Date(row.lastSignInAt).toLocaleString('es-ES') : 'Nunca'}</td>
               <td className="p-2"><div className="flex justify-end gap-1">
-                {!self && !row.isAdmin && <button title={row.accessGranted ? 'Revocar acceso' : 'Dar acceso'} disabled={busy != null} onClick={() => confirmUpdate(row, 'access', `${row.accessGranted ? 'Revocar' : 'Conceder'} acceso a ${row.email ?? row.uid}?`, { accessGranted: !row.accessGranted })} className="rounded border border-slate-700 p-2 text-slate-300">{row.accessGranted ? <UserX className="h-3.5 w-3.5"/> : <CheckCircle2 className="h-3.5 w-3.5"/>}</button>}
-                {!self && <button title={row.isAdmin ? 'Quitar ADMIN' : 'Hacer ADMIN'} disabled={busy != null} onClick={() => confirmUpdate(row, 'admin', `${row.isAdmin ? 'Retirar ADMIN de' : 'Conceder ADMIN a'} ${row.email ?? row.uid}?`, { isAdmin: !row.isAdmin })} className="rounded border border-violet-500/30 p-2 text-violet-300"><ShieldCheck className="h-3.5 w-3.5"/></button>}
-                {!self && <button title={row.disabled ? 'Reactivar cuenta' : 'Bloquear cuenta'} disabled={busy != null} onClick={() => confirmUpdate(row, 'disable', `${row.disabled ? 'Reactivar' : 'Bloquear'} la cuenta ${row.email ?? row.uid}?`, { disabled: !row.disabled })} className="rounded border border-amber-500/30 p-2 text-amber-300"><UserX className="h-3.5 w-3.5"/></button>}
-                <button title="Copiar enlace de contraseña" disabled={busy != null || !row.email} onClick={() => void resetLink(row)} className="rounded border border-cyan-500/30 p-2 text-cyan-300"><KeyRound className="h-3.5 w-3.5"/></button>
-                {!self && <button title="Borrar cuenta" disabled={busy != null} onClick={() => remove(row)} className="rounded border border-rose-500/30 p-2 text-rose-300"><Trash2 className="h-3.5 w-3.5"/></button>}
+                {!self && !row.isAdmin && <button type="button" title={row.accessGranted ? 'Revocar acceso' : 'Dar acceso'} disabled={busy != null} onClick={() => requestUpdate(row, 'access', row.accessGranted ? 'Revocar acceso' : 'Conceder acceso', `${row.accessGranted ? 'Revocar' : 'Conceder'} acceso a ${row.email ?? row.uid}?`, { accessGranted: !row.accessGranted })} className="rounded border border-slate-700 p-2 text-slate-300 disabled:opacity-50">{row.accessGranted ? <UserX className="h-3.5 w-3.5"/> : <CheckCircle2 className="h-3.5 w-3.5"/>}</button>}
+                {!self && <button type="button" title={row.isAdmin ? 'Quitar ADMIN' : 'Hacer ADMIN'} disabled={busy != null} onClick={() => requestUpdate(row, 'admin', row.isAdmin ? 'Retirar ADMIN' : 'Conceder ADMIN', `${row.isAdmin ? 'Retirar ADMIN de' : 'Conceder ADMIN a'} ${row.email ?? row.uid}?`, { isAdmin: !row.isAdmin })} className="rounded border border-violet-500/30 p-2 text-violet-300 disabled:opacity-50"><ShieldCheck className="h-3.5 w-3.5"/></button>}
+                {!self && <button type="button" title={row.disabled ? 'Reactivar cuenta' : 'Bloquear cuenta'} disabled={busy != null} onClick={() => requestUpdate(row, 'disable', row.disabled ? 'Reactivar cuenta' : 'Bloquear cuenta', `${row.disabled ? 'Reactivar' : 'Bloquear'} la cuenta ${row.email ?? row.uid}?`, { disabled: !row.disabled })} className="rounded border border-amber-500/30 p-2 text-amber-300 disabled:opacity-50"><UserX className="h-3.5 w-3.5"/></button>}
+                <button type="button" title="Generar enlace de contraseña" disabled={busy != null || !row.email} onClick={() => void resetLink(row)} className="rounded border border-cyan-500/30 p-2 text-cyan-300 disabled:opacity-50"><KeyRound className="h-3.5 w-3.5"/></button>
+                {!self && <button type="button" title="Borrar cuenta" disabled={busy != null} onClick={() => requestRemove(row)} className="rounded border border-rose-500/30 p-2 text-rose-300 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5"/></button>}
               </div></td>
             </tr>;
           })}</tbody>
@@ -167,7 +228,7 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500"><Copy className="h-3.5 w-3.5"/>Un ADMIN siempre tiene acceso: para revocárselo primero hay que retirarle ADMIN. Los enlaces de contraseña se entregan por un canal privado. Trading conserva su propio Firebase, usuarios, datos y backend.</div>
+      <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500"><Copy className="h-3.5 w-3.5"/>Un ADMIN siempre tiene acceso: para revocárselo primero hay que retirarle ADMIN. Los enlaces de contraseña permanecen visibles aunque el preview bloquee confirmaciones o portapapeles nativos. Trading conserva su propio Firebase, usuarios, datos y backend.</div>
     </div>
   </div>;
 };
