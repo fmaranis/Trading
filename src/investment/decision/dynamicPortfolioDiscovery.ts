@@ -3,15 +3,42 @@ import type { AssetUniverseItem } from './assetUniverse';
 
 const STORAGE_KEY = 'custodia_dynamic_market_assets_v1';
 
-function dedupePush(asset: AssetUniverseItem): AssetUniverseItem {
-  const existing = EUR_PORTFOLIO_DISCOVERY_UNIVERSE.find(item =>
-    item.assetId === asset.assetId
-    || item.ticker.toUpperCase() === asset.ticker.toUpperCase()
-    || Boolean(asset.isin && item.isin?.toUpperCase() === asset.isin.toUpperCase())
-  );
-  if (existing) return existing;
-  EUR_PORTFOLIO_DISCOVERY_UNIVERSE.push(asset);
+type DynamicDiscoveredAsset = AssetUniverseItem & {
+  currentDiscoveryQuoteType?: string;
+};
+
+function dynamicQuoteType(asset: AssetUniverseItem): string {
+  const explicit = String((asset as DynamicDiscoveredAsset).currentDiscoveryQuoteType ?? '').trim().toUpperCase();
+  if (explicit) return explicit;
+  // Backward-compatible migration for assets persisted before quoteType was kept.
+  // In this registry EUROPE_EQUITY was assigned only to Yahoo quoteType=EQUITY;
+  // ETF/other listed instruments were stored as GLOBAL_EQUITY.
+  if (asset.assetId.startsWith('DYNAMIC_') && asset.category === 'EUROPE_EQUITY') return 'EQUITY';
+  return '';
+}
+
+function withPreservedQuoteType(asset: AssetUniverseItem): AssetUniverseItem {
+  const quoteType = dynamicQuoteType(asset);
+  if (quoteType) (asset as DynamicDiscoveredAsset).currentDiscoveryQuoteType = quoteType;
   return asset;
+}
+
+function dedupePush(asset: AssetUniverseItem): AssetUniverseItem {
+  const normalized = withPreservedQuoteType(asset);
+  const existing = EUR_PORTFOLIO_DISCOVERY_UNIVERSE.find(item =>
+    item.assetId === normalized.assetId
+    || item.ticker.toUpperCase() === normalized.ticker.toUpperCase()
+    || Boolean(normalized.isin && item.isin?.toUpperCase() === normalized.isin.toUpperCase())
+  );
+  if (existing) {
+    const incomingQuoteType = dynamicQuoteType(normalized);
+    if (incomingQuoteType && !String((existing as DynamicDiscoveredAsset).currentDiscoveryQuoteType ?? '').trim()) {
+      (existing as DynamicDiscoveredAsset).currentDiscoveryQuoteType = incomingQuoteType;
+    }
+    return existing;
+  }
+  EUR_PORTFOLIO_DISCOVERY_UNIVERSE.push(normalized);
+  return normalized;
 }
 
 function loadPersisted(): AssetUniverseItem[] {
@@ -29,7 +56,7 @@ function persist(): void {
 }
 
 for (const asset of loadPersisted()) {
-  if (asset?.assetId && asset?.ticker && asset?.currency === 'EUR') dedupePush(asset);
+  if (asset?.assetId && asset?.ticker && asset?.currency === 'EUR') dedupePush(withPreservedQuoteType(asset));
 }
 
 export interface LiveDiscoveredAsset {
@@ -54,7 +81,7 @@ export function registerLiveDiscoveredAsset(input: LiveDiscoveredAsset): AssetUn
   }
   const quoteType = String(input.quoteType).toUpperCase();
   const identifiedFund = quoteType === 'MUTUALFUND' && Boolean(input.isin);
-  const asset: AssetUniverseItem = {
+  const asset: DynamicDiscoveredAsset = {
     assetId: assetIdFor(input.symbol),
     ticker: input.symbol.toUpperCase(),
     isin: input.isin || undefined,
@@ -62,11 +89,22 @@ export function registerLiveDiscoveredAsset(input: LiveDiscoveredAsset): AssetUn
     category: quoteType === 'EQUITY' ? 'EUROPE_EQUITY' : 'GLOBAL_EQUITY',
     currency: 'EUR',
     instrumentType: identifiedFund ? 'MUTUAL_FUND' : 'ETF_ETC',
-    marketDataProvider: identifiedFund ? 'EODHD_FUND' : 'YAHOO'
+    marketDataProvider: identifiedFund ? 'EODHD_FUND' : 'YAHOO',
+    currentDiscoveryQuoteType: quoteType
   };
   const registered = dedupePush(asset);
   persist();
   return registered;
+}
+
+export function isDynamicDiscoveredEquityIdentity(identity: string | null | undefined): boolean {
+  const normalized = String(identity ?? '').trim().toUpperCase();
+  if (!normalized) return false;
+  return EUR_PORTFOLIO_DISCOVERY_UNIVERSE.some(item =>
+    item.assetId.startsWith('DYNAMIC_')
+    && (item.assetId.toUpperCase() === normalized || item.ticker.toUpperCase() === normalized)
+    && dynamicQuoteType(item) === 'EQUITY'
+  );
 }
 
 export function getDynamicPortfolioAssets(): AssetUniverseItem[] {
