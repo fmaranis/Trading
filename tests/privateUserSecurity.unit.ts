@@ -101,7 +101,12 @@ requireText(accountApi, 'loadAccountSessionStatus', 'LIVE_ACCOUNT_STATUS_CLIENT_
 requireText(adminPanel, 'Actividad administrativa reciente', 'ADMIN_AUDIT_UI_MISSING');
 requireText(adminPanel, 'Promise.allSettled', 'AUDIT_FAILURE_MUST_NOT_HIDE_UPDATED_USER_LIST');
 requireText(adminPanel, 'auditError', 'AUDIT_FAILURE_MUST_BE_REPORTED_SEPARATELY');
-requireText(adminPanel, 'window.confirm', 'SENSITIVE_ADMIN_ACTION_CONFIRMATION_MISSING');
+forbidText(adminPanel, 'window.confirm(', 'NATIVE_CONFIRM_MUST_NOT_GATE_ADMIN_ACTIONS');
+requireText(adminPanel, 'pendingAction', 'IN_APP_ADMIN_CONFIRMATION_STATE_MISSING');
+requireText(adminPanel, 'Confirmar acción', 'IN_APP_ADMIN_CONFIRMATION_UI_MISSING');
+requireText(adminPanel, 'Cancelar', 'IN_APP_ADMIN_CONFIRMATION_CANCEL_MISSING');
+requireText(adminPanel, 'generatedLink', 'PASSWORD_LINK_VISIBLE_FALLBACK_MISSING');
+requireText(adminPanel, 'El navegador no permitió copiar automáticamente', 'CLIPBOARD_FAILURE_MUST_NOT_HIDE_GENERATED_LINK');
 requireText(adminPanel, '!self && !row.isAdmin', 'ADMIN_ACCESS_REVOKE_UI_MUST_REQUIRE_DEMOTION');
 requireText(adminPanel, 'Un ADMIN siempre tiene acceso', 'ADMIN_ACCESS_SEMANTICS_MUST_BE_EXPLAINED');
 forbidText(accountRoutes, 'Cubetos-y-balsas-sincronizado', 'TRADING_RUNTIME_MUST_NOT_DEPEND_ON_CUBETOS');
