@@ -204,7 +204,7 @@ Ya existía antes de Fase 2A:
 
 La comparación de Fase 2A concluyó que no conviene copiar el sistema SaaS completo de Cubetos/Muros. Trading sólo necesita actualmente `accessGranted` + `isAdmin`; introducir planes, entitlements, créditos o un `PermissionContext` genérico añadiría complejidad sin necesidad productiva.
 
-## Hardening selectivo Fase 2A
+## Hardening selectivo Fase 2A — DONE
 
 Sin sustituir `SecureAppGate`, UID, claims ni Firestore existentes se implementó:
 
@@ -219,13 +219,15 @@ Sin sustituir `SecureAppGate`, UID, claims ni Firestore existentes se implement�
 - fallo de red de revalidación = fail-closed sin borrar caché como revocación;
 - lista de usuarios desacoplada del audit log;
 - Firebase Auth como autoridad y profile mirror best-effort;
-- aserciones de comportamiento en `privateUserSecurity.unit.ts`.
+- aserciones de comportamiento en `privateUserSecurity.unit.ts`;
+- confirmación sensible dentro del propio panel, sin depender de `window.confirm`;
+- enlaces de contraseña visibles aunque `navigator.clipboard` esté restringido.
 
-El smoke real descubrió además que las acciones sensibles dependían de `window.confirm(...)`; en el preview/iframe podía quedar bloqueado y hacer que todos los botones parecieran muertos antes de llamar al backend. Se sustituyó por confirmación interna en el propio panel. Los enlaces de contraseña quedan visibles aunque `navigator.clipboard` esté restringido.
+El usuario completó el smoke runtime: las acciones ADMIN responden, la revocación invalida el acceso, la recuperación posterior funciona y el estado privado se conserva. Después ejecutó el **quick closure final** sobre el HEAD `472e7d1f20db3901a4bac1ab5003cb16bfe4d79a`: **PASS**.
 
-Estado actual de 2A:
+Estado 2A:
 
-**RUNTIME PARCIAL PASS.** El usuario ha confirmado que la nueva confirmación interna aparece y que la acción ADMIN vuelve a funcionar. Quedan por verificar la invalidación de una sesión ya abierta, la preservación/restauración del estado privado y un único quick closure final sobre el HEAD definitivo de 2A.
+**DONE / RUNTIME PASS / QUICK CLOSURE FINAL PASS.**
 
 ---
 
@@ -255,15 +257,23 @@ scheduler
 - mantiene dedupe por UID;
 - puede enviar `ADD / WATCH / REDUCE / EXIT` por Telegram.
 
-Pendiente residual, sólo según alcance V1:
+### Auditoría Fase 2B — hallazgo residual
 
-- decidir si debe generalizarse a todos los usuarios activos;
-- si se generaliza, mantener dedupe independiente por UID;
-- revisar el uso residual de `PortfolioRotationReviewEngine`/`ROTATE_NOW` para evitar autoridad paralela;
-- añadir guard/test si se toca ese flujo;
-- confirmar que las alarmas actuales siguen llegando después de cualquier cambio.
+La auditoría del flujo real ha confirmado que `server/portfolioManagementAlerts.ts` todavía importa y ejecuta `PortfolioRotationReviewEngine.evaluate(...)`. Si devuelve `ROTATE_NOW`, el backend genera una `rotationEvent` y puede enviarla por Telegram.
 
-No se modifica este flujo durante el cierre 2A.
+Eso es una **autoridad paralela residual** porque esa rotación no procede de `evaluatePortfolioDecision` ni del `executionPlan` canónico. Por tanto no puede permanecer como recomendación operativa en una arquitectura declarada `CORE_ARCHITECTURE_V1` cerrada.
+
+Decisión V1:
+
+- se conserva sin cambios la ruta operativa de alertas `ADD / WATCH / REDUCE / EXIT`;
+- no se rehacen scheduler, Telegram, Firestore ni dedupe;
+- la generalización a todos los usuarios queda **DEFERRED** mientras no exista una necesidad productiva explícita; V1 mantiene el UID configurado actualmente;
+- el siguiente cambio de 2B debe retirar/neutralizar la autoridad de `ROTATE_NOW` derivada de `PortfolioRotationReviewEngine` o hacer que cualquier futura rotación consuma exclusivamente la decisión/plan canónicos;
+- debe añadirse un guard al cierre rápido que impida reintroducir una rotación paralela.
+
+Estado 2B:
+
+**OPERATIVA / AUDITADA / CIERRE RESIDUAL: ELIMINAR AUTORIDAD PARALELA `ROTATE_NOW`.**
 
 ---
 
@@ -288,10 +298,11 @@ No se modifica este flujo durante el cierre 2A.
 | HFG | **CONSUMED / CLOSED** | Diagnóstico, no tuning |
 | Móvil + JSON | **DONE / PASS** | Prueba física realizada |
 | Usuarios privados / Firestore | **OPERATIVO** | Arquitectura propia |
-| Fase 2A ADMIN hardening | **RUNTIME PARCIAL PASS** | Botones recuperados; falta sesión/estado + quick closure final |
+| Fase 2A ADMIN hardening | **DONE / PASS** | Runtime + quick closure final PASS |
 | Cubetos/Muros | **REFERENCE ONLY** | Nunca compartir infraestructura |
 | Alertas de entrada | **OPERATIVAS** | Ya llegan en configuración actual |
-| Alertas de cartera backend | **IMPLEMENTADAS / CIERRE RESIDUAL** | Generalización opcional + autoridad canónica |
+| Alertas de cartera backend | **OPERATIVAS / 2B ACTIVA** | Mantener health alerts; retirar `ROTATE_NOW` paralelo |
+| Multiuser fan-out de alertas | **DEFERRED** | No necesario para alcance V1 actual |
 | Broker API automática | **NOT IMPLEMENTED / FUTURE** | Ejecución manual asistida |
 | Instrument master histórico point-in-time | **NOT IMPLEMENTED** | Survivorship reconocido |
 | USD/Nasdaq/NYSE + FX | **DEFERRED** | Después del cierre V1 |
@@ -312,33 +323,37 @@ No se modifica este flujo durante el cierre 2A.
 
 ## FASE 2 — USUARIOS / SEGURIDAD / AUTONOMÍA
 
-**ACTIVA / MUY AVANZADA.**
+**ACTIVA / CIERRE RESIDUAL 2B.**
 
 ### 2A — usuarios/ADMIN
 
-**Runtime parcial PASS.**
+**DONE.**
 
-Cierre exacto restante:
+Evidencia de cierre:
 
-1. con una cuenta normal NO-ADMIN/NO-bootstrap revocada, comprobar que una sesión ya abierta pierde acceso al recuperar foco o en ≤15 s;
-2. comprobar que el estado durable/Firestore no se ha borrado;
-3. volver a conceder acceso e iniciar sesión si hace falta;
-4. confirmar que recupera exactamente su propio estado y que la cartera principal sigue intacta;
-5. comprobar de forma mínima que ADMIN/bloquear/reactivar usan la misma confirmación interna;
-6. ejecutar **una única vez `Producto · cierre rápido`** sobre el HEAD final de 2A;
-7. si smoke + quick closure pasan, marcar 2A DONE.
-
-No ejecutar replay largo ni Future Forward para esta validación.
+- hardening integrado sin stack paralelo;
+- runtime smoke PASS;
+- revocación/recuperación y estado privado PASS;
+- confirmación interna ADMIN PASS;
+- `Producto · cierre rápido` final PASS sobre `472e7d1f20db3901a4bac1ab5003cb16bfe4d79a`.
 
 ### 2B — alertas/autonomía
 
-**Operativa en la configuración actual.**
+**Operativa y auditada; queda una sola corrección arquitectónica.**
 
-Antes de tocarla se decide expresamente si V1 requiere generalización multiusuario. El posible `ROTATE_NOW` residual debe auditarse antes de otorgarle autoridad canónica. No se rehacen Telegram ni scheduler que ya funcionan.
+Siguiente cambio:
+
+1. retirar la autoridad de `PortfolioRotationReviewEngine`/`ROTATE_NOW` del backend de alertas;
+2. preservar `ADD/WATCH/REDUCE/EXIT`, dedupe, Telegram, scheduler y UID configurado;
+3. añadir guard al `Producto · cierre rápido` contra rotación paralela;
+4. ejecutar quick closure corto;
+5. confirmar continuidad de alarmas en la siguiente ejecución natural.
+
+La expansión multiusuario queda deferred y no bloquea V1 actual.
 
 ## FASE 3 — PROTOCOLO ECONÓMICO FINAL
 
-**NEXT una vez cerrada Fase 2.**
+**NEXT una vez cerrada Fase 2B.**
 
 Congelar antes de nuevas muestras:
 
@@ -422,17 +437,18 @@ No reabrir:
 - V12/V13 como parameter chasing;
 - reconstruir Firebase/usuarios/Telegram desde cero;
 - copiar planes/entitlements/monetización de Cubetos/Muros;
-- compartir sistema de usuarios entre aplicaciones.
+- compartir sistema de usuarios entre aplicaciones;
+- generalizar alertas a todos los usuarios sin necesidad productiva explícita.
 
 ---
 
 # 13. Siguiente paso operativo
 
-1. **No escribir más código de Fase 2A salvo que falle el smoke restante.**
-2. Completar invalidación de sesión + preservación/restauración de estado privado.
-3. Comprobar mínimamente las demás acciones con la confirmación interna.
-4. Ejecutar `Producto · cierre rápido` una sola vez al final.
-5. Si smoke + quick closure pasan, marcar 2A DONE.
-6. Decidir explícitamente el alcance V1 de 2B antes de modificar alertas operativas.
-7. Después congelar Fase 3 antes de abrir nuevas muestras.
+1. **Fase 2A = DONE. No reabrirla salvo bug/regresión reproducible.**
+2. En Fase 2B, retirar la autoridad paralela de `PortfolioRotationReviewEngine`/`ROTATE_NOW` del backend de alertas sin tocar las alertas health existentes.
+3. Añadir un guard al mismo `Producto · cierre rápido`.
+4. Ejecutar quick closure corto; no replay ni Future Forward.
+5. Confirmar continuidad de alarmas en la siguiente ejecución natural.
+6. Marcar Fase 2 DONE.
+7. Abrir Fase 3 y congelar el protocolo económico antes de cualquier nueva muestra.
 8. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
