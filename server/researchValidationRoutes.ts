@@ -137,6 +137,21 @@ const JOBS: JobDefinition[] = [
     'DYNAMIC_MARKET_TOP64_LIVE_RESULT'
   ),
   {
+    id: 'product-surface-closure-v1',
+    name: 'Producto · cierre rápido',
+    description: 'Verificación rápida de la superficie productiva integrada: decisión única, plan ejecutable, cartera, broker, fiscalidad y TypeScript. No ejecuta replay, no consulta un checkpoint prospectivo y no escribe en replay-results.',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard cierre de superficie', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
+      { label: 'Guard decisión productiva única', command: 'npx', args: ['tsx', 'tests/productDecisionSurface.unit.ts'] },
+      { label: 'Guard plan de ejecución', command: 'npx', args: ['tsx', 'tests/portfolioExecutionPlan.unit.ts'] },
+      { label: 'Guard cartera', command: 'npx', args: ['tsx', 'tests/userPortfolio.unit.ts'] },
+      { label: 'Guard disponibilidad broker', command: 'npx', args: ['tsx', 'tests/brokerAvailability.unit.ts'] },
+      { label: 'Guard fiscalidad de ejecución', command: 'npx', args: ['tsx', 'tests/taxAwareExecutionOverlay.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+    ]
+  },
+  {
     id: 'quality-allocation-dynamic-future-forward-v1',
     name: 'QUALITY allocation · future-forward dinámico',
     description: 'Phase A prospectiva sobre Top64 current/live dinámico. Una única foto mensual consecutiva en la ventana congelada del día 9, 22:30-24:00 Europe/Madrid; mismo snapshot y 13.000 EUR de notional research para LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Reglas e implementación crítica quedan fingerprintadas, el estado autoritativo se encadena en replay-results y producción continúa LEGACY.',
@@ -297,7 +312,7 @@ researchValidationRouter.get('/jobs/:id/result.json', (req: Request, res: Respon
   if (state.result == null) { res.status(404).json({ error: 'VALIDATION_RESULT_NOT_AVAILABLE' }); return; }
   const stamp = safeFilePart(state.finishedAt || new Date().toISOString());
   const filename = `${safeFilePart(job.id)}-${stamp}.json`;
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Disposition', `attachment; filename=\"${filename}\"`);
   res.setHeader('Cache-Control', 'no-store');
   res.status(200).json({
     jobId: job.id,
