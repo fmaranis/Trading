@@ -120,8 +120,10 @@ Estado de validación:
 
 - inspección estática completada;
 - `Producto · cierre rápido` ejecutado desde la app sobre el cierre de 2026-09-11: **PASSED** completo;
+- tras corregir la identidad de acciones dinámicas/current-live, el mismo `Producto · cierre rápido` se volvió a ejecutar sobre HEAD `7c5004f8f8039d3cdf13c707ba0e2aa2f9c91344`: **PASSED** completo;
+- resultados de esa segunda ejecución: superficie 27/27, decisión productiva 20/20, plan de ejecución 29/29, cartera 24/24, salud de posiciones 25/25, broker 7/7, fiscalidad 7/7 y `tsc --noEmit` PASS;
 - prueba manual en dispositivo móvil 2026-09-11: exportación JSON y controles principales responden correctamente;
-- no repetir este cierre salvo que un cambio posterior afecte materialmente a la superficie productiva, al plan ejecutable, broker/fiscalidad o export móvil.
+- no repetir este cierre salvo que un cambio posterior afecte materialmente a la superficie productiva, salud de posiciones, plan ejecutable, broker/fiscalidad o export móvil.
 
 ---
 
@@ -172,14 +174,28 @@ Como el `InvestmentDecisionEngine` congelado exige capital estrictamente positiv
 
 `DecisionGuardrailsPanel` ya no realiza replay histórico cliente ni inventa capital para hacerlo.
 
-Guards actuales:
+### Identidad de acciones dinámicas — CORREGIDA / PASS 2026-09-11
 
-- `tests/productDecisionSurface.unit.ts`: **20 invariantes estáticos**;
-- `tests/productSurfaceClosureV1.unit.ts`: **27 invariantes estáticos**.
+El diagnóstico HFG detectó que una acción individual descubierta dinámicamente podía heredar `isDiversifiedCore=true` por su categoría amplia `EUROPE_EQUITY`.
+
+Corrección integrada, sin crear módulos ni políticas nuevas:
+
+- `dynamicPortfolioDiscovery` conserva `currentDiscoveryQuoteType` de Yahoo para activos `DYNAMIC_*` y migra de forma compatible los ya persistidos;
+- `PortfolioPositionHealthService` reconoce acciones dinámicas `DYNAMIC_*` por identidad y acciones current/live `OPEN_*` mediante la metadata `EQUITY` ya existente;
+- una acción individual ya no hereda protección de core por una categoría amplia;
+- un ETF dinámico mantiene tratamiento diversificado/core cuando corresponde;
+- el replay existente reutiliza la misma `classifyPositionHealth`, por lo que la clasificación auditada `positionIsDiversifiedCore` queda corregida sin crear un replay paralelo.
+
+Guards actuales relevantes:
+
+- `tests/productDecisionSurface.unit.ts`: **20 invariantes**;
+- `tests/productSurfaceClosureV1.unit.ts`: **27 invariantes**;
+- `tests/userPortfolio.unit.ts`: **24 invariantes**;
+- `tests/portfolioPositionHealth.unit.ts`: **25 invariantes**.
 
 ### Job integrado de cierre
 
-`ResearchValidationCenter` expone el job:
+`ResearchValidationCenter` expone el mismo job existente:
 
 `Producto · cierre rápido`
 
@@ -189,13 +205,14 @@ Ejecuta, en backend local y sin intervención de terminal del usuario:
 - `productDecisionSurface`;
 - `portfolioExecutionPlan`;
 - `userPortfolio`;
+- `portfolioPositionHealth`;
 - `brokerAvailability`;
 - `taxAwareExecutionOverlay`;
 - TypeScript (`npm run lint`).
 
 No ejecuta replay, no consulta Yahoo live, no ejecuta Future Forward, no crea checkpoint y no escribe en `replay-results`.
 
-Resultado final 2026-09-11: **PASSED**. El job completó todos los guards anteriores y TypeScript. No debe repetirse mientras no cambie materialmente esta superficie.
+Resultado final tras la corrección de identidad dinámica, 2026-09-11: **PASSED**. No debe repetirse mientras no cambie materialmente esta superficie.
 
 ---
 
@@ -308,6 +325,8 @@ Yahoo Lookup no aporta todavía una taxonomía sectorial robusta para todos los 
 
 Esto no puede convertirlo en core estructural porque el core utiliza IDs explícitos, pero sí puede afectar caps/comparaciones de categoría. Queda como deuda separada y no se toca durante el future-forward congelado.
 
+La corrección de 2026-09-11 de identidad de acciones `OPEN_*` no modifica el discovery ni su ranking: únicamente impide que una acción individual ya identificada como `EQUITY` herede semántica de core diversificado en salud de posiciones.
+
 ---
 
 # 8. Replay histórico — causal, con limitación de universo
@@ -324,6 +343,8 @@ En cada `decisionDate`:
 Yahoo Search/Lookup **actual** no reconstruye el universo histórico.
 
 Persiste survivorship hasta disponer de instrument master point-in-time con altas, bajas y delistings.
+
+La corrección de identidad `DYNAMIC_*`/`OPEN_*` no crea un nuevo replay: la salud histórica sigue usando la misma función pura `classifyPositionHealth` del flujo integrado.
 
 ---
 
@@ -455,9 +476,16 @@ Siguiente observación nueva válida:
 
 No repetir septiembre.
 
-### Integridad tras cambios de producto 2026-09-10
+### Integridad tras cambios de producto 2026-09-11
 
-La comparación GitHub desde el último estado canónico previo al cierre muestra únicamente componentes/UI/tests. **Ninguno de los 25 archivos congelados aparece modificado.**
+La comparación GitHub desde el estado canónico anterior al arreglo HFG muestra sólo:
+
+- `dynamicPortfolioDiscovery.ts`;
+- `portfolioPositionHealth.ts`;
+- tests existentes de cartera/salud/cierre;
+- la lista de pasos del mismo `Producto · cierre rápido`.
+
+**Ninguno de los 25 archivos metodológicos congelados del Future Forward aparece modificado.**
 
 No modificar durante Phase A:
 
@@ -493,26 +521,63 @@ No se mezclan en el future-forward QUALITY actual.
 
 ---
 
-# 13. Diagnóstico HFG / grandes ganadores — SIGUIENTE FRENTE TÉCNICO
+# 13. Diagnóstico HFG / grandes ganadores — MUESTRA CONSUMIDA / BUG DE IDENTIDAD CORREGIDO
 
-Replay aportado por el usuario para diagnóstico:
+Casos diagnósticos aportados por el usuario, ejecutados con el replay existente:
 
-- ventana 2019-01-01 -> 2022-12-30;
+### Caso A — inicio 2019-01-01
+
 - 26.000 EUR iniciales;
 - 13.000 EUR HFG.DE + 13.000 EUR cash;
-- frecuencia mensual;
-- Motor Custodia.
+- `MONTHLY`;
+- Motor Custodia;
+- BCE histórico.
 
-Hallazgos preliminares:
+Hallazgos:
 
-- Custodia liquida HFG casi inmediatamente al comienzo;
-- posteriormente HFG reaparece repetidamente como candidato durante la gran tendencia;
-- en una fecha llega a `ENTRY_READY` pero no recibe compra financiada;
-- existe una posible cuestión semántica sobre el streak de deterioro aplicado a una posición inicial y otra sobre capital atrapado en core/reentrada.
+- Custodia ejecuta salida de HFG prácticamente al inicio: señal estructural muy negativa (`structuralDowntrend=true`, consenso -5, 5 señales adversas);
+- el streak de deterioro no fue la causa del EXIT completo;
+- HFG reaparece posteriormente con tendencia favorable;
+- en 2021 alcanza `ENTRY_READY`, pero no recibe compra financiada;
+- en ese momento el cash estaba por debajo de la reserva operativa MEDIUM y gran parte del capital se encontraba en un core sano, por lo que la política económica no financiaba la reentrada;
+- este caso separa tres problemas distintos: salida inicial alrededor de un punto de inflexión, latencia de reentrada y reach/financiación del allocator.
 
-**No se modifica producción ni se retunea nada con esta muestra.**
+### Caso B — HFG ya dentro durante la tendencia sana
 
-El cierre de producto ya está verificado como PASS FINAL. Este diagnóstico pasa a ser el siguiente frente técnico: entender salida inicial, reentrada, financiación de oportunidades y protección de ganancias, separando calidad de señal de calidad de política económica y sin promover ninguna regla usando esta muestra consumida.
+Replay iniciado alrededor de septiembre de 2019 con HFG + cash como estado inicial y extendido a través del boom/crash.
+
+Hallazgos:
+
+- Custodia sí fue capaz de mantener HFG durante la mayor parte del multibagger;
+- la posición llegó a un MFE de aproximadamente +700%;
+- `TREND_PROTECTION_V1` detectó deterioro antes de la salida real: WATCH y posteriormente REDUCE diagnósticos durante 2021/inicios de 2022;
+- esa capa seguía siendo diagnóstica y no ejecutaba directamente operaciones;
+- la orden económica real terminó llegando con el EXIT estructural de 2022, ejecutado aproximadamente a 59,20 EUR por acción, conservando todavía una gran parte de la ganancia desde la entrada;
+- en el replay aportado, Custodia terminó claramente por encima de mantener HFG+cash hasta 2023, confirmando que el motor puede dejar correr un gran ganador y evitar una parte importante del crash cuando la posición ya está dentro durante la tendencia sana.
+
+### Bug objetivo detectado y corregido
+
+El replay mostró `positionIsDiversifiedCore=true` para `DYNAMIC_HFG_DE`, pese a tratarse de una acción individual.
+
+Causa:
+
+- Yahoo identificaba correctamente HFG como `EQUITY`;
+- el registro dinámico reducía esa identidad a una categoría amplia `EUROPE_EQUITY`;
+- la salud de posiciones podía interpretar esa categoría como core diversificado.
+
+Corrección cerrada en HEAD `7c5004f8f8039d3cdf13c707ba0e2aa2f9c91344`:
+
+- se preserva `currentDiscoveryQuoteType` en activos `DYNAMIC_*`;
+- se soporta migración de activos dinámicos ya persistidos;
+- las acciones `DYNAMIC_*` se clasifican como satélite por identidad;
+- las acciones `OPEN_*` current/live se clasifican como satélite cuando el discovery ya las identifica como `EQUITY`;
+- los ETF dinámicos no se convierten por error en acciones tácticas;
+- no se creó ningún nuevo motor, pantalla, apartado ni job;
+- el mismo `Producto · cierre rápido` pasó completo después del arreglo, incluido `portfolioPositionHealth` 25/25 y TypeScript PASS.
+
+**La muestra HFG está consumida.** Esta corrección es de identidad/semántica de instrumento, no un retuning de política. No ajustar thresholds de MFE, giveback, streak, Entry Timing, allocation o protección usando estos resultados.
+
+Siguiente comprobación HFG: repetir el mismo replay existente del Caso B con el HEAD corregido y verificar que HFG exporta `positionIsDiversifiedCore=false`; comparar el resultado únicamente para medir el impacto de corregir el bug, no para promover una política.
 
 ---
 
@@ -532,9 +597,10 @@ No abrir como tuning productivo hasta cerrar la secuencia vigente:
 
 # 15. Próxima secuencia técnica
 
-1. **Producto / JSON / móvil: PASS FINAL 2026-09-11.** No repetir `Producto · cierre rápido` ni las comprobaciones móviles salvo que un cambio posterior afecte materialmente a esta superficie.
-2. Mantener producción `LEGACY` y los 25 archivos metodológicos del future-forward intactos.
-3. Retomar el diagnóstico HFG / boom->crash sobre la muestra ya consumida únicamente para localizar problemas de arquitectura, señal y política económica: salida inicial, reentrada, financiación de oportunidades y captura/protección de ganancias.
-4. No retunear thresholds ni promover una política con HFG. Si del diagnóstico surge una hipótesis candidata, congelarla primero y validarla después en datos fresh/blind/out-of-sample adecuados.
-5. No repetir septiembre del Future Forward. Próximo checkpoint prospectivo nuevo: **2026-10-09 22:30-24:00 Europe/Madrid**.
-6. Mantener diferidas las mejoras de discovery/metadata y cualquier nueva política Forward Risk mientras no exista un protocolo separado que las justifique.
+1. **Producto / JSON / móvil y corrección de identidad dinámica: PASS FINAL 2026-09-11.** No repetir `Producto · cierre rápido` salvo cambio material posterior.
+2. Repetir únicamente el replay HFG existente del Caso B con el HEAD corregido; comprobar que `positionIsDiversifiedCore=false` y medir si cambia la trayectoria económica. No crear un replay/job/apartado nuevo.
+3. Interpretar cualquier diferencia sólo como efecto de corregir la clasificación de instrumento. La muestra HFG sigue consumida y no autoriza tuning ni promoción.
+4. Mantener producción `LEGACY` y los 25 archivos metodológicos del Future Forward intactos.
+5. Si del diagnóstico HFG surge una hipótesis de política, congelarla primero y validarla después en datos fresh/blind/out-of-sample adecuados.
+6. No repetir septiembre del Future Forward. Próximo checkpoint prospectivo nuevo: **2026-10-09 22:30-24:00 Europe/Madrid**.
+7. Mantener diferidas las mejoras de discovery/metadata y cualquier nueva política Forward Risk mientras no exista un protocolo separado que las justifique.
