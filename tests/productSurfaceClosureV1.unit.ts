@@ -173,7 +173,7 @@ check('1027 ResearchValidationCenter exposes one-click quick closure without rep
   const stepsStart = block.indexOf('steps: [');
   assert.ok(stepsStart >= 0);
   const stepsBlock = block.slice(stepsStart);
-  for (const token of ['tests/productSurfaceClosureV1.unit.ts', 'tests/productDecisionSurface.unit.ts', 'tests/portfolioExecutionPlan.unit.ts', 'tests/userPortfolio.unit.ts', 'tests/portfolioPositionHealth.unit.ts', 'tests/brokerAvailability.unit.ts', 'tests/taxAwareExecutionOverlay.unit.ts']) {
+  for (const token of ['tests/productSurfaceClosureV1.unit.ts', 'tests/privateUserSecurity.unit.ts', 'tests/productDecisionSurface.unit.ts', 'tests/portfolioExecutionPlan.unit.ts', 'tests/userPortfolio.unit.ts', 'tests/portfolioPositionHealth.unit.ts', 'tests/brokerAvailability.unit.ts', 'tests/taxAwareExecutionOverlay.unit.ts']) {
     assert.ok(stepsBlock.includes(token), `missing quick closure step ${token}`);
   }
   assert.match(stepsBlock, /args: \['run', 'lint'\]/);
@@ -201,6 +201,8 @@ check('1031 existing Trading admin surface adds verification evidence, confirmat
   assert.match(accountRoutes, /emailVerified: user\.emailVerified/);
   assert.match(accountApi, /loadAdminAudit/);
   assert.match(adminUsersPanel, /Actividad administrativa reciente/);
+  assert.match(adminUsersPanel, /Promise\.allSettled/);
+  assert.match(adminUsersPanel, /auditError/);
   assert.match(adminUsersPanel, /window\.confirm/);
 });
 check('1032 Trading user runtime remains independent from the Cubetos reference application', () => {
@@ -210,6 +212,8 @@ check('1032 Trading user runtime remains independent from the Cubetos reference 
 });
 check('1033 managed-user access revocation cannot silently no-op and propagates to an already-open session', () => {
   assert.match(accountRoutes, /ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST/);
+  assert.match(accountRoutes, /resolveManagedUserPatch/);
+  assert.match(accountRoutes, /ADMIN_USER_PROFILE_SYNC_FAILED/);
   assert.match(accountRoutes, /accountRouter\.get\('\/session-status'/);
   assert.match(accountApi, /loadAccountSessionStatus/);
   assert.match(adminUsersPanel, /!self && !row\.isAdmin/);
@@ -217,7 +221,8 @@ check('1033 managed-user access revocation cannot silently no-op and propagates 
   assert.match(secureAppGate, /ACCESS_REVALIDATION_MS/);
   assert.match(secureAppGate, /loadAccountSessionStatus\(user\)/);
   assert.match(secureAppGate, /document\.addEventListener\('visibilitychange'/);
-  assert.match(secureAppGate, /clearPrivateLocalState\(\)/);
+  assert.match(secureAppGate, /cloudSyncStopRef/);
+  assert.match(secureAppGate, /stopCloudSync\(\);[\s\S]*clearPrivateLocalState\(\)/);
 });
 
 console.log(`Product surface closure V1: ${passed}/33 invariants passed.`);
