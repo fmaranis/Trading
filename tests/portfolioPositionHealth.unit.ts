@@ -1,4 +1,5 @@
 import { classifyPositionHealth, isDiversifiedCoreCategory } from '../src/investment/decision';
+import { registerLiveDiscoveredAsset } from '../src/investment/decision/dynamicPortfolioDiscovery';
 
 let passed = 0;
 function check(name: string, condition: boolean) {
@@ -156,4 +157,39 @@ const broadEuropeContext: any = {
 const broadEuropeProtected = classifyPositionHealth({ ...weakSatellite, assetId: 'EXSA', ticker: 'EXSA.DE', name: 'STOXX Europe 600' }, -10, broadEuropeContext);
 check('821 a broad Europe ETF remains core even if the incoming context was incorrectly marked tactical', broadEuropeProtected.action === 'WATCH' && broadEuropeContext.isDiversifiedCore === true);
 
-console.log(`Portfolio position health: ${passed}/21 invariants passed.`);
+const dynamicEquity = registerLiveDiscoveredAsset({
+  symbol: 'HFG.DE',
+  name: 'HelloFresh SE',
+  quoteType: 'EQUITY',
+  exchange: 'GER',
+  currency: 'EUR',
+  usableInEurEngine: true,
+  historyBars3y: 756,
+  source: 'YAHOO_LIVE_DISCOVERY'
+});
+const dynamicEquityContext: any = {
+  category: 'EUROPE_EQUITY',
+  isDiversifiedCore: true,
+  currentReturnPct: -10,
+  mfePct: 8,
+  givebackFromMfePctPoints: 18,
+  deteriorationStreakSessions: 10,
+  momentum20Pct: -4
+};
+const dynamicEquityReduce = classifyPositionHealth({ ...weakSatellite, assetId: dynamicEquity.assetId, ticker: dynamicEquity.ticker, name: dynamicEquity.name }, -10, dynamicEquityContext);
+check('822 a Yahoo-discovered DYNAMIC equity cannot inherit EUROPE_EQUITY core protection', dynamicEquityReduce.action === 'REDUCE' && dynamicEquityContext.isDiversifiedCore === false);
+check('823 dynamic equity identity is recognized by both assetId and ticker', !isDiversifiedCoreCategory('EUROPE_EQUITY', dynamicEquity.assetId) && !isDiversifiedCoreCategory('EUROPE_EQUITY', dynamicEquity.ticker));
+
+const dynamicEtf = registerLiveDiscoveredAsset({
+  symbol: 'TESTETF.DE',
+  name: 'Test Broad Europe ETF',
+  quoteType: 'ETF',
+  exchange: 'GER',
+  currency: 'EUR',
+  usableInEurEngine: true,
+  historyBars3y: 756,
+  source: 'YAHOO_LIVE_DISCOVERY'
+});
+check('824 a Yahoo-discovered broad ETF does not become a tactical single stock by mistake', isDiversifiedCoreCategory('GLOBAL_EQUITY', dynamicEtf.assetId));
+
+console.log(`Portfolio position health: ${passed}/24 invariants passed.`);
