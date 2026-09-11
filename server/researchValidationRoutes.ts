@@ -152,6 +152,18 @@ const JOBS: JobDefinition[] = [
     ]
   },
   {
+    id: 'hfg-boom-crash-diagnostic-v1',
+    name: 'HFG · diagnóstico salida / reentrada',
+    description: 'Diagnóstico causal research-only sobre la muestra HFG 2019-2022 ya consumida. Separa causa de salida inicial, señales de reentrada, financiación del allocator y protección de ganancias. Usa sólo datos REAL, CORE_ARCHITECTURE_V1 y LEGACY; no retunea, no promueve producción, no usa Yahoo discovery actual y no escribe en replay-results.',
+    marker: 'HFG_BOOM_CRASH_DIAGNOSTIC_V1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard diagnóstico HFG', command: 'npx', args: ['tsx', 'tests/hfgBoomCrashDiagnosticV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Diagnóstico HFG causal REAL', command: 'npx', args: ['tsx', 'scripts/hfgBoomCrashDiagnosticV1Live.ts'] }
+    ]
+  },
+  {
     id: 'quality-allocation-dynamic-future-forward-v1',
     name: 'QUALITY allocation · future-forward dinámico',
     description: 'Phase A prospectiva sobre Top64 current/live dinámico. Una única foto mensual consecutiva en la ventana congelada del día 9, 22:30-24:00 Europe/Madrid; mismo snapshot y 13.000 EUR de notional research para LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Reglas e implementación crítica quedan fingerprintadas, el estado autoritativo se encadena en replay-results y producción continúa LEGACY.',
