@@ -63,36 +63,38 @@ La app **no** debe evolucionar hacia una colección de motores, pantallas, repla
 
 ```mermaid
 flowchart TD
-    U[Usuario / estado privado\ncartera · cash · riesgo · horizonte\naportaciones · fiscalidad] --> AUTH[Autenticación / autorización\nFirebase Auth + claims]
-    AUTH --> STATE[Estado privado por UID\nFirestore + caché local aislada]
+    U[Usuario / estado privado<br/>cartera · cash · riesgo · horizonte<br/>aportaciones · fiscalidad] --> AUTH[Autenticación / autorización<br/>Firebase Auth + claims]
+    AUTH --> STATE[Estado privado por UID<br/>Firestore + caché local aislada]
 
-    M[Mercado actual REAL\nYahoo / NAV fondos] --> SCAN[AssetUniverseScanner\ndiscovery + calidad de datos]
-    SCAN --> TOP[Top64 dinámico\nMARKET_SHORTLIST_LEGACY_SCORE_V1]
-    TOP --> GATE[PortfolioCandidateGate\ncash hurdle · consenso · caps]
-    GATE --> IDE[InvestmentDecisionEngine\ntiming · oportunidad · sizing teórico]
+    M[Mercado actual REAL<br/>Yahoo / NAV fondos] --> SCAN[AssetUniverseScanner<br/>discovery + calidad de datos]
+    SCAN --> TOP[Top64 dinámico<br/>MARKET_SHORTLIST_LEGACY_SCORE_V1]
+    TOP --> GATE[PortfolioCandidateGate<br/>cash hurdle · consenso · caps]
+    GATE --> IDE[InvestmentDecisionEngine<br/>timing · oportunidad · sizing teórico]
 
-    STATE --> HEALTH[PortfolioPositionHealth\nADD · HOLD · WATCH · REDUCE · EXIT]
-    IDE --> PDE[PortfolioDecisionEngine\nevaluatePortfolioDecision]
+    STATE --> HEALTH[PortfolioPositionHealth<br/>ADD · HOLD · WATCH · REDUCE · EXIT]
+    IDE --> PDE[PortfolioDecisionEngine<br/>evaluatePortfolioDecision]
     HEALTH --> PDE
     PDE --> CG[CORE_GATE_V1]
-    CG --> CA[CORE_ARCHITECTURE_V1\nallocation productiva LEGACY]
-    CA --> PLAN[Plan ejecutable único\nbuildPortfolioExecutionPlan]
-    PLAN --> TAX[Overlay ejecución\nbroker · títulos enteros · costes · fiscalidad]
-    TAX --> ACTION[COMPRAR / VENDER / TRASPASAR / REVIEW\no NO HACER NADA]
-    ACTION --> EXEC[Ejecución manual real\nregistro de operación]
+    CG --> CA[CORE_ARCHITECTURE_V1<br/>allocation productiva LEGACY]
+    CA --> PLAN[Plan ejecutable único<br/>buildPortfolioExecutionPlan]
+    PLAN --> TAX[Overlay ejecución<br/>broker · títulos enteros · costes · fiscalidad]
+    TAX --> ACTION[COMPRAR / VENDER / TRASPASAR / REVIEW<br/>o NO HACER NADA]
+    ACTION --> EXEC[Ejecución manual real<br/>registro de operación]
     EXEC --> STATE
-    STATE --> FOLLOW[Seguimiento\nretorno · MFE · giveback · salud]
+    STATE --> FOLLOW[Seguimiento<br/>retorno · MFE · giveback · salud]
     FOLLOW --> HEALTH
 
-    REPLAY[Replay histórico integrado\nDesde cero / manual / cartera actual\nCustodia / mantener cartera] -. misma cadena conceptual .-> GATE
-    REPLAY --> EVID[JSON · métricas · benchmarks\nBCE histórico · fiscalidad · flujos]
+    REPLAY[Replay histórico integrado<br/>Desde cero / manual / cartera actual<br/>Custodia / mantener cartera] -. misma cadena conceptual .-> GATE
+    REPLAY --> EVID[JSON · métricas · benchmarks<br/>BCE histórico · fiscalidad · flujos]
 
-    RVC[ResearchValidationCenter\nguards · tests · research · Future Forward] -. valida; no decide por producto .-> SCAN
+    RVC[ResearchValidationCenter<br/>guards · tests · research · Future Forward] -. valida; no decide por producto .-> SCAN
     RVC -. valida; no decide por producto .-> PDE
 
-    SCHED[Cloud Scheduler / invocación backend] --> ALERT[/api/alerts/run-now]
-    ALERT --> ALERTENG[Motor compartido de oportunidades\n+ estado durable Firestore]
-    ALERTENG --> NOTIF[Canal de aviso\nTelegram/webhook]
+    SCHED[Scheduler / invocación backend] --> ALERT[POST /api/alerts/run-now]
+    ALERT --> ENTRY[Oportunidades de entrada<br/>motor compartido + dedupe]
+    ALERT --> PM[Portfolio management alerts<br/>estado privado de cartera]
+    ENTRY --> NOTIF[Telegram / webhook]
+    PM --> NOTIF
 ```
 
 La lectura funcional es:
@@ -200,7 +202,7 @@ Antes de considerar publicación operativa cerrada sigue siendo obligatorio veri
 
 # 8. Alertas y autonomía 24/7
 
-## Entradas
+## 8.1 Entradas
 
 Existe flujo backend para oportunidades de entrada y deduplicado durable:
 
@@ -209,27 +211,32 @@ scheduler
 → POST /api/alerts/run-now
 → motor existente de oportunidades
 → Firestore dedupe
-→ webhook / Telegram
+→ Telegram / webhook
 ```
 
 No se duplica ninguna regla de trading en el canal de notificación.
 
-## Salidas
+## 8.2 Gestión de cartera
 
-La UI ya calcula `WATCH / REDUCE / EXIT` usando el motor compartido cuando la cartera está cargada.
+La revisión del HEAD real confirma que **ya existe una primera implementación backend**, `runPortfolioManagementAlerts(...)`, que:
 
-Pendiente para autonomía 24/7 con la app cerrada:
+- trabaja con un UID configurado mediante `ALERT_PORTFOLIO_UID` o un único bootstrap admin UID;
+- verifica que la cuenta esté activa/autorizada;
+- lee `users/{uid}/private/state` de Firestore;
+- reconstruye cartera, historial, lotes fiscales y cash benchmark;
+- ejecuta `PortfolioPositionHealthService` y el clasificador compartido;
+- mantiene dedupe por UID en `users/{uid}/private/portfolioAlertAutomation`;
+- puede enviar eventos `ADD / WATCH / REDUCE / EXIT` por Telegram.
 
-```text
-usuarios ACTIVE
-→ leer estado privado por UID desde backend autorizado
-→ reconstruir cartera/contexto
-→ ejecutar el MISMO PortfolioPositionHealth vigente con datos REAL
-→ deduplicar evento por UID
-→ avisar sólo evento nuevo
-```
+Por tanto, el problema no es ya “crear desde cero alertas de salida”. Lo que falta para cerrar autonomía productiva robusta es:
 
-Regla: esto debe reutilizar la lógica compartida; no se crea un segundo motor de salud en backend.
+1. sustituir la selección de **un único UID configurado** por enumeración segura de todos los usuarios `ACTIVE`/autorizados que deban recibir avisos;
+2. conservar estado/dedupe independiente por UID;
+3. revisar que el backend no emita como acción productiva una cadena paralela: actualmente también consulta `PortfolioRotationReviewEngine`; antes de cierre V1 debe quedar alineado con la misma fuente canónica que la superficie productiva;
+4. añadir guard/test específico de este flujo backend multiusuario/canónico;
+5. verificar scheduler + Firestore + Telegram end-to-end en el despliegue real.
+
+Regla: no se crea una segunda lógica de trading backend.
 
 ---
 
@@ -255,8 +262,8 @@ Regla: esto debe reutilizar la lógica compartida; no se crea un segundo motor d
 | Identidad `DYNAMIC_*` / `OPEN_*` | **DONE / REAL REPLAY VERIFIED** | Acciones no heredan core |
 | Móvil + JSON | **DONE / PASS** | Prueba física realizada |
 | Usuarios privados / ADMIN / Firestore | **IMPLEMENTED + MANUAL MULTIUSER PASS** | Falta cierre de checklist de publicación |
-| Alertas de entrada persistentes | **IMPLEMENTED** | Falta cierre end-to-end del despliegue si no está ya operativo |
-| Alertas autónomas WATCH/REDUCE/EXIT | **NEXT / NOT COMPLETE** | Reusar salud compartida por UID |
+| Alertas de entrada persistentes | **IMPLEMENTED** | Cierre end-to-end de despliegue pendiente si no está ya operativo |
+| Alertas de cartera backend | **PARTIAL / SINGLE-UID IMPLEMENTED** | Salud + Telegram existen; multiusuario + alineación canónica pendientes |
 | Broker API automática | **NOT IMPLEMENTED / FUTURE** | Ejecución manual asistida |
 | Instrument master histórico point-in-time | **NOT IMPLEMENTED** | Survivorship reconocido |
 | USD/Nasdaq/NYSE + FX | **DEFERRED** | Después del cierre V1 |
@@ -271,12 +278,13 @@ Estados: `DONE`, `ACTIVE`, `WAITING`, `NEXT`, `DEFERRED`, `RETIRED`.
 
 ## FASE 0 — MAPA MAESTRO Y ESTADO CANÓNICO
 
-**Estado: ACTIVE → cierre inmediato.**
+**Estado: ACTIVE → pendiente de revisión/aceptación del usuario.**
 
 Entregables:
 
 - este documento;
 - `PROJECT_STATE.md` actualizado al HEAD real;
+- README alineado con la arquitectura actual;
 - HFG cerrado como diagnóstico consumido;
 - ruta completa ordenada por prioridad;
 - ningún nuevo panel/job/motor.
@@ -285,7 +293,7 @@ Criterio DONE: un chat futuro reconstruye qué hace la app, qué está cerrado y
 
 ## FASE 1 — CONGELAR BASE PRODUCTIVA V1
 
-**Estado esperado: DONE salvo regresión material.**
+**Estado: DONE salvo regresión material.**
 
 Incluye una sola decisión productiva, una sola ejecución, salud de posiciones, broker availability, fiscalidad, cash, móvil/export, replay integrado, identidad correcta de acciones dinámicas y quick closure PASS.
 
@@ -297,9 +305,9 @@ No repetir `Producto · cierre rápido` salvo cambio material posterior.
 
 ### 2A. Publicación segura
 
-Cerrar el checklist de `docs/PRIVATE_USERS_DEPLOYMENT.md`:
+Auditar y cerrar el checklist de `docs/PRIVATE_USERS_DEPLOYMENT.md` en el entorno real:
 
-- Firebase/Auth/Firestore/configuración real;
+- Firebase/Auth/Firestore/configuración;
 - reglas desplegadas;
 - ADMIN y usuario normal;
 - fail-closed;
@@ -310,12 +318,16 @@ Cerrar el checklist de `docs/PRIVATE_USERS_DEPLOYMENT.md`:
 
 ### 2B. Autonomía de alertas
 
-- confirmar alertas de entrada end-to-end;
-- completar `WATCH / REDUCE / EXIT` backend por UID usando el mismo clasificador;
-- deduplicar por usuario;
+Partir del `runPortfolioManagementAlerts` existente, no crear otro sistema:
+
+- generalizar de un UID configurado a usuarios activos autorizados;
+- mantener dedupe independiente por UID;
+- alinear cualquier alerta accionable con la cadena productiva canónica y revisar el uso residual de `PortfolioRotationReviewEngine`;
+- añadir guards/tests del flujo backend;
+- confirmar alertas de entrada y cartera end-to-end;
 - no introducir ejecución automática de órdenes.
 
-Criterio DONE: la app puede mantenerse operativa y avisar de eventos relevantes sin depender de que el navegador concreto esté abierto, conservando privacidad y la misma lógica canónica.
+Criterio DONE: la app puede mantenerse operativa y avisar de eventos relevantes sin depender de que un navegador concreto esté abierto, conservando privacidad y la misma lógica canónica.
 
 ## FASE 3 — PROTOCOLO ECONÓMICO FINAL
 
@@ -434,8 +446,9 @@ Una vez Fase 0 quede revisada y aceptada:
 
 1. mantener Fase 1 congelada salvo regresión;
 2. entrar en **Fase 2 — cierre operativo/despliegue/autonomía**;
-3. preparar documentalmente Fase 3 sin abrir aún muestras nuevas;
-4. no tocar Future Forward salvo en su próxima ventana válida;
-5. no abrir Fases 4–6 hasta que exista protocolo económico congelado.
+3. auditar primero el backend existente de alertas de cartera antes de escribir código nuevo;
+4. preparar documentalmente Fase 3 sin abrir aún muestras nuevas;
+5. no tocar Future Forward salvo en su próxima ventana válida;
+6. no abrir Fases 4–6 hasta que exista protocolo económico congelado.
 
 La ruta debe permanecer visible también en `PROJECT_STATE.md`.
