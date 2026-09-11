@@ -95,7 +95,7 @@ Ese plan puede convertir una intención teórica en `REVIEW` por ejecución/fisc
 
 ---
 
-# 4. Entrada web y superficie productiva — IMPLEMENTADA / PENDIENTE VERIFICACIÓN FINAL
+# 4. Entrada web y superficie productiva — CERRADA / PASS FINAL 2026-09-11
 
 La ruta real de producto es:
 
@@ -119,8 +119,9 @@ Los compatibility adapters de `GrowthTradingBot`, antiguo `InvestmentDecisionCen
 Estado de validación:
 
 - inspección estática completada;
-- existe ahora un job rápido integrado `Producto · cierre rápido` en `ResearchValidationCenter`;
-- falta ejecutar ese único job desde la app y una comprobación manual móvil antes de declararlo PASS final.
+- `Producto · cierre rápido` ejecutado desde la app sobre el cierre de 2026-09-11: **PASSED** completo;
+- prueba manual en dispositivo móvil 2026-09-11: exportación JSON y controles principales responden correctamente;
+- no repetir este cierre salvo que un cambio posterior afecte materialmente a la superficie productiva, al plan ejecutable, broker/fiscalidad o export móvil.
 
 ---
 
@@ -194,11 +195,11 @@ Ejecuta, en backend local y sin intervención de terminal del usuario:
 
 No ejecuta replay, no consulta Yahoo live, no ejecuta Future Forward, no crea checkpoint y no escribe en `replay-results`.
 
-Pendiente: ejecutar este job una sola vez sobre el HEAD actual antes de marcar PASS final.
+Resultado final 2026-09-11: **PASSED**. El job completó todos los guards anteriores y TypeScript. No debe repetirse mientras no cambie materialmente esta superficie.
 
 ---
 
-# 6. JSON, Future Forward y móvil — IMPLEMENTADO / PENDIENTE PRUEBA REAL DE DISPOSITIVO
+# 6. JSON y móvil — PASS FINAL / Future Forward — COLLECTING
 
 ## Centro de validación
 
@@ -245,7 +246,7 @@ Auditoría correctiva 2026-09-10:
 - no existe `await` ni `requestAnimationFrame` antes de iniciar la descarga;
 - la Blob URL no se revoca inmediatamente y se conserva 30 s.
 
-No afirmar todavía que el export móvil está cerrado hasta probarlo físicamente en el navegador/WebView donde fallaba.
+Prueba física en móvil 2026-09-11: **PASS**. La exportación JSON funciona en el dispositivo real y los controles principales responden correctamente al toque.
 
 ## Base móvil
 
@@ -259,7 +260,7 @@ No afirmar todavía que el export móvil está cerrado hasta probarlo físicamen
 - header principal compacto;
 - botones importantes apilados cuando procede.
 
-El tamaño táctil es ergonomía; no se considera solución por sí sola a fallos de ejecución.
+El tamaño táctil es ergonomía; el cierre móvil final se apoya además en la prueba física PASS de 2026-09-11.
 
 ---
 
@@ -492,7 +493,7 @@ No se mezclan en el future-forward QUALITY actual.
 
 ---
 
-# 13. Diagnóstico HFG / grandes ganadores — DEFERRED
+# 13. Diagnóstico HFG / grandes ganadores — SIGUIENTE FRENTE TÉCNICO
 
 Replay aportado por el usuario para diagnóstico:
 
@@ -511,7 +512,7 @@ Hallazgos preliminares:
 
 **No se modifica producción ni se retunea nada con esta muestra.**
 
-Este diagnóstico queda aparcado hasta verificar el cierre de producto. Después se estudiará como problema de calidad de política económica: salida inicial, reentrada, financiación de oportunidades y protección de ganancias.
+El cierre de producto ya está verificado como PASS FINAL. Este diagnóstico pasa a ser el siguiente frente técnico: entender salida inicial, reentrada, financiación de oportunidades y protección de ganancias, separando calidad de señal de calidad de política económica y sin promover ninguna regla usando esta muestra consumida.
 
 ---
 
@@ -531,10 +532,9 @@ No abrir como tuning productivo hasta cerrar la secuencia vigente:
 
 # 15. Próxima secuencia técnica
 
-1. Sincronizar `main` en AI Studio y, desde la propia app, pulsar **`Producto · cierre rápido`** en `ResearchValidationCenter`. No usar terminal. No pulsar Future Forward ni iniciar replay para esta comprobación.
-2. El job debe ejecutar en backend: cierre de superficie, decisión única, plan de ejecución, cartera, broker, fiscalidad y TypeScript. Si falla, leer su `Salida técnica`; si pasa, no repetirlo.
-3. Comprobar manualmente en el móvil, sin relanzar validaciones largas: `Evidencia JSON` del Centro cuando haya resultado en memoria y `Exportar prueba JSON` del replay existente.
-4. Si ambos puntos pasan, marcar entrada productiva/JSON/móvil como **PASS FINAL** sin más refactorizaciones.
-5. Mantener producción `LEGACY` y los 25 blobs congelados intactos.
-6. Después retomar el diagnóstico económico HFG y otros boom->crash sin retunear sobre la muestra consumida.
-7. Próximo checkpoint prospectivo nuevo: **2026-10-09 22:30-24:00 Europe/Madrid**.
+1. **Producto / JSON / móvil: PASS FINAL 2026-09-11.** No repetir `Producto · cierre rápido` ni las comprobaciones móviles salvo que un cambio posterior afecte materialmente a esta superficie.
+2. Mantener producción `LEGACY` y los 25 archivos metodológicos del future-forward intactos.
+3. Retomar el diagnóstico HFG / boom->crash sobre la muestra ya consumida únicamente para localizar problemas de arquitectura, señal y política económica: salida inicial, reentrada, financiación de oportunidades y captura/protección de ganancias.
+4. No retunear thresholds ni promover una política con HFG. Si del diagnóstico surge una hipótesis candidata, congelarla primero y validarla después en datos fresh/blind/out-of-sample adecuados.
+5. No repetir septiembre del Future Forward. Próximo checkpoint prospectivo nuevo: **2026-10-09 22:30-24:00 Europe/Madrid**.
+6. Mantener diferidas las mejoras de discovery/metadata y cualquier nueva política Forward Risk mientras no exista un protocolo separado que las justifique.
