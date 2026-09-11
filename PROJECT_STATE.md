@@ -118,7 +118,7 @@ Esta es la secuencia canónica de cierre. No abrir una fase posterior por aparec
 ```text
 FASE 0  MAPA MAESTRO / ESTADO CANÓNICO       ← DONE
 FASE 1  BASE PRODUCTIVA V1                    ← DONE salvo bug/regresión reproducible
-FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A IMPLEMENTADA, VALIDACIÓN PENDIENTE · 2B OPERATIVA/RESIDUAL
+FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A QUICK CLOSURE PASS, SMOKE MANUAL PENDIENTE · 2B OPERATIVA/RESIDUAL
 FASE 3  PROTOCOLO ECONÓMICO FINAL             ← NEXT después de cerrar 2A y decidir alcance 2B
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← research fresh/blind/OOS
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← research fresh/blind/OOS
@@ -190,11 +190,20 @@ Baseline funcional validado antes de la Fase 0 documental:
 
 `a4b15eaf72960aef51f0e9e7691b487f9f46bf51`
 
-`Producto · cierre rápido`: **PASS** tras corrección final de identidad dinámica/worker.  
-TypeScript: **PASS** en la ejecución reportada por el usuario.  
+Validación actual posterior a Fase 2A, ejecutada por el usuario el 2026-09-11 sobre el HEAD de implementación `dac08b2729d7e3c0065f33918154cd94a969cfd0`:
+
+- Guard cierre de superficie: **32/32 PASS**;
+- Guard decisión productiva única: **20/20 PASS**;
+- Guard plan de ejecución: **29/29 PASS**;
+- Guard cartera: **24/24 PASS**;
+- Guard salud de posiciones: **27/27 PASS**;
+- Guard disponibilidad broker: **7/7 PASS**;
+- Guard fiscalidad de ejecución: **7/7 PASS**;
+- TypeScript `tsc --noEmit`: **PASS**.
+
 Móvil + exportación JSON física: **PASS 2026-09-11**.
 
-Los cambios actuales de Fase 2A sí son materiales para auth/ADMIN, por lo que requieren una nueva ejecución única de `Producto · cierre rápido` antes de marcar 2A como DONE.
+No repetir `Producto · cierre rápido` por Fase 2A salvo cambio material posterior.
 
 ---
 
@@ -498,7 +507,7 @@ Patrones descartados/deferred para Trading actual:
 - permisos de PDF/DXF/proyectos;
 - `PermissionContext` genérico sin necesidad productiva actual.
 
-## 9.4 Implementación Fase 2A — HECHA, VALIDACIÓN RUNTIME PENDIENTE
+## 9.4 Implementación Fase 2A — HECHA / QUICK CLOSURE PASS
 
 Cambios realizados sin añadir dependencias, nueva pantalla, nuevo job ni tocar motor financiero:
 
@@ -535,44 +544,39 @@ Decisión de seguridad sobre audit log:
 
 Revisión estática posterior al cambio:
 
-- se revisó el diff completo desde `d91819...`;
-- ningún archivo congelado de Future Forward fue modificado;
-- ningún archivo de estrategia/replay/market discovery productivo fue modificado;
-- no se añadió dependencia;
-- no se creó un motor/panel/job paralelo;
-- no se modificaron alarmas operativas en esta iteración.
+- diff completo revisado desde `d91819...`;
+- ningún archivo congelado de Future Forward modificado;
+- ningún archivo de estrategia/replay/market discovery productivo modificado;
+- ninguna dependencia añadida;
+- ningún motor/panel/job paralelo creado;
+- alarmas operativas no modificadas.
 
-**No declarar Fase 2A DONE todavía:** falta la validación runtime de los cambios de auth/ADMIN.
+Validación runtime automática, reportada por el usuario el 2026-09-11:
 
-## 9.5 Validación exacta pendiente de Fase 2A
+- superficie: **32/32 PASS**;
+- decisión productiva: **20/20 PASS**;
+- ejecución: **29/29 PASS**;
+- cartera: **24/24 PASS**;
+- salud: **27/27 PASS**;
+- broker: **7/7 PASS**;
+- fiscalidad: **7/7 PASS**;
+- TypeScript: **PASS**.
 
-Ejecutar una sola vez en `ResearchValidationCenter`:
+**Estado 2A:** implementación + guards + TypeScript = PASS. Sólo falta el smoke manual mínimo del panel ADMIN para cerrar 2A completamente.
 
-**`Producto · cierre rápido`**
+## 9.5 Smoke manual mínimo pendiente de Fase 2A
 
-Debe cubrir ahora:
-
-- guard de superficie con 32 invariantes;
-- decisión productiva única;
-- plan de ejecución;
-- cartera;
-- salud de posiciones;
-- broker;
-- fiscalidad;
-- TypeScript.
-
-No ejecutar Future Forward ni replay largo para validar este cambio.
-
-Después del PASS, smoke manual mínimo:
+No ejecutar de nuevo quick closure ni replay largo. Comprobar sólo en la app real:
 
 1. abrir ADMIN;
-2. comprobar lista, búsqueda y estado de correo;
-3. sobre una cuenta de prueba, realizar una operación reversible —por ejemplo revocar/conceder acceso— y confirmar el diálogo;
-4. comprobar que aparece en `Actividad administrativa reciente`;
-5. confirmar que la cartera del usuario principal sigue intacta;
-6. confirmar que las alarmas actuales siguen llegando normalmente tras el despliegue/sincronización correspondiente.
+2. comprobar que carga la lista de usuarios;
+3. comprobar búsqueda por correo/nombre/UID y columna de correo verificado;
+4. sobre una cuenta de prueba, realizar una operación reversible —por ejemplo revocar/conceder acceso— y aceptar el diálogo de confirmación;
+5. comprobar que la operación aparece en `Actividad administrativa reciente`;
+6. confirmar que la cartera del usuario principal sigue intacta;
+7. no borrar ni modificar la cuenta principal para esta prueba.
 
-Si quick closure + smoke pasan, **Fase 2A = DONE**.
+Si este smoke pasa, **Fase 2A = DONE**. La continuidad normal de las alarmas se verificará de forma no destructiva; no se fuerza una señal artificial.
 
 ## 9.6 Alertas y autonomía — Fase 2B
 
@@ -608,7 +612,7 @@ No existe ni se debe introducir ahora ejecución automática de órdenes de brok
 Criterio de cierre Fase 2:
 
 - sistema de usuarios de Trading sigue independiente;
-- 2A pasa quick closure + smoke real;
+- 2A pasa smoke manual real;
 - login/ADMIN/Firestore/aislamiento/cartera siguen funcionando;
 - alarmas actuales siguen funcionando;
 - se decide y documenta el alcance V1 de 2B;
@@ -748,21 +752,20 @@ Fase 10 / V2, sólo después de cierre V1:
 
 1. **Fase 0: DONE.**
 2. **Fase 1: congelada.** No tocar motor productivo salvo bug/regresión reproducible.
-3. **Fase 2A: código implementado y doble revisión estática realizada. No escribir más código 2A antes de validarlo.**
-4. Sincronizar la app al HEAD actual y ejecutar **una sola vez `Producto · cierre rápido`**.
-5. Si falla, corregir la causa exacta antes de continuar. No lanzar replay ni Future Forward.
-6. Si pasa, hacer el smoke ADMIN mínimo descrito en §9.5.
-7. Si quick closure + smoke pasan, marcar **Fase 2A DONE** y actualizar este archivo.
-8. Antes de modificar alertas, decidir explícitamente el alcance **Fase 2B**: configuración actual versus generalización multiusuario, y auditar `ROTATE_NOW`/autoridad canónica.
-9. **Fase 3:** congelar protocolo económico antes de abrir nuevas muestras.
-10. **Fase 4:** reentrada fresh/OOS.
-11. **Fase 5:** protección de ganadores fresh/OOS.
-12. **Fase 6:** Forward Risk V8 como contexto bajo protocolo nuevo.
-13. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
-14. No tocar los 25 archivos congelados de Future Forward para avanzar Fases 2–6.
-15. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
-16. **Fase 9:** auditoría end-to-end y cierre V1.
-17. **Fase 10:** permanece deferred hasta cierre V1.
+3. **Fase 2A: implementación y quick closure automático PASS. No escribir más código 2A salvo fallo del smoke.**
+4. Hacer únicamente el smoke ADMIN mínimo descrito en §9.5.
+5. Si el smoke falla, corregir la causa exacta y repetir sólo la comprobación afectada.
+6. Si el smoke pasa, marcar **Fase 2A DONE** y actualizar este archivo.
+7. Antes de modificar alertas, decidir explícitamente el alcance **Fase 2B**: configuración actual versus generalización multiusuario, y auditar `ROTATE_NOW`/autoridad canónica.
+8. **Fase 3:** congelar protocolo económico antes de abrir nuevas muestras.
+9. **Fase 4:** reentrada fresh/OOS.
+10. **Fase 5:** protección de ganadores fresh/OOS.
+11. **Fase 6:** Forward Risk V8 como contexto bajo protocolo nuevo.
+12. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
+13. No tocar los 25 archivos congelados de Future Forward para avanzar Fases 2–6.
+14. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
+15. **Fase 9:** auditoría end-to-end y cierre V1.
+16. **Fase 10:** permanece deferred hasta cierre V1.
 
 Al cerrar cada fase:
 
