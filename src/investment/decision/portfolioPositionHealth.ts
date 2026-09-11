@@ -4,6 +4,7 @@ import { FundMarketDataService } from '../data/marketData/fundMarketData';
 import type { AssetUniverseCategory } from './assetUniverse';
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import { assessAgainstCashBenchmark } from './cashBenchmark';
+import { isDynamicDiscoveredEquityIdentity } from './dynamicPortfolioDiscovery';
 import { PortfolioExecutionHistoryService, type PortfolioExecutionHistoryEntry } from './portfolioExecutionHistory';
 import { isPortfolioEquityTicker } from './portfolioDiscoveryUniverse';
 import { SingleAssetResearchEngine } from './singleAssetResearch';
@@ -115,7 +116,11 @@ export function isDiversifiedCoreCategory(
   category: AssetUniverseCategory | 'UNKNOWN' | null | undefined,
   tickerOrAssetId?: string | null
 ): boolean {
-  if (tickerOrAssetId && (tickerOrAssetId.toUpperCase().startsWith('EQ_') || isPortfolioEquityTicker(tickerOrAssetId))) return false;
+  if (tickerOrAssetId && (
+    tickerOrAssetId.toUpperCase().startsWith('EQ_')
+    || isPortfolioEquityTicker(tickerOrAssetId)
+    || isDynamicDiscoveredEquityIdentity(tickerOrAssetId)
+  )) return false;
   return category != null && category !== 'UNKNOWN' && DIVERSIFIED_CORE_CATEGORIES.has(category);
 }
 
