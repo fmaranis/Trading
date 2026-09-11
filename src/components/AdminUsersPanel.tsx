@@ -37,19 +37,26 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState<string | null>('load');
   const [error, setError] = useState<string | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const refresh = async () => {
     setError(null);
+    setAuditError(null);
     setBusy('load');
     try {
-      const [usersResult, auditResult] = await Promise.all([
+      const [usersResult, auditResult] = await Promise.allSettled([
         loadAdminUsers(user),
         loadAdminAudit(user, 30)
       ]);
-      setRows(usersResult.users);
-      setCallerUid(usersResult.callerUid);
-      setAuditRows(auditResult.entries);
+      if (usersResult.status === 'rejected') throw usersResult.reason;
+      setRows(usersResult.value.users);
+      setCallerUid(usersResult.value.callerUid);
+      if (auditResult.status === 'fulfilled') {
+        setAuditRows(auditResult.value.entries);
+      } else {
+        setAuditError(`Usuarios actualizados, pero no se pudo cargar la actividad administrativa: ${String((auditResult.reason as any)?.message || auditResult.reason)}`);
+      }
     } catch (cause: any) { setError(cause?.message || String(cause)); }
     finally { setBusy(null); }
   };
@@ -57,7 +64,13 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
 
   const run = async (key: string, fn: () => Promise<unknown>) => {
     setBusy(key); setError(null); setNotice(null);
-    try { await fn(); await refresh(); }
+    try {
+      const result = await fn();
+      if (result && typeof result === 'object' && 'profileSynced' in result && (result as { profileSynced?: boolean }).profileSynced === false) {
+        setNotice('Cambio aplicado en Firebase Auth. El espejo de perfil no se pudo actualizar en ese intento y se reintentará al volver a cargar la cuenta.');
+      }
+      await refresh();
+    }
     catch (cause: any) { setError(cause?.message || String(cause)); setBusy(null); }
   };
 
@@ -66,6 +79,7 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
     setEmail(''); setDisplayName('');
     setNotice(`Cuenta creada: ${result.email}. Copia y envía el enlace de configuración de contraseña.`);
     await copyText(result.passwordSetupLink).catch(() => undefined);
+    return result;
   });
 
   const resetLink = async (row: AdminUserRow) => {
@@ -143,6 +157,7 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
 
       <div className="mt-6 border-t border-slate-800 pt-4">
         <div className="flex items-center gap-2"><History className="h-4 w-4 text-violet-300"/><h3 className="text-xs font-bold text-white">Actividad administrativa reciente</h3><span className="text-[10px] text-slate-500">últimas {auditRows.length}</span></div>
+        {auditError && <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] text-amber-200">{auditError}</div>}
         <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-slate-800">
           {auditRows.length === 0 ? <div className="p-3 text-[10px] text-slate-500">Todavía no hay operaciones administrativas auditadas.</div> : auditRows.map(entry => <div key={entry.id} className="grid gap-1 border-b border-slate-800 p-3 text-[10px] last:border-b-0 md:grid-cols-[150px_1fr_1fr]">
             <div className="text-slate-500">{entry.createdAt ? new Date(entry.createdAt).toLocaleString('es-ES') : '—'}</div>
