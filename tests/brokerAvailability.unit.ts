@@ -15,7 +15,10 @@ class MemoryStorage {
 }
 
 const originalWindow = (globalThis as any).window;
-(globalThis as any).window = { localStorage: new MemoryStorage() };
+(globalThis as any).window = {
+  localStorage: new MemoryStorage(),
+  dispatchEvent: () => true
+};
 
 let passed = 0;
 function test(name: string, fn: () => void) {
