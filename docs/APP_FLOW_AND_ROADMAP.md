@@ -216,11 +216,22 @@ Sin sustituir `SecureAppGate`, UID, claims ni Firestore existentes:
 - rollback best-effort de usuario/estado si falla el alta administrada antes de completarse;
 - guards añadidos al `Producto · cierre rápido` existente; no se creó un job nuevo.
 
+Validación automática de Fase 2A ejecutada por el usuario el 2026-09-11:
+
+- superficie: **32/32 PASS**;
+- decisión productiva: **20/20 PASS**;
+- plan de ejecución: **29/29 PASS**;
+- cartera: **24/24 PASS**;
+- salud de posiciones: **27/27 PASS**;
+- broker: **7/7 PASS**;
+- fiscalidad: **7/7 PASS**;
+- TypeScript: **PASS**.
+
 Estado actual de 2A:
 
-**IMPLEMENTADO / PENDIENTE DE QUICK CLOSURE + SMOKE MANUAL ADMIN.**
+**IMPLEMENTADO + QUICK CLOSURE PASS / SÓLO SMOKE MANUAL ADMIN PENDIENTE.**
 
-La validación pendiente no requiere replay largo.
+No repetir quick closure salvo cambio material posterior.
 
 ---
 
@@ -283,7 +294,7 @@ No se modifica este flujo durante el hardening 2A hasta confirmar que los cambio
 | HFG | **CONSUMED / CLOSED** | Diagnóstico, no tuning |
 | Móvil + JSON | **DONE / PASS** | Prueba física realizada |
 | Usuarios privados / Firestore | **OPERATIVO** | Mantener arquitectura propia |
-| Fase 2A ADMIN hardening | **IMPLEMENTADO · VALIDACIÓN PENDIENTE** | Audit + confirmaciones + rollback + evidencia |
+| Fase 2A ADMIN hardening | **QUICK CLOSURE PASS / SMOKE PENDIENTE** | Audit + confirmaciones + rollback + evidencia |
 | Cubetos/Muros | **REFERENCE ONLY** | Nunca compartir infraestructura |
 | Alertas de entrada | **OPERATIVAS** | Ya llegan en configuración actual |
 | Alertas de cartera backend | **IMPLEMENTADAS / CIERRE RESIDUAL** | Generalización opcional + autoridad canónica |
@@ -311,18 +322,17 @@ No se modifica este flujo durante el hardening 2A hasta confirmar que los cambio
 
 ### 2A — usuarios/ADMIN
 
-**Código implementado. Pendiente de aceptación runtime.**
+**Implementación y validación automática PASS. Smoke manual pendiente.**
 
-Secuencia de cierre:
+Cierre restante:
 
-1. ejecutar una única vez `Producto · cierre rápido`;
-2. debe pasar el guard de superficie ampliado a **32 invariantes** y TypeScript;
-3. abrir ADMIN y comprobar usuarios/búsqueda/verificación/audit;
-4. realizar una operación reversible sobre usuario de prueba y confirmar aparición en actividad reciente;
-5. confirmar que la cartera del usuario principal sigue intacta;
-6. no ejecutar replay largo.
+1. abrir ADMIN;
+2. comprobar lista, búsqueda y correo verificado;
+3. realizar una operación reversible sobre usuario de prueba y confirmar el diálogo;
+4. comprobar aparición en actividad reciente;
+5. confirmar que la cartera principal sigue intacta.
 
-Si todo pasa, 2A queda DONE.
+No repetir `Producto · cierre rápido` ni ejecutar replay largo para esta fase salvo cambio material posterior.
 
 ### 2B — alertas/autonomía
 
@@ -422,10 +432,9 @@ No reabrir:
 
 # 13. Siguiente paso operativo
 
-1. **No escribir más código de Fase 2A antes del quick closure.**
-2. Ejecutar `Producto · cierre rápido` sobre el HEAD actual.
-3. Si PASS, hacer smoke manual mínimo de ADMIN/audit sin tocar motor financiero.
-4. Si ambos pasan, marcar 2A DONE.
-5. Decidir explícitamente el alcance V1 de 2B antes de modificar alertas operativas.
-6. Después congelar Fase 3 antes de abrir nuevas muestras.
-7. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
+1. No escribir más código de 2A salvo fallo del smoke.
+2. Hacer únicamente el smoke manual ADMIN descrito en Fase 2A.
+3. Si pasa, marcar 2A DONE.
+4. Decidir explícitamente el alcance V1 de 2B antes de modificar alertas operativas.
+5. Después congelar Fase 3 antes de abrir nuevas muestras.
+6. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
