@@ -17,6 +17,7 @@ const guardrails = read('src/components/DecisionGuardrailsPanel.tsx');
 const validationRoutes = read('server/researchValidationRoutes.ts');
 const validationCenter = read('src/components/ResearchValidationCenter.tsx');
 const replayJsonControls = read('src/components/HistoricalAuditJsonControls.tsx');
+const replayWorker = read('src/workers/historicalReplayAudit.worker.ts');
 const jsonDownload = read('src/jsonDownload.ts');
 const marketDashboard = read('src/components/MarketUtilityDashboard.tsx');
 const alerts = read('src/components/CurrentOpportunityAlertsPanel.tsx');
@@ -173,5 +174,9 @@ check('1027 ResearchValidationCenter exposes one-click quick closure without rep
   assert.match(stepsBlock, /args: \['run', 'lint'\]/);
   assert.doesNotMatch(stepsBlock, /Checkpoint prospectivo|qualityAllocationDynamicFutureForwardV1CheckpointLive|replay-results/);
 });
+check('1028 historical replay worker hydrates transferred DYNAMIC identities before running the existing replay', () => {
+  assert.match(replayWorker, /hydrateDynamicPortfolioDiscoveryCatalog\(rest\.catalog\)/);
+  assert.match(replayWorker, /sourceDataset = dataset; configuration = rest/);
+});
 
-console.log(`Product surface closure V1: ${passed}/27 invariants passed.`);
+console.log(`Product surface closure V1: ${passed}/28 invariants passed.`);
