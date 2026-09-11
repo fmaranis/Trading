@@ -13,6 +13,104 @@ Documentos de entrada:
 
 ---
 
+# INSTRUCCIONES BASE DE TRABAJO — OBLIGATORIAS
+
+Estas reglas se aplican a todo trabajo futuro de este proyecto y deben tratarse como parte del contexto operativo canónico. El objetivo es entregar resultados **correctos a la primera**, sin errores evitables, sin supuestos ocultos y sin trabajo incompleto.
+
+## 0. Contexto técnico actual
+
+Stack verificado en `package.json` a 2026-09-11:
+
+- TypeScript `~5.8.2`;
+- React `^19.0.1` / React DOM `^19.0.1`;
+- Vite `^6.2.3`;
+- Tailwind CSS `^4.1.14`;
+- Express `^4.21.2`;
+- Firebase client `12.18.0`;
+- Firebase Admin `13.10.0`;
+- `tsx` `^4.21.0`;
+- Recharts `^3.10.1`;
+- Motion `^12.23.24`.
+
+No asumir una versión concreta del runtime Node desplegado si no se ha comprobado en la configuración real de despliegue.
+
+Convenciones y restricciones del proyecto:
+
+- repositorio canónico: `fmaranis/Trading`;
+- rama canónica: `main`;
+- arquitectura productiva: `CORE_ARCHITECTURE_V1`;
+- cambios mínimos e integrados en la arquitectura existente;
+- no crear motores, pantallas, jobs o replays paralelos si la capacidad cabe en el flujo existente;
+- no añadir dependencias salvo necesidad real y justificada;
+- no usar GitHub Actions para replays o validaciones largas;
+- validaciones largas se ejecutan en el motor local/backend de la app;
+- datos y causalidad deben respetar las reglas `REAL / STATIC_REFERENCE / SYNTHETIC` y no-lookahead;
+- no tocar ni reinterpretar muestras consumidas como si fueran fresh/OOS;
+- no modificar los archivos congelados de una validación prospectiva salvo decisión metodológica explícita;
+- Cubetos/Muros puede servir como referencia técnica, nunca como dependencia ni plataforma compartida.
+
+## 1. Entender antes de actuar
+
+Antes de ejecutar una tarea técnica relevante:
+
+- confirmar en 1–2 líneas qué se ha entendido que hay que hacer y cuál es el resultado esperado;
+- comprobar primero el estado real de `main` y leer este `PROJECT_STATE.md` cuando la tarea dependa del estado técnico actual;
+- si falta información crítica para ejecutar correctamente —objetivo real, contexto, versión, formato de salida, criterio de aceptación o fuente de verdad— preguntar **antes** de implementar;
+- no inventar datos ni rellenar huecos con suposiciones silenciosas;
+- si se detecta un problema fuera del alcance pedido, señalarlo antes de corregirlo, salvo que sea una regresión o error imprescindible para completar correctamente la tarea solicitada.
+
+## 2. Planificar antes de ejecutar
+
+En tareas de varios pasos:
+
+1. presentar primero un plan breve y numerado;
+2. ejecutar siguiendo ese plan;
+3. si aparece un hallazgo que cambia materialmente alcance, arquitectura, metodología o criterio de aceptación, detener la implementación, explicar el hallazgo y ajustar el plan antes de continuar;
+4. no encadenar cambios adicionales sólo porque “ya que estamos” parezcan convenientes.
+
+## 3. Entregables completos
+
+- Entregar soluciones completas y utilizables; no dejar `TODO`, `...`, pseudocódigo incompleto ni piezas pendientes ocultas.
+- En código, seguir las convenciones existentes del repositorio y hacer el cambio mínimo que resuelva el problema.
+- Manejar errores y casos límite relevantes.
+- No añadir dependencias innecesarias.
+- No inventar APIs, funciones, comandos, librerías, flags ni contratos de datos.
+- Cuando exista duda sobre una API, sintaxis o comportamiento dependiente de versión, verificar en el código real, documentación oficial o mediante una prueba mínima antes de usarlo.
+- No declarar una integración terminada sólo porque una función aislada o un unit test pase; verificar el camino real de ejecución cuando el cambio dependa de UI, worker, backend, persistencia, replay o scheduler.
+
+## 4. Verificación obligatoria antes de entregar
+
+Antes de dar una tarea por terminada, revisar y corregir internamente:
+
+1. ¿Responde exactamente a lo pedido, sin ampliar ni recortar alcance sin avisar?
+2. ¿Funciona de punta a punta en el flujo real afectado?
+3. ¿Se han considerado los casos límite relevantes?
+4. ¿Hay errores de sintaxis, tipos, lógica, cálculo, causalidad o supuestos no validados?
+5. ¿Cumple todas las restricciones arquitectónicas y metodológicas del proyecto?
+6. ¿Se ha comprobado que no se ha roto una capacidad ya validada?
+7. ¿Se ha revisado el diff final después de terminar, no sólo mientras se editaba?
+8. Si el cambio es relevante, ¿se ha actualizado `PROJECT_STATE.md` y, cuando corresponda, `docs/APP_FLOW_AND_ROADMAP.md`?
+
+Cuando existan guards/tests rápidos aplicables, deben ejecutarse o dejarse preparados antes de pedir una validación larga. Un job largo no debe arrancar si falla un guard previo o `tsc --noEmit`.
+
+## 5. Formato de respuesta
+
+- Ir directo al grano.
+- Explicar sólo lo necesario y el porqué de las decisiones importantes.
+- Diferenciar claramente hechos verificados, inferencias, hipótesis y trabajo pendiente.
+- Al finalizar una tarea técnica, cerrar indicando:
+  - **qué se entregó**;
+  - **cómo se verificó o cómo debe verificarse**;
+  - **qué queda pendiente**, si existe algo realmente pendiente.
+
+## Regla de oro
+
+> Si hay que elegir entre responder rápido o responder bien, responder bien. Ante una ambigüedad importante, preguntar antes de producir un resultado potencialmente equivocado.
+
+Estas instrucciones complementan las reglas específicas de arquitectura, replay, datos, fiscalidad, investigación y validación descritas más abajo. En caso de conflicto, prevalecen las restricciones más específicas del proyecto y el estado real del repositorio.
+
+---
+
 # 0. RUTA DE TRABAJO VIGENTE
 
 Esta es la secuencia canónica de cierre. No abrir una fase posterior por aparecer una idea interesante en una anterior.
