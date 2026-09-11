@@ -176,7 +176,7 @@ Separación metodológica obligatoria:
 calidad de señal ≠ calidad de política económica
 ```
 
-`Producto · cierre rápido` es el gate corto de regresión productiva. Incluye `tests/privateUserSecurity.unit.ts` como **Guard usuarios privados**, dentro del mismo job existente y sin replay largo.
+`Producto · cierre rápido` es el gate corto de regresión productiva. Incluye `tests/privateUserSecurity.unit.ts` como **Guard usuarios privados**, dentro del mismo job existente y sin replay largo. Desde Fase 2B incluye además un invariante que impide que el backend de alertas vuelva a crear una recomendación de rotación paralela.
 
 ---
 
@@ -247,7 +247,7 @@ scheduler
 
 ## Gestión de cartera
 
-`runPortfolioManagementAlerts(...)` ya:
+`runPortfolioManagementAlerts(...)`:
 
 - trabaja con el UID configurado actualmente;
 - verifica cuenta activa/autorizada;
@@ -257,23 +257,31 @@ scheduler
 - mantiene dedupe por UID;
 - puede enviar `ADD / WATCH / REDUCE / EXIT` por Telegram.
 
-### Auditoría Fase 2B — hallazgo residual
+### Auditoría y corrección Fase 2B
 
-La auditoría del flujo real ha confirmado que `server/portfolioManagementAlerts.ts` todavía importa y ejecuta `PortfolioRotationReviewEngine.evaluate(...)`. Si devuelve `ROTATE_NOW`, el backend genera una `rotationEvent` y puede enviarla por Telegram.
+La auditoría confirmó que `server/portfolioManagementAlerts.ts` todavía ejecutaba `PortfolioRotationReviewEngine.evaluate(...)` y, ante `ROTATE_NOW`, generaba una `rotationEvent` independiente de `evaluatePortfolioDecision` y del `executionPlan` canónico.
 
-Eso es una **autoridad paralela residual** porque esa rotación no procede de `evaluatePortfolioDecision` ni del `executionPlan` canónico. Por tanto no puede permanecer como recomendación operativa en una arquitectura declarada `CORE_ARCHITECTURE_V1` cerrada.
+Eso era una **autoridad paralela residual** incompatible con `CORE_ARCHITECTURE_V1`.
+
+Corrección implementada en el HEAD iniciado en `fb8e1f2cf464ef91a2502beb29659fb2f59dcbc6`:
+
+- eliminado `PortfolioRotationReviewEngine` del backend de alertas;
+- eliminado `ROTATE_NOW`/`rotationEvent` del camino Telegram;
+- preservados `ADD / WATCH / REDUCE / EXIT` y toda su lógica de dedupe;
+- preservados scheduler, Firebase/Firestore, UID configurado y canal Telegram;
+- `rotationStatus` se mantiene en el contrato de summary como `null` para no romper consumidores existentes;
+- añadido invariante **1034** a `tests/productSurfaceClosureV1.unit.ts`;
+- el guard pasa ahora a esperar **34/34** invariantes y prohíbe `PortfolioRotationReviewEngine`, `ROTATE_NOW` y `rotationEvent` en el backend/notificador de gestión de cartera.
 
 Decisión V1:
 
-- se conserva sin cambios la ruta operativa de alertas `ADD / WATCH / REDUCE / EXIT`;
-- no se rehacen scheduler, Telegram, Firestore ni dedupe;
-- la generalización a todos los usuarios queda **DEFERRED** mientras no exista una necesidad productiva explícita; V1 mantiene el UID configurado actualmente;
-- el siguiente cambio de 2B debe retirar/neutralizar la autoridad de `ROTATE_NOW` derivada de `PortfolioRotationReviewEngine` o hacer que cualquier futura rotación consuma exclusivamente la decisión/plan canónicos;
-- debe añadirse un guard al cierre rápido que impida reintroducir una rotación paralela.
+- la generalización a todos los usuarios queda **DEFERRED** mientras no exista una necesidad productiva explícita;
+- V1 mantiene el UID configurado actualmente;
+- una futura alerta de rotación sólo podrá existir si consume la decisión/plan canónicos, nunca recalculando una política paralela.
 
 Estado 2B:
 
-**OPERATIVA / AUDITADA / CIERRE RESIDUAL: ELIMINAR AUTORIDAD PARALELA `ROTATE_NOW`.**
+**FIX IMPLEMENTADO / QUICK CLOSURE PENDIENTE / CONTINUIDAD DE ALERTAS A CONFIRMAR EN EJECUCIÓN NATURAL.**
 
 ---
 
@@ -301,7 +309,7 @@ Estado 2B:
 | Fase 2A ADMIN hardening | **DONE / PASS** | Runtime + quick closure final PASS |
 | Cubetos/Muros | **REFERENCE ONLY** | Nunca compartir infraestructura |
 | Alertas de entrada | **OPERATIVAS** | Ya llegan en configuración actual |
-| Alertas de cartera backend | **OPERATIVAS / 2B ACTIVA** | Mantener health alerts; retirar `ROTATE_NOW` paralelo |
+| Alertas de cartera backend | **2B FIX IMPLEMENTADO** | Health alerts preservadas; rotación paralela retirada |
 | Multiuser fan-out de alertas | **DEFERRED** | No necesario para alcance V1 actual |
 | Broker API automática | **NOT IMPLEMENTED / FUTURE** | Ejecución manual asistida |
 | Instrument master histórico point-in-time | **NOT IMPLEMENTED** | Survivorship reconocido |
@@ -323,7 +331,7 @@ Estado 2B:
 
 ## FASE 2 — USUARIOS / SEGURIDAD / AUTONOMÍA
 
-**ACTIVA / CIERRE RESIDUAL 2B.**
+**ACTIVA / VALIDACIÓN FINAL 2B.**
 
 ### 2A — usuarios/ADMIN
 
@@ -339,15 +347,15 @@ Evidencia de cierre:
 
 ### 2B — alertas/autonomía
 
-**Operativa y auditada; queda una sola corrección arquitectónica.**
+**Fix arquitectónico implementado; validación corta pendiente.**
 
-Siguiente cambio:
+Cierre exacto:
 
-1. retirar la autoridad de `PortfolioRotationReviewEngine`/`ROTATE_NOW` del backend de alertas;
-2. preservar `ADD/WATCH/REDUCE/EXIT`, dedupe, Telegram, scheduler y UID configurado;
-3. añadir guard al `Producto · cierre rápido` contra rotación paralela;
-4. ejecutar quick closure corto;
-5. confirmar continuidad de alarmas en la siguiente ejecución natural.
+1. ejecutar `Producto · cierre rápido` sobre el HEAD actual;
+2. esperar **34/34** en el guard de superficie, resto de guards y TypeScript PASS;
+3. no ejecutar replay ni Future Forward;
+4. en la siguiente ejecución natural de alarmas, confirmar que siguen llegando los eventos health normales;
+5. si pasa, marcar Fase 2 DONE.
 
 La expansión multiusuario queda deferred y no bloquea V1 actual.
 
@@ -445,10 +453,11 @@ No reabrir:
 # 13. Siguiente paso operativo
 
 1. **Fase 2A = DONE. No reabrirla salvo bug/regresión reproducible.**
-2. En Fase 2B, retirar la autoridad paralela de `PortfolioRotationReviewEngine`/`ROTATE_NOW` del backend de alertas sin tocar las alertas health existentes.
-3. Añadir un guard al mismo `Producto · cierre rápido`.
-4. Ejecutar quick closure corto; no replay ni Future Forward.
-5. Confirmar continuidad de alarmas en la siguiente ejecución natural.
-6. Marcar Fase 2 DONE.
-7. Abrir Fase 3 y congelar el protocolo económico antes de cualquier nueva muestra.
-8. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
+2. **Fase 2B: fix `ROTATE_NOW` ya implementado.**
+3. Sincronizar al HEAD actual y ejecutar `Producto · cierre rápido` una sola vez.
+4. Debe dar **34/34** en el guard de superficie, resto de guards PASS y TypeScript PASS.
+5. No ejecutar replay ni Future Forward.
+6. Confirmar continuidad de alertas health en la siguiente ejecución natural.
+7. Marcar Fase 2 DONE.
+8. Abrir Fase 3 y congelar el protocolo económico antes de cualquier nueva muestra.
+9. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
