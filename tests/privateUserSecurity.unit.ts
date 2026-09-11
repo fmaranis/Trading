@@ -15,6 +15,8 @@ const decisionMain = source('src/decisionMain.tsx');
 const portfolioMain = source('src/portfolioMain.tsx');
 const legacyMain = source('src/main.tsx');
 const gate = source('src/auth/SecureAppGate.tsx');
+const accountApi = source('src/auth/accountApi.ts');
+const adminPanel = source('src/components/AdminUsersPanel.tsx');
 const cloudState = source('src/auth/userCloudState.ts');
 const authSecurity = source('server/authSecurity.ts');
 const accountRoutes = source('server/accountRoutes.ts');
@@ -54,6 +56,20 @@ for (const key of ['custodia_fund_positions_v1', 'custodia_staged_capital_plan_v
   requireText(accountRoutes, `'${key}'`, `BACKEND_PRIVATE_KEY_MISSING:${key}`);
   requireText(cloudState, `'${key}'`, `CLIENT_PRIVATE_KEY_MISSING:${key}`);
 }
+
+requireText(accountRoutes, "const ADMIN_AUDIT_COLLECTION = 'admin_audit_log'", 'ADMIN_AUDIT_COLLECTION_MISSING');
+requireText(accountRoutes, "accountRouter.get('/admin/audit-log'", 'ADMIN_AUDIT_ENDPOINT_MISSING');
+requireText(accountRoutes, "writeAdminAudit(admin, 'USER_CREATED'", 'ADMIN_CREATE_AUDIT_MISSING');
+requireText(accountRoutes, "writeAdminAudit(admin, 'USER_UPDATED'", 'ADMIN_UPDATE_AUDIT_MISSING');
+requireText(accountRoutes, "writeAdminAudit(admin, 'PASSWORD_RESET_LINK_CREATED'", 'ADMIN_PASSWORD_LINK_AUDIT_MISSING');
+requireText(accountRoutes, "writeAdminAudit(admin, 'USER_DELETED'", 'ADMIN_DELETE_AUDIT_MISSING');
+requireText(accountRoutes, 'ADMIN_USER_CREATE_ROLLBACK_FAILED', 'ADMIN_CREATE_ROLLBACK_GUARD_MISSING');
+requireText(accountRoutes, 'emailVerified: user.emailVerified', 'ADMIN_EMAIL_VERIFICATION_EVIDENCE_MISSING');
+requireText(accountApi, 'loadAdminAudit', 'ADMIN_AUDIT_CLIENT_API_MISSING');
+requireText(adminPanel, 'Actividad administrativa reciente', 'ADMIN_AUDIT_UI_MISSING');
+requireText(adminPanel, 'window.confirm', 'SENSITIVE_ADMIN_ACTION_CONFIRMATION_MISSING');
+forbidText(accountRoutes, 'Cubetos-y-balsas-sincronizado', 'TRADING_RUNTIME_MUST_NOT_DEPEND_ON_CUBETOS');
+forbidText(accountApi, 'Cubetos-y-balsas-sincronizado', 'TRADING_CLIENT_MUST_NOT_DEPEND_ON_CUBETOS');
 
 requireText(cloudState, "const OWNER_KEY = 'custodia_cloud_owner_uid_v1'", 'LOCAL_STATE_OWNER_MARKER_MISSING');
 requireText(cloudState, 'localOwner && localOwner !== user.uid', 'CROSS_USER_LOCAL_STATE_GUARD_MISSING');
