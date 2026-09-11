@@ -15,14 +15,14 @@ Documentos de entrada:
 
 # INSTRUCCIONES BASE DE TRABAJO — OBLIGATORIAS
 
-Estas reglas se aplican a todo trabajo futuro de este proyecto y deben tratarse como parte del contexto operativo canónico. El objetivo es entregar resultados **correctos a la primera**, sin errores evitables, sin supuestos ocultos y sin trabajo incompleto.
+Objetivo: entregar resultados correctos a la primera, sin errores evitables, supuestos ocultos ni trabajo incompleto.
 
-## 0. Contexto técnico actual
+## Contexto técnico
 
 Stack verificado en `package.json` a 2026-09-11:
 
 - TypeScript `~5.8.2`;
-- React `^19.0.1` / React DOM `^19.0.1`;
+- React / React DOM `^19.0.1`;
 - Vite `^6.2.3`;
 - Tailwind CSS `^4.1.14`;
 - Express `^4.21.2`;
@@ -32,131 +32,97 @@ Stack verificado en `package.json` a 2026-09-11:
 - Recharts `^3.10.1`;
 - Motion `^12.23.24`.
 
-No asumir una versión concreta del runtime Node desplegado si no se ha comprobado en la configuración real de despliegue.
+No asumir una versión concreta de Node desplegado si no está verificada.
 
-Convenciones y restricciones del proyecto:
+Restricciones permanentes:
 
-- repositorio canónico: `fmaranis/Trading`;
-- rama canónica: `main`;
-- arquitectura productiva: `CORE_ARCHITECTURE_V1`;
-- cambios mínimos e integrados en la arquitectura existente;
+- repo canónico `fmaranis/Trading`, rama `main`;
+- arquitectura productiva `CORE_ARCHITECTURE_V1`;
+- cambios mínimos e integrados;
 - no crear motores, pantallas, jobs o replays paralelos si la capacidad cabe en el flujo existente;
-- no añadir dependencias salvo necesidad real y justificada;
+- no añadir dependencias sin necesidad real;
 - no usar GitHub Actions para replays o validaciones largas;
-- validaciones largas se ejecutan en el motor local/backend de la app;
-- datos y causalidad deben respetar las reglas `REAL / STATIC_REFERENCE / SYNTHETIC` y no-lookahead;
-- no tocar ni reinterpretar muestras consumidas como si fueran fresh/OOS;
-- no modificar los archivos congelados de una validación prospectiva salvo decisión metodológica explícita;
-- Cubetos/Muros puede servir como referencia técnica, nunca como dependencia ni plataforma compartida.
+- trabajos largos en el motor local/backend de la app;
+- respetar `REAL / STATIC_REFERENCE / SYNTHETIC`, causalidad y no-lookahead;
+- no reutilizar muestras consumidas como fresh/OOS;
+- no tocar archivos congelados de validaciones prospectivas sin decisión metodológica explícita;
+- Cubetos/Muros puede servir como referencia técnica, nunca como dependencia o plataforma compartida.
 
-## 1. Entender antes de actuar
+## Forma de trabajo obligatoria
 
-Antes de ejecutar una tarea técnica relevante:
+Antes de una tarea técnica relevante:
 
-- confirmar en 1–2 líneas qué se ha entendido que hay que hacer y cuál es el resultado esperado;
-- comprobar primero el estado real de `main` y leer este `PROJECT_STATE.md` cuando la tarea dependa del estado técnico actual;
-- si falta información crítica para ejecutar correctamente —objetivo real, contexto, versión, formato de salida, criterio de aceptación o fuente de verdad— preguntar **antes** de implementar;
-- no inventar datos ni rellenar huecos con suposiciones silenciosas;
-- si se detecta un problema fuera del alcance pedido, señalarlo antes de corregirlo, salvo que sea una regresión o error imprescindible para completar correctamente la tarea solicitada.
-
-## 2. Planificar antes de ejecutar
+1. confirmar en 1–2 líneas qué se va a hacer y el resultado esperado;
+2. comprobar HEAD y este `PROJECT_STATE.md`;
+3. preguntar antes de implementar si falta información crítica;
+4. no inventar datos ni rellenar huecos silenciosamente;
+5. señalar problemas fuera de alcance antes de arreglarlos, salvo regresión imprescindible para completar correctamente la tarea.
 
 En tareas de varios pasos:
 
-1. presentar primero un plan breve y numerado;
-2. ejecutar siguiendo ese plan;
-3. si aparece un hallazgo que cambia materialmente alcance, arquitectura, metodología o criterio de aceptación, detener la implementación, explicar el hallazgo y ajustar el plan antes de continuar;
-4. no encadenar cambios adicionales sólo porque “ya que estamos” parezcan convenientes.
+1. plan breve;
+2. ejecución siguiendo el plan;
+3. si un hallazgo cambia materialmente alcance/arquitectura/metodología, explicar y ajustar antes de continuar;
+4. no añadir cambios por “ya que estamos”.
 
-## 3. Entregables completos
+Entregables:
 
-- Entregar soluciones completas y utilizables; no dejar `TODO`, `...`, pseudocódigo incompleto ni piezas pendientes ocultas.
-- En código, seguir las convenciones existentes del repositorio y hacer el cambio mínimo que resuelva el problema.
-- Manejar errores y casos límite relevantes.
-- No añadir dependencias innecesarias.
-- No inventar APIs, funciones, comandos, librerías, flags ni contratos de datos.
-- Cuando exista duda sobre una API, sintaxis o comportamiento dependiente de versión, verificar en el código real, documentación oficial o mediante una prueba mínima antes de usarlo.
-- No declarar una integración terminada sólo porque una función aislada o un unit test pase; verificar el camino real de ejecución cuando el cambio dependa de UI, worker, backend, persistencia, replay o scheduler.
+- completos y utilizables;
+- sin `TODO`, `...` ni pseudocódigo incompleto;
+- cambios mínimos;
+- errores/casos límite tratados;
+- no inventar APIs/comandos/librerías;
+- verificar el camino real cuando intervienen UI, worker, backend, persistencia, replay o scheduler.
 
-## 4. Verificación obligatoria antes de entregar
+Antes de entregar revisar:
 
-Antes de dar una tarea por terminada, revisar y corregir internamente:
+1. alcance exacto;
+2. funcionamiento punta a punta;
+3. casos límite;
+4. sintaxis/tipos/lógica/cálculo/causalidad;
+5. restricciones arquitectónicas/metodológicas;
+6. no romper capacidades ya validadas;
+7. revisar diff final;
+8. actualizar este archivo y roadmap si el cambio es relevante.
 
-1. ¿Responde exactamente a lo pedido, sin ampliar ni recortar alcance sin avisar?
-2. ¿Funciona de punta a punta en el flujo real afectado?
-3. ¿Se han considerado los casos límite relevantes?
-4. ¿Hay errores de sintaxis, tipos, lógica, cálculo, causalidad o supuestos no validados?
-5. ¿Cumple todas las restricciones arquitectónicas y metodológicas del proyecto?
-6. ¿Se ha comprobado que no se ha roto una capacidad ya validada?
-7. ¿Se ha revisado el diff final después de terminar, no sólo mientras se editaba?
-8. Si el cambio es relevante, ¿se ha actualizado `PROJECT_STATE.md` y, cuando corresponda, `docs/APP_FLOW_AND_ROADMAP.md`?
-
-Cuando existan guards/tests rápidos aplicables, deben ejecutarse o dejarse preparados antes de pedir una validación larga. Un job largo no debe arrancar si falla un guard previo o `tsc --noEmit`.
-
-## 5. Formato de respuesta
-
-- Ir directo al grano.
-- Explicar sólo lo necesario y el porqué de las decisiones importantes.
-- Diferenciar claramente hechos verificados, inferencias, hipótesis y trabajo pendiente.
-- Al finalizar una tarea técnica, cerrar indicando:
-  - **qué se entregó**;
-  - **cómo se verificó o cómo debe verificarse**;
-  - **qué queda pendiente**, si existe algo realmente pendiente.
-
-## Regla de oro
-
-> Si hay que elegir entre responder rápido o responder bien, responder bien. Ante una ambigüedad importante, preguntar antes de producir un resultado potencialmente equivocado.
-
-Estas instrucciones complementan las reglas específicas de arquitectura, replay, datos, fiscalidad, investigación y validación descritas más abajo. En caso de conflicto, prevalecen las restricciones más específicas del proyecto y el estado real del repositorio.
+Regla de oro: si hay que elegir entre rapidez y corrección, prima la corrección.
 
 ---
 
 # 0. RUTA DE TRABAJO VIGENTE
 
-Esta es la secuencia canónica de cierre. No abrir una fase posterior por aparecer una idea interesante en una anterior.
-
 ```text
 FASE 0  MAPA MAESTRO / ESTADO CANÓNICO       ← DONE
 FASE 1  BASE PRODUCTIVA V1                    ← DONE salvo bug/regresión reproducible
-FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A QUICK CLOSURE PASS, SMOKE MANUAL PENDIENTE · 2B OPERATIVA/RESIDUAL
-FASE 3  PROTOCOLO ECONÓMICO FINAL             ← NEXT después de cerrar 2A y decidir alcance 2B
+FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A REABIERTO POR BUG REAL DE REVOCACIÓN · FIX IMPLEMENTADO, VALIDACIÓN PENDIENTE
+FASE 3  PROTOCOLO ECONÓMICO FINAL             ← NEXT después de cerrar Fase 2
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← research fresh/blind/OOS
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← research fresh/blind/OOS
 FASE 6  FORWARD RISK V8 COMO CONTEXTO         ← research posterior
 FASE 7  QUALITY FUTURE FORWARD                ← WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      ← pendiente para evidencia histórica fuerte
-FASE 9  AUDITORÍA END-TO-END / CIERRE V1      ← cierre final de los carriles anteriores
+FASE 9  AUDITORÍA END-TO-END / CIERRE V1      ← cierre final
 FASE 10 EXPANSIONES V2                        ← DEFERRED
 ```
 
-Carriles permitidos:
+Carriles:
 
-- **Producto/operación:** F0 → F1 → F2 → F9.
-- **Evidencia económica:** F3 → F4 → F5 → F6 → F9.
-- **Prospectivo por calendario:** F7, sin tocar sus fuentes congeladas.
-- **Datos históricos:** F8 → F9.
-- **V2:** F10 sólo después de cerrar V1.
+- Producto/operación: F0 → F1 → F2 → F9.
+- Evidencia económica: F3 → F4 → F5 → F6 → F9.
+- Prospectivo por calendario: F7.
+- Datos históricos: F8 → F9.
+- V2: F10 tras cerrar V1.
 
-Regla de control:
-
-1. clasificar cada hallazgo como `BUG`, `HYPOTHESIS`, `DEFERRED` o `RETIRED`;
-2. resolverlo dentro de la arquitectura existente siempre que sea posible;
-3. actualizar `PROJECT_STATE.md` y `docs/APP_FLOW_AND_ROADMAP.md` al cerrar una fase;
-4. no crear un nuevo panel, job, replay o motor por cada investigación;
-5. no rehacer infraestructura que ya funciona si basta con mejorarla de forma selectiva.
+Regla: cada hallazgo se clasifica como `BUG`, `HYPOTHESIS`, `DEFERRED` o `RETIRED`; no se abre una fase posterior sin cerrar/registrar la actual.
 
 ---
 
 # 1. ARQUITECTURA PRODUCTIVA — CERRADA
 
-Arquitectura:
-
-`CORE_ARCHITECTURE_V1`
-
 Cadena canónica:
 
 ```text
-mercado actual REAL
+mercado REAL actual
 → AssetUniverseScanner
 → Top64 dinámico
 → PortfolioCandidateGate
@@ -171,626 +137,438 @@ mercado actual REAL
 → registro y seguimiento
 ```
 
-Producción mantiene:
+Producción:
 
-- allocation/opportunity: **LEGACY**;
+- allocation/opportunity: `LEGACY`;
 - `CORE_ELIGIBILITY_V2`: shadow;
 - Forward Risk: sin autoridad productiva;
 - una sola `portfolioDecision` y un solo `executionPlan`;
 - cero capital real permanece cero;
-- una propuesta teórica suprimida por ejecución/fiscalidad es `REVIEW`, no una orden.
+- propuesta teórica suprimida por costes/fiscalidad = `REVIEW`, no orden.
 
 Rutas:
 
-- `/` = superficie canónica de decisión/seguimiento;
-- `/portfolio.html` = laboratorio cuantitativo sin autoridad productiva;
-- `/legacy.html` = redirección a `/`, no superficie alternativa.
+- `/` superficie canónica;
+- `/portfolio.html` laboratorio sin autoridad productiva;
+- `/legacy.html` redirige a `/`.
 
-Baseline funcional validado antes de la Fase 0 documental:
+Último quick closure completo anterior al bug de smoke, ejecutado por el usuario el 2026-09-11 sobre `dac08b2729d7e3c0065f33918154cd94a969cfd0`:
 
-`a4b15eaf72960aef51f0e9e7691b487f9f46bf51`
+- superficie: 32/32 PASS;
+- decisión única: 20/20 PASS;
+- ejecución: 29/29 PASS;
+- cartera: 24/24 PASS;
+- salud: 27/27 PASS;
+- broker: 7/7 PASS;
+- fiscalidad: 7/7 PASS;
+- TypeScript: PASS.
 
-Validación actual posterior a Fase 2A, ejecutada por el usuario el 2026-09-11 sobre el HEAD de implementación `dac08b2729d7e3c0065f33918154cd94a969cfd0`:
-
-- Guard cierre de superficie: **32/32 PASS**;
-- Guard decisión productiva única: **20/20 PASS**;
-- Guard plan de ejecución: **29/29 PASS**;
-- Guard cartera: **24/24 PASS**;
-- Guard salud de posiciones: **27/27 PASS**;
-- Guard disponibilidad broker: **7/7 PASS**;
-- Guard fiscalidad de ejecución: **7/7 PASS**;
-- TypeScript `tsc --noEmit`: **PASS**.
-
-Móvil + exportación JSON física: **PASS 2026-09-11**.
-
-No repetir `Producto · cierre rápido` por Fase 2A salvo cambio material posterior.
+Ese PASS no cerró Fase 2A porque el smoke real encontró un fallo que los guards estáticos no detectaban.
 
 ---
 
-# 2. DISCOVERY CURRENT/LIVE — CERRADO
+# 2. DISCOVERY / TOP64 — CERRADO
 
-La app no utiliza una whitelist fija de 64 nombres.
+- `OPEN_MARKET_DISCOVERY_V1` integrado en `AssetUniverseScanner`.
+- 64 = máximo/target dinámico, no whitelist fija.
+- `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` = seed/bootstrap/fallback.
+- ranking productivo = `MARKET_SHORTLIST_LEGACY_SCORE_V1`.
+- diversificación/caps aguas abajo.
 
-`OPEN_MARKET_DISCOVERY_V1` está integrado en `AssetUniverseScanner`.
+Validación REAL 2026-09-09:
 
-Top64:
+- raw 180;
+- EUR aceptados 113;
+- ETF 50;
+- EQUITY 63;
+- promovidos fuera del seed 98;
+- scanner pool 162;
+- REAL aceptados 157;
+- Top64 64;
+- `OPEN_*` 29;
+- gate LEGACY 11/11;
+- leaks fuera de Top64 0.
 
-- 64 = máximo/target dinámico;
-- `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` = seed/bootstrap/fallback;
-- ranking productivo = `MARKET_SHORTLIST_LEGACY_SCORE_V1`;
-- discovery/ranking crea candidatos, no autoriza compra;
-- diversificación/caps se aplican después en gates/allocation.
-
-Validación REAL final 2026-09-09:
-
-- raw candidates: 180;
-- EUR aceptados: 113;
-- ETF: 50;
-- EQUITY: 63;
-- promovidos fuera del seed: 98;
-- scanner pool: 162;
-- REAL aceptados: 157;
-- Top64: 64;
-- `OPEN_*` dentro Top64: 29;
-- gate LEGACY: 11/11;
-- leak elegible fuera de Top64: 0.
-
-Estado: **PASS / ARCHIVED**.
+Estado: PASS / ARCHIVED.
 
 ---
 
 # 3. REPLAY HISTÓRICO — INTEGRADO Y CAUSAL
 
-Modos de estado inicial:
+Modos:
 
-- `Desde cero`;
-- `manual`;
-- `cartera actual`.
-
-Política:
-
-- `Motor Custodia`;
-- `mantener cartera`.
-
-Frecuencia:
-
-- `DAILY / WEEKLY / MONTHLY / QUARTERLY` = frecuencia de revisión, no generación de dinero.
+- Desde cero / manual / cartera actual;
+- Motor Custodia / mantener cartera;
+- DAILY / WEEKLY / MONTHLY / QUARTERLY como frecuencia de revisión.
 
 Incluye:
 
-- información sólo disponible hasta `decisionDate`;
-- ejecución posterior a señal / `NEXT_OPEN` cuando corresponde;
-- cash BCE histórico con suelo nominal 0% en el modo correspondiente;
+- información sólo hasta `decisionDate`;
+- ejecución posterior a señal / `NEXT_OPEN`;
+- cash BCE histórico cuando corresponde;
 - fiscalidad causal;
-- `externalCashFlows` explícitos y fechados;
-- aportaciones no contabilizadas como rentabilidad;
+- `externalCashFlows` explícitos;
+- aportaciones externas no son rentabilidad;
 - benchmarks independientes;
 - JSON auditable.
 
-Limitación vigente:
-
-> Yahoo current discovery no reconstruye el universo histórico. Persiste survivorship/catalog bias hasta disponer de instrument master point-in-time con listings/delistings/cambios de ticker.
+Limitación: survivorship/catalog bias hasta instrument master point-in-time.
 
 ---
 
-# 4. EXTERNAL CASH FLOWS — CERRADO / MUESTRAS CONSUMIDAS
+# 4. OPPORTUNITY / ALLOCATION / CASH FLOWS
 
-Resultado:
+Producción: `LEGACY`.
 
-`PASS_EXPLICIT_CASH_FLOW_INTEGRATION`
+Consumidos:
 
-Comprobado:
+- QUALITY_V1: información útil, efecto/reach insuficiente;
+- SLOPE_V1: no promovido;
+- QUALITY_ALLOCATION_BRIDGE_V1: research-only, coeficientes congelados;
+- externalCashFlows V1: PASS de causalidad/contabilidad, muestras consumidas.
 
-- la frecuencia no crea aportaciones;
-- `stagedCapitalPlan` no es aportación recurrente;
-- aportaciones/retiradas son flujos explícitos y causales;
-- aportaciones no son rentabilidad;
-- benchmark cash no duplica intereses/impuestos;
-- cuando hay flujos se usan métricas ajustadas por flujos;
-- QUALITY obtuvo más reach cuando hubo capital nuevo, pero la evidencia retrospectiva no justificó promoción.
-
-Producción sigue `LEGACY`.
+Hallazgo retenido: el allocator muchas veces no tenía capital nuevo desplegable; el problema no era sólo el ranking.
 
 ---
 
-# 5. OPPORTUNITY / ALLOCATION
-
-Estado productivo:
-
-`LEGACY`
-
-Investigaciones consumidas:
-
-- `QUALITY_V1`: información útil, reach/economía insuficientes;
-- `SLOPE_V1`: no promovido;
-- `QUALITY_ALLOCATION_BRIDGE_V1`: research-only dentro de `PortfolioDecisionEngine`.
-
-Coeficientes del bridge congelados; no retunear usando las ventanas observadas.
-
-Hallazgo estructural retenido:
-
-> el allocator no sólo sufría por ordenación de candidatos; muchas veces no tenía capital nuevo desplegable que repartir.
-
----
-
-# 6. QUALITY FUTURE FORWARD — FASE 7 EN PARALELO
+# 5. QUALITY FUTURE FORWARD — FASE 7
 
 `QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1`
 
 Estado:
 
-**COLLECTING / 1 DE 12 OBSERVACIONES / 0 OUTCOMES MADUROS / PRODUCTION LEGACY / NO PROMOTION FROM PHASE A**
+- 1/12 observaciones;
+- 0 outcomes maduros a 2026-09-11;
+- producción LEGACY;
+- 25 archivos metodológicos congelados;
+- estado autoritativo en `replay-results`;
+- septiembre ya registrado y no se reescribe.
 
-Primer checkpoint válido:
-
-**2026-09-09 23:37 Europe/Madrid**.
-
-Persistencia autoritativa:
-
-- branch `replay-results`;
-- path `validation-runs/quality-allocation-dynamic-future-forward-v1-state.json`;
-- 25 archivos metodológicos congelados.
-
-Verificación 2026-09-10:
-
-- `PROSPECTIVE_STATE_VERIFIED_NO_REWRITE`;
-- `observationRecordedThisRun = false`;
-- septiembre no se reescribió;
-- 1/12 observaciones.
-
-Siguiente observación nueva válida:
+Próxima ventana válida:
 
 **2026-10-09 22:30–24:00 Europe/Madrid**.
 
-No repetir septiembre. No tocar los 25 archivos congelados para avanzar Fases 2–6.
+No tocar los 25 archivos congelados para avanzar Fases 2–6.
 
 ---
 
-# 7. FORWARD RISK
+# 6. FORWARD RISK
 
-Forward Risk V8 conserva valor predictivo de downside.
+V8 conserva valor predictivo de downside.
 
-Interpretación canónica:
+- V9 RETIRED.
+- V10 RETIRED.
+- V11 RETIRED.
+- No V12/V13 como tuning retrospectivo.
 
-- V8 anticipó una parte relevante de futuras caídas;
-- las políticas económicas probadas para monetizar esa señal fallaron o destruyeron demasiado upside;
-- un FAIL económico no borra la información predictiva.
-
-Estado:
-
-- V9: **RETIRED**;
-- V10: **RETIRED**;
-- V11: **RETIRED**;
-- no crear V12/V13 como parameter chasing retrospectivo.
-
-Uso futuro admisible sólo bajo protocolo fresh: contexto de riesgo, sizing, ranking/priorización, alertas, stress o margen de seguridad.
+Uso futuro sólo bajo protocolo fresh como contexto de riesgo, sizing, ranking/priorización, alertas, stress o margen de seguridad.
 
 ---
 
-# 8. HFG / GRANDES GANADORES — DIAGNÓSTICO CONSUMIDO Y CERRADO
+# 7. HFG — CONSUMIDO / CERRADO
 
-## Caso A — enero 2019
+Caso A mostró salida temprana, recuperación posterior y falta de reentrada financiada.
 
-Configuración diagnóstica:
+Caso B mostró que Custodia puede mantener un gran ganador; `TREND_PROTECTION_V1` detectó deterioro antes del EXIT económico.
 
-- 26.000 EUR;
-- 13.000 EUR HFG.DE + 13.000 EUR cash;
-- MONTHLY;
-- Motor Custodia;
-- BCE histórico.
+Bug de identidad `DYNAMIC_HFG_DE`:
 
-Hallazgos:
+- corregido en navegador y worker;
+- replay REAL confirmó `positionIsDiversifiedCore=false`;
+- 6 ejecuciones y economía no cambiaron;
+- protección diagnóstica 25%→50% en satélite, sin autoridad ejecutiva.
 
-- salida inicial muy temprana por deterioro estructural fuerte;
-- el deterioration streak no causó el EXIT completo;
-- HFG recuperó tendencia posteriormente;
-- llegó a `ENTRY_READY`, pero no recibió una compra financiada porque el cash desplegable ya no estaba disponible y el core sano mantenía inercia.
+HFG está consumido y no puede fijar nuevos thresholds.
 
-## Caso B — HFG dentro durante tendencia sana
+Hipótesis futuras:
 
-Hallazgos:
-
-- Custodia mantuvo HFG durante gran parte del multibagger;
-- MFE > +700%;
-- `TREND_PROTECTION_V1` vio deterioro antes que la política económica;
-- EXIT real en febrero de 2022, aproximadamente 59,20 EUR;
-- Custodia terminó claramente por encima de mantener HFG+cash hasta 2023.
-
-## Bug de identidad
-
-Problema:
-
-`DYNAMIC_HFG_DE` aparecía como `positionIsDiversifiedCore=true`.
-
-Corrección final:
-
-- identidad `EQUITY` preservada;
-- el Web Worker hidrata identidades dinámicas desde el catálogo del replay;
-- acciones `DYNAMIC_*`/`OPEN_*` no heredan core por categoría amplia;
-- ETFs dinámicos mantienen tratamiento diversificado.
-
-Replay REAL posterior:
-
-- HFG exporta `positionIsDiversifiedCore=false`;
-- las 6 ejecuciones permanecen iguales;
-- EXIT continúa 02/02/2022 ~59,20 EUR;
-- la protección diagnóstica pasa de 25% a 50% cuando corresponde a satélite, pero no tenía autoridad de ejecución y no cambia la trayectoria económica.
-
-Conclusión:
-
-**BUG CONFIRMADO → CORREGIDO → QUICK CLOSURE PASS → REPLAY REAL PASS.**
-
-HFG queda consumido para promoción. No retunear MFE/giveback/streak/timing/allocation/protección con esta muestra.
-
-Hipótesis abiertas para Fases 4–5:
-
-1. reentrada después de una salida equivocada;
-2. monetización causal de protección de grandes ganadores.
+1. reentrada tras salida errónea;
+2. protección causal de grandes ganadores.
 
 ---
 
-# 9. FASE 2 — USUARIOS, SEGURIDAD Y AUTONOMÍA
+# 8. FASE 2 — USUARIOS, SEGURIDAD Y AUTONOMÍA
 
-Estado general:
+## 8.1 Independencia Cubetos/Muros
 
-**MUY AVANZADA / OPERATIVA EN GRAN PARTE / CIERRE SELECTIVO.**
+Cubetos/Muros es sólo referencia técnica.
 
-Baseline de inicio de esta iteración Fase 2A:
+No se comparten ni unifican:
 
-`d91819a61c1da6e61727122986b19b77ab707c20`
-
-No se debe rehacer Firebase ni reconstruir las alarmas desde cero.
-
-## 9.1 Regla de independencia respecto a Cubetos/Muros
-
-`fmaranis/Cubetos-y-balsas-sincronizado` puede utilizarse **únicamente como referencia técnica de soluciones ya probadas**.
-
-Trading y Cubetos/Muros son aplicaciones completamente independientes.
-
-Está prohibido convertir esta referencia en una plataforma común. En particular **NO se comparten ni se unifican**:
-
-- proyecto Firebase;
-- usuarios o UID;
-- Firestore/base de datos;
+- Firebase;
+- usuarios/UID;
+- Firestore;
 - perfiles;
-- custom claims/roles;
-- planes o entitlements;
+- claims/roles;
+- planes/entitlements;
 - backend/API;
-- despliegue;
-- runtime;
+- despliegue/runtime;
 - estado privado;
 - alarmas;
-- repositorios o imports entre aplicaciones.
+- repositorios/imports.
 
-Si un patrón de Cubetos/Muros es mejor, se **reimplementa/adapta de forma independiente dentro de Trading** y se valida sin romper lo existente.
+## 8.2 Base ya existente en Trading
 
-## 9.2 Trading actual que debe preservarse
-
-Ya existe y funciona:
-
-- Firebase Authentication propio de Trading;
+- Firebase Auth propio;
 - `SecureAppGate`;
-- verificación server-side del Firebase ID token;
-- Firebase Admin SDK propio;
-- custom claims `accessGranted` / `isAdmin`;
+- verificación server-side de ID token;
+- Admin SDK;
+- claims `accessGranted` / `isAdmin`;
 - Firestore privado por UID;
-- reglas deny-by-default;
-- aislamiento de estado financiero entre usuarios;
-- migración/aislamiento de estado local;
-- panel ADMIN para alta, acceso, bloqueo, roles, reset y borrado;
-- sincronización de cartera, fiscalidad, historial, disponibilidad MyInvestor y demás estado privado;
-- persistencia durable del estado de alertas;
-- validación manual multiusuario ya realizada.
+- deny-by-default;
+- aislamiento financiero;
+- migración/aislamiento local;
+- ADMIN para alta/acceso/bloqueo/roles/reset/borrado;
+- persistencia durable de alertas;
+- validación multiusuario previa.
 
-## 9.3 Comparación diferencial Fase 2A — COMPLETADA
+## 8.3 Hardening selectivo 2A implementado
 
-Se revisó el sistema real de Trading contra patrones probados en Cubetos/Muros.
+Tomado como patrón de referencia, pero reimplementado dentro de Trading:
 
-Conclusión:
+- audit log administrativo propio;
+- búsqueda por correo/nombre/UID;
+- `emailVerified` visible;
+- confirmaciones de acciones sensibles;
+- rollback best-effort de altas parciales;
+- actividad administrativa integrada en el panel existente.
 
-> Trading ya dispone de una base de identidad/autorización suficiente. No se sustituye `SecureAppGate`, no se migra a un `AuthContext` genérico y no se importan planes/entitlements/monetización de Cubetos/Muros porque actualmente añadirían complejidad sin resolver una necesidad real de Trading.
+No se incorporaron planes, entitlements, créditos, anuncios ni `PermissionContext` genérico.
 
-Patrones seleccionados por aportar valor objetivo:
+## 8.4 Smoke real: BUG DE REVOCACIÓN DE ACCESO
 
-- auditoría de operaciones administrativas;
-- búsqueda de usuarios;
-- visibilidad de correo verificado;
-- confirmación explícita de acciones administrativas sensibles;
-- rollback best-effort para no dejar una cuenta parcial si falla el alta administrada.
+El 2026-09-11, después del quick closure PASS, el usuario comprobó que **“Revocar acceso” no funcionaba**.
 
-Patrones descartados/deferred para Trading actual:
+Clasificación: `BUG`, no investigación ni cambio de política.
 
-- planes `free/premium/pro/empresa`;
-- entitlements genéricos;
-- créditos de informes;
-- anuncios;
-- permisos de PDF/DXF/proyectos;
-- `PermissionContext` genérico sin necesidad productiva actual.
+Revisión del camino real detectó dos problemas:
 
-## 9.4 Implementación Fase 2A — HECHA / QUICK CLOSURE PASS
+1. **ADMIN no-op silencioso:** la UI permitía pulsar “Revocar acceso” sobre una cuenta ADMIN, pero el backend fuerza acceso a cualquier ADMIN. Resultado: la acción parecía ejecutarse pero no cambiaba nada.
+2. **Sesión ya abierta:** para un usuario normal el backend revocaba claims/tokens, pero una app ya abierta no revalidaba activamente el estado de acceso y podía seguir mostrando el estado privado ya cargado hasta una nueva comprobación.
 
-Cambios realizados sin añadir dependencias, nueva pantalla, nuevo job ni tocar motor financiero:
+Estos problemas preexistían en la arquitectura de usuarios; el hardening 2A los hizo visibles durante el smoke.
+
+## 8.5 Fix implementado — validación runtime pendiente
+
+HEAD funcional del fix antes de esta actualización documental:
+
+`ba1c4d216c9d9af7eab0e558157838a72e8d71c5`
+
+Cambios:
 
 - `server/accountRoutes.ts`
-  - `admin_audit_log` propio de Trading, escrito sólo por backend/Admin SDK;
-  - endpoint ADMIN `/admin/audit-log`;
-  - auditoría de `USER_CREATED`, `USER_UPDATED`, `PASSWORD_RESET_LINK_CREATED`, `USER_DELETED`;
-  - snapshot before/after de metadatos de cuenta, nunca cartera privada;
-  - `emailVerified` añadido a la lista administrativa;
-  - rollback best-effort de Auth user + `users/{uid}` si el alta falla después de crear parcialmente la cuenta;
-  - mantiene guards de self-delete/self-disable y último ADMIN.
+  - revocar acceso a un ADMIN sin retirarle ADMIN devuelve `ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST` en vez de hacer no-op;
+  - nuevo endpoint ligero `/session-status`, sin escritura periódica en Firestore, para consultar estado actual de acceso/disabled/ADMIN.
 - `src/auth/accountApi.ts`
-  - tipos/API para `emailVerified` y audit log.
+  - `loadAccountSessionStatus(...)`.
 - `src/components/AdminUsersPanel.tsx`
-  - mismo panel existente, sin nueva superficie;
-  - búsqueda por correo/nombre/UID;
-  - indicador de correo verificado;
-  - confirmaciones para acceso/ADMIN/bloqueo;
-  - actividad administrativa reciente integrada.
-- `tests/privateUserSecurity.unit.ts`
-  - guards de audit, rollback, independencia de Cubetos y confirmaciones.
-- `tests/productSurfaceClosureV1.unit.ts`
-  - quick closure existente ampliado de 28 a **32 invariantes**;
-  - no se creó un job nuevo.
-- `docs/PRIVATE_USERS_DEPLOYMENT.md` y `docs/APP_FLOW_AND_ROADMAP.md`
-  - actualizados al estado real.
+  - un ADMIN muestra acceso `POR ADMIN`;
+  - no ofrece botón de revocar acceso mientras mantenga ADMIN;
+  - texto explícito: primero retirar ADMIN y después revocar acceso.
+- `src/auth/SecureAppGate.tsx`
+  - revalida acceso cada 15 s y al volver a foco/visibilidad;
+  - si la cuenta está revocada o deshabilitada, limpia estado privado local y cierra la sesión;
+  - tokens revocados se tratan como pérdida de acceso, no se deja la cartera renderizada.
+- guards existentes ampliados:
+  - `tests/privateUserSecurity.unit.ts`;
+  - `tests/productSurfaceClosureV1.unit.ts` pasa de 32 a **33 invariantes**.
 
-Decisión de seguridad sobre audit log:
+Revisión del diff desde `3f2a9e42...`:
 
-- `firestore.rules` ya es deny-by-default para colecciones no declaradas;
-- por tanto `admin_audit_log` no es legible/escribible por clientes;
-- sólo el backend/Admin SDK lo usa;
-- un ADMIN sigue sin endpoint para abrir la cartera privada de otro usuario.
+- sólo auth/ADMIN/tests;
+- ningún motor financiero;
+- ningún replay;
+- ninguna lógica de alertas de trading;
+- ningún archivo congelado de Future Forward;
+- ninguna dependencia nueva.
 
-Revisión estática posterior al cambio:
+**No marcar 2A DONE todavía.**
 
-- diff completo revisado desde `d91819...`;
-- ningún archivo congelado de Future Forward modificado;
-- ningún archivo de estrategia/replay/market discovery productivo modificado;
-- ninguna dependencia añadida;
-- ningún motor/panel/job paralelo creado;
-- alarmas operativas no modificadas.
+## 8.6 Validación exacta que toca ahora
 
-Validación runtime automática, reportada por el usuario el 2026-09-11:
+Sincronizar la app al HEAD actual y ejecutar una sola vez:
 
-- superficie: **32/32 PASS**;
-- decisión productiva: **20/20 PASS**;
-- ejecución: **29/29 PASS**;
-- cartera: **24/24 PASS**;
-- salud: **27/27 PASS**;
-- broker: **7/7 PASS**;
-- fiscalidad: **7/7 PASS**;
-- TypeScript: **PASS**.
+**`Producto · cierre rápido`**
 
-**Estado 2A:** implementación + guards + TypeScript = PASS. Sólo falta el smoke manual mínimo del panel ADMIN para cerrar 2A completamente.
+Esperado:
 
-## 9.5 Smoke manual mínimo pendiente de Fase 2A
+- superficie **33/33 PASS**;
+- resto de guards igual que antes;
+- TypeScript PASS.
 
-No ejecutar de nuevo quick closure ni replay largo. Comprobar sólo en la app real:
+Si pasa, repetir smoke sólo con una **cuenta normal NO-ADMIN**:
 
 1. abrir ADMIN;
-2. comprobar que carga la lista de usuarios;
-3. comprobar búsqueda por correo/nombre/UID y columna de correo verificado;
-4. sobre una cuenta de prueba, realizar una operación reversible —por ejemplo revocar/conceder acceso— y aceptar el diálogo de confirmación;
-5. comprobar que la operación aparece en `Actividad administrativa reciente`;
-6. confirmar que la cartera del usuario principal sigue intacta;
-7. no borrar ni modificar la cuenta principal para esta prueba.
+2. confirmar que la cuenta normal muestra acceso `CONCEDIDO`;
+3. pulsar `Revocar acceso` y aceptar el diálogo;
+4. comprobar que cambia a `PENDIENTE`;
+5. comprobar que la operación aparece en actividad administrativa;
+6. si esa cuenta tiene otra sesión abierta, debe perder acceso al volver a foco o en ≤15 s;
+7. volver a conceder acceso y comprobar recuperación;
+8. no modificar la cuenta principal.
 
-Si este smoke pasa, **Fase 2A = DONE**. La continuidad normal de las alarmas se verificará de forma no destructiva; no se fuerza una señal artificial.
+Para una cuenta ADMIN:
 
-## 9.6 Alertas y autonomía — Fase 2B
+- no debe aparecer la acción de revocar acceso directamente;
+- primero se retira ADMIN;
+- después se puede revocar acceso.
 
-Las alarmas **ya están funcionando en operación real para la configuración actual del usuario**. No tratarlas como funcionalidad por construir desde cero.
+## 8.7 Fase 2B — alertas/autonomía
 
-Ya existe:
+Las alarmas ya son operativas para la configuración actual del usuario.
 
-- backend de oportunidades de entrada;
-- dedupe `GOOD_ENTRY / HIGH_CONVICTION`;
-- persistencia Firestore;
-- webhook/Telegram;
-- `server/portfolioManagementAlerts.ts`;
-- lectura de `users/{uid}/private/state`;
-- reconstrucción de cartera, historial de ejecución, tax lots y cash benchmark;
-- reutilización de `PortfolioPositionHealthService` / `classifyPositionHealth`;
-- dedupe por UID;
-- capacidad de enviar `ADD / WATCH / REDUCE / EXIT` por Telegram.
+Existe:
 
-Estado correcto:
+- oportunidades de entrada;
+- dedupe GOOD_ENTRY/HIGH_CONVICTION;
+- Firestore;
+- Telegram/webhook;
+- `portfolioManagementAlerts.ts`;
+- lectura de estado privado;
+- `PortfolioPositionHealthService` / `classifyPositionHealth`;
+- ADD/WATCH/REDUCE/EXIT.
 
-**OPERATIVO PARA LA CONFIGURACIÓN ACTUAL / CIERRE RESIDUAL SEGÚN ALCANCE V1.**
+Pendiente residual sólo si V1 lo necesita:
 
-Pendiente real, antes de tocar código:
+1. decidir si generalizar a todos los usuarios ACTIVE;
+2. mantener dedupe independiente por UID;
+3. auditar `PortfolioRotationReviewEngine` / `ROTATE_NOW` para evitar autoridad paralela;
+4. añadir guard si se modifica;
+5. confirmar que las alarmas actuales siguen funcionando.
 
-1. decidir si V1 necesita alertas para todos los usuarios ACTIVE/autorizados o basta el alcance actual;
-2. si se generaliza, mantener dedupe independiente por UID;
-3. auditar el uso residual de `PortfolioRotationReviewEngine`/`ROTATE_NOW`: no debe adquirir autoridad paralela a `portfolioDecision`/`executionPlan`;
-4. modificar este flujo sólo después de decidir alcance y con guard específico;
-5. verificar que las alarmas actuales siguen llegando tras cualquier cambio.
-
-No existe ni se debe introducir ahora ejecución automática de órdenes de broker.
-
-Criterio de cierre Fase 2:
-
-- sistema de usuarios de Trading sigue independiente;
-- 2A pasa smoke manual real;
-- login/ADMIN/Firestore/aislamiento/cartera siguen funcionando;
-- alarmas actuales siguen funcionando;
-- se decide y documenta el alcance V1 de 2B;
-- no aparece una segunda cadena de decisión.
+No introducir ejecución automática de broker.
 
 ---
 
-# 10. FASE 3 — PROTOCOLO ECONÓMICO FINAL
+# 9. FASE 3 — PROTOCOLO ECONÓMICO FINAL
 
-Estado: **NEXT después de cerrar 2A y decidir el alcance residual de 2B.**
+NEXT después de cerrar Fase 2.
 
-No abrir muestras nuevas antes de congelar documentalmente:
+Antes de abrir muestras nuevas congelar:
 
 - métricas PASS/FAIL;
-- definición fresh/blind/OOS;
+- fresh/blind/OOS;
 - inventario de muestras consumidas;
 - benchmarks comparables;
 - costes/fiscalidad;
 - materialidad económica;
-- criterio de promoción/retirada;
-- política congelada antes de ver resultados.
-
-Después de Fase 3:
-
-- Fase 4 = reentrada tras salida errónea;
-- Fase 5 = protección de grandes ganadores;
-- Fase 6 = Forward Risk V8 como contexto.
+- reglas de promoción/retirada;
+- política antes de ver resultados.
 
 ---
 
-# 11. FASE 4 — REENTRADA TRAS SALIDA ERRÓNEA
+# 10. FASES 4–6
 
-HFG sólo aporta diagnóstico consumido: `EXIT temprano → recuperación → oportunidad posterior → timing/capital pueden impedir reentrada`.
+## F4 Reentrada
 
-Objetivo fresh/OOS:
+Diseñar sin thresholds derivados de HFG y validar fresh/OOS.
 
-- separar fallo de señal de salida;
-- latencia de timing;
-- falta de capital desplegable;
-- healthy-incumbent inertia;
-- diseñar hipótesis general sin thresholds derivados de HFG;
-- congelarla antes de abrir resultados.
+## F5 Grandes ganadores
 
----
+Diseñar política antes de abrir muestra nueva; HFG no fija un REDUCE productivo.
 
-# 12. FASE 5 — PROTECCIÓN DE GRANDES GANADORES
+## F6 Forward Risk V8
 
-HFG mostró que `TREND_PROTECTION_V1` detectó deterioro antes del EXIT económico, pero la muestra está consumida.
-
-No convertir retrospectivamente el `REDUCE 50%` observado en HFG en política productiva.
-
-Diseñar previamente una política de monetización, separar detección de ejecución y validar fresh/OOS.
+Usarlo como información contextual, no como ON/OFF diario ni V12/V13 retrospectivo.
 
 ---
 
-# 13. FASE 6 — FORWARD RISK V8 COMO CONTEXTO
+# 11. FASE 8 — UNIVERSO HISTÓRICO POINT-IN-TIME
 
-V8 mantiene información predictiva de downside.
+Necesario para reducir survivorship:
 
-Investigar sólo bajo protocolo nuevo usos como:
-
-- contexto de riesgo;
-- sizing;
-- ranking/priorización;
-- alertas;
-- stress;
-- margen de seguridad.
-
-No volver a un ON/OFF diario directo ni crear V12/V13 por tuning retrospectivo.
-
----
-
-# 14. FASE 8 — UNIVERSO HISTÓRICO POINT-IN-TIME
-
-Necesario para reducir survivorship y validar de forma más fuerte la selección histórica de mercado.
-
-Instrument master mínimo:
-
-- listings/altas;
-- delistings/bajas;
+- listings;
+- delistings;
 - cambios de ticker/mercado;
 - existencia/disponibilidad por fecha.
 
-Hasta disponer de ello, no afirmar que el replay histórico reconstruye “los mejores del mercado completo” de cada fecha.
+Hasta entonces no afirmar reconstrucción completa del mercado histórico.
 
 ---
 
-# 15. FASE 9 — CRITERIO DE CIERRE V1
+# 12. FASE 9 — CIERRE V1
 
-V1 se considera cerrada integralmente cuando estén suficientemente cerrados:
+Criterios:
 
 - cadena productiva única;
-- usuarios/seguridad/persistencia independientes y estables;
-- alertas coherentes con la cadena compartida;
+- usuarios/seguridad/persistencia estables;
+- alertas coherentes con cadena canónica;
 - replay causal;
 - cash/flujos/costes/fiscalidad;
-- evaluación económica bajo protocolos válidos;
-- limitaciones de survivorship explícitas;
+- evidencia económica bajo protocolo válido;
+- survivorship explícito;
 - deuda V2 mínima y clasificada.
-
-La app puede ser técnicamente operativa antes de terminar QUALITY Future Forward, pero QUALITY no puede promocionarse antes de su evidencia prospectiva.
 
 ---
 
-# 16. DEFERRED / RETIRED
+# 13. DEFERRED / RETIRED
 
 No reabrir ahora:
 
 - V9/V10/V11;
-- V12/V13 como tuning retrospectivo;
+- V12/V13 retrospectivo;
 - SLOPE_V1;
-- QUALITY_V1 retrospectivo;
-- QUALITY bridge sobre ventanas consumidas;
+- QUALITY retrospectivo;
 - HFG como muestra de promoción;
-- replays/motores/pantallas paralelos;
+- motores/pantallas/replays paralelos;
 - jobs específicos por activo;
-- retuning de Top64/Opportunity con snapshots observados;
-- reconstruir Firebase/usuarios/Telegram desde cero;
-- unificar o compartir sistema de usuarios con Cubetos/Muros;
-- introducir planes/entitlements/monetización SaaS en Trading sin necesidad productiva explícita.
+- retuning Top64/Opportunity con snapshots consumidos;
+- reconstruir Firebase/Telegram desde cero;
+- compartir sistema con Cubetos/Muros.
 
-Fase 10 / V2, sólo después de cierre V1:
+V2:
 
-- USD/Nasdaq/NYSE con FX explícito;
-- listings jóvenes/IPO;
+- USD/Nasdaq/NYSE + FX;
+- IPO/listings jóvenes;
 - fundamentales;
 - revisiones de beneficios;
 - volumen avanzado;
-- taxonomía sectorial robusta;
-- proveedor/instrument master más exhaustivo;
-- broker API automática si se justifica;
-- RL/FinRL sólo si aporta valor suficiente.
+- taxonomía sectorial;
+- instrument master más exhaustivo;
+- broker API si se justifica;
+- RL/FinRL sólo si aporta valor.
 
 ---
 
-# 17. SIGUIENTE SECUENCIA TÉCNICA EXACTA
+# 14. SIGUIENTE SECUENCIA TÉCNICA EXACTA
 
-1. **Fase 0: DONE.**
-2. **Fase 1: congelada.** No tocar motor productivo salvo bug/regresión reproducible.
-3. **Fase 2A: implementación y quick closure automático PASS. No escribir más código 2A salvo fallo del smoke.**
-4. Hacer únicamente el smoke ADMIN mínimo descrito en §9.5.
-5. Si el smoke falla, corregir la causa exacta y repetir sólo la comprobación afectada.
-6. Si el smoke pasa, marcar **Fase 2A DONE** y actualizar este archivo.
-7. Antes de modificar alertas, decidir explícitamente el alcance **Fase 2B**: configuración actual versus generalización multiusuario, y auditar `ROTATE_NOW`/autoridad canónica.
-8. **Fase 3:** congelar protocolo económico antes de abrir nuevas muestras.
-9. **Fase 4:** reentrada fresh/OOS.
-10. **Fase 5:** protección de ganadores fresh/OOS.
-11. **Fase 6:** Forward Risk V8 como contexto bajo protocolo nuevo.
-12. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
-13. No tocar los 25 archivos congelados de Future Forward para avanzar Fases 2–6.
-14. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
-15. **Fase 9:** auditoría end-to-end y cierre V1.
-16. **Fase 10:** permanece deferred hasta cierre V1.
+1. F0 DONE.
+2. F1 congelada.
+3. F2A reabierta por smoke real; fix de revocación implementado.
+4. **No escribir más código de 2A antes de validar este fix.**
+5. Ejecutar `Producto · cierre rápido` una vez sobre el HEAD actual.
+6. Si falla, corregir la causa exacta; no replay ni Future Forward.
+7. Si pasa, repetir smoke de revocación con cuenta normal NO-ADMIN.
+8. Si revocación + re-concesión + audit + cierre de sesión abierta funcionan, marcar F2A DONE.
+9. Decidir alcance residual de F2B y auditar `ROTATE_NOW` antes de tocar alertas.
+10. F3 protocolo económico.
+11. F4 reentrada fresh/OOS.
+12. F5 ganadores fresh/OOS.
+13. F6 Forward Risk V8 contextual.
+14. F7 sólo por calendario; próxima ventana 2026-10-09 22:30–24:00 Europe/Madrid.
+15. F8 instrument master point-in-time.
+16. F9 auditoría end-to-end.
+17. F10 deferred.
 
-Al cerrar cada fase:
-
-- actualizar `PROJECT_STATE.md`;
-- actualizar `docs/APP_FLOW_AND_ROADMAP.md`;
-- archivar/retirar lo cerrado;
-- no dejar tareas cerradas presentadas como CURRENT.
+Al cerrar cada fase actualizar este archivo y `docs/APP_FLOW_AND_ROADMAP.md`.
 
 ---
 
-# 18. DOCUMENTOS DE REFERENCIA
+# 15. DOCUMENTOS DE REFERENCIA
 
-- `docs/APP_FLOW_AND_ROADMAP.md` — mapa maestro y roadmap.
-- `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md` — discovery/Top64 normativo.
-- `docs/DECISIONS.md` — decisiones durables alineadas.
-- `docs/PRIVATE_USERS_DEPLOYMENT.md` — seguridad, multiusuario, ADMIN y validación Fase 2A de Trading.
-- `docs/TELEGRAM_ALERTS.md` — canal de notificación de Trading.
-- `docs/V1_PILOT_DEPLOYMENT.md` — piloto/autonomía.
-- `docs/DYNAMIC_HISTORICAL_REPLAY.md` — replay.
-- `docs/dynamic_market_top64_v1_final_outcome.md` — cierre Top64.
-- `docs/replay_explicit_cash_flows_v1_outcome.md` — flujos externos.
-- `docs/quality_allocation_dynamic_future_forward_v1_preregistration.md` — protocolo QUALITY.
-- `docs/quality_allocation_dynamic_future_forward_v1_status.md` — estado QUALITY.
-- `docs/forward_risk_research_state.md` — estado Forward Risk.
+- `docs/APP_FLOW_AND_ROADMAP.md`
+- `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md`
+- `docs/DECISIONS.md`
+- `docs/PRIVATE_USERS_DEPLOYMENT.md`
+- `docs/TELEGRAM_ALERTS.md`
+- `docs/V1_PILOT_DEPLOYMENT.md`
+- `docs/DYNAMIC_HISTORICAL_REPLAY.md`
+- `docs/dynamic_market_top64_v1_final_outcome.md`
+- `docs/replay_explicit_cash_flows_v1_outcome.md`
+- `docs/quality_allocation_dynamic_future_forward_v1_preregistration.md`
+- `docs/quality_allocation_dynamic_future_forward_v1_status.md`
+- `docs/forward_risk_research_state.md`
 
-Referencia externa de diseño, **no dependencia**:
+Referencia externa de diseño, no dependencia:
 
-- `fmaranis/Cubetos-y-balsas-sincronizado` — únicamente para estudiar patrones ya probados que puedan reimplementarse de forma independiente en Trading.
+- `fmaranis/Cubetos-y-balsas-sincronizado`.
