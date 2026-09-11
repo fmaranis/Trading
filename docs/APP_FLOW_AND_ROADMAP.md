@@ -176,6 +176,8 @@ Separación metodológica obligatoria:
 calidad de señal ≠ calidad de política económica
 ```
 
+`Producto · cierre rápido` es el gate corto de regresión productiva. Después de la segunda auditoría de Fase 2A incluye también `tests/privateUserSecurity.unit.ts` como **Guard usuarios privados**, dentro del mismo job existente y sin replay largo.
+
 ---
 
 # 7. Usuarios, persistencia y seguridad
@@ -202,36 +204,35 @@ Ya existía antes de Fase 2A:
 
 La comparación de Fase 2A concluyó que no conviene copiar el sistema SaaS completo de Cubetos/Muros. Trading sólo necesita actualmente `accessGranted` + `isAdmin`; introducir planes, entitlements, créditos o un `PermissionContext` genérico añadiría complejidad sin necesidad productiva.
 
-## Mejoras selectivas implementadas en Fase 2A
+## Hardening selectivo Fase 2A
 
-Sin sustituir `SecureAppGate`, UID, claims ni Firestore existentes:
+Sin sustituir `SecureAppGate`, UID, claims ni Firestore existentes se implementó:
 
-- `admin_audit_log` propio de Trading escrito sólo por backend/Admin SDK;
-- endpoint ADMIN para leer actividad reciente;
-- actividad administrativa integrada dentro de `AdminUsersPanel`, no nueva pantalla;
-- búsqueda local por correo/nombre/UID;
-- visibilidad de `emailVerified`;
-- confirmación explícita para cambios sensibles de acceso/ADMIN/bloqueo;
-- auditoría de alta, actualización, enlace de contraseña y borrado;
-- rollback best-effort de usuario/estado si falla el alta administrada antes de completarse;
-- guards añadidos al `Producto · cierre rápido` existente; no se creó un job nuevo.
+- `admin_audit_log` backend-only;
+- actividad administrativa dentro de `AdminUsersPanel`;
+- búsqueda por correo/nombre/UID;
+- `emailVerified` visible;
+- confirmaciones de operaciones sensibles;
+- rollback best-effort del alta administrada;
+- semántica explícita: ADMIN implica acceso y debe retirarse ADMIN antes de revocar acceso;
+- revalidación de sesiones abiertas cada 15 s y al recuperar foco;
+- cierre/limpieza sólo ante revocación/disabled confirmados;
+- autosync parado antes de limpiar caché privada;
+- fallo de red de revalidación = fail-closed de UI sin borrar la caché local como si fuera una revocación;
+- lista de usuarios desacoplada del audit log: un fallo del historial no deja stale el estado de acceso;
+- Firebase Auth como autoridad de mutaciones; profile mirror best-effort con `profileSynced` explícito;
+- aserciones de comportamiento en `privateUserSecurity.unit.ts`;
+- `Producto · cierre rápido` ejecuta ese guard directamente.
 
-Validación automática de Fase 2A ejecutada por el usuario el 2026-09-11:
+## Bug real que reabrió 2A
 
-- superficie: **32/32 PASS**;
-- decisión productiva: **20/20 PASS**;
-- plan de ejecución: **29/29 PASS**;
-- cartera: **24/24 PASS**;
-- salud de posiciones: **27/27 PASS**;
-- broker: **7/7 PASS**;
-- fiscalidad: **7/7 PASS**;
-- TypeScript: **PASS**.
+Tras un quick closure de 32/32 + resto de guards + TypeScript PASS, el smoke real del 2026-09-11 detectó que **“Revocar acceso” no funcionaba**. La segunda auditoría amplió la causa a los puntos anteriores y corrigió también riesgos de stale UI y sincronización.
 
 Estado actual de 2A:
 
-**IMPLEMENTADO + QUICK CLOSURE PASS / SÓLO SMOKE MANUAL ADMIN PENDIENTE.**
+**FIX IMPLEMENTADO + SEGUNDA AUDITORÍA DE CÓDIGO COMPLETADA / NUEVA VALIDACIÓN RUNTIME PENDIENTE.**
 
-No repetir quick closure salvo cambio material posterior.
+No se considera DONE hasta que pasen el quick closure actualizado y el smoke real.
 
 ---
 
@@ -269,7 +270,7 @@ Pendiente residual, sólo según alcance V1:
 - añadir guard/test si se toca ese flujo;
 - confirmar que las alarmas actuales siguen llegando después de cualquier cambio.
 
-No se modifica este flujo durante el hardening 2A hasta confirmar que los cambios de usuarios están estables.
+No se modifica este flujo durante el cierre 2A.
 
 ---
 
@@ -293,8 +294,8 @@ No se modifica este flujo durante el hardening 2A hasta confirmar que los cambio
 | V9 / V10 / V11 | **RETIRED** | No retunear |
 | HFG | **CONSUMED / CLOSED** | Diagnóstico, no tuning |
 | Móvil + JSON | **DONE / PASS** | Prueba física realizada |
-| Usuarios privados / Firestore | **OPERATIVO** | Mantener arquitectura propia |
-| Fase 2A ADMIN hardening | **QUICK CLOSURE PASS / SMOKE PENDIENTE** | Audit + confirmaciones + rollback + evidencia |
+| Usuarios privados / Firestore | **OPERATIVO** | Arquitectura propia |
+| Fase 2A ADMIN hardening | **REABIERTO / FIX AUDITADO / RUNTIME PENDIENTE** | Revocación y sesión abierta deben probarse de nuevo |
 | Cubetos/Muros | **REFERENCE ONLY** | Nunca compartir infraestructura |
 | Alertas de entrada | **OPERATIVAS** | Ya llegan en configuración actual |
 | Alertas de cartera backend | **IMPLEMENTADAS / CIERRE RESIDUAL** | Generalización opcional + autoridad canónica |
@@ -322,17 +323,23 @@ No se modifica este flujo durante el hardening 2A hasta confirmar que los cambio
 
 ### 2A — usuarios/ADMIN
 
-**Implementación y validación automática PASS. Smoke manual pendiente.**
+**Reabierta por bug runtime. Segunda auditoría y fix implementados; validación pendiente.**
 
-Cierre restante:
+Cierre exacto:
 
-1. abrir ADMIN;
-2. comprobar lista, búsqueda y correo verificado;
-3. realizar una operación reversible sobre usuario de prueba y confirmar el diálogo;
-4. comprobar aparición en actividad reciente;
-5. confirmar que la cartera principal sigue intacta.
+1. ejecutar una sola vez `Producto · cierre rápido`;
+2. esperar `33/33`, `PRIVATE_USER_SECURITY_PASS`, resto de guards y TypeScript PASS;
+3. usar una cuenta de prueba normal, NO-ADMIN y NO-bootstrap;
+4. revocar acceso: lista debe pasar a `PENDIENTE` incluso si audit log falla;
+5. sesión ya abierta debe perder acceso al recuperar foco o en ≤15 s;
+6. Firestore/estado durable no debe borrarse;
+7. volver a conceder acceso y volver a iniciar sesión si los refresh tokens fueron revocados;
+8. comprobar que recupera exactamente su propio estado;
+9. confirmar que la cartera principal sigue intacta.
 
-No repetir `Producto · cierre rápido` ni ejecutar replay largo para esta fase salvo cambio material posterior.
+Para ADMIN: primero retirar ADMIN y después revocar acceso.
+
+No ejecutar replay largo ni Future Forward para esta validación.
 
 ### 2B — alertas/autonomía
 
@@ -342,7 +349,7 @@ Antes de tocarla se decide expresamente si V1 requiere generalización multiusua
 
 ## FASE 3 — PROTOCOLO ECONÓMICO FINAL
 
-**NEXT una vez cerrado 2A y decidido el alcance residual de 2B.**
+**NEXT una vez cerrada Fase 2.**
 
 Congelar antes de nuevas muestras:
 
@@ -432,9 +439,11 @@ No reabrir:
 
 # 13. Siguiente paso operativo
 
-1. No escribir más código de 2A salvo fallo del smoke.
-2. Hacer únicamente el smoke manual ADMIN descrito en Fase 2A.
-3. Si pasa, marcar 2A DONE.
-4. Decidir explícitamente el alcance V1 de 2B antes de modificar alertas operativas.
-5. Después congelar Fase 3 antes de abrir nuevas muestras.
-6. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
+1. **No escribir más código de Fase 2A salvo que falle la validación actual.**
+2. Sincronizar al HEAD actual.
+3. Ejecutar `Producto · cierre rápido` una vez.
+4. Si PASS completo, hacer el smoke de revocación descrito en Fase 2A con usuario normal NO-ADMIN/NO-bootstrap.
+5. Si ambos pasan, marcar 2A DONE.
+6. Decidir explícitamente el alcance V1 de 2B antes de modificar alertas operativas.
+7. Después congelar Fase 3 antes de abrir nuevas muestras.
+8. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
