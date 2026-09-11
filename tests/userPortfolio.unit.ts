@@ -1,4 +1,12 @@
-import { analyzePortfolioRebalance, migrateUserPortfolioState, MYINVESTOR_BROKER_PROFILE, UserPortfolioService } from '../src/investment/decision';
+import {
+  analyzePortfolioRebalance,
+  classifyPositionHealth,
+  isDiversifiedCoreCategory,
+  migrateUserPortfolioState,
+  MYINVESTOR_BROKER_PROFILE,
+  UserPortfolioService
+} from '../src/investment/decision';
+import { registerLiveDiscoveredAsset } from '../src/investment/decision/dynamicPortfolioDiscovery';
 
 let passed = 0;
 function check(name: string, condition: boolean) {
@@ -82,4 +90,53 @@ const migratedLegacy = migrateUserPortfolioState(
 check('319 legacy user-owned fund data is preserved during migration', migratedLegacy.funds?.length === 1 && migratedLegacy.funds[0].id === 'legacy_test' && migratedLegacy.funds[0].investedEur === 2500);
 check('320 legacy user-owned pending capital is preserved during migration', migratedLegacy.stagedCapitalPlan?.availableEur === 3000 && migratedLegacy.stagedCapitalPlan?.horizonMonths === 6);
 
-console.log(`User portfolio rebalance/private-state migration: ${passed}/20 invariants passed.`);
+const dynamicEquity = registerLiveDiscoveredAsset({
+  symbol: 'HFG.DE',
+  name: 'HelloFresh SE',
+  quoteType: 'EQUITY',
+  exchange: 'GER',
+  currency: 'EUR',
+  usableInEurEngine: true,
+  historyBars3y: 756,
+  source: 'YAHOO_LIVE_DISCOVERY'
+});
+const weakDynamicEquity: any = {
+  assetId: dynamicEquity.assetId,
+  ticker: dynamicEquity.ticker,
+  name: dynamicEquity.name,
+  existingPositionAction: 'HOLD',
+  newMoneyAction: 'AVOID',
+  structuralDowntrend: false,
+  unfavorableVotes: 2,
+  favorableVotes: 0,
+  neutralVotes: 3,
+  consensusScore: -2,
+  momentum20Pct: -4,
+  explanation: 'Weak dynamic equity'
+};
+const dynamicEquityContext: any = {
+  category: 'EUROPE_EQUITY',
+  isDiversifiedCore: true,
+  currentReturnPct: -10,
+  mfePct: 8,
+  givebackFromMfePctPoints: 18,
+  deteriorationStreakSessions: 10,
+  momentum20Pct: -4
+};
+const dynamicEquityHealth = classifyPositionHealth(weakDynamicEquity, -10, dynamicEquityContext);
+check('321 dynamic Yahoo equity is satellite even when its broad category is EUROPE_EQUITY', dynamicEquityHealth.action === 'REDUCE' && dynamicEquityContext.isDiversifiedCore === false);
+check('322 dynamic Yahoo equity identity works through assetId and ticker', !isDiversifiedCoreCategory('EUROPE_EQUITY', dynamicEquity.assetId) && !isDiversifiedCoreCategory('EUROPE_EQUITY', dynamicEquity.ticker));
+
+const dynamicEtf = registerLiveDiscoveredAsset({
+  symbol: 'TESTETF.DE',
+  name: 'Test Broad Europe ETF',
+  quoteType: 'ETF',
+  exchange: 'GER',
+  currency: 'EUR',
+  usableInEurEngine: true,
+  historyBars3y: 756,
+  source: 'YAHOO_LIVE_DISCOVERY'
+});
+check('323 dynamic ETF retains diversified-core treatment instead of being mistaken for a stock', isDiversifiedCoreCategory('GLOBAL_EQUITY', dynamicEtf.assetId));
+
+console.log(`User portfolio rebalance/private-state migration: ${passed}/23 invariants passed.`);
