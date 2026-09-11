@@ -137,6 +137,18 @@ const JOBS: JobDefinition[] = [
     'DYNAMIC_MARKET_TOP64_LIVE_RESULT'
   ),
   {
+    id: 'hfg-boom-crash-diagnostic-v1',
+    name: 'HFG · diagnóstico salida / reentrada',
+    description: 'Diagnóstico causal research-only sobre la muestra HFG 2019-2022 ya consumida. Separa causa de salida inicial, señales de reentrada, financiación del allocator y protección de ganancias. Usa sólo datos REAL, CORE_ARCHITECTURE_V1 y LEGACY; no retunea, no promueve producción, no usa Yahoo discovery actual y no escribe en replay-results.',
+    marker: 'HFG_BOOM_CRASH_DIAGNOSTIC_V1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard diagnóstico HFG', command: 'npx', args: ['tsx', 'tests/hfgBoomCrashDiagnosticV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Diagnóstico HFG causal REAL', command: 'npx', args: ['tsx', 'scripts/hfgBoomCrashDiagnosticV1Live.ts'] }
+    ]
+  },
+  {
     id: 'product-surface-closure-v1',
     name: 'Producto · cierre rápido',
     description: 'Verificación rápida de la superficie productiva integrada: decisión única, plan ejecutable, cartera, broker, fiscalidad y TypeScript. No ejecuta replay, no consulta un checkpoint prospectivo y no escribe en replay-results.',
@@ -149,18 +161,6 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard disponibilidad broker', command: 'npx', args: ['tsx', 'tests/brokerAvailability.unit.ts'] },
       { label: 'Guard fiscalidad de ejecución', command: 'npx', args: ['tsx', 'tests/taxAwareExecutionOverlay.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
-    ]
-  },
-  {
-    id: 'hfg-boom-crash-diagnostic-v1',
-    name: 'HFG · diagnóstico salida / reentrada',
-    description: 'Diagnóstico causal research-only sobre la muestra HFG 2019-2022 ya consumida. Separa causa de salida inicial, señales de reentrada, financiación del allocator y protección de ganancias. Usa sólo datos REAL, CORE_ARCHITECTURE_V1 y LEGACY; no retunea, no promueve producción, no usa Yahoo discovery actual y no escribe en replay-results.',
-    marker: 'HFG_BOOM_CRASH_DIAGNOSTIC_V1_RESULT',
-    visibility: 'CURRENT',
-    steps: [
-      { label: 'Guard diagnóstico HFG', command: 'npx', args: ['tsx', 'tests/hfgBoomCrashDiagnosticV1.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Diagnóstico HFG causal REAL', command: 'npx', args: ['tsx', 'scripts/hfgBoomCrashDiagnosticV1Live.ts'] }
     ]
   },
   {
