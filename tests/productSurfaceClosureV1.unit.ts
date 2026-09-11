@@ -167,7 +167,7 @@ check('1027 ResearchValidationCenter exposes one-click quick closure without rep
   const stepsStart = block.indexOf('steps: [');
   assert.ok(stepsStart >= 0);
   const stepsBlock = block.slice(stepsStart);
-  for (const token of ['tests/productSurfaceClosureV1.unit.ts', 'tests/productDecisionSurface.unit.ts', 'tests/portfolioExecutionPlan.unit.ts', 'tests/userPortfolio.unit.ts', 'tests/brokerAvailability.unit.ts', 'tests/taxAwareExecutionOverlay.unit.ts']) {
+  for (const token of ['tests/productSurfaceClosureV1.unit.ts', 'tests/productDecisionSurface.unit.ts', 'tests/portfolioExecutionPlan.unit.ts', 'tests/userPortfolio.unit.ts', 'tests/portfolioPositionHealth.unit.ts', 'tests/brokerAvailability.unit.ts', 'tests/taxAwareExecutionOverlay.unit.ts']) {
     assert.ok(stepsBlock.includes(token), `missing quick closure step ${token}`);
   }
   assert.match(stepsBlock, /args: \['run', 'lint'\]/);
