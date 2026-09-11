@@ -164,7 +164,7 @@ Limitación conocida: Yahoo current discovery no reconstruye el universo histór
 
 ---
 
-# 6. Research y validación: papel correcto
+# 6. Research y validación
 
 `ResearchValidationCenter` sirve para guards, unit tests, TypeScript, diagnósticos current/live, replays integrados, Future Forward e investigación causal.
 
@@ -176,15 +176,13 @@ Separación metodológica obligatoria:
 calidad de señal ≠ calidad de política económica
 ```
 
-Una señal predictiva útil no queda invalidada porque una forma concreta de monetizarla falle.
-
 ---
 
 # 7. Usuarios, persistencia y seguridad
 
 Trading mantiene su propia infraestructura y no depende de ninguna otra app.
 
-Ya existe:
+Ya existía antes de Fase 2A:
 
 - Firebase Authentication propio;
 - verificación server-side del Firebase ID token;
@@ -193,29 +191,36 @@ Ya existe:
 - Firestore privado por `uid`;
 - reglas deny-by-default;
 - aislamiento de cartera/efectivo/fiscalidad/historial entre usuarios;
-- migración segura de estado local preexistente;
+- migración segura de estado local;
 - panel ADMIN para alta, acceso, bloqueo, roles, reset y borrado;
-- persistencia durable del deduplicado de alertas en Firestore;
-- validación manual multiusuario ya realizada.
+- persistencia durable de alertas;
+- validación manual multiusuario.
 
 ## Cubetos/Muros como referencia técnica
 
-`fmaranis/Cubetos-y-balsas-sincronizado` puede estudiarse porque contiene patrones de usuarios/permisos/ADMIN ya probados, pero **no se integra ni se comparte con Trading**.
+`fmaranis/Cubetos-y-balsas-sincronizado` se utiliza sólo para estudiar soluciones ya probadas. No se comparten proyecto Firebase, usuarios/UID, Firestore, perfiles, claims, backend/API, despliegue/runtime, alarmas, datos ni código común.
 
-No se comparten:
+La comparación de Fase 2A concluyó que no conviene copiar el sistema SaaS completo de Cubetos/Muros. Trading sólo necesita actualmente `accessGranted` + `isAdmin`; introducir planes, entitlements, créditos o un `PermissionContext` genérico añadiría complejidad sin necesidad productiva.
 
-- proyecto Firebase;
-- usuarios/UID;
-- Firestore;
-- perfiles;
-- roles/claims;
-- planes/entitlements;
-- backend/API;
-- despliegue/runtime;
-- alarmas;
-- código común o imports entre repositorios.
+## Mejoras selectivas implementadas en Fase 2A
 
-Si un patrón es mejor, se adapta/reimplementa independientemente dentro de Trading y se prueba sin romper el comportamiento actual.
+Sin sustituir `SecureAppGate`, UID, claims ni Firestore existentes:
+
+- `admin_audit_log` propio de Trading escrito sólo por backend/Admin SDK;
+- endpoint ADMIN para leer actividad reciente;
+- actividad administrativa integrada dentro de `AdminUsersPanel`, no nueva pantalla;
+- búsqueda local por correo/nombre/UID;
+- visibilidad de `emailVerified`;
+- confirmación explícita para cambios sensibles de acceso/ADMIN/bloqueo;
+- auditoría de alta, actualización, enlace de contraseña y borrado;
+- rollback best-effort de usuario/estado si falla el alta administrada antes de completarse;
+- guards añadidos al `Producto · cierre rápido` existente; no se creó un job nuevo.
+
+Estado actual de 2A:
+
+**IMPLEMENTADO / PENDIENTE DE QUICK CLOSURE + SMOKE MANUAL ADMIN.**
+
+La validación pendiente no requiere replay largo.
 
 ---
 
@@ -223,7 +228,7 @@ Si un patrón es mejor, se adapta/reimplementa independientemente dentro de Trad
 
 Las alarmas ya son una capacidad operativa en la configuración actual del usuario; no deben tratarse como una funcionalidad inexistente.
 
-## 8.1 Entradas
+## Entrada
 
 ```text
 scheduler
@@ -233,11 +238,11 @@ scheduler
 → Telegram / webhook
 ```
 
-## 8.2 Gestión de cartera
+## Gestión de cartera
 
 `runPortfolioManagementAlerts(...)` ya:
 
-- trabaja con un UID configurado;
+- trabaja con el UID configurado actualmente;
 - verifica cuenta activa/autorizada;
 - lee `users/{uid}/private/state`;
 - reconstruye cartera, historial, lotes fiscales y cash benchmark;
@@ -249,9 +254,11 @@ Pendiente residual, sólo según alcance V1:
 
 - decidir si debe generalizarse a todos los usuarios activos;
 - si se generaliza, mantener dedupe independiente por UID;
-- revisar el uso residual de `PortfolioRotationReviewEngine` para evitar autoridad paralela;
-- añadir guard/test si se toca este flujo;
+- revisar el uso residual de `PortfolioRotationReviewEngine`/`ROTATE_NOW` para evitar autoridad paralela;
+- añadir guard/test si se toca ese flujo;
 - confirmar que las alarmas actuales siguen llegando después de cualquier cambio.
+
+No se modifica este flujo durante el hardening 2A hasta confirmar que los cambios de usuarios están estables.
 
 ---
 
@@ -274,12 +281,12 @@ Pendiente residual, sólo según alcance V1:
 | Forward Risk V8 | **RESEARCH RETAINED** | Señal útil; política no resuelta |
 | V9 / V10 / V11 | **RETIRED** | No retunear |
 | HFG | **CONSUMED / CLOSED** | Diagnóstico, no tuning |
-| Identidad `DYNAMIC_*` / `OPEN_*` | **DONE / REAL REPLAY VERIFIED** | Acciones no heredan core |
 | Móvil + JSON | **DONE / PASS** | Prueba física realizada |
-| Usuarios privados / ADMIN / Firestore | **MUY AVANZADO / OPERATIVO** | Mejora selectiva, no reconstrucción |
-| Cubetos/Muros como referencia | **REFERENCE ONLY** | Nunca compartir infraestructura con Trading |
+| Usuarios privados / Firestore | **OPERATIVO** | Mantener arquitectura propia |
+| Fase 2A ADMIN hardening | **IMPLEMENTADO · VALIDACIÓN PENDIENTE** | Audit + confirmaciones + rollback + evidencia |
+| Cubetos/Muros | **REFERENCE ONLY** | Nunca compartir infraestructura |
 | Alertas de entrada | **OPERATIVAS** | Ya llegan en configuración actual |
-| Alertas de cartera backend | **IMPLEMENTADAS / CIERRE RESIDUAL** | Generalización opcional + alineación canónica |
+| Alertas de cartera backend | **IMPLEMENTADAS / CIERRE RESIDUAL** | Generalización opcional + autoridad canónica |
 | Broker API automática | **NOT IMPLEMENTED / FUTURE** | Ejecución manual asistida |
 | Instrument master histórico point-in-time | **NOT IMPLEMENTED** | Survivorship reconocido |
 | USD/Nasdaq/NYSE + FX | **DEFERRED** | Después del cierre V1 |
@@ -292,45 +299,42 @@ Pendiente residual, sólo según alcance V1:
 
 ## FASE 0 — MAPA MAESTRO Y ESTADO CANÓNICO
 
-**Estado: DONE.**
-
-El mapa, la ruta y el estado canónico quedan documentados en este archivo y `PROJECT_STATE.md`.
+**DONE.**
 
 ## FASE 1 — BASE PRODUCTIVA V1
 
-**Estado: DONE salvo bug/regresión material.**
-
-No repetir `Producto · cierre rápido` salvo cambio material posterior.
+**DONE salvo bug/regresión material.**
 
 ## FASE 2 — USUARIOS / SEGURIDAD / AUTONOMÍA
 
-**Estado: ACTIVA / MUY AVANZADA / CIERRE SELECTIVO.**
+**ACTIVA / MUY AVANZADA.**
 
-Objetivo:
+### 2A — usuarios/ADMIN
 
-- conservar todo lo que ya funciona en Trading;
-- comparar el sistema de usuarios propio de Trading con patrones ya probados en Cubetos/Muros;
-- adoptar sólo mejoras con ventaja clara;
-- implementarlas de forma independiente dentro de Trading;
-- no compartir Firebase, usuarios, Firestore, backend ni código común;
-- no romper login, ADMIN, carteras, persistencia o alarmas existentes.
+**Código implementado. Pendiente de aceptación runtime.**
 
-Secuencia:
+Secuencia de cierre:
 
-1. inventario diferencial Trading vs Cubetos/Muros;
-2. seleccionar mejoras objetivas;
-3. implementarlas dentro de Trading con infraestructura propia;
-4. comprobar mismo usuario → misma cartera → mismo estado privado → mismas alarmas;
-5. retirar código antiguo sólo si la sustitución está validada;
-6. cerrar remates residuales de alertas sólo si forman parte del alcance V1.
+1. ejecutar una única vez `Producto · cierre rápido`;
+2. debe pasar el guard de superficie ampliado a **32 invariantes** y TypeScript;
+3. abrir ADMIN y comprobar usuarios/búsqueda/verificación/audit;
+4. realizar una operación reversible sobre usuario de prueba y confirmar aparición en actividad reciente;
+5. confirmar que la cartera del usuario principal sigue intacta;
+6. no ejecutar replay largo.
 
-Criterio DONE: Trading mantiene autonomía completa y conserva las capacidades actuales, con mejoras de usuarios/ADMIN sólo donde aporten valor probado.
+Si todo pasa, 2A queda DONE.
+
+### 2B — alertas/autonomía
+
+**Operativa en la configuración actual.**
+
+Antes de tocarla se decide expresamente si V1 requiere generalización multiusuario. El posible `ROTATE_NOW` residual debe auditarse antes de otorgarle autoridad canónica. No se rehacen Telegram ni scheduler que ya funcionan.
 
 ## FASE 3 — PROTOCOLO ECONÓMICO FINAL
 
-**Estado: NEXT.**
+**NEXT una vez cerrado 2A y decidido el alcance residual de 2B.**
 
-Antes de nuevas políticas congelar:
+Congelar antes de nuevas muestras:
 
 - métricas PASS/FAIL;
 - definición fresh/blind/OOS;
@@ -342,47 +346,37 @@ Antes de nuevas políticas congelar:
 
 ## FASE 4 — REENTRADA DESPUÉS DE UNA SALIDA ERRÓNEA
 
-**Estado: PENDIENTE RESEARCH.**
-
-Diseñar hipótesis general sin thresholds derivados de HFG y validar fresh/OOS.
+**PENDIENTE RESEARCH.** Diseñar hipótesis general sin thresholds derivados de HFG y validar fresh/OOS.
 
 ## FASE 5 — PROTECCIÓN DE GRANDES GANADORES
 
-**Estado: PENDIENTE RESEARCH.**
-
-Diseñar política antes de abrir nueva muestra. HFG es diagnóstico consumido y no fija el `REDUCE 50%` productivo.
+**PENDIENTE RESEARCH.** Diseñar política antes de abrir nueva muestra. HFG no fija política productiva.
 
 ## FASE 6 — FORWARD RISK V8 COMO CONTEXTO
 
-**Estado: PENDIENTE RESEARCH.**
-
-Explorar contexto de riesgo, sizing, ranking, alertas, stress o margen de seguridad. No ON/OFF diario directo ni V12/V13 retrospectivo.
+**PENDIENTE RESEARCH.** Explorar contexto de riesgo, sizing, ranking, alertas, stress o margen de seguridad. No ON/OFF diario directo ni V12/V13 retrospectivo.
 
 ## FASE 7 — QUALITY FUTURE FORWARD
 
-**Estado: WAITING / COLLECTING EN PARALELO.**
+**WAITING / COLLECTING EN PARALELO.**
 
 - 1/12 observaciones;
 - 0 outcomes maduros a 2026-09-11;
 - producción `LEGACY`;
 - 25 archivos metodológicos congelados;
-- siguiente observación nueva: **2026-10-09 22:30–24:00 Europe/Madrid**.
+- siguiente observación: **2026-10-09 22:30–24:00 Europe/Madrid**.
 
 ## FASE 8 — UNIVERSO HISTÓRICO POINT-IN-TIME
 
-**Estado: PENDIENTE.**
-
-Instrument master histórico con listings, delistings, cambios de ticker/mercado y disponibilidad por fecha.
+**PENDIENTE.** Instrument master histórico con listings, delistings, cambios de ticker/mercado y disponibilidad por fecha.
 
 ## FASE 9 — AUDITORÍA END-TO-END Y CIERRE V1
 
-Revisar producto current/live, usuarios/seguridad, alertas, replay causal, regímenes de mercado, cartera desde cero/manual/actual, cash/flujos, costes/fiscalidad, benchmarks y límites de evidencia económica.
+Revisar producto current/live, usuarios/seguridad, alertas, replay causal, regímenes, cartera, cash/flujos, costes/fiscalidad, benchmarks y límites de evidencia económica.
 
 ## FASE 10 — EXPANSIONES V2
 
-**Estado: DEFERRED.**
-
-USD/Nasdaq/NYSE con FX, listings jóvenes/IPO, fundamentales, revisiones de beneficios, volumen avanzado, taxonomía sectorial robusta, proveedor/instrument master más exhaustivo, broker API/ejecución automática si se justifica y RL/FinRL sólo si aporta valor.
+**DEFERRED.** USD/Nasdaq/NYSE con FX, IPO/listings jóvenes, fundamentales, revisiones, volumen avanzado, taxonomía sectorial, proveedor/instrument master más exhaustivo, broker API si se justifica y RL/FinRL sólo si aporta valor.
 
 ---
 
@@ -409,29 +403,29 @@ Fase 10 después del cierre V1
 
 # 12. Qué NO es trabajo pendiente
 
-No reabrir como tareas activas:
+No reabrir:
 
 - V9/V10/V11;
 - SLOPE_V1;
 - QUALITY_V1 retrospectivo;
 - QUALITY_ALLOCATION_BRIDGE_V1 retrospectivo;
 - HFG como muestra de promoción;
-- antiguos motores/pantallas productivos duplicados;
-- replays independientes por variante;
-- nuevos jobs por activo concreto;
-- retuning de Top64/Opportunity con snapshots ya observados;
+- motores/pantallas/replays duplicados;
+- jobs específicos por activo;
+- retuning de Top64/Opportunity con snapshots observados;
 - V12/V13 como parameter chasing;
-- reconstruir Firebase/usuarios/Telegram de Trading desde cero;
-- unificar o compartir el sistema de usuarios entre Trading y Cubetos/Muros.
+- reconstruir Firebase/usuarios/Telegram desde cero;
+- copiar planes/entitlements/monetización de Cubetos/Muros;
+- compartir sistema de usuarios entre aplicaciones.
 
 ---
 
 # 13. Siguiente paso operativo
 
-1. trabajar en **Fase 2** con una comparación diferencial Trading vs Cubetos/Muros;
-2. Cubetos/Muros se usa sólo como referencia de patrones probados;
-3. mantener intacto todo lo que ya funciona en Trading;
-4. después cerrar **Fase 3** documentalmente antes de abrir muestras nuevas;
-5. continuar Fase 7 sólo por calendario;
-6. no abrir Fases 4–6 hasta congelar el protocolo económico;
-7. no tocar los 25 archivos congelados de Future Forward para avanzar otras fases.
+1. **No escribir más código de Fase 2A antes del quick closure.**
+2. Ejecutar `Producto · cierre rápido` sobre el HEAD actual.
+3. Si PASS, hacer smoke manual mínimo de ADMIN/audit sin tocar motor financiero.
+4. Si ambos pasan, marcar 2A DONE.
+5. Decidir explícitamente el alcance V1 de 2B antes de modificar alertas operativas.
+6. Después congelar Fase 3 antes de abrir nuevas muestras.
+7. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
