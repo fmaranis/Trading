@@ -151,6 +151,19 @@ accountRouter.get('/me', async (req: Request, res: Response): Promise<void> => {
   });
 });
 
+accountRouter.get('/session-status', async (req: Request, res: Response): Promise<void> => {
+  const account = await verifyAccount(req, res);
+  if (!account) return;
+  const { auth } = firebaseAdminServices();
+  const user = await auth.getUser(account.uid);
+  res.json({
+    uid: user.uid,
+    disabled: user.disabled,
+    isAdmin: user.customClaims?.isAdmin === true,
+    accessGranted: user.customClaims?.accessGranted === true || user.customClaims?.isAdmin === true
+  });
+});
+
 accountRouter.get('/state', async (req: Request, res: Response): Promise<void> => {
   const account = await requireActiveAccount(req, res);
   if (!account) return;
