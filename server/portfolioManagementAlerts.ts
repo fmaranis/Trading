@@ -7,12 +7,11 @@ import {
   type PortfolioPositionHealthResult,
   type PositionHealthContext
 } from '../src/investment/decision/portfolioPositionHealth';
-import { PortfolioRotationReviewEngine } from '../src/investment/decision/portfolioRotationReview';
 import { applyStrategicCoreShortTermProtection } from '../src/investment/decision/strategicCorePolicy';
 import { StrategyConsensusEngine } from '../src/investment/decision/strategyConsensusEngine';
 import { migrateUserPortfolioState, type UserPortfolioState } from '../src/investment/decision/userPortfolio';
 import type { PortfolioExecutionHistoryEntry } from '../src/investment/decision/portfolioExecutionHistory';
-import type { SpanishTaxSettings, TrackedTaxLot } from '../src/investment/decision/spanishTaxModel';
+import type { TrackedTaxLot } from '../src/investment/decision/spanishTaxModel';
 import { firebaseAdminConfigured, firebaseAdminServices } from './firebaseAdmin';
 import { notifyTelegramPortfolioManagement, telegramNotificationConfigured } from './telegramNotifier';
 
@@ -20,7 +19,6 @@ type ManagementAction = 'ADD' | 'WATCH' | 'REDUCE' | 'EXIT';
 
 interface PortfolioAlertState {
   lastDeliveredActions: Record<string, ManagementAction>;
-  lastDeliveredRotationKey: string | null;
   lastNotificationAt: string | null;
   lastMarketDate: string | null;
   lastError: string | null;
@@ -39,7 +37,6 @@ export interface PortfolioManagementAlertSummary {
 
 const EMPTY_ALERT_STATE: PortfolioAlertState = {
   lastDeliveredActions: {},
-  lastDeliveredRotationKey: null,
   lastNotificationAt: null,
   lastMarketDate: null,
   lastError: null,
@@ -82,14 +79,6 @@ function normalizeTaxLots(raw: unknown): Record<string, TrackedTaxLot[]> {
     if (normalized.length) result[ticker.trim().toUpperCase()] = normalized;
   }
   return result;
-}
-
-function normalizeTaxSettings(raw: unknown): SpanishTaxSettings {
-  const value: any = raw && typeof raw === 'object' ? raw : {};
-  return {
-    priorSavingsTaxableBaseEur: Math.max(0, Number(value.priorSavingsTaxableBaseEur) || 0),
-    contextConfirmed: value.contextConfirmed === true
-  };
 }
 
 function parseCashBenchmark(values: Record<string, unknown>, fallback: number): number {
@@ -293,7 +282,6 @@ function normalizeAlertState(raw: unknown): PortfolioAlertState {
   return {
     ...EMPTY_ALERT_STATE,
     lastDeliveredActions: actions,
-    lastDeliveredRotationKey: typeof value.lastDeliveredRotationKey === 'string' ? value.lastDeliveredRotationKey : null,
     lastNotificationAt: typeof value.lastNotificationAt === 'string' ? value.lastNotificationAt : null,
     lastMarketDate: typeof value.lastMarketDate === 'string' ? value.lastMarketDate : null,
     lastError: typeof value.lastError === 'string' ? value.lastError : null,
@@ -327,17 +315,8 @@ export async function runPortfolioManagementAlerts(input: {
     const portfolio = migrateUserPortfolioState(rawPortfolio);
     const executionHistory = normalizeExecutionHistory(parseStoredJson<unknown>(values, 'custodia_portfolio_execution_history_v1', []));
     const taxLots = normalizeTaxLots(parseStoredJson<unknown>(values, 'custodia_spanish_tax_lots_v1', {}));
-    const taxSettings = normalizeTaxSettings(parseStoredJson<unknown>(values, 'custodia_spanish_tax_settings_v1', {}));
     const cashBenchmarkAnnualPct = parseCashBenchmark(values, input.defaultCashBenchmarkAnnualPct);
     const health = await evaluateWithPrivateContext({ portfolio, scan: input.scan, cashBenchmarkAnnualPct, executionHistory, taxLots });
-    const rotation = PortfolioRotationReviewEngine.evaluate({
-      portfolio,
-      scan: input.scan,
-      positionHealth: health,
-      cashBenchmarkAnnualPct,
-      horizonYears: Math.max(1, Number(process.env.ALERT_HORIZON_YEARS) || 3),
-      privateContext: { taxSettings, taxLotsByTicker: taxLots }
-    });
 
     const previousSnapshot = await stateRef.get();
     const previous = normalizeAlertState(previousSnapshot.exists ? previousSnapshot.data() : null);
@@ -359,24 +338,13 @@ export async function runPortfolioManagementAlerts(input: {
         suggestedReductionPct: position.suggestedReductionPct
       }));
 
-    const rotationKey = rotation.status === 'ROTATE_NOW' && rotation.sourceId && rotation.targetAssetId
-      ? `${rotation.sourceId}->${rotation.targetAssetId}`
-      : null;
-    const rotationEvent = rotationKey && rotationKey !== previous.lastDeliveredRotationKey
-      ? {
-          sourceLabel: rotation.sourceLabel ?? rotation.sourceId ?? 'posición actual',
-          targetLabel: rotation.targetTicker ?? rotation.targetName ?? rotation.targetAssetId ?? 'destino',
-          reason: rotation.reason
-        }
-      : null;
-    const pendingEventCount = actionEvents.length + (rotationEvent ? 1 : 0);
+    const pendingEventCount = actionEvents.length;
 
     let notificationSent = false;
     if (pendingEventCount > 0) {
       notificationSent = await notifyTelegramPortfolioManagement({
         marketDate: input.marketDate,
-        actionEvents,
-        rotationEvent
+        actionEvents
       }).catch(() => false);
     }
 
@@ -385,18 +353,16 @@ export async function runPortfolioManagementAlerts(input: {
       if (currentActions[key] === action) retainedActions[key] = action;
     }
     const deliveredActions = notificationSent ? currentActions : retainedActions;
-    const nextRotationKey = notificationSent ? rotationKey : (rotationKey === previous.lastDeliveredRotationKey ? previous.lastDeliveredRotationKey : null);
     const now = new Date().toISOString();
     await stateRef.set({
       lastDeliveredActions: deliveredActions,
-      lastDeliveredRotationKey: nextRotationKey,
       lastNotificationAt: notificationSent ? now : previous.lastNotificationAt,
       lastMarketDate: input.marketDate,
       lastError: null,
       updatedAt: now,
       lastEvaluatedPositionCount: health.positions.length,
       lastPendingEventCount: pendingEventCount,
-      lastRotationStatus: rotation.status
+      lastRotationStatus: null
     }, { merge: false });
 
     return {
@@ -404,7 +370,7 @@ export async function runPortfolioManagementAlerts(input: {
       evaluated: true,
       evaluatedPositions: health.positions.length,
       pendingEventCount,
-      rotationStatus: rotation.status,
+      rotationStatus: null,
       notificationSent,
       error: null
     };
