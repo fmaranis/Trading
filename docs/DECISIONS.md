@@ -1,6 +1,6 @@
 # Trading — Permanent Architecture & Product Decisions
 
-This document records durable decisions that should survive chat changes. Operational status and the next task live in `PROJECT_STATE.md`.
+This document records durable decisions that should survive chat changes. Operational status and the next task live in `PROJECT_STATE.md`. The master flow and closure route live in `docs/APP_FLOW_AND_ROADMAP.md`.
 
 ## D1. Repository is the memory source of truth
 
@@ -38,9 +38,11 @@ This document records durable decisions that should survive chat changes. Operat
 
 **Decision:** the current-queryable universe may support causal research evidence but retains an explicit residual survivorship/catalog warning.
 
-## D10. Scanner diversification by exposure category
+## D10. Discovery shortlist and diversification are separate layers
 
-**Decision:** shortlist selection permits at most one selected asset per category and tries to retain a defensive exposure when available.
+**Decision:** the product shortlist is a **dynamic Top64 maximum/target**, not a fixed whitelist and not a one-asset-per-category selector. `AssetUniverseScanner` discovers/ranks the current REAL candidates; when the dynamic shortlist is applied, up to 64 valid candidates may remain even when several share an exposure category. Diversification, concentration limits and category caps belong downstream in `PortfolioCandidateGate` / allocation. A defensive exposure may be considered by those downstream policies, but discovery must not suppress otherwise valid candidates merely to enforce one-per-category.
+
+This decision supersedes the earlier scanner-level one-per-category rule for the canonical current/live product. Historical research engines that explicitly reproduce an older formula must remain labeled as research/legacy diagnostics and cannot redefine production architecture.
 
 ## D11. Confidence is evidence quality, not probability of profit
 
@@ -48,7 +50,7 @@ This document records durable decisions that should survive chat changes. Operat
 
 ## D12. Risk-profile methods
 
-LOW → Inverse Volatility; MEDIUM → Risk Parity ERC; HIGH → Relative Momentum. Regime logic may increase cash defensively.
+LOW → Inverse Volatility; MEDIUM → Risk Parity ERC; HIGH → Relative Momentum. Regime logic may increase cash defensively where the relevant engine/policy uses those methods. This historical allocation-method mapping does not override the current canonical `PortfolioDecisionEngine -> CORE_GATE_V1 -> CORE_ARCHITECTURE_V1` chain.
 
 ## D13. Broker constraints must alter the executable plan
 
@@ -94,13 +96,13 @@ LOW → Inverse Volatility; MEDIUM → Risk Parity ERC; HIGH → Relative Moment
 
 Base broker-aware rules are implemented in `costAwareExecutionPolicy.ts`: whole ETF shares, MyInvestor min/max commission, sell-before-buy ordering, no negative cash, drift threshold, minimum order notional, maximum fee drag per order and maximum fee budget per rebalance.
 
-`brokerAwareCausalReplay.ts` replays the already-causal research selection dates under execution constraints. It remains an ETF execution diagnostic and may hold fund target weights as cash.
+`brokerAwareCausalReplay.ts` replays already-causal research selection dates under execution constraints. It remains a research execution diagnostic, not a second product decision engine.
 
 ## D23. Execution thresholds adapt to capital; mixed ETF/fund replay uses instrument-specific semantics
 
 **Decision:** execution quality cannot use one fixed threshold set for 100 EUR and 25,000 EUR. `adaptiveExecutionPolicy.ts` chooses a deterministic capital band and changes only execution thresholds, never research scores or target weights.
 
-Current bands:
+Current historical/research bands:
 
 - MICRO `<300 EUR`: 12 pp minimum drift, 100 EUR minimum ETF order, 1.25% max order fee drag, 0.50% max rebalance fee budget;
 - SMALL `300–999 EUR`: 8 pp, 80 EUR, 1.50%, 0.75%;
@@ -110,19 +112,23 @@ Current bands:
 
 **Mixed replay:** `mixedInstrumentCausalReplay.ts` models ETFs/ETCs as whole-share broker orders but mutual funds by EUR amount and NAV with fractional units. ETF target weights are measured against total portfolio equity, including remaining mutual-fund value.
 
-**Fund operations:** historical fund operations may be labeled `SUBSCRIBE`, `REDEEM` or `TRANSFER_REVIEW`. `TRANSFER_REVIEW` is only a possible transfer candidate; it never asserts tax eligibility. Fund subscriptions/redemptions currently assume no explicit transaction commission in the diagnostic and do not simulate settlement delays, taxation or transfer processing time.
+**Fund operations:** historical fund operations may be labeled `SUBSCRIBE`, `REDEEM` or `TRANSFER_REVIEW`. `TRANSFER_REVIEW` is only a possible transfer candidate; it never asserts tax eligibility. Fund subscriptions/redemptions currently assume no explicit transaction commission in the diagnostic and do not simulate settlement delays, taxation or transfer processing time unless a later canonical replay layer explicitly models them.
 
-**Validation:** the capital sweep must report both adaptive ETF-only execution and mixed ETF+fund execution for 100, 334, 500, 1,000, 5,000 and 25,000 EUR. These outputs are historical execution diagnostics, not forecasts.
+These outputs are historical execution diagnostics, not forecasts and not an alternative product execution chain.
 
 ## D24. Primary UI is decision-first; research tools must not duplicate the actionable flow
 
-**Decision:** the main page should communicate one hierarchy: current decision → real portfolio → pending manual operations → alerts. Technical/research evidence may remain available but must not repeat a second execution plan or a weaker backtest beside the validated causal evidence.
+**Decision:** the main page communicates one hierarchy: current decision → real portfolio → executable/review plan → registration/follow-up. Technical/research evidence may remain available but must not emit a second actionable decision or execution plan.
 
-**UI cleanup:** the simple allocation-backtest card was removed from the primary decision page; the duplicate static ETF execution summary was removed because `PortfolioExecutionPlanPanel` is now the actionable execution surface; provider details and decision history are collapsed by default. `portfolio.html` is explicitly labeled **Laboratorio cuantitativo**, not “Cartera”, because it uses a research universe and simulated capital. `legacy.html` remains available only as a historical/experimental interface.
+**Current route contract:**
 
-**Fund-selection rule:** zero historical fund operations must not be “fixed” by forcing funds into the shortlist. The live sweep must diagnose each fund's 252-bar causal eligibility, current acceptance, current shortlist status and historical selection appearances. A fund with insufficient pre-decision history is distinct from a fund that was eligible but lost on score/category deduplication.
+- `/` is the canonical actionable product surface;
+- `/portfolio.html` is explicitly a quantitative/research laboratory with no authority to emit an alternative product recommendation;
+- `/legacy.html` **does not expose the old product**; it redirects to `/` and is not a supported historical/experimental actionable interface.
 
-**Regression rule:** `mixedInstrumentCausalReplay.unit.ts` must prove independently that when a causal selection genuinely includes a mutual fund, the mixed engine can subscribe it and later release/review it without negative cash. This separates engine capability from live-universe selection evidence.
+`MarketUtilityDashboard` owns one canonical `portfolioDecision` and one downstream execution plan. Product child panels consume those same objects rather than recalculating gates/portfolio decisions independently.
+
+Research-only cards, older engines and compatibility adapters may remain in the repository for research/history, but they do not acquire product authority by being present in code.
 
 ## D25. Broker availability is an evidence state, not an assumption
 
@@ -130,81 +136,85 @@ Current bands:
 
 Current first-party MyInvestor evidence may set `CONFIRMED_MYINVESTOR`. Historical first-party evidence does not prove current availability and therefore remains `REQUIRES_INVERSIS_LOOKUP`. Failure to find an instrument on a public MyInvestor page is never, by itself, proof of unavailability.
 
-As of 2026-08-28, first-party MyInvestor content supports current MyInvestor presence for Vanguard Global Stock Index `IE00B03HD191`, Vanguard Emerging Markets Stock Index `IE0031786696`, and Vanguard U.S. 500 Stock Index `IE0032126645`. Vanguard ESG Developed World `IE00B5456744` has historical MyInvestor evidence but current standalone availability is not proven. Active shortlisted ETFs remain `REQUIRES_INVERSIS_LOOKUP` until their exact ISIN/ticker is confirmed.
+As of 2026-08-28, first-party MyInvestor content supported MyInvestor presence for the documented Vanguard examples at that date; those observations are evidence snapshots, not a guarantee of permanent availability. Exact current ticker/ISIN availability can still require current verification.
 
 A recommendation may remain research-valid while broker availability is pending, but it must not be represented as broker-confirmed/executable solely from exchange listing or third-party broker evidence.
 
-## D26. User broker confirmations are persistent evidence and must remain distinguishishable from official evidence
+## D26. User broker confirmations are persistent evidence and remain separate from official evidence
 
-**Decision:** the user may manually confirm whether an exact ISIN/ticker is available in their MyInvestor account. `ManualMyInvestorAvailabilityService` persists that result by normalized ISIN/ticker in browser localStorage.
+**Decision:** the user may manually confirm whether an exact ISIN/ticker is available in their MyInvestor account. `ManualMyInvestorAvailabilityService` keeps that confirmation logically separate from first-party/public evidence.
 
-Manual `AVAILABLE` becomes the effective `CONFIRMED_MYINVESTOR` state with evidence `USER_CONFIRMED_MYINVESTOR` and must render as **“Confirmado por ti en MyInvestor”**. Manual `UNAVAILABLE` becomes `USER_CONFIRMED_UNAVAILABLE`; it means only that the user did not find the instrument at the recorded time and must not be presented as an official delisting or global unavailability claim.
+Manual `AVAILABLE` becomes the effective `CONFIRMED_MYINVESTOR` state with evidence `USER_CONFIRMED_MYINVESTOR` and renders as user-confirmed evidence. Manual `UNAVAILABLE` becomes `USER_CONFIRMED_UNAVAILABLE`; it means only that the user did not find the instrument at the recorded time and must not be presented as an official delisting or global unavailability claim.
 
-Manual evidence has precedence in the actionable UI but does not mutate the separate first-party/public evidence registry. Removing the manual confirmation restores the underlying public evidence state. Confirmation controls belong on BUY/SUBSCRIBE/TRANSFER targets in `Operaciones pendientes`, keyed by exact ISIN/ticker.
+Manual evidence has precedence in the actionable UI but does not mutate the separate public evidence registry. Removing the manual confirmation restores the underlying public evidence state.
 
-Current persistence is device/browser-local. Cross-device/account sync requires a future authenticated storage layer and must not be implied before it exists.
+**Persistence:** the service may use the existing local representation/cache, but authenticated private-state synchronization includes `custodia_myinvestor_manual_availability_v1` in Firestore by UID. Therefore the canonical deployed architecture is no longer “device-only”: after authenticated cloud-state hydration/sync, this private evidence can persist with the user's account while remaining isolated from other users. Local storage remains a cache/representation, not the shared identity source.
 
-`tests/brokerAvailability.unit.ts` must preserve persistence, available/unavailable override semantics, deletion/restoration, and separation of manual vs official evidence.
+`tests/brokerAvailability.unit.ts` must preserve available/unavailable override semantics, deletion/restoration and separation of manual vs official evidence. Private-user security tests must protect cross-user isolation of synchronized state.
 
 ## D27. Cash remuneration is an execution hurdle for new investment
 
-**Decision:** cash held in the user's remunerated MyInvestor account has an opportunity cost. The research ranking remains independent, but `Operaciones pendientes` must not propose deploying new cash into an ETF/fund unless the current return proxy beats the configured annual cash benchmark after modeled ETF entry commission.
+**Decision:** cash held in a remunerated account has an opportunity cost. Research ranking remains independent, but the executable layer must not present deployment of new cash as mandatory when the configured cash hurdle is not cleared.
 
-The default user benchmark is **2.5% annual**, stored separately in `cashBenchmark.ts` / browser localStorage and editable from the execution-plan UI because the account remuneration may change.
+The current cash benchmark is user/configuration state and may change. It must not be described as a permanently guaranteed broker rate.
 
-The current comparison proxy annualizes the scanner's REAL trailing 120-session momentum to 252 sessions. For ETFs, estimated entry commission drag is subtracted from the first-year proxy before comparison. Funds currently use zero explicit transaction commission because broker-specific fund fees remain unverified. This proxy is historical/diagnostic and must never be described as a forecast or guaranteed expected return.
-
-If the net proxy is `<=` the cash benchmark, or cannot be computed, the target becomes `REVIEW` with explicit **“Mantener en cuenta / no invertir todavía”** wording. The theoretical research signal is preserved for auditability; only execution is suppressed. The same hurdle applies to a proposed fund destination before suggesting a transfer, while tax/operational transfer considerations remain separate.
-
-`tests/portfolioExecutionPlan.unit.ts` must prove that investments beating the benchmark can remain actionable and investments below it are suppressed to review.
+Historical/current comparison proxies remain diagnostic evidence, not forecasts or guaranteed expected returns. Execution suppression preserves the underlying theoretical/research signal for auditability.
 
 ## D28. Historical execution must compete against remunerated cash on identical dates
 
-**Decision:** the historical executable replay must measure whether taking investment risk added value versus leaving the same starting capital in the configured remunerated cash account.
+**Decision:** historical executable replay must measure whether taking investment risk added value versus leaving the same starting capital in the selected cash benchmark over identical dates.
 
-`remuneratedCash.ts` compounds the annual cash reference across actual calendar-day gaps using a 365-day basis. `MixedInstrumentCausalReplayEngine` applies that growth only to the residual cash balance while ETF/fund positions remain invested. In parallel, an all-cash benchmark keeps the complete initial capital remunerated from the first replay date to the last.
+The replay must keep portfolio cash accounting and cash-benchmark accounting independent, avoid duplicated interest/tax, and expose comparable final/excess metrics. When external cash flows exist, they are not return and must be reflected through flow-adjusted metrics; a benchmark that cannot receive equivalent flows must be shown as N/D rather than invented.
 
-The replay must expose final all-cash value/return, interest earned by strategy residual cash, final EUR excess versus all-cash, percentage-point excess, and a boolean indicating whether the strategy beat cash. A no-trade replay must exactly equal the all-cash benchmark; a 0% cash rate must reproduce the legacy no-trade result.
-
-The primary app must show this comparison on demand, using the currently selected capital, risk profile, horizon and cash benchmark. It must not run automatically at page startup because the causal replay is materially heavier than the current-decision calculation.
-
-This comparison remains historical diagnostic evidence. It must not be described as an expected return or guarantee, and the configured cash rate itself must not be presented as permanently guaranteed by the broker.
+This comparison remains historical diagnostic evidence and is not an expected return or guarantee.
 
 ## D29. Product UX is a unified decision loop, not a dashboard of disconnected analytics
 
-**Decision:** the default user experience must answer an investment question and lead directly into the user's portfolio. The page must not require the user to manually open multiple independent panels to discover whether the system recommends buying, selling or doing nothing.
+**Decision:** the default user experience answers the investment question and leads into the user's portfolio without requiring the user to reconcile independent engines.
 
-The normal entry flow is now: automatic REAL market refresh after first paint → current guardrails → explicit actionable recommendation → real portfolio → historical recommendation simulator → alerts. Heavy research charts and provider diagnostics remain secondary/lazy.
+The actionable hierarchy is: complete current market/portfolio evidence → canonical portfolio decision → single executable/review plan → registration of real execution → follow-up. Heavy research charts/provider diagnostics remain secondary.
 
-`PortfolioExecutionPlanPanel` must auto-generate from the current portfolio and market decision and begin with a plain conclusion such as one or more concrete operations or **HOY: MANTENER / NO FORZAR OPERACIONES**. A manual recalculate control may remain, but calculation must not depend on pressing it.
-
-Saved `MarketSnapshotHistoryService` recommendations are not merely audit rows: they are product data. `RecommendationSimulationPanel` must let the user select a saved recommendation, apply a simulated capital amount, use the first executable post-decision market bar, respect ETF whole-share commissions and fund fractional units, remunerate uninvested cash, and show what the recommendation would be worth at the latest REAL price versus leaving the same capital in cash.
-
-The app may preserve rich analytics, but new analytical widgets should not be added to the primary page unless they change or explain the actionable decision. Research-only tools belong behind a secondary detail surface.
+The app may preserve rich analytics, but new analytical widgets should not be added to the primary page unless they change or explain the canonical actionable decision. Research-only tools belong behind secondary/lab surfaces and have no independent execution authority.
 
 ## D30. Core usefulness must not require paid external data subscriptions
 
-**Decision:** the primary decision, historical replay, strategy comparison and portfolio simulation must remain usable with the free/zero-incremental-cost data paths already available to the application. No new strategy may make a paid market-data/news/fundamental subscription a runtime requirement.
+**Decision:** the primary decision, historical replay, strategy comparison and portfolio simulation should remain usable with free/zero-incremental-cost data paths available to the application where feasible. No new strategy may silently make a paid market-data/news/fundamental subscription a runtime requirement.
 
-A free source may be replaced if it becomes unreliable, but the architecture must degrade explicitly rather than silently fabricating data or forcing a paid plan. Premium fundamentals/news may only be optional future evidence layers; they cannot be required for the core engine.
+A free source may be replaced if it becomes unreliable, but the architecture must degrade explicitly rather than silently fabricating data or forcing a paid plan. Premium fundamentals/news may only be optional future evidence layers unless an explicit future architecture decision changes this rule.
 
 ## D31. Allocation drift is not a sell signal; existing holdings have a higher action threshold
 
-**Decision:** a position being above its theoretical target weight is diagnostic information, not sufficient evidence to sell. `PortfolioDecisionEngine` must not emit `REDUCE`/`REVIEW_TRANSFER` solely because a category exceeds the allocation target by the drift threshold.
+**Decision:** a position being above theoretical target weight is diagnostic information, not sufficient evidence to sell. Existing positions require stronger health/deterioration evidence than new-money decisions.
 
-Existing positions require stronger evidence than new-money decisions. `StrategyConsensusEngine` currently evaluates five explainable signals from existing price data: long trend, 120-session momentum, mean-reversion/buy-the-dip context, risk, and the remunerated-cash hurdle. A weak recent window or an overweight category alone cannot authorise a sell. Reduction review requires structural deterioration plus several adverse signals.
-
-The portfolio UI must label target gaps as **distribución teórica**, not “qué hacer”. Executable orders remain a separate downstream layer.
+A weak recent window or an overweight category alone cannot authorise a sell. The portfolio UI must distinguish theoretical distribution from executable action. Current health decisions flow through the canonical portfolio/health chain and downstream execution controls.
 
 ## D32. Historical dated-decision replay is a mandatory sanity check before promoting new strategy logic
 
-**Decision:** `HistoricalDecisionReplayEngine` must be able to answer “what would the app have recommended at this historical date, using only information available then, and what would that recommendation be worth at the latest REAL date?”
+**Decision:** historical decision/replay research must answer what the app could have known and recommended at a historical date using only information available then, with execution after the signal.
 
-For each requested annual/quarterly start date it causally rebuilds the scanner shortlist using the same momentum/risk/category-diversification formula, runs the decision engine, executes on the next available bar, applies ETF whole-share commissions / fund fractional units, remunerates residual and target cash, and compares the result with all-cash over the same dates.
+Historical research engines that reproduce older shortlist/allocation formulas remain diagnostic and must be labeled accordingly. They do not override the current dynamic-Top64 product architecture.
 
-The batch result must report hit-rate versus cash, median return, median excess versus cash, best/worst start dates, and drill-down allocations. Future prices may alter the eventual outcome but must never alter the reconstructed historical regime, method or target weights.
+The current historical universe retains survivorship/catalog limitations and must say so. Promotion of new policy logic requires frozen rules and fresh/blind/OOS evidence appropriate to the claim; historical sanity checks are not survivorship-bias-free proof.
 
-The current replay still retains present-catalog survivorship bias and must say so. It is a strong causal sanity check, not yet survivorship-bias-free proof. The next strategy-validation layer should compare Inverse Volatility, Risk Parity ERC, Relative Momentum, Mean Reversion and an explainable ensemble over repeated historical/OOS windows before any new motor is allowed to control production actions.
+## D33. Dynamic market selection is the canonical product discovery architecture
+
+**Decision:** current/live production uses `AssetUniverseScanner -> dynamic Top64 -> PortfolioCandidateGate`. The 64 names are not frozen; the rules are. Yahoo current discovery cannot be used retrospectively to invent a historical universe. `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md` is normative for this point.
+
+## D34. Product decisions and economic research are one chain with different authority
+
+**Decision:** research may add audit fields, shadow modes or explicit research options inside existing architecture, but must not create independent product engines. Production remains `LEGACY` until a candidate policy has valid fresh evidence. A research FAIL does not automatically invalidate the predictive information feeding it.
+
+## D35. Private account state is cloud-persisted by UID in the deployed architecture
+
+**Decision:** Firebase Authentication + server-side token verification + Firebase Admin SDK + Firestore private state form the canonical account/persistence architecture. `localStorage` is an isolated cache/representation after authentication, not the source of user identity. An admin may manage account metadata/claims but must not gain client access to another user's private financial state.
+
+## D36. Operational alerts must reuse canonical/shared decision logic
+
+**Decision:** backend alert automation must not duplicate trading rules. Entry alerts reuse the existing opportunity engine; portfolio-management alerts must reuse shared portfolio-health/canonical decision logic and maintain dedupe per user. Any residual backend path capable of producing a rotation/action through a non-canonical engine must be audited before V1 operational closure.
+
+## D37. Methodological samples are consumable evidence
+
+**Decision:** once a historical sample has been used to design or interpret a candidate economic policy, it is consumed for promotion. It may still diagnose causal reach, bugs, architecture or signal behavior, but thresholds/coefficients/confirmation rules cannot be retuned on that sample and then presented as validated. Promotion requires policy freeze before fresh/blind/OOS evidence.
 
 ## Change protocol
 
@@ -213,4 +223,5 @@ When a durable decision changes:
 1. modify the relevant section rather than silently contradicting it elsewhere;
 2. record the reason;
 3. update `PROJECT_STATE.md` if it affects current status or next steps;
-4. add/update deterministic tests where executable behaviour changes.
+4. add/update deterministic tests where executable behaviour changes;
+5. keep `docs/APP_FLOW_AND_ROADMAP.md` aligned when the change affects the closure route.
