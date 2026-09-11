@@ -23,6 +23,47 @@ const CLOUD_STATE_KEYS = new Set([
 const MAX_STATE_BYTES = 1_500_000;
 const ADMIN_AUDIT_COLLECTION = 'admin_audit_log';
 
+export interface ManagedUserPatchInput {
+  accessGranted?: boolean;
+  disabled?: boolean;
+  isAdmin?: boolean;
+}
+
+export interface ManagedUserPatchResolution {
+  nextIsAdmin: boolean;
+  nextAccessGranted: boolean;
+  nextDisabled: boolean;
+  error: 'ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST' | null;
+}
+
+export function resolveManagedUserPatch(
+  currentClaims: Record<string, unknown> | undefined,
+  currentDisabled: boolean,
+  patch: ManagedUserPatchInput
+): ManagedUserPatchResolution {
+  const currentIsAdmin = currentClaims?.isAdmin === true;
+  const currentAccessGranted = currentClaims?.accessGranted === true || currentIsAdmin;
+  const nextIsAdmin = typeof patch.isAdmin === 'boolean' ? patch.isAdmin : currentIsAdmin;
+  const requestedAccess = typeof patch.accessGranted === 'boolean' ? patch.accessGranted : currentAccessGranted;
+  const nextDisabled = typeof patch.disabled === 'boolean' ? patch.disabled : currentDisabled;
+
+  if (patch.accessGranted === false && currentIsAdmin && patch.isAdmin !== false) {
+    return {
+      nextIsAdmin,
+      nextAccessGranted: true,
+      nextDisabled,
+      error: 'ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST'
+    };
+  }
+
+  return {
+    nextIsAdmin,
+    nextAccessGranted: nextIsAdmin ? true : requestedAccess,
+    nextDisabled,
+    error: null
+  };
+}
+
 function profileStatus(claims: Record<string, unknown> | undefined, disabled = false): 'ACTIVE' | 'PENDING' | 'DISABLED' {
   if (disabled) return 'DISABLED';
   return claims?.accessGranted === true || claims?.isAdmin === true ? 'ACTIVE' : 'PENDING';
@@ -274,35 +315,48 @@ accountRouter.patch('/admin/users/:uid', async (req: Request, res: Response): Pr
     const target = await auth.getUser(uid);
     const before = userAuditSnapshot(target);
     const currentClaims = { ...(target.customClaims ?? {}) };
-    const wantsAdmin = typeof req.body?.isAdmin === 'boolean' ? req.body.isAdmin : currentClaims.isAdmin === true;
-    const wantsAccess = typeof req.body?.accessGranted === 'boolean' ? req.body.accessGranted : currentClaims.accessGranted === true || currentClaims.isAdmin === true;
-    const wantsDisabled = typeof req.body?.disabled === 'boolean' ? req.body.disabled : target.disabled;
+    const resolution = resolveManagedUserPatch(currentClaims, target.disabled, req.body ?? {});
 
-    if (uid === admin.uid && (wantsAdmin === false || wantsAccess === false || wantsDisabled === true)) {
+    if (uid === admin.uid && (!resolution.nextIsAdmin || !resolution.nextAccessGranted || resolution.nextDisabled)) {
       res.status(400).json({ error: 'ADMIN_CANNOT_REVOKE_OR_DISABLE_SELF' });
       return;
     }
-    if (req.body?.accessGranted === false && currentClaims.isAdmin === true && req.body?.isAdmin !== false) {
-      res.status(400).json({ error: 'ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST' });
+    if (resolution.error) {
+      res.status(400).json({ error: resolution.error });
       return;
     }
-    if (target.customClaims?.isAdmin === true && wantsAdmin === false && await enabledAdminCount(uid) < 1) {
+    if (target.customClaims?.isAdmin === true && !resolution.nextIsAdmin && await enabledAdminCount(uid) < 1) {
       res.status(400).json({ error: 'CANNOT_REMOVE_LAST_ADMIN' });
       return;
     }
 
-    const nextClaims = { ...currentClaims, accessGranted: wantsAdmin ? true : wantsAccess, isAdmin: wantsAdmin };
+    const nextClaims = { ...currentClaims, accessGranted: resolution.nextAccessGranted, isAdmin: resolution.nextIsAdmin };
     await auth.setCustomUserClaims(uid, nextClaims);
-    if (target.disabled !== wantsDisabled) await auth.updateUser(uid, { disabled: wantsDisabled });
-    if (wantsDisabled || (!nextClaims.accessGranted && !nextClaims.isAdmin) || (target.customClaims?.isAdmin === true && nextClaims.isAdmin !== true)) {
+    if (target.disabled !== resolution.nextDisabled) await auth.updateUser(uid, { disabled: resolution.nextDisabled });
+    if (resolution.nextDisabled || (!nextClaims.accessGranted && !nextClaims.isAdmin) || (target.customClaims?.isAdmin === true && nextClaims.isAdmin !== true)) {
       await auth.revokeRefreshTokens(uid);
     }
     const updated = await auth.getUser(uid);
-    await writeProfile({ uid: updated.uid, email: updated.email, displayName: updated.displayName, disabled: updated.disabled, customClaims: nextClaims });
+    let profileSynced = true;
+    try {
+      await writeProfile({ uid: updated.uid, email: updated.email, displayName: updated.displayName, disabled: updated.disabled, customClaims: nextClaims });
+    } catch (profileError) {
+      profileSynced = false;
+      console.error('ADMIN_USER_PROFILE_SYNC_FAILED', profileError);
+    }
     const after = userAuditSnapshot(updated);
     const changedFields = (['accessGranted', 'isAdmin', 'disabled'] as const).filter(field => before[field] !== after[field]);
-    const auditLogged = await writeAdminAudit(admin, 'USER_UPDATED', uid, before, after, { changedFields });
-    res.json({ ok: true, uid, disabled: updated.disabled, accessGranted: nextClaims.accessGranted === true || nextClaims.isAdmin === true, isAdmin: nextClaims.isAdmin === true, tokenRefreshRequired: true, auditLogged });
+    const auditLogged = await writeAdminAudit(admin, 'USER_UPDATED', uid, before, after, { changedFields, profileSynced });
+    res.json({
+      ok: true,
+      uid,
+      disabled: updated.disabled,
+      accessGranted: nextClaims.accessGranted === true || nextClaims.isAdmin === true,
+      isAdmin: nextClaims.isAdmin === true,
+      tokenRefreshRequired: true,
+      profileSynced,
+      auditLogged
+    });
   } catch (error: any) {
     res.status(400).json({ error: error?.code || error?.message || String(error) });
   }
