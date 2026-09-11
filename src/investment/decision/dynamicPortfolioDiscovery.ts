@@ -97,6 +97,20 @@ export function registerLiveDiscoveredAsset(input: LiveDiscoveredAsset): AssetUn
   return registered;
 }
 
+/**
+ * Web Workers do not have window/localStorage, so persisted dynamic identities
+ * are not automatically present there. Replay already transfers its frozen
+ * catalogue in INIT; hydrate the same in-memory registry from that catalogue so
+ * downstream health classification sees the original Yahoo quote type without
+ * inventing a second source of instrument identity.
+ */
+export function hydrateDynamicPortfolioDiscoveryCatalog(assets: readonly AssetUniverseItem[]): void {
+  for (const asset of assets) {
+    if (!asset?.assetId?.startsWith('DYNAMIC_') || !asset.ticker || asset.currency !== 'EUR') continue;
+    dedupePush(withPreservedQuoteType({ ...asset }));
+  }
+}
+
 export function isDynamicDiscoveredEquityIdentity(identity: string | null | undefined): boolean {
   const normalized = String(identity ?? '').trim().toUpperCase();
   if (!normalized) return false;
