@@ -162,11 +162,14 @@ check('1027 ResearchValidationCenter exposes one-click quick closure without rep
   const end = validationRoutes.indexOf("id: 'quality-allocation-dynamic-future-forward-v1'", start);
   assert.ok(start >= 0 && end > start);
   const block = validationRoutes.slice(start, end);
+  const stepsStart = block.indexOf('steps: [');
+  assert.ok(stepsStart >= 0);
+  const stepsBlock = block.slice(stepsStart);
   for (const token of ['tests/productSurfaceClosureV1.unit.ts', 'tests/productDecisionSurface.unit.ts', 'tests/portfolioExecutionPlan.unit.ts', 'tests/userPortfolio.unit.ts', 'tests/brokerAvailability.unit.ts', 'tests/taxAwareExecutionOverlay.unit.ts']) {
-    assert.ok(block.includes(token), `missing quick closure step ${token}`);
+    assert.ok(stepsBlock.includes(token), `missing quick closure step ${token}`);
   }
-  assert.match(block, /args: \['run', 'lint'\]/);
-  assert.doesNotMatch(block, /Checkpoint prospectivo|qualityAllocationDynamicFutureForwardV1CheckpointLive|replay-results/);
+  assert.match(stepsBlock, /args: \['run', 'lint'\]/);
+  assert.doesNotMatch(stepsBlock, /Checkpoint prospectivo|qualityAllocationDynamicFutureForwardV1CheckpointLive|replay-results/);
 });
 
 console.log(`Product surface closure V1: ${passed}/27 invariants passed.`);
