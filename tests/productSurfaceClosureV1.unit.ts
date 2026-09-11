@@ -197,13 +197,16 @@ check('1030 Trading account creation rolls back an incomplete managed-user boots
   assert.match(accountRoutes, /recursiveDelete\(db\.doc\(`users\/\$\{createdUid\}`\)\)/);
   assert.match(accountRoutes, /auth\.deleteUser\(createdUid\)/);
 });
-check('1031 existing Trading admin surface adds verification evidence, confirmations and audit visibility in place', () => {
+check('1031 existing Trading admin surface keeps confirmations and generated links inside the app', () => {
   assert.match(accountRoutes, /emailVerified: user\.emailVerified/);
   assert.match(accountApi, /loadAdminAudit/);
   assert.match(adminUsersPanel, /Actividad administrativa reciente/);
   assert.match(adminUsersPanel, /Promise\.allSettled/);
   assert.match(adminUsersPanel, /auditError/);
-  assert.match(adminUsersPanel, /window\.confirm/);
+  assert.match(adminUsersPanel, /pendingAction/);
+  assert.match(adminUsersPanel, /Confirmar acción/);
+  assert.match(adminUsersPanel, /generatedLink/);
+  assert.doesNotMatch(adminUsersPanel, /window\.confirm\s*\(/);
 });
 check('1032 Trading user runtime remains independent from the Cubetos reference application', () => {
   for (const runtimeSource of [accountRoutes, accountApi, adminUsersPanel, authSecurity]) {
