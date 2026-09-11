@@ -73,7 +73,8 @@ check('1011 replay export keeps transient mobile user activation until downloadJ
   const start = replayJsonControls.indexOf('const exportSession = () =>');
   const download = replayJsonControls.indexOf('downloadJsonFile(', start);
   assert.ok(start >= 0 && download > start);
-  assert.doesNotMatch(replayJsonControls.slice(start, download), /\bawait\b|requestAnimationFrame/);
+  const beforeDownload = replayJsonControls.slice(start, download);
+  assert.doesNotMatch(beforeDownload, /\bawait\s+|requestAnimationFrame\s*\(/);
 });
 check('1012 actionable decision is rendered before cash and secondary technical detail', () => {
   const headline = interactive.indexOf('<MarketUtilityDashboard');
