@@ -1,5 +1,5 @@
 import { classifyPositionHealth, isDiversifiedCoreCategory } from '../src/investment/decision';
-import { registerLiveDiscoveredAsset } from '../src/investment/decision/dynamicPortfolioDiscovery';
+import { hydrateDynamicPortfolioDiscoveryCatalog, registerLiveDiscoveredAsset } from '../src/investment/decision/dynamicPortfolioDiscovery';
 
 let passed = 0;
 function check(name: string, condition: boolean) {
@@ -205,4 +205,27 @@ const currentLiveEquityContext: any = {
 const currentLiveEquityReduce = classifyPositionHealth({ ...weakSatellite, assetId: 'OPEN_HFG_DE', ticker: 'HFG.DE', name: 'HelloFresh current-live' }, -10, currentLiveEquityContext);
 check('825 a current-live OPEN equity uses listed-equity identity instead of broad-category core protection', currentLiveEquityReduce.action === 'REDUCE' && currentLiveEquityContext.isDiversifiedCore === false);
 
-console.log(`Portfolio position health: ${passed}/25 invariants passed.`);
+hydrateDynamicPortfolioDiscoveryCatalog([
+  {
+    assetId: 'DYNAMIC_WORKER_EQUITY_DE',
+    ticker: 'WRKR.DE',
+    name: 'Worker legacy equity',
+    category: 'EUROPE_EQUITY',
+    currency: 'EUR',
+    instrumentType: 'ETF_ETC',
+    marketDataProvider: 'YAHOO'
+  },
+  {
+    assetId: 'DYNAMIC_WORKER_ETF_DE',
+    ticker: 'WRKRETF.DE',
+    name: 'Worker ETF',
+    category: 'GLOBAL_EQUITY',
+    currency: 'EUR',
+    instrumentType: 'ETF_ETC',
+    marketDataProvider: 'YAHOO'
+  }
+]);
+check('826 replay-worker hydration restores legacy DYNAMIC equity identity without window/localStorage', !isDiversifiedCoreCategory('EUROPE_EQUITY', 'DYNAMIC_WORKER_EQUITY_DE'));
+check('827 replay-worker hydration does not misclassify a DYNAMIC ETF as a single stock', isDiversifiedCoreCategory('GLOBAL_EQUITY', 'DYNAMIC_WORKER_ETF_DE'));
+
+console.log(`Portfolio position health: ${passed}/27 invariants passed.`);
