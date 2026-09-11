@@ -12,6 +12,13 @@ export interface AccountMe {
   stateExists: boolean;
 }
 
+export interface AccountSessionStatus {
+  uid: string;
+  disabled: boolean;
+  isAdmin: boolean;
+  accessGranted: boolean;
+}
+
 export interface AdminUserRow {
   uid: string;
   email: string | null;
@@ -60,6 +67,10 @@ export async function bootstrapAccount(user: User): Promise<{ bootstrapped: bool
 
 export function loadAccountMe(user: User): Promise<AccountMe> {
   return accountFetch<AccountMe>(user, `${ACCOUNT_API_BASE}/me`);
+}
+
+export function loadAccountSessionStatus(user: User): Promise<AccountSessionStatus> {
+  return accountFetch<AccountSessionStatus>(user, `${ACCOUNT_API_BASE}/session-status`);
 }
 
 export function loadAdminUsers(user: User): Promise<{ users: AdminUserRow[]; callerUid: string }> {
