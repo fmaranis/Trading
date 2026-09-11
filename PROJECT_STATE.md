@@ -2,357 +2,241 @@
 
 > Repositorio canónico: `fmaranis/Trading/main`.
 >
-> Al retomar trabajo técnico: comprobar primero el HEAD real, leer este archivo y después consultar los documentos enlazados. Si un chat antiguo contradice el repositorio actual, manda el repositorio.
+> Al retomar trabajo técnico: comprobar primero el HEAD real de `main`, leer este archivo y después `docs/APP_FLOW_AND_ROADMAP.md`. Si un chat antiguo contradice el repositorio actual, manda el repositorio.
 
-# 1. Invariante principal de producto
+Documento maestro de flujo y cierre:
 
-Documento normativo:
+`docs/APP_FLOW_AND_ROADMAP.md`
+
+Documento normativo de selección dinámica:
 
 `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md`
+
+---
+
+# 0. RUTA ACTIVA DEL PROYECTO
+
+La ruta de trabajo queda congelada así hasta decisión explícita del usuario:
+
+```text
+FASE 0  MAPA MAESTRO Y ESTADO CANÓNICO        ← ACTIVA / cierre documental actual
+FASE 1  BASE PRODUCTIVA V1                    ← DONE salvo regresión material
+FASE 2  DESPLIEGUE / SEGURIDAD / AUTONOMÍA    ← NEXT, prioridad muy alta
+FASE 3  PROTOCOLO ECONÓMICO FINAL             ← NEXT después de Fase 2
+FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← research fresh/OOS
+FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← research fresh/OOS
+FASE 6  FORWARD RISK V8 COMO CONTEXTO         ← research posterior
+FASE 7  QUALITY FUTURE FORWARD                ← WAITING/COLLECTING en paralelo
+FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      ← pendiente para validación definitiva
+FASE 9  AUDITORÍA END-TO-END / CIERRE V1      ← final de los carriles anteriores
+FASE 10 EXPANSIONES V2                        ← DEFERRED
+```
+
+Regla de control:
+
+- no se abre la fase siguiente por aparecer una idea interesante;
+- primero se clasifica el hallazgo como `BUG`, `HYPOTHESIS`, `DEFERRED` o `RETIRED`;
+- se actualiza este archivo y el roadmap;
+- no se crea un nuevo motor/pantalla/job si la capacidad cabe en el flujo existente.
+
+Carriles paralelos permitidos:
+
+- **Producto/operación:** F0 → F1 → F2 → F9.
+- **Evidencia económica:** F3 → F4 → F5 → F6 → F9.
+- **Prospectivo por calendario:** F7, sin tocar sus fuentes congeladas.
+- **Datos históricos:** F8 → F9.
+- **V2:** F10 sólo después del cierre V1.
+
+---
+
+# 1. Invariante principal de producto
 
 La aplicación **NO** invierte dentro de una whitelist fija de 64 nombres.
 
 Objetivo:
 
-> buscar dinámicamente el mercado actual, identificar los activos más atractivos y fiables disponibles en ese momento, formar una shortlist dinámica de hasta 64 candidatos y decidir después si merece la pena entrar en alguno, cuánto asignar y por qué.
+> buscar dinámicamente el mercado actual, identificar candidatos atractivos y fiables, formar una shortlist dinámica de hasta 64 candidatos y decidir después si merece la pena entrar, mantener, reducir, salir o no hacer nada, cuánto asignar y por qué.
 
 Cadena canónica productiva:
 
-`mercado actual`
-`-> AssetUniverseScanner`
-`-> Top64 dinámico`
-`-> PortfolioCandidateGate`
-`-> InvestmentDecisionEngine`
-`-> PortfolioDecisionEngine`
-`-> evaluatePortfolioDecision`
-`-> CORE_GATE_V1`
-`-> CORE_ARCHITECTURE_V1`
-`-> plan ejecutable`
-`-> ejecución y seguimiento`
+```text
+mercado actual REAL
+→ AssetUniverseScanner
+→ Top64 dinámico
+→ PortfolioCandidateGate
+→ InvestmentDecisionEngine
+→ PortfolioDecisionEngine / evaluatePortfolioDecision
+→ CORE_GATE_V1
+→ CORE_ARCHITECTURE_V1
+→ buildPortfolioExecutionPlan
+→ applyTaxAwareExecutionOverlay
+→ COMPRAR / VENDER / TRASPASAR / REVIEW / NO HACER NADA
+→ ejecución manual
+→ registro y seguimiento
+```
 
-Reglas permanentes:
+La pregunta de producto se divide en:
 
-- 64 = target/máximo dinámico, no nombres permanentes.
-- Las identidades pueden cambiar en cada evaluación.
-- `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` = seed/bootstrap/fallback, no definición del mercado.
-- Top64 no autoriza compra.
-- Cash hurdle, consenso, timing, gates y allocation mantienen autoridad.
-- “No comprar nada” sigue siendo una salida válida.
-- Yahoo Search/Lookup actual nunca reconstruye retrospectivamente el universo histórico.
-- No deben existir superficies productivas capaces de emitir recomendaciones por una cadena paralela.
-- `COMPRAR AHORA / VENDER AHORA / TRASPASAR AHORA` sólo puede mostrarse si existe una línea ejecutable después de los controles de ejecución disponibles; una propuesta teórica suprimida por coste, títulos enteros, cash, datos o fiscalidad debe mostrarse como `REVIEW`, no como orden.
+1. **DÓNDE** — discovery y ranking current/live;
+2. **CUÁNDO** — gates, consenso y timing;
+3. **CUÁNTO** — portfolio decision y allocation;
+4. **POR QUÉ / CÓMO** — evidencia, plan ejecutable, costes, broker, fiscalidad y seguimiento.
 
 ---
 
 # 2. Reglas no negociables
 
+- Arquitectura productiva: `CORE_ARCHITECTURE_V1`.
+- Una sola cadena de decisión coherente entre scanner, selección, decisión, allocation, replay y seguimiento.
+- Producción mantiene `LEGACY` hasta evidencia fresh suficiente.
+- `CORE_ELIGIBILITY_V2` permanece shadow.
+- Forward Risk no modifica producción actualmente.
 - Nunca usar GitHub Actions para replays o validaciones largas.
-- Los cálculos largos los ejecuta el motor local/backend, normalmente `ResearchValidationCenter`.
-- El usuario **no dispone de terminal operativo** para ejecutar comandos manualmente. No pedirle `npm`, `npx`, `tsx`, `git` ni comandos equivalentes. Las comprobaciones necesarias deben integrarse como jobs del `ResearchValidationCenter` y ejecutarse desde la propia app con un botón.
-- Guards/unit tests/TypeScript deben pasar antes del cálculo live/largo.
-- Procedencia siempre explícita: `REAL / STATIC_REFERENCE / SYNTHETIC`.
-- Sin fallback sintético silencioso.
-- Replay causal: sólo información disponible hasta la fecha de decisión; ejecución posterior a señal / `NEXT_OPEN` cuando corresponda.
-- No retunear thresholds, coeficientes o políticas usando una muestra ya observada.
-- No crear motores paralelos.
-- `DAILY/WEEKLY/MONTHLY/QUARTERLY` = frecuencia de revisión, nunca generación automática de dinero.
-- `stagedCapitalPlan` = capital ya disponible; no aportación recurrente.
+- Los cálculos largos los ejecuta el motor local/backend de la app.
+- Guards/unit tests/TypeScript deben pasar antes de cálculo largo.
+- Procedencia: `REAL / STATIC_REFERENCE / SYNTHETIC`.
+- Una validación REAL falla si aparece información sintética.
+- Replay causal y ejecución posterior a señal; `NEXT_OPEN` cuando corresponde.
+- `DAILY/WEEKLY/MONTHLY/QUARTERLY` = frecuencia de revisión, nunca creación automática de dinero.
+- `stagedCapitalPlan` = capital ya disponible.
 - Aportaciones/retiradas = `externalCashFlows` explícitos y fechados.
+- Aportaciones externas no son rentabilidad.
+- Benchmarks no inventan flujos que no puedan recibir.
+- No retunear thresholds/coeficientes/confirmaciones después de observar la misma muestra.
+- Muestra utilizada para diseñar o interpretar política = consumida para promoción.
+- Promoción requiere política congelada + evidencia fresh/blind/OOS.
+- No crear motores, pantallas o módulos paralelos inconexos.
 - Ningún dato financiero privado del usuario se embebe en código público.
-- La UI no puede inventar un mínimo técnico de capital. Si la liquidez real es 0 €, debe mostrarse 0 € y no generarse una orden. Un notional técnico interno sólo puede utilizarse para análisis adimensional y debe quedar explícitamente neutralizado en todos los importes monetarios visibles/productivos.
+- El usuario no dispone de terminal operativo; no pedir ejecución manual de comandos.
 
 ---
 
-# 3. Motor productivo vigente
+# 3. Motor productivo vigente — FASE 1 CERRADA
 
 Arquitectura:
 
 `CORE_ARCHITECTURE_V1`
 
-Producción mantiene:
+Producción:
 
-- opportunity/allocation: **LEGACY**;
+- allocation/opportunity: **LEGACY**;
 - `CORE_ELIGIBILITY_V2`: shadow;
-- Forward Risk: no modifica producción;
+- Forward Risk: research only;
 - replay causal / `NEXT_OPEN`;
-- modos integrados `Desde cero / manual / cartera actual`;
-- modos integrados `Motor Custodia / mantener cartera`;
-- cash histórico BCE y fiscalidad causalmente integrados.
+- modos de estado inicial: `Desde cero / manual / cartera actual`;
+- modos de política: `Motor Custodia / mantener cartera`;
+- cash BCE histórico y fiscalidad causalmente integrados.
 
 Entrada productiva de cartera:
 
 `evaluatePortfolioDecision(...)`
 
-Esta función ejecuta:
+Cadena:
 
 `PortfolioDecisionEngine.evaluate -> applyCoreGateV1 -> applyCoreArchitectureV1`.
 
-La UI productiva añade después un único plan de ejecución:
+La UI construye después un único plan:
 
 `buildPortfolioExecutionPlan -> applyTaxAwareExecutionOverlay`.
 
-Ese plan puede convertir una intención teórica en `REVIEW` por ejecución/fiscalidad, pero no vuelve a seleccionar activos ni crea otra estrategia.
+Un plan puede convertirse en `REVIEW` por títulos enteros, cash, broker, costes, datos o fiscalidad, pero no se vuelve a seleccionar activos aguas abajo.
 
 ---
 
-# 4. Entrada web y superficie productiva — CERRADA / PASS FINAL 2026-09-11
+# 4. Superficie productiva y cierre técnico
 
-La ruta real de producto es:
+Ruta web normal:
 
 `index.html -> src/decisionMain.tsx -> InteractiveInvestmentDecisionCenter + ResearchValidationCenter`
 
-Hallazgo de auditoría:
-
-- `index.html` no utilizaba el antiguo `App.tsx`;
-- el `App.tsx` heredado sólo seguía siendo accesible mediante `/legacy.html`;
-- `/legacy.html` era la vía restante hacia la antigua experiencia `Bot 2X / PortfolioEngine / LiveSimulationEngine`.
-
-Corrección aplicada:
-
-- `/legacy.html` ya no carga `src/main.tsx`; redirige a `/` y queda `noindex`;
-- `decisionMain.tsx` no enlaza a Legacy;
-- `/portfolio.html` se conserva como laboratorio cuantitativo separado, sin autoridad para emitir la recomendación productiva de cartera real;
-- la única superficie accionable normal es `InteractiveInvestmentDecisionCenter`.
-
-Los compatibility adapters de `GrowthTradingBot`, antiguo `InvestmentDecisionCenter` y `PortfolioOverview` permanecen como defensa adicional.
-
-Estado de validación:
-
-- inspección estática completada;
-- `Producto · cierre rápido` ejecutado desde la app sobre el cierre de 2026-09-11: **PASSED** completo;
-- tras corregir la identidad de acciones dinámicas/current-live, el mismo `Producto · cierre rápido` se volvió a ejecutar sobre HEAD `7c5004f8f8039d3cdf13c707ba0e2aa2f9c91344`: **PASSED** completo;
-- resultados de esa segunda ejecución: superficie 27/27, decisión productiva 20/20, plan de ejecución 29/29, cartera 24/24, salud de posiciones 25/25, broker 7/7, fiscalidad 7/7 y `tsc --noEmit` PASS;
-- prueba manual en dispositivo móvil 2026-09-11: exportación JSON y controles principales responden correctamente;
-- no repetir este cierre salvo que un cambio posterior afecte materialmente a la superficie productiva, salud de posiciones, plan ejecutable, broker/fiscalidad o export móvil.
-
----
-
-# 5. Acción productiva visible — CIERRE ARQUITECTÓNICO IMPLEMENTADO 2026-09-10
-
-La auditoría posterior al primer cierre encontró tres problemas reales:
-
-1. La tarjeta “decisión de hoy” mezclaba compras de `evaluatePortfolioDecision`, ventas directas de `positionHealth` y rotaciones de `PortfolioRotationReviewEngine`.
-2. Varios componentes recalculaban `evaluatePortfolioDecision()` por separado.
-3. Una contribución teórica podía mostrarse como “COMPRAR AHORA” antes de que títulos enteros, costes o fiscalidad la convirtieran en `REVIEW`.
-
-Corrección final aplicada:
-
-- `MarketUtilityDashboard` calcula **una sola vez** `portfolioDecision = evaluatePortfolioDecision(...)`;
-- el mismo dashboard construye **un solo** `executionPlan = buildPortfolioExecutionPlan(...) -> applyTaxAwareExecutionOverlay(...)`;
-- `CurrentOpportunityAlertsPanel`, `RealPurchaseRegistrationPanel` y `PortfolioExecutionPlanPanel` reciben esos mismos objetos y no vuelven a calcular cartera ni candidate gate;
-- `PortfolioExecutionPlanPanel` ya no vuelve a ejecutar `PortfolioCandidateGate(..., 1000)`, `StrategyConsensusEngine` ni `evaluatePortfolioDecision`;
-- `CurrentOpportunityAlertsPanel` no usa `PortfolioRotationReviewEngine` para la orden principal;
-- `CurrentOpportunityAlertEngine` permanece como metadata/evidencia secundaria de oportunidad, sin autoridad para crear la orden de cartera;
-- compras visibles como **COMPRAR AHORA** = líneas `BUY_ETF / SUBSCRIBE_FUND` realmente pendientes del plan ejecutable;
-- ventas visibles como **REDUCIR/SALIR AHORA** = líneas `SELL_ETF / REDEEM_FUND` realmente pendientes;
-- traspasos visibles = líneas `TRANSFER_FUND` realmente pendientes;
-- líneas `REVIEW` quedan en un bloque explícito “no son orden ejecutable hoy”;
-- la tarjeta distingue `importe teórico del motor` de `importe ejecutable`, evitando que redondeo por títulos/comisiones se confunda con sizing productivo;
-- contribuciones de core añadidas o redirigidas por `CORE_GATE_V1 / CORE_ARCHITECTURE_V1` no se ocultan por faltar un `CurrentOpportunityAlert` original;
-- la explicación de cadena está plegada dentro de la misma tarjeta, después de la acción;
-- `UserPortfolioPanel` y `PilotOperationsPanel` ya no recalculan una segunda decisión productiva;
-- `DecisionGuardrailsPanel` ya no ejecuta un mini-backtest cliente paralelo: sólo explica gates current/live y remite la investigación histórica al replay integrado;
-- un instrumento marcado manualmente como no disponible en MyInvestor se convierte en `REVIEW` en el único plan ejecutable y el cambio se propaga a la superficie principal.
-
-Jerarquía de producto:
-
-1. controles básicos;
-2. finalizar salud de posiciones;
-3. **decisión ejecutable de hoy**;
-4. registro de la ejecución / cartera real;
-5. explicación de cash, metodología y controles técnicos.
-
-La app no muestra órdenes mientras `PortfolioPositionHealthService` sigue calculando. Si falla la salud de cartera, la decisión operativa queda bloqueada en vez de enseñar una recomendación parcial.
-
-El `portfolio` que alimenta el resultado canónico se memoiza mientras la misma salud/fecha siga vigente para evitar regenerar IDs de líneas de ejecución por renders secundarios.
-
-### Capital cero
-
-`portfolioDeployableCapital()` conserva ahora 0 € reales; ya no fuerza `Math.max(1, ...)`.
-
-Como el `InvestmentDecisionEngine` congelado exige capital estrictamente positivo para escalar importes, la UI usa 1 € únicamente como notional analítico interno cuando la liquidez real es 0 y neutraliza inmediatamente todos los importes monetarios a 0. Ese camino queda marcado con `NO_DEPLOYABLE_CAPITAL_ANALYTICAL_WEIGHTS_ONLY` y no genera órdenes.
-
-`DecisionGuardrailsPanel` ya no realiza replay histórico cliente ni inventa capital para hacerlo.
-
-### Identidad de acciones dinámicas — CORREGIDA / PASS 2026-09-11
-
-El diagnóstico HFG detectó que una acción individual descubierta dinámicamente podía heredar `isDiversifiedCore=true` por su categoría amplia `EUROPE_EQUITY`.
-
-Corrección integrada, sin crear módulos ni políticas nuevas:
-
-- `dynamicPortfolioDiscovery` conserva `currentDiscoveryQuoteType` de Yahoo para activos `DYNAMIC_*` y migra de forma compatible los ya persistidos;
-- `PortfolioPositionHealthService` reconoce acciones dinámicas `DYNAMIC_*` por identidad y acciones current/live `OPEN_*` mediante la metadata `EQUITY` ya existente;
-- una acción individual ya no hereda protección de core por una categoría amplia;
-- un ETF dinámico mantiene tratamiento diversificado/core cuando corresponde;
-- el replay existente reutiliza la misma `classifyPositionHealth`, por lo que la clasificación auditada `positionIsDiversifiedCore` queda corregida sin crear un replay paralelo.
-
-Guards actuales relevantes:
-
-- `tests/productDecisionSurface.unit.ts`: **20 invariantes**;
-- `tests/productSurfaceClosureV1.unit.ts`: **27 invariantes**;
-- `tests/userPortfolio.unit.ts`: **24 invariantes**;
-- `tests/portfolioPositionHealth.unit.ts`: **25 invariantes**.
-
-### Job integrado de cierre
-
-`ResearchValidationCenter` expone el mismo job existente:
-
-`Producto · cierre rápido`
-
-Ejecuta, en backend local y sin intervención de terminal del usuario:
-
-- `productSurfaceClosureV1`;
-- `productDecisionSurface`;
-- `portfolioExecutionPlan`;
-- `userPortfolio`;
-- `portfolioPositionHealth`;
-- `brokerAvailability`;
-- `taxAwareExecutionOverlay`;
-- TypeScript (`npm run lint`).
-
-No ejecuta replay, no consulta Yahoo live, no ejecuta Future Forward, no crea checkpoint y no escribe en `replay-results`.
-
-Resultado final tras la corrección de identidad dinámica, 2026-09-11: **PASSED**. No debe repetirse mientras no cambie materialmente esta superficie.
-
----
-
-# 6. JSON y móvil — PASS FINAL / Future Forward — COLLECTING
-
-## Centro de validación
-
-La descarga del `ResearchValidationCenter` no crea Blob ni simula un click desde React.
-
-Ruta nativa:
-
-`GET /api/alerts/research-validation/jobs/:id/result.json`
-
-El backend responde con:
-
-- JSON del resultado registrado;
-- `Content-Disposition: attachment`;
-- `Cache-Control: no-store`.
-
-La UI utiliza un `<a href=.../result.json>` normal y lo presenta como **Evidencia JSON**, no como la única respuesta comprensible.
-
-### Resultado humano de Future Forward
-
-`ResearchValidationCenter` interpreta en pantalla el resultado de `QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1`:
-
-- observaciones actuales / 12;
-- si esta ejecución creó o no una observación;
-- estado `ALREADY_RECORDED / PROSPECTIVE_STATE_VERIFIED_NO_REWRITE / BEFORE_WINDOW / AFTER_WINDOW`;
-- outcomes 20s y 60s maduros;
-- persistencia durable;
-- número de fuentes congeladas/fingerprint;
-- próxima ventana esperada (`día 9, 22:30–24:00 Madrid`).
-
-Para el caso ya observado el 2026-09-10 debe mostrar de forma legible **ESTADO VERIFICADO · SIN REESCRIBIR**, **NO CREÓ OBSERVACIÓN**, 1/12 y la siguiente ventana de octubre. El ZIP/JSON queda como evidencia secundaria.
-
-El botón se denomina `Comprobar / ejecutar checkpoint` para reflejar que, fuera de una ventana válida o si el mes ya existe, la acción puede limitarse a verificar estado sin consumir una observación.
-
-## Replay histórico
-
-La sesión del replay vive en `localStorage`, por lo que la exportación continúa siendo client-side mediante:
-
-`src/jsonDownload.ts`.
-
-Auditoría correctiva 2026-09-10:
-
-- `exportSession` es síncrono;
-- serialización + `downloadJsonFile(...)` ocurren dentro de la tarea original del toque;
-- no existe `await` ni `requestAnimationFrame` antes de iniciar la descarga;
-- la Blob URL no se revoca inmediatamente y se conserva 30 s.
-
-Prueba física en móvil 2026-09-11: **PASS**. La exportación JSON funciona en el dispositivo real y los controles principales responden correctamente al toque.
-
-## Base móvil
-
-`src/index.css` y la superficie principal incluyen:
-
-- `touch-action: manipulation`;
-- `touch-target` mínimo 44 px en controles principales;
-- inputs/selects a 16 px en móvil para evitar zoom de foco;
-- safe-area inferior;
-- scrolling táctil horizontal;
-- header principal compacto;
-- botones importantes apilados cuando procede.
-
-El tamaño táctil es ergonomía; el cierre móvil final se apoya además en la prueba física PASS de 2026-09-11.
-
----
-
-# 7. Mercado dinámico current/live — CERRADO / PASS FINAL
-
-Documentos:
-
-- `docs/dynamic_market_top64_v1_outcome.md`
-- `docs/dynamic_market_top64_v1_final_outcome.md`
-
 Estado:
 
-**DISCOVERY PASS / BREADTH PASS / TOP64 PASS / DEDUPE PASS / GATE-INTEGRATION PASS / ARCHIVED**
+- `/legacy.html` no es una superficie accionable alternativa; redirige a `/`;
+- `/portfolio.html` queda como laboratorio cuantitativo sin autoridad productiva;
+- una sola superficie emite la decisión accionable;
+- `MarketUtilityDashboard` calcula una sola `portfolioDecision`;
+- el mismo dashboard crea un solo `executionPlan`;
+- `CurrentOpportunityAlertsPanel`, registro de compra y panel de ejecución consumen esos mismos objetos;
+- las propuestas teóricas suprimidas por ejecución/fiscalidad son `REVIEW`, no órdenes;
+- capital desplegable real 0 EUR permanece 0 EUR;
+- la app bloquea la decisión operativa hasta finalizar salud de posiciones;
+- `DecisionGuardrailsPanel` no lanza replay paralelo.
 
-Run final 2026-09-09:
+Validación:
 
-- Search queries: 24; failures: 0;
-- Lookup queries: 36 + 26 fallback; failures: 0;
+- `Producto · cierre rápido`: **PASS** tras las correcciones de identidad dinámica y worker;
+- TypeScript: **PASS** en la ejecución reportada por el usuario;
+- móvil físico: **PASS** el 2026-09-11;
+- exportación JSON móvil: **PASS**.
+
+Baseline funcional validado antes de los commits documentales de Fase 0:
+
+`a4b15eaf72960aef51f0e9e7691b487f9f46bf51`
+
+No repetir `Producto · cierre rápido` salvo cambio material posterior.
+
+---
+
+# 5. Datos y discovery current/live
+
+`OPEN_MARKET_DISCOVERY_V1` está integrado en `AssetUniverseScanner`.
+
+Top64:
+
+- 64 = máximo/target dinámico, no nombres permanentes;
+- `EUR_PORTFOLIO_DISCOVERY_UNIVERSE` = seed/bootstrap/fallback;
+- ranking productivo: `MARKET_SHORTLIST_LEGACY_SCORE_V1`;
+- Top64 no autoriza compra;
+- `PortfolioCandidateGate`, cash hurdle, consenso, timing y allocation conservan autoridad.
+
+Run current/live final 2026-09-09:
+
 - raw candidates: 180;
 - EUR aceptados: 113;
 - ETF: 50;
 - EQUITY: 63;
-- nuevos promovidos fuera del seed: 98;
+- promovidos fuera del seed: 98;
 - scanner pool: 162;
 - REAL aceptados: 157;
-- rechazados: 5;
 - Top64: 64;
-- `OPEN_*` dentro del Top64: 29;
-- gate LEGACY: 11 elegibles -> 11 seleccionados;
-- leak elegible fuera del Top64: 0.
+- `OPEN_*` en Top64: 29;
+- gate LEGACY: 11/11;
+- leak elegible fuera de Top64: 0.
 
-Ranking:
+Estado: **CERRADO / PASS**.
 
-`MARKET_SHORTLIST_LEGACY_SCORE_V1`
-
-`0.20*mom20 + 0.35*mom60 + 0.45*mom120 - 0.30*volatilidad - 0.25*maxDrawdown + defensiveBonus`
-
-Reliability/Opportunity sólo desempatan el Top64 productivo.
-
-No utilizar snapshots del 2026-09-09 para retunear esa fórmula.
-
-### Limitación de metadata
-
-Yahoo Lookup no aporta todavía una taxonomía sectorial robusta para todos los activos descubiertos. En 2026-09 `OPEN_EXV1_DE` apareció como `GLOBAL_EQUITY` aunque económicamente es un ETF sectorial bancario europeo.
-
-Esto no puede convertirlo en core estructural porque el core utiliza IDs explícitos, pero sí puede afectar caps/comparaciones de categoría. Queda como deuda separada y no se toca durante el future-forward congelado.
-
-La corrección de 2026-09-11 de identidad de acciones `OPEN_*` no modifica el discovery ni su ranking: únicamente impide que una acción individual ya identificada como `EQUITY` herede semántica de core diversificado en salud de posiciones.
+Limitación: Yahoo current discovery no es un instrument master exhaustivo ni puede reconstruir retrospectivamente el mercado histórico.
 
 ---
 
-# 8. Replay histórico — causal, con limitación de universo
+# 6. Replay histórico
 
-En cada `decisionDate`:
+El replay utiliza la misma arquitectura conceptual, no un motor alternativo.
 
-- usa sólo barras `<= decisionDate`;
-- calcula señales con histórico disponible;
-- aplica `PortfolioCandidateGate`;
-- llama `InvestmentDecisionEngine` con timestamp histórico;
-- aplica la cadena de portfolio correspondiente;
-- ejecuta después de señal.
+Modos integrados:
 
-Yahoo Search/Lookup **actual** no reconstruye el universo histórico.
+- estado inicial: `Desde cero / manual / cartera actual`;
+- política: `Motor Custodia / mantener cartera`;
+- frecuencia: `DAILY / WEEKLY / MONTHLY / QUARTERLY`.
 
-Persiste survivorship hasta disponer de instrument master point-in-time con altas, bajas y delistings.
+Incluye:
 
-La corrección de identidad `DYNAMIC_*`/`OPEN_*` no crea un nuevo replay: la salud histórica sigue usando la misma función pura `classifyPositionHealth` del flujo integrado.
+- causalidad por `decisionDate`;
+- ejecución después de señal;
+- cash histórico BCE con suelo nominal 0% cuando corresponde;
+- fiscalidad del portfolio y del cash;
+- `externalCashFlows` explícitos;
+- métricas ajustadas por flujos;
+- benchmarks independientes;
+- JSON auditable.
+
+Limitación vigente:
+
+- survivorship/catalog bias mientras no exista instrument master histórico point-in-time.
 
 ---
 
-# 9. External cash flows — PASS / CONSUMIDO / ARCHIVADO
-
-Documento:
-
-`docs/replay_explicit_cash_flows_v1_outcome.md`
+# 7. External cash flows — CERRADO
 
 Resultado:
 
@@ -361,33 +245,30 @@ Resultado:
 Comprobado:
 
 - `MONTHLY` no crea aportaciones;
-- brazo cerrado: 0 flujos implícitos;
-- `externalCashFlows` explícitos y causales;
+- `externalCashFlows` son explícitos y causales;
 - aportaciones no cuentan como rentabilidad;
-- benchmark cash independiente;
-- REAL-only;
-- sin `OPEN_*` retrospectivos.
+- benchmark cash recibe los mismos flujos mediante contabilidad independiente;
+- no se duplica interés/fiscalidad;
+- retirada inicial implementada como `CASH_ONLY`, fallando explícitamente si no hay cash suficiente;
+- QUALITY alcanzó más planes cuando hubo capital nuevo, pero el efecto económico retrospectivo siguió siendo insuficiente para promoción.
 
-Reach agregado 10y/6y/3y:
-
-- gates con capital desplegable: 3 -> 22;
-- notional ejecutado adicional: +212.386,21 EUR;
-- QUALITY cambió 10 planes y 23 fechas ejecutadas;
-- efecto económico observado pequeño.
-
-Producción sigue LEGACY.
+Muestras de esta investigación: consumidas para promoción.
 
 ---
 
-# 10. Opportunity / QUALITY — historial metodológico
+# 8. Opportunity / allocation
 
-Consumido:
+Producción continúa:
 
-- `QUALITY_V1`: información útil, reach/economía insuficientes para promoción;
+`LEGACY`
+
+Historial:
+
+- `QUALITY_V1`: información útil, efecto/reach insuficiente;
 - `SLOPE_V1`: no justificó promoción;
-- `QUALITY_ALLOCATION_BRIDGE_V1`: research-only dentro de `PortfolioDecisionEngine`.
+- `QUALITY_ALLOCATION_BRIDGE_V1`: research-only, integrado dentro de `PortfolioDecisionEngine`, no motor paralelo.
 
-Fórmula congelada:
+Fórmula congelada del bridge:
 
 `candidateQualityAdjustment = (reliability - 50)*0.10 + (opportunity - 50)*0.20`
 
@@ -395,21 +276,15 @@ Fórmula congelada:
 
 `bridgePriority = legacyOpportunityPriority * qualityMultiplier`
 
-No retunear 0.10 / 0.20 / 0.85 / 1.15 usando ventanas observadas.
+No retunear esos coeficientes usando las ventanas ya observadas.
 
-Producción continúa `LEGACY`.
+Hallazgo estructural importante:
+
+> el cuello de botella no era sólo ordenar candidatos; el allocator disponía de poco capital nuevo que repartir.
 
 ---
 
-# 11. QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1 — COLLECTING
-
-Preregistro:
-
-`docs/quality_allocation_dynamic_future_forward_v1_preregistration.md`
-
-Estado corriente:
-
-`docs/quality_allocation_dynamic_future_forward_v1_status.md`
+# 9. QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1 — EN PARALELO
 
 Estado:
 
@@ -423,184 +298,324 @@ Persistencia autoritativa:
 
 - branch `replay-results`;
 - path `validation-runs/quality-allocation-dynamic-future-forward-v1-state.json`;
-- durable commit `fbae24fd46c751a71e059bb4f99b2de73c784dae`;
-- remote blob `4006754a0d627f0846ef6d21a340f7c2ea9c633f`;
-- state SHA-256 `f3fd8e4d7ce4825351a23908c460285431abb751851ed9034ac2ff903a7e2bec`.
+- 25 archivos metodológicos congelados.
 
-Fingerprints:
-
-- protocol `1220601b4d5fead26b68c48a198c7a5bac2220898c99fef1171452653d8ac82b`;
-- implementation `ba1b286ac6920495b7b5d853b6ca78fb5e1de356fc5ab3d4fb56bc34e1e51bff`;
-- **25 archivos metodológicos congelados**.
-
-Snapshot inicial:
-
-- discovery promoted: 99;
-- scanned: 163;
-- REAL accepted: 158;
-- rejected: 5;
-- Top64: 64;
-- gate LEGACY 11/11;
-- market regime `BULL_LOW_VOL`;
-- production `LEGACY`.
-
-Allocator probe:
-
-- LEGACY: 1.728,4054 EUR de inversión nueva;
-- QUALITY: 1.726,1896 EUR;
-- `planChanged = true`;
-- delta absoluto de notional planificado: 2,6887 EUR;
-- EXV1.DE: `HIGH_CONVICTION`, `ENTRY_STRONG`, fracción inicial 50%, 650 EUR en ambos brazos.
-
-No hay todavía conclusión económica.
-
-Phase A es deliberadamente un **allocation probe** y no una validación end-to-end suficiente para promoción.
-
-### Verificación adicional 2026-09-10
-
-El usuario ejecutó de nuevo el job desde la app y aportó su artefacto. La ejecución terminó `PASSED` con:
+La comprobación del 2026-09-10 terminó:
 
 - `PROSPECTIVE_STATE_VERIFIED_NO_REWRITE`;
 - `observationRecordedThisRun = false`;
-- `observationStatus = ALREADY_RECORDED`;
-- observaciones = 1/12;
-- sin nueva escritura/observación de septiembre;
-- outcomes 20/60 todavía pendientes;
-- token durable disponible en ese runtime.
-
-Por tanto, el problema previo de `GITHUB_REPLAY_SYNC_TOKEN` estaba resuelto en esa ejecución. No asumir que un secreto estará disponible en otro runtime sin comprobar el preflight.
+- `ALREADY_RECORDED`;
+- 1/12 observaciones;
+- sin reescribir septiembre.
 
 Siguiente observación nueva válida:
 
-**2026-10-09 22:30-24:00 Europe/Madrid**.
+**2026-10-09 22:30–24:00 Europe/Madrid**.
 
-No repetir septiembre.
-
-### Integridad tras cambios de producto 2026-09-11
-
-La comparación GitHub desde el estado canónico anterior al arreglo HFG muestra sólo:
-
-- `dynamicPortfolioDiscovery.ts`;
-- `portfolioPositionHealth.ts`;
-- tests existentes de cartera/salud/cierre;
-- la lista de pasos del mismo `Producto · cierre rápido`.
-
-**Ninguno de los 25 archivos metodológicos congelados del Future Forward aparece modificado.**
-
-No modificar durante Phase A:
-
-- `scripts/qualityAllocationDynamicFutureForwardV1CheckpointLive.ts`;
-- `scripts/qualityAllocationDynamicFutureForwardV1StateStore.ts`;
-- `currentOpportunityAlerts.ts`;
-- scanner/gate/entry timing/decision/allocator ni las demás fuentes incluidas en el manifiesto.
-
-### Token / preflight
-
-`server/researchValidationRoutes.ts` hace el preflight antes de lanzar guards o TypeScript:
-
-- si falta token: HTTP 412 + `QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED`;
-- el botón queda bloqueado y la UI muestra `FALTA TOKEN`;
-- no se inicia cálculo ni se consume observación.
-
-El runner/state store congelados no se modificaron para solucionar este problema.
+No repetir septiembre. No tocar los 25 archivos congelados para avanzar otras fases.
 
 ---
 
-# 12. Forward Risk
+# 10. Forward Risk
 
-V8 conserva valor predictivo de downside.
+Forward Risk V8 conserva valor predictivo de downside.
 
-Los FAIL económicos V8/V9/V10/V11 no borran esa información; fallaron políticas de monetización.
+Hallazgo histórico retenido:
 
-- V8 no vuelve como ON/OFF diario directo sin nueva justificación;
-- V9/V10/V11 retiradas;
-- no V12/V13 como tuning retrospectivo;
-- V5/V7/V8 pueden reutilizarse más adelante sólo bajo protocolos nuevos.
+- anticipó una parte importante de episodios de caída;
+- la señal estaba fragmentada;
+- el uso directo ON/OFF destruyó demasiado upside.
 
-No se mezclan en el future-forward QUALITY actual.
+Políticas económicas:
+
+- V9: RETIRED;
+- V10: RETIRED;
+- V11: RETIRED.
+
+Interpretación correcta:
+
+`signal quality != economic policy quality`.
+
+No crear V12/V13 como parameter chasing.
+
+Uso futuro sólo bajo protocolo nuevo como contexto de riesgo, sizing, ranking, alertas, stress o priorización.
 
 ---
 
-# 13. Diagnóstico HFG / grandes ganadores — MUESTRA CONSUMIDA / BUG DE IDENTIDAD CORREGIDO
+# 11. HFG / grandes ganadores — DIAGNÓSTICO CONSUMIDO Y CERRADO
 
-Casos diagnósticos aportados por el usuario, ejecutados con el replay existente:
+## Caso A — inicio 2019-01-01
 
-### Caso A — inicio 2019-01-01
+Configuración:
 
-- 26.000 EUR iniciales;
+- 26.000 EUR;
 - 13.000 EUR HFG.DE + 13.000 EUR cash;
-- `MONTHLY`;
+- MONTHLY;
 - Motor Custodia;
 - BCE histórico.
 
 Hallazgos:
 
-- Custodia ejecuta salida de HFG prácticamente al inicio: señal estructural muy negativa (`structuralDowntrend=true`, consenso -5, 5 señales adversas);
-- el streak de deterioro no fue la causa del EXIT completo;
-- HFG reaparece posteriormente con tendencia favorable;
-- en 2021 alcanza `ENTRY_READY`, pero no recibe compra financiada;
-- en ese momento el cash estaba por debajo de la reserva operativa MEDIUM y gran parte del capital se encontraba en un core sano, por lo que la política económica no financiaba la reentrada;
-- este caso separa tres problemas distintos: salida inicial alrededor de un punto de inflexión, latencia de reentrada y reach/financiación del allocator.
+- salida muy temprana por deterioro estructural fuerte;
+- el streak no causó el EXIT completo;
+- HFG recuperó tendencia y más tarde llegó a `ENTRY_READY`;
+- no hubo reentrada financiada porque el cash disponible era insuficiente y el core sano absorbía capital;
+- separa señal de salida, latencia de reentrada y reach del allocator.
 
-### Caso B — HFG ya dentro durante la tendencia sana
-
-Replay iniciado alrededor de septiembre de 2019 con HFG + cash como estado inicial y extendido a través del boom/crash.
+## Caso B — HFG dentro durante tendencia sana
 
 Hallazgos:
 
-- Custodia sí fue capaz de mantener HFG durante la mayor parte del multibagger;
-- la posición llegó a un MFE de aproximadamente +700%;
-- `TREND_PROTECTION_V1` detectó deterioro antes de la salida real: WATCH y posteriormente REDUCE diagnósticos durante 2021/inicios de 2022;
-- esa capa seguía siendo diagnóstica y no ejecutaba directamente operaciones;
-- la orden económica real terminó llegando con el EXIT estructural de 2022, ejecutado aproximadamente a 59,20 EUR por acción, conservando todavía una gran parte de la ganancia desde la entrada;
-- en el replay aportado, Custodia terminó claramente por encima de mantener HFG+cash hasta 2023, confirmando que el motor puede dejar correr un gran ganador y evitar una parte importante del crash cuando la posición ya está dentro durante la tendencia sana.
+- Custodia mantuvo HFG durante gran parte del multibagger;
+- MFE aproximado > +700%;
+- `TREND_PROTECTION_V1` detectó deterioro antes que la política ejecutiva;
+- EXIT económico real llegó en febrero de 2022, aproximadamente a 59,20 EUR;
+- Custodia terminó claramente por encima de mantener HFG+cash hasta 2023.
 
-### Bug objetivo detectado y corregido
+## Bug de identidad dinámica
 
-El replay mostró `positionIsDiversifiedCore=true` para `DYNAMIC_HFG_DE`, pese a tratarse de una acción individual.
+Se detectó `positionIsDiversifiedCore=true` para `DYNAMIC_HFG_DE`.
 
-Causa:
+Primer arreglo cubrió el navegador pero no el replay real porque el Web Worker no tenía el registro local.
 
-- Yahoo identificaba correctamente HFG como `EQUITY`;
-- el registro dinámico reducía esa identidad a una categoría amplia `EUROPE_EQUITY`;
-- la salud de posiciones podía interpretar esa categoría como core diversificado.
+Corrección final:
 
-Corrección cerrada en HEAD `7c5004f8f8039d3cdf13c707ba0e2aa2f9c91344`:
+- el worker hidrata identidades dinámicas desde el catálogo del propio replay;
+- acciones `DYNAMIC_*`/`OPEN_*` no heredan protección de core por una categoría amplia;
+- ETFs dinámicos conservan tratamiento diversificado cuando procede.
 
-- se preserva `currentDiscoveryQuoteType` en activos `DYNAMIC_*`;
-- se soporta migración de activos dinámicos ya persistidos;
-- las acciones `DYNAMIC_*` se clasifican como satélite por identidad;
-- las acciones `OPEN_*` current/live se clasifican como satélite cuando el discovery ya las identifica como `EQUITY`;
-- los ETF dinámicos no se convierten por error en acciones tácticas;
-- no se creó ningún nuevo motor, pantalla, apartado ni job;
-- el mismo `Producto · cierre rápido` pasó completo después del arreglo, incluido `portfolioPositionHealth` 25/25 y TypeScript PASS.
+Verificación final con replay REAL:
 
-**La muestra HFG está consumida.** Esta corrección es de identidad/semántica de instrumento, no un retuning de política. No ajustar thresholds de MFE, giveback, streak, Entry Timing, allocation o protección usando estos resultados.
+- HFG exporta `positionIsDiversifiedCore=false` mientras está en cartera;
+- no cambia ninguna de las 6 ejecuciones;
+- EXIT sigue en 02/02/2022 a ~59,20 EUR;
+- la diferencia observable está en la protección diagnóstica: al ser satélite, `TREND_PROTECTION_V1` propone 50% en lugar de 25% en episodios correspondientes;
+- esa protección no tenía autoridad ejecutiva, por lo que no cambia la trayectoria económica del replay.
 
-Siguiente comprobación HFG: repetir el mismo replay existente del Caso B con el HEAD corregido y verificar que HFG exporta `positionIsDiversifiedCore=false`; comparar el resultado únicamente para medir el impacto de corregir el bug, no para promover una política.
+Conclusión:
 
----
+**BUG CONFIRMADO → CORREGIDO → QUICK CLOSURE PASS → REPLAY REAL PASS.**
 
-# 14. Mejoras futuras DEFERRED
+La muestra HFG está consumida. No utilizarla para fijar nuevos thresholds de MFE/giveback/streak/timing/allocation/protección.
 
-No abrir como tuning productivo hasta cerrar la secuencia vigente:
+Hipótesis que deja abiertas, para muestras fresh posteriores:
 
-- USD/Nasdaq/NYSE discovery con FX explícito;
-- listings jóvenes / requisito de 252 sesiones;
-- multibaggers/SNDK-like;
-- fundamentales, revisiones de beneficios y volumen;
-- taxonomía sectorial robusta de `OPEN_*`;
-- retuning de Reliability/Opportunity/Top64;
-- nuevas políticas Forward Risk V12/V13.
+1. reentrada después de una salida errónea;
+2. monetización causal de protección de grandes ganadores.
 
 ---
 
-# 15. Próxima secuencia técnica
+# 12. Usuarios privados, administrador y persistencia — FASE 2
 
-1. **Producto / JSON / móvil y corrección de identidad dinámica: PASS FINAL 2026-09-11.** No repetir `Producto · cierre rápido` salvo cambio material posterior.
-2. Repetir únicamente el replay HFG existente del Caso B con el HEAD corregido; comprobar que `positionIsDiversifiedCore=false` y medir si cambia la trayectoria económica. No crear un replay/job/apartado nuevo.
-3. Interpretar cualquier diferencia sólo como efecto de corregir la clasificación de instrumento. La muestra HFG sigue consumida y no autoriza tuning ni promoción.
-4. Mantener producción `LEGACY` y los 25 archivos metodológicos del Future Forward intactos.
-5. Si del diagnóstico HFG surge una hipótesis de política, congelarla primero y validarla después en datos fresh/blind/out-of-sample adecuados.
-6. No repetir septiembre del Future Forward. Próximo checkpoint prospectivo nuevo: **2026-10-09 22:30-24:00 Europe/Madrid**.
-7. Mantener diferidas las mejoras de discovery/metadata y cualquier nueva política Forward Risk mientras no exista un protocolo separado que las justifique.
+Documento:
+
+`docs/PRIVATE_USERS_DEPLOYMENT.md`
+
+Implementado/documentado:
+
+- Firebase Authentication email/password;
+- Cloud Run/Express verifica Firebase ID token;
+- Firebase Admin SDK para administración;
+- custom claims `accessGranted` / `isAdmin`;
+- Firestore privado por UID;
+- reglas deny-by-default;
+- caché local aislada por propietario;
+- migración segura del estado histórico local;
+- panel ADMIN para alta, acceso, bloqueo, roles, reset y borrado;
+- un admin no puede leer la cartera de otro usuario desde la UI cliente;
+- persistencia durable de estado de alertas en Firestore;
+- validación manual multiusuario ya realizada.
+
+Estado:
+
+**IMPLEMENTADO + MANUAL MULTIUSER PASS, pero el checklist de publicación debe cerrarse explícitamente en el entorno desplegado antes de considerar V1 operativa/publicable.**
+
+Checklist prioritario de Fase 2A:
+
+- Firebase configurado en producción;
+- `FIREBASE_AUTH_REQUIRED=true`;
+- primer ADMIN comprobado;
+- reglas Firestore desplegadas;
+- test de seguridad + TypeScript PASS;
+- usuario normal sin ADMIN;
+- ADMIN puede alta/bloqueo/borrado de prueba;
+- aislamiento de carteras;
+- error de carga privada = fail-closed;
+- `/api/alerts/status` con `persistence: FIRESTORE`;
+- scheduler persistente probado manualmente.
+
+---
+
+# 13. Alertas y autonomía — FASE 2
+
+Entradas:
+
+- backend de oportunidades existente;
+- deduplicado de `GOOD_ENTRY / HIGH_CONVICTION`;
+- estado durable en Firestore cuando Firebase está configurado;
+- webhook/Telegram documentado.
+
+Regla de dedupe:
+
+- nuevo GOOD_ENTRY;
+- escalada a HIGH_CONVICTION;
+- reaparición después de dejar de ser accionable;
+- fallo de entrega no marca el evento como entregado.
+
+Pendiente de cierre operativo:
+
+- verificar canal de entrada end-to-end en despliegue persistente;
+- completar autonomía `WATCH / REDUCE / EXIT` con la app cerrada.
+
+Para salidas 24/7 el backend debe:
+
+1. enumerar sólo usuarios `ACTIVE`;
+2. leer su estado privado por UID;
+3. reconstruir cartera/contexto;
+4. ejecutar el MISMO clasificador de salud con datos REAL;
+5. guardar dedupe por UID;
+6. enviar sólo eventos nuevos.
+
+No se crea una segunda lógica de trading backend.
+
+No existe ejecución automática en broker. La ejecución sigue siendo manual/asistida.
+
+---
+
+# 14. Limitaciones y deuda que NO bloquean la Fase 2 inmediata
+
+- Yahoo current discovery no elimina survivorship histórico.
+- Taxonomía sectorial de algunos `OPEN_*` todavía es limitada.
+- No existe instrument master point-in-time.
+- No existe broker API de ejecución automática.
+- No existe expansión USD/Nasdaq/NYSE con FX explícito.
+- Listings jóvenes/IPO/fundamentales/revisiones de beneficios/volumen avanzado están deferred.
+- RL/FinRL permanece deferred.
+
+---
+
+# 15. Fases de investigación económica después del cierre operativo
+
+## FASE 3 — protocolo económico final
+
+Antes de abrir muestras nuevas:
+
+- métricas PASS/FAIL;
+- definición fresh/blind/OOS;
+- registro de muestras consumidas;
+- benchmarks comparables;
+- costes/fiscalidad;
+- criterios de materialidad;
+- política congelada antes del resultado.
+
+## FASE 4 — reentrada
+
+Hipótesis general a diseñar sin derivar thresholds de HFG.
+
+Debe distinguir:
+
+- error de señal de salida;
+- latencia de timing;
+- ausencia de capital desplegable;
+- healthy-incumbent inertia.
+
+Promoción sólo con evidencia fresh/OOS.
+
+## FASE 5 — protección de ganadores
+
+No convertir el `REDUCE 50%` observado en HFG en política.
+
+Diseñar primero la política, separar detección de ejecución y abrir después la muestra fresh.
+
+## FASE 6 — Forward Risk V8
+
+Sólo como feature contextual bajo protocolo nuevo, no ON/OFF diario directo.
+
+---
+
+# 16. FASE 8 — universo histórico point-in-time
+
+Necesario para validar de forma más fuerte la capacidad histórica de elegir activos sin depender de supervivientes actuales.
+
+Instrument master mínimo:
+
+- altas/listings;
+- bajas/delistings;
+- cambios de ticker/mercado;
+- existencia/disponibilidad histórica por fecha.
+
+Hasta entonces, todos los resultados históricos de selección de universo completo deben declarar la limitación de survivorship.
+
+---
+
+# 17. FASE 9 — criterio de cierre V1
+
+La V1 sólo se considera cerrada integralmente cuando exista evidencia suficiente de:
+
+- cadena productiva única y estable;
+- seguridad/persistencia/despliegue operativo;
+- alertas coherentes con el motor compartido;
+- replay causal y reproducible;
+- costes/fiscalidad/cash/flujos correctos;
+- comportamiento evaluado en distintos regímenes;
+- políticas research promovidas o rechazadas con protocolo válido;
+- limitaciones históricas explícitas;
+- lista mínima y controlada de deuda V2.
+
+La app puede ser técnicamente operativa antes de que finalice QUALITY Future Forward, pero una conclusión de superioridad económica de QUALITY no puede adelantarse a la evidencia prospectiva.
+
+---
+
+# 18. Qué NO es trabajo pendiente
+
+No reabrir como tareas activas:
+
+- V9/V10/V11 en sus formas probadas;
+- V12/V13 como tuning retrospectivo;
+- SLOPE_V1;
+- QUALITY_V1 retrospectivo;
+- QUALITY_ALLOCATION_BRIDGE_V1 sobre ventanas consumidas;
+- HFG como muestra de promoción;
+- antiguos motores/pantallas productivos duplicados;
+- replay independiente por cada variante;
+- nuevos jobs por activo concreto;
+- retuning de Top64/Opportunity con snapshots ya observados.
+
+---
+
+# 19. Próxima secuencia técnica EXACTA
+
+1. **Cerrar Fase 0:** revisar este `PROJECT_STATE.md` junto con `docs/APP_FLOW_AND_ROADMAP.md` y mantenerlos como guía de continuidad.
+2. **Fase 1 permanece congelada:** no tocar motor productivo salvo bug reproducible.
+3. **Entrar en Fase 2A:** auditoría del checklist real de publicación/seguridad/persistencia, sin cambiar la estrategia financiera.
+4. **Continuar Fase 2B:** cerrar alertas persistentes de entrada y después WATCH/REDUCE/EXIT por UID reutilizando el clasificador compartido.
+5. **Preparar Fase 3 documentalmente** antes de abrir nuevas muestras económicas.
+6. **No iniciar Fase 4 ni Fase 5** hasta que Fase 3 esté congelada.
+7. **QUALITY Future Forward sigue sólo por calendario.** Próxima ventana válida: 2026-10-09 22:30–24:00 Europe/Madrid.
+8. **No tocar los 25 archivos congelados** de Future Forward para avanzar Fases 2–6.
+9. **Fase 8** se aborda antes del cierre definitivo de validación histórica, no como excusa para reabrir la arquitectura current/live.
+10. **Fase 10** queda deferred hasta cierre V1.
+
+Cuando se cierre cada fase:
+
+- actualizar este archivo;
+- actualizar `docs/APP_FLOW_AND_ROADMAP.md`;
+- archivar/retirar investigaciones cerradas;
+- no dejar una tarea cerrada presentada como CURRENT.
+
+---
+
+# 20. Documentos de referencia
+
+- `docs/APP_FLOW_AND_ROADMAP.md` — mapa maestro y roadmap.
+- `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md` — invariante de discovery/Top64.
+- `docs/PRIVATE_USERS_DEPLOYMENT.md` — seguridad, multiusuario y despliegue.
+- `docs/TELEGRAM_ALERTS.md` — canal de alertas.
+- `docs/V1_PILOT_DEPLOYMENT.md` — operación persistente/piloto.
+- `docs/DYNAMIC_HISTORICAL_REPLAY.md` — replay integrado.
+- `docs/dynamic_market_top64_v1_final_outcome.md` — cierre Top64.
+- `docs/replay_explicit_cash_flows_v1_outcome.md` — flujos externos.
+- `docs/quality_allocation_dynamic_future_forward_v1_preregistration.md` — protocolo QUALITY prospectivo.
+- `docs/quality_allocation_dynamic_future_forward_v1_status.md` — estado QUALITY.
+- `docs/forward_risk_research_state.md` — estado Forward Risk.
+- `docs/DECISIONS.md` — decisiones históricas durables; si un punto antiguo contradice este estado y el código actual, debe corregirse/actualizarse y no utilizarse para reabrir una arquitectura retirada.
