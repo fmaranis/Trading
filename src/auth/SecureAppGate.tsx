@@ -65,13 +65,19 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
           setGate('READY');
         } catch (error: any) {
           const text = String(error?.message || error);
-          if (text.includes('ACCOUNT_ACCESS_PENDING_OR_REVOKED')) setGate('PENDING');
-          else if (isRevokedCredentialError(error)) {
+          if (text.includes('ACCOUNT_ACCESS_PENDING_OR_REVOKED')) {
+            stopCloudSync();
+            setGate('PENDING');
+          } else if (isRevokedCredentialError(error)) {
             stopCloudSync();
             clearPrivateLocalState();
             await signOut(rt.auth).catch(() => undefined);
             setGate('LOGIN');
-          } else { setMessage(text); setGate('ERROR'); }
+          } else {
+            stopCloudSync();
+            setMessage(text);
+            setGate('ERROR');
+          }
         }
       });
     }).catch(error => { if (alive) { setMessage(error?.message || String(error)); setGate('ERROR'); } });
@@ -112,6 +118,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
           await closeRevokedSession();
           return;
         }
+        stopCloudSync();
         setMessage(`No se ha podido revalidar el acceso: ${String(error?.message || error)}`);
         setGate('ERROR');
       } finally {
@@ -152,6 +159,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
   const refreshAccess = async () => {
     if (!user) return;
     setBusy(true); setMessage(null);
+    stopCloudSync();
     try {
       await reload(user);
       await getIdToken(user, true);
@@ -159,9 +167,12 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
       if (boot.tokenRefreshRequired) await getIdToken(user, true);
       const account = await loadAccountMe(user);
       setMe(account);
-      if (!account.accessGranted || account.disabled) { setMessage(user.emailVerified ? 'La cuenta sigue pendiente de aprobación.' : 'Verifica primero el correo y vuelve a comprobar el acceso.'); setGate('PENDING'); return; }
+      if (!account.accessGranted || account.disabled) {
+        setMessage(user.emailVerified ? 'La cuenta sigue pendiente de aprobación.' : 'Verifica primero el correo y vuelve a comprobar el acceso.');
+        setGate('PENDING');
+        return;
+      }
       await UserCloudStateService.hydrate(user);
-      stopCloudSync();
       cloudSyncStopRef.current = UserCloudStateService.startAutoSync(user);
       setGate('READY');
     } catch (error: any) {
@@ -171,6 +182,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
         if (runtime?.auth) await signOut(runtime.auth).catch(() => undefined);
         setGate('LOGIN');
       } else {
+        stopCloudSync();
         setMessage(error?.message || String(error));
         setGate('ERROR');
       }
