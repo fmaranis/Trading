@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import express, { type Request, type Response } from 'express';
+import type { UserRecord } from 'firebase-admin/auth';
 import { firebaseAdminServices, firebasePublicConfig } from './firebaseAdmin';
 import { isBootstrapAdmin, requireActiveAccount, requireAdmin, verifyAccount, type VerifiedAccount } from './authSecurity';
 
@@ -20,6 +21,7 @@ const CLOUD_STATE_KEYS = new Set([
   'custodia_investment_decision_history_v1'
 ]);
 const MAX_STATE_BYTES = 1_500_000;
+const ADMIN_AUDIT_COLLECTION = 'admin_audit_log';
 
 function profileStatus(claims: Record<string, unknown> | undefined, disabled = false): 'ACTIVE' | 'PENDING' | 'DISABLED' {
   if (disabled) return 'DISABLED';
@@ -40,6 +42,44 @@ async function writeProfile(account: { uid: string; email?: string | null; displ
     updatedAt: now,
     ...(existing.exists ? {} : { createdAt: now })
   }, { merge: true });
+}
+
+function userAuditSnapshot(user: UserRecord) {
+  return {
+    uid: user.uid,
+    email: user.email ?? null,
+    displayName: user.displayName ?? null,
+    disabled: user.disabled,
+    accessGranted: user.customClaims?.accessGranted === true || user.customClaims?.isAdmin === true,
+    isAdmin: user.customClaims?.isAdmin === true
+  };
+}
+
+async function writeAdminAudit(
+  actor: VerifiedAccount,
+  action: string,
+  targetUid: string | null,
+  before: unknown,
+  after: unknown,
+  metadata: Record<string, unknown> = {}
+): Promise<boolean> {
+  try {
+    const { db } = firebaseAdminServices();
+    await db.collection(ADMIN_AUDIT_COLLECTION).add({
+      actorUid: actor.uid,
+      actorEmail: actor.email,
+      targetUid,
+      action,
+      before,
+      after,
+      metadata,
+      createdAt: new Date().toISOString()
+    });
+    return true;
+  } catch (error) {
+    console.error('ADMIN_AUDIT_WRITE_FAILED', error);
+    return false;
+  }
 }
 
 async function currentUserRecord(account: VerifiedAccount) {
@@ -148,6 +188,7 @@ accountRouter.get('/admin/users', async (req: Request, res: Response): Promise<v
       disabled: user.disabled,
       accessGranted: user.customClaims?.accessGranted === true || user.customClaims?.isAdmin === true,
       isAdmin: user.customClaims?.isAdmin === true,
+      emailVerified: user.emailVerified,
       createdAt: user.metadata.creationTime,
       lastSignInAt: user.metadata.lastSignInTime ?? null
     })));
@@ -155,6 +196,17 @@ accountRouter.get('/admin/users', async (req: Request, res: Response): Promise<v
   } while (pageToken);
   users.sort((a, b) => String(a.email ?? a.uid).localeCompare(String(b.email ?? b.uid)));
   res.json({ users, callerUid: admin.uid });
+});
+
+accountRouter.get('/admin/audit-log', async (req: Request, res: Response): Promise<void> => {
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
+  const rawLimit = Number(req.query.limit ?? 50);
+  const limit = Number.isFinite(rawLimit) ? Math.min(100, Math.max(1, Math.trunc(rawLimit))) : 50;
+  const { db } = firebaseAdminServices();
+  const snapshot = await db.collection(ADMIN_AUDIT_COLLECTION).orderBy('createdAt', 'desc').limit(limit).get();
+  const entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  res.json({ entries, limit });
 });
 
 accountRouter.post('/admin/users', async (req: Request, res: Response): Promise<void> => {
@@ -166,16 +218,35 @@ accountRouter.post('/admin/users', async (req: Request, res: Response): Promise<
     res.status(400).json({ error: 'VALID_EMAIL_REQUIRED' });
     return;
   }
+  let createdUid: string | null = null;
   try {
     const { auth } = firebaseAdminServices();
     const temporaryPassword = crypto.randomBytes(24).toString('base64url');
     const user = await auth.createUser({ email, displayName, password: temporaryPassword, disabled: false });
+    createdUid = user.uid;
     const claims = { accessGranted: req.body?.accessGranted !== false, isAdmin: false };
     await auth.setCustomUserClaims(user.uid, claims);
     await writeProfile({ uid: user.uid, email: user.email, displayName: user.displayName, disabled: false, customClaims: claims });
     const passwordSetupLink = await auth.generatePasswordResetLink(email);
-    res.status(201).json({ ok: true, uid: user.uid, email, passwordSetupLink, accessGranted: claims.accessGranted });
+    const auditLogged = await writeAdminAudit(admin, 'USER_CREATED', user.uid, null, {
+      uid: user.uid,
+      email,
+      displayName: displayName ?? null,
+      disabled: false,
+      accessGranted: claims.accessGranted,
+      isAdmin: false
+    });
+    res.status(201).json({ ok: true, uid: user.uid, email, passwordSetupLink, accessGranted: claims.accessGranted, auditLogged });
   } catch (error: any) {
+    if (createdUid) {
+      try {
+        const { auth, db } = firebaseAdminServices();
+        await db.recursiveDelete(db.doc(`users/${createdUid}`));
+        await auth.deleteUser(createdUid);
+      } catch (rollbackError) {
+        console.error('ADMIN_USER_CREATE_ROLLBACK_FAILED', rollbackError);
+      }
+    }
     res.status(400).json({ error: error?.code || error?.message || String(error) });
   }
 });
@@ -188,6 +259,7 @@ accountRouter.patch('/admin/users/:uid', async (req: Request, res: Response): Pr
   try {
     const { auth } = firebaseAdminServices();
     const target = await auth.getUser(uid);
+    const before = userAuditSnapshot(target);
     const currentClaims = { ...(target.customClaims ?? {}) };
     const wantsAdmin = typeof req.body?.isAdmin === 'boolean' ? req.body.isAdmin : currentClaims.isAdmin === true;
     const wantsAccess = typeof req.body?.accessGranted === 'boolean' ? req.body.accessGranted : currentClaims.accessGranted === true || currentClaims.isAdmin === true;
@@ -210,7 +282,10 @@ accountRouter.patch('/admin/users/:uid', async (req: Request, res: Response): Pr
     }
     const updated = await auth.getUser(uid);
     await writeProfile({ uid: updated.uid, email: updated.email, displayName: updated.displayName, disabled: updated.disabled, customClaims: nextClaims });
-    res.json({ ok: true, uid, disabled: updated.disabled, accessGranted: nextClaims.accessGranted === true || nextClaims.isAdmin === true, isAdmin: nextClaims.isAdmin === true, tokenRefreshRequired: true });
+    const after = userAuditSnapshot(updated);
+    const changedFields = (['accessGranted', 'isAdmin', 'disabled'] as const).filter(field => before[field] !== after[field]);
+    const auditLogged = await writeAdminAudit(admin, 'USER_UPDATED', uid, before, after, { changedFields });
+    res.json({ ok: true, uid, disabled: updated.disabled, accessGranted: nextClaims.accessGranted === true || nextClaims.isAdmin === true, isAdmin: nextClaims.isAdmin === true, tokenRefreshRequired: true, auditLogged });
   } catch (error: any) {
     res.status(400).json({ error: error?.code || error?.message || String(error) });
   }
@@ -224,7 +299,8 @@ accountRouter.post('/admin/users/:uid/password-reset-link', async (req: Request,
     const user = await auth.getUser(String(req.params.uid));
     if (!user.email) { res.status(400).json({ error: 'USER_HAS_NO_EMAIL' }); return; }
     const passwordResetLink = await auth.generatePasswordResetLink(user.email);
-    res.json({ ok: true, email: user.email, passwordResetLink });
+    const auditLogged = await writeAdminAudit(admin, 'PASSWORD_RESET_LINK_CREATED', user.uid, userAuditSnapshot(user), userAuditSnapshot(user));
+    res.json({ ok: true, email: user.email, passwordResetLink, auditLogged });
   } catch (error: any) {
     res.status(400).json({ error: error?.code || error?.message || String(error) });
   }
@@ -242,9 +318,11 @@ accountRouter.delete('/admin/users/:uid', async (req: Request, res: Response): P
       res.status(400).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
       return;
     }
+    const before = userAuditSnapshot(target);
     await db.recursiveDelete(db.doc(`users/${uid}`));
     await auth.deleteUser(uid);
-    res.json({ ok: true, uid, deleted: true });
+    const auditLogged = await writeAdminAudit(admin, 'USER_DELETED', uid, before, null);
+    res.json({ ok: true, uid, deleted: true, auditLogged });
   } catch (error: any) {
     res.status(400).json({ error: error?.code || error?.message || String(error) });
   }
