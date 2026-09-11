@@ -123,12 +123,12 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
             return <tr key={row.uid} className="border-t border-slate-800">
               <td className="p-2"><b className="text-white">{row.email ?? row.uid}</b><div className="text-[10px] text-slate-500">{row.displayName ?? '—'} · {row.uid.slice(0, 10)}…</div></td>
               <td className="p-2 text-center"><span className={row.emailVerified ? 'text-emerald-300' : 'text-amber-300'}>{row.emailVerified ? 'VERIFICADO' : 'PENDIENTE'}</span></td>
-              <td className="p-2 text-center"><span className={row.accessGranted ? 'text-emerald-300' : 'text-amber-300'}>{row.accessGranted ? 'CONCEDIDO' : 'PENDIENTE'}</span></td>
+              <td className="p-2 text-center"><span className={row.accessGranted ? 'text-emerald-300' : 'text-amber-300'}>{row.isAdmin ? 'POR ADMIN' : row.accessGranted ? 'CONCEDIDO' : 'PENDIENTE'}</span></td>
               <td className="p-2 text-center"><span className={row.isAdmin ? 'font-bold text-violet-300' : 'text-slate-600'}>{row.isAdmin ? 'ADMIN' : '—'}</span></td>
               <td className="p-2 text-center"><span className={row.disabled ? 'text-rose-300' : 'text-emerald-300'}>{row.disabled ? 'BLOQUEADA' : 'ACTIVA'}</span></td>
               <td className="p-2 text-slate-500">{row.lastSignInAt ? new Date(row.lastSignInAt).toLocaleString('es-ES') : 'Nunca'}</td>
               <td className="p-2"><div className="flex justify-end gap-1">
-                {!self && <button title={row.accessGranted ? 'Revocar acceso' : 'Dar acceso'} disabled={busy != null} onClick={() => confirmUpdate(row, 'access', `${row.accessGranted ? 'Revocar' : 'Conceder'} acceso a ${row.email ?? row.uid}?`, { accessGranted: !row.accessGranted })} className="rounded border border-slate-700 p-2 text-slate-300">{row.accessGranted ? <UserX className="h-3.5 w-3.5"/> : <CheckCircle2 className="h-3.5 w-3.5"/>}</button>}
+                {!self && !row.isAdmin && <button title={row.accessGranted ? 'Revocar acceso' : 'Dar acceso'} disabled={busy != null} onClick={() => confirmUpdate(row, 'access', `${row.accessGranted ? 'Revocar' : 'Conceder'} acceso a ${row.email ?? row.uid}?`, { accessGranted: !row.accessGranted })} className="rounded border border-slate-700 p-2 text-slate-300">{row.accessGranted ? <UserX className="h-3.5 w-3.5"/> : <CheckCircle2 className="h-3.5 w-3.5"/>}</button>}
                 {!self && <button title={row.isAdmin ? 'Quitar ADMIN' : 'Hacer ADMIN'} disabled={busy != null} onClick={() => confirmUpdate(row, 'admin', `${row.isAdmin ? 'Retirar ADMIN de' : 'Conceder ADMIN a'} ${row.email ?? row.uid}?`, { isAdmin: !row.isAdmin })} className="rounded border border-violet-500/30 p-2 text-violet-300"><ShieldCheck className="h-3.5 w-3.5"/></button>}
                 {!self && <button title={row.disabled ? 'Reactivar cuenta' : 'Bloquear cuenta'} disabled={busy != null} onClick={() => confirmUpdate(row, 'disable', `${row.disabled ? 'Reactivar' : 'Bloquear'} la cuenta ${row.email ?? row.uid}?`, { disabled: !row.disabled })} className="rounded border border-amber-500/30 p-2 text-amber-300"><UserX className="h-3.5 w-3.5"/></button>}
                 <button title="Copiar enlace de contraseña" disabled={busy != null || !row.email} onClick={() => void resetLink(row)} className="rounded border border-cyan-500/30 p-2 text-cyan-300"><KeyRound className="h-3.5 w-3.5"/></button>
@@ -152,7 +152,7 @@ export const AdminUsersPanel: React.FC<Props> = ({ user, onClose }) => {
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500"><Copy className="h-3.5 w-3.5"/>Los enlaces de contraseña se copian para que el administrador los entregue por un canal privado. Trading conserva su propio Firebase, usuarios, datos y backend; no depende de otras aplicaciones.</div>
+      <div className="mt-4 flex items-center gap-2 text-[10px] text-slate-500"><Copy className="h-3.5 w-3.5"/>Un ADMIN siempre tiene acceso: para revocárselo primero hay que retirarle ADMIN. Los enlaces de contraseña se entregan por un canal privado. Trading conserva su propio Firebase, usuarios, datos y backend.</div>
     </div>
   </div>;
 };
