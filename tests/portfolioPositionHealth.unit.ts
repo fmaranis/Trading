@@ -192,4 +192,17 @@ const dynamicEtf = registerLiveDiscoveredAsset({
 });
 check('824 a Yahoo-discovered broad ETF does not become a tactical single stock by mistake', isDiversifiedCoreCategory('GLOBAL_EQUITY', dynamicEtf.assetId));
 
-console.log(`Portfolio position health: ${passed}/24 invariants passed.`);
+const currentLiveEquityContext: any = {
+  category: 'EUROPE_EQUITY',
+  isListedEquity: true,
+  isDiversifiedCore: true,
+  currentReturnPct: -10,
+  mfePct: 8,
+  givebackFromMfePctPoints: 18,
+  deteriorationStreakSessions: 10,
+  momentum20Pct: -4
+};
+const currentLiveEquityReduce = classifyPositionHealth({ ...weakSatellite, assetId: 'OPEN_HFG_DE', ticker: 'HFG.DE', name: 'HelloFresh current-live' }, -10, currentLiveEquityContext);
+check('825 a current-live OPEN equity uses listed-equity identity instead of broad-category core protection', currentLiveEquityReduce.action === 'REDUCE' && currentLiveEquityContext.isDiversifiedCore === false);
+
+console.log(`Portfolio position health: ${passed}/25 invariants passed.`);
