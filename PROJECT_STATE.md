@@ -118,7 +118,7 @@ Esta es la secuencia canónica de cierre. No abrir una fase posterior por aparec
 ```text
 FASE 0  MAPA MAESTRO / ESTADO CANÓNICO       ← DONE
 FASE 1  BASE PRODUCTIVA V1                    ← DONE salvo bug/regresión reproducible
-FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A REABIERTO POR BUG REAL · SEGUNDA AUDITORÍA/FIX IMPLEMENTADOS · RUNTIME PENDIENTE
+FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A QUICK CLOSURE PREVIO PASS + ACCIÓN ADMIN RUNTIME PASS · SESIÓN/ESTADO + QUICK CLOSURE FINAL PENDIENTES
 FASE 3  PROTOCOLO ECONÓMICO FINAL             ← NEXT después de cerrar Fase 2
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← research fresh/blind/OOS
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← research fresh/blind/OOS
@@ -190,22 +190,21 @@ Baseline funcional validado antes de la Fase 0 documental:
 
 `a4b15eaf72960aef51f0e9e7691b487f9f46bf51`
 
-Último quick closure completado antes del bug de smoke, ejecutado por el usuario el 2026-09-11 sobre `dac08b2729d7e3c0065f33918154cd94a969cfd0`:
+Quick closure anterior al último ajuste de UI ADMIN, ejecutado por el usuario el 2026-09-11:
 
-- Guard cierre de superficie: **32/32 PASS**;
-- Guard decisión productiva única: **20/20 PASS**;
-- Guard plan de ejecución: **29/29 PASS**;
-- Guard cartera: **24/24 PASS**;
-- Guard salud de posiciones: **27/27 PASS**;
-- Guard disponibilidad broker: **7/7 PASS**;
-- Guard fiscalidad de ejecución: **7/7 PASS**;
-- TypeScript `tsc --noEmit`: **PASS**.
+- Guard cierre de superficie: PASS;
+- Guard usuarios privados: PASS;
+- Guard decisión productiva única: PASS;
+- Guard plan de ejecución: PASS;
+- Guard cartera: PASS;
+- Guard salud de posiciones: PASS;
+- Guard disponibilidad broker: PASS;
+- Guard fiscalidad de ejecución: PASS;
+- TypeScript `tsc --noEmit`: PASS.
 
-Ese PASS no cerró Fase 2A: el smoke real detectó después un fallo de revocación que los guards de entonces no cubrían.
+Después de ese PASS se realizó un ajuste material sólo en `AdminUsersPanel` y sus guards para eliminar la dependencia funcional de `window.confirm`/clipboard. Por ello habrá **un único quick closure final** cuando termine el smoke runtime de 2A; no se repite entre cada paso del smoke.
 
 Móvil + exportación JSON física: **PASS 2026-09-11**.
-
-Los cambios posteriores de auth/ADMIN son materiales y requieren **una nueva ejecución única** de `Producto · cierre rápido` antes de cerrar 2A.
 
 ---
 
@@ -435,7 +434,7 @@ Hipótesis abiertas para Fases 4–5:
 
 Estado general:
 
-**MUY AVANZADA / OPERATIVA EN GRAN PARTE / 2A REABIERTO HASTA VALIDAR EL FIX REAL.**
+**MUY AVANZADA / OPERATIVA EN GRAN PARTE / 2A RUNTIME PARCIAL PASS; PENDIENTES INVALIDACIÓN DE SESIÓN, RESTAURACIÓN DE ESTADO Y QUICK CLOSURE FINAL.**
 
 Baseline de inicio de Fase 2A:
 
@@ -531,158 +530,101 @@ Decisión de seguridad sobre audit log:
 - sólo backend/Admin SDK lo usa;
 - un ADMIN sigue sin endpoint para abrir la cartera privada de otro usuario.
 
-El usuario ejecutó `Producto · cierre rápido` y obtuvo 32/32 + resto de guards + TypeScript PASS, pero el smoke posterior detectó un bug real.
-
 ## 9.5 Smoke real 2026-09-11 — BUG “REVOCAR ACCESO NO VA”
 
-El usuario comprobó que **“Revocar acceso” no funcionaba**.
+El usuario comprobó que **“Revocar acceso” no funcionaba** y después confirmó que tampoco respondían las demás acciones sensibles del ADMIN.
 
 Clasificación: `BUG`.
 
-No se considera Fase 2A cerrada por el PASS automático anterior.
-
 Primera revisión del camino real detectó:
 
-1. **ADMIN no-op silencioso.** La UI permitía intentar revocar acceso a una cuenta ADMIN, pero la semántica del backend es que ADMIN implica acceso. La acción podía parecer aceptada sin cambiar el estado efectivo.
+1. **ADMIN no-op silencioso.** La UI permitía intentar revocar acceso a una cuenta ADMIN, pero la semántica del backend es que ADMIN implica acceso.
 2. **Sesión ya abierta sin revalidación activa.** Un usuario normal podía tener claims/tokens revocados, pero la app ya abierta conservaba la cartera renderizada hasta una nueva verificación.
 
 ## 9.6 Segunda auditoría completa posterior al bug
 
-A petición expresa del usuario se volvió a revisar de nuevo el flujo completo:
+Se revisó de nuevo el flujo completo:
 
 `AdminUsersPanel -> accountApi -> accountRoutes -> Firebase Auth/claims -> token revocation -> SecureAppGate -> local private cache/cloud sync -> quick closure -> documentación`.
 
-La segunda revisión encontró además:
+La revisión encontró además:
 
-3. **Lista ADMIN acoplada al audit log.** `AdminUsersPanel.refresh()` usaba `Promise.all`. Si fallaba sólo la lectura del audit log, también se descartaba la lista fresca de usuarios. Una revocación efectiva podía seguir viéndose como `CONCEDIDO`, aparentando un no-op.
-4. **Riesgo de carrera entre limpieza local y autosync.** La sesión revocada limpiaba `localStorage` sin garantizar primero que el sincronizador privado estuviese parado. Se endureció el orden para impedir que una caché vaciada pueda intentar sustituir el estado durable.
-5. **Fallo transitorio de revalidación tratado demasiado agresivamente.** Un error de red/servidor durante la comprobación periódica no debe confundirse con revocación. Ahora la UI falla cerrada, detiene autosync y conserva la caché local; sólo una revocación/disabled confirmada limpia y cierra sesión.
-6. **Mutación Auth correcta podía parecer fallida por el espejo Firestore.** Si Firebase Auth ya había aplicado la revocación pero luego fallaba `writeProfile`, el endpoint podía devolver error aunque la autoridad real hubiera cambiado. Ahora Auth es la autoridad de la mutación; el perfil es un mirror best-effort y la respuesta indica `profileSynced`.
-7. **`privateUserSecurity.unit.ts` no estaba realmente dentro de `Producto · cierre rápido`.** Se estaba usando como evidencia estática sin que el job que pulsaba el usuario lo ejecutase. Ahora se ha integrado como un paso del mismo job existente; no se creó otro job.
-8. **Los guards eran principalmente textuales.** Se añadió una política pura `resolveManagedUserPatch(...)` y aserciones de comportamiento para normal revoke, ADMIN direct revoke, demotion y demotion+revoke.
-9. **Error documental propio.** Al registrar el primer fix se compactó demasiado `PROJECT_STATE.md`, eliminando detalle histórico/metodológico útil. Esta segunda auditoría restaura la memoria canónica completa y añade los nuevos hallazgos sin sustituirla por un resumen.
+3. lista ADMIN acoplada al audit log;
+4. riesgo de carrera entre limpieza local y autosync;
+5. fallo transitorio de revalidación tratado como revocación;
+6. mutación Auth correcta que podía parecer fallida si fallaba el espejo Firestore;
+7. `privateUserSecurity.unit.ts` no estaba dentro de `Producto · cierre rápido`;
+8. guards demasiado textuales;
+9. compactación documental excesiva de `PROJECT_STATE.md`, posteriormente restaurada.
 
-## 9.7 Fix 2A vigente — validación runtime pendiente
+## 9.7 Fix backend/gate y tercer hallazgo runtime de UI
 
-Cambios vigentes:
+Backend/gate vigentes:
 
-### Backend — `server/accountRoutes.ts`
+- `resolveManagedUserPatch(...)` centraliza semántica de acceso/ADMIN/disabled;
+- ADMIN + revocación directa => `ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST`;
+- `/session-status` devuelve estado real actual;
+- revocaciones relevantes revocan refresh tokens;
+- Auth es autoridad; profile mirror es best-effort;
+- sesiones abiertas revalidan cada 15 s y al recuperar foco;
+- autosync se detiene antes de limpiar la caché;
+- fallos genéricos de red fallan cerrado sin borrar caché como si fueran revocación.
 
-- `resolveManagedUserPatch(...)` centraliza semántica de acceso/ADMIN/disabled.
-- usuario normal + `accessGranted:false` => acceso efectivo false.
-- ADMIN + revocación directa sin retirar ADMIN => `ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST`.
-- retirar ADMIN sin pedir revocación conserva acceso como usuario normal.
-- retirar ADMIN + revocar en la misma mutación deja ambos false.
-- `/session-status` devuelve estado real actual de `disabled/isAdmin/accessGranted`.
-- revocar acceso, deshabilitar o retirar privilegios relevantes revoca refresh tokens.
-- Auth es autoridad del cambio; si falla el mirror de perfil tras una mutación Auth correcta:
-  - no se devuelve un falso fallo de la revocación;
-  - se registra `ADMIN_USER_PROFILE_SYNC_FAILED`;
-  - respuesta `profileSynced:false`;
-  - audit metadata registra ese estado.
+Tercer hallazgo runtime:
 
-### Cliente API — `src/auth/accountApi.ts`
+> todas las acciones sensibles del panel (`revocar/conceder acceso`, `ADMIN`, `bloquear/reactivar`, `borrar`) dependían de `window.confirm(...)`. En el entorno preview/iframe usado por la app ese diálogo nativo podía quedar bloqueado, por lo que los botones parecían muertos antes de alcanzar el backend. La generación/copia de enlaces dependía además de `navigator.clipboard`, también restringible por el entorno.
 
-- `loadAccountSessionStatus(...)`.
-- respuesta de `updateManagedUser(...)` tipada con `ManagedUserUpdateResult`, incluyendo `profileSynced` y `auditLogged`.
+Corrección en HEAD `a22c4de9940d974a32045e2f10adf21731a1f3eb`:
 
-### ADMIN — `src/components/AdminUsersPanel.tsx`
+- se elimina `window.confirm` como dependencia funcional;
+- todas las acciones sensibles usan una confirmación interna renderizada dentro de `AdminUsersPanel`;
+- todos los botones son `type="button"` explícito;
+- los enlaces de contraseña quedan visibles en el panel aunque clipboard falle;
+- clipboard queda como mejora opcional, no condición de éxito;
+- guards prohíben reintroducir `window.confirm` y exigen confirmación interna/fallback visible.
 
-- ADMIN muestra acceso `POR ADMIN`.
-- no se ofrece botón de revocación directa mientras conserve ADMIN.
-- explicación: primero retirar ADMIN y después revocar.
-- carga de usuarios y audit log desacoplada mediante `Promise.allSettled`:
-  - si audit falla, la lista de usuarios se actualiza igualmente;
-  - se muestra un warning separado de auditoría;
-  - una lista stale ya no puede ocultar una revocación por culpa del audit log.
-- si Auth se actualiza pero el profile mirror falla, el panel lo comunica sin presentar el cambio como inexistente.
+Evidencia runtime del usuario sobre ese HEAD:
 
-### Gate — `src/auth/SecureAppGate.tsx`
+- la confirmación interna aparece;
+- la acción ADMIN probada vuelve a responder correctamente con el nuevo botón;
+- por tanto el fallo común de “botones muertos” queda **confirmado y corregido en runtime** para ese camino de acción.
 
-- revalida acceso cada 15 s;
-- revalida también al recuperar foco/visibilidad;
-- una revocación/disabled confirmada:
-  - para autosync primero;
-  - limpia estado privado local después;
-  - cierra sesión;
-  - deja de renderizar la cartera.
-- un token revocado se trata como pérdida real de acceso.
-- un fallo genérico de red/servidor:
-  - para autosync;
-  - falla cerrado en UI;
-  - **no borra** la caché privada local como si fuera una revocación.
-- reintentar verificación para autosync antes de rehidratar/rearrancar sincronización, evitando carreras.
+Revisión de alcance:
 
-### Guards y Centro de validación
+- cambios desde el HEAD anterior limitados a `AdminUsersPanel.tsx` y sus dos guards;
+- no scanner/Top64/gates/motores/replay/fiscalidad/alertas/Telegram/Future Forward;
+- sin dependencias nuevas.
 
-- `tests/productSurfaceClosureV1.unit.ts`: **33 invariantes**.
-- `tests/privateUserSecurity.unit.ts`:
-  - invariantes estructurales;
-  - aserciones reales de `resolveManagedUserPatch`;
-  - stop-sync-before-clear;
-  - audit failure independiente de lista;
-  - profile mirror best-effort.
-- `Producto · cierre rápido` incorpora ahora **`Guard usuarios privados`** ejecutando `tests/privateUserSecurity.unit.ts`.
-- no se creó otro job/panel.
+**Estado 2A: RUNTIME PARCIAL PASS. NO DONE todavía.**
 
-Revisión de alcance de estos cambios:
+## 9.8 Validación exacta restante de Fase 2A
 
-- no se toca `AssetUniverseScanner`;
-- no se toca Top64;
-- no se toca PortfolioCandidateGate;
-- no se toca InvestmentDecisionEngine;
-- no se toca PortfolioDecisionEngine;
-- no se toca replay;
-- no se toca fiscalidad;
-- no se toca lógica de alertas de trading;
-- no se toca Telegram;
-- no se toca ningún archivo congelado de Future Forward;
-- no hay dependencias nuevas.
+No repetir tests entre cada paso. Completar primero el smoke con una cuenta de prueba **normal, NO-ADMIN y NO-bootstrap**:
 
-**Estado 2A: FIX + SEGUNDA AUDITORÍA DE CÓDIGO COMPLETADOS / RUNTIME PENDIENTE. NO DONE.**
+1. revocar acceso y confirmar que la lista queda `PENDIENTE`;
+2. si esa cuenta tiene otra sesión abierta, volver a esa ventana: debe perder acceso al recuperar foco o en ≤15 s;
+3. confirmar que el estado durable/Firestore del usuario no se ha borrado;
+4. volver a conceder acceso;
+5. volver a iniciar sesión si los refresh tokens revocados lo exigen;
+6. confirmar que recupera exactamente su propio estado privado;
+7. confirmar que la cartera del usuario principal sigue intacta;
+8. comprobar de forma mínima que ADMIN/bloquear/reactivar usan la misma confirmación interna y responden; no hace falta destruir datos para probar `Borrar`.
 
-## 9.8 Validación exacta pendiente de Fase 2A
+Al terminar ese smoke, ejecutar **una única vez `Producto · cierre rápido`** sobre el HEAD final de 2A. Deben pasar:
 
-Ejecutar una sola vez en `ResearchValidationCenter`:
-
-**`Producto · cierre rápido`**
-
-Esperado:
-
-- `Guard cierre de superficie`: **33/33 PASS**;
-- `Guard usuarios privados`: **PRIVATE_USER_SECURITY_PASS**;
-- decisión productiva única: **20/20 PASS**;
-- plan de ejecución: **29/29 PASS**;
-- cartera: **24/24 PASS**;
-- salud de posiciones: **27/27 PASS**;
-- broker: **7/7 PASS**;
-- fiscalidad: **7/7 PASS**;
-- TypeScript: **PASS**.
+- Guard cierre de superficie;
+- Guard usuarios privados `PRIVATE_USER_SECURITY_PASS`;
+- decisión productiva única;
+- plan de ejecución;
+- cartera;
+- salud de posiciones;
+- broker;
+- fiscalidad;
+- TypeScript.
 
 No ejecutar replay largo ni Future Forward.
 
-Después del PASS, smoke real únicamente con una cuenta de prueba **normal, NO-ADMIN y NO-bootstrap**:
-
-1. abrir ADMIN;
-2. comprobar que la cuenta normal muestra `CONCEDIDO`;
-3. pulsar `Revocar acceso` y confirmar;
-4. la lista debe refrescar a `PENDIENTE` aunque el audit log no pudiera cargar;
-5. si audit funciona, debe aparecer `USER_UPDATED`; si audit fallase, debe mostrarse warning independiente sin ocultar el nuevo estado del usuario;
-6. si esa cuenta tiene otra sesión abierta, al volver a foco o en ≤15 s debe dejar de mostrar la cartera y quedar fuera;
-7. confirmar que la cartera durable del usuario no se ha borrado;
-8. volver a conceder acceso;
-9. debido a la revocación de refresh tokens, la recuperación normal puede requerir **volver a iniciar sesión**; no se presupone que un token revocado pueda reutilizarse;
-10. confirmar que recupera exactamente su propio estado privado;
-11. confirmar que la cartera del usuario principal sigue intacta.
-
-Para una cuenta ADMIN:
-
-- no debe aparecer revocación directa de acceso;
-- primero retirar ADMIN;
-- después revocar acceso si se desea;
-- una cuenta configurada como bootstrap ADMIN puede volver a recibir privilegios al pasar por el bootstrap; **no usar una cuenta bootstrap para esta prueba**.
-
-Si quick closure + smoke pasan, **Fase 2A = DONE**.
+Si smoke + quick closure final pasan, **Fase 2A = DONE**.
 
 ## 9.9 Alertas y autonomía — Fase 2B
 
@@ -718,7 +660,7 @@ No existe ni se debe introducir ahora ejecución automática de órdenes de brok
 Criterio de cierre Fase 2:
 
 - sistema de usuarios de Trading sigue independiente;
-- 2A pasa quick closure actualizado + smoke manual real;
+- 2A pasa smoke manual real + quick closure final;
 - login/ADMIN/Firestore/aislamiento/cartera siguen funcionando;
 - alarmas actuales siguen funcionando;
 - se decide y documenta el alcance V1 de 2B;
@@ -858,22 +800,21 @@ Fase 10 / V2, sólo después de cierre V1:
 
 1. **Fase 0: DONE.**
 2. **Fase 1: congelada.** No tocar motor productivo salvo bug/regresión reproducible.
-3. **Fase 2A: reabierta por BUG real de revocación.** Segunda auditoría y fix de código completados; no declarar DONE todavía.
-4. Sincronizar la app al HEAD actual y ejecutar **una sola vez `Producto · cierre rápido`**.
-5. Deben pasar `33/33`, el nuevo `Guard usuarios privados`, el resto de guards y TypeScript.
-6. Si falla, corregir la causa exacta antes de continuar. No lanzar replay ni Future Forward.
-7. Si pasa, realizar el smoke de revocación con usuario normal NO-ADMIN/NO-bootstrap descrito en §9.8.
-8. Si quick closure + smoke pasan, marcar **Fase 2A DONE** y actualizar este archivo/roadmap.
-9. Antes de modificar alertas, decidir explícitamente el alcance **Fase 2B**: configuración actual versus generalización multiusuario, y auditar `ROTATE_NOW`/autoridad canónica.
-10. **Fase 3:** congelar protocolo económico antes de abrir nuevas muestras.
-11. **Fase 4:** reentrada fresh/OOS.
-12. **Fase 5:** protección de ganadores fresh/OOS.
-13. **Fase 6:** Forward Risk V8 como contexto bajo protocolo nuevo.
-14. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
-15. No tocar los 25 archivos congelados de Future Forward para avanzar Fases 2–6.
-16. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
-17. **Fase 9:** auditoría end-to-end y cierre V1.
-18. **Fase 10:** permanece deferred hasta cierre V1.
+3. **Fase 2A: runtime parcial PASS.** El fallo común de botones ADMIN quedó corregido con confirmación interna en `a22c4de...`.
+4. Completar el smoke de §9.8: invalidación de sesión abierta, preservación/restauración de estado y cartera principal intacta.
+5. Si el smoke pasa, ejecutar **una sola vez `Producto · cierre rápido`** sobre el HEAD final de 2A.
+6. Si falla, corregir la causa exacta. No lanzar replay ni Future Forward.
+7. Si smoke + quick closure pasan, marcar **Fase 2A DONE** y actualizar este archivo/roadmap.
+8. Antes de modificar alertas, decidir explícitamente el alcance **Fase 2B**: configuración actual versus generalización multiusuario, y auditar `ROTATE_NOW`/autoridad canónica.
+9. **Fase 3:** congelar protocolo económico antes de abrir nuevas muestras.
+10. **Fase 4:** reentrada fresh/OOS.
+11. **Fase 5:** protección de ganadores fresh/OOS.
+12. **Fase 6:** Forward Risk V8 como contexto bajo protocolo nuevo.
+13. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
+14. No tocar los 25 archivos congelados de Future Forward para avanzar Fases 2–6.
+15. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
+16. **Fase 9:** auditoría end-to-end y cierre V1.
+17. **Fase 10:** permanece deferred hasta cierre V1.
 
 Al cerrar cada fase:
 
