@@ -5,6 +5,7 @@ import type { AssetUniverseCategory } from './assetUniverse';
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
 import { assessAgainstCashBenchmark } from './cashBenchmark';
 import { isDynamicDiscoveredEquityIdentity } from './dynamicPortfolioDiscovery';
+import { isCurrentListedEquityAsset } from './openMarketDiscoveryV1';
 import { PortfolioExecutionHistoryService, type PortfolioExecutionHistoryEntry } from './portfolioExecutionHistory';
 import { isPortfolioEquityTicker } from './portfolioDiscoveryUniverse';
 import { SingleAssetResearchEngine } from './singleAssetResearch';
@@ -17,6 +18,7 @@ export type PortfolioPositionHealthAction = 'ADD' | 'HOLD' | 'WATCH' | 'REDUCE' 
 
 export interface PositionHealthContext {
   category?: AssetUniverseCategory | 'UNKNOWN' | null;
+  isListedEquity?: boolean | null;
   isDiversifiedCore?: boolean | null;
   currentReturnPct?: number | null;
   mfePct?: number | null;
@@ -132,11 +134,14 @@ export function classifyPositionHealth(
   if (!assessment) return { action: 'DATA_MISSING', reason: 'No hay evidencia causal suficiente para evaluar esta posición.', suggestedReductionPct: null };
 
   // Normalize the audit/context classification from the actual instrument identity.
-  // This prevents a single stock such as EQ_FERROVIAL from inheriting broad-index
-  // protection merely because both happen to use the EUROPE_EQUITY category.
+  // Static EQ_ names, manually discovered DYNAMIC_* equities and current/live
+  // OPEN_* equities must all remain tactical single stocks even when Yahoo can
+  // only assign the broad EUROPE_EQUITY category.
   const instrumentIdentity = assessment.assetId || assessment.ticker;
   if (context.category != null && instrumentIdentity) {
-    context.isDiversifiedCore = isDiversifiedCoreCategory(context.category, instrumentIdentity);
+    context.isDiversifiedCore = context.isListedEquity === true
+      ? false
+      : isDiversifiedCoreCategory(context.category, instrumentIdentity);
   }
 
   if (assessment.structuralDowntrend && assessment.unfavorableVotes >= 4 && assessment.consensusScore <= -3) {
@@ -283,12 +288,16 @@ function positionPathContext(input: {
   units: number | null | undefined;
   category: AssetUniverseCategory | 'UNKNOWN' | null | undefined;
   tickerOrAssetId?: string | null;
+  isListedEquity?: boolean | null;
   deteriorationStreakSessions: number;
   momentum20Pct: number | null | undefined;
 }): PositionHealthContext {
   const base: PositionHealthContext = {
     category: input.category ?? 'UNKNOWN',
-    isDiversifiedCore: isDiversifiedCoreCategory(input.category, input.tickerOrAssetId),
+    isListedEquity: input.isListedEquity ?? null,
+    isDiversifiedCore: input.isListedEquity === true
+      ? false
+      : isDiversifiedCoreCategory(input.category, input.tickerOrAssetId),
     deteriorationStreakSessions: input.deteriorationStreakSessions,
     momentum20Pct: input.momentum20Pct ?? null,
     currentReturnPct: null,
@@ -342,6 +351,7 @@ function trackedListedPathContext(input: {
   isin?: string | null;
   shares: number;
   category: AssetUniverseCategory;
+  isListedEquity?: boolean | null;
   deteriorationStreakSessions: number;
   momentum20Pct: number | null | undefined;
   history: PortfolioExecutionHistoryEntry[];
@@ -365,6 +375,7 @@ function trackedListedPathContext(input: {
       units: basisComplete ? input.shares : null,
       category: input.category,
       tickerOrAssetId: input.assetId,
+      isListedEquity: input.isListedEquity,
       deteriorationStreakSessions: input.deteriorationStreakSessions,
       momentum20Pct: input.momentum20Pct
     })
@@ -478,6 +489,7 @@ export class PortfolioPositionHealthService {
           isin: candidate.asset.isin,
           shares: holding.shares,
           category: candidate.asset.category,
+          isListedEquity: isCurrentListedEquityAsset(candidate.asset),
           deteriorationStreakSessions,
           momentum20Pct: candidate.momentum20Pct,
           history: executionHistory
