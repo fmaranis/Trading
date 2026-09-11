@@ -269,6 +269,10 @@ accountRouter.patch('/admin/users/:uid', async (req: Request, res: Response): Pr
       res.status(400).json({ error: 'ADMIN_CANNOT_REVOKE_OR_DISABLE_SELF' });
       return;
     }
+    if (req.body?.accessGranted === false && currentClaims.isAdmin === true && req.body?.isAdmin !== false) {
+      res.status(400).json({ error: 'ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST' });
+      return;
+    }
     if (target.customClaims?.isAdmin === true && wantsAdmin === false && await enabledAdminCount(uid) < 1) {
       res.status(400).json({ error: 'CANNOT_REMOVE_LAST_ADMIN' });
       return;
