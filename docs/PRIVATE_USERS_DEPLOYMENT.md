@@ -14,7 +14,7 @@ Trading mantiene infraestructura propia. `fmaranis/Cubetos-y-balsas-sincronizado
 - Firestore: estado persistente por `uid`.
 - Custom Claims firmados:
   - `accessGranted=true`: permite usar la aplicación privada;
-  - `isAdmin=true`: permite administrar cuentas y también implica acceso.
+  - `isAdmin=true`: permite administrar cuentas y **también implica acceso**.
 - `localStorage`: caché aislada del usuario conectado, no fuente compartida de identidad.
 - ADMIN integrado en la superficie existente, sin panel/producto paralelo.
 - Auditoría backend propia de Trading para operaciones administrativas.
@@ -110,6 +110,8 @@ La vía por email sólo funciona cuando Firebase emite `email_verified=true`. La
 
 Después del bootstrap se renueva el ID token para recibir los claims. No existe un campo editable por el navegador capaz de convertir a un usuario en administrador.
 
+**Importante para pruebas:** una cuenta configurada como bootstrap ADMIN puede recuperar `isAdmin/accessGranted` al pasar de nuevo por `/bootstrap`. Por tanto no debe utilizarse como cuenta de prueba para verificar revocación normal.
+
 ## Alta de usuarios
 
 ### Registro pendiente
@@ -145,6 +147,14 @@ El panel existente permite:
 
 El panel **no** incluye ninguna función para abrir la cartera de otro usuario.
 
+### Semántica de acceso y ADMIN
+
+- `isAdmin=true` implica acceso efectivo aunque `accessGranted` no se trate como permiso separado en la UI.
+- Un ADMIN se muestra como `POR ADMIN`.
+- No se ofrece revocación directa mientras conserve ADMIN.
+- Para quitar acceso a un ADMIN hay que retirar primero ADMIN y después revocar acceso, o realizar ambas transiciones coherentemente en backend.
+- El backend rechaza un intento incoherente con `ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST` en lugar de aceptar un no-op silencioso.
+
 Protecciones:
 
 - ADMIN se autoriza mediante custom claim firmado, no `profile.role`;
@@ -154,7 +164,8 @@ Protecciones:
 - al bloquear/revocar privilegios se revocan refresh tokens;
 - operaciones sensibles del panel exigen confirmación explícita;
 - alta, cambios de acceso/ADMIN/bloqueo, generación de enlace de contraseña y borrado quedan registrados en `admin_audit_log` mediante backend;
-- un fallo de escritura del audit log no transforma una mutación ya completada en un falso error del cliente: el backend lo registra en servidor y devuelve `auditLogged` en la respuesta administrativa.
+- un fallo de escritura del audit log no transforma una mutación ya completada en un falso error del cliente: el backend lo registra y devuelve `auditLogged`;
+- una mutación correcta de Firebase Auth tampoco se presenta como fallida sólo porque falle posteriormente el espejo de perfil Firestore: el backend devuelve `profileSynced=false` y registra `ADMIN_USER_PROFILE_SYNC_FAILED`.
 
 ## Qué se tomó como referencia de Cubetos/Muros
 
@@ -191,7 +202,7 @@ Al primer acceso autorizado:
 
 Las claves heredadas de fondos/capital pendiente y el plan de ejecución pendiente forman parte explícita del aislamiento.
 
-## Sincronización
+## Sincronización y revocación de una sesión abierta
 
 Mientras la app está abierta:
 
@@ -200,7 +211,34 @@ Mientras la app está abierta:
 - al ocultar la pestaña se intenta sincronizar;
 - Firestore queda como copia persistente privada.
 
+Además, `SecureAppGate` comprueba el estado real de la cuenta mediante `/session-status`:
+
+- cada 15 segundos;
+- al recuperar foco de ventana;
+- al volver la pestaña a visible.
+
+Si el backend confirma revocación/disabled o el token está revocado:
+
+1. se detiene primero el autosync privado;
+2. se limpia después la caché privada local;
+3. se cierra la sesión;
+4. deja de renderizarse la cartera.
+
+El orden es deliberado para evitar que una caché ya vaciada pueda intentar sincronizarse sobre el estado durable.
+
+Un fallo transitorio de red/servidor durante esa revalidación **no se interpreta como revocación**: la UI falla cerrada y detiene autosync, pero no borra la caché local. La revalidación puede reintentarse después sin convertir un problema de conectividad en una pérdida de estado local.
+
 La estrategia/cálculo no usa Firestore para decidir: el estado se hidrata y los servicios financieros existentes trabajan con su representación habitual.
+
+## Refresco del panel ADMIN
+
+La lista de usuarios y el audit log son evidencias distintas.
+
+El panel utiliza `Promise.allSettled` para que:
+
+- una caída del audit log **no impida** actualizar la lista de usuarios;
+- una revocación efectiva se vea como `PENDIENTE` aunque el historial de auditoría falle temporalmente;
+- el problema del audit se muestre como warning separado (`auditError`) en vez de dejar el estado de acceso aparentemente stale.
 
 ## Alertas actuales
 
@@ -272,7 +310,7 @@ firebase-admin 13.10.0
 
 ## Validación multiusuario ya realizada
 
-Validado manualmente en Firebase real:
+Validado manualmente en Firebase real antes del hardening actual:
 
 - primer usuario ADMIN autenticado;
 - cartera real asociada al UID privado propietario;
@@ -283,9 +321,9 @@ Validado manualmente en Firebase real:
 - retorno al ADMIN recuperando exclusivamente su cartera;
 - borrado de usuario de prueba disponible.
 
-## Validación tras el hardening de Fase 2A
+## Estado de validación Fase 2A
 
-El `Producto · cierre rápido` fue ejecutado por el usuario el **2026-09-11** sobre el HEAD de implementación `dac08b2729d7e3c0065f33918154cd94a969cfd0` y pasó completo:
+El `Producto · cierre rápido` ejecutado por el usuario el **2026-09-11** sobre `dac08b2729d7e3c0065f33918154cd94a969cfd0` pasó:
 
 - superficie: **32/32 PASS**;
 - decisión productiva: **20/20 PASS**;
@@ -296,14 +334,43 @@ El `Producto · cierre rápido` fue ejecutado por el usuario el **2026-09-11** s
 - fiscalidad: **7/7 PASS**;
 - TypeScript: **PASS**.
 
-No repetir quick closure ni ejecutar replay largo salvo cambio material posterior.
+El smoke posterior encontró el BUG real **“Revocar acceso no va”**, por lo que ese PASS no cerró 2A.
 
-Para cerrar Fase 2A sólo queda el smoke manual mínimo en la app real:
+Después de la segunda auditoría, el mismo `Producto · cierre rápido` incluye ahora también:
 
-1. abrir ADMIN;
-2. comprobar que lista usuarios, búsqueda y estado de correo funcionan;
-3. realizar una operación administrativa reversible sobre una cuenta de prueba y aceptar la confirmación;
-4. comprobar que aparece en `Actividad administrativa reciente`;
-5. confirmar que el usuario principal conserva exactamente su cartera/estado privado.
+```text
+Guard usuarios privados
+→ tests/privateUserSecurity.unit.ts
+→ PRIVATE_USER_SECURITY_PASS
+```
 
-La continuidad de las alarmas se comprueba de forma no destructiva; no se fuerza una señal artificial sólo para probar Telegram.
+`privateUserSecurity.unit.ts` ya no se limita a comprobar texto: prueba la política `resolveManagedUserPatch(...)` para revocación normal, ADMIN, demotion y demotion+revoke.
+
+### Validación exacta pendiente
+
+Ejecutar una sola vez `Producto · cierre rápido` sobre el HEAD actual. Esperado:
+
+- superficie **33/33 PASS**;
+- `Guard usuarios privados` → **PRIVATE_USER_SECURITY_PASS**;
+- decisión 20/20;
+- ejecución 29/29;
+- cartera 24/24;
+- salud 27/27;
+- broker 7/7;
+- fiscalidad 7/7;
+- TypeScript PASS.
+
+Después, smoke sólo con una cuenta de prueba **normal, NO-ADMIN y NO-bootstrap**:
+
+1. debe figurar `CONCEDIDO`;
+2. revocar acceso y confirmar;
+3. la lista debe pasar a `PENDIENTE` aunque falle el audit log;
+4. si el audit funciona, la operación debe aparecer en actividad reciente;
+5. una sesión abierta de esa cuenta debe perder acceso al recuperar foco o en ≤15 s;
+6. el estado durable de Firestore debe conservarse;
+7. volver a conceder acceso;
+8. como se revocaron refresh tokens, puede ser necesario volver a iniciar sesión;
+9. debe recuperar exactamente su propio estado privado;
+10. la cartera del usuario principal debe permanecer intacta.
+
+No ejecutar replay largo ni Future Forward para validar Fase 2A.
