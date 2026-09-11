@@ -74,22 +74,17 @@ export async function notifyTelegramPortfolioManagement(input: {
     reason: string;
     suggestedReductionPct: number | null;
   }>;
-  rotationEvent: { sourceLabel: string; targetLabel: string; reason: string } | null;
 }): Promise<boolean> {
   const lines: string[] = [
     'CUSTODIA · GESTIÓN DE CARTERA',
     `Mercado: ${input.marketDate}`,
-    `Cambios nuevos: ${input.actionEvents.length + (input.rotationEvent ? 1 : 0)}`,
+    `Cambios nuevos: ${input.actionEvents.length}`,
     ''
   ];
   for (const event of input.actionEvents) {
     const pct = event.action === 'REDUCE' && event.suggestedReductionPct != null ? ` ${event.suggestedReductionPct.toFixed(0)}%` : '';
     lines.push(`• ${MANAGEMENT_LABEL[event.action]}${pct} · ${event.label} (${event.tickerOrIsin})`);
     lines.push(`  ${event.reason.slice(0, 500)}`);
-  }
-  if (input.rotationEvent) {
-    lines.push(`• ROTAR · ${input.rotationEvent.sourceLabel} → ${input.rotationEvent.targetLabel}`);
-    lines.push(`  ${input.rotationEvent.reason.slice(0, 500)}`);
   }
   lines.push('', 'Aviso automático. Revisa Custodia antes de ejecutar cualquier operación.');
   return sendTelegramText(lines.join('\n'));
