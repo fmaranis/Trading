@@ -118,7 +118,7 @@ Esta es la secuencia canónica de cierre. No abrir una fase posterior por aparec
 ```text
 FASE 0  MAPA MAESTRO / ESTADO CANÓNICO       ← DONE
 FASE 1  BASE PRODUCTIVA V1                    ← DONE salvo bug/regresión reproducible
-FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A RUNTIME PARCIAL PASS · SESIÓN/ESTADO + QUICK CLOSURE FINAL PENDIENTES
+FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A DONE · 2B AUDITADA · ROTATE_NOW PARALELO PENDIENTE
 FASE 3  PROTOCOLO ECONÓMICO FINAL             ← NEXT después de cerrar Fase 2
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← research fresh/blind/OOS
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← research fresh/blind/OOS
@@ -190,7 +190,17 @@ Baseline funcional validado antes de la Fase 0 documental:
 
 `a4b15eaf72960aef51f0e9e7691b487f9f46bf51`
 
-Último quick closure completo anterior al ajuste final de confirmación interna ADMIN, ejecutado por el usuario el 2026-09-11:
+Cierre final Fase 2A ejecutado por el usuario el 2026-09-11 sobre `472e7d1f20db3901a4bac1ab5003cb16bfe4d79a`:
+
+- smoke runtime ADMIN: **PASS**;
+- revocación y recuperación: **PASS**;
+- preservación/restauración de estado privado: **PASS**;
+- confirmación interna de acciones ADMIN: **PASS**;
+- `Producto · cierre rápido`: **PASS**;
+- `Guard usuarios privados`: integrado en el mismo quick closure;
+- TypeScript: incluido en el quick closure y **PASS**.
+
+Evidencia automática anterior, mantenida como referencia:
 
 - Guard cierre de superficie: **33/33 PASS**;
 - Guard usuarios privados: **PRIVATE_USER_SECURITY_PASS**;
@@ -199,10 +209,7 @@ Baseline funcional validado antes de la Fase 0 documental:
 - Guard cartera: **24/24 PASS**;
 - Guard salud de posiciones: **27/27 PASS**;
 - Guard disponibilidad broker: **7/7 PASS**;
-- Guard fiscalidad de ejecución: **7/7 PASS**;
-- TypeScript `tsc --noEmit`: **PASS**.
-
-Después de ese PASS se modificó sólo `AdminUsersPanel` y sus dos guards para eliminar la dependencia funcional de `window.confirm`/clipboard. Por ello se hará **un único quick closure final** cuando termine el smoke runtime de 2A; no se repite entre cada paso del smoke.
+- Guard fiscalidad de ejecución: **7/7 PASS**.
 
 Móvil + exportación JSON física: **PASS 2026-09-11**.
 
@@ -434,7 +441,7 @@ Hipótesis abiertas para Fases 4–5:
 
 Estado general:
 
-**MUY AVANZADA / OPERATIVA EN GRAN PARTE / 2A RUNTIME PARCIAL PASS; PENDIENTES INVALIDACIÓN DE SESIÓN, RESTAURACIÓN DE ESTADO Y QUICK CLOSURE FINAL.**
+**2A DONE / 2B OPERATIVA Y AUDITADA / CIERRE RESIDUAL: RETIRAR AUTORIDAD PARALELA `ROTATE_NOW`.**
 
 Baseline de inicio de Fase 2A:
 
@@ -538,8 +545,6 @@ El usuario comprobó que **“Revocar acceso” no funcionaba**.
 
 Clasificación: `BUG`.
 
-No se considera Fase 2A cerrada por el PASS automático anterior.
-
 Primera revisión del camino real detectó:
 
 1. **ADMIN no-op silencioso.** La UI permitía intentar revocar acceso a una cuenta ADMIN, pero la semántica del backend es que ADMIN implica acceso. La acción podía parecer aceptada sin cambiar el estado efectivo.
@@ -612,14 +617,14 @@ La segunda revisión encontró además:
 
 ### Guards y Centro de validación
 
-- `tests/productSurfaceClosureV1.unit.ts`: 33 invariantes antes del ajuste final de UI; guard actualizado después para la confirmación interna.
+- `tests/productSurfaceClosureV1.unit.ts`: guard actualizado para el flujo ADMIN final;
 - `tests/privateUserSecurity.unit.ts`:
   - invariantes estructurales;
   - aserciones reales de `resolveManagedUserPatch`;
   - stop-sync-before-clear;
   - audit failure independiente de lista;
-  - profile mirror best-effort.
-- `Producto · cierre rápido` incorpora **`Guard usuarios privados`** ejecutando `tests/privateUserSecurity.unit.ts`.
+  - profile mirror best-effort;
+- `Producto · cierre rápido` incorpora **`Guard usuarios privados`** ejecutando `tests/privateUserSecurity.unit.ts`;
 - no se creó otro job/panel.
 
 ## 9.7.1 Tercer hallazgo runtime — botones ADMIN bloqueados por APIs nativas
@@ -642,11 +647,15 @@ Corrección en `a22c4de9940d974a32045e2f10adf21731a1f3eb`:
 - clipboard queda como mejora opcional;
 - guards prohíben reintroducir `window.confirm` y exigen confirmación interna/fallback visible.
 
-Evidencia runtime:
+Evidencia runtime final:
 
 - el usuario confirmó que la nueva confirmación interna aparece;
-- al utilizar el nuevo botón de confirmación, la acción ADMIN vuelve a funcionar;
-- el fallo común de “botones muertos” queda **confirmado y corregido en runtime** para la acción probada.
+- las acciones ADMIN vuelven a responder;
+- la revocación efectiva funciona;
+- la sesión revocada pierde acceso;
+- el estado durable se conserva y se recupera al volver a conceder acceso;
+- las acciones comunes ADMIN/bloqueo responden con el mismo flujo interno;
+- el quick closure final sobre `472e7d1f20db3901a4bac1ab5003cb16bfe4d79a` terminó **PASS**.
 
 Revisión de alcance del ajuste final:
 
@@ -659,38 +668,25 @@ Revisión de alcance del ajuste final:
 - ningún archivo congelado de Future Forward;
 - ninguna dependencia nueva.
 
-**Estado 2A: RUNTIME PARCIAL PASS. NO DONE todavía.**
+**Estado 2A: DONE / RUNTIME PASS / QUICK CLOSURE FINAL PASS.**
 
-## 9.8 Validación exacta restante de Fase 2A
+## 9.8 Cierre Fase 2A — DONE
 
-Completar primero el smoke real con una cuenta de prueba **normal, NO-ADMIN y NO-bootstrap**:
+Criterios de cierre cumplidos:
 
-1. revocar acceso y confirmar que la lista pasa a `PENDIENTE`;
-2. si esa cuenta tiene otra sesión abierta, volver a esa ventana: debe perder acceso al recuperar foco o en ≤15 s;
-3. confirmar que el estado durable/Firestore del usuario no se ha borrado;
-4. volver a conceder acceso;
-5. debido a la revocación de refresh tokens, la recuperación normal puede requerir **volver a iniciar sesión**;
-6. confirmar que recupera exactamente su propio estado privado;
-7. confirmar que la cartera del usuario principal sigue intacta;
-8. comprobar de forma mínima que `ADMIN` y `bloquear/reactivar` usan la misma confirmación interna y responden; no hace falta borrar una cuenta para demostrar el flujo común.
+1. sistema de usuarios de Trading independiente de Cubetos/Muros;
+2. login/ADMIN/Firestore/aislamiento mantienen la arquitectura existente;
+3. acciones ADMIN sensibles funcionan con confirmación interna;
+4. revocación de acceso efectiva y no silenciosa;
+5. sesión abierta pierde acceso mediante revalidación;
+6. autosync se detiene antes de limpiar estado local;
+7. fallo de red no se trata como revocación destructiva;
+8. estado privado durable no se borra por revocar acceso;
+9. al volver a conceder acceso se recupera el estado propio;
+10. la cartera principal permanece intacta;
+11. quick closure final PASS.
 
-Después del smoke, ejecutar **una sola vez `Producto · cierre rápido`** sobre el HEAD final de 2A.
-
-Esperado:
-
-- Guard cierre de superficie: PASS;
-- Guard usuarios privados: `PRIVATE_USER_SECURITY_PASS`;
-- decisión productiva única: PASS;
-- plan de ejecución: PASS;
-- cartera: PASS;
-- salud de posiciones: PASS;
-- broker: PASS;
-- fiscalidad: PASS;
-- TypeScript: PASS.
-
-No ejecutar replay largo ni Future Forward.
-
-Si smoke + quick closure final pasan, **Fase 2A = DONE**.
+No volver a abrir 2A salvo bug/regresión reproducible.
 
 ## 9.9 Alertas y autonomía — Fase 2B
 
@@ -709,34 +705,57 @@ Ya existe:
 - dedupe por UID;
 - capacidad de enviar `ADD / WATCH / REDUCE / EXIT` por Telegram.
 
-Estado correcto:
+### Auditoría 2B realizada 2026-09-11
 
-**OPERATIVO PARA LA CONFIGURACIÓN ACTUAL / CIERRE RESIDUAL SEGÚN ALCANCE V1.**
+Se inspeccionó el flujo real:
 
-Pendiente real, antes de tocar código:
+`runDailyOpportunityCheck -> runPortfolioManagementAlerts -> estado privado por UID -> PortfolioPositionHealthService/classifyPositionHealth -> Telegram`.
 
-1. decidir si V1 necesita alertas para todos los usuarios ACTIVE/autorizados o basta el alcance actual;
-2. si se generaliza, mantener dedupe independiente por UID;
-3. auditar el uso residual de `PortfolioRotationReviewEngine`/`ROTATE_NOW`: no debe adquirir autoridad paralela a `portfolioDecision`/`executionPlan`;
-4. modificar este flujo sólo después de decidir alcance y con guard específico;
-5. verificar que las alarmas actuales siguen llegando tras cualquier cambio.
+Hallazgo:
+
+- `server/portfolioManagementAlerts.ts` importa `PortfolioRotationReviewEngine`;
+- llama directamente a `PortfolioRotationReviewEngine.evaluate(...)`;
+- si devuelve `ROTATE_NOW`, construye un `rotationEvent`;
+- ese evento puede notificarse por Telegram;
+- esa rotación **no** proviene de `evaluatePortfolioDecision` ni del `executionPlan` canónico.
+
+Clasificación:
+
+**RESIDUAL ARCHITECTURE BUG / PARALLEL AUTHORITY.**
+
+No implica que las alertas health estén mal. `ADD / WATCH / REDUCE / EXIT` reutilizan la salud de posiciones compartida y deben preservarse.
+
+Decisión V1:
+
+1. mantener el alcance operativo actual por UID configurado (`ALERT_PORTFOLIO_UID` o bootstrap UID único);
+2. la generalización fan-out a todos los usuarios queda **DEFERRED** porque no es necesaria para el alcance V1 actual y modificaría el comportamiento operativo;
+3. retirar/neutralizar la autoridad de `ROTATE_NOW` derivada de `PortfolioRotationReviewEngine`;
+4. si en el futuro vuelve una alerta de rotación, deberá consumir exclusivamente una decisión/plan canónicos, no recalcular una política paralela;
+5. añadir guard al mismo `Producto · cierre rápido` para impedir reintroducir esta autoridad paralela;
+6. preservar scheduler, Telegram, dedupe, persistencia y alertas health existentes;
+7. después del cambio, ejecutar quick closure corto y verificar continuidad en la siguiente alerta natural.
+
+Estado 2B:
+
+**OPERATIVA / AUDITADA / CIERRE RESIDUAL PENDIENTE DE RETIRAR `ROTATE_NOW` PARALELO.**
 
 No existe ni se debe introducir ahora ejecución automática de órdenes de broker.
 
 Criterio de cierre Fase 2:
 
+- 2A permanece DONE;
 - sistema de usuarios de Trading sigue independiente;
-- 2A pasa smoke manual real + quick closure final;
 - login/ADMIN/Firestore/aislamiento/cartera siguen funcionando;
-- alarmas actuales siguen funcionando;
-- se decide y documenta el alcance V1 de 2B;
-- no aparece una segunda cadena de decisión.
+- alertas actuales siguen funcionando;
+- `ROTATE_NOW` paralelo deja de tener autoridad;
+- guard impide reintroducir una segunda cadena;
+- multiuser fan-out queda deferred para V1 actual.
 
 ---
 
 # 10. FASE 3 — PROTOCOLO ECONÓMICO FINAL
 
-Estado: **NEXT después de cerrar Fase 2.**
+Estado: **NEXT después de cerrar Fase 2B.**
 
 No abrir muestras nuevas antes de congelar documentalmente:
 
@@ -846,7 +865,8 @@ No reabrir ahora:
 - retuning de Top64/Opportunity con snapshots observados;
 - reconstruir Firebase/usuarios/Telegram desde cero;
 - unificar o compartir sistema de usuarios con Cubetos/Muros;
-- introducir planes/entitlements/monetización SaaS en Trading sin necesidad productiva explícita.
+- introducir planes/entitlements/monetización SaaS en Trading sin necesidad productiva explícita;
+- generalizar alertas a todos los usuarios sin una necesidad productiva explícita.
 
 Fase 10 / V2, sólo después de cierre V1:
 
@@ -866,12 +886,12 @@ Fase 10 / V2, sólo después de cierre V1:
 
 1. **Fase 0: DONE.**
 2. **Fase 1: congelada.** No tocar motor productivo salvo bug/regresión reproducible.
-3. **Fase 2A: runtime parcial PASS.** El fallo común de botones ADMIN quedó corregido con confirmación interna en `a22c4de...`.
-4. Completar el smoke de §9.8: invalidación de sesión abierta, preservación/restauración de estado y cartera principal intacta.
-5. Si el smoke pasa, ejecutar **una sola vez `Producto · cierre rápido`** sobre el HEAD final de 2A.
-6. Si falla, corregir la causa exacta. No lanzar replay ni Future Forward.
-7. Si smoke + quick closure pasan, marcar **Fase 2A DONE** y actualizar este archivo/roadmap.
-8. Antes de modificar alertas, decidir explícitamente el alcance **Fase 2B**: configuración actual versus generalización multiusuario, y auditar `ROTATE_NOW`/autoridad canónica.
+3. **Fase 2A: DONE.** Runtime smoke + revocación/recuperación + estado privado + quick closure final PASS sobre `472e7d1f20db3901a4bac1ab5003cb16bfe4d79a`.
+4. **Fase 2B: ACTIVA / AUDITADA.** Retirar la autoridad paralela de `PortfolioRotationReviewEngine`/`ROTATE_NOW` del backend de alertas.
+5. Preservar `ADD / WATCH / REDUCE / EXIT`, dedupe, Telegram, scheduler, Firestore y UID configurado.
+6. Añadir un guard al mismo `Producto · cierre rápido` para impedir una rotación paralela.
+7. Ejecutar quick closure corto; no lanzar replay ni Future Forward.
+8. Confirmar continuidad de alertas en la siguiente ejecución natural y marcar **Fase 2 DONE**.
 9. **Fase 3:** congelar protocolo económico antes de abrir nuevas muestras.
 10. **Fase 4:** reentrada fresh/OOS.
 11. **Fase 5:** protección de ganadores fresh/OOS.
