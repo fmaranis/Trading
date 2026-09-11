@@ -139,4 +139,17 @@ const dynamicEtf = registerLiveDiscoveredAsset({
 });
 check('323 dynamic ETF retains diversified-core treatment instead of being mistaken for a stock', isDiversifiedCoreCategory('GLOBAL_EQUITY', dynamicEtf.assetId));
 
-console.log(`User portfolio rebalance/private-state migration: ${passed}/23 invariants passed.`);
+const currentLiveEquityContext: any = {
+  category: 'EUROPE_EQUITY',
+  isListedEquity: true,
+  isDiversifiedCore: true,
+  currentReturnPct: -10,
+  mfePct: 8,
+  givebackFromMfePctPoints: 18,
+  deteriorationStreakSessions: 10,
+  momentum20Pct: -4
+};
+const currentLiveEquityHealth = classifyPositionHealth({ ...weakDynamicEquity, assetId: 'OPEN_HFG_DE', ticker: 'HFG.DE' }, -10, currentLiveEquityContext);
+check('324 current-live OPEN equity is also satellite when discovery identifies it as listed equity', currentLiveEquityHealth.action === 'REDUCE' && currentLiveEquityContext.isDiversifiedCore === false);
+
+console.log(`User portfolio rebalance/private-state migration: ${passed}/24 invariants passed.`);
