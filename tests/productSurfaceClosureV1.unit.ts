@@ -89,10 +89,9 @@ check('1014 real deployable capital can remain exactly zero', () => {
   assert.doesNotMatch(interactive, /return Math\.max\(1, \(p\.stagedCapitalPlan/);
   assert.match(interactive, /NO_DEPLOYABLE_CAPITAL_ANALYTICAL_WEIGHTS_ONLY/);
 });
-check('1015 historical comparison also refuses to fabricate capital', () => {
-  assert.doesNotMatch(guardrails, /initialCapital:\s*Math\.max\(1,/);
-  assert.match(guardrails, /initialCapital: capitalEur/);
-  assert.match(guardrails, /Sin capital disponible/);
+check('1015 guardrails do not launch a parallel client historical replay', () => {
+  assert.doesNotMatch(guardrails, /CausalUniverseBacktestEngine|MixedInstrumentCausalReplayEngine|calculateHistorical|initialCapital:/);
+  assert.match(guardrails, /La investigación histórica se hace en el replay integrado/);
 });
 check('1016 dashboard calculates the portfolio decision exactly once for actionable children', () => {
   assert.match(marketDashboard, /const portfolioDecision = useMemo\(\(\) => evaluatePortfolioDecision/);
@@ -157,5 +156,16 @@ check('1026 mobile interaction baseline is explicitly present in the canonical s
   assert.match(css, /min-height:\s*44px/);
   assert.match(css, /env\(safe-area-inset-bottom\)/);
 });
+check('1027 ResearchValidationCenter exposes one-click quick closure without replay or checkpoint', () => {
+  const start = validationRoutes.indexOf("id: 'product-surface-closure-v1'");
+  const end = validationRoutes.indexOf("id: 'quality-allocation-dynamic-future-forward-v1'", start);
+  assert.ok(start >= 0 && end > start);
+  const block = validationRoutes.slice(start, end);
+  for (const token of ['tests/productSurfaceClosureV1.unit.ts', 'tests/productDecisionSurface.unit.ts', 'tests/portfolioExecutionPlan.unit.ts', 'tests/userPortfolio.unit.ts', 'tests/brokerAvailability.unit.ts', 'tests/taxAwareExecutionOverlay.unit.ts']) {
+    assert.ok(block.includes(token), `missing quick closure step ${token}`);
+  }
+  assert.match(block, /args: \['run', 'lint'\]/);
+  assert.doesNotMatch(block, /Checkpoint prospectivo|qualityAllocationDynamicFutureForwardV1CheckpointLive|replay-results/);
+});
 
-console.log(`Product surface closure V1: ${passed}/26 invariants passed.`);
+console.log(`Product surface closure V1: ${passed}/27 invariants passed.`);
