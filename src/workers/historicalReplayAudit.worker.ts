@@ -1,4 +1,5 @@
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
+import { hydrateDynamicPortfolioDiscoveryCatalog } from '../investment/decision/dynamicPortfolioDiscovery';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
 import type { MultiAssetDataset } from '../investment/portfolioBacktesting/types';
 import type { AssetUniverseItem } from '../investment/decision/assetUniverse';
@@ -122,6 +123,10 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
   }
   if (message.type === 'INIT') {
     const { dataset, type: _type, diagnosticDataset: _diagnosticDataset, ...rest } = message;
+    // Workers cannot read the browser's localStorage-backed dynamic registry.
+    // Hydrate the already-transferred replay catalogue so DYNAMIC_* stocks and
+    // ETFs preserve their existing Yahoo identity inside the exact replay path.
+    hydrateDynamicPortfolioDiscoveryCatalog(rest.catalog);
     sourceDataset = dataset; configuration = rest;
     workerScope.postMessage({ type: 'READY', rotationExperiment: REPLAY_ROTATION_EXPERIMENT }); return;
   }
