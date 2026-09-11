@@ -283,17 +283,27 @@ Validado manualmente en Firebase real:
 - retorno al ADMIN recuperando exclusivamente su cartera;
 - borrado de usuario de prueba disponible.
 
-## Validación requerida tras el hardening de Fase 2A
+## Validación tras el hardening de Fase 2A
 
-Los cambios de Fase 2A modifican únicamente administración de usuarios, no motor financiero ni Future Forward.
+El `Producto · cierre rápido` fue ejecutado por el usuario el **2026-09-11** sobre el HEAD de implementación `dac08b2729d7e3c0065f33918154cd94a969cfd0` y pasó completo:
 
-Antes de marcar este bloque PASS:
+- superficie: **32/32 PASS**;
+- decisión productiva: **20/20 PASS**;
+- plan de ejecución: **29/29 PASS**;
+- cartera: **24/24 PASS**;
+- salud de posiciones: **27/27 PASS**;
+- broker: **7/7 PASS**;
+- fiscalidad: **7/7 PASS**;
+- TypeScript: **PASS**.
 
-1. ejecutar **`Producto · cierre rápido`** una sola vez; su guard de superficie incluye ahora las invariantes de ADMIN/audit y termina con TypeScript;
-2. comprobar que el panel ADMIN abre normalmente;
-3. comprobar que lista usuarios, búsqueda y estado de correo funcionan;
-4. realizar una operación administrativa reversible sobre una cuenta de prueba y comprobar que aparece en `Actividad administrativa reciente`;
-5. confirmar que el usuario principal conserva exactamente su cartera/estado privado;
-6. confirmar que las alarmas actuales siguen llegando normalmente.
+No repetir quick closure ni ejecutar replay largo salvo cambio material posterior.
 
-No hace falta ejecutar un replay largo para validar este cambio.
+Para cerrar Fase 2A sólo queda el smoke manual mínimo en la app real:
+
+1. abrir ADMIN;
+2. comprobar que lista usuarios, búsqueda y estado de correo funcionan;
+3. realizar una operación administrativa reversible sobre una cuenta de prueba y aceptar la confirmación;
+4. comprobar que aparece en `Actividad administrativa reciente`;
+5. confirmar que el usuario principal conserva exactamente su cartera/estado privado.
+
+La continuidad de las alarmas se comprueba de forma no destructiva; no se fuerza una señal artificial sólo para probar Telegram.
