@@ -139,10 +139,11 @@ const JOBS: JobDefinition[] = [
   {
     id: 'product-surface-closure-v1',
     name: 'Producto · cierre rápido',
-    description: 'Verificación rápida de la superficie productiva integrada: decisión única, plan ejecutable, cartera, salud de posiciones, broker, fiscalidad y TypeScript. No ejecuta replay, no consulta un checkpoint prospectivo y no escribe en replay-results.',
+    description: 'Verificación rápida de la superficie productiva integrada y seguridad privada: decisión única, auth/ADMIN, plan ejecutable, cartera, salud de posiciones, broker, fiscalidad y TypeScript. No ejecuta replay, no consulta un checkpoint prospectivo y no escribe en replay-results.',
     visibility: 'CURRENT',
     steps: [
       { label: 'Guard cierre de superficie', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
+      { label: 'Guard usuarios privados', command: 'npx', args: ['tsx', 'tests/privateUserSecurity.unit.ts'] },
       { label: 'Guard decisión productiva única', command: 'npx', args: ['tsx', 'tests/productDecisionSurface.unit.ts'] },
       { label: 'Guard plan de ejecución', command: 'npx', args: ['tsx', 'tests/portfolioExecutionPlan.unit.ts'] },
       { label: 'Guard cartera', command: 'npx', args: ['tsx', 'tests/userPortfolio.unit.ts'] },
