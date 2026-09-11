@@ -24,6 +24,10 @@ const alerts = read('src/components/CurrentOpportunityAlertsPanel.tsx');
 const registration = read('src/components/RealPurchaseRegistrationPanel.tsx');
 const execution = read('src/components/PortfolioExecutionPlanPanel.tsx');
 const futureForwardProtocol = read('scripts/qualityAllocationDynamicFutureForwardV1Protocol.ts');
+const accountRoutes = read('server/accountRoutes.ts');
+const accountApi = read('src/auth/accountApi.ts');
+const adminUsersPanel = read('src/components/AdminUsersPanel.tsx');
+const authSecurity = read('server/authSecurity.ts');
 
 check('1001 root product starts at the canonical decision entrypoint', () => {
   assert.match(indexHtml, /src\/decisionMain\.tsx/);
@@ -178,5 +182,30 @@ check('1028 historical replay worker hydrates transferred DYNAMIC identities bef
   assert.match(replayWorker, /hydrateDynamicPortfolioDiscoveryCatalog\(rest\.catalog\)/);
   assert.match(replayWorker, /sourceDataset = dataset; configuration = rest/);
 });
+check('1029 Trading admin mutations are server-authorized and auditable without exposing private portfolios', () => {
+  assert.match(authSecurity, /token\.isAdmin === true/);
+  assert.match(accountRoutes, /accountRouter\.get\('\/admin\/audit-log'/);
+  assert.match(accountRoutes, /ADMIN_AUDIT_COLLECTION = 'admin_audit_log'/);
+  assert.match(accountRoutes, /writeAdminAudit\(admin, 'USER_CREATED'/);
+  assert.match(accountRoutes, /writeAdminAudit\(admin, 'USER_UPDATED'/);
+  assert.match(accountRoutes, /writeAdminAudit\(admin, 'USER_DELETED'/);
+  assert.doesNotMatch(accountRoutes, /admin\/users\/:uid\/state/);
+});
+check('1030 Trading account creation rolls back an incomplete managed-user bootstrap', () => {
+  assert.match(accountRoutes, /ADMIN_USER_CREATE_ROLLBACK_FAILED/);
+  assert.match(accountRoutes, /recursiveDelete\(db\.doc\(`users\/\$\{createdUid\}`\)\)/);
+  assert.match(accountRoutes, /auth\.deleteUser\(createdUid\)/);
+});
+check('1031 existing Trading admin surface adds verification evidence, confirmations and audit visibility in place', () => {
+  assert.match(accountRoutes, /emailVerified: user\.emailVerified/);
+  assert.match(accountApi, /loadAdminAudit/);
+  assert.match(adminUsersPanel, /Actividad administrativa reciente/);
+  assert.match(adminUsersPanel, /window\.confirm/);
+});
+check('1032 Trading user runtime remains independent from the Cubetos reference application', () => {
+  for (const runtimeSource of [accountRoutes, accountApi, adminUsersPanel, authSecurity]) {
+    assert.doesNotMatch(runtimeSource, /Cubetos-y-balsas-sincronizado|calculator_cubetos|technical_report_pdf|reportCredits/);
+  }
+});
 
-console.log(`Product surface closure V1: ${passed}/28 invariants passed.`);
+console.log(`Product surface closure V1: ${passed}/32 invariants passed.`);
