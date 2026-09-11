@@ -1,5 +1,7 @@
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveManagedUserPatch } from '../server/accountRoutes';
 
 function source(relativePath: string): string {
   return fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8');
@@ -37,7 +39,9 @@ requireText(gate, 'await reload(user);', 'VERIFIED_EMAIL_REFRESH_MISSING');
 requireText(gate, 'ACCESS_REVALIDATION_MS', 'OPEN_SESSION_ACCESS_REVALIDATION_MISSING');
 requireText(gate, 'loadAccountSessionStatus(user)', 'LIVE_ACCOUNT_STATUS_CHECK_MISSING');
 requireText(gate, "document.addEventListener('visibilitychange'", 'FOREGROUND_ACCESS_REVALIDATION_MISSING');
-requireText(gate, 'clearPrivateLocalState();', 'REVOKED_SESSION_MUST_CLEAR_PRIVATE_LOCAL_STATE');
+requireText(gate, 'cloudSyncStopRef', 'PRIVATE_SYNC_STOP_HANDLE_MISSING');
+requireText(gate, 'stopCloudSync();\n      clearPrivateLocalState();', 'REVOKED_SESSION_MUST_STOP_SYNC_BEFORE_LOCAL_CLEAR');
+requireText(gate, 'No se ha podido revalidar el acceso:', 'REVALIDATION_FAILURE_MUST_FAIL_CLOSED_WITHOUT_PRETENDING_REVOCATION');
 requireText(firebaseAdmin, "process.env.NODE_ENV === 'production' || process.env.FIREBASE_AUTH_REQUIRED === 'true'", 'PRODUCTION_AUTH_MUST_BE_REQUIRED');
 requireText(authSecurity, 'auth.verifyIdToken(raw, true)', 'SERVER_MUST_VERIFY_AND_CHECK_REVOKED_ID_TOKEN');
 requireText(authSecurity, 'token.isAdmin === true', 'ADMIN_MUST_COME_FROM_SIGNED_CLAIM');
@@ -56,12 +60,33 @@ requireText(accountRoutes, 'CANNOT_DELETE_LAST_ADMIN', 'LAST_ADMIN_DELETE_GUARD_
 requireText(accountRoutes, 'CANNOT_REMOVE_LAST_ADMIN', 'LAST_ADMIN_DEMOTION_GUARD_MISSING');
 requireText(accountRoutes, 'ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST', 'ADMIN_ACCESS_REVOKE_MUST_NOT_SILENTLY_NOOP');
 requireText(accountRoutes, 'auth.revokeRefreshTokens(uid)', 'PRIVILEGE_REVOCATION_MUST_REVOKE_REFRESH_TOKENS');
+requireText(accountRoutes, 'ADMIN_USER_PROFILE_SYNC_FAILED', 'AUTH_MUTATION_MUST_NOT_BE_REPORTED_FALSELY_FAILED_BY_PROFILE_MIRROR');
 requireText(accountRoutes, 'db.recursiveDelete(db.doc(`users/${uid}`))', 'USER_DELETE_MUST_REMOVE_PRIVATE_DATA');
 forbidText(accountRoutes, "accountRouter.get('/admin/users/:uid/state'", 'ADMIN_MUST_NOT_HAVE_PORTFOLIO_READ_ENDPOINT');
 for (const key of ['custodia_fund_positions_v1', 'custodia_staged_capital_plan_v1', 'custodia_pending_execution_plan_v1']) {
   requireText(accountRoutes, `'${key}'`, `BACKEND_PRIVATE_KEY_MISSING:${key}`);
   requireText(cloudState, `'${key}'`, `CLIENT_PRIVATE_KEY_MISSING:${key}`);
 }
+
+const normalRevoke = resolveManagedUserPatch({ accessGranted: true, isAdmin: false }, false, { accessGranted: false });
+assert.equal(normalRevoke.error, null);
+assert.equal(normalRevoke.nextAccessGranted, false);
+assert.equal(normalRevoke.nextIsAdmin, false);
+
+const adminDirectRevoke = resolveManagedUserPatch({ accessGranted: true, isAdmin: true }, false, { accessGranted: false });
+assert.equal(adminDirectRevoke.error, 'ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST');
+assert.equal(adminDirectRevoke.nextAccessGranted, true);
+assert.equal(adminDirectRevoke.nextIsAdmin, true);
+
+const adminDemotion = resolveManagedUserPatch({ accessGranted: true, isAdmin: true }, false, { isAdmin: false });
+assert.equal(adminDemotion.error, null);
+assert.equal(adminDemotion.nextIsAdmin, false);
+assert.equal(adminDemotion.nextAccessGranted, true);
+
+const adminDemotionAndRevoke = resolveManagedUserPatch({ accessGranted: true, isAdmin: true }, false, { isAdmin: false, accessGranted: false });
+assert.equal(adminDemotionAndRevoke.error, null);
+assert.equal(adminDemotionAndRevoke.nextIsAdmin, false);
+assert.equal(adminDemotionAndRevoke.nextAccessGranted, false);
 
 requireText(accountRoutes, "const ADMIN_AUDIT_COLLECTION = 'admin_audit_log'", 'ADMIN_AUDIT_COLLECTION_MISSING');
 requireText(accountRoutes, "accountRouter.get('/admin/audit-log'", 'ADMIN_AUDIT_ENDPOINT_MISSING');
@@ -74,6 +99,8 @@ requireText(accountRoutes, 'emailVerified: user.emailVerified', 'ADMIN_EMAIL_VER
 requireText(accountApi, 'loadAdminAudit', 'ADMIN_AUDIT_CLIENT_API_MISSING');
 requireText(accountApi, 'loadAccountSessionStatus', 'LIVE_ACCOUNT_STATUS_CLIENT_API_MISSING');
 requireText(adminPanel, 'Actividad administrativa reciente', 'ADMIN_AUDIT_UI_MISSING');
+requireText(adminPanel, 'Promise.allSettled', 'AUDIT_FAILURE_MUST_NOT_HIDE_UPDATED_USER_LIST');
+requireText(adminPanel, 'auditError', 'AUDIT_FAILURE_MUST_BE_REPORTED_SEPARATELY');
 requireText(adminPanel, 'window.confirm', 'SENSITIVE_ADMIN_ACTION_CONFIRMATION_MISSING');
 requireText(adminPanel, '!self && !row.isAdmin', 'ADMIN_ACCESS_REVOKE_UI_MUST_REQUIRE_DEMOTION');
 requireText(adminPanel, 'Un ADMIN siempre tiene acceso', 'ADMIN_ACCESS_SEMANTICS_MUST_BE_EXPLAINED');
