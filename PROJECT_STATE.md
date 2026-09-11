@@ -455,15 +455,9 @@ Siguiente observación nueva válida:
 
 No repetir septiembre.
 
-### Integridad tras cambios de producto y diagnóstico 2026-09-11
+### Integridad tras cambios de producto 2026-09-10
 
-Desde el cierre productivo PASS FINAL se han añadido únicamente:
-
-- `scripts/hfgBoomCrashDiagnosticV1Live.ts`;
-- `tests/hfgBoomCrashDiagnosticV1.unit.ts`;
-- la entrada research-only correspondiente en `server/researchValidationRoutes.ts`.
-
-**Ninguno de los 25 archivos metodológicos congelados aparece modificado.**
+La comparación GitHub desde el último estado canónico previo al cierre muestra únicamente componentes/UI/tests. **Ninguno de los 25 archivos congelados aparece modificado.**
 
 No modificar durante Phase A:
 
@@ -499,52 +493,26 @@ No se mezclan en el future-forward QUALITY actual.
 
 ---
 
-# 13. Diagnóstico HFG / grandes ganadores — JOB INTEGRADO / PENDIENTE EJECUCIÓN
+# 13. Diagnóstico HFG / grandes ganadores — SIGUIENTE FRENTE TÉCNICO
 
-Caso histórico consumido:
+Replay aportado por el usuario para diagnóstico:
 
 - ventana 2019-01-01 -> 2022-12-30;
 - 26.000 EUR iniciales;
 - 13.000 EUR HFG.DE + 13.000 EUR cash;
-- frecuencia `MONTHLY`;
-- riesgo `MEDIUM`;
-- horizonte 3 años;
-- cash histórico BCE;
-- Motor Custodia;
-- producción/allocator `LEGACY`;
-- arquitectura `CORE_ARCHITECTURE_V1`.
+- frecuencia mensual;
+- Motor Custodia.
 
-Hallazgos preliminares previos:
+Hallazgos preliminares:
 
 - Custodia liquida HFG casi inmediatamente al comienzo;
 - posteriormente HFG reaparece repetidamente como candidato durante la gran tendencia;
 - en una fecha llega a `ENTRY_READY` pero no recibe compra financiada;
 - existe una posible cuestión semántica sobre el streak de deterioro aplicado a una posición inicial y otra sobre capital atrapado en core/reentrada.
 
-### Diagnóstico integrado
+**No se modifica producción ni se retunea nada con esta muestra.**
 
-`ResearchValidationCenter` expone ahora:
-
-`HFG · diagnóstico salida / reentrada`
-
-Ejecución:
-
-1. `tests/hfgBoomCrashDiagnosticV1.unit.ts`;
-2. TypeScript (`npm run lint`);
-3. `scripts/hfgBoomCrashDiagnosticV1Live.ts` con datos REAL.
-
-Reglas del job:
-
-- HFG se añade sólo como metadata research-only local (`EQ_HFG / HFG.DE`); no se incorpora al seed productivo;
-- Yahoo Search/Lookup discovery actual permanece OFF en el replay histórico;
-- no se permiten datos no-REAL ni `OPEN_*` retrospectivos;
-- reutiliza el replay causal existente y `CORE_ARCHITECTURE_V1`, no crea otro motor;
-- compara `CUSTODIA_ENGINE` frente a `HOLD_ONLY` sólo como contrafactual descriptivo;
-- audita salida inicial, streak/MFE/giveback, reentrada `ENTRY_READY/ENTRY_STRONG`, capital disponible, contribución del allocator, ejecución y protección de ganancias;
-- puede medir el upside posterior perdido sólo como diagnóstico outcome-informed de una muestra consumida;
-- no escribe `replay-results`, no toca Future Forward, no retunea thresholds y no puede promocionar una política.
-
-**No se modifica producción ni se retunea nada con esta muestra.** Si aparece una hipótesis útil, se congela antes de abrir una validación fresh/blind/OOS independiente.
+El cierre de producto ya está verificado como PASS FINAL. Este diagnóstico pasa a ser el siguiente frente técnico: entender salida inicial, reentrada, financiación de oportunidades y protección de ganancias, separando calidad de señal de calidad de política económica y sin promover ninguna regla usando esta muestra consumida.
 
 ---
 
@@ -564,10 +532,9 @@ No abrir como tuning productivo hasta cerrar la secuencia vigente:
 
 # 15. Próxima secuencia técnica
 
-1. **Producto / JSON / móvil: PASS FINAL 2026-09-11.** No repetir `Producto · cierre rápido` ni las comprobaciones móviles salvo cambio material posterior.
-2. Sincronizar `main` y ejecutar desde `ResearchValidationCenter` únicamente **`HFG · diagnóstico salida / reentrada`**. El propio job ejecuta guard + TypeScript antes del cálculo REAL.
-3. Leer el resultado HFG separando: causa de salida inicial, calidad de señal posterior, financiación/reentrada y protección/captura de ganancias. La muestra es consumida: diagnóstico sí, promoción/tuning no.
-4. Si surge una hipótesis candidata, congelarla antes de abrir un conjunto fresh/blind/out-of-sample; no ajustar thresholds usando HFG.
-5. Mantener producción `LEGACY` y los 25 archivos metodológicos del Future Forward intactos.
-6. No repetir septiembre del Future Forward. Próximo checkpoint prospectivo nuevo: **2026-10-09 22:30-24:00 Europe/Madrid**.
-7. Mantener diferidas las mejoras de discovery/metadata y cualquier nueva política Forward Risk mientras no exista un protocolo separado que las justifique.
+1. **Producto / JSON / móvil: PASS FINAL 2026-09-11.** No repetir `Producto · cierre rápido` ni las comprobaciones móviles salvo que un cambio posterior afecte materialmente a esta superficie.
+2. Mantener producción `LEGACY` y los 25 archivos metodológicos del future-forward intactos.
+3. Retomar el diagnóstico HFG / boom->crash sobre la muestra ya consumida únicamente para localizar problemas de arquitectura, señal y política económica: salida inicial, reentrada, financiación de oportunidades y captura/protección de ganancias.
+4. No retunear thresholds ni promover una política con HFG. Si del diagnóstico surge una hipótesis candidata, congelarla primero y validarla después en datos fresh/blind/out-of-sample adecuados.
+5. No repetir septiembre del Future Forward. Próximo checkpoint prospectivo nuevo: **2026-10-09 22:30-24:00 Europe/Madrid**.
+6. Mantener diferidas las mejoras de discovery/metadata y cualquier nueva política Forward Risk mientras no exista un protocolo separado que las justifique.
