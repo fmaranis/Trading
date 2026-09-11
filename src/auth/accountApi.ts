@@ -43,6 +43,17 @@ export interface AdminAuditRow {
   createdAt: string | null;
 }
 
+export interface ManagedUserUpdateResult {
+  ok: boolean;
+  uid: string;
+  disabled: boolean;
+  accessGranted: boolean;
+  isAdmin: boolean;
+  tokenRefreshRequired: boolean;
+  profileSynced: boolean;
+  auditLogged?: boolean;
+}
+
 async function authHeaders(user: User): Promise<Record<string, string>> {
   return { Authorization: `Bearer ${await getIdToken(user)}` };
 }
@@ -86,11 +97,11 @@ export function createManagedUser(user: User, input: { email: string; displayNam
   return accountFetch(user, `${ACCOUNT_API_BASE}/admin/users`, { method: 'POST', body: JSON.stringify(input) });
 }
 
-export function updateManagedUser(user: User, uid: string, patch: { accessGranted?: boolean; disabled?: boolean; isAdmin?: boolean }) {
-  return accountFetch(user, `${ACCOUNT_API_BASE}/admin/users/${encodeURIComponent(uid)}`, { method: 'PATCH', body: JSON.stringify(patch) });
+export function updateManagedUser(user: User, uid: string, patch: { accessGranted?: boolean; disabled?: boolean; isAdmin?: boolean }): Promise<ManagedUserUpdateResult> {
+  return accountFetch<ManagedUserUpdateResult>(user, `${ACCOUNT_API_BASE}/admin/users/${encodeURIComponent(uid)}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }
 
-export function deleteManagedUser(user: User, uid: string) {
+export function deleteManagedUser(user: User, uid: string): Promise<{ ok: boolean; uid: string; deleted: true; auditLogged?: boolean }> {
   return accountFetch(user, `${ACCOUNT_API_BASE}/admin/users/${encodeURIComponent(uid)}`, { method: 'DELETE' });
 }
 
