@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createUserWithEmailAndPassword, getIdToken, onAuthStateChanged, reload, sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 import { KeyRound, LogOut, MailCheck, RefreshCw, ShieldCheck, UserRound } from 'lucide-react';
 import { AdminUsersPanel } from '../components/AdminUsersPanel';
@@ -29,10 +29,15 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const cloudSyncStopRef = useRef<(() => void) | null>(null);
+
+  const stopCloudSync = () => {
+    cloudSyncStopRef.current?.();
+    cloudSyncStopRef.current = null;
+  };
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
-    let syncStop: (() => void) | null = null;
     let alive = true;
     loadFirebaseClientRuntime().then(rt => {
       if (!alive) return;
@@ -42,7 +47,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
         return;
       }
       unsubscribe = onAuthStateChanged(rt.auth, async current => {
-        syncStop?.(); syncStop = null;
+        stopCloudSync();
         setUser(current);
         setMe(null);
         setMessage(null);
@@ -55,13 +60,14 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
           setMe(account);
           if (!account.accessGranted || account.disabled) { setGate('PENDING'); return; }
           const hydration = await UserCloudStateService.hydrate(current);
-          syncStop = UserCloudStateService.startAutoSync(current);
+          cloudSyncStopRef.current = UserCloudStateService.startAutoSync(current);
           if (hydration.migratedLegacy) setMessage('La cartera local existente se ha vinculado a esta cuenta privada.');
           setGate('READY');
         } catch (error: any) {
           const text = String(error?.message || error);
           if (text.includes('ACCOUNT_ACCESS_PENDING_OR_REVOKED')) setGate('PENDING');
           else if (isRevokedCredentialError(error)) {
+            stopCloudSync();
             clearPrivateLocalState();
             await signOut(rt.auth).catch(() => undefined);
             setGate('LOGIN');
@@ -69,7 +75,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
         }
       });
     }).catch(error => { if (alive) { setMessage(error?.message || String(error)); setGate('ERROR'); } });
-    return () => { alive = false; unsubscribe?.(); syncStop?.(); };
+    return () => { alive = false; unsubscribe?.(); stopCloudSync(); };
   }, []);
 
   useEffect(() => {
@@ -79,6 +85,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
 
     const closeRevokedSession = async () => {
       if (stopped) return;
+      stopCloudSync();
       clearPrivateLocalState();
       setAdminOpen(false);
       setMe(null);
@@ -95,14 +102,17 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
           await closeRevokedSession();
           return;
         }
-        setMe(current => current ? { ...current, disabled: status.disabled, isAdmin: status.isAdmin, accessGranted: status.accessGranted } : current);
+        setMe(current => {
+          if (!current) return current;
+          if (current.disabled === status.disabled && current.isAdmin === status.isAdmin && current.accessGranted === status.accessGranted) return current;
+          return { ...current, disabled: status.disabled, isAdmin: status.isAdmin, accessGranted: status.accessGranted };
+        });
       } catch (error: any) {
         if (isRevokedCredentialError(error)) {
           await closeRevokedSession();
           return;
         }
-        clearPrivateLocalState();
-        setMessage(String(error?.message || error));
+        setMessage(`No se ha podido revalidar el acceso: ${String(error?.message || error)}`);
         setGate('ERROR');
       } finally {
         checking = false;
@@ -149,10 +159,22 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
       if (boot.tokenRefreshRequired) await getIdToken(user, true);
       const account = await loadAccountMe(user);
       setMe(account);
-      if (!account.accessGranted || account.disabled) { setMessage(user.emailVerified ? 'La cuenta sigue pendiente de aprobación.' : 'Verifica primero el correo y vuelve a comprobar el acceso.'); return; }
+      if (!account.accessGranted || account.disabled) { setMessage(user.emailVerified ? 'La cuenta sigue pendiente de aprobación.' : 'Verifica primero el correo y vuelve a comprobar el acceso.'); setGate('PENDING'); return; }
       await UserCloudStateService.hydrate(user);
+      stopCloudSync();
+      cloudSyncStopRef.current = UserCloudStateService.startAutoSync(user);
       setGate('READY');
-    } catch (error: any) { setMessage(error?.message || String(error)); setGate('ERROR'); }
+    } catch (error: any) {
+      if (isRevokedCredentialError(error)) {
+        stopCloudSync();
+        clearPrivateLocalState();
+        if (runtime?.auth) await signOut(runtime.auth).catch(() => undefined);
+        setGate('LOGIN');
+      } else {
+        setMessage(error?.message || String(error));
+        setGate('ERROR');
+      }
+    }
     finally { setBusy(false); }
   };
 
@@ -173,6 +195,7 @@ export const SecureAppGate: React.FC<Props> = ({ children }) => {
   const logout = async () => {
     if (!runtime?.auth || !user) return;
     setBusy(true);
+    stopCloudSync();
     try { await UserCloudStateService.push(user).catch(() => undefined); await signOut(runtime.auth); }
     finally { clearPrivateLocalState(); setBusy(false); }
   };
