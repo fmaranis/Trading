@@ -19,8 +19,21 @@ export interface AdminUserRow {
   disabled: boolean;
   accessGranted: boolean;
   isAdmin: boolean;
+  emailVerified: boolean;
   createdAt: string | null;
   lastSignInAt: string | null;
+}
+
+export interface AdminAuditRow {
+  id: string;
+  actorUid: string;
+  actorEmail: string | null;
+  targetUid: string | null;
+  action: string;
+  before: unknown;
+  after: unknown;
+  metadata: Record<string, unknown>;
+  createdAt: string | null;
 }
 
 async function authHeaders(user: User): Promise<Record<string, string>> {
@@ -53,7 +66,12 @@ export function loadAdminUsers(user: User): Promise<{ users: AdminUserRow[]; cal
   return accountFetch(user, `${ACCOUNT_API_BASE}/admin/users`);
 }
 
-export function createManagedUser(user: User, input: { email: string; displayName?: string; accessGranted?: boolean }): Promise<{ uid: string; email: string; passwordSetupLink: string; accessGranted: boolean }> {
+export function loadAdminAudit(user: User, limit = 30): Promise<{ entries: AdminAuditRow[]; limit: number }> {
+  const safeLimit = Math.min(100, Math.max(1, Math.trunc(limit)));
+  return accountFetch(user, `${ACCOUNT_API_BASE}/admin/audit-log?limit=${safeLimit}`);
+}
+
+export function createManagedUser(user: User, input: { email: string; displayName?: string; accessGranted?: boolean }): Promise<{ uid: string; email: string; passwordSetupLink: string; accessGranted: boolean; auditLogged?: boolean }> {
   return accountFetch(user, `${ACCOUNT_API_BASE}/admin/users`, { method: 'POST', body: JSON.stringify(input) });
 }
 
@@ -65,6 +83,6 @@ export function deleteManagedUser(user: User, uid: string) {
   return accountFetch(user, `${ACCOUNT_API_BASE}/admin/users/${encodeURIComponent(uid)}`, { method: 'DELETE' });
 }
 
-export function createPasswordResetLink(user: User, uid: string): Promise<{ email: string; passwordResetLink: string }> {
+export function createPasswordResetLink(user: User, uid: string): Promise<{ email: string; passwordResetLink: string; auditLogged?: boolean }> {
   return accountFetch(user, `${ACCOUNT_API_BASE}/admin/users/${encodeURIComponent(uid)}/password-reset-link`, { method: 'POST' });
 }
