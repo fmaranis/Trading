@@ -48,6 +48,7 @@ Reglas permanentes:
 
 - Nunca usar GitHub Actions para replays o validaciones largas.
 - Los cálculos largos los ejecuta el motor local/backend, normalmente `ResearchValidationCenter`.
+- El usuario **no dispone de terminal operativo** para ejecutar comandos manualmente. No pedirle `npm`, `npx`, `tsx`, `git` ni comandos equivalentes. Las comprobaciones necesarias deben integrarse como jobs del `ResearchValidationCenter` y ejecutarse desde la propia app con un botón.
 - Guards/unit tests/TypeScript deben pasar antes del cálculo live/largo.
 - Procedencia siempre explícita: `REAL / STATIC_REFERENCE / SYNTHETIC`.
 - Sin fallback sintético silencioso.
@@ -118,7 +119,8 @@ Los compatibility adapters de `GrowthTradingBot`, antiguo `InvestmentDecisionCen
 Estado de validación:
 
 - inspección estática completada;
-- falta una única ejecución local de guards + TypeScript y una comprobación manual móvil antes de declararlo PASS final.
+- existe ahora un job rápido integrado `Producto · cierre rápido` en `ResearchValidationCenter`;
+- falta ejecutar ese único job desde la app y una comprobación manual móvil antes de declararlo PASS final.
 
 ---
 
@@ -144,7 +146,10 @@ Corrección final aplicada:
 - líneas `REVIEW` quedan en un bloque explícito “no son orden ejecutable hoy”;
 - la tarjeta distingue `importe teórico del motor` de `importe ejecutable`, evitando que redondeo por títulos/comisiones se confunda con sizing productivo;
 - contribuciones de core añadidas o redirigidas por `CORE_GATE_V1 / CORE_ARCHITECTURE_V1` no se ocultan por faltar un `CurrentOpportunityAlert` original;
-- la explicación de cadena está plegada dentro de la misma tarjeta, después de la acción.
+- la explicación de cadena está plegada dentro de la misma tarjeta, después de la acción;
+- `UserPortfolioPanel` y `PilotOperationsPanel` ya no recalculan una segunda decisión productiva;
+- `DecisionGuardrailsPanel` ya no ejecuta un mini-backtest cliente paralelo: sólo explica gates current/live y remite la investigación histórica al replay integrado;
+- un instrumento marcado manualmente como no disponible en MyInvestor se convierte en `REVIEW` en el único plan ejecutable y el cambio se propaga a la superficie principal.
 
 Jerarquía de producto:
 
@@ -164,14 +169,32 @@ El `portfolio` que alimenta el resultado canónico se memoiza mientras la misma 
 
 Como el `InvestmentDecisionEngine` congelado exige capital estrictamente positivo para escalar importes, la UI usa 1 € únicamente como notional analítico interno cuando la liquidez real es 0 y neutraliza inmediatamente todos los importes monetarios a 0. Ese camino queda marcado con `NO_DEPLOYABLE_CAPITAL_ANALYTICAL_WEIGHTS_ONLY` y no genera órdenes.
 
-`DecisionGuardrailsPanel` tampoco sustituye ya 0 € por 1 € en su comparación histórica: con capital 0 la comparación queda deshabilitada.
+`DecisionGuardrailsPanel` ya no realiza replay histórico cliente ni inventa capital para hacerlo.
 
 Guards actuales:
 
 - `tests/productDecisionSurface.unit.ts`: **20 invariantes estáticos**;
-- `tests/productSurfaceClosureV1.unit.ts`: **26 invariantes estáticos**.
+- `tests/productSurfaceClosureV1.unit.ts`: **27 invariantes estáticos**.
 
-Pendiente: ejecutar ambos guards y `npm run lint` sobre este HEAD antes de marcar PASS final.
+### Job integrado de cierre
+
+`ResearchValidationCenter` expone el job:
+
+`Producto · cierre rápido`
+
+Ejecuta, en backend local y sin intervención de terminal del usuario:
+
+- `productSurfaceClosureV1`;
+- `productDecisionSurface`;
+- `portfolioExecutionPlan`;
+- `userPortfolio`;
+- `brokerAvailability`;
+- `taxAwareExecutionOverlay`;
+- TypeScript (`npm run lint`).
+
+No ejecuta replay, no consulta Yahoo live, no ejecuta Future Forward, no crea checkpoint y no escribe en `replay-results`.
+
+Pendiente: ejecutar este job una sola vez sobre el HEAD actual antes de marcar PASS final.
 
 ---
 
@@ -508,9 +531,10 @@ No abrir como tuning productivo hasta cerrar la secuencia vigente:
 
 # 15. Próxima secuencia técnica
 
-1. Ejecutar **una sola comprobación local de cierre** sobre el HEAD vigente: `npx tsx tests/productDecisionSurface.unit.ts` + `npx tsx tests/productSurfaceClosureV1.unit.ts` + `npm run lint`. No ejecutar replay ni future-forward para esta comprobación.
-2. Comprobar manualmente en el móvil, sin relanzar validaciones largas: `Evidencia JSON` del Centro cuando haya resultado en memoria y `Exportar prueba JSON` del replay existente.
-3. Si ambos puntos pasan, marcar entrada productiva/JSON/móvil como **PASS FINAL** sin más refactorizaciones.
-4. Mantener producción `LEGACY` y los 25 blobs congelados intactos.
-5. Después retomar el diagnóstico económico HFG y otros boom->crash sin retunear sobre la muestra consumida.
-6. Próximo checkpoint prospectivo nuevo: **2026-10-09 22:30-24:00 Europe/Madrid**.
+1. Sincronizar `main` en AI Studio y, desde la propia app, pulsar **`Producto · cierre rápido`** en `ResearchValidationCenter`. No usar terminal. No pulsar Future Forward ni iniciar replay para esta comprobación.
+2. El job debe ejecutar en backend: cierre de superficie, decisión única, plan de ejecución, cartera, broker, fiscalidad y TypeScript. Si falla, leer su `Salida técnica`; si pasa, no repetirlo.
+3. Comprobar manualmente en el móvil, sin relanzar validaciones largas: `Evidencia JSON` del Centro cuando haya resultado en memoria y `Exportar prueba JSON` del replay existente.
+4. Si ambos puntos pasan, marcar entrada productiva/JSON/móvil como **PASS FINAL** sin más refactorizaciones.
+5. Mantener producción `LEGACY` y los 25 blobs congelados intactos.
+6. Después retomar el diagnóstico económico HFG y otros boom->crash sin retunear sobre la muestra consumida.
+7. Próximo checkpoint prospectivo nuevo: **2026-10-09 22:30-24:00 Europe/Madrid**.
