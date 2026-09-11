@@ -29,6 +29,8 @@ const accountApi = read('src/auth/accountApi.ts');
 const adminUsersPanel = read('src/components/AdminUsersPanel.tsx');
 const secureAppGate = read('src/auth/SecureAppGate.tsx');
 const authSecurity = read('server/authSecurity.ts');
+const portfolioManagementAlerts = read('server/portfolioManagementAlerts.ts');
+const telegramNotifier = read('server/telegramNotifier.ts');
 
 check('1001 root product starts at the canonical decision entrypoint', () => {
   assert.match(indexHtml, /src\/decisionMain\.tsx/);
@@ -227,5 +229,12 @@ check('1033 managed-user access revocation cannot silently no-op and propagates 
   assert.match(secureAppGate, /cloudSyncStopRef/);
   assert.match(secureAppGate, /stopCloudSync\(\);[\s\S]*clearPrivateLocalState\(\)/);
 });
+check('1034 backend portfolio alerts cannot create a parallel rotation recommendation', () => {
+  assert.match(portfolioManagementAlerts, /PortfolioPositionHealthService/);
+  assert.match(portfolioManagementAlerts, /classifyPositionHealth/);
+  assert.match(portfolioManagementAlerts, /action === 'ADD' \|\| action === 'WATCH' \|\| action === 'REDUCE' \|\| action === 'EXIT'/);
+  assert.doesNotMatch(portfolioManagementAlerts, /PortfolioRotationReviewEngine|ROTATE_NOW|rotationEvent/);
+  assert.doesNotMatch(telegramNotifier, /rotationEvent|• ROTAR/);
+});
 
-console.log(`Product surface closure V1: ${passed}/33 invariants passed.`);
+console.log(`Product surface closure V1: ${passed}/34 invariants passed.`);
