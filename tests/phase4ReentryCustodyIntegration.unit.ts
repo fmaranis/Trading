@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { AssetUniverseScanResult } from '../src/investment/decision/assetUniverseScanner';
 import type { PortfolioDecisionResult } from '../src/investment/decision/portfolioDecisionEngine';
+import { brokerCommission } from '../src/investment/decision/costAwareExecutionPolicy';
 import { applyExitProceedsCustodyV1, EXIT_PROCEEDS_CUSTODY_V1 } from '../src/investment/decision/reentryCashCustodyPolicy';
 
 const wrapperSource = readFileSync('src/investment/decision/replayRotationPolicyExperiment.ts', 'utf8');
@@ -11,9 +12,8 @@ const indexSource = readFileSync('src/investment/decision/index.ts', 'utf8');
 const runnerSource = readFileSync('scripts/phase4ReentryCashCustodyV1BlindLive.ts', 'utf8');
 const validationRoutesSource = readFileSync('server/researchValidationRoutes.ts', 'utf8');
 
-// Architecture parity: Phase 4 must layer on the exact existing canonical replay
-// wrapper. Directly replacing the core call with evaluatePortfolioDecision would
-// apply CORE_GATE/CORE_ARCHITECTURE twice because this wrapper already owns them.
+// Architecture parity: Phase 4 layers on the existing replay wrapper; production
+// still reaches CORE_GATE_V1 + CORE_ARCHITECTURE_V1 through that same path.
 assert.match(workerSource, /runDynamicReplayWithRotationExperiment\(input,\s*REPLAY_ROTATION_EXPERIMENT\)/);
 assert.match(workerSource, /REPLAY_ROTATION_EXPERIMENT\s*=\s*'CORE_ARCHITECTURE_V1'/);
 assert.match(wrapperSource, /applyCoreGateV1\(/);
@@ -21,21 +21,29 @@ assert.match(wrapperSource, /applyCoreArchitectureV1\(/);
 assert.match(wrapperSource, /PHASE4_REENTRY_REQUIRES_CORE_ARCHITECTURE_V1/);
 assert.match(wrapperSource, /reentryFundingPolicy:\s*EXIT_PROCEEDS_CUSTODY_V1|reentryFundingPolicy\s*===\s*EXIT_PROCEEDS_CUSTODY_V1/);
 
-// Production/default remains clean. The worker must never enable the research
-// policy and the isolated module must not be exported through the public barrel.
+// Production/default remains clean.
 assert.doesNotMatch(workerSource, /EXIT_PROCEEDS_CUSTODY_V1/);
 assert.doesNotMatch(indexSource, /reentryCashCustodyPolicy/);
 
-// Text is audit only. Neither policy nor wrapper can use reason strings as
-// execution authority.
+// Structured authority only: reason text can never enable custody.
 assert.doesNotMatch(policySource, /reason\.includes\(/);
 assert.doesNotMatch(wrapperSource, /reason\.includes\(/);
 assert.match(wrapperSource, /healthSnapshot\(evaluationInput,\s*position\.assetId\)\?\.action\s*===\s*'EXIT'/);
-assert.match(wrapperSource, /rotationFundingByAssetId/);
-assert.match(wrapperSource, /replayDecisionDate\(evaluationInput\)/);
+assert.match(wrapperSource, /item\?\.instrumentType\s*!==\s*'MUTUAL_FUND'/);
+assert.match(wrapperSource, /PHASE4_REENTRY_ELIGIBLE_EXIT_PREDICTION_REQUIRED/);
 
-// The one-shot runner must use the existing wrapper for paired baseline/candidate
-// comparisons and may only appear after guards + TypeScript in the existing RVC.
+// Execution accounting guards: Phase 4 must pass structured net proceeds and the
+// actual common execution prices into the overlay. Partial REDUCE funding must use
+// a conservative tax floor rather than average-basis pseudo-FIFO.
+assert.match(wrapperSource, /rotationFundingByAssetId/);
+assert.match(wrapperSource, /executionPriceByAssetId/);
+assert.match(wrapperSource, /executionPricesForContributions/);
+assert.match(wrapperSource, /Math\.max\(0,\s*grossEur\s*-\s*feeEur\)\s*\*\s*0\.30/);
+assert.match(policySource, /notional\s*\+\s*fee\s*<=\s*budget/);
+assert.match(policySource, /reservations\.length\s*>\s*0\s*\|\|\s*detached\.qualifyingExitAssetIds\.length\s*>\s*0/);
+assert.match(policySource, /PHASE4_REENTRY_ROTATION_FUNDING_REQUIRED_WHILE_CUSTODY_ACTIVE/);
+
+// One-shot runner and RVC ordering remain sealed: guards + TypeScript before blind.
 assert.match(runnerSource, /runDynamicReplayWithRotationExperiment\(replayInput,\s*'CORE_ARCHITECTURE_V1'\)/);
 assert.match(runnerSource, /reentryFundingPolicy:\s*EXIT_PROCEEDS_CUSTODY_V1/);
 assert.match(runnerSource, /sampleState:\s*'R2_OPENED_CONSUMED'/);
@@ -119,9 +127,7 @@ function decision(): PortfolioDecisionResult {
   };
 }
 
-// Before the first reservation exists, structured net-funding diagnostics must
-// have zero economic authority. Candidate and baseline ordinary rotations remain
-// identical; otherwise Phase 4 would secretly test a second fee/tax policy.
+// Before custody exists, diagnostics are inert and baseline sizing is exact.
 {
   const result = applyExitProceedsCustodyV1({
     result: decision(),
@@ -129,15 +135,16 @@ function decision(): PortfolioDecisionResult {
     reservations: [],
     eligibleHealthExitAssetIds: [],
     rotationFundingByAssetId: { [challenger.assetId]: 600 },
+    executionPriceByAssetId: { [challenger.assetId]: 50 },
     policy: EXIT_PROCEEDS_CUSTODY_V1
   });
   assert.equal(result.decision.contributions.length, 1);
   assert.equal(Number(result.decision.contributions[0].amountEur.toFixed(2)), 1_000);
 }
 
-// Once custody is active, a 1:1 rotation whose sale can really fund only 600 EUR
-// may not borrow the 1,000 EUR reservation belonging to a different asset. The
-// challenger is capped to dedicated proceeds because free base cash is reserved.
+// Once custody is active, the paired BUY may use only its dedicated net proceeds.
+// Commission is inside the 600 EUR funding cap, so at 50 EUR/share the maximum is
+// 11 shares = 550 EUR notional plus the broker fee.
 {
   const result = applyExitProceedsCustodyV1({
     result: decision(),
@@ -145,10 +152,13 @@ function decision(): PortfolioDecisionResult {
     reservations: [{ assetId: 'EQ_PH4_R2_RESERVED', amountEur: 1_000, createdAt: '2009-12-01' }],
     eligibleHealthExitAssetIds: [],
     rotationFundingByAssetId: { [challenger.assetId]: 600 },
+    executionPriceByAssetId: { [challenger.assetId]: 50 },
     policy: EXIT_PROCEEDS_CUSTODY_V1
   });
   assert.equal(result.decision.contributions.length, 1);
-  assert.equal(Number(result.decision.contributions[0].amountEur.toFixed(2)), 600);
+  const amount = result.decision.contributions[0].amountEur;
+  assert.equal(Number(amount.toFixed(2)), 550);
+  assert.ok(amount + brokerCommission(amount) <= 600 + 1e-9);
   assert.equal(Number(result.telemetry.dedicatedRotationFundingEur.toFixed(2)), 600);
   assert.equal(Number(result.telemetry.effectiveReservedCashEur.toFixed(2)), 1_000);
 }
