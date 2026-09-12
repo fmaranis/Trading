@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "jobId": "phase4-reentry-cash-custody-v1",
+  "jobName": "Fase 4 · reentrada · custodia de proceeds",
+  "evidenceKind": "AUDIT_RECONSTRUCTION",
+  "recordedAt": "2026-09-12T23:04:33.557Z",
+  "status": "PASSED",
+  "startedAt": null,
+  "finishedAt": "2026-09-12T23:04:33.557Z",
+  "result": {
+    "version": "PHASE4_REENTRY_CASH_CUSTODY_V1_AUDIT_RECONSTRUCTION_V1",
+    "evidenceKind": "AUDIT_RECONSTRUCTION_AFTER_ORIGINAL_RESULT_LOSS",
+    "reconstructedAt": "2026-09-12T23:04:33.557Z",
+    "originalExecution": {
+      "sampleState": "R2_OPENED_CONSUMED",
+      "technicalStatusObservedBeforeBackendReset": "PASSED",
+      "originalVerdictDurablyRecovered": false
+    },
+    "methodologicalUse": "DIAGNOSTIC_ONLY_NOT_FRESH_NOT_PROMOTION_EVIDENCE",
+    "reconstructionMethod": "RERUN_EXACT_SEALED_PHASE4_RUNNER_WITH_SEALED_SERVER_ROUTE_BYTES_TEMPORARILY_MATERIALIZED",
+    "sealVersion": "PHASE4_REENTRY_CASH_CUSTODY_V1_R2_SEAL",
+    "sealedServerRouteBlob": "2b34964b1f0cd0997f50b4366c944212cff286f8",
+    "currentServerRouteBlobBeforeReconstruction": "5c92cdee9f9577fa0c7bdb828d691a75b0d1a3b7",
+    "reproductionVerdict": "INCONCLUSIVE_INVALID_DATA",
+    "reproductionResult": {
+      "version": "PHASE4_REENTRY_CASH_CUSTODY_V1_R2",
+      "executedAt": "2026-09-12T23:04:33.529Z",
+      "sampleState": "R2_OPENED_CONSUMED",
+      "verdict": "INCONCLUSIVE_INVALID_DATA",
+      "sealVersion": "PHASE4_REENTRY_CASH_CUSTODY_V1_R2_SEAL",
+      "fingerprints": {
+        "docs/phase4_reentry_cash_custody_v1_preregistration.md": "5348df315e8eb4fcc5cd27eda14493b3b00ca46b1b074d0350877e043f73d604",
+        "src/investment/decision/reentryCashCustodyPolicy.ts": "96b3eb8173f5da25657d45a59b47710b4d0c7bcf426ada43c900246956d376f7",
+        "src/investment/decision/replayRotationPolicyExperiment.ts": "dd7803d44d1b40974e76493474c5aab1d2823d50ad951dbf9c11f0b13a75cf82",
+        "src/investment/decision/dynamicHistoricalReplayCore.ts": "42e03290ac9fcfc05db0ea2ca2b80f5fb9b64330ac59f63bae39dff27d6db64d",
+        "src/investment/decision/portfolioCoreGatePolicy.ts": "67992a25ee5513b270d3083264eab308a58732996be85129d4828ace4896b197",
+        "src/investment/decision/cashBenchmark.ts": "2d877a1ff018dd363c10fd044a933881c2ecfc838d7e23b310df84f3414ba9f8",
+        "scripts/phase4ReentryCashCustodyV1BlindLive.ts": "75a4a2490357c149c5abe86af3f6d46c94da5f86ece447eb028a2654cbd99df8"
+      },
+      "scanner": {
+        "scanned": 31,
+        "accepted": 29,
+        "rejected": 2,
+        "rejectionCounts": {
+          "Error proveedor HTTP 400": 1,
+          "Símbolo no encontrado: STM.MI": 1
+        }
+      },
+      "dataGate": [
+        {
+          "cohort": 1,
+          "valid": false,
+          "coreAccepted": false,
+          "coreBarsBeforeReplay": 0,
+          "freshRequested": [
+            "MRK.DE",
+            "RI.PA",
+            "VIV.PA",
+            "GLE.PA",
+            "VOW3.DE"
+          ],
+          "freshAccepted": [
+            "MRK.DE",
+            "RI.PA",
+            "VIV.PA",
+            "GLE.PA",
+            "VOW3.DE"
+          ],
+          "rejectedFresh": []
+        },
+        {
+          "cohort": 2,
+          "valid": false,
+          "coreAccepted": false,
+          "coreBarsBeforeReplay": 0,
+          "freshRequested": [
+            "FCC.MC",
+            "IFX.DE",
+            "BMW.DE",
+            "DG.PA",
+            "TIT.MI"
+          ],
+          "freshAccepted": [
+            "FCC.MC",
+            "IFX.DE",
+            "BMW.DE",
+            "DG.PA",
+            "TIT.MI"
+          ],
+          "rejectedFresh": []
+        },
+        {
+          "cohort": 3,
+          "valid": false,
+          "coreAccepted": false,
+          "coreBarsBeforeReplay": 0,
+          "freshRequested": [
+            "HO.PA",
+            "LDO.MI",
+            "ELE.MC",
+            "KER.PA",
+            "RWE.DE"
+          ],
+          "freshAccepted": [
+            "HO.PA",
+            "LDO.MI",
+            "ELE.MC",
+            "KER.PA",
+            "RWE.DE"
+          ],
+          "rejectedFresh": []
+        },
+        {
+          "cohort": 4,
+          "valid": false,
+          "coreAccepted": false,
+          "coreBarsBeforeReplay": 0,
+          "freshRequested": [
+            "MUV2.DE",
+            "CS.PA",
+            "RNO.PA",
+            "ACS.MC",
+            "G.MI"
+          ],
+          "freshAccepted": [
+            "MUV2.DE",
+            "CS.PA",
+            "RNO.PA",
+            "ACS.MC",
+            "G.MI"
+          ],
+          "rejectedFresh": []
+        },
+        {
+          "cohort": 5,
+          "valid": false,
+          "coreAccepted": false,
+          "coreBarsBeforeReplay": 0,
+          "freshRequested": [
+            "TEF.MC",
+            "BAS.DE",
+            "ANA.MC",
+            "BEI.DE",
+            "EN.PA"
+          ],
+          "freshAccepted": [
+            "TEF.MC",
+            "BAS.DE",
+            "ANA.MC",
+            "BEI.DE",
+            "EN.PA"
+          ],
+          "rejectedFresh": []
+        },
+        {
+          "cohort": 6,
+          "valid": false,
+          "coreAccepted": false,
+          "coreBarsBeforeReplay": 0,
+          "freshRequested": [
+            "CON.DE",
+            "ACX.MC",
+            "CAP.PA",
+            "HEN3.DE",
+            "STM.MI"
+          ],
+          "freshAccepted": [
+            "CON.DE",
+            "ACX.MC",
+            "CAP.PA",
+            "HEN3.DE"
+          ],
+          "rejectedFresh": [
+            {
+              "assetId": "EQ_PH4_R2_STM",
+              "ticker": "STM.MI",
+              "reason": "Símbolo no encontrado: STM.MI"
+            }
+          ]
+        }
+      ],
+      "nonRealAssetIds": [],
+      "currentDiscoveryLeakAssetIds": [],
+      "malformedAssetIds": []
+    }
+  },
+  "note": "Reconstruction diagnostic of a blind R2 execution whose in-memory JSON was lost after backend restart. It is not fresh/OOS evidence and cannot promote production."
+}
