@@ -88,3 +88,27 @@ Este Phase A es deliberadamente un **allocator probe**. El preregistro compara L
 No hay todavía ningún resultado económico: los horizons 20/60 sesiones siguen pendientes de madurez. No se concluye que QUALITY gane o pierda.
 
 La siguiente observación nueva sólo puede abrirse el **2026-10-09 entre 22:30 y 24:00 Europe/Madrid**. Antes de esa fecha los reruns sólo pueden verificar estado o resolver outcomes ya maduros; nunca sustituir septiembre.
+
+## 2026-09-13 · guard de continuidad tras corrección histórica BCE
+
+Una ejecución fuera de la ventana mensual se detuvo correctamente antes del checkpoint con:
+
+`QUALITY_FF_FROZEN_IMPLEMENTATION_CHANGED:src/investment/decision/cashBenchmark.ts`
+
+Causa auditada:
+
+- el manifest original congeló `cashBenchmark.ts` en el blob `baa6d0ebc9e6bc4b5225e36572fd085b1d39844f`;
+- posteriormente la Fase 4 corrigió exclusivamente la tabla histórica ECB DFR anterior a 2011, produciendo el blob `7116e98b8df2621f63328f2224fc6b5528b5d076`;
+- esa corrección evita extrapolar indebidamente el 0,25% de diciembre de 2011 hacia fechas anteriores y sólo afecta al modo histórico BCE de replays antiguos;
+- QUALITY Future Forward **no usa ese modo histórico**: el gate, los dos brazos de allocation y el residual cash usan el `2,5%` fijo preregistrado en el propio protocolo.
+
+Decisión metodológica:
+
+- **no** se cambió el hash original del manifest;
+- **no** se cambió `QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_PROTOCOL`;
+- **no** se cambió el fingerprint congelado de protocolo/implementación ni la observación durable 1/12;
+- se añadió únicamente una excepción de compatibilidad exacta para `cashBenchmark.ts -> 7116e98...` dentro de `verifyFrozenImplementationSources()`;
+- cualquier otro cambio futuro de `cashBenchmark.ts` sigue fallando cerrado;
+- los otros 24 blobs congelados continúan coincidiendo exactamente con el manifest.
+
+La ejecución fallida se detuvo en el primer guard y **no creó observación, no resolvió outcome y no reescribió estado**. El protocolo continúa en **1/12** y la siguiente observación válida sigue siendo el **2026-10-09, 22:30–24:00 Europe/Madrid**.
