@@ -29,19 +29,29 @@ assert.doesNotMatch(indexSource, /reentryCashCustodyPolicy/);
 assert.doesNotMatch(policySource, /reason\.includes\(/);
 assert.doesNotMatch(wrapperSource, /reason\.includes\(/);
 assert.match(wrapperSource, /healthSnapshot\(evaluationInput,\s*position\.assetId\)\?\.action\s*===\s*'EXIT'/);
-assert.match(wrapperSource, /item\?\.instrumentType\s*!==\s*'MUTUAL_FUND'/);
+assert.match(wrapperSource, /item\s*!=\s*null[\s\S]{0,100}item\.instrumentType\s*!==\s*'MUTUAL_FUND'/);
 assert.match(wrapperSource, /PHASE4_REENTRY_ELIGIBLE_EXIT_PREDICTION_REQUIRED/);
 
-// Execution accounting guards: Phase 4 must pass structured net proceeds and the
-// actual common execution prices into the overlay. Partial REDUCE funding must use
-// a conservative tax floor rather than average-basis pseudo-FIFO.
+// Execution accounting guards: Phase 4 must detach RETURN_TO_CORE before
+// calculating the actual common NEXT_OPEN funding/prices and must fail if the
+// execution date does not converge after the final order set is known.
+assert.match(wrapperSource, /prepareExitProceedsCustodyV1\(/);
 assert.match(wrapperSource, /rotationFundingByAssetId/);
 assert.match(wrapperSource, /executionPriceByAssetId/);
 assert.match(wrapperSource, /executionPricesForContributions/);
+assert.match(wrapperSource, /PHASE4_REENTRY_EXECUTION_DATE_NOT_STABLE/);
 assert.match(wrapperSource, /Math\.max\(0,\s*grossEur\s*-\s*feeEur\)\s*\*\s*0\.30/);
 assert.match(policySource, /notional\s*\+\s*fee\s*<=\s*budget/);
 assert.match(policySource, /reservations\.length\s*>\s*0\s*\|\|\s*detached\.qualifyingExitAssetIds\.length\s*>\s*0/);
 assert.match(policySource, /PHASE4_REENTRY_ROTATION_FUNDING_REQUIRED_WHILE_CUSTODY_ACTIVE/);
+
+// Reach and reserve usage must be backed by a positive structured authorization
+// for that exact asset/EXIT. A generic later BUY is not enough.
+assert.match(policySource, /reservedCashAuthorizedByAssetEur/);
+assert.match(wrapperSource, /overlay\.telemetry\.matchedReentryAssetIds/);
+assert.match(wrapperSource, /authorizedReserveSpendEur/);
+assert.match(wrapperSource, /row\.sourceExitSignalId\s*===\s*predicted\.signalId/);
+assert.match(wrapperSource, /row\.reservedCashUsedEur\s*>\s*0\.01/);
 
 // One-shot runner and RVC ordering remain sealed: guards + TypeScript before blind.
 assert.match(runnerSource, /runDynamicReplayWithRotationExperiment\(replayInput,\s*'CORE_ARCHITECTURE_V1'\)/);
@@ -140,6 +150,7 @@ function decision(): PortfolioDecisionResult {
   });
   assert.equal(result.decision.contributions.length, 1);
   assert.equal(Number(result.decision.contributions[0].amountEur.toFixed(2)), 1_000);
+  assert.deepEqual(result.telemetry.reservedCashAuthorizedByAssetEur, {});
 }
 
 // Once custody is active, the paired BUY may use only its dedicated net proceeds.
@@ -161,6 +172,7 @@ function decision(): PortfolioDecisionResult {
   assert.ok(amount + brokerCommission(amount) <= 600 + 1e-9);
   assert.equal(Number(result.telemetry.dedicatedRotationFundingEur.toFixed(2)), 600);
   assert.equal(Number(result.telemetry.effectiveReservedCashEur.toFixed(2)), 1_000);
+  assert.deepEqual(result.telemetry.reservedCashAuthorizedByAssetEur, {});
 }
 
 console.log('phase4ReentryCustodyIntegration.unit: PASS');
