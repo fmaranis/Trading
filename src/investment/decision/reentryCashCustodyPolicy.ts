@@ -78,30 +78,37 @@ function reduceContributionAmount(row: ContributionRecommendation, reductionEur:
   return actualReduction;
 }
 
-function detachReturnToCore(result: PortfolioDecisionResult): { qualifyingExitAssetIds: string[]; detachedReturnToCoreEur: number } {
+function detachEligibleHealthExits(
+  result: PortfolioDecisionResult,
+  eligibleHealthExitAssetIds: ReadonlySet<string>
+): { qualifyingExitAssetIds: string[]; detachedReturnToCoreEur: number } {
   const oldRotationProceeds = result.plannedRotationProceedsEur;
   const oldRecommended = result.recommendedNewInvestmentEur;
   const qualifyingExitAssetIds: string[] = [];
   let detachedReturnToCoreEur = 0;
 
   for (const position of result.existingPositions) {
-    if (position.action !== 'EXIT' || !position.assetId || isStrategicGrowthCoreAssetId(position.assetId)) continue;
+    if (
+      position.action !== 'EXIT'
+      || !position.assetId
+      || isStrategicGrowthCoreAssetId(position.assetId)
+      || !eligibleHealthExitAssetIds.has(position.assetId)
+    ) continue;
 
-    const routedToCore = Boolean(
+    const routedToStrategicCore = Boolean(
       position.rotationChallengerAssetId
       && isStrategicGrowthCoreAssetId(position.rotationChallengerAssetId)
-      && position.reason.includes('[CORE_ARCHITECTURE_V1:RETURN_TO_CORE]')
     );
     const ordinaryHealthExit = !position.rotationChallengerAssetId;
-    if (!routedToCore && !ordinaryHealthExit) continue;
+    if (!routedToStrategicCore && !ordinaryHealthExit) continue;
 
     const exitValueEur = Math.max(0, position.currentValueEur ?? 0);
-    if (routedToCore && position.rotationChallengerAssetId && exitValueEur > 0) {
+    if (routedToStrategicCore && position.rotationChallengerAssetId && exitValueEur > 0) {
       const coreContribution = result.contributions.find(row => row.assetId === position.rotationChallengerAssetId);
       if (coreContribution) {
         const removed = reduceContributionAmount(coreContribution, exitValueEur);
         detachedReturnToCoreEur += removed;
-        coreContribution.reason += ` [${EXIT_PROCEEDS_CUSTODY_V1}] Se desacopla únicamente el importe procedente de este EXIT no-core; el resto de la contribución core conserva su semántica original.`;
+        coreContribution.reason += ` [${EXIT_PROCEEDS_CUSTODY_V1}] Se desacopla únicamente el importe procedente de este EXIT de salud; el resto de la contribución core conserva su semántica original.`;
       }
       position.rotationChallengerAssetId = null;
       position.rotationChallengerTicker = null;
@@ -110,6 +117,8 @@ function detachReturnToCore(result: PortfolioDecisionResult): { qualifyingExitAs
       position.rotationChallengerPersistenceLookbackSessions = null;
     }
 
+    // Audit-only text. Eligibility has already been decided exclusively from the
+    // structured `eligibleHealthExitAssetIds` set above.
     position.reason = `${position.reason} ${REENTRY_CUSTODY_EXIT_MARKER} El neto realmente ejecutado quedará en cash remunerado y reservado para una primera reentrada normal del mismo activo; no se relaja ningún gate.`;
     qualifyingExitAssetIds.push(position.assetId);
   }
@@ -194,13 +203,14 @@ function minimumExecutableAmount(
  *
  * It never creates a contribution, never increases one above the canonical
  * decision and never changes eligibility/timing. It only withholds cash already
- * reserved by prior full non-core EXITs and lets a matching ordinary contribution
- * use its own reservation.
+ * reserved by prior full non-core health EXITs and lets a matching ordinary
+ * contribution use its own reservation.
  */
 export function applyExitProceedsCustodyV1(input: {
   result: PortfolioDecisionResult;
   scan: AssetUniverseScanResult;
   reservations: readonly ReentryCashReservation[];
+  eligibleHealthExitAssetIds: readonly string[];
   policy: ReentryFundingPolicy;
 }): ReentryCashCustodyDecisionResult {
   if (input.policy !== EXIT_PROCEEDS_CUSTODY_V1) {
@@ -220,7 +230,7 @@ export function applyExitProceedsCustodyV1(input: {
   }
 
   const result = cloneDecision(input.result);
-  const detached = detachReturnToCore(result);
+  const detached = detachEligibleHealthExits(result, new Set(input.eligibleHealthExitAssetIds));
   const reservations = [...input.reservations].filter(row => row.amountEur > 0.01);
   const nominalReservedCashEur = reservations.reduce((sum, row) => sum + row.amountEur, 0);
   const baseDeployable = Math.max(0, result.deployableToAssetsEur - result.plannedRotationProceedsEur);
