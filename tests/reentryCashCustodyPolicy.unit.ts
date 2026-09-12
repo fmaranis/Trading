@@ -66,14 +66,19 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
 // LEGACY must be an exact pass-through: Phase 4 cannot change production/default behavior.
 {
   const input = base();
-  const result = applyExitProceedsCustodyV1({ result: input, scan, reservations: [reservation()], policy: 'LEGACY' });
+  const result = applyExitProceedsCustodyV1({
+    result: input,
+    scan,
+    reservations: [reservation()],
+    eligibleHealthExitAssetIds: [],
+    policy: 'LEGACY'
+  });
   assert.equal(result.decision, input);
   assert.equal(result.telemetry.policy, 'LEGACY');
 }
 
-// A non-core health EXIT that CORE_ARCHITECTURE_V1 had routed back to the strategic
-// core is detached under the candidate. Only that sale amount is removed; the EXIT
-// itself remains and gets the explicit custody marker.
+// A structured health EXIT routed back to strategic core is detached under the
+// candidate. Only that sale amount is removed; the EXIT itself remains.
 {
   const result = base({
     currentInvestedValueEur: 10_000,
@@ -91,7 +96,7 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
       category: 'EUROPE_EQUITY',
       currentValueEur: 2_000,
       action: 'EXIT',
-      reason: 'health exit [CORE_ARCHITECTURE_V1:RETURN_TO_CORE]',
+      reason: 'audit text may say anything',
       suggestedReductionPct: 100,
       rotationChallengerAssetId: core.assetId,
       rotationChallengerTicker: core.ticker
@@ -103,7 +108,13 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
       positionStage: 'ROTATION_ENTRY', reason: 'return to core'
     }]
   });
-  const next = applyExitProceedsCustodyV1({ result, scan, reservations: [], policy: EXIT_PROCEEDS_CUSTODY_V1 });
+  const next = applyExitProceedsCustodyV1({
+    result,
+    scan,
+    reservations: [],
+    eligibleHealthExitAssetIds: [exited.assetId],
+    policy: EXIT_PROCEEDS_CUSTODY_V1
+  });
   assert.equal(next.decision.plannedRotationProceedsEur, 0);
   assert.equal(next.decision.contributions.length, 0);
   assert.equal(next.decision.existingPositions[0].rotationChallengerAssetId, null);
@@ -112,7 +123,45 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
   assert.deepEqual(next.telemetry.qualifyingExitAssetIds, [exited.assetId]);
 }
 
-// Strategic cores never create Phase-4 custody.
+// Audit text alone has zero authority. Even a reason that contains the old
+// RETURN_TO_CORE marker must not create custody unless structured health says EXIT.
+{
+  const result = base({
+    plannedRotationProceedsEur: 2_000,
+    recommendedNewInvestmentEur: 2_000,
+    deployableToAssetsEur: 2_000,
+    existingPositions: [{
+      id: exited.ticker,
+      assetId: exited.assetId,
+      label: exited.name,
+      instrumentType: 'ETF_ETC',
+      category: 'EUROPE_EQUITY',
+      currentValueEur: 2_000,
+      action: 'EXIT',
+      reason: 'fake [CORE_ARCHITECTURE_V1:RETURN_TO_CORE] marker',
+      suggestedReductionPct: 100,
+      rotationChallengerAssetId: core.assetId,
+      rotationChallengerTicker: core.ticker
+    }],
+    contributions: [{
+      category: 'GLOBAL_EQUITY', assetId: core.assetId, ticker: core.ticker, name: core.name,
+      instrumentType: 'ETF_ETC', amountEur: 2_000, targetCategoryGapEur: 2_000,
+      positionStage: 'ROTATION_ENTRY', reason: 'rotation'
+    }]
+  });
+  const next = applyExitProceedsCustodyV1({
+    result,
+    scan,
+    reservations: [],
+    eligibleHealthExitAssetIds: [],
+    policy: EXIT_PROCEEDS_CUSTODY_V1
+  });
+  assert.deepEqual(next.telemetry.qualifyingExitAssetIds, []);
+  assert.equal(next.decision.existingPositions[0].rotationChallengerAssetId, core.assetId);
+  assert.equal(next.decision.contributions.length, 1);
+}
+
+// Strategic cores never create Phase-4 custody even if health reports EXIT.
 {
   const result = base({
     existingPositions: [{
@@ -120,7 +169,13 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
       currentValueEur: 2_000, action: 'EXIT', reason: 'core exit', suggestedReductionPct: 100
     }]
   });
-  const next = applyExitProceedsCustodyV1({ result, scan, reservations: [], policy: EXIT_PROCEEDS_CUSTODY_V1 });
+  const next = applyExitProceedsCustodyV1({
+    result,
+    scan,
+    reservations: [],
+    eligibleHealthExitAssetIds: [core.assetId],
+    policy: EXIT_PROCEEDS_CUSTODY_V1
+  });
   assert.deepEqual(next.telemetry.qualifyingExitAssetIds, []);
   assert.doesNotMatch(next.decision.existingPositions[0].reason, /EXIT_PROCEEDS_CUSTODY_V1/);
 }
@@ -146,7 +201,13 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
       }
     ]
   });
-  const next = applyExitProceedsCustodyV1({ result, scan, reservations: [reservation(1_000)], policy: EXIT_PROCEEDS_CUSTODY_V1 });
+  const next = applyExitProceedsCustodyV1({
+    result,
+    scan,
+    reservations: [reservation(1_000)],
+    eligibleHealthExitAssetIds: [],
+    policy: EXIT_PROCEEDS_CUSTODY_V1
+  });
   const reentry = next.decision.contributions.find(row => row.assetId === exited.assetId)!;
   const coreTopUp = next.decision.contributions.find(row => row.assetId === core.assetId)!;
   assert.equal(Number(reentry.amountEur.toFixed(2)), 500);
@@ -178,7 +239,13 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
       }
     ]
   });
-  const next = applyExitProceedsCustodyV1({ result, scan, reservations: [reservation(1_000)], policy: EXIT_PROCEEDS_CUSTODY_V1 });
+  const next = applyExitProceedsCustodyV1({
+    result,
+    scan,
+    reservations: [reservation(1_000)],
+    eligibleHealthExitAssetIds: [],
+    policy: EXIT_PROCEEDS_CUSTODY_V1
+  });
   const total = next.decision.contributions.reduce((sum, row) => sum + row.amountEur, 0);
   assert.ok(total <= 500 + 1e-6, `unrelated investments may use only free 500 EUR, got ${total}`);
   assert.equal(next.telemetry.matchedReentryAssetIds.length, 0);
