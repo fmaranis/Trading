@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import type { AssetUniverseScanResult } from '../src/investment/decision/assetUniverseScanner';
 import type { PortfolioDecisionResult } from '../src/investment/decision/portfolioDecisionEngine';
+import { brokerCommission } from '../src/investment/decision/costAwareExecutionPolicy';
 import {
   applyExitProceedsCustodyV1,
   availableCashRespectingReentryReservations,
@@ -13,14 +14,15 @@ import {
 const core = { assetId: 'EUNL', ticker: 'EUNL.DE', name: 'Core World', category: 'GLOBAL_EQUITY', currency: 'EUR' } as const;
 const exited = { assetId: 'EQ_PH4_TEST', ticker: 'TEST.DE', name: 'Test Equity', category: 'EUROPE_EQUITY', currency: 'EUR' } as const;
 const other = { assetId: 'EQ_PH4_OTHER', ticker: 'OTHR.DE', name: 'Other Equity', category: 'EUROPE_EQUITY', currency: 'EUR' } as const;
+const challenger = { assetId: 'EQ_PH4_NEXT', ticker: 'NEXT.DE', name: 'Next Equity', category: 'EUROPE_EQUITY', currency: 'EUR' } as const;
 
 const scan: AssetUniverseScanResult = {
-  scanned: 3,
-  accepted: 3,
+  scanned: 4,
+  accepted: 4,
   rejected: 0,
   rejectionCounts: {},
   selected: [],
-  candidates: [core, exited, other].map(asset => ({
+  candidates: [core, exited, other, challenger].map(asset => ({
     asset,
     status: 'ACCEPTED' as const,
     bars: 300,
@@ -62,6 +64,13 @@ function base(overrides: Partial<PortfolioDecisionResult> = {}): PortfolioDecisi
 function reservation(amountEur = 1_000): ReentryCashReservation {
   return { assetId: exited.assetId, amountEur, createdAt: '2025-06-02' };
 }
+
+const executionPrices = {
+  [core.assetId]: 50,
+  [exited.assetId]: 50,
+  [other.assetId]: 50,
+  [challenger.assetId]: 50
+};
 
 // LEGACY must be an exact pass-through: Phase 4 cannot change production/default behavior.
 {
@@ -113,6 +122,8 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
     scan,
     reservations: [],
     eligibleHealthExitAssetIds: [exited.assetId],
+    rotationFundingByAssetId: {},
+    executionPriceByAssetId: executionPrices,
     policy: EXIT_PROCEEDS_CUSTODY_V1
   });
   assert.equal(next.decision.plannedRotationProceedsEur, 0);
@@ -123,8 +134,8 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
   assert.deepEqual(next.telemetry.qualifyingExitAssetIds, [exited.assetId]);
 }
 
-// Audit text alone has zero authority. Even a reason that contains the old
-// RETURN_TO_CORE marker must not create custody unless structured health says EXIT.
+// Audit text alone has zero authority. With no active/new custody, even a supplied
+// funding diagnostic must be economically inert and preserve exact baseline sizing.
 {
   const result = base({
     plannedRotationProceedsEur: 2_000,
@@ -154,11 +165,14 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
     scan,
     reservations: [],
     eligibleHealthExitAssetIds: [],
+    rotationFundingByAssetId: { [core.assetId]: 600 },
+    executionPriceByAssetId: executionPrices,
     policy: EXIT_PROCEEDS_CUSTODY_V1
   });
   assert.deepEqual(next.telemetry.qualifyingExitAssetIds, []);
   assert.equal(next.decision.existingPositions[0].rotationChallengerAssetId, core.assetId);
   assert.equal(next.decision.contributions.length, 1);
+  assert.equal(next.decision.contributions[0].amountEur, 2_000);
 }
 
 // Strategic cores never create Phase-4 custody even if health reports EXIT.
@@ -180,8 +194,8 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
   assert.doesNotMatch(next.decision.existingPositions[0].reason, /EXIT_PROCEEDS_CUSTODY_V1/);
 }
 
-// Reserved cash remains unavailable to unrelated contributions, while the same
-// asset may use its own reservation only up to the canonical amount already emitted.
+// The matching asset may use its own reservation without losing canonical notional
+// merely because a listed commission is charged. Commission is part of reserve use.
 {
   const result = base({
     recommendedNewInvestmentEur: 1_500,
@@ -206,20 +220,22 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
     scan,
     reservations: [reservation(1_000)],
     eligibleHealthExitAssetIds: [],
+    executionPriceByAssetId: executionPrices,
     policy: EXIT_PROCEEDS_CUSTODY_V1
   });
   const reentry = next.decision.contributions.find(row => row.assetId === exited.assetId)!;
   const coreTopUp = next.decision.contributions.find(row => row.assetId === core.assetId)!;
   assert.equal(Number(reentry.amountEur.toFixed(2)), 500);
-  assert.equal(Number(coreTopUp.amountEur.toFixed(2)), 500);
+  assert.equal(Number(coreTopUp.amountEur.toFixed(2)), 450);
   assert.equal(next.telemetry.effectiveReservedCashEur, 1_000);
-  assert.equal(next.telemetry.reservedCashAuthorizedForReentryEur, 500);
+  assert.equal(Number(next.telemetry.reservedCashAuthorizedForReentryEur.toFixed(2)), 501);
   assert.deepEqual(next.telemetry.matchedReentryAssetIds, [exited.assetId]);
   assert.ok(reentry.amountEur <= 500 + 1e-9, 'custody may never enlarge canonical sizing');
+  assert.ok(reentry.amountEur + brokerCommission(reentry.amountEur) <= 1_000 + 1e-9);
 }
 
-// With no matching reentry, only the genuinely free base deployable amount can fund
-// ordinary contributions. The reservation remains cash and does not disappear.
+// With no matching reentry, all unrelated notional + commissions must fit only in
+// genuinely free cash; protected reservations cannot silently pay order fees.
 {
   const result = base({
     recommendedNewInvestmentEur: 1_500,
@@ -244,15 +260,70 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
     scan,
     reservations: [reservation(1_000)],
     eligibleHealthExitAssetIds: [],
+    executionPriceByAssetId: executionPrices,
     policy: EXIT_PROCEEDS_CUSTODY_V1
   });
-  const total = next.decision.contributions.reduce((sum, row) => sum + row.amountEur, 0);
-  assert.ok(total <= 500 + 1e-6, `unrelated investments may use only free 500 EUR, got ${total}`);
+  const totalSpend = next.decision.contributions.reduce(
+    (sum, row) => sum + row.amountEur + brokerCommission(row.amountEur),
+    0
+  );
+  assert.ok(totalSpend <= 500 + 1e-6, `unrelated orders may spend only free 500 EUR, got ${totalSpend}`);
   assert.equal(next.telemetry.matchedReentryAssetIds.length, 0);
 }
 
-// Target cash has precedence over custody: a nominal reserve cannot magically turn
-// required cash into deployable cash.
+// A health EXIT that creates the first reservation must activate structured
+// rotation funding in that same batch, not one decision later.
+{
+  const result = base({
+    currentInvestedValueEur: 12_000,
+    currentCashEur: 0,
+    targetCashEur: 0,
+    totalPlannedCapitalEur: 12_000,
+    deployableToAssetsEur: 3_000,
+    plannedRotationProceedsEur: 3_000,
+    recommendedNewInvestmentEur: 3_000,
+    residualPlannedCashEur: 0,
+    existingPositions: [
+      {
+        id: exited.ticker, assetId: exited.assetId, label: exited.name, instrumentType: 'ETF_ETC', category: 'EUROPE_EQUITY',
+        currentValueEur: 2_000, action: 'EXIT', reason: 'health exit', suggestedReductionPct: 100,
+        rotationChallengerAssetId: core.assetId, rotationChallengerTicker: core.ticker
+      },
+      {
+        id: other.ticker, assetId: other.assetId, label: other.name, instrumentType: 'ETF_ETC', category: 'EUROPE_EQUITY',
+        currentValueEur: 1_000, action: 'EXIT', reason: 'competitive rotation', suggestedReductionPct: 100,
+        rotationChallengerAssetId: challenger.assetId, rotationChallengerTicker: challenger.ticker
+      }
+    ],
+    contributions: [
+      {
+        category: 'GLOBAL_EQUITY', assetId: core.assetId, ticker: core.ticker, name: core.name,
+        instrumentType: 'ETF_ETC', amountEur: 2_000, targetCategoryGapEur: 2_000,
+        positionStage: 'ROTATION_ENTRY', reason: 'return to core'
+      },
+      {
+        category: 'EUROPE_EQUITY', assetId: challenger.assetId, ticker: challenger.ticker, name: challenger.name,
+        instrumentType: 'ETF_ETC', amountEur: 1_000, targetCategoryGapEur: 1_000,
+        positionStage: 'ROTATION_ENTRY', reason: 'independent rotation'
+      }
+    ]
+  });
+  const next = applyExitProceedsCustodyV1({
+    result,
+    scan,
+    reservations: [],
+    eligibleHealthExitAssetIds: [exited.assetId],
+    rotationFundingByAssetId: { [challenger.assetId]: 600 },
+    executionPriceByAssetId: executionPrices,
+    policy: EXIT_PROCEEDS_CUSTODY_V1
+  });
+  const rotated = next.decision.contributions.find(row => row.assetId === challenger.assetId)!;
+  assert.equal(rotated.amountEur, 550);
+  assert.ok(rotated.amountEur + brokerCommission(rotated.amountEur) <= 600 + 1e-9);
+  assert.deepEqual(next.telemetry.qualifyingExitAssetIds, [exited.assetId]);
+}
+
+// Target cash has precedence over custody.
 {
   const effective = effectiveReentryReservations({
     reservations: [reservation(1_000)],
@@ -281,8 +352,7 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
   assert.equal(Number((effective.get(other.assetId) ?? 0).toFixed(2)), 150);
 }
 
-// Executor helper protects reservations belonging to other assets but makes the
-// matching reservation accessible to its own reentry.
+// Helper contract remains explicit for executor-level accounting diagnostics.
 {
   const reservations: ReentryCashReservation[] = [
     reservation(700),
@@ -290,17 +360,7 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
   ];
   assert.equal(availableCashRespectingReentryReservations(1_500, reservations), 500);
   assert.equal(availableCashRespectingReentryReservations(1_500, reservations, exited.assetId), 1_200);
-}
-
-// A same-batch atomic rotation may spend the net proceeds generated by its own
-// paired sale without consuming pre-existing reservations. This is the execution
-// invariant that prevents SELL-without-paired-BUY under active custody.
-{
-  const reservations: ReentryCashReservation[] = [reservation(1_000)];
-  assert.equal(
-    availableCashRespectingReentryReservations(2_000, reservations, null, 1_000),
-    1_000
-  );
+  assert.equal(availableCashRespectingReentryReservations(2_000, [reservation(1_000)], null, 1_000), 1_000);
 }
 
 console.log('reentryCashCustodyPolicy.unit: PASS');
