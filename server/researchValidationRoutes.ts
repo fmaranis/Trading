@@ -140,7 +140,7 @@ const JOBS: JobDefinition[] = [
     id: 'product-surface-closure-v1',
     name: 'Producto · cierre rápido',
     description: 'Verificación rápida de la superficie productiva integrada y seguridad privada: decisión única, auth/ADMIN, plan ejecutable, cartera, salud de posiciones, broker, fiscalidad y TypeScript. No ejecuta replay, no consulta un checkpoint prospectivo y no escribe en replay-results.',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
     steps: [
       { label: 'Guard cierre de superficie', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
       { label: 'Guard usuarios privados', command: 'npx', args: ['tsx', 'tests/privateUserSecurity.unit.ts'] },
@@ -158,7 +158,7 @@ const JOBS: JobDefinition[] = [
     name: 'Fase 4 · reentrada · custodia de proceeds',
     description: 'Validación blind R2 de EXIT_PROCEEDS_CUSTODY_V1 dentro del replay integrado CORE_ARCHITECTURE_V1. Ejecuta primero todos los guards rápidos y TypeScript; sólo si pasan abre por primera vez la muestra histórica R2 REAL. Producción/default permanece LEGACY.',
     marker: 'PHASE4_REENTRY_CASH_CUSTODY_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
     steps: [
       { label: 'Guard política de custodia', command: 'npx', args: ['tsx', 'tests/reentryCashCustodyPolicy.unit.ts'] },
       { label: 'Guard integración Fase 4', command: 'npx', args: ['tsx', 'tests/phase4ReentryCustodyIntegration.unit.ts'] },
