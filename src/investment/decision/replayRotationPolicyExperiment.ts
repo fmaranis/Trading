@@ -100,6 +100,14 @@ interface ActiveReservationState {
   pendingReentryExecutionDate: string | null;
 }
 
+interface ReentryAuthorization {
+  assetId: string;
+  sourceExitSignalId: string;
+  decisionDate: string;
+  executionDate: string;
+  authorizedReserveSpendEur: number;
+}
+
 function emptyReentryAudit(policy: ReentryFundingPolicy): ReplayReentryCustodyAudit {
   return {
     policy,
@@ -218,8 +226,6 @@ function predictedListedSale(input: {
     const realizedGain = grossEur - feeEur - totalBasis;
     taxEur = Math.max(0, realizedGain) * 0.30;
   } else {
-    // The executor consumes partial REDUCE lots FIFO. The wrapper has no lot-level
-    // state, so use a safe lower bound on cash proceeds instead of average basis.
     taxEur = Math.max(0, grossEur - feeEur) * 0.30;
   }
   return { grossEur, feeEur, taxEur, netEur: Math.max(0, grossEur - feeEur - taxEur) };
@@ -313,7 +319,8 @@ function resultSignal(result: DynamicHistoricalReplayResult, id: string) {
 function finalizeReentryAudit(
   replayInput: ReplayRunInput,
   result: DynamicHistoricalReplayResult,
-  predictedExits: PendingExitReservation[]
+  predictedExits: PendingExitReservation[],
+  authorizations: ReentryAuthorization[]
 ): ReplayReentryCustodyAudit {
   const episodes: ReplayReentryCustodyEpisodeAudit[] = [];
   for (const predicted of predictedExits) {
@@ -325,13 +332,33 @@ function finalizeReentryAudit(
     if (Math.abs(actualNet - predicted.netProceedsEur) > 0.02) {
       throw new Error(`PHASE4_REENTRY_EXIT_NET_MISMATCH:${predicted.signalId}:${predicted.netProceedsEur.toFixed(2)}:${actualNet.toFixed(2)}`);
     }
-    const reentry = result.signals
-      .filter(signal => signal.assetId === predicted.assetId && signal.action === 'BUY' && signal.executed && Boolean(signal.executionDate) && signal.executionDate! > exitSignal.executionDate!)
-      .sort((a, b) => a.executionDate!.localeCompare(b.executionDate!))[0] ?? null;
+
+    const candidateAuthorizations = authorizations
+      .filter(row => row.sourceExitSignalId === predicted.signalId && row.executionDate > exitSignal.executionDate!)
+      .sort((a, b) => a.executionDate.localeCompare(b.executionDate) || a.decisionDate.localeCompare(b.decisionDate));
+    let reentry: DynamicHistoricalReplayResult['signals'][number] | null = null;
+    let authorization: ReentryAuthorization | null = null;
+    for (const candidate of candidateAuthorizations) {
+      const signal = result.signals.find(row =>
+        row.assetId === predicted.assetId
+        && row.action === 'BUY'
+        && row.executed
+        && row.signalDate === candidate.decisionDate
+        && row.executionDate === candidate.executionDate
+      ) ?? null;
+      if (!signal) continue;
+      reentry = signal;
+      authorization = candidate;
+      break;
+    }
+
     const reservedAtReentry = reentry?.executionDate
       ? accrueReservedAmount(actualNet, exitSignal.executionDate, reentry.executionDate, replayInput)
       : 0;
-    const used = reentry ? Math.min(reservedAtReentry, Math.max(0, reentry.notionalEur + reentry.feeEur)) : 0;
+    const actualSpend = reentry ? Math.max(0, reentry.notionalEur + reentry.feeEur) : 0;
+    const used = reentry && authorization
+      ? Math.min(reservedAtReentry, authorization.authorizedReserveSpendEur, actualSpend)
+      : 0;
     episodes.push({
       assetId: predicted.assetId,
       ticker: predicted.ticker,
@@ -374,7 +401,7 @@ function finalizeReentryAudit(
   return {
     policy: EXIT_PROCEEDS_CUSTODY_V1,
     reservationsCreated: episodes.length,
-    reentriesExecuted: episodes.filter(row => row.reentryExecutionDate != null).length,
+    reentriesExecuted: episodes.filter(row => row.reentryExecutionDate != null && row.reservedCashUsedEur > 0.01).length,
     netProceedsReservedEur: episodes.reduce((sum, row) => sum + row.netProceedsEur, 0),
     reservedCashUsedEur: episodes.reduce((sum, row) => sum + row.reservedCashUsedEur, 0),
     releasedRemainderEur: episodes.reduce((sum, row) => sum + row.releasedRemainderEur, 0),
@@ -422,6 +449,7 @@ export function runDynamicReplayWithRotationExperiment(
   const activeReservations = new Map<string, ActiveReservationState>();
   const pendingExits: PendingExitReservation[] = [];
   const allPredictedExits: PendingExitReservation[] = [];
+  const reentryAuthorizations: ReentryAuthorization[] = [];
 
   const advanceResearchState = (evaluationInput: PortfolioEvaluationInput) => {
     if (reentryFundingPolicy !== EXIT_PROCEEDS_CUSTODY_V1) return;
@@ -478,13 +506,15 @@ export function runDynamicReplayWithRotationExperiment(
           .filter(position => {
             if (!position.assetId || position.action !== 'EXIT') return false;
             const item = catalogItem(input, position.assetId);
-            return item?.instrumentType !== 'MUTUAL_FUND'
+            return item != null
+              && item.instrumentType !== 'MUTUAL_FUND'
               && healthSnapshot(evaluationInput, position.assetId)?.action === 'EXIT';
           })
           .map(position => position.assetId!);
         const prepared = prepareExitProceedsCustodyV1(architecture, eligibleHealthExitAssetIds);
         const decisionDate = replayDecisionDate(evaluationInput);
         const activeReservationRows = [...activeReservations.values()].map(row => ({ ...row.reservation }));
+        if (!commonExecutionDate(input, decisionDate, prepared.decision)) return prepared.decision;
 
         let referenceDecision = prepared.decision;
         let overlay = applyExitProceedsCustodyV1({
@@ -502,6 +532,7 @@ export function runDynamicReplayWithRotationExperiment(
 
         for (let attempt = 0; !executionDateStable && attempt < 3; attempt++) {
           referenceDecision = overlay.decision;
+          if (!commonExecutionDate(input, decisionDate, referenceDecision)) return referenceDecision;
           overlay = applyExitProceedsCustodyV1({
             result: architecture,
             prepared,
@@ -526,15 +557,25 @@ export function runDynamicReplayWithRotationExperiment(
         }
         const executionDate = commonExecutionDate(input, decisionDate, overlay.decision);
         if (executionDate) {
-          for (const [assetId, state] of activeReservations) {
-            const contribution = overlay.decision.contributions.find(row =>
-              row.assetId === assetId
-              && row.amountEur > 0.01
-              && (row.currentAssetValueEur ?? 0) <= 0.01
-            );
-            if (!contribution) continue;
+          for (const assetId of overlay.telemetry.matchedReentryAssetIds) {
+            const state = activeReservations.get(assetId);
+            const authorizedReserveSpendEur = overlay.telemetry.reservedCashAuthorizedByAssetEur[assetId] ?? 0;
+            if (!state || !(authorizedReserveSpendEur > 0.01)) continue;
             state.pendingReentryDecisionDate = decisionDate;
             state.pendingReentryExecutionDate = executionDate;
+            const authorization: ReentryAuthorization = {
+              assetId,
+              sourceExitSignalId: state.sourceExitSignalId,
+              decisionDate,
+              executionDate,
+              authorizedReserveSpendEur
+            };
+            const duplicate = reentryAuthorizations.some(row =>
+              row.sourceExitSignalId === authorization.sourceExitSignalId
+              && row.decisionDate === authorization.decisionDate
+              && row.executionDate === authorization.executionDate
+            );
+            if (!duplicate) reentryAuthorizations.push(authorization);
           }
         }
         return overlay.decision;
@@ -551,7 +592,7 @@ export function runDynamicReplayWithRotationExperiment(
     const result = DynamicHistoricalReplayEngine.run(input) as DynamicReplayExperimentResult;
     result.coreSelectionAudit = coreSelectionAudit;
     result.reentryCustodyAudit = reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1
-      ? finalizeReentryAudit(input, result, allPredictedExits)
+      ? finalizeReentryAudit(input, result, allPredictedExits, reentryAuthorizations)
       : emptyReentryAudit('LEGACY');
 
     const auditCarrier = (
@@ -587,8 +628,8 @@ export function runDynamicReplayWithRotationExperiment(
 
     if (reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1) {
       result.notes.push(
-        `${EXIT_PROCEEDS_CUSTODY_V1} research-only: ${result.reentryCustodyAudit.reservationsCreated} reservas creadas y ${result.reentryCustodyAudit.reentriesExecuted} reentradas ejecutadas. El default productivo/replay continúa LEGACY.`,
-        'La custodia V1 aplica sólo a EXIT completos de instrumentos cotizados no-core, usa neto de ejecución verificado post-run, protege notional+comisión, activa la protección desde la misma tanda donde nace la reserva y estabiliza la fecha NEXT_OPEN después de desacoplar RETURN_TO_CORE. Los REDUCE ajenos usan un lower-bound fiscal conservador si no existe FIFO accesible en el wrapper.'
+        `${EXIT_PROCEEDS_CUSTODY_V1} research-only: ${result.reentryCustodyAudit.reservationsCreated} reservas creadas y ${result.reentryCustodyAudit.reentriesExecuted} reentradas realmente financiadas por custodia. El default productivo/replay continúa LEGACY.`,
+        'La custodia V1 aplica sólo a EXIT completos de instrumentos cotizados no-core, usa neto de ejecución verificado post-run, protege notional+comisión, activa la protección desde la misma tanda donde nace la reserva y estabiliza la fecha NEXT_OPEN después de desacoplar RETURN_TO_CORE. El reach sólo cuenta BUY ejecutadas con autorización estructurada positiva de la reserva correspondiente.'
       );
     }
 
