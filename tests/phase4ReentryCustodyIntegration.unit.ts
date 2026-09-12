@@ -8,6 +8,8 @@ const wrapperSource = readFileSync('src/investment/decision/replayRotationPolicy
 const workerSource = readFileSync('src/workers/historicalReplayAudit.worker.ts', 'utf8');
 const policySource = readFileSync('src/investment/decision/reentryCashCustodyPolicy.ts', 'utf8');
 const indexSource = readFileSync('src/investment/decision/index.ts', 'utf8');
+const runnerSource = readFileSync('scripts/phase4ReentryCashCustodyV1BlindLive.ts', 'utf8');
+const validationRoutesSource = readFileSync('server/researchValidationRoutes.ts', 'utf8');
 
 // Architecture parity: Phase 4 must layer on the exact existing canonical replay
 // wrapper. Directly replacing the core call with evaluatePortfolioDecision would
@@ -31,6 +33,19 @@ assert.doesNotMatch(wrapperSource, /reason\.includes\(/);
 assert.match(wrapperSource, /healthSnapshot\(evaluationInput,\s*position\.assetId\)\?\.action\s*===\s*'EXIT'/);
 assert.match(wrapperSource, /rotationFundingByAssetId/);
 assert.match(wrapperSource, /replayDecisionDate\(evaluationInput\)/);
+
+// The one-shot runner must use the existing wrapper for paired baseline/candidate
+// comparisons and may only appear after guards + TypeScript in the existing RVC.
+assert.match(runnerSource, /runDynamicReplayWithRotationExperiment\(replayInput,\s*'CORE_ARCHITECTURE_V1'\)/);
+assert.match(runnerSource, /reentryFundingPolicy:\s*EXIT_PROCEEDS_CUSTODY_V1/);
+assert.match(runnerSource, /sampleState:\s*'R2_OPENED_CONSUMED'/);
+assert.match(runnerSource, /currentOpenDiscovery:\s*false/);
+assert.match(runnerSource, /PHASE4_R2_PREOPEN_PRODUCT_CATALOG_CONTAMINATION/);
+const phase4Job = validationRoutesSource.indexOf("id: 'phase4-reentry-cash-custody-v1'");
+assert.ok(phase4Job >= 0, 'Phase 4 must be one job in the existing ResearchValidationCenter');
+const phase4Slice = validationRoutesSource.slice(phase4Job, validationRoutesSource.indexOf("id: 'quality-allocation-dynamic-future-forward-v1'", phase4Job));
+assert.ok(phase4Slice.indexOf("label: 'TypeScript'") >= 0);
+assert.ok(phase4Slice.indexOf("label: 'Blind R2 REAL one-shot'") > phase4Slice.indexOf("label: 'TypeScript'"));
 
 const core = { assetId: 'EUNL', ticker: 'EUNL.DE', name: 'Core', category: 'GLOBAL_EQUITY', currency: 'EUR' } as const;
 const incumbent = { assetId: 'EQ_PH4_R2_TEST', ticker: 'TEST.DE', name: 'Incumbent', category: 'EUROPE_EQUITY', currency: 'EUR' } as const;
@@ -104,9 +119,25 @@ function decision(): PortfolioDecisionResult {
   };
 }
 
-// A 1:1 rotation whose sale can really fund only 600 EUR may not borrow the
-// 1,000 EUR reservation belonging to a different asset. The candidate amount is
-// capped to dedicated net proceeds because free base cash is fully reserved.
+// Before the first reservation exists, structured net-funding diagnostics must
+// have zero economic authority. Candidate and baseline ordinary rotations remain
+// identical; otherwise Phase 4 would secretly test a second fee/tax policy.
+{
+  const result = applyExitProceedsCustodyV1({
+    result: decision(),
+    scan,
+    reservations: [],
+    eligibleHealthExitAssetIds: [],
+    rotationFundingByAssetId: { [challenger.assetId]: 600 },
+    policy: EXIT_PROCEEDS_CUSTODY_V1
+  });
+  assert.equal(result.decision.contributions.length, 1);
+  assert.equal(Number(result.decision.contributions[0].amountEur.toFixed(2)), 1_000);
+}
+
+// Once custody is active, a 1:1 rotation whose sale can really fund only 600 EUR
+// may not borrow the 1,000 EUR reservation belonging to a different asset. The
+// challenger is capped to dedicated proceeds because free base cash is reserved.
 {
   const result = applyExitProceedsCustodyV1({
     result: decision(),
