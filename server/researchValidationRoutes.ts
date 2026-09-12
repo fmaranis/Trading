@@ -154,6 +154,24 @@ const JOBS: JobDefinition[] = [
     ]
   },
   {
+    id: 'phase4-reentry-cash-custody-v1',
+    name: 'Fase 4 · reentrada · custodia de proceeds',
+    description: 'Validación blind R2 de EXIT_PROCEEDS_CUSTODY_V1 dentro del replay integrado CORE_ARCHITECTURE_V1. Ejecuta primero todos los guards rápidos y TypeScript; sólo si pasan abre por primera vez la muestra histórica R2 REAL. Producción/default permanece LEGACY.',
+    marker: 'PHASE4_REENTRY_CASH_CUSTODY_V1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard política de custodia', command: 'npx', args: ['tsx', 'tests/reentryCashCustodyPolicy.unit.ts'] },
+      { label: 'Guard integración Fase 4', command: 'npx', args: ['tsx', 'tests/phase4ReentryCustodyIntegration.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
+      { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
+      { label: 'Guard cash histórico BCE', command: 'npx', args: ['tsx', 'tests/cashRemuneration.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Blind R2 REAL one-shot', command: 'npx', args: ['tsx', 'scripts/phase4ReentryCashCustodyV1BlindLive.ts'] }
+    ]
+  },
+  {
     id: 'quality-allocation-dynamic-future-forward-v1',
     name: 'QUALITY allocation · future-forward dinámico',
     description: 'Phase A prospectiva sobre Top64 current/live dinámico. Una única foto mensual consecutiva en la ventana congelada del día 9, 22:30-24:00 Europe/Madrid; mismo snapshot y 13.000 EUR de notional research para LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Reglas e implementación crítica quedan fingerprintadas, el estado autoritativo se encadena en replay-results y producción continúa LEGACY.',
