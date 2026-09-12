@@ -115,6 +115,11 @@ function emptyReentryAudit(policy: ReentryFundingPolicy): ReplayReentryCustodyAu
 
 function isoDate(timestamp: string): string { return timestamp.slice(0, 10); }
 
+function replayDecisionDate(evaluationInput: PortfolioEvaluationInput): string {
+  const updatedAtDate = String(evaluationInput.portfolio.updatedAt ?? '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(updatedAtDate) ? updatedAtDate : evaluationInput.decision.asOfDate;
+}
+
 function catalogItem(input: ReplayRunInput, assetId: string) {
   return input.catalog.find(asset => asset.assetId === assetId) ?? null;
 }
@@ -138,7 +143,7 @@ function listedShares(evaluationInput: PortfolioEvaluationInput, input: ReplayRu
 }
 
 function fundValue(evaluationInput: PortfolioEvaluationInput, assetId: string): number {
-  return Math.max(0, evaluationInput.portfolio.funds.find(row => row.id === assetId)?.currentValueEur ?? 0);
+  return Math.max(0, (evaluationInput.portfolio.funds ?? []).find(row => row.id === assetId)?.currentValueEur ?? 0);
 }
 
 function hasPosition(evaluationInput: PortfolioEvaluationInput, input: ReplayRunInput, assetId: string): boolean {
@@ -217,7 +222,7 @@ function predictedRotationFunding(
   evaluationInput: PortfolioEvaluationInput,
   result: PortfolioDecisionResult
 ): Record<string, number> {
-  const executionDate = commonExecutionDate(replayInput, evaluationInput.decision.asOfDate, result);
+  const executionDate = commonExecutionDate(replayInput, replayDecisionDate(evaluationInput), result);
   if (!executionDate) return {};
   const funding: Record<string, number> = {};
   for (const position of result.existingPositions) {
@@ -248,7 +253,8 @@ function predictEligibleExit(
   result: PortfolioDecisionResult,
   assetId: string
 ): PendingExitReservation | null {
-  const executionDate = commonExecutionDate(replayInput, evaluationInput.decision.asOfDate, result);
+  const decisionDate = replayDecisionDate(evaluationInput);
+  const executionDate = commonExecutionDate(replayInput, decisionDate, result);
   const position = result.existingPositions.find(row => row.assetId === assetId && row.action === 'EXIT' && !row.rotationChallengerAssetId);
   const item = catalogItem(replayInput, assetId);
   if (!executionDate || !position || !item || item.instrumentType === 'MUTUAL_FUND') return null;
@@ -257,9 +263,9 @@ function predictEligibleExit(
   return {
     assetId,
     ticker: item.ticker,
-    decisionDate: evaluationInput.decision.asOfDate,
+    decisionDate,
     executionDate,
-    signalId: `${evaluationInput.decision.asOfDate}_${assetId}_EXIT`,
+    signalId: `${decisionDate}_${assetId}_EXIT`,
     netProceedsEur: sale.netEur
   };
 }
@@ -408,7 +414,7 @@ export function runDynamicReplayWithRotationExperiment(
 
   const advanceResearchState = (evaluationInput: PortfolioEvaluationInput) => {
     if (reentryFundingPolicy !== EXIT_PROCEEDS_CUSTODY_V1) return;
-    const date = evaluationInput.decision.asOfDate;
+    const date = replayDecisionDate(evaluationInput);
 
     for (let index = pendingExits.length - 1; index >= 0; index--) {
       const pending = pendingExits[index];
@@ -471,17 +477,23 @@ export function runDynamicReplayWithRotationExperiment(
         });
 
         for (const assetId of overlay.telemetry.qualifyingExitAssetIds) {
+          if (activeReservations.has(assetId) || pendingExits.some(row => row.assetId === assetId)) continue;
           const predicted = predictEligibleExit(input, evaluationInput, overlay.decision, assetId);
           if (!predicted) continue;
           pendingExits.push(predicted);
           allPredictedExits.push(predicted);
         }
-        const executionDate = commonExecutionDate(input, evaluationInput.decision.asOfDate, overlay.decision);
+        const decisionDate = replayDecisionDate(evaluationInput);
+        const executionDate = commonExecutionDate(input, decisionDate, overlay.decision);
         if (executionDate) {
-          for (const assetId of overlay.telemetry.matchedReentryAssetIds) {
-            const state = activeReservations.get(assetId);
-            if (!state) continue;
-            state.pendingReentryDecisionDate = evaluationInput.decision.asOfDate;
+          for (const [assetId, state] of activeReservations) {
+            const contribution = overlay.decision.contributions.find(row =>
+              row.assetId === assetId
+              && row.amountEur > 0.01
+              && (row.currentAssetValueEur ?? 0) <= 0.01
+            );
+            if (!contribution) continue;
+            state.pendingReentryDecisionDate = decisionDate;
             state.pendingReentryExecutionDate = executionDate;
           }
         }
