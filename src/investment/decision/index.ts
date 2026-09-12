@@ -27,6 +27,7 @@ export * from './trendProtectionV2MediumTermConfirm';
 export * from './historicalDecisionReplay';
 export * from './dynamicHistoricalReplay';
 export * from './replayExternalCashFlows';
+export * from './reentryCashCustodyPolicy';
 export * from './dynamicHistoricalReplayBatch';
 export * from './replaySelectionQualityExperiment';
 export * from './replayQualitySizingExperiment';
