@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
+import { saveDurableResearchValidationEvidence } from '../server/researchValidationEvidenceStore';
 
 const SEAL_PATH = 'docs/phase4_reentry_cash_custody_v1_seal.json';
 const SERVER_ROUTE_PATH = 'server/researchValidationRoutes.ts';
@@ -8,6 +9,8 @@ const ORIGINAL_RUNNER = 'scripts/phase4ReentryCashCustodyV1BlindLive.ts';
 const ORIGINAL_MARKER = 'PHASE4_REENTRY_CASH_CUSTODY_V1_RESULT';
 const RECOVERY_MARKER = 'PHASE4_REENTRY_CASH_CUSTODY_V1_RECOVERY_RESULT';
 const REPOSITORY = 'fmaranis/Trading';
+const JOB_ID = 'phase4-reentry-cash-custody-v1';
+const JOB_NAME = 'Fase 4 · reentrada · custodia de proceeds';
 
 interface Phase4Seal {
   version: string;
@@ -103,6 +106,8 @@ function runSealedRunner(): Promise<{ code: number; output: string }> {
 }
 
 async function main() {
+  if (!process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()) throw new Error('PHASE4_RECOVERY_DURABLE_GITHUB_TOKEN_REQUIRED');
+
   const seal = JSON.parse(readFileSync(SEAL_PATH, 'utf8')) as Phase4Seal;
   if (seal.version !== 'PHASE4_REENTRY_CASH_CUSTODY_V1_R2_SEAL') throw new Error('PHASE4_RECOVERY_SEAL_VERSION_INVALID');
   const expectedServerBlob = seal.expectedGitBlobSha[SERVER_ROUTE_PATH];
@@ -135,11 +140,12 @@ async function main() {
 
   if (execution.code !== 0) throw new Error(`PHASE4_RECOVERY_SEALED_RUNNER_FAILED:${execution.code}`);
   const replayResult = extractJsonAfterMarker(execution.output, ORIGINAL_MARKER) as any;
+  const reconstructedAt = new Date().toISOString();
 
   const recovery = {
     version: 'PHASE4_REENTRY_CASH_CUSTODY_V1_AUDIT_RECONSTRUCTION_V1',
     evidenceKind: 'AUDIT_RECONSTRUCTION_AFTER_ORIGINAL_RESULT_LOSS',
-    reconstructedAt: new Date().toISOString(),
+    reconstructedAt,
     originalExecution: {
       sampleState: 'R2_OPENED_CONSUMED',
       technicalStatusObservedBeforeBackendReset: 'PASSED',
@@ -154,7 +160,20 @@ async function main() {
     reproductionResult: replayResult
   };
 
-  console.log(RECOVERY_MARKER, JSON.stringify(recovery));
+  const durable = await saveDurableResearchValidationEvidence({
+    schemaVersion: 1,
+    jobId: JOB_ID,
+    jobName: JOB_NAME,
+    evidenceKind: 'AUDIT_RECONSTRUCTION',
+    recordedAt: reconstructedAt,
+    status: 'PASSED',
+    startedAt: null,
+    finishedAt: reconstructedAt,
+    result: recovery,
+    note: 'Reconstruction diagnostic of a blind R2 execution whose in-memory JSON was lost after backend restart. It is not fresh/OOS evidence and cannot promote production.'
+  });
+
+  console.log(RECOVERY_MARKER, JSON.stringify({ ...recovery, durable }));
 }
 
 main().catch(error => {
