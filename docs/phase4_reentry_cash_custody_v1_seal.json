@@ -1,0 +1,15 @@
+{
+  "version": "PHASE4_REENTRY_CASH_CUSTODY_V1_R2_SEAL",
+  "sealedAt": "2026-09-12",
+  "sampleState": "R2_SEALED_NOT_OPENED",
+  "expectedGitBlobSha": {
+    "docs/phase4_reentry_cash_custody_v1_preregistration.md": "243970e639d2b74a41230be0b990da38d3ae4d81",
+    "src/investment/decision/reentryCashCustodyPolicy.ts": "e13b96b1db29fdbffe4656911bf6774e15603258",
+    "src/investment/decision/replayRotationPolicyExperiment.ts": "8b9142b19fa0742b5d47eebb65b9003b6442956c",
+    "src/investment/decision/dynamicHistoricalReplayCore.ts": "9223acae633a87fffa896d6fc10e89277887311d",
+    "src/investment/decision/portfolioCoreGatePolicy.ts": "b1a577fd6b4b3cf05714c0ae2672d59cc5a36683",
+    "src/investment/decision/cashBenchmark.ts": "7116e98b8df2621f63328f2224fc6b5528b5d076",
+    "scripts/phase4ReentryCashCustodyV1BlindLive.ts": "c00f4f278ef8171e8276968b357c0dffbdb89dac",
+    "server/researchValidationRoutes.ts": "2b34964b1f0cd0997f50b4366c944212cff286f8"
+  }
+}
