@@ -20,8 +20,20 @@ interface ValidationJob {
 interface ValidationHistoryItem { id: string; label: string; }
 interface ProviderStatus { provider: string; configured: boolean; role?: string; primaryProvider?: string; }
 interface ValidationPrerequisites { githubReplaySyncConfigured: boolean; }
+interface Phase4RecoveryStatus {
+  jobId: string;
+  evidenceAvailable: boolean;
+  recoveryAllowed: boolean;
+  tokenConfigured: boolean;
+  status: Status;
+  startedAt: string | null;
+  finishedAt: string | null;
+  output: string;
+  error: string | null;
+}
 
 const BASE = '/api/alerts/research-validation';
+const PHASE4_JOB_ID = 'phase4-reentry-cash-custody-v1';
 
 function badge(status: Status): string {
   return status === 'RUNNING' ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200'
@@ -118,6 +130,7 @@ function blockedMessage(reason: string | null | undefined): string | null {
 export const ResearchValidationCenter: React.FC = () => {
   const [jobs, setJobs] = useState<ValidationJob[]>([]);
   const [history, setHistory] = useState<ValidationHistoryItem[]>([]);
+  const [phase4Recovery, setPhase4Recovery] = useState<Phase4RecoveryStatus | null>(null);
   const [prerequisites, setPrerequisites] = useState<ValidationPrerequisites | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -126,8 +139,9 @@ export const ResearchValidationCenter: React.FC = () => {
 
   const refresh = async () => {
     try {
-      const [jobsResponse, eodhdResponse, alphaResponse] = await Promise.all([
+      const [jobsResponse, recoveryResponse, eodhdResponse, alphaResponse] = await Promise.all([
         fetch(`${BASE}/jobs`),
+        fetch(`${BASE}/phase4-recovery`),
         fetch('/api/eodhd/status'),
         fetch('/api/alpha-vantage/status')
       ]);
@@ -136,6 +150,7 @@ export const ResearchValidationCenter: React.FC = () => {
       setJobs(Array.isArray(payload.jobs) ? payload.jobs : []);
       setHistory(Array.isArray(payload.history) ? payload.history : []);
       setPrerequisites(payload?.prerequisites ?? null);
+      if (recoveryResponse.ok) setPhase4Recovery(await recoveryResponse.json());
       if (eodhdResponse.ok) setEodhd(await eodhdResponse.json());
       if (alphaResponse.ok) setAlpha(await alphaResponse.json());
       setError(null);
@@ -144,10 +159,10 @@ export const ResearchValidationCenter: React.FC = () => {
 
   useEffect(() => { void refresh(); }, []);
   useEffect(() => {
-    if (!jobs.some(job => job.status === 'RUNNING')) return;
+    if (!jobs.some(job => job.status === 'RUNNING') && phase4Recovery?.status !== 'RUNNING') return;
     const timer = window.setInterval(() => void refresh(), 2000);
     return () => window.clearInterval(timer);
-  }, [jobs]);
+  }, [jobs, phase4Recovery?.status]);
 
   const run = async (id: string) => {
     setLoading(true); setError(null);
@@ -156,6 +171,23 @@ export const ResearchValidationCenter: React.FC = () => {
       const payload = await response.json();
       if (!response.ok) {
         if (response.status === 409 && payload?.error === 'VALIDATION_ALREADY_RUNNING') { await refresh(); return; }
+        throw new Error(payload?.detail || payload?.error || `HTTP_${response.status}`);
+      }
+      await refresh();
+    } catch (e: any) { setError(e?.message || String(e)); }
+    finally { setLoading(false); }
+  };
+
+  const recoverPhase4Evidence = async () => {
+    setLoading(true); setError(null);
+    try {
+      const response = await fetch(`${BASE}/phase4-recovery/run`, { method: 'POST' });
+      const payload = await response.json();
+      if (!response.ok) {
+        if (response.status === 409 && (payload?.error === 'PHASE4_EVIDENCE_RECOVERY_ALREADY_RUNNING' || payload?.error === 'PHASE4_DURABLE_EVIDENCE_ALREADY_AVAILABLE')) {
+          await refresh();
+          return;
+        }
         throw new Error(payload?.detail || payload?.error || `HTTP_${response.status}`);
       }
       await refresh();
@@ -176,7 +208,7 @@ export const ResearchValidationCenter: React.FC = () => {
       <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Yahoo Finance</div><b className="mt-1 block text-emerald-200">PRINCIPAL · ACTIVO</b><div className="mt-1 text-slate-600">Histórico REAL y discovery current/live.</div></div>
       <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">EODHD</div><b className={`mt-1 block ${providerClass(eodhd?.configured ?? null)}`}>{eodhd == null ? 'COMPROBANDO…' : eodhd.configured ? 'CONFIGURADO' : 'SIN API KEY'}</b><div className="mt-1 text-slate-600">Contraste secundario y fondos.</div></div>
       <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Alpha Vantage</div><b className={`mt-1 block ${providerClass(alpha?.configured ?? null)}`}>{alpha == null ? 'COMPROBANDO…' : alpha.configured ? 'CONFIGURADO' : 'SIN API KEY'}</b><div className="mt-1 text-slate-600">Contraste secundario; no bloquea Yahoo.</div></div>
-      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Persistencia future-forward</div><b className={`mt-1 block ${providerClass(prerequisites?.githubReplaySyncConfigured ?? null)}`}>{prerequisites == null ? 'COMPROBANDO…' : prerequisites.githubReplaySyncConfigured ? 'GITHUB LISTO' : 'FALTA TOKEN'}</b><div className="mt-1 text-slate-600">Preflight antes de guards; nunca consume un mes si falta la credencial.</div></div>
+      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Persistencia research</div><b className={`mt-1 block ${providerClass(prerequisites?.githubReplaySyncConfigured ?? null)}`}>{prerequisites == null ? 'COMPROBANDO…' : prerequisites.githubReplaySyncConfigured ? 'GITHUB LISTO' : 'FALTA TOKEN'}</b><div className="mt-1 text-slate-600">Future-forward y evidencia recuperada se anclan en replay-results.</div></div>
     </div>
 
     {error && <div className="mt-3 rounded-lg border border-rose-500/25 bg-rose-500/10 p-3 text-[11px] text-rose-100">{error}</div>}
@@ -200,7 +232,15 @@ export const ResearchValidationCenter: React.FC = () => {
 
     {history.length > 0 && <details className="mt-4 border-t border-slate-800 pt-3">
       <summary className="touch-target flex cursor-pointer items-center text-[10px] font-bold text-slate-500">Histórico de investigación · {history.length} controles archivados</summary>
-      <div className="mt-2 text-[9px] leading-relaxed text-slate-600">{history.map(item => item.label).join(' · ')}</div>
+      <div className="mt-2 space-y-1.5 text-[9px] leading-relaxed text-slate-600">
+        {history.map(item => <div key={item.id} className="flex flex-wrap items-center gap-2">
+          <span>{item.label}</span>
+          {item.id === PHASE4_JOB_ID && phase4Recovery?.evidenceAvailable && <a href={`${BASE}/phase4-recovery/result.json`} className="rounded border border-cyan-500/20 px-2 py-0.5 font-bold text-cyan-200"><Download className="mr-1 inline h-3 w-3"/>Evidencia durable</a>}
+          {item.id === PHASE4_JOB_ID && !phase4Recovery?.evidenceAvailable && <button type="button" disabled={loading || phase4Recovery?.status === 'RUNNING' || phase4Recovery?.recoveryAllowed === false} onClick={() => void recoverPhase4Evidence()} className="rounded border border-amber-500/25 px-2 py-0.5 font-bold text-amber-200 disabled:opacity-40"><RefreshCw className={`mr-1 inline h-3 w-3 ${phase4Recovery?.status === 'RUNNING' ? 'animate-spin' : ''}`}/>{phase4Recovery?.status === 'RUNNING' ? 'Recuperando evidencia…' : 'Recuperar evidencia perdida'}</button>}
+          {item.id === PHASE4_JOB_ID && phase4Recovery?.status === 'FAILED' && <span className="text-rose-300">{phase4Recovery.error || 'Falló la recuperación'}</span>}
+        </div>)}
+      </div>
+      {phase4Recovery?.output && <details className="mt-2"><summary className="cursor-pointer text-[9px] font-bold text-slate-500">Salida recuperación Fase 4</summary><pre className="mobile-scroll-x mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-black/40 p-3 text-[9px] text-slate-500">{phase4Recovery.output}</pre></details>}
     </details>}
   </section>;
 };
