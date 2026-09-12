@@ -5,6 +5,20 @@ Protocolo común: `ECONOMIC_VALIDATION_PROTOCOL_V1`
 Política candidata: `EXIT_PROCEEDS_CUSTODY_V1`  
 Estado: **POLICY FROZEN / BLIND NOT OPENED / RESEARCH ONLY**
 
+## Nota de corrección pre-open — 2026-09-12
+
+Antes de descargar o abrir ningún histórico del pool blind, una revisión estática de la primera integración detectó tres problemas de implementación/metodología:
+
+1. una rotación 1:1 con reservas activas podía superar el precheck atómico y después bloquear la compra del challenger al volver a proteger el cash reservado durante la ejecución;
+2. el executor utilizaba un marcador dentro de `reason` como condición de control para reconocer un EXIT de custodia;
+3. el reach agregado podía contar varias veces el mismo episodio porque las seis cohortes se solapan.
+
+La integración defectuosa se retiró del replay antes de abrir el blind. **No se descargó ni observó ningún histórico de los 30 activos, por lo que la muestra sigue fresh/blind.**
+
+Esta corrección no cambia la hipótesis económica ni introduce parámetros derivados de outcomes. Aclara y congela antes del blind los invariantes que la implementación corregida deberá cumplir: prioridad de financiación de rotaciones atómicas, reducción proporcional de reservas si el cash real no alcanza y reach deduplicado por episodio económico.
+
+---
+
 ## 1. Pregunta económica
 
 La cadena actual ya permite que un activo vendido vuelva a comprarse si, en una fecha posterior, vuelve a superar los gates normales de oportunidad, consenso y `EntryTiming`.
@@ -33,7 +47,7 @@ La Fase 4 no modifica `PortfolioCandidateGate`, `StrategyConsensusEngine`, `Entr
 
 ## 3. Política exacta congelada
 
-`EXIT_PROCEEDS_CUSTODY_V1` es un overlay research-only dentro del replay integrado.
+`EXIT_PROCEEDS_CUSTODY_V1` es un overlay research-only del replay integrado. La política queda congelada aquí; la integración ejecutable sólo podrá abrir el blind cuando los guards de la sección 11 demuestren que implementa exactamente este contrato.
 
 ### 3.1 Salida elegible
 
@@ -67,6 +81,8 @@ El cash reservado:
 - no puede financiar otros activos mientras la custodia esté activa;
 - nunca permite gastar por debajo del cash objetivo de la cartera;
 - queda siempre limitado por el cash realmente disponible tras retiradas u otros flujos.
+
+Si existen varias reservas activas y el cash real por encima del objetivo es insuficiente para protegerlas íntegramente, la parte económicamente efectiva de **todas** las reservas se reduce **proporcionalmente a su importe nominal**. No existe prioridad FIFO/LIFO ni preferencia por antigüedad.
 
 No existe una aportación implícita ni una segunda cuenta económica.
 
@@ -105,11 +121,12 @@ No hay waiting period, expiry, número de confirmaciones ni porcentaje de reserv
 
 Para impedir que la reserva se filtre a otros activos sin crear una segunda cadena de decisión:
 
-1. las rotaciones ya financiadas por proceeds propios conservan primero su financiación de rotación;
+1. las rotaciones 1:1 ya financiadas por proceeds de su propia venta conservan primero esa financiación dedicada; una reserva preexistente no puede provocar `SELL` del incumbent y después bloquear su `BUY` pareado;
 2. una contribución al activo que posee la reserva puede usar su propia reserva hasta su sizing ordinario;
 3. el cash libre restante se distribuye entre las demás contribuciones ya autorizadas preservando proporcionalmente sus importes relativos;
 4. ningún importe final puede superar el recomendado por la cadena baseline;
-5. si tras el ajuste una orden no supera el mínimo económico/una unidad entera aplicable, se elimina y el cash permanece sin invertir.
+5. si tras el ajuste una orden no supera el mínimo económico/una unidad entera aplicable, se elimina y el cash permanece sin invertir;
+6. la elegibilidad de custodia y la atomicidad de ejecución deben viajar como estado estructurado/telemetría; los textos de `reason` son sólo auditoría y **no pueden ser autoridad lógica del executor**.
 
 Así, la única diferencia experimental es la custodia de proceeds de un EXIT no-core y su disponibilidad exclusiva para la primera reentrada normal del mismo activo.
 
@@ -250,10 +267,16 @@ Las seis cohortes deben ser válidas. Si alguna no lo es:
 
 ## 9. Reach mínimo congelado
 
-Para emitir un juicio económico se exige, agregado entre las seis cohortes:
+Para emitir un juicio económico se exige, entre las seis cohortes, reach **deduplicado por episodio económico**:
 
-- al menos **12 reservas creadas** por EXIT realmente ejecutado;
-- al menos **6 reentradas realmente ejecutadas** usando la política de custodia.
+- al menos **12 EXIT-reservas únicas realmente ejecutadas**;
+- al menos **6 reentradas únicas realmente ejecutadas** usando la política de custodia.
+
+Una reserva única se identifica por `assetId + exitExecutionDate`. Si el mismo activo y la misma fecha aparecen en varias cohortes solapadas, cuentan **una sola vez** para el gate de reach.
+
+Una reentrada única se identifica por `assetId + sourceExitExecutionDate + reentryExecutionDate`. La repetición del mismo episodio en varias cohortes cuenta **una sola vez**.
+
+El runner debe reportar además los conteos brutos por cohorte para auditoría, pero sólo los conteos deduplicados deciden el reach.
 
 Si la integridad técnica pasa pero no se alcanza este reach:
 
@@ -291,7 +314,7 @@ También se reportan:
 Sólo se obtiene si simultáneamente:
 
 1. 6/6 cohortes válidas;
-2. reach de la sección 9 cumplido;
+2. reach deduplicado de la sección 9 cumplido;
 3. al menos **4/6** cohortes tienen `finalValueDeltaEur > 0`;
 4. mediana de `finalValueDeltaEur > 0`;
 5. mediana de `finalValueDeltaEur` supera el mayor de:
@@ -319,7 +342,10 @@ Antes de abrir el blind deben pasar:
 3. guard `PortfolioCandidateGate`;
 4. guard de cierre de superficie productiva;
 5. TypeScript / `tsc --noEmit`;
-6. verificación de que producción/default sigue sin custodia.
+6. verificación de que producción/default sigue sin custodia;
+7. guard explícito de atomicidad: una rotación 1:1 no puede ejecutar el `SELL` si su `BUY` pareado no será ejecutable respetando simultáneamente reservas preexistentes y proceeds dedicados de la propia venta;
+8. guard de control estructurado: el executor no puede decidir elegibilidad de custodia mediante `reason.includes(...)` ni otro texto de auditoría;
+9. guard de shortfall: varias reservas activas con cash insuficiente deben reducirse pro-rata, sin FIFO/LIFO oculto.
 
 El runner registra SHA/identidad de los archivos metodológicamente críticos del candidato y del preregistro. Si cambia la implementación después de abrir la muestra, esta corrida no puede mezclarse con otra bajo el mismo V1.
 
@@ -327,13 +353,15 @@ El runner registra SHA/identidad de los archivos metodológicamente críticos de
 
 ## 12. Ejecución
 
-La validación se integra en el `ResearchValidationCenter` existente como el **único job económico de la fase actual**.
+La validación se integrará en el `ResearchValidationCenter` existente como el **único job económico de la fase actual**.
+
+La primera integración ejecutable fue retirada durante la revisión pre-open por incumplir los invariantes 7–8 de la sección 11. Mientras la integración corregida no pase todos los guards, el job blind **no debe estar disponible para ejecución**.
 
 Los guards rápidos se ejecutan primero. Sólo si pasan se abre por primera vez el histórico blind REAL.
 
 La prueba larga corre en el backend/local de la app. Nunca GitHub Actions ni agentes prolongados.
 
-En el momento en que el runner descarga/abre los históricos de las 30 acciones, esta muestra queda consumida, independientemente de PASS/FAIL/INCONCLUSIVE.
+En el momento en que el runner descargue/abra los históricos de las 30 acciones, esta muestra quedará consumida, independientemente de PASS/FAIL/INCONCLUSIVE.
 
 ---
 
@@ -364,6 +392,6 @@ Cualquier política futura distinta exige preregistro y muestra fresh nueva.
 
 > **Conservar temporalmente los proceeds netos de un EXIT no-core para la primera reentrada normal del mismo activo puede evitar que una recuperación válida quede sin financiación, a cambio de asumir explícitamente el coste de oportunidad de mantener ese cash reservado.**
 
-No crea señal de reentrada, no cambia el gate, no crea dinero, no protege estratégic cores y no añade autoridad productiva.
+No crea señal de reentrada, no cambia el gate, no crea dinero, no protege strategic cores y no añade autoridad productiva.
 
-**BLIND NO ABIERTO EN EL MOMENTO DE ESTE PREREGISTRO.**
+**BLIND NO ABIERTO EN EL MOMENTO DE ESTE PREREGISTRO Y DE SU CORRECCIÓN PRE-OPEN.**
