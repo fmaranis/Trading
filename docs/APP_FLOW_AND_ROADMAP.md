@@ -318,7 +318,7 @@ Estado 2B:
 | Capital cero real | **DONE** | No se inventa dinero |
 | Data provenance | **DONE** | REAL / STATIC_REFERENCE / SYNTHETIC |
 | Replay causal integrado | **DONE** | `NEXT_OPEN`, modos integrados |
-| Cash BCE + fiscalidad | **DONE** | Causal |
+| Cash BCE + fiscalidad | **DONE** | Causal; DFR histórico completado desde 1999 |
 | External cash flows | **DONE / CONSUMED** | Integración PASS |
 | Discovery current/live | **DONE** | Yahoo + seed/fallback |
 | Top64 dinámico | **DONE / PASS** | No whitelist fija |
@@ -328,6 +328,7 @@ Estado 2B:
 | Forward Risk V8 | **RESEARCH RETAINED** | Señal útil; política no resuelta |
 | V9 / V10 / V11 | **RETIRED** | No retunear |
 | HFG | **CONSUMED / CLOSED** | Diagnóstico, no tuning |
+| Fase 4 reentrada | **PRE-OPEN READY** | `EXIT_PROCEEDS_CUSTODY_V1`; R2 sealed; guards locales pendientes |
 | Móvil + JSON | **DONE / PASS** | Prueba física realizada |
 | Usuarios privados / Firestore | **OPERATIVO** | Arquitectura propia |
 | Fase 2A ADMIN hardening | **DONE / PASS** | Runtime + quick closure final PASS |
@@ -411,13 +412,37 @@ Quedan congelados antes de nuevas muestras:
 
 ## FASE 4 — REENTRADA DESPUÉS DE UNA SALIDA ERRÓNEA
 
-**ACTIVA / DISEÑO Y PREREGISTRO.**
+**PRE-OPEN READY / R2 SEALED / BLIND NOT OPENED.**
 
-Siguiente trabajo: diseñar una hipótesis general y una política exacta sin thresholds derivados de HFG; congelar política, muestra, métricas y PASS/FAIL antes de abrir el holdout fresh/blind/OOS.
+Política congelada: `EXIT_PROCEEDS_CUSTODY_V1`.
+
+Documento: `docs/phase4_reentry_cash_custody_v1_preregistration.md`.
+
+R1 quedó `VOID PRE-OPEN` y no consumió muestra. R2 usa 30 acciones EUR en 6 cohortes disjuntas durante `2004-01-02 -> 2014-08-31`, con datos solicitados desde `2002-12-10`, REAL-only, current discovery histórico OFF y `FUND_VANGUARD_GLOBAL` como core común. La muestra sigue sin abrirse.
+
+La implementación research-only está integrada dentro del replay/wrapper existente y no modifica producción. Los guards pre-open cubren, entre otros:
+
+- elegibilidad estructurada y sólo EXIT completo listado no-core;
+- no uso de `reason` como autoridad;
+- neto real venta-comisión-impuesto;
+- protección de reserva desde la misma tanda del EXIT;
+- comisión incluida en el cash autorizado;
+- atomicidad de rotaciones 1:1;
+- shortfall pro-rata;
+- lower-bound conservador para financiación de `REDUCE` parcial sin FIFO visible;
+- estabilización de la fecha común `NEXT_OPEN` después de desacoplar `RETURN_TO_CORE`;
+- reach sólo por reentrada ejecutada con autorización positiva de la reserva específica;
+- producción/default `LEGACY` sin exportar la policy research.
+
+Único job operativo:
+
+`Fase 4 · reentrada · custodia de proceeds`
+
+El job ejecuta primero guards rápidos + BCE + TypeScript. Sólo si todos pasan abre `Blind R2 REAL one-shot`. Por tanto, el siguiente paso no es diseñar más política: es ejecutar ese único job en el backend local y aceptar su resultado sin retuning.
 
 ## FASE 5 — PROTECCIÓN DE GRANDES GANADORES
 
-**PENDIENTE RESEARCH.** Diseñar política antes de abrir nueva muestra. HFG no fija política productiva.
+**PENDIENTE RESEARCH.** Diseñar política antes de abrir nueva muestra. HFG no fija política productiva. No abrir hasta veredictar Fase 4.
 
 ## FASE 6 — FORWARD RISK V8 COMO CONTEXTO
 
@@ -493,8 +518,10 @@ No reabrir:
 
 1. **Fase 2 = DONE.** No reabrir salvo bug/regresión reproducible.
 2. **Fase 3 = DONE / FROZEN** mediante `ECONOMIC_VALIDATION_PROTOCOL_V1`.
-3. **Fase 4 = ACTIVA.** Diseñar la política de reentrada y su preregistro específico.
-4. No abrir ningún holdout de Fase 4 hasta congelar hipótesis, regla exacta, muestra, métricas, materialidad y PASS/FAIL.
-5. HFG se usa sólo como diagnóstico consumido; no fija thresholds.
-6. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
-7. No ejecutar Future Forward ni replay largo por avanzar Fase 4 hasta que el preregistro esté cerrado.
+3. **Fase 4 = PRE-OPEN READY.** Política, muestra R2, reach, materialidad y PASS/FAIL están congelados; R2 sigue sin abrirse.
+4. Ejecutar **una sola vez** `Fase 4 · reentrada · custodia de proceeds` en `ResearchValidationCenter` local/backend.
+5. El job debe detenerse antes del blind si falla cualquiera de sus guards o `tsc --noEmit`.
+6. Sólo si todos los gates rápidos pasan, el mismo job abre `Blind R2 REAL one-shot`; desde ese momento R2 queda consumida.
+7. No modificar política, muestra, thresholds, reach ni criterios tras ver el resultado.
+8. Fase 5 no se abre hasta cerrar/veredictar Fase 4.
+9. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
