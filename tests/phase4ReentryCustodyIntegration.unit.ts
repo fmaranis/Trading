@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { AssetUniverseScanResult } from '../src/investment/decision/assetUniverseScanner';
 import type { PortfolioDecisionResult } from '../src/investment/decision/portfolioDecisionEngine';
@@ -11,6 +12,29 @@ const policySource = readFileSync('src/investment/decision/reentryCashCustodyPol
 const indexSource = readFileSync('src/investment/decision/index.ts', 'utf8');
 const runnerSource = readFileSync('scripts/phase4ReentryCashCustodyV1BlindLive.ts', 'utf8');
 const validationRoutesSource = readFileSync('server/researchValidationRoutes.ts', 'utf8');
+
+interface Phase4Seal {
+  version: string;
+  sampleState: string;
+  expectedGitBlobSha: Record<string, string>;
+}
+
+function gitBlobSha(text: string): string {
+  const bytes = Buffer.from(text, 'utf8');
+  return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+}
+
+// The pre-open seal is authoritative. This guard executes before TypeScript and
+// before the one-shot R2 runner in ResearchValidationCenter. Any change to a
+// frozen critical source fails before the first historical download.
+const seal = JSON.parse(readFileSync('docs/phase4_reentry_cash_custody_v1_seal.json', 'utf8')) as Phase4Seal;
+assert.equal(seal.version, 'PHASE4_REENTRY_CASH_CUSTODY_V1_R2_SEAL');
+assert.equal(seal.sampleState, 'R2_SEALED_NOT_OPENED');
+assert.ok(Object.keys(seal.expectedGitBlobSha).length >= 8);
+for (const [path, expected] of Object.entries(seal.expectedGitBlobSha)) {
+  const actual = gitBlobSha(readFileSync(path, 'utf8'));
+  assert.equal(actual, expected, `PHASE4_PREOPEN_SEAL_MISMATCH:${path}:${expected}:${actual}`);
+}
 
 // Architecture parity: Phase 4 layers on the existing replay wrapper; production
 // still reaches CORE_GATE_V1 + CORE_ARCHITECTURE_V1 through that same path.
