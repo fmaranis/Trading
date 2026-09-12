@@ -19,14 +19,6 @@ import {
   type DynamicReplayAppliedCashFlow,
   type DynamicReplayExternalCashFlow
 } from './replayExternalCashFlows';
-import {
-  applyExitProceedsCustodyV1,
-  availableCashRespectingReentryReservations,
-  EXIT_PROCEEDS_CUSTODY_V1,
-  REENTRY_CUSTODY_EXIT_MARKER,
-  type ReentryCashReservation,
-  type ReentryFundingPolicy
-} from './reentryCashCustodyPolicy';
 import { estimateSpanishTaxOnRealizedGain, type SpanishTaxSettings } from './spanishTaxModel';
 import { StrategyConsensusEngine, type StrategyConsensusAssessment, type TrendStructureState } from './strategyConsensusEngine';
 import { classifyTrendProtectionV1, type TrendProtectionAction } from './trendProtectionPolicy';
@@ -852,7 +844,6 @@ export class DynamicHistoricalReplayEngine {
     simulationMode?: DynamicReplaySimulationMode;
     initialPortfolio?: DynamicReplayInitialPortfolio;
     externalCashFlows?: DynamicReplayExternalCashFlow[];
-    reentryFundingPolicy?: ReentryFundingPolicy;
   }): DynamicHistoricalReplayResult {
     if (!(input.initialCapitalEur > 0)) throw new Error('El capital del replay dinámico debe ser > 0.');
     const frequency = input.frequency ?? 'MONTHLY';
@@ -861,7 +852,6 @@ export class DynamicHistoricalReplayEngine {
     const initialPortfolioSource: DynamicReplayInitialPortfolioSource = input.initialPortfolio?.source ?? 'ZERO';
     const cashBenchmarkAnnualPct = Number.isFinite(input.cashBenchmarkAnnualPct) ? Math.max(0, Number(input.cashBenchmarkAnnualPct)) : DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
     const taxSettings = input.taxSettings ?? DEFAULT_TAX_SETTINGS;
-    const reentryFundingPolicy: ReentryFundingPolicy = input.reentryFundingPolicy ?? 'LEGACY';
     const endDate = latestDatasetDate(input.dataset);
     if (input.startDate >= endDate) throw new Error('La fecha inicial debe ser anterior al último dato REAL.');
     const normalizedExternalCashFlows = normalizeReplayExternalCashFlows(input.externalCashFlows, input.startDate, endDate);
@@ -869,7 +859,6 @@ export class DynamicHistoricalReplayEngine {
     const seeded = seedInitialPortfolio({ dataset: input.dataset, catalog: input.catalog, startDate: input.startDate, initialCapitalEur: input.initialCapitalEur, initialPortfolio: input.initialPortfolio });
     const holdings = seeded.holdings;
     const positionHealthStateByAsset = new Map<string, ReplayPositionHealthState>();
-    const reentryCashReservations = new Map<string, ReentryCashReservation>();
     const signals: DynamicReplaySignal[] = [...seeded.signals];
     const events: DynamicReplayEvent[] = [];
     const decisionStates: DecisionState[] = [];
@@ -1019,7 +1008,7 @@ export class DynamicHistoricalReplayEngine {
 
       const simulated = buildSimulatedPortfolio({ holdings, cashEur, dataset: input.dataset, catalog: input.catalog, date: decisionDate });
       const healthMap = buildHistoricalHealthMap({ holdings, scan: dateGate.scan, dataset: input.dataset, catalog: input.catalog, date: decisionDate, cashBenchmarkAnnualPct, stateByAsset: positionHealthStateByAsset });
-      const canonicalPortfolioDecision = PortfolioDecisionEngine.evaluate({
+      const portfolioDecision = PortfolioDecisionEngine.evaluate({
         portfolio: simulated.portfolio,
         scan: dateGate.scan,
         decision: liveDecision,
@@ -1027,12 +1016,6 @@ export class DynamicHistoricalReplayEngine {
         positionHealth: healthMap,
         cashBenchmarkAnnualPct
       });
-      const portfolioDecision = applyExitProceedsCustodyV1({
-        result: canonicalPortfolioDecision,
-        scan: dateGate.scan,
-        reservations: [...reentryCashReservations.values()],
-        policy: reentryFundingPolicy
-      }).decision;
 
       const plannedByAsset = new Map<string, PlannedSignal>();
       const rotationIncumbentByChallenger = new Map<string, string>();
@@ -1178,9 +1161,7 @@ export class DynamicHistoricalReplayEngine {
           const saleBar = executionBarOnOrAfter(input.dataset, salePlan.signal.assetId, commonExecutionDate);
           if (!saleHolding || !saleBar || !(saleBar.open > 0)) executablePair = false;
 
-          let availableAfterSale = reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1
-            ? availableCashRespectingReentryReservations(cashEur, [...reentryCashReservations.values()], challengerAssetId)
-            : cashEur;
+          let availableAfterSale = cashEur;
           if (executablePair && saleHolding && saleBar) {
             let unitsToSell = salePlan.signal.action === 'EXIT'
               ? saleHolding.units
@@ -1256,16 +1237,11 @@ export class DynamicHistoricalReplayEngine {
         const buyPlans = tradePlans.filter(plan => plan.signal.action === 'BUY' || plan.signal.action === 'ADD').sort((a, b) => {
           const rotationRank = Number(Boolean(b.rotationPairAssetId)) - Number(Boolean(a.rotationPairAssetId));
           if (rotationRank) return rotationRank;
-          const reentryRank = Number(reentryCashReservations.has(b.signal.assetId)) - Number(reentryCashReservations.has(a.signal.assetId));
-          if (reentryRank) return reentryRank;
           const typeA = instrumentType(input.catalog, a.signal.assetId), typeB = instrumentType(input.catalog, b.signal.assetId);
           if (typeA !== typeB) return typeA === 'MUTUAL_FUND' ? -1 : 1;
           return b.signal.recommendedAmountEur - a.signal.recommendedAmountEur;
         });
-        const fundSales = executedSales.filter(sale =>
-          sale.holdingType === 'MUTUAL_FUND'
-          && !(reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1 && sale.plan.signal.reason.includes(REENTRY_CUSTODY_EXIT_MARKER))
-        );
+        const fundSales = executedSales.filter(sale => sale.holdingType === 'MUTUAL_FUND');
         const desiredFundBuyEur = buyPlans.filter(plan => !blockedRotationBuyIds.has(plan.signal.assetId) && instrumentType(input.catalog, plan.signal.assetId) === 'MUTUAL_FUND').reduce((sum, plan) => sum + plan.signal.recommendedAmountEur, 0);
         let remainingTransferPotential = Math.min(fundSales.reduce((sum, sale) => sum + sale.grossEur, 0), desiredFundBuyEur);
         for (const sale of fundSales) {
@@ -1280,61 +1256,34 @@ export class DynamicHistoricalReplayEngine {
           sale.plan.signal.estimatedTaxEur = tax;
           cashEur = Math.max(0, cashEur - tax); totalEstimatedTaxEur += tax;
           const signal = sale.plan.signal;
-          if (
-            reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1
-            && signal.action === 'EXIT'
-            && signal.reason.includes(REENTRY_CUSTODY_EXIT_MARKER)
-          ) {
-            const netExitProceeds = Math.max(0, sale.grossEur - sale.feeEur - tax);
-            if (netExitProceeds > 0.01) {
-              reentryCashReservations.set(signal.assetId, {
-                assetId: signal.assetId,
-                amountEur: netExitProceeds,
-                createdAt: commonExecutionDate
-              });
-              signal.reason += ` [${EXIT_PROCEEDS_CUSTODY_V1}:RESERVATION_CREATED] ${netExitProceeds.toFixed(2)} € netos realmente ejecutados quedan reservados desde ${commonExecutionDate}.`;
-            }
-          }
           events.push({ id: `event_${signal.id}`, date: commonExecutionDate, type: signal.action as 'REDUCE' | 'EXIT', ticker: signal.ticker, amountEur: sale.grossEur, feeEur: sale.feeEur, taxEur: tax, realizedGainEur: sale.realizedGainEur, label: `${signal.action === 'EXIT' ? 'SALIR' : 'REDUCIR'} ${signal.ticker}`, detail: `${sale.grossEur.toFixed(2)} € vendidos · comisión ${sale.feeEur.toFixed(2)} € · plusvalía realizada ${sale.realizedGainEur.toFixed(2)} € · reserva fiscal ${tax.toFixed(2)} €${sale.transferPlannedEur > 0 ? ` · ${sale.transferPlannedEur.toFixed(2)} € preparados para traspaso` : ''}.` });
         }
 
         for (const plan of buyPlans) {
           if (blockedRotationBuyIds.has(plan.signal.assetId)) continue;
           const bar = executionBarOnOrAfter(input.dataset, plan.signal.assetId, commonExecutionDate);
-          const matchingReservation = reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1 && plan.signal.action === 'BUY'
-            ? reentryCashReservations.get(plan.signal.assetId)
-            : undefined;
-          const availableCashForPlan = reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1
-            ? availableCashRespectingReentryReservations(cashEur, [...reentryCashReservations.values()], matchingReservation ? plan.signal.assetId : null)
-            : cashEur;
-          if (!bar || !(bar.open > 0) || availableCashForPlan <= 0) continue;
+          if (!bar || !(bar.open > 0) || cashEur <= 0) continue;
           const type = instrumentType(input.catalog, plan.signal.assetId);
           const existing = holdings.get(plan.signal.assetId);
           const price = bar.open;
-          const desiredSpend = Math.min(plan.signal.recommendedAmountEur, availableCashForPlan);
+          const desiredSpend = Math.min(plan.signal.recommendedAmountEur, cashEur);
           let unitsToBuy = 0, fee = 0, spend = 0;
           if (type === 'MUTUAL_FUND') {
             spend = desiredSpend; unitsToBuy = spend / price;
           } else {
             unitsToBuy = Math.floor(desiredSpend / price + 1e-9);
             fee = unitsToBuy > 0 ? brokerCommission(unitsToBuy * price) : 0;
-            while (unitsToBuy > 0 && unitsToBuy * price + fee > availableCashForPlan + 1e-9) { unitsToBuy--; fee = unitsToBuy > 0 ? brokerCommission(unitsToBuy * price) : 0; }
+            while (unitsToBuy > 0 && unitsToBuy * price + fee > cashEur + 1e-9) { unitsToBuy--; fee = unitsToBuy > 0 ? brokerCommission(unitsToBuy * price) : 0; }
             spend = unitsToBuy * price + fee;
             if (unitsToBuy > 0 && !orderEconomicallyExecutable(unitsToBuy * price, current.equityEur)) { unitsToBuy = 0; spend = 0; fee = 0; }
           }
-          if (!(unitsToBuy > 1e-12) || spend > availableCashForPlan + 1e-9 || spend > cashEur + 1e-9) continue;
+          if (!(unitsToBuy > 1e-12) || spend > cashEur + 1e-9) continue;
           cashEur = Math.max(0, cashEur - spend);
           const nextHolding: Holding = existing ?? { assetId: plan.signal.assetId, ticker: plan.signal.ticker, instrumentType: type, units: 0, lots: [] };
           nextHolding.units += unitsToBuy; addLot(nextHolding, unitsToBuy, spend, commonExecutionDate); holdings.set(nextHolding.assetId, nextHolding);
           if (plan.signal.action === 'ADD') positionHealthStateByAsset.delete(plan.signal.assetId);
           totalFeesEur += fee;
           Object.assign(plan.signal, { executed: true, executionDate: isoDate(bar.timestamp), unitsDelta: unitsToBuy, notionalEur: unitsToBuy * price, feeEur: fee, executionPriceEur: price });
-
-          if (matchingReservation) {
-            const reservedUsed = Math.min(matchingReservation.amountEur, spend);
-            plan.signal.reason += ` [${EXIT_PROCEEDS_CUSTODY_V1}:REENTRY_EXECUTED] Primera BUY posterior al EXIT ejecutada; ${reservedUsed.toFixed(2)} € de la reserva financiaron prioritariamente esta operación y el remanente se libera a cash general.`;
-            reentryCashReservations.delete(plan.signal.assetId);
-          }
 
           if (type === 'MUTUAL_FUND') {
             let transferNeed = plan.signal.notionalEur;
@@ -1440,9 +1389,6 @@ export class DynamicHistoricalReplayEngine {
         normalizedExternalCashFlows.length
           ? 'Las retiradas externas sólo consumen cash disponible; este V1 no fuerza ventas ocultas para financiar una retirada. Si no hay cash suficiente, el replay falla explícitamente.'
           : 'No se ha activado lógica de flujos externos.',
-        reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1
-          ? `${EXIT_PROCEEDS_CUSTODY_V1} research-only: los proceeds netos de EXIT no-core elegible se mantienen como cash remunerado y sólo pueden financiar la primera BUY posterior del mismo activo si la cadena canónica vuelve a autorizarla. No crea señal, no relaja gates y no cambia producción.`
-          : 'Reentry funding policy: LEGACY; no existe reserva especial de proceeds y el replay conserva exactamente el comportamiento productivo vigente.',
         'La trayectoria se valora en cada sesión disponible y se compara con mantener todo el capital en la cuenta remunerada.',
         'Permanece el sesgo de supervivencia del catálogo actual y no se reconstruyen cambios históricos de comercialización/disponibilidad del broker.'
       ]
