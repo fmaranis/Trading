@@ -52,13 +52,53 @@ interface ReplayCashContextState {
 let activeReplayCashContext: ReplayCashContextState | null = null;
 
 /**
- * Official ECB deposit-facility rate changes relevant to the replay range.
+ * Official ECB deposit-facility rate changes from the start of Stage Three.
  * Source: ECB "Key ECB interest rates" table (effective dates and annual %).
  * Negative policy rates are retained here as source data; the retail-cash proxy
  * applies a 0% floor because the alternative to investing is assumed not to
  * accept a contractually negative nominal account rate.
  */
 export const ECB_DEPOSIT_FACILITY_RATE_HISTORY: readonly HistoricalCashRatePoint[] = [
+  { effectiveDate: '1999-01-01', annualPct: 2.00 },
+  { effectiveDate: '1999-01-04', annualPct: 2.75 },
+  { effectiveDate: '1999-01-22', annualPct: 2.00 },
+  { effectiveDate: '1999-04-09', annualPct: 1.50 },
+  { effectiveDate: '1999-11-05', annualPct: 2.00 },
+  { effectiveDate: '2000-02-04', annualPct: 2.25 },
+  { effectiveDate: '2000-03-17', annualPct: 2.50 },
+  { effectiveDate: '2000-04-28', annualPct: 2.75 },
+  { effectiveDate: '2000-06-09', annualPct: 3.25 },
+  { effectiveDate: '2000-06-28', annualPct: 3.25 },
+  { effectiveDate: '2000-09-01', annualPct: 3.50 },
+  { effectiveDate: '2000-10-06', annualPct: 3.75 },
+  { effectiveDate: '2001-05-11', annualPct: 3.50 },
+  { effectiveDate: '2001-08-31', annualPct: 3.25 },
+  { effectiveDate: '2001-09-18', annualPct: 2.75 },
+  { effectiveDate: '2001-11-09', annualPct: 2.25 },
+  { effectiveDate: '2002-12-06', annualPct: 1.75 },
+  { effectiveDate: '2003-03-07', annualPct: 1.50 },
+  { effectiveDate: '2003-06-06', annualPct: 1.00 },
+  { effectiveDate: '2005-12-06', annualPct: 1.25 },
+  { effectiveDate: '2006-03-08', annualPct: 1.50 },
+  { effectiveDate: '2006-06-15', annualPct: 1.75 },
+  { effectiveDate: '2006-08-09', annualPct: 2.00 },
+  { effectiveDate: '2006-10-11', annualPct: 2.25 },
+  { effectiveDate: '2006-12-13', annualPct: 2.50 },
+  { effectiveDate: '2007-03-14', annualPct: 2.75 },
+  { effectiveDate: '2007-06-13', annualPct: 3.00 },
+  { effectiveDate: '2008-07-09', annualPct: 3.25 },
+  { effectiveDate: '2008-10-08', annualPct: 2.75 },
+  { effectiveDate: '2008-10-09', annualPct: 3.25 },
+  { effectiveDate: '2008-10-15', annualPct: 3.25 },
+  { effectiveDate: '2008-11-12', annualPct: 2.75 },
+  { effectiveDate: '2008-12-10', annualPct: 2.00 },
+  { effectiveDate: '2009-01-21', annualPct: 1.00 },
+  { effectiveDate: '2009-03-11', annualPct: 0.50 },
+  { effectiveDate: '2009-04-08', annualPct: 0.25 },
+  { effectiveDate: '2009-05-13', annualPct: 0.25 },
+  { effectiveDate: '2011-04-13', annualPct: 0.50 },
+  { effectiveDate: '2011-07-13', annualPct: 0.75 },
+  { effectiveDate: '2011-11-09', annualPct: 0.50 },
   { effectiveDate: '2011-12-14', annualPct: 0.25 },
   { effectiveDate: '2012-07-11', annualPct: 0.00 },
   { effectiveDate: '2013-05-08', annualPct: 0.00 },
