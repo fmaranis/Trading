@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
+import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { spawn } from 'node:child_process';
 import { saveDurableResearchValidationEvidence } from '../server/researchValidationEvidenceStore';
 
 const SEAL_PATH = 'docs/phase4_reentry_cash_custody_v1_seal.json';
@@ -79,6 +79,14 @@ function extractJsonAfterMarker(output: string, marker: string): unknown {
   throw new Error('PHASE4_RECOVERY_JSON_INCOMPLETE');
 }
 
+function runTypeScriptPreflight(): void {
+  execFileSync('npm', ['run', 'lint'], {
+    cwd: process.cwd(),
+    env: { ...process.env, DISABLE_HMR: 'true' },
+    stdio: 'inherit'
+  });
+}
+
 function runSealedRunner(): Promise<{ code: number; output: string }> {
   return new Promise(resolve => {
     let output = '';
@@ -107,6 +115,7 @@ function runSealedRunner(): Promise<{ code: number; output: string }> {
 
 async function main() {
   if (!process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()) throw new Error('PHASE4_RECOVERY_DURABLE_GITHUB_TOKEN_REQUIRED');
+  runTypeScriptPreflight();
 
   const seal = JSON.parse(readFileSync(SEAL_PATH, 'utf8')) as Phase4Seal;
   if (seal.version !== 'PHASE4_REENTRY_CASH_CUSTODY_V1_R2_SEAL') throw new Error('PHASE4_RECOVERY_SEAL_VERSION_INVALID');
