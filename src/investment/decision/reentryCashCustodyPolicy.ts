@@ -32,6 +32,12 @@ export interface ReentryCashCustodyDecisionResult {
   telemetry: ReentryCashCustodyDecisionTelemetry;
 }
 
+export interface ReentryCashCustodyPreparedDecision {
+  decision: PortfolioDecisionResult;
+  qualifyingExitAssetIds: string[];
+  detachedReturnToCoreEur: number;
+}
+
 function cloneDecision(result: PortfolioDecisionResult): PortfolioDecisionResult {
   return {
     ...result,
@@ -125,6 +131,24 @@ function detachEligibleHealthExits(
   result.contributions = result.contributions.filter(row => row.amountEur > 0.01);
   refreshPlanningTotals(result, oldRotationProceeds, oldRecommended);
   return { qualifyingExitAssetIds, detachedReturnToCoreEur };
+}
+
+/**
+ * Detach eligible health EXIT proceeds from the automatic return-to-core route
+ * before any execution-date/funding calculation. This makes the set of trade
+ * assets used for NEXT_OPEN pricing identical to the set the executor will see.
+ */
+export function prepareExitProceedsCustodyV1(
+  result: PortfolioDecisionResult,
+  eligibleHealthExitAssetIds: readonly string[]
+): ReentryCashCustodyPreparedDecision {
+  const decision = cloneDecision(result);
+  const detached = detachEligibleHealthExits(decision, new Set(eligibleHealthExitAssetIds));
+  return {
+    decision,
+    qualifyingExitAssetIds: detached.qualifyingExitAssetIds,
+    detachedReturnToCoreEur: detached.detachedReturnToCoreEur
+  };
 }
 
 export function effectiveReentryReservations(input: {
@@ -225,6 +249,7 @@ export function applyExitProceedsCustodyV1(input: {
   eligibleHealthExitAssetIds: readonly string[];
   rotationFundingByAssetId?: Readonly<Record<string, number>>;
   executionPriceByAssetId?: Readonly<Record<string, number>>;
+  prepared?: ReentryCashCustodyPreparedDecision;
   policy: ReentryFundingPolicy;
 }): ReentryCashCustodyDecisionResult {
   if (input.policy !== EXIT_PROCEEDS_CUSTODY_V1) {
@@ -244,8 +269,12 @@ export function applyExitProceedsCustodyV1(input: {
     };
   }
 
-  const result = cloneDecision(input.result);
-  const detached = detachEligibleHealthExits(result, new Set(input.eligibleHealthExitAssetIds));
+  const prepared = input.prepared ?? prepareExitProceedsCustodyV1(input.result, input.eligibleHealthExitAssetIds);
+  const result = cloneDecision(prepared.decision);
+  const detached = {
+    qualifyingExitAssetIds: [...prepared.qualifyingExitAssetIds],
+    detachedReturnToCoreEur: prepared.detachedReturnToCoreEur
+  };
   const reservations = [...input.reservations].filter(row => row.amountEur > 0.01);
   const custodyAffectsExecution = reservations.length > 0 || detached.qualifyingExitAssetIds.length > 0;
   const nominalReservedCashEur = reservations.reduce((sum, row) => sum + row.amountEur, 0);
@@ -327,8 +356,6 @@ export function applyExitProceedsCustodyV1(input: {
   const adjusted: ContributionRecommendation[] = [];
   for (const item of rows) {
     const baseSpendBudget = item.rotationCoverage + item.reentryCoverage + item.residualDemand * freeScale;
-    // Unused dedicated proceeds/reservation may pay the order's own commission,
-    // but can never increase notional above the canonical recommendation.
     const dedicatedFeeHeadroom = Math.max(0, item.rotationAvailable - item.rotationCoverage)
       + Math.max(0, item.ownReservationAvailable - item.reentryCoverage);
     const spendBudget = baseSpendBudget + dedicatedFeeHeadroom;
