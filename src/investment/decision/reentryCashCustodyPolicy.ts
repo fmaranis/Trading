@@ -22,6 +22,7 @@ export interface ReentryCashCustodyDecisionTelemetry {
   nominalReservedCashEur: number;
   effectiveReservedCashEur: number;
   freeBaseDeployableEur: number;
+  dedicatedRotationFundingEur: number;
   reservedCashAuthorizedForReentryEur: number;
   matchedReentryAssetIds: string[];
 }
@@ -205,12 +206,18 @@ function minimumExecutableAmount(
  * decision and never changes eligibility/timing. It only withholds cash already
  * reserved by prior full non-core health EXITs and lets a matching ordinary
  * contribution use its own reservation.
+ *
+ * `rotationFundingByAssetId` is structured execution funding for atomic
+ * rotations. When supplied, it represents the net proceeds that the paired sale
+ * can really dedicate to that challenger. Reserved cash is never allowed to make
+ * up a shortfall in a rotation that would otherwise be underfunded.
  */
 export function applyExitProceedsCustodyV1(input: {
   result: PortfolioDecisionResult;
   scan: AssetUniverseScanResult;
   reservations: readonly ReentryCashReservation[];
   eligibleHealthExitAssetIds: readonly string[];
+  rotationFundingByAssetId?: Readonly<Record<string, number>>;
   policy: ReentryFundingPolicy;
 }): ReentryCashCustodyDecisionResult {
   if (input.policy !== EXIT_PROCEEDS_CUSTODY_V1) {
@@ -223,6 +230,7 @@ export function applyExitProceedsCustodyV1(input: {
         nominalReservedCashEur: 0,
         effectiveReservedCashEur: 0,
         freeBaseDeployableEur: Math.max(0, input.result.deployableToAssetsEur - input.result.plannedRotationProceedsEur),
+        dedicatedRotationFundingEur: 0,
         reservedCashAuthorizedForReentryEur: 0,
         matchedReentryAssetIds: []
       }
@@ -244,7 +252,11 @@ export function applyExitProceedsCustodyV1(input: {
   const effectiveReservedCashEur = [...effectiveByAsset.values()].reduce((sum, amount) => sum + amount, 0);
   const freeBaseDeployableEur = Math.max(0, baseDeployable - effectiveReservedCashEur);
 
-  let remainingRotationEur = Math.max(0, result.plannedRotationProceedsEur);
+  const structuredRotationFunding = input.rotationFundingByAssetId == null
+    ? null
+    : new Map(Object.entries(input.rotationFundingByAssetId).map(([assetId, amount]) => [assetId, Math.max(0, Number(amount) || 0)]));
+  let remainingLegacyRotationEur = Math.max(0, result.plannedRotationProceedsEur);
+  let dedicatedRotationFundingEur = 0;
   const rows = result.contributions.map(row => ({
     row,
     originalAmount: Math.max(0, row.amountEur),
@@ -255,10 +267,16 @@ export function applyExitProceedsCustodyV1(input: {
 
   for (const item of rows) {
     let remaining = item.originalAmount;
-    if (item.row.positionStage === 'ROTATION_ENTRY' && remainingRotationEur > 0.01) {
-      item.rotationCoverage = Math.min(remaining, remainingRotationEur);
-      remaining -= item.rotationCoverage;
-      remainingRotationEur -= item.rotationCoverage;
+    if (item.row.positionStage === 'ROTATION_ENTRY') {
+      const availableRotationFunding = structuredRotationFunding == null
+        ? remainingLegacyRotationEur
+        : (structuredRotationFunding.get(item.row.assetId) ?? 0);
+      if (availableRotationFunding > 0.01) {
+        item.rotationCoverage = Math.min(remaining, availableRotationFunding);
+        remaining -= item.rotationCoverage;
+        dedicatedRotationFundingEur += item.rotationCoverage;
+        if (structuredRotationFunding == null) remainingLegacyRotationEur -= item.rotationCoverage;
+      }
     }
     const ownReservation = effectiveByAsset.get(item.row.assetId) ?? 0;
     if (remaining > 0.01 && ownReservation > 0.01 && (item.row.currentAssetValueEur ?? 0) <= 0.01) {
@@ -309,6 +327,7 @@ export function applyExitProceedsCustodyV1(input: {
       nominalReservedCashEur,
       effectiveReservedCashEur,
       freeBaseDeployableEur,
+      dedicatedRotationFundingEur,
       reservedCashAuthorizedForReentryEur,
       matchedReentryAssetIds: [...new Set(matchedReentryAssetIds)].sort()
     }
