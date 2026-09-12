@@ -22,6 +22,7 @@ import { PortfolioDecisionEngine, type PortfolioDecisionResult, type PortfolioPo
 import {
   applyExitProceedsCustodyV1,
   EXIT_PROCEEDS_CUSTODY_V1,
+  prepareExitProceedsCustodyV1,
   type ReentryCashReservation,
   type ReentryFundingPolicy
 } from './reentryCashCustodyPolicy';
@@ -212,17 +213,13 @@ function predictedListedSale(input: {
 
   let taxEur = 0;
   if (input.position.action === 'EXIT') {
-    // Full EXIT consumes the entire remaining replay basis, so aggregate basis
-    // reconstructed from health is exact for the tax reserve used by the executor.
     const snapshot = healthSnapshot(input.evaluationInput, assetId);
     const totalBasis = basisFromHealth(snapshot, Math.max(0, input.position.currentValueEur ?? 0));
     const realizedGain = grossEur - feeEur - totalBasis;
     taxEur = Math.max(0, realizedGain) * 0.30;
   } else {
-    // A partial REDUCE is FIFO in the executor. The wrapper does not own lot-level
-    // state, so never approximate it with average basis: reserve the worst-case
-    // 30% of net sale cash. This is a safe lower bound on dedicated proceeds and
-    // cannot borrow from another asset's custody reservation.
+    // The executor consumes partial REDUCE lots FIFO. The wrapper has no lot-level
+    // state, so use a safe lower bound on cash proceeds instead of average basis.
     taxEur = Math.max(0, grossEur - feeEur) * 0.30;
   }
   return { grossEur, feeEur, taxEur, netEur: Math.max(0, grossEur - feeEur - taxEur) };
@@ -247,8 +244,6 @@ function predictedRotationFunding(
     let net = 0;
     if (sourceItem.instrumentType === 'MUTUAL_FUND') {
       const gross = Math.max(0, position.currentValueEur ?? 0) * (position.action === 'EXIT' ? 1 : Math.max(0, Math.min(100, position.suggestedReductionPct ?? 50)) / 100);
-      // A direct fund-to-fund rotation can use the gross transfer proceeds; other
-      // source/target combinations are given only a conservative 70% cash floor.
       net = targetItem.instrumentType === 'MUTUAL_FUND' ? gross : gross * 0.70;
     } else {
       net = predictedListedSale({ replayInput, evaluationInput, result, position, executionDate })?.netEur ?? 0;
@@ -389,17 +384,6 @@ function finalizeReentryAudit(
   };
 }
 
-/**
- * Replay policy wrapper.
- *
- * BASELINE, CORE_GATE_V1 and CORE_ARCHITECTURE_V1 remain available for
- * attribution. CORE_ALPHA_V2 is the bounded candidate that keeps V1 intact and
- * allows only small, exceptional, atomic core-funded alpha tilts.
- *
- * Phase 4 reentry custody is an explicit research-only option layered *after*
- * CORE_ARCHITECTURE_V1 inside this same wrapper. The canonical worker omits the
- * option and therefore remains LEGACY. No second replay engine is introduced.
- */
 export function runDynamicReplayWithRotationExperiment(
   input: ReplayRunInput,
   experiment: ReplayRotationExperiment = 'BASELINE',
@@ -498,17 +482,40 @@ export function runDynamicReplayWithRotationExperiment(
               && healthSnapshot(evaluationInput, position.assetId)?.action === 'EXIT';
           })
           .map(position => position.assetId!);
-        const rotationFundingByAssetId = predictedRotationFunding(input, evaluationInput, architecture);
-        const executionPriceByAssetId = executionPricesForContributions(input, evaluationInput, architecture);
-        const overlay = applyExitProceedsCustodyV1({
+        const prepared = prepareExitProceedsCustodyV1(architecture, eligibleHealthExitAssetIds);
+        const decisionDate = replayDecisionDate(evaluationInput);
+        const activeReservationRows = [...activeReservations.values()].map(row => ({ ...row.reservation }));
+
+        let referenceDecision = prepared.decision;
+        let overlay = applyExitProceedsCustodyV1({
           result: architecture,
+          prepared,
           scan: evaluationInput.scan,
-          reservations: [...activeReservations.values()].map(row => ({ ...row.reservation })),
+          reservations: activeReservationRows,
           eligibleHealthExitAssetIds,
-          rotationFundingByAssetId,
-          executionPriceByAssetId,
+          rotationFundingByAssetId: predictedRotationFunding(input, evaluationInput, referenceDecision),
+          executionPriceByAssetId: executionPricesForContributions(input, evaluationInput, referenceDecision),
           policy: reentryFundingPolicy
         });
+        let executionDateStable = commonExecutionDate(input, decisionDate, referenceDecision)
+          === commonExecutionDate(input, decisionDate, overlay.decision);
+
+        for (let attempt = 0; !executionDateStable && attempt < 3; attempt++) {
+          referenceDecision = overlay.decision;
+          overlay = applyExitProceedsCustodyV1({
+            result: architecture,
+            prepared,
+            scan: evaluationInput.scan,
+            reservations: activeReservationRows,
+            eligibleHealthExitAssetIds,
+            rotationFundingByAssetId: predictedRotationFunding(input, evaluationInput, referenceDecision),
+            executionPriceByAssetId: executionPricesForContributions(input, evaluationInput, referenceDecision),
+            policy: reentryFundingPolicy
+          });
+          executionDateStable = commonExecutionDate(input, decisionDate, referenceDecision)
+            === commonExecutionDate(input, decisionDate, overlay.decision);
+        }
+        if (!executionDateStable) throw new Error(`PHASE4_REENTRY_EXECUTION_DATE_NOT_STABLE:${decisionDate}`);
 
         for (const assetId of overlay.telemetry.qualifyingExitAssetIds) {
           if (activeReservations.has(assetId) || pendingExits.some(row => row.assetId === assetId)) continue;
@@ -517,7 +524,6 @@ export function runDynamicReplayWithRotationExperiment(
           pendingExits.push(predicted);
           allPredictedExits.push(predicted);
         }
-        const decisionDate = replayDecisionDate(evaluationInput);
         const executionDate = commonExecutionDate(input, decisionDate, overlay.decision);
         if (executionDate) {
           for (const [assetId, state] of activeReservations) {
@@ -535,9 +541,6 @@ export function runDynamicReplayWithRotationExperiment(
       }
       if (experiment !== 'CORE_ALPHA_V2') return architecture;
 
-      // Never create a core REDUCE in the same decision where V1 already emitted
-      // another funded order (including a core top-up/return-to-core). The replay
-      // executor keys plans by asset, so this keeps every V2 tilt unambiguous and atomic.
       if (architecture.contributions.some(row => row.amountEur > 0.01)) {
         alphaCounters.blockedExistingFreshNonCoreOrder += 1;
         return architecture;
@@ -551,11 +554,6 @@ export function runDynamicReplayWithRotationExperiment(
       ? finalizeReentryAudit(input, result, allPredictedExits)
       : emptyReentryAudit('LEGACY');
 
-    // HistoricalReplayProgressivePanel intentionally persists a compact replay
-    // schema and therefore does not retain unknown result-level fields. Keep a
-    // copy on the same signal audit carrier channel already used by the worker
-    // for structural-core/forward-risk diagnostics so JSON export cannot silently
-    // lose the core decision trail.
     const auditCarrier = (
       result.signals.find(signal => signal.executed === true)
       ?? result.signals.find(signal => signal.action === 'REDUCE' || signal.action === 'EXIT')
@@ -590,7 +588,7 @@ export function runDynamicReplayWithRotationExperiment(
     if (reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1) {
       result.notes.push(
         `${EXIT_PROCEEDS_CUSTODY_V1} research-only: ${result.reentryCustodyAudit.reservationsCreated} reservas creadas y ${result.reentryCustodyAudit.reentriesExecuted} reentradas ejecutadas. El default productivo/replay continúa LEGACY.`,
-        'La custodia V1 aplica sólo a EXIT completos de instrumentos cotizados no-core, usa neto de ejecución verificado post-run, protege notional+comisión, activa la protección desde la misma tanda donde nace la reserva y nunca usa texto de reason como autoridad lógica. Los REDUCE ajenos usan un lower-bound fiscal conservador si no existe FIFO accesible en el wrapper.'
+        'La custodia V1 aplica sólo a EXIT completos de instrumentos cotizados no-core, usa neto de ejecución verificado post-run, protege notional+comisión, activa la protección desde la misma tanda donde nace la reserva y estabiliza la fecha NEXT_OPEN después de desacoplar RETURN_TO_CORE. Los REDUCE ajenos usan un lower-bound fiscal conservador si no existe FIFO accesible en el wrapper.'
       );
     }
 
