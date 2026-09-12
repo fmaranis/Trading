@@ -8,7 +8,7 @@ Estado: **POLICY FROZEN / R1 VOID PRE-OPEN / R2 SEALED / BLIND NOT OPENED / RESE
 
 ## 0. Correcciones pre-open y trazabilidad
 
-La primera revisión de Fase 4 detectó errores antes de descargar o abrir ningún histórico blind. Por tanto, **ninguna muestra de Fase 4 ha sido consumida**.
+La revisión de Fase 4 detectó errores antes de descargar o abrir ningún histórico blind. Por tanto, **ninguna muestra de Fase 4 ha sido consumida**.
 
 ### R1 — VOID PRE-OPEN
 
@@ -30,6 +30,17 @@ La integración defectuosa fue retirada de `dynamicHistoricalReplayCore.ts` y el
 La revisión también detectó que `ECB_DEPOSIT_FACILITY_RATE_HISTORY` empezaba en diciembre de 2011 y, para fechas anteriores, retrocedía incorrectamente ese 0,25% como si hubiese sido siempre el DFR histórico.
 
 Se completó la tabla oficial de facilidad de depósito del BCE desde 1999. Esto es una corrección general de infraestructura, no un ajuste de la política Fase 4. El suelo nominal 0% del proxy minorista se mantiene sin cambios.
+
+### Cierre técnico pre-open adicional
+
+Antes de abrir R2 se cerraron además cuatro errores de ejecución:
+
+1. el cash reservado podía pagar indirectamente la comisión de una compra ajena aunque su notional sí estuviese limitado;
+2. una reserva que nacía en la misma tanda que otra rotación no protegía todavía sus proceeds hasta la decisión siguiente;
+3. un `REDUCE` parcial ajeno podía estimar su financiación con base media aunque el executor consume lotes FIFO;
+4. la fecha `NEXT_OPEN` podía calcularse antes de desacoplar `RETURN_TO_CORE`, de modo que el conjunto final de órdenes utilizase otra fecha de ejecución.
+
+El contrato final pre-open corrige los cuatro puntos sin abrir R2 ni observar ningún outcome del holdout.
 
 ---
 
@@ -61,7 +72,7 @@ Fase 4 no modifica `PortfolioCandidateGate`, `StrategyConsensusEngine`, `EntryTi
 
 ## 3. Política exacta congelada
 
-`EXIT_PROCEEDS_CUSTODY_V1` es un overlay research-only del replay integrado. Sólo podrá volver a conectarse al replay cuando los guards de la sección 11 prueben que implementa exactamente este contrato.
+`EXIT_PROCEEDS_CUSTODY_V1` es un overlay research-only del replay integrado. Sólo puede ejecutarse dentro de `CORE_ARCHITECTURE_V1` y el default productivo/replay normal sigue siendo `LEGACY`.
 
 ### 3.1 EXIT elegible
 
@@ -69,12 +80,13 @@ Crea custodia únicamente un EXIT que sea simultáneamente:
 
 - **100% realmente ejecutado**;
 - de una posición no `STRATEGIC_GROWTH_CORE`;
+- de un **instrumento cotizado** (`instrumentType !== MUTUAL_FUND`);
 - originado por salud/arquitectura ordinaria de esa posición;
 - no una rotación competitiva hacia un challenger táctico.
 
 Si `CORE_ARCHITECTURE_V1` había transformado ese EXIT en `RETURN_TO_CORE`, el candidato desacopla sólo esa devolución automática al core y conserva el EXIT normal.
 
-`REDUCE` nunca crea custodia. Las transferencias estructurales entre cores tampoco.
+`REDUCE` nunca crea custodia. Las transferencias estructurales entre cores tampoco. Los fondos de inversión no-core quedan fuera de `EXIT_PROCEEDS_CUSTODY_V1`: su semántica de traspaso fiscalmente diferido exige otra política y no se mezcla con este holdout.
 
 ### 3.2 Importe reservado
 
@@ -83,6 +95,8 @@ Después de la venta `NEXT_OPEN`:
 `netExitProceeds = grossSale - brokerFee - immediateTax`
 
 La reserva sólo puede contener efectivo positivo realmente obtenido. No usa notional teórico ni crea dinero.
+
+Para un EXIT completo listado, la base restante total puede reconstruirse de forma exacta en el replay y el neto predicho debe coincidir con el neto realmente ejecutado. Una discrepancia superior a la tolerancia técnica invalida la ejecución.
 
 ### 3.3 Estado del cash reservado
 
@@ -112,6 +126,8 @@ La custodia:
 - no aumenta el sizing por encima del ya autorizado;
 - sólo aporta financiación hasta el importe ordinariamente recomendado.
 
+En instrumentos cotizados, la autorización de financiación se mide como **gasto total**, por lo que `notional + brokerFee` debe caber dentro del cash autorizado. Una comisión nunca puede pagarse con la reserva de otro activo.
+
 ### 3.5 Fin de custodia
 
 La custodia termina en la **primera BUY realmente ejecutada** del mismo activo después del EXIT.
@@ -128,16 +144,22 @@ No existe waiting period, expiry, número de confirmaciones ni porcentaje de res
 
 ---
 
-## 4. Asignación y atomicidad
+## 4. Asignación, atomicidad y ejecución
 
-Con reservas activas:
+Con custodia activa —incluida la misma tanda en la que nace la primera reserva—:
 
-1. una rotación 1:1 conserva como financiación dedicada los proceeds de su propia venta; una reserva preexistente nunca puede producir `SELL` sin el `BUY` pareado;
-2. una contribución al activo reservado puede usar su propia reserva hasta el sizing ordinario;
-3. el cash libre restante se reparte proporcionalmente entre las demás contribuciones ya autorizadas;
-4. ningún importe puede superar la recomendación baseline;
-5. una orden que deje de cumplir mínimo económico/título entero se elimina y el cash queda sin invertir;
-6. elegibilidad de custodia, origen del EXIT y emparejamiento de reentrada deben viajar en estado estructurado/telemetría. `reason` es sólo auditoría y nunca autoridad de ejecución.
+1. una rotación 1:1 conserva como financiación dedicada únicamente los proceeds que puede aportar su propia venta;
+2. `notional + comisión` del BUY pareado debe caber dentro de esa financiación dedicada más cualquier cash general realmente libre;
+3. una reserva recién creada por un EXIT de salud queda protegida **desde esa misma ejecución**, no desde la decisión mensual siguiente;
+4. una contribución al activo reservado puede usar su propia reserva hasta el sizing ordinario y puede emplear el remanente de esa misma reserva para pagar su propia comisión;
+5. el cash libre restante se reparte proporcionalmente entre las demás contribuciones ya autorizadas;
+6. ningún notional puede superar la recomendación baseline;
+7. una orden que deje de cumplir mínimo económico/título entero se elimina y el cash queda sin invertir;
+8. para un `REDUCE` parcial listado ajeno a la custodia, si el wrapper no dispone de lotes FIFO, la financiación dedicada usa un **lower-bound conservador**: fee real modelada y reserva fiscal máxima del 30% sobre el cash neto de comisión. Nunca se usa base media para liberar cash protegido;
+9. el desacoplamiento de `RETURN_TO_CORE` se realiza antes de calcular precios/funding `NEXT_OPEN`; si el conjunto de órdenes cambia la fecha común, el cálculo se repite hasta estabilizarla o falla explícitamente;
+10. elegibilidad de custodia, origen del EXIT y emparejamiento de reentrada viajan en estado estructurado/telemetría. `reason` es sólo auditoría y nunca autoridad de ejecución.
+
+Estas reglas pueden dejar más cash sin invertir que el baseline cuando sea necesario para no invadir una reserva. Ese coste forma parte de la política candidata y no se corrige retrospectivamente.
 
 ---
 
@@ -149,7 +171,7 @@ Con reservas activas:
 
 ### Candidato
 
-La misma cadena, mismas series, estado inicial, fechas, cash, costes, impuestos y sizing, cambiando sólo la custodia descrita arriba.
+La misma cadena, mismas series, estado inicial, fechas, cash, costes, impuestos y sizing máximo, cambiando sólo la custodia descrita arriba y las salvaguardas imprescindibles para que ningún gasto use cash protegido.
 
 La política productiva sigue siendo `LEGACY`; el candidato sólo existe dentro de la validación research.
 
@@ -360,33 +382,43 @@ Un PASS sólo habilita segunda confirmación independiente con política congela
 Antes de cualquier descarga de los 30 históricos deben pasar:
 
 1. unit test `EXIT_PROCEEDS_CUSTODY_V1`;
-2. guard `CORE_ARCHITECTURE_V1`;
-3. guard `PortfolioCandidateGate`;
-4. guard de superficie productiva;
-5. guard de cash histórico BCE, incluidos puntos pre-2011;
-6. TypeScript / `tsc --noEmit`;
-7. default/producción sigue `LEGACY` y sin custodia;
-8. atomicidad: una rotación 1:1 ejecuta ambos lados o ninguno incluso con reservas activas;
-9. control estructurado: el executor no usa `reason.includes(...)` ni texto equivalente como autoridad de custodia;
-10. shortfall: múltiples reservas se reducen pro-rata;
-11. una reentrada nunca supera el sizing canónico ni atraviesa `WAIT/REJECTED`;
-12. una reserva se crea sólo después de un EXIT realmente ejecutado y usando proceeds netos reales.
+2. guard de integración Fase 4;
+3. guard `CORE_ARCHITECTURE_V1`;
+4. guard `PortfolioCandidateGate`;
+5. guard de paridad replay/producto;
+6. guard de superficie productiva;
+7. guard de cash histórico BCE, incluidos puntos pre-2011;
+8. TypeScript / `tsc --noEmit`;
+9. default/producción sigue `LEGACY` y sin custodia;
+10. atomicidad: una rotación 1:1 ejecuta ambos lados o ninguno incluso con reservas activas;
+11. control estructurado: no se usa `reason.includes(...)` ni texto equivalente como autoridad de custodia;
+12. shortfall: múltiples reservas se reducen pro-rata;
+13. una reentrada nunca supera el sizing canónico ni atraviesa `WAIT/REJECTED`;
+14. una reserva se crea sólo después de un EXIT realmente ejecutado y usando proceeds netos reales;
+15. una compra cotizada no puede pagar su comisión con la reserva de otro activo;
+16. una reserva nueva protege sus proceeds en la misma tanda en que se ejecuta el EXIT;
+17. un `REDUCE` parcial sin FIFO accesible no puede sobreestimar funding: usa lower-bound conservador;
+18. el conjunto de órdenes y la fecha común `NEXT_OPEN` deben quedar estables después del desacoplamiento; si no, el candidato falla antes de abrir/continuar el caso.
 
-El runner fingerprintará política, preregistro y archivos críticos antes de abrir la muestra.
+El runner fingerprinta política, preregistro y archivos críticos antes de abrir la muestra.
 
 ---
 
 ## 12. Ejecución
 
-La primera integración ejecutable fue retirada pre-open. Mientras la nueva integración no pase todos los gates anteriores, **no existe job blind ejecutable**.
+La primera integración ejecutable defectuosa fue retirada pre-open. La integración corregida está montada como **un único job** de Fase 4 dentro del `ResearchValidationCenter` existente:
 
-Cuando se cierre técnicamente:
+`Fase 4 · reentrada · custodia de proceeds`
 
-- se integrará como el único job económico activo de Fase 4 dentro del `ResearchValidationCenter` existente;
-- guards rápidos primero;
-- sólo después se descargarán por primera vez los históricos R2;
-- cálculo largo en backend/local de la app;
-- nunca GitHub Actions ni agentes prolongados.
+Orden obligatorio del job:
+
+1. guards rápidos de política e integración;
+2. guards arquitectónicos/productivos;
+3. guard BCE;
+4. TypeScript;
+5. **sólo si todo lo anterior pasa**, `Blind R2 REAL one-shot`.
+
+Los cálculos largos se ejecutan en backend/local de la app, nunca GitHub Actions ni agentes prolongados.
 
 En el instante de la primera descarga histórica R2, esta muestra quedará consumida aunque el resultado termine PASS, FAIL o INCONCLUSIVE.
 
@@ -416,8 +448,8 @@ Cualquier política distinta exige preregistro y muestra fresh nueva.
 
 `EXIT_PROCEEDS_CUSTODY_V1` prueba una sola hipótesis:
 
-> **Conservar temporalmente los proceeds netos de un EXIT no-core para la primera reentrada normal del mismo activo puede evitar que una recuperación válida quede sin financiación, asumiendo explícitamente el coste de oportunidad del cash reservado.**
+> **Conservar temporalmente los proceeds netos de un EXIT completo de un instrumento cotizado no-core para la primera reentrada normal del mismo activo puede evitar que una recuperación válida quede sin financiación, asumiendo explícitamente el coste de oportunidad del cash reservado.**
 
-No crea señal, no relaja gates, no crea dinero, no protege strategic cores y no añade autoridad productiva.
+No crea señal, no relaja gates, no crea dinero, no protege strategic cores, no añade autoridad productiva y no prueba la semántica fiscal de traspasos de fondos.
 
 **R1 VOID PRE-OPEN. R2 SEALED. NINGÚN HISTÓRICO R2 HA SIDO ABIERTO.**
