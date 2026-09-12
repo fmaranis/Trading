@@ -26,6 +26,7 @@ const replayPublic = source('src/investment/decision/dynamicHistoricalReplay.ts'
 const health = source('src/investment/decision/portfolioPositionHealth.ts');
 const currentAlerts = source('src/investment/decision/currentOpportunityAlerts.ts');
 const decisionCenter = source('src/components/InteractiveInvestmentDecisionCenter.tsx');
+const marketUtility = source('src/components/MarketUtilityDashboard.tsx');
 const currentDecisionSummary = source('src/components/CurrentOpportunityAlertsPanel.tsx');
 const realPortfolio = source('src/components/UserPortfolioPanel.tsx');
 const executionPlan = source('src/components/PortfolioExecutionPlanPanel.tsx');
@@ -86,6 +87,18 @@ requireText(forwardRisk, 'executionIndex: row.index + 1', 'FORWARD_RISK_MUST_EXE
 forbidText(forwardRisk, "from './portfolioDecisionEngine'", 'FORWARD_RISK_MUST_NOT_IMPORT_PORTFOLIO_ENGINE');
 forbidText(forwardRisk, 'PortfolioDecisionEngine.', 'FORWARD_RISK_MUST_NOT_CALL_PORTFOLIO_ENGINE');
 
+// Live product must create one canonical portfolio decision and one canonical
+// executable plan in the composition layer, then pass those exact objects down.
+// Child panels are consumers only: asking each of them to re-run the decision
+// engine would create parallel authorities and contradict CORE_ARCHITECTURE_V1.
+requireText(marketUtility, 'const portfolioDecision = useMemo(() => evaluatePortfolioDecision({', 'LIVE_PRODUCT_MUST_USE_SHARED_DECISION_ENTRY_ONCE');
+forbidText(marketUtility, 'PortfolioDecisionEngine.evaluate({', 'LIVE_PRODUCT_MUST_NOT_BYPASS_SHARED_CORE_POLICY');
+requireText(marketUtility, '<CurrentOpportunityAlertsPanel scan={scan} decision={decision} portfolioDecision={portfolioDecision} executionPlan={executionPlan}', 'CURRENT_SUMMARY_MUST_CONSUME_CANONICAL_DECISION_AND_PLAN');
+requireText(marketUtility, '<RealPurchaseRegistrationPanel scan={scan} executionPlan={executionPlan}', 'PURCHASE_REGISTRATION_MUST_CONSUME_CANONICAL_PLAN');
+requireText(marketUtility, '<UserPortfolioPanel scan={scan} portfolioDecision={portfolioDecision}', 'REAL_PORTFOLIO_MUST_CONSUME_CANONICAL_DECISION');
+requireText(marketUtility, '<PilotOperationsPanel scan={scan} decision={decision} portfolioDecision={portfolioDecision} executionPlan={executionPlan}', 'V1_PILOT_MUST_CONSUME_CANONICAL_DECISION_AND_PLAN');
+requireText(marketUtility, '<PortfolioExecutionPlanPanel scan={scan} executionPlan={executionPlan}', 'EXECUTION_PLAN_PANEL_MUST_CONSUME_CANONICAL_PLAN');
+
 for (const [file, label] of [
   [currentDecisionSummary, 'CURRENT_SUMMARY'],
   [realPortfolio, 'REAL_PORTFOLIO'],
@@ -93,7 +106,7 @@ for (const [file, label] of [
   [purchaseRegistration, 'PURCHASE_REGISTRATION'],
   [pilotOperations, 'V1_PILOT']
 ] as const) {
-  requireText(file, 'evaluatePortfolioDecision({', `${label}_MUST_USE_SHARED_DECISION_ENTRY`);
+  forbidText(file, 'evaluatePortfolioDecision({', `${label}_MUST_NOT_REEVALUATE_CANONICAL_DECISION`);
   forbidText(file, 'PortfolioDecisionEngine.evaluate({', `${label}_MUST_NOT_BYPASS_SHARED_CORE_POLICY`);
 }
 
