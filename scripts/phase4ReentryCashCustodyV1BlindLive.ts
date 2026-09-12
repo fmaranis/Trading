@@ -24,6 +24,7 @@ const MINIMUM_BARS = 252;
 const COHORT_COUNT = 6;
 const FRESH_PER_COHORT = 5;
 const MIN_VALID_FRESH_PER_COHORT = 4;
+const SEAL_PATH = 'docs/phase4_reentry_cash_custody_v1_seal.json';
 
 const CORE: AssetUniverseItem = {
   assetId: 'FUND_VANGUARD_GLOBAL',
@@ -79,8 +80,33 @@ const CRITICAL_FILES = [
   'scripts/phase4ReentryCashCustodyV1BlindLive.ts'
 ] as const;
 
+interface Phase4Seal {
+  version: string;
+  sampleState: string;
+  expectedGitBlobSha: Record<string, string>;
+}
+
 function sha256Text(text: string): string {
   return createHash('sha256').update(text).digest('hex');
+}
+
+function gitBlobSha(text: string): string {
+  const normalized = text.replace(/\r\n/g, '\n');
+  const bytes = Buffer.from(normalized, 'utf8');
+  return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+}
+
+function verifyPreOpenSeal(): Phase4Seal {
+  const seal = JSON.parse(readFileSync(SEAL_PATH, 'utf8')) as Phase4Seal;
+  if (seal.version !== 'PHASE4_REENTRY_CASH_CUSTODY_V1_R2_SEAL' || seal.sampleState !== 'R2_SEALED_NOT_OPENED') {
+    throw new Error('PHASE4_R2_PREOPEN_SEAL_INVALID');
+  }
+  if (Object.keys(seal.expectedGitBlobSha).length < 8) throw new Error('PHASE4_R2_PREOPEN_SEAL_INCOMPLETE');
+  for (const [path, expected] of Object.entries(seal.expectedGitBlobSha)) {
+    const actual = gitBlobSha(readFileSync(path, 'utf8'));
+    if (actual !== expected) throw new Error(`PHASE4_R2_PREOPEN_SEAL_MISMATCH:${path}:${expected}:${actual}`);
+  }
+  return seal;
 }
 
 function criticalFingerprints(): Record<string, string> {
@@ -157,6 +183,7 @@ async function waitForHealth(url: string, timeoutMs: number): Promise<boolean> {
 }
 
 async function main() {
+  const seal = verifyPreOpenSeal();
   const fingerprints = criticalFingerprints();
   const cohorts = buildCohorts();
   let server: ReturnType<typeof spawn> | null = null;
@@ -180,8 +207,8 @@ async function main() {
     registry.setDefaultProvider('yahoo_finance');
     HistoricalMarketDataService.setRegistry(registry);
 
-    // This is the one-shot boundary: the first call below opens R2. Nothing above
-    // reads historical outcomes for the sealed names.
+    // This is the one-shot boundary: the first call below opens R2. Everything
+    // above is local validation only; the seal is verified before any R2 outcome.
     const universe = [CORE, ...R2_FRESH];
     const scan = await AssetUniverseScanner.scan(universe, DATA_START_DATE, END_DATE, {
       forceRefresh: false,
@@ -230,6 +257,7 @@ async function main() {
         executedAt: new Date().toISOString(),
         sampleState: 'R2_OPENED_CONSUMED',
         verdict: 'INCONCLUSIVE_INVALID_DATA',
+        sealVersion: seal.version,
         fingerprints,
         scanner: { scanned: scan.scanned, accepted: scan.accepted, rejected: scan.rejected, rejectionCounts: scan.rejectionCounts },
         dataGate,
@@ -302,7 +330,9 @@ async function main() {
     for (const cohort of cohortResults) {
       for (const episode of cohort.candidate.reentryCustodyAudit.episodes as Array<any>) {
         exitKeys.add(`${episode.assetId}|${episode.exitExecutionDate}`);
-        if (episode.reentryExecutionDate) reentryKeys.add(`${episode.assetId}|${episode.exitExecutionDate}|${episode.reentryExecutionDate}`);
+        if (episode.reentryExecutionDate && episode.reservedCashUsedEur > 0.01) {
+          reentryKeys.add(`${episode.assetId}|${episode.exitExecutionDate}|${episode.reentryExecutionDate}`);
+        }
       }
     }
     const reach = { uniqueExitReservations: exitKeys.size, uniqueReentries: reentryKeys.size, pass: exitKeys.size >= 12 && reentryKeys.size >= 6 };
@@ -332,6 +362,7 @@ async function main() {
       executedAt: new Date().toISOString(),
       sampleState: 'R2_OPENED_CONSUMED',
       verdict,
+      sealVersion: seal.version,
       fingerprints,
       protocol: {
         dataStartDate: DATA_START_DATE,
