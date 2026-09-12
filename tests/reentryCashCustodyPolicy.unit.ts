@@ -107,7 +107,7 @@ function reservation(amountEur = 1_000): ReentryCashReservation {
   assert.equal(next.decision.plannedRotationProceedsEur, 0);
   assert.equal(next.decision.contributions.length, 0);
   assert.equal(next.decision.existingPositions[0].rotationChallengerAssetId, null);
-  assert.match(next.decision.existingPositions[0].reason, new RegExp(REENTRY_CUSTODY_EXIT_MARKER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.ok(next.decision.existingPositions[0].reason.includes(REENTRY_CUSTODY_EXIT_MARKER));
   assert.equal(next.telemetry.detachedReturnToCoreEur, 2_000);
   assert.deepEqual(next.telemetry.qualifyingExitAssetIds, [exited.assetId]);
 }
