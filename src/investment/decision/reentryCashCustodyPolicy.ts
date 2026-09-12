@@ -24,6 +24,7 @@ export interface ReentryCashCustodyDecisionTelemetry {
   freeBaseDeployableEur: number;
   dedicatedRotationFundingEur: number;
   reservedCashAuthorizedForReentryEur: number;
+  reservedCashAuthorizedByAssetEur: Record<string, number>;
   matchedReentryAssetIds: string[];
 }
 
@@ -36,6 +37,21 @@ export interface ReentryCashCustodyPreparedDecision {
   decision: PortfolioDecisionResult;
   qualifyingExitAssetIds: string[];
   detachedReturnToCoreEur: number;
+}
+
+function emptyTelemetry(policy: ReentryFundingPolicy, freeBaseDeployableEur: number): ReentryCashCustodyDecisionTelemetry {
+  return {
+    policy,
+    qualifyingExitAssetIds: [],
+    detachedReturnToCoreEur: 0,
+    nominalReservedCashEur: 0,
+    effectiveReservedCashEur: 0,
+    freeBaseDeployableEur: Math.max(0, freeBaseDeployableEur),
+    dedicatedRotationFundingEur: 0,
+    reservedCashAuthorizedForReentryEur: 0,
+    reservedCashAuthorizedByAssetEur: {},
+    matchedReentryAssetIds: []
+  };
 }
 
 function cloneDecision(result: PortfolioDecisionResult): PortfolioDecisionResult {
@@ -133,11 +149,6 @@ function detachEligibleHealthExits(
   return { qualifyingExitAssetIds, detachedReturnToCoreEur };
 }
 
-/**
- * Detach eligible health EXIT proceeds from the automatic return-to-core route
- * before any execution-date/funding calculation. This makes the set of trade
- * assets used for NEXT_OPEN pricing identical to the set the executor will see.
- */
 export function prepareExitProceedsCustodyV1(
   result: PortfolioDecisionResult,
   eligibleHealthExitAssetIds: readonly string[]
@@ -255,17 +266,10 @@ export function applyExitProceedsCustodyV1(input: {
   if (input.policy !== EXIT_PROCEEDS_CUSTODY_V1) {
     return {
       decision: input.result,
-      telemetry: {
-        policy: input.policy,
-        qualifyingExitAssetIds: [],
-        detachedReturnToCoreEur: 0,
-        nominalReservedCashEur: 0,
-        effectiveReservedCashEur: 0,
-        freeBaseDeployableEur: Math.max(0, input.result.deployableToAssetsEur - input.result.plannedRotationProceedsEur),
-        dedicatedRotationFundingEur: 0,
-        reservedCashAuthorizedForReentryEur: 0,
-        matchedReentryAssetIds: []
-      }
+      telemetry: emptyTelemetry(
+        input.policy,
+        input.result.deployableToAssetsEur - input.result.plannedRotationProceedsEur
+      )
     };
   }
 
@@ -282,17 +286,10 @@ export function applyExitProceedsCustodyV1(input: {
   if (!custodyAffectsExecution) {
     return {
       decision: result,
-      telemetry: {
-        policy: input.policy,
-        qualifyingExitAssetIds: [],
-        detachedReturnToCoreEur: 0,
-        nominalReservedCashEur: 0,
-        effectiveReservedCashEur: 0,
-        freeBaseDeployableEur: Math.max(0, result.deployableToAssetsEur - result.plannedRotationProceedsEur),
-        dedicatedRotationFundingEur: 0,
-        reservedCashAuthorizedForReentryEur: 0,
-        matchedReentryAssetIds: []
-      }
+      telemetry: emptyTelemetry(
+        input.policy,
+        result.deployableToAssetsEur - result.plannedRotationProceedsEur
+      )
     };
   }
 
@@ -351,6 +348,7 @@ export function applyExitProceedsCustodyV1(input: {
   const totalResidualDemand = rows.reduce((sum, item) => sum + item.residualDemand, 0);
   const freeScale = totalResidualDemand > 0.01 ? Math.min(1, freeBaseDeployableEur / totalResidualDemand) : 0;
   let reservedCashAuthorizedForReentryEur = 0;
+  const reservedCashAuthorizedByAssetEur: Record<string, number> = {};
   const matchedReentryAssetIds: string[] = [];
 
   const adjusted: ContributionRecommendation[] = [];
@@ -376,9 +374,12 @@ export function applyExitProceedsCustodyV1(input: {
     if (item.reentryCoverage > 0.01) {
       const actualSpend = spendForNotional(row, finalAmount);
       const reserveSpend = Math.min(item.ownReservationAvailable, actualSpend);
-      reservedCashAuthorizedForReentryEur += reserveSpend;
-      matchedReentryAssetIds.push(row.assetId);
-      row.reason += ` [${EXIT_PROCEEDS_CUSTODY_V1}:REENTRY_FUNDED] La reserva propia puede financiar hasta ${reserveSpend.toFixed(2)} € de gasto total (notional + comisión cuando aplique); la elegibilidad y el sizing máximo siguen siendo los de la cadena canónica.`;
+      if (reserveSpend > 0.01) {
+        reservedCashAuthorizedForReentryEur += reserveSpend;
+        reservedCashAuthorizedByAssetEur[row.assetId] = reserveSpend;
+        matchedReentryAssetIds.push(row.assetId);
+        row.reason += ` [${EXIT_PROCEEDS_CUSTODY_V1}:REENTRY_FUNDED] La reserva propia autoriza ${reserveSpend.toFixed(2)} € de gasto total (notional + comisión cuando aplique); la elegibilidad y el sizing máximo siguen siendo los de la cadena canónica.`;
+      }
     }
     adjusted.push(row);
   }
@@ -402,6 +403,7 @@ export function applyExitProceedsCustodyV1(input: {
       freeBaseDeployableEur,
       dedicatedRotationFundingEur,
       reservedCashAuthorizedForReentryEur,
+      reservedCashAuthorizedByAssetEur,
       matchedReentryAssetIds: [...new Set(matchedReentryAssetIds)].sort()
     }
   };
