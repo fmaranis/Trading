@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { getAlertAutomationStatus, runDailyOpportunityCheck } from './alertAutomation';
 import { accountRouter } from './accountRoutes';
 import { researchValidationRouter } from './researchValidationRoutes';
+import { researchValidationRecoveryRouter } from './researchValidationRecoveryRoutes';
 import { assetDiscoveryRouter } from './assetDiscoveryRoutes';
 
 export const alertAutomationRouter = express.Router();
@@ -12,6 +13,9 @@ alertAutomationRouter.use('/account', accountRouter);
 
 // Fixed local research jobs: no arbitrary shell command and no AI API.
 alertAutomationRouter.use('/research-validation', researchValidationRouter);
+// Recovery/archival maintenance stays under the same validation surface instead
+// of creating a second product panel or parallel research center.
+alertAutomationRouter.use('/research-validation', researchValidationRecoveryRouter);
 
 // Open Yahoo discovery used by replay/research when an asset is not present in
 // the curated production catalogue. It only returns EUR instruments as usable.
