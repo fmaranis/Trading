@@ -209,11 +209,22 @@ function predictedListedSale(input: {
   const grossEur = unitsToSell * bar.open;
   const feeEur = brokerCommission(grossEur);
   if (!orderEconomicallyExecutable(grossEur, input.result.totalPlannedCapitalEur)) return null;
-  const snapshot = healthSnapshot(input.evaluationInput, assetId);
-  const totalBasis = basisFromHealth(snapshot, Math.max(0, input.position.currentValueEur ?? 0));
-  const basisSold = shares > 0 ? totalBasis * unitsToSell / shares : 0;
-  const realizedGain = grossEur - feeEur - basisSold;
-  const taxEur = Math.max(0, realizedGain) * 0.30;
+
+  let taxEur = 0;
+  if (input.position.action === 'EXIT') {
+    // Full EXIT consumes the entire remaining replay basis, so aggregate basis
+    // reconstructed from health is exact for the tax reserve used by the executor.
+    const snapshot = healthSnapshot(input.evaluationInput, assetId);
+    const totalBasis = basisFromHealth(snapshot, Math.max(0, input.position.currentValueEur ?? 0));
+    const realizedGain = grossEur - feeEur - totalBasis;
+    taxEur = Math.max(0, realizedGain) * 0.30;
+  } else {
+    // A partial REDUCE is FIFO in the executor. The wrapper does not own lot-level
+    // state, so never approximate it with average basis: reserve the worst-case
+    // 30% of net sale cash. This is a safe lower bound on dedicated proceeds and
+    // cannot borrow from another asset's custody reservation.
+    taxEur = Math.max(0, grossEur - feeEur) * 0.30;
+  }
   return { grossEur, feeEur, taxEur, netEur: Math.max(0, grossEur - feeEur - taxEur) };
 }
 
@@ -237,7 +248,7 @@ function predictedRotationFunding(
     if (sourceItem.instrumentType === 'MUTUAL_FUND') {
       const gross = Math.max(0, position.currentValueEur ?? 0) * (position.action === 'EXIT' ? 1 : Math.max(0, Math.min(100, position.suggestedReductionPct ?? 50)) / 100);
       // A direct fund-to-fund rotation can use the gross transfer proceeds; other
-      // source/target combinations are not given a synthetic tax advantage here.
+      // source/target combinations are given only a conservative 70% cash floor.
       net = targetItem.instrumentType === 'MUTUAL_FUND' ? gross : gross * 0.70;
     } else {
       net = predictedListedSale({ replayInput, evaluationInput, result, position, executionDate })?.netEur ?? 0;
@@ -245,6 +256,22 @@ function predictedRotationFunding(
     if (net > 0.01) funding[position.rotationChallengerAssetId] = (funding[position.rotationChallengerAssetId] ?? 0) + net;
   }
   return funding;
+}
+
+function executionPricesForContributions(
+  replayInput: ReplayRunInput,
+  evaluationInput: PortfolioEvaluationInput,
+  result: PortfolioDecisionResult
+): Record<string, number> {
+  const executionDate = commonExecutionDate(replayInput, replayDecisionDate(evaluationInput), result);
+  if (!executionDate) return {};
+  const prices: Record<string, number> = {};
+  for (const contribution of result.contributions) {
+    if (!(contribution.amountEur > 0.01) || contribution.instrumentType === 'MUTUAL_FUND') continue;
+    const bar = executionBarOnOrAfter(replayInput, contribution.assetId, executionDate);
+    if (bar?.open != null && bar.open > 0) prices[contribution.assetId] = bar.open;
+  }
+  return prices;
 }
 
 function predictEligibleExit(
@@ -464,22 +491,29 @@ export function runDynamicReplayWithRotationExperiment(
       const architecture = applyCoreArchitectureV1(evaluationInput, gated, architectureCounters);
       if (experiment === 'CORE_ARCHITECTURE_V1' && reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1) {
         const eligibleHealthExitAssetIds = architecture.existingPositions
-          .filter(position => position.assetId && position.action === 'EXIT' && healthSnapshot(evaluationInput, position.assetId)?.action === 'EXIT')
+          .filter(position => {
+            if (!position.assetId || position.action !== 'EXIT') return false;
+            const item = catalogItem(input, position.assetId);
+            return item?.instrumentType !== 'MUTUAL_FUND'
+              && healthSnapshot(evaluationInput, position.assetId)?.action === 'EXIT';
+          })
           .map(position => position.assetId!);
         const rotationFundingByAssetId = predictedRotationFunding(input, evaluationInput, architecture);
+        const executionPriceByAssetId = executionPricesForContributions(input, evaluationInput, architecture);
         const overlay = applyExitProceedsCustodyV1({
           result: architecture,
           scan: evaluationInput.scan,
           reservations: [...activeReservations.values()].map(row => ({ ...row.reservation })),
           eligibleHealthExitAssetIds,
           rotationFundingByAssetId,
+          executionPriceByAssetId,
           policy: reentryFundingPolicy
         });
 
         for (const assetId of overlay.telemetry.qualifyingExitAssetIds) {
           if (activeReservations.has(assetId) || pendingExits.some(row => row.assetId === assetId)) continue;
           const predicted = predictEligibleExit(input, evaluationInput, overlay.decision, assetId);
-          if (!predicted) continue;
+          if (!predicted) throw new Error(`PHASE4_REENTRY_ELIGIBLE_EXIT_PREDICTION_REQUIRED:${assetId}`);
           pendingExits.push(predicted);
           allPredictedExits.push(predicted);
         }
@@ -556,7 +590,7 @@ export function runDynamicReplayWithRotationExperiment(
     if (reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1) {
       result.notes.push(
         `${EXIT_PROCEEDS_CUSTODY_V1} research-only: ${result.reentryCustodyAudit.reservationsCreated} reservas creadas y ${result.reentryCustodyAudit.reentriesExecuted} reentradas ejecutadas. El default productivo/replay continúa LEGACY.`,
-        'La custodia usa únicamente EXIT de salud estructurado, neto de ejecución real verificado post-run, preserva funding atómico de rotaciones y nunca usa texto de reason como autoridad lógica.'
+        'La custodia V1 aplica sólo a EXIT completos de instrumentos cotizados no-core, usa neto de ejecución verificado post-run, protege notional+comisión, activa la protección desde la misma tanda donde nace la reserva y nunca usa texto de reason como autoridad lógica. Los REDUCE ajenos usan un lower-bound fiscal conservador si no existe FIFO accesible en el wrapper.'
       );
     }
 
