@@ -1,33 +1,47 @@
 # FASE 4 — EXIT_PROCEEDS_CUSTODY_V1 · preregistro blind
 
-Fecha de congelación: **2026-09-12**  
+Fecha de congelación de política: **2026-09-12**  
 Protocolo común: `ECONOMIC_VALIDATION_PROTOCOL_V1`  
 Política candidata: `EXIT_PROCEEDS_CUSTODY_V1`  
-Estado: **POLICY FROZEN / BLIND NOT OPENED / RESEARCH ONLY**
+Sample seal vigente: `PHASE4_REENTRY_BLIND_R2`  
+Estado: **POLICY FROZEN / R1 VOID PRE-OPEN / R2 SEALED / BLIND NOT OPENED / RESEARCH ONLY**
 
-## Nota de corrección pre-open — 2026-09-12
+## 0. Correcciones pre-open y trazabilidad
 
-Antes de descargar o abrir ningún histórico del pool blind, una revisión estática de la primera integración detectó tres problemas de implementación/metodología:
+La primera revisión de Fase 4 detectó errores antes de descargar o abrir ningún histórico blind. Por tanto, **ninguna muestra de Fase 4 ha sido consumida**.
 
-1. una rotación 1:1 con reservas activas podía superar el precheck atómico y después bloquear la compra del challenger al volver a proteger el cash reservado durante la ejecución;
-2. el executor utilizaba un marcador dentro de `reason` como condición de control para reconocer un EXIT de custodia;
-3. el reach agregado podía contar varias veces el mismo episodio porque las seis cohortes se solapan.
+### R1 — VOID PRE-OPEN
 
-La integración defectuosa se retiró del replay antes de abrir el blind. **No se descargó ni observó ningún histórico de los 30 activos, por lo que la muestra sigue fresh/blind.**
+La primera propuesta queda anulada sin valor probatorio por cuatro motivos:
 
-Esta corrección no cambia la hipótesis económica ni introduce parámetros derivados de outcomes. Aclara y congela antes del blind los invariantes que la implementación corregida deberá cumplir: prioridad de financiación de rotaciones atómicas, reducción proporcional de reservas si el cash real no alcanza y reach deduplicado por episodio económico.
+1. la integración inicial podía romper la atomicidad de una rotación 1:1: el `SELL` podía ejecutarse y el `BUY` pareado quedar bloqueado después por la protección de reservas;
+2. el executor usaba texto de `reason` como autoridad lógica para reconocer un EXIT de custodia;
+3. las seis cohortes se solapaban y podían contar varias veces el mismo episodio de EXIT/reentrada;
+4. la muestra no era fresh:
+   - **18/30** tickers ya estaban en `EUR_PORTFOLIO_EXPANSION_UNIVERSE` antes del preregistro;
+   - la ventana propuesta `2016-09-01 -> 2026-09-01` coincide con la ventana de 10 años ya consumida por Opportunity/Allocation y registrada como consumida en `ECONOMIC_VALIDATION_PROTOCOL_V1`.
+
+Los 18 nombres contaminados eran: `SAP.DE`, `SIE.DE`, `ALV.DE`, `DTE.DE`, `DB1.DE`, `ADS.DE`, `AIR.PA`, `MC.PA`, `OR.PA`, `AI.PA`, `SU.PA`, `SAN.PA`, `BNP.PA`, `ITX.MC`, `IBE.MC`, `ENEL.MI`, `ISP.MI`, `ENI.MI`.
+
+La integración defectuosa fue retirada de `dynamicHistoricalReplayCore.ts` y el archivo volvió al blob productivo/replay conocido anterior a Fase 4 antes de abrir datos.
+
+### Infraestructura corregida antes de R2
+
+La revisión también detectó que `ECB_DEPOSIT_FACILITY_RATE_HISTORY` empezaba en diciembre de 2011 y, para fechas anteriores, retrocedía incorrectamente ese 0,25% como si hubiese sido siempre el DFR histórico.
+
+Se completó la tabla oficial de facilidad de depósito del BCE desde 1999. Esto es una corrección general de infraestructura, no un ajuste de la política Fase 4. El suelo nominal 0% del proxy minorista se mantiene sin cambios.
 
 ---
 
 ## 1. Pregunta económica
 
-La cadena actual ya permite que un activo vendido vuelva a comprarse si, en una fecha posterior, vuelve a superar los gates normales de oportunidad, consenso y `EntryTiming`.
+La cadena actual ya permite que un activo vendido vuelva a comprarse si posteriormente vuelve a superar los gates normales de oportunidad, consenso y `EntryTiming`.
 
-El problema a estudiar no es crear una señal especial de reentrada. Es otro:
+La hipótesis no crea una señal especial de reentrada. Pregunta únicamente:
 
-> **Después de un EXIT no-core, ¿reservar causalmente sus proceeds netos para una posible primera reentrada del mismo activo mejora la riqueza terminal frente a devolver inmediatamente ese capital al core, sin relajar ningún gate de entrada?**
+> **Después de un EXIT no-core, ¿reservar causalmente sus proceeds netos para una posible primera reentrada normal del mismo activo mejora la riqueza terminal frente a devolver inmediatamente ese capital al core, sin relajar ningún gate?**
 
-HFG sólo motivó esta pregunta general. No se usa para fijar esperas, thresholds, confirmaciones, sizing ni fechas.
+HFG sólo motivó esta pregunta general. No fija esperas, thresholds, confirmaciones, sizing ni fechas.
 
 Producción permanece sin cambios bajo `CORE_ARCHITECTURE_V1` + allocation `LEGACY`.
 
@@ -35,266 +49,276 @@ Producción permanece sin cambios bajo `CORE_ARCHITECTURE_V1` + allocation `LEGA
 
 ## 2. Hallazgo arquitectónico previo al blind
 
-La auditoría del código real, realizada antes de abrir la muestra, confirma:
+Antes de abrir la muestra se verificó que:
 
-1. un activo vendido puede volver a entrar por la cadena ordinaria si vuelve a ser elegible;
-2. `CORE_ARCHITECTURE_V1` devuelve actualmente un `REDUCE/EXIT` no-core sin destino financiado al core global sano mediante `RETURN_TO_CORE`;
-3. por tanto, el cuello de botella potencial de reentrada es **financiación/custodia del capital**, no ausencia de una señal de compra especial.
+1. un activo vendido puede volver a entrar por la cadena ordinaria;
+2. `CORE_ARCHITECTURE_V1` devuelve normalmente un `REDUCE/EXIT` no-core sin destino financiado al core global sano mediante `RETURN_TO_CORE`;
+3. por tanto, el cuello de botella potencial es de **financiación/custodia del capital**, no de ausencia de señal.
 
-La Fase 4 no modifica `PortfolioCandidateGate`, `StrategyConsensusEngine`, `EntryTimingEngine`, starter/build caps, categoría, slots, ranking, `CORE_GATE_V1` ni las reglas de salud que generan el EXIT.
+Fase 4 no modifica `PortfolioCandidateGate`, `StrategyConsensusEngine`, `EntryTimingEngine`, starter/build caps, categorías, slots, ranking, `CORE_GATE_V1` ni las reglas de salud que generan el EXIT.
 
 ---
 
 ## 3. Política exacta congelada
 
-`EXIT_PROCEEDS_CUSTODY_V1` es un overlay research-only del replay integrado. La política queda congelada aquí; la integración ejecutable sólo podrá abrir el blind cuando los guards de la sección 11 demuestren que implementa exactamente este contrato.
+`EXIT_PROCEEDS_CUSTODY_V1` es un overlay research-only del replay integrado. Sólo podrá volver a conectarse al replay cuando los guards de la sección 11 prueben que implementa exactamente este contrato.
 
-### 3.1 Salida elegible
+### 3.1 EXIT elegible
 
-Una salida crea custodia sólo cuando:
+Crea custodia únicamente un EXIT que sea simultáneamente:
 
-- es un **EXIT 100% realmente ejecutado**;
-- la posición no es `STRATEGIC_GROWTH_CORE`;
-- el EXIT procede de la salud/arquitectura ordinaria de la posición;
-- no es una rotación competitiva hacia un challenger táctico;
-- si `CORE_ARCHITECTURE_V1` había convertido ese EXIT en `RETURN_TO_CORE`, el brazo candidato desacopla únicamente esa devolución automática al core y deja el EXIT como salida normal.
+- **100% realmente ejecutado**;
+- de una posición no `STRATEGIC_GROWTH_CORE`;
+- originado por salud/arquitectura ordinaria de esa posición;
+- no una rotación competitiva hacia un challenger táctico.
 
-`REDUCE` nunca crea custodia.
+Si `CORE_ARCHITECTURE_V1` había transformado ese EXIT en `RETURN_TO_CORE`, el candidato desacopla sólo esa devolución automática al core y conserva el EXIT normal.
 
-Las transferencias estructurales entre cores tampoco crean custodia.
+`REDUCE` nunca crea custodia. Las transferencias estructurales entre cores tampoco.
 
 ### 3.2 Importe reservado
 
-Después de ejecutar la venta en `NEXT_OPEN`, la reserva es exactamente:
+Después de la venta `NEXT_OPEN`:
 
 `netExitProceeds = grossSale - brokerFee - immediateTax`
 
-Sólo se reserva un importe positivo realmente existente. No se inventa efectivo y no se utiliza el notional teórico previo a ejecución.
+La reserva sólo puede contener efectivo positivo realmente obtenido. No usa notional teórico ni crea dinero.
 
 ### 3.3 Estado del cash reservado
 
-El cash reservado:
+El importe reservado:
 
 - sigue siendo cash real de la cartera;
-- sigue remunerándose con la misma lógica histórica BCE/fiscalidad;
-- sigue contando dentro del patrimonio;
+- sigue remunerándose con la misma lógica BCE y fiscalidad de cash;
+- sigue formando parte del patrimonio;
 - no puede financiar otros activos mientras la custodia esté activa;
-- nunca permite gastar por debajo del cash objetivo de la cartera;
-- queda siempre limitado por el cash realmente disponible tras retiradas u otros flujos.
+- nunca autoriza gastar por debajo del cash objetivo;
+- queda limitado por el cash realmente existente.
 
-Si existen varias reservas activas y el cash real por encima del objetivo es insuficiente para protegerlas íntegramente, la parte económicamente efectiva de **todas** las reservas se reduce **proporcionalmente a su importe nominal**. No existe prioridad FIFO/LIFO ni preferencia por antigüedad.
-
-No existe una aportación implícita ni una segunda cuenta económica.
+Si varias reservas están activas y el cash real protegible es insuficiente, **todas se reducen pro-rata respecto a sus importes nominales**. No hay FIFO/LIFO ni prioridad por antigüedad.
 
 ### 3.4 Condición de reentrada
 
-No existe un gate de reentrada nuevo.
+No existe gate nuevo.
 
-El activo sólo puede reutilizar su reserva cuando la cadena canónica, sin ninguna relajación, vuelve a generar para él una contribución normal:
+El activo sólo puede utilizar su propia reserva si la cadena canónica vuelve a generar una contribución normal:
 
-`REAL data -> PortfolioCandidateGate -> consenso -> EntryTiming != WAIT -> PortfolioDecisionEngine -> CORE_GATE_V1 -> CORE_ARCHITECTURE_V1`
+`REAL -> PortfolioCandidateGate -> consenso -> EntryTiming != WAIT -> PortfolioDecisionEngine -> CORE_GATE_V1 -> CORE_ARCHITECTURE_V1`
 
-La reserva:
+La custodia:
 
-- no convierte un candidato rechazado en elegible;
-- no cambia `WAIT` a entrada;
-- no aumenta el sizing por encima de lo que la cadena ordinaria ya autorizó;
+- no convierte `REJECTED` en compra;
+- no cambia `WAIT`;
+- no aumenta el sizing por encima del ya autorizado;
 - sólo aporta financiación hasta el importe ordinariamente recomendado.
 
-### 3.5 Fin de la custodia
+### 3.5 Fin de custodia
 
 La custodia termina en la **primera BUY realmente ejecutada** del mismo activo después del EXIT.
 
-En ese momento:
+En esa ejecución:
 
-- se contabiliza como reentrada;
-- se considera utilizado, como máximo, el cash reservado necesario para la operación real incluida su comisión;
-- cualquier remanente de la reserva se libera como cash general para decisiones posteriores.
+- se registra la reentrada;
+- se consume como máximo la parte de reserva necesaria para la compra y comisión reales;
+- cualquier remanente se libera como cash general.
 
-Si el activo nunca vuelve a ser elegible, la reserva no caduca arbitrariamente: permanece como cash remunerado hasta el final del caso. Ese coste de oportunidad forma parte del resultado económico.
+Si nunca reaparece una BUY válida, la reserva no caduca: permanece como cash remunerado hasta el final del caso. Ese coste de oportunidad forma parte del resultado.
 
-No hay waiting period, expiry, número de confirmaciones ni porcentaje de reserva ajustable.
-
----
-
-## 4. Asignación cuando existe cash reservado
-
-Para impedir que la reserva se filtre a otros activos sin crear una segunda cadena de decisión:
-
-1. las rotaciones 1:1 ya financiadas por proceeds de su propia venta conservan primero esa financiación dedicada; una reserva preexistente no puede provocar `SELL` del incumbent y después bloquear su `BUY` pareado;
-2. una contribución al activo que posee la reserva puede usar su propia reserva hasta su sizing ordinario;
-3. el cash libre restante se distribuye entre las demás contribuciones ya autorizadas preservando proporcionalmente sus importes relativos;
-4. ningún importe final puede superar el recomendado por la cadena baseline;
-5. si tras el ajuste una orden no supera el mínimo económico/una unidad entera aplicable, se elimina y el cash permanece sin invertir;
-6. la elegibilidad de custodia y la atomicidad de ejecución deben viajar como estado estructurado/telemetría; los textos de `reason` son sólo auditoría y **no pueden ser autoridad lógica del executor**.
-
-Así, la única diferencia experimental es la custodia de proceeds de un EXIT no-core y su disponibilidad exclusiva para la primera reentrada normal del mismo activo.
+No existe waiting period, expiry, número de confirmaciones ni porcentaje de reserva ajustable.
 
 ---
 
-## 5. Baseline
+## 4. Asignación y atomicidad
 
-Control:
+Con reservas activas:
 
-`CORE_ARCHITECTURE_V1` actual, sin custodia.
-
-Cuando un EXIT no-core queda sin destino táctico financiado y existe un core sano, la arquitectura actual puede devolver sus proceeds al core mediante `RETURN_TO_CORE`.
-
-Candidato:
-
-la misma cadena, mismos datos, mismas fechas, mismo cash, costes, impuestos y sizing, pero el neto de ese EXIT se custodia según la sección 3.
-
-No cambia ninguna otra regla.
+1. una rotación 1:1 conserva como financiación dedicada los proceeds de su propia venta; una reserva preexistente nunca puede producir `SELL` sin el `BUY` pareado;
+2. una contribución al activo reservado puede usar su propia reserva hasta el sizing ordinario;
+3. el cash libre restante se reparte proporcionalmente entre las demás contribuciones ya autorizadas;
+4. ningún importe puede superar la recomendación baseline;
+5. una orden que deje de cumplir mínimo económico/título entero se elimina y el cash queda sin invertir;
+6. elegibilidad de custodia, origen del EXIT y emparejamiento de reentrada deben viajar en estado estructurado/telemetría. `reason` es sólo auditoría y nunca autoridad de ejecución.
 
 ---
 
-## 6. Muestra blind histórica reservada antes de abrir precios
+## 5. Baseline emparejado
 
-La muestra fresh se selecciona por identidad estructural y diversificación geográfica, no por rendimiento histórico. Una búsqueda previa del repositorio no encontró uso de estos tickers en los protocolos/holdouts existentes. No se han descargado ni observado sus históricos para diseñar esta política.
+### Control
 
-### 6.1 Pool fresh congelado — 30 acciones EUR
+`CORE_ARCHITECTURE_V1` sin custodia.
 
-Alemania:
+### Candidato
 
-- `EQ_PH4_SAP` — `SAP.DE`
-- `EQ_PH4_SIE` — `SIE.DE`
-- `EQ_PH4_ALV` — `ALV.DE`
-- `EQ_PH4_BAS` — `BAS.DE`
-- `EQ_PH4_DTE` — `DTE.DE`
-- `EQ_PH4_DB1` — `DB1.DE`
-- `EQ_PH4_ADS` — `ADS.DE`
-- `EQ_PH4_BMW` — `BMW.DE`
-- `EQ_PH4_MUV2` — `MUV2.DE`
-- `EQ_PH4_HEN3` — `HEN3.DE`
-- `EQ_PH4_BEI` — `BEI.DE`
-- `EQ_PH4_RWE` — `RWE.DE`
-- `EQ_PH4_IFX` — `IFX.DE`
-- `EQ_PH4_VOW3` — `VOW3.DE`
-- `EQ_PH4_MRK` — `MRK.DE`
+La misma cadena, mismas series, estado inicial, fechas, cash, costes, impuestos y sizing, cambiando sólo la custodia descrita arriba.
 
-Francia:
-
-- `EQ_PH4_AIR` — `AIR.PA`
-- `EQ_PH4_OR` — `OR.PA`
-- `EQ_PH4_SAN` — `SAN.PA`
-- `EQ_PH4_MC` — `MC.PA`
-- `EQ_PH4_SU` — `SU.PA`
-- `EQ_PH4_BNP` — `BNP.PA`
-- `EQ_PH4_DG` — `DG.PA`
-- `EQ_PH4_CAP` — `CAP.PA`
-- `EQ_PH4_RI` — `RI.PA`
-- `EQ_PH4_AI` — `AI.PA`
-
-Italia:
-
-- `EQ_PH4_ENEL` — `ENEL.MI`
-- `EQ_PH4_ISP` — `ISP.MI`
-- `EQ_PH4_ENI` — `ENI.MI`
-
-España:
-
-- `EQ_PH4_IBE` — `IBE.MC`
-- `EQ_PH4_ITX` — `ITX.MC`
-
-Todos se tratan como acciones individuales mediante identidad `EQ_*`; nunca como core diversificado por pertenecer a una categoría regional amplia.
-
-### 6.2 Contexto estructural común
-
-Cada caso incluye además dos instrumentos ya conocidos, utilizados únicamente para que la arquitectura productiva disponga de un core global real:
-
-- `EUNL`;
-- `VWCE`.
-
-No son parte del pool fresh ni cuentan como evidencia fresh de reentrada. `EXIT_PROCEEDS_CUSTODY_V1` no crea reservas para miembros de `STRATEGIC_GROWTH_CORE`.
-
-### 6.3 Seis casos de robustez deterministas
-
-Se crean **6 cohortes**. Cada cohorte contiene:
-
-- `EUNL` + `VWCE`;
-- 12 de las 30 acciones fresh.
-
-Para la cohorte `i = 0..5`, las 30 acciones se ordenan por:
-
-`SHA256("PHASE4_REENTRY_BLIND_V1:<i>:<assetId>")`
-
-y se toman las 12 primeras.
-
-La selección es determinista, previa a datos y no depende de rentabilidad. Las cohortes pueden solaparse y se interpretan como **casos de robustez de cartera**, no como seis muestras estadísticamente independientes.
-
-No se sustituyen nombres después de abrir el blind.
+La política productiva sigue siendo `LEGACY`; el candidato sólo existe dentro de la validación research.
 
 ---
 
-## 7. Ventana y datos congelados
+## 6. Sample seal R2 — pool histórico fresh
 
-- data request start: `2014-09-01`;
-- replay start: `2016-09-01`;
-- end fijo: `2026-09-01`;
+R2 sustituye completamente a R1 antes de cualquier apertura de históricos.
+
+La selección usa únicamente criterios estructurales:
+
+- acción individual con cotización EUR;
+- identidad `EQ_PH4_R2_*` para que nunca se confunda con core diversificado;
+- nombre/ticker ausente del catálogo productivo y de los holdouts históricos registrados en el repositorio en el momento del seal;
+- cotización estructuralmente antigua, buscando que el proveedor pueda cubrir el bloque temporal sin seleccionar por rentabilidad;
+- diversificación geográfica.
+
+Una búsqueda de código previa a añadir estos nombres R2 no devolvió coincidencias para sus tickers. No se han descargado sus históricos para Fase 4.
+
+### 6.1 Pool R2 — 30 acciones
+
+**Alemania**
+
+- `EQ_PH4_R2_BAS` — `BAS.DE`
+- `EQ_PH4_R2_BMW` — `BMW.DE`
+- `EQ_PH4_R2_MUV2` — `MUV2.DE`
+- `EQ_PH4_R2_HEN3` — `HEN3.DE`
+- `EQ_PH4_R2_BEI` — `BEI.DE`
+- `EQ_PH4_R2_RWE` — `RWE.DE`
+- `EQ_PH4_R2_IFX` — `IFX.DE`
+- `EQ_PH4_R2_VOW3` — `VOW3.DE`
+- `EQ_PH4_R2_MRK` — `MRK.DE`
+- `EQ_PH4_R2_CON` — `CON.DE`
+
+**Francia**
+
+- `EQ_PH4_R2_DG` — `DG.PA`
+- `EQ_PH4_R2_CAP` — `CAP.PA`
+- `EQ_PH4_R2_RI` — `RI.PA`
+- `EQ_PH4_R2_KER` — `KER.PA`
+- `EQ_PH4_R2_HO` — `HO.PA`
+- `EQ_PH4_R2_EN` — `EN.PA`
+- `EQ_PH4_R2_VIV` — `VIV.PA`
+- `EQ_PH4_R2_CS` — `CS.PA`
+- `EQ_PH4_R2_GLE` — `GLE.PA`
+- `EQ_PH4_R2_RNO` — `RNO.PA`
+
+**España**
+
+- `EQ_PH4_R2_ACS` — `ACS.MC`
+- `EQ_PH4_R2_TEF` — `TEF.MC`
+- `EQ_PH4_R2_ELE` — `ELE.MC`
+- `EQ_PH4_R2_ANA` — `ANA.MC`
+- `EQ_PH4_R2_ACX` — `ACX.MC`
+- `EQ_PH4_R2_FCC` — `FCC.MC`
+
+**Italia**
+
+- `EQ_PH4_R2_G` — `G.MI`
+- `EQ_PH4_R2_TIT` — `TIT.MI`
+- `EQ_PH4_R2_LDO` — `LDO.MI`
+- `EQ_PH4_R2_STM` — `STM.MI`
+
+Para no introducir una taxonomía sectorial inventada, todos los holdout equities R2 se etiquetan `EUROPE_EQUITY`. La identidad `EQ_*` hace que la salud los trate como acciones individuales/tácticas, no como core.
+
+### 6.2 Core estructural común
+
+Cada cohorte incluye además:
+
+- `FUND_VANGUARD_GLOBAL` — `IE00B03HD191` — Vanguard Global Stock Index Fund EUR Acc.
+
+Es contexto productivo conocido, no evidencia fresh. Su clase EUR fue lanzada en diciembre de 2002, por lo que puede servir como core estructural desde el comienzo del bloque si el proveedor REAL confirma cobertura suficiente. Si no dispone de datos REAL suficientes, R2 queda `INCONCLUSIVE_INVALID_DATA`; no se sustituye retrospectivamente por otro core.
+
+### 6.3 Seis cohortes disjuntas
+
+Las 30 acciones se ordenan una sola vez por:
+
+`SHA256("PHASE4_REENTRY_BLIND_R2:" + assetId)`
+
+La lista ordenada se divide secuencialmente en **6 grupos disjuntos de 5**.
+
+Cada cohorte contiene:
+
+- `FUND_VANGUARD_GLOBAL`;
+- exactamente 5 acciones R2 de su grupo.
+
+Ninguna acción puede aparecer en dos cohortes. No hay sustituciones después de abrir el blind.
+
+---
+
+## 7. Ventana temporal R2
+
+La primera ventana `2016-09-01 -> 2026-09-01` queda **VOID PRE-OPEN** porque estaba consumida.
+
+R2 usa el bloque inmediatamente anterior y no solapado con los datos de las ventanas Opportunity/Allocation consumidas:
+
+- data request start: `2002-12-10`;
+- replay start: `2004-01-02`;
+- end fijo: `2014-08-31`;
+- primer día de decisión real: el primero >= replay start con >=252 barras causales;
 - frecuencia: `MONTHLY`;
-- capital inicial por caso: **13.000 EUR**;
+- capital inicial: **13.000 EUR** por cohorte;
 - riesgo: `MEDIUM`;
 - horizonte: 3 años;
 - modo: `CUSTODIA_ENGINE`;
-- cash: `HISTORICAL_ECB_DFR_FLOOR_0`;
-- fallback de interfaz: 2,5% sólo donde el contrato existente lo exija;
-- fiscalidad: semántica conservadora actual del replay, `contextConfirmed:false`;
+- cash: `HISTORICAL_ECB_DFR_FLOOR_0` usando la tabla BCE ya completada desde 1999;
+- fiscalidad: **misma semántica conservadora del replay en ambos brazos**, `contextConfirmed:false`;
 - `externalCashFlows`: ninguno;
 - current Yahoo discovery histórico: **OFF**;
 - datos: **REAL-only**;
-- mínimo causal por decisión: 252 barras.
+- mínimo causal: 252 barras.
 
-Usar las mismas fechas ya vistas en otras líneas no convierte estas acciones fresh en muestra de promoción consumida: el holdout es cross-sectional y los 30 instrumentos no se utilizaron para diseñar esta política. Se mantiene explícita la limitación de survivorship del catálogo elegido.
+La fiscalidad del replay es un modelo conservador común a ambos brazos; R2 no pretende reconstruir la legislación fiscal española histórica año por año. La comparación económica es válida bajo la misma semántica modelada para control y candidato y debe declararse así en el resultado.
+
+El final `2014-08-31` se fija porque `2014-09-01` es el comienzo de datos del bloque Opportunity/Allocation consumido. No se eligió por la rentabilidad posterior de R2.
+
+Persiste la limitación de survivorship: sin instrument master point-in-time, este holdout no representa todo el mercado disponible de 2004–2014. Un PASS sólo puede habilitar confirmación independiente; nunca promoción directa.
 
 ---
 
 ## 8. Gate de calidad de datos
 
-Cada cohorte es válida sólo si:
+Una cohorte es válida sólo si:
 
-- `EUNL` y `VWCE` tienen datos REAL válidos;
-- al menos 10 de sus 12 acciones fresh pasan el scanner REAL;
+- `FUND_VANGUARD_GLOBAL` tiene datos REAL suficientes para el replay;
+- al menos **4/5** de sus acciones R2 tienen datos REAL y alcanzan el mínimo causal;
 - no aparece `SYNTHETIC`;
 - no aparece ningún `OPEN_*` de current discovery;
-- cada activo aceptado dispone de historia suficiente para el mínimo causal;
-- no se reemplaza ningún activo rechazado.
+- fechas/OHLC cumplen los guards normales;
+- ningún activo fallido se reemplaza.
 
-Las seis cohortes deben ser válidas. Si alguna no lo es:
+Las **6/6** cohortes deben ser válidas. Si alguna falla:
 
 `INCONCLUSIVE_INVALID_DATA`.
 
 ---
 
-## 9. Reach mínimo congelado
+## 9. Reach congelado
 
-Para emitir un juicio económico se exige, entre las seis cohortes, reach **deduplicado por episodio económico**:
+Para emitir juicio económico se exige, en las seis cohortes:
 
 - al menos **12 EXIT-reservas únicas realmente ejecutadas**;
-- al menos **6 reentradas únicas realmente ejecutadas** usando la política de custodia.
+- al menos **6 reentradas únicas realmente ejecutadas** usando custodia.
 
-Una reserva única se identifica por `assetId + exitExecutionDate`. Si el mismo activo y la misma fecha aparecen en varias cohortes solapadas, cuentan **una sola vez** para el gate de reach.
+Una reserva única se identifica por:
 
-Una reentrada única se identifica por `assetId + sourceExitExecutionDate + reentryExecutionDate`. La repetición del mismo episodio en varias cohortes cuenta **una sola vez**.
+`assetId + exitExecutionDate`
 
-El runner debe reportar además los conteos brutos por cohorte para auditoría, pero sólo los conteos deduplicados deciden el reach.
+Una reentrada única se identifica por:
 
-Si la integridad técnica pasa pero no se alcanza este reach:
+`assetId + sourceExitExecutionDate + reentryExecutionDate`
+
+Aunque R2 usa cohortes disjuntas, el runner deduplica por estas claves como guard permanente.
+
+Si la integridad pasa pero no se alcanza reach:
 
 `INCONCLUSIVE_INSUFFICIENT_REENTRY_REACH`.
 
-No se baja el mínimo después de ver el resultado.
+No se rebaja después de abrir resultados.
 
 ---
 
-## 10. Métrica primaria y guardrails
+## 10. Métrica primaria y PASS/FAIL
 
 Métrica primaria:
 
 `finalValueDeltaEur = finalValue_candidate - finalValue_baseline`
 
-Todo se mide neto de las mismas comisiones y fiscalidad modeladas.
-
-También se reportan:
+Se reportan además:
 
 - retorno total/ajustado;
 - max drawdown;
@@ -305,84 +329,86 @@ También se reportan:
 - reservas creadas;
 - reentradas ejecutadas;
 - proceeds netos reservados;
-- cash reservado usado en reentrada;
+- cash reservado usado;
 - pico y saldo final reservado;
-- delta de número de operaciones.
+- delta de operaciones.
 
-### PASS_CANDIDATE_FOR_CONFIRMATION
+### `PASS_CANDIDATE_FOR_CONFIRMATION`
 
-Sólo se obtiene si simultáneamente:
+Exige simultáneamente:
 
 1. 6/6 cohortes válidas;
-2. reach deduplicado de la sección 9 cumplido;
-3. al menos **4/6** cohortes tienen `finalValueDeltaEur > 0`;
-4. mediana de `finalValueDeltaEur > 0`;
-5. mediana de `finalValueDeltaEur` supera el mayor de:
-   - **65 EUR** (= 0,5% de 13.000 EUR); o
-   - la mediana del incremento positivo de `fees + estimatedTax` del candidato frente al baseline;
-6. mediana del deterioro de max drawdown no supera **+0,5 pp**;
-7. ninguna cohorte presenta:
-   - `finalValueDeltaEur < -650 EUR` (-5% del capital inicial); o
+2. reach de sección 9;
+3. al menos **4/6** cohortes con `finalValueDeltaEur > 0`;
+4. mediana `finalValueDeltaEur > 0`;
+5. mediana `finalValueDeltaEur` superior al mayor de:
+   - **65 EUR** (=0,5% de 13.000 EUR);
+   - mediana del incremento positivo de `fees + estimatedTax` candidato vs baseline;
+6. mediana del deterioro de max drawdown <= **+0,5 pp**;
+7. ninguna cohorte con:
+   - `finalValueDeltaEur < -650 EUR`; o
    - deterioro de max drawdown > **+3,0 pp**.
 
-Si hay reach suficiente y cualquiera de estos gates falla:
+Con reach suficiente, incumplir cualquiera => `FAIL_RETIRED_AS_TESTED`.
 
-`FAIL_RETIRED_AS_TESTED`.
-
-Un PASS sólo habilita una segunda confirmación independiente con la política sin cambios. No promociona producción.
+Un PASS sólo habilita segunda confirmación independiente con política congelada. No promociona producción.
 
 ---
 
-## 11. Integridad y fingerprint
+## 11. Gates técnicos antes de abrir R2
 
-Antes de abrir el blind deben pasar:
+Antes de cualquier descarga de los 30 históricos deben pasar:
 
-1. unit test de `EXIT_PROCEEDS_CUSTODY_V1`;
+1. unit test `EXIT_PROCEEDS_CUSTODY_V1`;
 2. guard `CORE_ARCHITECTURE_V1`;
 3. guard `PortfolioCandidateGate`;
-4. guard de cierre de superficie productiva;
-5. TypeScript / `tsc --noEmit`;
-6. verificación de que producción/default sigue sin custodia;
-7. guard explícito de atomicidad: una rotación 1:1 no puede ejecutar el `SELL` si su `BUY` pareado no será ejecutable respetando simultáneamente reservas preexistentes y proceeds dedicados de la propia venta;
-8. guard de control estructurado: el executor no puede decidir elegibilidad de custodia mediante `reason.includes(...)` ni otro texto de auditoría;
-9. guard de shortfall: varias reservas activas con cash insuficiente deben reducirse pro-rata, sin FIFO/LIFO oculto.
+4. guard de superficie productiva;
+5. guard de cash histórico BCE, incluidos puntos pre-2011;
+6. TypeScript / `tsc --noEmit`;
+7. default/producción sigue `LEGACY` y sin custodia;
+8. atomicidad: una rotación 1:1 ejecuta ambos lados o ninguno incluso con reservas activas;
+9. control estructurado: el executor no usa `reason.includes(...)` ni texto equivalente como autoridad de custodia;
+10. shortfall: múltiples reservas se reducen pro-rata;
+11. una reentrada nunca supera el sizing canónico ni atraviesa `WAIT/REJECTED`;
+12. una reserva se crea sólo después de un EXIT realmente ejecutado y usando proceeds netos reales.
 
-El runner registra SHA/identidad de los archivos metodológicamente críticos del candidato y del preregistro. Si cambia la implementación después de abrir la muestra, esta corrida no puede mezclarse con otra bajo el mismo V1.
+El runner fingerprintará política, preregistro y archivos críticos antes de abrir la muestra.
 
 ---
 
 ## 12. Ejecución
 
-La validación se integrará en el `ResearchValidationCenter` existente como el **único job económico de la fase actual**.
+La primera integración ejecutable fue retirada pre-open. Mientras la nueva integración no pase todos los gates anteriores, **no existe job blind ejecutable**.
 
-La primera integración ejecutable fue retirada durante la revisión pre-open por incumplir los invariantes 7–8 de la sección 11. Mientras la integración corregida no pase todos los guards, el job blind **no debe estar disponible para ejecución**.
+Cuando se cierre técnicamente:
 
-Los guards rápidos se ejecutan primero. Sólo si pasan se abre por primera vez el histórico blind REAL.
+- se integrará como el único job económico activo de Fase 4 dentro del `ResearchValidationCenter` existente;
+- guards rápidos primero;
+- sólo después se descargarán por primera vez los históricos R2;
+- cálculo largo en backend/local de la app;
+- nunca GitHub Actions ni agentes prolongados.
 
-La prueba larga corre en el backend/local de la app. Nunca GitHub Actions ni agentes prolongados.
-
-En el momento en que el runner descargue/abra los históricos de las 30 acciones, esta muestra quedará consumida, independientemente de PASS/FAIL/INCONCLUSIVE.
+En el instante de la primera descarga histórica R2, esta muestra quedará consumida aunque el resultado termine PASS, FAIL o INCONCLUSIVE.
 
 ---
 
 ## 13. Prohibiciones post-open
 
-Después de abrir el blind no se puede:
+Después de abrir R2 no se puede:
 
-- añadir expiry a la reserva;
-- reservar sólo una fracción elegida retrospectivamente;
-- exigir N meses/días de espera;
-- alterar gates/timing/sizing;
-- cambiar el pool de 30 acciones;
-- sustituir activos rechazados;
-- cambiar cohortes;
-- cambiar start/end;
-- rebajar el reach;
-- cambiar los 65 EUR / 0,5 pp / 3 pp / -650 EUR;
-- retocar la política por lo que ocurra en una cohorte;
-- usar HFG para justificar una V1.1.
+- cambiar los 30 activos;
+- sustituir un ticker con datos insuficientes;
+- cambiar las cohortes;
+- cambiar fechas;
+- añadir expiry/waiting period/confirmaciones;
+- reservar una fracción elegida retrospectivamente;
+- alterar gate/timing/sizing;
+- rebajar reach;
+- cambiar 65 EUR / +0,5 pp / +3 pp / -650 EUR;
+- retocar la política por un caso observado;
+- usar HFG o R1 para justificar una variante paramétrica.
 
-Cualquier política futura distinta exige preregistro y muestra fresh nueva.
+Cualquier política distinta exige preregistro y muestra fresh nueva.
 
 ---
 
@@ -390,8 +416,8 @@ Cualquier política futura distinta exige preregistro y muestra fresh nueva.
 
 `EXIT_PROCEEDS_CUSTODY_V1` prueba una sola hipótesis:
 
-> **Conservar temporalmente los proceeds netos de un EXIT no-core para la primera reentrada normal del mismo activo puede evitar que una recuperación válida quede sin financiación, a cambio de asumir explícitamente el coste de oportunidad de mantener ese cash reservado.**
+> **Conservar temporalmente los proceeds netos de un EXIT no-core para la primera reentrada normal del mismo activo puede evitar que una recuperación válida quede sin financiación, asumiendo explícitamente el coste de oportunidad del cash reservado.**
 
-No crea señal de reentrada, no cambia el gate, no crea dinero, no protege strategic cores y no añade autoridad productiva.
+No crea señal, no relaja gates, no crea dinero, no protege strategic cores y no añade autoridad productiva.
 
-**BLIND NO ABIERTO EN EL MOMENTO DE ESTE PREREGISTRO Y DE SU CORRECCIÓN PRE-OPEN.**
+**R1 VOID PRE-OPEN. R2 SEALED. NINGÚN HISTÓRICO R2 HA SIDO ABIERTO.**
