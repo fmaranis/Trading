@@ -9,6 +9,7 @@ Documentos de entrada:
 - `PROJECT_STATE.md` — estado técnico y siguiente paso.
 - `docs/APP_FLOW_AND_ROADMAP.md` — diagrama maestro y ruta de cierre.
 - `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md` — arquitectura normativa de discovery/Top64.
+- `docs/ECONOMIC_VALIDATION_PROTOCOL_V1.md` — protocolo económico común congelado para Fases 4–6.
 - `docs/DECISIONS.md` — decisiones durables.
 
 ---
@@ -47,6 +48,7 @@ Convenciones y restricciones del proyecto:
 - datos y causalidad deben respetar `REAL / STATIC_REFERENCE / SYNTHETIC` y no-lookahead;
 - no tocar ni reinterpretar muestras consumidas como si fueran fresh/OOS;
 - no modificar los archivos congelados de una validación prospectiva salvo decisión metodológica explícita;
+- Fases 4–6 deben cumplir `docs/ECONOMIC_VALIDATION_PROTOCOL_V1.md` antes de abrir cualquier muestra nueva;
 - Cubetos/Muros puede servir como referencia técnica, nunca como dependencia ni plataforma compartida.
 
 ## 1. Entender antes de actuar
@@ -118,9 +120,9 @@ Esta es la secuencia canónica de cierre. No abrir una fase posterior por aparec
 ```text
 FASE 0  MAPA MAESTRO / ESTADO CANÓNICO       ← DONE
 FASE 1  BASE PRODUCTIVA V1                    ← DONE salvo bug/regresión reproducible
-FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← ACTIVA · 2A DONE · 2B FIX IMPLEMENTADO · QUICK CLOSURE PENDIENTE
-FASE 3  PROTOCOLO ECONÓMICO FINAL             ← NEXT después de cerrar Fase 2
-FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← research fresh/blind/OOS
+FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← DONE · 2A PASS · 2B PASS RUNTIME
+FASE 3  PROTOCOLO ECONÓMICO FINAL             ← DONE / FROZEN
+FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← ACTIVA · diseño/preregistro fresh/blind/OOS
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← research fresh/blind/OOS
 FASE 6  FORWARD RISK V8 COMO CONTEXTO         ← research posterior
 FASE 7  QUALITY FUTURE FORWARD                ← WAITING/COLLECTING en paralelo
@@ -211,7 +213,7 @@ Evidencia automática anterior, mantenida como referencia:
 - Guard disponibilidad broker: **7/7 PASS**;
 - Guard fiscalidad de ejecución: **7/7 PASS**.
 
-Después del cierre 2A se aplicó el fix de Fase 2B que elimina la rotación paralela del backend de alertas. Ese cambio requiere ahora **un único `Producto · cierre rápido` adicional**, cuyo guard de superficie pasa a **34 invariantes**.
+Después del cierre 2A se aplicó el fix de Fase 2B que elimina la rotación paralela del backend de alertas. El quick closure posterior con el guard de superficie ampliado a **34 invariantes** fue ejecutado por el usuario y terminó **PASS**. La continuidad runtime del backend publicado se confirmó el 2026-09-12 con `rotationStatus:null`, `evaluatedPositions:2` y `error:null`.
 
 Móvil + exportación JSON física: **PASS 2026-09-11**.
 
@@ -352,7 +354,7 @@ Siguiente observación nueva válida:
 
 **2026-10-09 22:30–24:00 Europe/Madrid**.
 
-No repetir septiembre. No tocar los 25 archivos congelados para avanzar Fases 2–6.
+No repetir septiembre. No tocar los 25 archivos congelados para avanzar Fases 4–6.
 
 ---
 
@@ -443,7 +445,7 @@ Hipótesis abiertas para Fases 4–5:
 
 Estado general:
 
-**2A DONE / 2B FIX IMPLEMENTADO / QUICK CLOSURE PENDIENTE / CONTINUIDAD NATURAL DE ALERTAS POR CONFIRMAR.**
+**DONE / 2A PASS / 2B QUICK CLOSURE PASS / RUNTIME ALERT CONTINUITY PASS.**
 
 Baseline de inicio de Fase 2A:
 
@@ -764,60 +766,113 @@ Revisión estática posterior:
 - no se toca Future Forward ni sus 25 archivos congelados;
 - no se añaden dependencias.
 
+### Quick closure 2B
+
+El usuario ejecutó el `Producto · cierre rápido` posterior al fix y confirmó **PASS**. El guard de superficie ampliado a 34 invariantes y TypeScript quedaron cerrados antes de la verificación runtime final.
+
+### Continuidad runtime real — 2026-09-12
+
+Tras publicar el backend corregido, una ejecución real de producción de `/api/alerts/run-now` devolvió:
+
+- `ok:true`;
+- `lastSuccessAt: 2026-09-12T17:37:55.800Z`;
+- `lastMarketDate: 2026-09-11`;
+- `lastError:null`;
+- oportunidades `GOOD_ENTRY` calculadas normalmente;
+- dedupe de oportunidades sin nuevos envíos repetidos;
+- `lastPortfolioManagementSummary.configured:true`;
+- `evaluated:true`;
+- `evaluatedPositions:2`;
+- `pendingEventCount:0`;
+- `rotationStatus:null`;
+- `notificationSent:false`;
+- `error:null`.
+
+Telegram de oportunidades ya había sido comprobado físicamente en ejecuciones anteriores. En esta ejecución no había un nuevo evento `ADD/WATCH/REDUCE/EXIT`, por lo que `notificationSent:false` es el resultado correcto; no se fuerza una señal inexistente sólo para probar el canal.
+
+`CROSS_PROVIDER_UNAVAILABLE` pertenece a la evidencia secundaria de mercado y no invalida el cierre 2B mientras `lastError` permanezca `null`.
+
 Estado 2B:
 
-**FIX IMPLEMENTADO / QUICK CLOSURE PENDIENTE / CONTINUIDAD DE ALERTAS A CONFIRMAR EN LA SIGUIENTE EJECUCIÓN NATURAL.**
+**DONE / QUICK CLOSURE PASS / RUNTIME ALERT CONTINUITY PASS.**
 
 No existe ni se debe introducir ahora ejecución automática de órdenes de broker.
 
-Criterio de cierre Fase 2:
+## 9.10 Cierre Fase 2 — DONE
+
+Criterios cumplidos:
 
 - 2A permanece DONE;
 - sistema de usuarios de Trading sigue independiente;
 - login/ADMIN/Firestore/aislamiento/cartera siguen funcionando;
-- quick closure del fix 2B pasa con 34/34 y TypeScript;
-- las alertas health siguen funcionando;
-- `ROTATE_NOW` paralelo no tiene autoridad;
+- quick closure del fix 2B pasó con el guard de 34 invariantes y TypeScript;
+- las alertas de entrada siguen funcionando y llegan físicamente a Telegram;
+- el backend de cartera sigue evaluando el estado privado real;
+- `ROTATE_NOW` paralelo ya no tiene autoridad y runtime devuelve `rotationStatus:null`;
 - guard impide reintroducir una segunda cadena;
 - multiuser fan-out queda deferred para V1 actual.
+
+No volver a abrir Fase 2 salvo bug/regresión reproducible.
 
 ---
 
 # 10. FASE 3 — PROTOCOLO ECONÓMICO FINAL
 
-Estado: **NEXT después de cerrar Fase 2B.**
+Estado: **DONE / FROZEN 2026-09-12.**
 
-No abrir muestras nuevas antes de congelar documentalmente:
+Documento canónico:
 
-- métricas PASS/FAIL;
-- definición fresh/blind/OOS;
-- inventario de muestras consumidas;
+`docs/ECONOMIC_VALIDATION_PROTOCOL_V1.md`
+
+Antes de abrir nuevas muestras de Fases 4–6 quedan congelados:
+
+- definición `FRESH / BLIND / OUT-OF-SAMPLE`;
+- registro de muestras consumidas;
+- baseline/control emparejado;
+- reglas de causalidad y `NEXT_OPEN`;
 - benchmarks comparables;
-- costes/fiscalidad;
+- costes, fiscalidad y cash;
+- métricas económicas comunes;
+- reach real del mecanismo experimental;
 - materialidad económica;
-- criterio de promoción/retirada;
-- política congelada antes de ver resultados.
+- estados `PASS_CANDIDATE_FOR_CONFIRMATION / FAIL_RETIRED_AS_TESTED / INCONCLUSIVE`;
+- promoción en dos etapas;
+- reglas específicas previas para reentrada, protección de ganadores y Forward Risk V8 contextual.
 
-Después de Fase 3:
+Regla de materialidad común congelada:
 
-- Fase 4 = reentrada tras salida errónea;
-- Fase 5 = protección de grandes ganadores;
-- Fase 6 = Forward Risk V8 como contexto.
+- al menos 60% de casos evaluables favorables;
+- mediana de la métrica primaria favorable;
+- mejora mediana superior al mayor de los costes incrementales atribuibles a la política o **0,5% del capital económico expuesto**, expresada de forma equivalente en la métrica primaria;
+- guardrail explícito contra deterioro material de riesgo, drawdown, fiscalidad, turnover o riqueza terminal.
+
+El 0,5% es un umbral de gobernanza fijado antes de nuevas muestras, no derivado de resultados observados.
+
+Un primer PASS no promociona producción: sólo habilita una confirmación independiente con la política congelada sin cambios.
+
+**FASE 3: CERRADA.**
 
 ---
 
 # 11. FASE 4 — REENTRADA TRAS SALIDA ERRÓNEA
 
+Estado: **ACTIVA — DISEÑO / PREREGISTRO; TODAVÍA NO ABRIR HOLDOUT.**
+
 HFG sólo aporta diagnóstico consumido: `EXIT temprano → recuperación → oportunidad posterior → timing/capital pueden impedir reentrada`.
 
-Objetivo fresh/OOS:
+La siguiente tarea debe definir y congelar antes de mirar resultados:
 
-- separar fallo de señal de salida;
-- latencia de timing;
-- falta de capital desplegable;
-- healthy-incumbent inertia;
-- diseñar hipótesis general sin thresholds derivados de HFG;
-- congelarla antes de abrir resultados.
+- hipótesis general;
+- qué constituye una salida previa elegible para análisis;
+- regla exacta de reentrada;
+- tratamiento del cash disponible;
+- interacción con incumbentes sanos;
+- muestra fresh/blind/OOS y su regla de selección;
+- métrica económica primaria;
+- guardrails de drawdown/rotación/coste;
+- criterio PASS/FAIL conforme a `ECONOMIC_VALIDATION_PROTOCOL_V1`.
+
+No utilizar HFG para elegir thresholds, espera, confirmaciones o sizing.
 
 ---
 
@@ -827,7 +882,7 @@ HFG mostró que `TREND_PROTECTION_V1` detectó deterioro antes del EXIT económi
 
 No convertir retrospectivamente el `REDUCE 50%` observado en HFG en política productiva.
 
-Diseñar previamente una política de monetización, separar detección de ejecución y validar fresh/OOS.
+Antes de abrir muestra nueva deben congelarse señal de deterioro, acción, sizing, definición causal de MFE/giveback, pérdida de upside tolerable, métrica primaria y guardrail de riqueza terminal bajo `ECONOMIC_VALIDATION_PROTOCOL_V1`.
 
 ---
 
@@ -835,7 +890,7 @@ Diseñar previamente una política de monetización, separar detección de ejecu
 
 V8 mantiene información predictiva de downside.
 
-Investigar sólo bajo protocolo nuevo usos como:
+Investigar sólo bajo `ECONOMIC_VALIDATION_PROTOCOL_V1` usos como:
 
 - contexto de riesgo;
 - sizing;
@@ -845,6 +900,12 @@ Investigar sólo bajo protocolo nuevo usos como:
 - margen de seguridad.
 
 No volver a un ON/OFF diario directo ni crear V12/V13 por tuning retrospectivo.
+
+En cualquier nueva investigación separar explícitamente:
+
+- calidad de señal;
+- reach de la política;
+- calidad económica de la política.
 
 ---
 
@@ -884,6 +945,7 @@ La app puede ser técnicamente operativa antes de terminar QUALITY Future Forwar
 
 No reabrir ahora:
 
+- Fase 2 salvo bug/regresión reproducible;
 - V9/V10/V11;
 - V12/V13 como tuning retrospectivo;
 - SLOPE_V1;
@@ -916,18 +978,18 @@ Fase 10 / V2, sólo después de cierre V1:
 
 1. **Fase 0: DONE.**
 2. **Fase 1: congelada.** No tocar motor productivo salvo bug/regresión reproducible.
-3. **Fase 2A: DONE.** Runtime smoke + revocación/recuperación + estado privado + quick closure final PASS sobre `472e7d1f20db3901a4bac1ab5003cb16bfe4d79a`.
-4. **Fase 2B: fix `ROTATE_NOW` implementado.** La autoridad paralela ya no está en el backend/notificador de cartera.
-5. Sincronizar la app al HEAD actual y ejecutar **una sola vez `Producto · cierre rápido`**.
-6. Debe pasar **34/34** en el guard de cierre de superficie, el resto de guards y TypeScript.
-7. No lanzar replay ni Future Forward.
-8. Confirmar continuidad de `ADD / WATCH / REDUCE / EXIT` en la siguiente ejecución natural de alarmas y marcar **Fase 2 DONE**.
-9. **Fase 3:** congelar protocolo económico antes de abrir nuevas muestras.
-10. **Fase 4:** reentrada fresh/OOS.
-11. **Fase 5:** protección de ganadores fresh/OOS.
-12. **Fase 6:** Forward Risk V8 como contexto bajo protocolo nuevo.
+3. **Fase 2A: DONE.** Runtime smoke + revocación/recuperación + estado privado + quick closure final PASS.
+4. **Fase 2B: DONE.** Quick closure PASS + backend publicado + runtime real `rotationStatus:null` + `evaluatedPositions:2` + `error:null`.
+5. **Fase 2: DONE.** No reabrir salvo bug/regresión reproducible.
+6. **Fase 3: DONE / FROZEN.** `ECONOMIC_VALIDATION_PROTOCOL_V1` gobierna Fases 4–6.
+7. **Fase 4: ACTIVA.** Diseñar y preregistrar la política de reentrada sin abrir todavía el holdout.
+8. Congelar hipótesis, regla exacta, selección de muestra, baseline, métrica primaria, materialidad y guardrails antes de descargar/abrir resultados fresh.
+9. HFG permanece consumido; sólo aporta el diagnóstico general.
+10. No lanzar replay largo de Fase 4 hasta que el preregistro esté cerrado y los guards rápidos aplicables pasen.
+11. **Fase 5:** protección de ganadores fresh/OOS después de Fase 4.
+12. **Fase 6:** Forward Risk V8 como contexto bajo protocolo nuevo después de Fase 5.
 13. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
-14. No tocar los 25 archivos congelados de Future Forward para avanzar Fases 2–6.
+14. No tocar los 25 archivos congelados de Future Forward para avanzar Fases 4–6.
 15. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
 16. **Fase 9:** auditoría end-to-end y cierre V1.
 17. **Fase 10:** permanece deferred hasta cierre V1.
@@ -945,6 +1007,7 @@ Al cerrar cada fase:
 
 - `docs/APP_FLOW_AND_ROADMAP.md` — mapa maestro y roadmap.
 - `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md` — discovery/Top64 normativo.
+- `docs/ECONOMIC_VALIDATION_PROTOCOL_V1.md` — protocolo económico común congelado para Fases 4–6.
 - `docs/DECISIONS.md` — decisiones durables alineadas.
 - `docs/PRIVATE_USERS_DEPLOYMENT.md` — seguridad, multiusuario, ADMIN y validación Fase 2A de Trading.
 - `docs/TELEGRAM_ALERTS.md` — canal de notificación de Trading.
