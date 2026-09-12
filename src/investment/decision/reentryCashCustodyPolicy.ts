@@ -208,9 +208,11 @@ function minimumExecutableAmount(
  * contribution use its own reservation.
  *
  * `rotationFundingByAssetId` is structured execution funding for atomic
- * rotations. When supplied, it represents the net proceeds that the paired sale
- * can really dedicate to that challenger. Reserved cash is never allowed to make
- * up a shortfall in a rotation that would otherwise be underfunded.
+ * rotations. It is only authoritative once at least one prior reservation is
+ * active; before that point the candidate must remain byte-for-byte economic
+ * parity with the baseline for ordinary rotations. With active custody it
+ * represents the net proceeds that the paired sale can really dedicate to that
+ * challenger, so reserved cash can never hide a rotation shortfall.
  */
 export function applyExitProceedsCustodyV1(input: {
   result: PortfolioDecisionResult;
@@ -252,7 +254,11 @@ export function applyExitProceedsCustodyV1(input: {
   const effectiveReservedCashEur = [...effectiveByAsset.values()].reduce((sum, amount) => sum + amount, 0);
   const freeBaseDeployableEur = Math.max(0, baseDeployable - effectiveReservedCashEur);
 
-  const structuredRotationFunding = input.rotationFundingByAssetId == null
+  // Structured net funding exists only to keep active reservations out of
+  // unrelated rotations. Before any reservation exists it is deliberately
+  // ignored so the candidate cannot differ from baseline through a second,
+  // unintended fee/tax funding experiment.
+  const structuredRotationFunding = reservations.length === 0 || input.rotationFundingByAssetId == null
     ? null
     : new Map(Object.entries(input.rotationFundingByAssetId).map(([assetId, amount]) => [assetId, Math.max(0, Number(amount) || 0)]));
   let remainingLegacyRotationEur = Math.max(0, result.plannedRotationProceedsEur);
