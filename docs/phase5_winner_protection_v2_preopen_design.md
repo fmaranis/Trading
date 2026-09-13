@@ -1,7 +1,7 @@
 # Fase 5 · protección de grandes ganadores · diseño pre-open
 
 Fecha de diseño: **2026-09-13**  
-Estado: **POLICY DESIGN FROZEN / SAMPLE-SELECTION RULE FROZEN / COVERAGE PREFLIGHT NOT RUN / HOLDOUT NOT OPENED / RESEARCH ONLY**
+Estado: **POLICY DESIGN FROZEN / SAMPLE-SELECTION RULE FROZEN / COVERAGE PREFLIGHT #1 FAILED CLOSED / WINDOW REFROZEN PRE-OPEN / HOLDOUT NOT OPENED / RESEARCH ONLY**
 
 ## 1. Objetivo
 
@@ -172,23 +172,44 @@ Reach suficiente pero no se cumplen los gates económicos/daño. La policy exact
 
 Datos insuficientes, reach insuficiente o fallo de infraestructura que impida una comparación válida. No es PASS ni FAIL económico y no autoriza retuning sobre la muestra consumida.
 
-## 10. Muestra y ventana pre-open congeladas
+## 10. Muestra y ventana pre-open refijadas por cobertura
 
-La frontera temporal se fija sin mirar outcomes de winner-protection:
+La primera frontera temporal se fijó sin mirar outcomes de winner-protection:
 
 - data request start: `1998-01-02`;
-- replay: `2000-01-03 -> 2003-12-31`;
-- motivo de la ventana: bloque continuo inmediatamente anterior al inicio R2 de 2004, y por tanto anterior también a R3, HFG y la investigación Forward Risk 2011+;
-- frecuencia: `DAILY`, porque V2 utiliza streaks medidos en sesiones y evita convertir una regla de sesiones en una revisión mensual artificial;
+- replay inicial: `2000-01-03 -> 2003-12-31`;
+- frecuencia: `DAILY`;
 - capital por cohorte: `13.000 EUR`;
 - riesgo: `MEDIUM`;
-- horizonte: `3 años`;
+- horizonte objetivo: aproximadamente `3 años`;
 - cash: BCE histórico con suelo nominal 0%;
 - tax context: mismo tratamiento canónico, sin usar fiscalidad para seleccionar la muestra;
 - `externalCashFlows`: ninguno;
 - current discovery histórico: OFF.
 
-La muestra final será `6 x 3 = 18` activos EUR listados.
+El primer preflight REAL de cobertura se ejecutó el 2026-09-13 y **falló cerrado antes de abrir la muestra**:
+
+- pool: `26` identidades;
+- coverage-eligible con 252 barras pre-replay: `10/26`;
+- `selected: []`;
+- `cohorts: []`;
+- no se ejecutó baseline;
+- no se ejecutó candidato;
+- no se calcularon retornos comparativos, drawdowns, MFE/giveback de Fase 5 ni ningún outcome económico.
+
+La causa fue puramente de historia disponible en Yahoo: muchas identidades válidas comienzan exactamente el `2000-01-03`, por lo que tenían `0` barras causales antes del replay; `ENEL.MI` tenía sólo `44`.
+
+Como el holdout seguía **NO ABIERTO / NO CONSUMIDO**, se aplica un refreeze pre-open mínimo basado exclusivamente en cobertura:
+
+- data request start se mantiene `1998-01-02`;
+- replay refijado: `2001-01-03 -> 2003-12-31`;
+- end date se mantiene `2003-12-31`, completamente anterior a R2;
+- pool se mantiene exactamente en las mismas `26` identidades;
+- mínimo causal se mantiene en `252` barras;
+- 6x3, frecuencia, capital, riesgo, cash, fiscalidad y ausencia de flows permanecen iguales;
+- `TREND_PROTECTION_V2` y todos sus thresholds permanecen iguales.
+
+No se añaden identidades después de ver el preflight y no se rebaja el mínimo de 252 barras. El objetivo del refreeze es permitir que los tickers cuyo Yahoo REAL comienza el 03/01/2000 acumulen aproximadamente un año causal antes de abrir el replay.
 
 ### Pool congelado
 
@@ -198,7 +219,7 @@ La muestra final será `6 x 3 = 18` activos EUR listados.
 - todos los tickers R2 consumidos;
 - todos los tickers del pool R3 consumido.
 
-Los tickers proceden del catálogo EUR ya conocido al congelar el diseño; no se llama a Yahoo current discovery para reconstruir 2000-2003. Persiste survivorship/catalog bias y se declara como limitación de Fase 8.
+Los tickers proceden del catálogo EUR ya conocido al congelar el diseño; no se llama a Yahoo current discovery para reconstruir el periodo histórico. Persiste survivorship/catalog bias y se declara como limitación de Fase 8.
 
 ### Regla ciega de selección
 
@@ -207,14 +228,14 @@ El preflight sólo puede utilizar:
 1. `REAL` Yahoo;
 2. moneda EUR;
 3. integridad OHLC válida;
-4. al menos `252` barras anteriores a `2000-01-03`;
+4. al menos `252` barras anteriores a `2001-01-03`;
 5. cobertura hasta diciembre de 2003.
 
 Entre los coverage-eligible, la muestra toma los primeros 18 por orden SHA-256 fijo de `assetId` (`PHASE5_WINNER_PROTECTION_V2:<assetId>`). No utiliza retornos futuros, drawdowns futuros, MFE futuros ni señales V2 para seleccionar activos.
 
 Los 18 se particionan de forma fija y disjunta en 6 cohortes consecutivas de 3.
 
-Si hay menos de 18 activos coverage-eligible, el preflight falla cerrado y **no** se abre el holdout.
+Si hay menos de 18 activos coverage-eligible, el preflight vuelve a fallar cerrado y **no** se abre el holdout.
 
 ## 11. Preflight actual — permitido, sin abrir outcomes
 
@@ -242,11 +263,13 @@ Tras un PASS, las identidades resultantes deberán copiarse al seal final junto 
 
 A fecha de este diseño:
 
-- no se ha ejecutado el preflight REAL de Fase 5;
+- se ha ejecutado un único preflight REAL de cobertura con la ventana inicial;
+- ese preflight devolvió `10/26`, `selected: []`, `cohorts: []` y `pass:false`;
+- se ha refijado pre-open únicamente `PHASE5_REPLAY_START_DATE` a `2001-01-03` por cobertura;
 - no se ha elegido todavía la lista efectiva de 18 activos;
 - no existe seal final Fase 5;
 - no se ha ejecutado ningún baseline/candidato Fase 5;
 - no se ha ejecutado ningún outcome Fase 5;
 - el holdout sigue **NO ABIERTO / NO CONSUMIDO**.
 
-El siguiente paso permitido es ejecutar únicamente el preflight del Centro de validación y conservar su salida. Nada de esa ejecución puede promocionar o retirar la política; sólo valida y fija la muestra antes del blind.
+El siguiente paso permitido es volver a ejecutar únicamente el preflight del Centro de validación sobre la frontera refijada y conservar su salida. Nada de esa ejecución puede promocionar o retirar la política; sólo valida y fija la muestra antes del blind.
