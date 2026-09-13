@@ -329,7 +329,7 @@ Estado 2B:
 | V9 / V10 / V11 | **RETIRED** | No retunear |
 | HFG | **CONSUMED / CLOSED** | Diagnóstico, no tuning |
 | Fase 4 reentrada | **CLOSED / INCONCLUSIVE** | R2/R3 consumidas; R3 sin reach, no promoción ni R4 reactiva |
-| Fase 5 protección ganadores | **NEXT / PRE-OPEN DESIGN** | Preregistrar antes de holdout fresh |
+| Fase 5 protección ganadores | **SEALED / BLIND READY / NOT OPENED** | 18 activos · 6x3 · winner-only V2 · un único blind pendiente |
 | Móvil + JSON | **DONE / PASS** | Prueba física realizada |
 | Usuarios privados / Firestore | **OPERATIVO** | Arquitectura propia |
 | Fase 2A ADMIN hardening | **DONE / PASS** | Runtime + quick closure final PASS |
@@ -446,25 +446,49 @@ Evidencia durable R3: `replay-results/validation-runs/research-validation/phase4
 
 ## FASE 5 — PROTECCIÓN DE GRANDES GANADORES
 
-**NEXT / PRE-OPEN DESIGN REQUIRED.**
+**SEALED / BLIND READY / NOT OPENED.**
 
-HFG está consumido y sólo aporta la hipótesis general de que una señal de deterioro puede aparecer antes del EXIT económico. No se puede usar HFG para elegir retrospectivamente thresholds, giveback, streak, timing, sizing o un `REDUCE 50%`.
+Documento específico: `docs/phase5_winner_protection_v2_preopen_design.md`.
 
-Antes de abrir una muestra fresh deben congelarse:
+La candidata reutiliza `TREND_PROTECTION_V2` existente **sin retuning** y habilita únicamente su rama de protección de ganador dentro de `runDynamicReplayWithRotationExperiment(...)`. No crea V3 ni motor paralelo.
 
-- señal causal de deterioro;
-- acción permitida;
-- sizing exacto;
-- definición causal de MFE/giveback;
-- pérdida de upside tolerable;
-- métrica económica primaria;
-- materialidad;
-- guardrails de riqueza terminal/drawdown/costes/turnover;
-- sample-selection rule;
-- baseline/control;
-- PASS/FAIL/INCONCLUSIVE.
+Política congelada:
 
-No abrir holdout hasta que el protocolo específico y los guards estén cerrados.
+- MFE mínimo 8%;
+- giveback de armado 6 pp;
+- giveback fuerte 8 pp;
+- confirmación 3 sesiones o 3 observaciones + 2 pp de empeoramiento;
+- una única reducción parcial del 25% por episodio;
+- reclaim desarma;
+- no actúa sobre core diversificado;
+- un `REDUCE/EXIT` canónico más fuerte siempre prevalece;
+- reach sólo cuenta `REDUCE` F5 realmente ejecutadas `NEXT_OPEN`.
+
+Muestra y preflight:
+
+- primer preflight coverage-only con inicio `2000-01-03`: FAIL cerrado, 10/26 elegibles, `selected=[]`, `cohorts=[]`, sin outcomes;
+- refreeze permitido antes de outcomes: inicio `2001-01-03`, mismo pool, 252 barras, mismo fin y mismo 6x3;
+- segundo preflight coverage-only: **PASS**;
+- muestra final: 18 activos sellados en 6 cohortes de 3;
+- baseline/candidato económico todavía **no ejecutados**.
+
+Configuración blind:
+
+- datos desde `1998-01-02`;
+- replay `2001-01-03 -> 2003-12-31`;
+- DAILY;
+- 13.000 EUR por cohorte;
+- cartera manual inicial con los 3 activos a partes iguales, cash 0; estado inicial, no recomendación;
+- MEDIUM;
+- BCE DFR histórico floor 0;
+- sin `externalCashFlows`;
+- current discovery histórico OFF;
+- baseline `CORE_ARCHITECTURE_V1`;
+- candidato idéntico + `TREND_PROTECTION_V2_WINNER_ONLY`.
+
+Gates y reach están congelados antes de abrir el blind. El seal `PHASE5_WINNER_PROTECTION_V2_SEAL_V1` fingerprinta los archivos metodológicos/ejecutables críticos y se verifica antes de la primera petición del sample. La primera solicitud de mercado del runner blind cambia conceptualmente la muestra a `PHASE5_OPENED_CONSUMED`, incluso si después falla infraestructura o data gate.
+
+Siguiente paso único: ejecutar una sola vez `ResearchValidationCenter -> Fase 5 · protección de ganadores · blind V1`. El job pasa readiness + seal + policy + integración + arquitectura + paridad + superficie + cash + TypeScript antes de abrir la muestra. Producción permanece `LEGACY`.
 
 ## FASE 6 — FORWARD RISK V8 COMO CONTEXTO
 
@@ -543,10 +567,9 @@ No reabrir:
 1. **Fase 2 = DONE.** No reabrir salvo bug/regresión reproducible.
 2. **Fase 3 = DONE / FROZEN** mediante `ECONOMIC_VALIDATION_PROTOCOL_V1`.
 3. **Fase 4 = CLOSED FOR V1 / INCONCLUSIVE.** R2/R3 están consumidas; no R4 reactiva ni retuning.
-4. **Fase 5 = NEXT.** Diseñar y preregistrar la política de protección de grandes ganadores sin abrir aún el holdout fresh.
-5. Congelar señal, acción, sizing, MFE/giveback causal, métrica primaria, materialidad, guardrails, sample-selection rule y PASS/FAIL/INCONCLUSIVE.
-6. Integrar la investigación en el replay/cadena existentes; no crear motor paralelo.
-7. Ejecutar guards + `tsc --noEmit` antes de cualquier consulta fresh de Fase 5.
-8. Sólo después abrir una vez el holdout Fase 5 y aceptar su outcome sin retuning.
-9. Fase 6 se aborda después de veredictar Fase 5.
-10. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
+4. **Fase 5 = SEALED / BLIND READY / NOT OPENED.** El preflight coverage-only final pasó y fijó 18 activos en 6 cohortes de 3.
+5. Sincronizar al HEAD final y ejecutar **una sola vez** `Fase 5 · protección de ganadores · blind V1` desde el Centro de validación.
+6. El job debe pasar guards + seal + `tsc --noEmit` antes de la primera petición de mercado; sólo entonces abre/consume el holdout.
+7. Aceptar `PASS_CANDIDATE_FOR_CONFIRMATION`, `FAIL_RETIRED_AS_TESTED` o `INCONCLUSIVE_*` sin retuning sobre esta muestra.
+8. Fase 6 se aborda después de veredictar Fase 5.
+9. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
