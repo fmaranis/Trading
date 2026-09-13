@@ -28,6 +28,7 @@ export interface Phase5WinnerProtectionDecisionAudit {
   action: TrendProtectionV2Decision['action'];
   winnerProtectionArmed: boolean;
   reclaimDetected: boolean;
+  protectionArmDate: string | null;
   currentReturnPct: number | null;
   mfePct: number | null;
   givebackFromMfePctPoints: number | null;
@@ -268,6 +269,7 @@ export function applyPhase5WinnerProtectionV2Overlay(input: {
       action: decision.action,
       winnerProtectionArmed: decision.winnerProtectionArmed,
       reclaimDetected: decision.reclaimDetected,
+      protectionArmDate: state.armDate,
       currentReturnPct: health.currentReturnPct ?? null,
       mfePct: health.mfePct ?? null,
       givebackFromMfePctPoints: health.givebackFromMfePctPoints ?? null,
