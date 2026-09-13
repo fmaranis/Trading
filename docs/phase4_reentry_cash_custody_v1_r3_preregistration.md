@@ -6,9 +6,11 @@ Estado: **POLICY FROZEN / R2 CONSUMED-INCONCLUSIVE / R3 SEALED PRE-OPEN / RESEAR
 
 R2 se abrió y quedó consumida, pero la comparación económica no llegó a ejecutarse porque el core `FUND_VANGUARD_GLOBAL` no obtuvo serie REAL válida en el proveedor. La reconstrucción posterior devolvió `INCONCLUSIVE_INVALID_DATA` con `coreAccepted=false` y `coreBarsBeforeReplay=0` en las seis cohortes.
 
-R3 no modifica `EXIT_PROCEEDS_CUSTODY_V1`, no cambia thresholds, sizing, waiting, confirmaciones, fiscalidad, cash ni reglas de reentrada. Corrige únicamente el diseño de muestra/datos antes de abrir una nueva muestra OOS.
+El primer diseño pre-open de R3 intentó resolver ese problema con `Fidelity Funds - World Fund E-Acc-EUR` (`LU0115769746`) y una ventana 2002–2003. Todos los guards y TypeScript pasaron, pero el **preflight aislado del core**, ejecutado antes de consultar un solo `EQ_PH4_R3_*`, falló por falta de histórico utilizable en la infraestructura disponible (`Error proveedor HTTP 400`). Por tanto esa tentativa **no abrió ni consumió R3** y no produjo ningún outcome fresh.
 
-R2 no se reutiliza ni se reinterpreta para promoción.
+R3 se refija ahora antes de abrir la muestra con un core global cotizado en EUR que dispone de una identidad Yahoo/Xetra directa y verificable. El cambio responde exclusivamente a disponibilidad/integridad de datos del core; no se ha observado ninguna rentabilidad ni resultado económico del pool fresh.
+
+R3 no modifica `EXIT_PROCEEDS_CUSTODY_V1`, no cambia thresholds, sizing, waiting, confirmaciones, fiscalidad, cash ni reglas de reentrada. R2 no se reutiliza ni se reinterpreta para promoción.
 
 ## 2. Hipótesis y política congeladas
 
@@ -30,11 +32,11 @@ Producción/default permanece `LEGACY`.
 
 ## 3. Ventana R3
 
-Ventana temporal deliberadamente disjunta de R2 y de las ventanas Opportunity/Allocation consumidas:
+La ventana se fija **antes de abrir cualquier activo fresh R3** y responde a la fecha de cotización del core global listado elegido:
 
-- data request start: `2000-09-11`;
-- replay start: `2002-01-15`;
-- end: `2003-12-31`;
+- data request start: `2005-10-28`;
+- replay start: `2007-01-15`;
+- end: `2010-12-31`;
 - frecuencia: `MONTHLY`;
 - capital inicial: `13.000 EUR`;
 - riesgo: `MEDIUM`;
@@ -47,28 +49,31 @@ Ventana temporal deliberadamente disjunta de R2 y de las ventanas Opportunity/Al
 - mínimo causal antes del replay: `252` barras;
 - current Yahoo discovery: `OFF`.
 
-La ventana termina antes del inicio de R2 (`2004-01-02`).
+Esta ventana se solapa temporalmente con la ventana nominal de R2, pero **no reutiliza la muestra económica de R2**: R2 falló en el data gate del core y nunca ejecutó baseline/candidato ni produjo resultados económicos que pudieran informar o retunear la policy. R3 usa identidades fresh disjuntas, un core diferente fijado por disponibilidad de datos antes de abrir el holdout y reglas económicas que permanecen exactamente congeladas. El solape temporal queda documentado como limitación metodológica; un eventual PASS sólo puede habilitar confirmación independiente, nunca promoción directa.
+
+La ventana termina antes de las validaciones Forward Risk rolling 2011–2026 y antes de las ventanas Opportunity/Allocation 10y/6y/3y hasta 2026-09-01 señaladas como consumidas por el protocolo común.
 
 ## 4. Core R3
 
 Core estructural research-only fijado antes de abrir la muestra:
 
-- assetId: `CORE_PH4_R3_FIDELITY_WORLD`;
-- ISIN/ticker lógico: `LU0115769746`;
-- instrumento: `Fidelity Funds - World Fund E-Acc-EUR`;
+- assetId: `CORE_PH4_R3_IQQW_WORLD`;
+- ticker Yahoo/Xetra: `IQQW.DE`;
+- ISIN: `IE00B0M62Q58`;
+- instrumento: `iShares MSCI World UCITS ETF USD (Dist)` listado en Xetra en EUR;
 - categoría: `GLOBAL_EQUITY`;
-- moneda: EUR;
-- clase de fondo global creada el `2000-09-11`;
+- moneda de cotización usada por el replay: EUR;
+- primera cotización Xetra: `2005-10-28`;
 - identidad research-only, ausente del catálogo productivo.
 
-La elección respeta la semántica de `CORE_ARCHITECTURE_V1`: el core sigue siendo exposición global/diversificada, no un índice regional usado como sustituto. La identidad está reconocida únicamente como core estratégico de investigación y no se incorpora al discovery productivo ni a la prioridad de core de producción.
+La elección respeta la semántica de `CORE_ARCHITECTURE_V1`: el ETF replica MSCI World y proporciona exposición amplia a mercados desarrollados globales; no es un índice regional usado como sustituto. La identidad está reconocida únicamente como core estratégico de investigación y no se incorpora al discovery productivo ni a la prioridad de core de producción.
 
 Antes de abrir R3 el job ejecutará un **preflight de datos sólo sobre este core**. Ese preflight puede consultar la infraestructura REAL del core porque no observa ningún activo ni outcome de la muestra fresh R3. Debe exigir:
 
-- resolución REAL por la infraestructura normal de fondos (Yahoo alias validado y/o EODHD);
-- moneda EUR;
+- histórico Yahoo REAL directo de `IQQW.DE`, sin proxy sintético;
+- moneda de cotización EUR;
 - >=252 barras hasta `REPLAY_START_DATE`;
-- integridad temporal/NAV;
+- integridad OHLC/fechas;
 - cobertura utilizable hasta `END_DATE`.
 
 Si este preflight falla, el job se detiene **antes de consultar el pool fresh** y R3 continúa no abierta. No se selecciona automáticamente otro core ni se consume la muestra.
