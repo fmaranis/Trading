@@ -32,7 +32,7 @@ export const STRATEGIC_GROWTH_CORE_ASSET_IDS = [
  * supplies one in its isolated catalogue.
  */
 export const RESEARCH_STRATEGIC_GROWTH_CORE_ASSET_IDS = [
-  'CORE_PH4_R3_IQQW_WORLD'
+  'CORE_PH4_R3_DBXW_WORLD'
 ] as const;
 
 /**
