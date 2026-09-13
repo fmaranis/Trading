@@ -71,7 +71,12 @@ requireText(sharedCoreGate, 'export function evaluatePortfolioDecision', 'PRODUC
 requireText(sharedCoreGate, 'return applyCoreArchitectureV1(normalizedInput, gated);', 'PRODUCTION_MUST_REMAIN_V1_UNTIL_PREDICTOR_VALIDATED');
 requireText(replayRotation, "from './portfolioCoreGatePolicy'", 'REPLAY_MUST_IMPORT_SHARED_CORE_POLICY');
 requireText(replayRotation, 'const gated = applyCoreGateV1(evaluationInput, baseline, gateCounters);', 'REPLAY_MUST_CALL_SHARED_CORE_GATE');
-requireText(replayRotation, 'applyCoreArchitectureV1(evaluationInput, gated, architectureCounters)', 'REPLAY_MUST_CALL_SHARED_CORE_ARCHITECTURE');
+// Phase 5 inserts a research-only winner-protection overlay after CORE_GATE_V1
+// and before the same shared CORE_ARCHITECTURE_V1 call. The variable passed to
+// the shared architecture is therefore phase5Gated, not the pre-overlay gated
+// value. This guard verifies the actual integrated chain instead of a stale
+// local variable name from before Phase 5.
+requireText(replayRotation, 'const architecture = applyCoreArchitectureV1(evaluationInput, phase5Gated, architectureCounters);', 'REPLAY_MUST_CALL_SHARED_CORE_ARCHITECTURE');
 forbidText(replayRotation, 'const CORE_PRIORITY =', 'REPLAY_MUST_NOT_DUPLICATE_CORE_POLICY');
 
 // Failed V2 remains available only for attribution/research; it must not silently
