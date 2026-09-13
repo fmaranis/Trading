@@ -3,8 +3,8 @@ import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse
 
 export const PHASE4_R3_VERSION = 'PHASE4_REENTRY_CASH_CUSTODY_V1_R3' as const;
 export const PHASE4_R3_MARKER = 'PHASE4_REENTRY_CASH_CUSTODY_V1_R3_RESULT' as const;
-export const PHASE4_R3_DATA_START_DATE = '2005-10-28';
-export const PHASE4_R3_REPLAY_START_DATE = '2007-01-15';
+export const PHASE4_R3_DATA_START_DATE = '2006-12-19';
+export const PHASE4_R3_REPLAY_START_DATE = '2008-03-03';
 export const PHASE4_R3_END_DATE = '2010-12-31';
 export const PHASE4_R3_INITIAL_CAPITAL_EUR = 13_000;
 export const PHASE4_R3_MINIMUM_BARS = 252;
@@ -16,16 +16,17 @@ export const PHASE4_R3_SEAL_PATH = 'docs/phase4_reentry_cash_custody_v1_r3_seal.
 export const PHASE4_R3_DURABLE_JOB_ID = 'phase4-reentry-cash-custody-v1-r3';
 
 /**
- * R3 changes the sample/data design only, never the tested policy. IQQW is the
- * EUR Xetra listing of iShares MSCI World UCITS ETF, first listed 2005-10-28.
- * The isolated research identity lets the shared architecture classify it as a
- * strategic global core without adding it to production discovery or core priority.
+ * R3 changes the sample/data design only, never the tested policy. DBXW is the
+ * EUR Xetra listing of Xtrackers MSCI World Swap UCITS ETF 1C, launched
+ * 2006-12-19 and accumulating. The isolated research identity lets the shared
+ * architecture classify it as a strategic global core without adding it to
+ * production discovery or core priority.
  */
 export const PHASE4_R3_CORE: AssetUniverseItem = {
-  assetId: 'CORE_PH4_R3_IQQW_WORLD',
-  ticker: 'IQQW.DE',
-  isin: 'IE00B0M62Q58',
-  name: 'iShares MSCI World UCITS ETF USD (Dist)',
+  assetId: 'CORE_PH4_R3_DBXW_WORLD',
+  ticker: 'DBXW.DE',
+  isin: 'LU0274208692',
+  name: 'Xtrackers MSCI World Swap UCITS ETF 1C',
   category: 'GLOBAL_EQUITY',
   currency: 'EUR',
   instrumentType: 'ETF_ETC',
