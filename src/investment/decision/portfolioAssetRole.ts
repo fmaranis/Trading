@@ -25,6 +25,17 @@ export const STRATEGIC_GROWTH_CORE_ASSET_IDS = [
 ] as const;
 
 /**
+ * Research-only broad-global identities. They are intentionally absent from the
+ * production discovery catalogue and therefore cannot become a live product
+ * recommendation. The shared replay architecture may still classify them as a
+ * structural growth core when a preregistered historical holdout explicitly
+ * supplies one in its isolated catalogue.
+ */
+export const RESEARCH_STRATEGIC_GROWTH_CORE_ASSET_IDS = [
+  'CORE_PH4_R3_FIDELITY_WORLD'
+] as const;
+
+/**
  * Deterministic reference order retained only for research/diagnostic modules
  * that need one broad-market series when no portfolio decision state exists.
  *
@@ -39,7 +50,10 @@ export const STRATEGIC_GROWTH_CORE_PRIORITY = [
   'IWDA'
 ] as const;
 
-const strategicGrowthCoreSet = new Set<string>(STRATEGIC_GROWTH_CORE_ASSET_IDS);
+const strategicGrowthCoreSet = new Set<string>([
+  ...STRATEGIC_GROWTH_CORE_ASSET_IDS,
+  ...RESEARCH_STRATEGIC_GROWTH_CORE_ASSET_IDS
+]);
 
 const DIVERSIFIED_SLEEVE_CATEGORIES = new Set<AssetUniverseCategory>([
   'GLOBAL_EQUITY',
