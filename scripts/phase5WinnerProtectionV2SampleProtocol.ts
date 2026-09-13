@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse';
 
 export const PHASE5_WINNER_PROTECTION_VERSION = 'PHASE5_WINNER_PROTECTION_V2' as const;
+export const PHASE5_BLIND_VERSION = 'PHASE5_WINNER_PROTECTION_V2_BLIND_V1' as const;
 export const PHASE5_SAMPLE_PREFLIGHT_MARKER = 'PHASE5_WINNER_PROTECTION_V2_SAMPLE_PREFLIGHT_RESULT' as const;
+export const PHASE5_BLIND_MARKER = 'PHASE5_WINNER_PROTECTION_V2_BLIND_RESULT' as const;
+export const PHASE5_DURABLE_JOB_ID = 'phase5-winner-protection-v2' as const;
+export const PHASE5_SEAL_PATH = 'validation-runs/preregistration/phase5-winner-protection-v2-seal.json' as const;
 export const PHASE5_DATA_START_DATE = '1998-01-02';
 export const PHASE5_REPLAY_START_DATE = '2001-01-03';
 export const PHASE5_END_DATE = '2003-12-31';
@@ -15,6 +19,13 @@ export const PHASE5_FREQUENCY = 'DAILY' as const;
 export const PHASE5_RISK_PROFILE = 'MEDIUM' as const;
 export const PHASE5_HORIZON_YEARS = 3 as const;
 export const PHASE5_CURRENT_DISCOVERY_HISTORICAL = false as const;
+export const PHASE5_REACH_MIN_EXECUTED_REDUCTIONS = 6;
+export const PHASE5_REACH_MIN_COHORTS = 4;
+export const PHASE5_PASS_MIN_POSITIVE_COHORTS = 4;
+export const PHASE5_MATERIALITY_CAPITAL_PCT = 0.5;
+export const PHASE5_MEDIAN_MAX_DRAWDOWN_WORSENING_LIMIT_PP = 0.5;
+export const PHASE5_SINGLE_COHORT_MAX_LOSS_PCT_INITIAL = 5;
+export const PHASE5_SINGLE_COHORT_MAX_DRAWDOWN_WORSENING_PP = 3;
 
 /**
  * The original pre-open window started on 2000-01-03. The first coverage-only
