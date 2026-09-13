@@ -26,9 +26,9 @@ const productAssetIds = new Set(EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(row => row.
 const poolTickers = PHASE4_R3_CANDIDATE_POOL.map(row => row.ticker.toUpperCase());
 const poolIds = PHASE4_R3_CANDIDATE_POOL.map(row => row.assetId);
 
-assert(PHASE4_R3_DATA_START_DATE === '2005-10-28', 'R3 data begins at frozen listed-core inception');
+assert(PHASE4_R3_DATA_START_DATE === '2006-12-19', 'R3 data begins at frozen accumulating-core launch');
 assert(PHASE4_R3_DATA_START_DATE < PHASE4_R3_REPLAY_START_DATE, 'R3 data begins before replay');
-assert(PHASE4_R3_REPLAY_START_DATE === '2007-01-15' && PHASE4_R3_END_DATE === '2010-12-31', 'R3 refrozen replay window is explicit');
+assert(PHASE4_R3_REPLAY_START_DATE === '2008-03-03' && PHASE4_R3_END_DATE === '2010-12-31', 'R3 refrozen replay window is explicit');
 assert(PHASE4_R3_END_DATE < '2011-01-01', 'R3 ends before 2011+ rolling Forward Risk research');
 assert(PHASE4_R3_MINIMUM_BARS === 252, 'R3 preserves 252 causal bar minimum');
 assert(PHASE4_R3_COHORT_COUNT === 6 && PHASE4_R3_FRESH_PER_COHORT === 5, 'R3 preserves six disjoint five-asset cohorts');
@@ -40,9 +40,9 @@ assert(PHASE4_R3_CANDIDATE_POOL.every(row => row.assetId.startsWith('EQ_PH4_R3_'
 assert(PHASE4_R3_CANDIDATE_POOL.every(row => !productTickers.has(row.ticker.toUpperCase())), 'R3 pool excludes curated production catalogue tickers');
 assert(PHASE4_R3_CANDIDATE_POOL.every(row => !PHASE4_R2_CONSUMED_TICKERS.has(row.ticker.toUpperCase())), 'R3 pool excludes consumed R2 tickers');
 
-assert(PHASE4_R3_CORE.assetId === 'CORE_PH4_R3_IQQW_WORLD', 'R3 core research identity is frozen');
-assert(PHASE4_R3_CORE.ticker === 'IQQW.DE', 'R3 core Yahoo/Xetra ticker is frozen');
-assert(PHASE4_R3_CORE.isin === 'IE00B0M62Q58', 'R3 core ISIN is frozen');
+assert(PHASE4_R3_CORE.assetId === 'CORE_PH4_R3_DBXW_WORLD', 'R3 core research identity is frozen');
+assert(PHASE4_R3_CORE.ticker === 'DBXW.DE', 'R3 core Yahoo/Xetra ticker is frozen');
+assert(PHASE4_R3_CORE.isin === 'LU0274208692', 'R3 core ISIN is frozen');
 assert(PHASE4_R3_CORE.category === 'GLOBAL_EQUITY', 'R3 core remains broad-global rather than regional');
 assert(PHASE4_R3_CORE.instrumentType === 'ETF_ETC', 'R3 core uses listed-instrument execution semantics');
 assert(PHASE4_R3_CORE.marketDataProvider === 'YAHOO', 'R3 core uses the normal Yahoo REAL listed-data path');
@@ -70,5 +70,7 @@ assert(prereg.includes('preflight de datos sólo sobre este core'), 'R3 core dat
 assert(prereg.includes('La primera consulta de mercado a cualquier asset `EQ_PH4_R3_*` consume la muestra'), 'R3 fresh-sample opening boundary is explicit');
 assert(prereg.includes('no reutiliza la muestra económica de R2'), 'R3 documents why invalid-data R2 did not provide economic tuning information');
 assert(prereg.includes('solapa temporalmente'), 'R3 explicitly records the temporal-overlap limitation');
+assert(prereg.includes('política de distribución: **acumulación**'), 'R3 prereg freezes accumulating-core treatment');
+assert(prereg.includes('sin ajustar retrospectivamente por dividendos'), 'R3 prereg documents why distributing core was rejected pre-open');
 
 console.log('phase4R3Readiness.unit: PASS');
