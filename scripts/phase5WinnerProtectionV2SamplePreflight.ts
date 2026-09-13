@@ -143,7 +143,7 @@ async function main() {
       && cohorts.every(cohort => cohort.length === PHASE5_ASSETS_PER_COHORT);
 
     const result = {
-      version: 'PHASE5_WINNER_PROTECTION_V2_SAMPLE_PREFLIGHT_V1',
+      version: 'PHASE5_WINNER_PROTECTION_V2_SAMPLE_PREFLIGHT_V2_COVERAGE_REFREEZE',
       sampleState: 'PREOPEN_COVERAGE_ONLY_NO_ECONOMIC_OUTCOMES',
       window: { dataStartDate: PHASE5_DATA_START_DATE, replayStartDate: PHASE5_REPLAY_START_DATE, endDate: PHASE5_END_DATE },
       selectionRule: 'REAL_COVERAGE_AND_252_PRE_REPLAY_BARS_THEN_SHA256_ORDER_FIRST_18',
