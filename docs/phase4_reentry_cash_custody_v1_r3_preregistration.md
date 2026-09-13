@@ -8,7 +8,9 @@ R2 se abrió y quedó consumida, pero la comparación económica no llegó a eje
 
 El primer diseño pre-open de R3 intentó resolver ese problema con `Fidelity Funds - World Fund E-Acc-EUR` (`LU0115769746`) y una ventana 2002–2003. Todos los guards y TypeScript pasaron, pero el **preflight aislado del core**, ejecutado antes de consultar un solo `EQ_PH4_R3_*`, falló por falta de histórico utilizable en la infraestructura disponible (`Error proveedor HTTP 400`). Por tanto esa tentativa **no abrió ni consumió R3** y no produjo ningún outcome fresh.
 
-R3 se refija ahora antes de abrir la muestra con un core global cotizado en EUR que dispone de una identidad Yahoo/Xetra directa y verificable. El cambio responde exclusivamente a disponibilidad/integridad de datos del core; no se ha observado ninguna rentabilidad ni resultado económico del pool fresh.
+Antes de volver a abrir la muestra se descartó también `IQQW.DE` como core R3: aunque es MSCI World, cotiza en EUR y tiene histórico Yahoo directo, es una clase distributiva. El replay causal de cotizados usa `Close` sin dividend-adjustment retrospectivo para evitar lookahead, por lo que una clase distributiva infravaloraría estructuralmente el core y sesgaría la comparación contra la custodia. Ese descarte se hizo **sin abrir ningún activo fresh R3**.
+
+R3 se refija ahora con `DBXW.DE`, Xtrackers MSCI World Swap UCITS ETF 1C: global, Xetra/EUR, Yahoo directo, lanzado el 19/12/2006 y **acumulativo**, eliminando ese sesgo de dividendos sin cambiar la policy investigada.
 
 R3 no modifica `EXIT_PROCEEDS_CUSTODY_V1`, no cambia thresholds, sizing, waiting, confirmaciones, fiscalidad, cash ni reglas de reentrada. R2 no se reutiliza ni se reinterpreta para promoción.
 
@@ -32,10 +34,10 @@ Producción/default permanece `LEGACY`.
 
 ## 3. Ventana R3
 
-La ventana se fija **antes de abrir cualquier activo fresh R3** y responde a la fecha de cotización del core global listado elegido:
+La ventana se fija **antes de abrir cualquier activo fresh R3** y responde a la fecha de lanzamiento/cotización del core global acumulativo elegido:
 
-- data request start: `2005-10-28`;
-- replay start: `2007-01-15`;
+- data request start: `2006-12-19`;
+- replay start: `2008-03-03`;
 - end: `2010-12-31`;
 - frecuencia: `MONTHLY`;
 - capital inicial: `13.000 EUR`;
@@ -49,7 +51,7 @@ La ventana se fija **antes de abrir cualquier activo fresh R3** y responde a la 
 - mínimo causal antes del replay: `252` barras;
 - current Yahoo discovery: `OFF`.
 
-Esta ventana se solapa temporalmente con la ventana nominal de R2, pero **no reutiliza la muestra económica de R2**: R2 falló en el data gate del core y nunca ejecutó baseline/candidato ni produjo resultados económicos que pudieran informar o retunear la policy. R3 usa identidades fresh disjuntas, un core diferente fijado por disponibilidad de datos antes de abrir el holdout y reglas económicas que permanecen exactamente congeladas. El solape temporal queda documentado como limitación metodológica; un eventual PASS sólo puede habilitar confirmación independiente, nunca promoción directa.
+Esta ventana se solapa temporalmente con la ventana nominal de R2, pero **no reutiliza la muestra económica de R2**: R2 falló en el data gate del core y nunca ejecutó baseline/candidato ni produjo resultados económicos que pudieran informar o retunear la policy. R3 usa identidades fresh disjuntas, un core diferente fijado por disponibilidad/semántica de datos antes de abrir el holdout y reglas económicas que permanecen exactamente congeladas. El solape temporal queda documentado como limitación metodológica; un eventual PASS sólo puede habilitar confirmación independiente, nunca promoción directa.
 
 La ventana termina antes de las validaciones Forward Risk rolling 2011–2026 y antes de las ventanas Opportunity/Allocation 10y/6y/3y hasta 2026-09-01 señaladas como consumidas por el protocolo común.
 
@@ -57,20 +59,23 @@ La ventana termina antes de las validaciones Forward Risk rolling 2011–2026 y 
 
 Core estructural research-only fijado antes de abrir la muestra:
 
-- assetId: `CORE_PH4_R3_IQQW_WORLD`;
-- ticker Yahoo/Xetra: `IQQW.DE`;
-- ISIN: `IE00B0M62Q58`;
-- instrumento: `iShares MSCI World UCITS ETF USD (Dist)` listado en Xetra en EUR;
+- assetId: `CORE_PH4_R3_DBXW_WORLD`;
+- ticker Yahoo/Xetra: `DBXW.DE`;
+- ISIN: `LU0274208692`;
+- instrumento: `Xtrackers MSCI World Swap UCITS ETF 1C`;
 - categoría: `GLOBAL_EQUITY`;
 - moneda de cotización usada por el replay: EUR;
-- primera cotización Xetra: `2005-10-28`;
+- lanzamiento: `2006-12-19`;
+- política de distribución: **acumulación**;
 - identidad research-only, ausente del catálogo productivo.
 
 La elección respeta la semántica de `CORE_ARCHITECTURE_V1`: el ETF replica MSCI World y proporciona exposición amplia a mercados desarrollados globales; no es un índice regional usado como sustituto. La identidad está reconocida únicamente como core estratégico de investigación y no se incorpora al discovery productivo ni a la prioridad de core de producción.
 
+La elección de una clase acumulativa es metodológicamente necesaria para esta validación: el scanner/replay cotizado usa precios `Close` sin ajustar retrospectivamente por dividendos para preservar causalidad del prefijo. Con un ETF acumulativo, la reinversión queda incorporada en el propio precio/NAV del instrumento y no se omite un flujo distributivo relevante del core.
+
 Antes de abrir R3 el job ejecutará un **preflight de datos sólo sobre este core**. Ese preflight puede consultar la infraestructura REAL del core porque no observa ningún activo ni outcome de la muestra fresh R3. Debe exigir:
 
-- histórico Yahoo REAL directo de `IQQW.DE`, sin proxy sintético;
+- histórico Yahoo REAL directo de `DBXW.DE`, sin proxy sintético;
 - moneda de cotización EUR;
 - >=252 barras hasta `REPLAY_START_DATE`;
 - integridad OHLC/fechas;
