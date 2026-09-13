@@ -171,27 +171,13 @@ const JOBS: JobDefinition[] = [
       { label: 'Blind R2 REAL one-shot', command: 'npx', args: ['tsx', 'scripts/phase4ReentryCashCustodyV1BlindLive.ts'] }
     ]
   },
-  {
-    id: 'phase5-winner-protection-v2',
-    name: 'Fase 5 · protección de ganadores · blind V1',
-    description: 'Blind one-shot sellado de TREND_PROTECTION_V2 winner-only contra CORE_ARCHITECTURE_V1. Ejecuta readiness, seal, guards y TypeScript antes de pedir datos. Sólo si todo pasa abre/consume la muestra histórica sellada, ejecuta baseline/candidato emparejados y persiste evidencia durable. Producción permanece LEGACY.',
-    marker: 'PHASE5_WINNER_PROTECTION_V2_BLIND_RESULT',
-    visibility: 'CURRENT',
-    requiresGithubReplayToken: true,
-    steps: [
-      { label: 'Guard Fase 5 preregistro y muestra', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2Readiness.unit.ts'] },
-      { label: 'Guard seal Fase 5', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2Seal.unit.ts'] },
-      { label: 'Guard TREND_PROTECTION_V2', command: 'npx', args: ['tsx', 'tests/trendProtectionPolicy.unit.ts'] },
-      { label: 'Guard integración winner-only Fase 5', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2Integration.unit.ts'] },
-      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
-      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
-      { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
-      { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
-      { label: 'Guard cash histórico BCE', command: 'npx', args: ['tsx', 'tests/cashRemuneration.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Blind Fase 5 REAL one-shot', command: 'npx', args: ['tsx', 'scripts/phase5WinnerProtectionV2BlindLive.ts'] }
-    ]
-  },
+  archivedJob(
+    'phase5-winner-protection-v2',
+    'Fase 5 · protección de ganadores · blind V1',
+    'Blind fresh/OOS consumido el 2026-09-14. PASS_CANDIDATE_FOR_CONFIRMATION: 18 reducciones winner-protection ejecutadas en 6/6 cohortes; 4/6 cohortes positivas; mediana +118,46 EUR; todos los guardrails preregistrados PASS. No promociona producción; TREND_PROTECTION_V2_WINNER_ONLY queda congelada research-only a la espera de confirmación independiente.',
+    'Fase 5 · winner protection V2 · PASS candidate for confirmation · consumed',
+    'PHASE5_WINNER_PROTECTION_V2_BLIND_RESULT'
+  ),
   {
     id: 'quality-allocation-dynamic-future-forward-v1',
     name: 'QUALITY allocation · future-forward dinámico',
