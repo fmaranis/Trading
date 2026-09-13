@@ -173,20 +173,23 @@ const JOBS: JobDefinition[] = [
   },
   {
     id: 'phase5-winner-protection-v2',
-    name: 'Fase 5 · protección de ganadores · preflight',
-    description: 'Preflight pre-open de TREND_PROTECTION_V2 winner-only. Ejecuta guards y comprueba cobertura REAL de la muestra 2000-2003; selecciona 18 activos por regla determinista basada sólo en cobertura/identidad. NO ejecuta baseline/candidato, NO abre outcomes económicos y NO consume el holdout de Fase 5.',
-    marker: 'PHASE5_WINNER_PROTECTION_V2_SAMPLE_PREFLIGHT_RESULT',
+    name: 'Fase 5 · protección de ganadores · blind V1',
+    description: 'Blind one-shot sellado de TREND_PROTECTION_V2 winner-only contra CORE_ARCHITECTURE_V1. Ejecuta readiness, seal, guards y TypeScript antes de pedir datos. Sólo si todo pasa abre/consume la muestra histórica sellada, ejecuta baseline/candidato emparejados y persiste evidencia durable. Producción permanece LEGACY.',
+    marker: 'PHASE5_WINNER_PROTECTION_V2_BLIND_RESULT',
     visibility: 'CURRENT',
+    requiresGithubReplayToken: true,
     steps: [
       { label: 'Guard Fase 5 preregistro y muestra', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2Readiness.unit.ts'] },
+      { label: 'Guard seal Fase 5', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2Seal.unit.ts'] },
       { label: 'Guard TREND_PROTECTION_V2', command: 'npx', args: ['tsx', 'tests/trendProtectionPolicy.unit.ts'] },
+      { label: 'Guard integración winner-only Fase 5', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2Integration.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
       { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
       { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
       { label: 'Guard cash histórico BCE', command: 'npx', args: ['tsx', 'tests/cashRemuneration.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Preflight REAL muestra Fase 5 · sin outcomes', command: 'npx', args: ['tsx', 'scripts/phase5WinnerProtectionV2SamplePreflight.ts'] }
+      { label: 'Blind Fase 5 REAL one-shot', command: 'npx', args: ['tsx', 'scripts/phase5WinnerProtectionV2BlindLive.ts'] }
     ]
   },
   {
@@ -273,7 +276,9 @@ function runStep(step: Step, state: JobState): Promise<number> {
 
 function prerequisiteError(job: JobDefinition): string | null {
   if (job.requiresGithubReplayToken && !process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()) {
-    return 'QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED';
+    return job.id === 'quality-allocation-dynamic-future-forward-v1'
+      ? 'QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED'
+      : 'PHASE5_DURABLE_GITHUB_TOKEN_REQUIRED';
   }
   return null;
 }
@@ -380,7 +385,7 @@ researchValidationRouter.post('/jobs/:id/run', (req: Request, res: Response) => 
   if (missing) {
     res.status(412).json({
       error: missing,
-      detail: 'Configura GITHUB_REPLAY_SYNC_TOKEN en el backend local/AI Studio antes de ejecutar el future-forward. No se han lanzado guards ni cálculos.',
+      detail: 'Configura GITHUB_REPLAY_SYNC_TOKEN en el backend local/AI Studio antes de ejecutar esta validación durable. No se han lanzado guards ni cálculos.',
       job: publicJob(job)
     });
     return;
