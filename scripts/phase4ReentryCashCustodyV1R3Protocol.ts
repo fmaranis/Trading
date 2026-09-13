@@ -3,7 +3,7 @@ import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse
 
 export const PHASE4_R3_VERSION = 'PHASE4_REENTRY_CASH_CUSTODY_V1_R3' as const;
 export const PHASE4_R3_MARKER = 'PHASE4_REENTRY_CASH_CUSTODY_V1_R3_RESULT' as const;
-export const PHASE4_R3_DATA_START_DATE = '2000-12-27';
+export const PHASE4_R3_DATA_START_DATE = '2000-09-11';
 export const PHASE4_R3_REPLAY_START_DATE = '2002-01-15';
 export const PHASE4_R3_END_DATE = '2003-12-31';
 export const PHASE4_R3_INITIAL_CAPITAL_EUR = 13_000;
@@ -16,18 +16,21 @@ export const PHASE4_R3_SEAL_PATH = 'docs/phase4_reentry_cash_custody_v1_r3_seal.
 export const PHASE4_R3_DURABLE_JOB_ID = 'phase4-reentry-cash-custody-v1-r3';
 
 /**
- * R3 changes the sample only, never the tested policy. EXS1 is a listed EUR
- * index ETF whose launch predates the R3 replay. It is a research control/core
- * for this holdout, not a production recommendation or a new core default.
+ * R3 changes the sample only, never the tested policy. This identity is isolated
+ * from production and represents Fidelity Funds - World Fund E-Acc-EUR, a
+ * broad-global EUR share class launched in 2000. It is eligible for the
+ * research-only strategic-core role but is not a production recommendation or
+ * a production core default.
  */
 export const PHASE4_R3_CORE: AssetUniverseItem = {
-  assetId: 'CORE_PH4_R3_EXS1',
-  ticker: 'EXS1.DE',
-  isin: 'DE0005933931',
-  name: 'iShares Core DAX UCITS ETF (DE)',
-  category: 'EUROPE_EQUITY',
+  assetId: 'CORE_PH4_R3_FIDELITY_WORLD',
+  ticker: 'LU0115769746',
+  isin: 'LU0115769746',
+  name: 'Fidelity Funds - World Fund E-Acc-EUR',
+  category: 'GLOBAL_EQUITY',
   currency: 'EUR',
-  instrumentType: 'ETF_ETC'
+  instrumentType: 'MUTUAL_FUND',
+  marketDataProvider: 'EODHD_FUND'
 };
 
 /**
