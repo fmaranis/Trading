@@ -108,8 +108,8 @@ function reconcilePendingExecution(
     state.pendingReduction = false;
     state.pendingReductionSignalDate = null;
   } else if (currentUnits > state.lastUnits + 1e-9) {
-    // A new purchase is a new economic episode. Old MFE/giveback protection
-    // state must not leak across the acquisition boundary.
+    // A new purchase is a new economic episode. Old protection state must not
+    // leak across an acquisition boundary.
     resetEpisode(state);
   }
   state.lastUnits = currentUnits;
@@ -117,7 +117,7 @@ function reconcilePendingExecution(
 
 /**
  * Phase 5 evaluates only the winner branch of the already-frozen V2 classifier.
- * We neutralize loser/failure votes in a cloned assessment instead of editing or
+ * Neutralize loser/failure votes in a cloned assessment instead of editing or
  * duplicating TREND_PROTECTION_V2 thresholds. Trend structure is preserved, so
  * winner arming/confirmation/reclaim semantics stay exactly those of V2.
  */
@@ -136,10 +136,10 @@ function wholeShareExecutable(decision: TrendProtectionV2Decision, units: number
   return Math.floor(Math.max(0, units) * pct / 100 + 1e-9) >= 1;
 }
 
-function contributionMatchesAsset(input: PortfolioEvaluationInput, contributionAssetId: string, assetId: string): boolean {
-  if (contributionAssetId === assetId) return true;
-  const asset = input.scan.candidates.find(row => row.asset.assetId === assetId)?.asset;
-  return Boolean(asset && contributionAssetId === asset.assetId);
+function refreshRecommendedTotals(result: PortfolioDecisionResult, oldRecommended: number): void {
+  const nextRecommended = result.contributions.reduce((sum, row) => sum + Math.max(0, row.amountEur), 0);
+  result.recommendedNewInvestmentEur = nextRecommended;
+  result.residualPlannedCashEur = Math.max(0, result.residualPlannedCashEur + oldRecommended - nextRecommended);
 }
 
 export function applyPhase5WinnerProtectionV2Overlay(input: {
@@ -149,7 +149,7 @@ export function applyPhase5WinnerProtectionV2Overlay(input: {
   audit: Phase5WinnerProtectionRuntimeAudit;
 }): PortfolioDecisionResult {
   const { evaluationInput, states, audit } = input;
-  // CORE_GATE_V1 may mutate the engine result. Clone the economic arrays here so
+  // CORE_GATE_V1 may mutate the engine result. Clone economic arrays here so
   // Phase 5 cannot leak changes into another paired result or caller reference.
   const result: PortfolioDecisionResult = {
     ...input.gatedResult,
@@ -241,6 +241,7 @@ export function applyPhase5WinnerProtectionV2Overlay(input: {
       } else if (!wholeShareExecutable(decision, units)) {
         audit.wholeShareBlockedReductions += 1;
       } else if (!state.reductionExecuted && !state.pendingReduction) {
+        const oldRecommended = result.recommendedNewInvestmentEur;
         position.action = 'REDUCE';
         position.suggestedReductionPct = 25;
         position.rotationChallengerAssetId = null;
@@ -249,9 +250,10 @@ export function applyPhase5WinnerProtectionV2Overlay(input: {
         position.rotationChallengerRecentStrongCount = null;
         position.rotationChallengerPersistenceLookbackSessions = null;
         position.reason = `[PHASE5_WINNER_PROTECTION_V2:REDUCE] ${decision.reason} Research-only winner branch; reducción congelada 25% una vez por episodio.`;
-        // If the canonical path wanted to add to this same incumbent, the Phase 5
+        // If the canonical path wanted to add to this same incumbent, the
         // protection decision replaces that fresh-money leg for this asset only.
-        result.contributions = result.contributions.filter(row => !contributionMatchesAsset(evaluationInput, row.assetId, assetId));
+        result.contributions = result.contributions.filter(row => row.assetId !== assetId);
+        refreshRecommendedTotals(result, oldRecommended);
         state.pendingReduction = true;
         state.pendingReductionSignalDate = date;
         audit.proposedReductions += 1;
