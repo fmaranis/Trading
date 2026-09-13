@@ -9,6 +9,15 @@ import {
   type CoreAlphaV2Counters
 } from './coreAlphaOverlay';
 import {
+  applyPhase5WinnerProtectionV2Overlay,
+  emptyPhase5WinnerProtectionAudit,
+  executedPhase5WinnerProtectionSignals,
+  PHASE5_WINNER_PROTECTION_V2,
+  type Phase5WinnerProtectionEpisodeState,
+  type Phase5WinnerProtectionPolicy,
+  type Phase5WinnerProtectionRuntimeAudit
+} from './phase5WinnerProtectionV2Overlay';
+import {
   applyCoreArchitectureV1,
   applyCoreGateV1,
   CORE_ARCHITECTURE_V1_LIMITS,
@@ -73,11 +82,14 @@ export interface ReplayReentryCustodyAudit {
 export interface ReplayRotationExperimentOptions {
   /** Research-only. Production/canonical replay omits this and therefore stays LEGACY. */
   reentryFundingPolicy?: ReentryFundingPolicy;
+  /** Research-only Phase 5 overlay. Production/canonical replay omits this and stays LEGACY. */
+  winnerProtectionPolicy?: Phase5WinnerProtectionPolicy;
 }
 
 export type DynamicReplayExperimentResult = DynamicHistoricalReplayResult & {
   coreSelectionAudit: ReplayDynamicCoreSelectionAuditEntry[];
   reentryCustodyAudit: ReplayReentryCustodyAudit;
+  winnerProtectionAudit: Phase5WinnerProtectionRuntimeAudit;
 };
 
 interface PendingExitReservation {
@@ -417,17 +429,25 @@ export function runDynamicReplayWithRotationExperiment(
   options: ReplayRotationExperimentOptions = {}
 ): DynamicReplayExperimentResult {
   const reentryFundingPolicy: ReentryFundingPolicy = options.reentryFundingPolicy ?? 'LEGACY';
+  const winnerProtectionPolicy: Phase5WinnerProtectionPolicy = options.winnerProtectionPolicy ?? 'LEGACY';
   if (reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1) {
     if (experiment !== 'CORE_ARCHITECTURE_V1') throw new Error('PHASE4_REENTRY_REQUIRES_CORE_ARCHITECTURE_V1');
     if (input.simulationMode === 'HOLD_ONLY') throw new Error('PHASE4_REENTRY_REQUIRES_CUSTODIA_ENGINE');
     if (input.externalCashFlows?.length) throw new Error('PHASE4_REENTRY_V1_EXTERNAL_CASH_FLOWS_NOT_IN_PROTOCOL');
     if (input.taxSettings?.contextConfirmed) throw new Error('PHASE4_REENTRY_V1_REQUIRES_FROZEN_UNCONFIRMED_TAX_CONTEXT');
   }
+  if (winnerProtectionPolicy === PHASE5_WINNER_PROTECTION_V2) {
+    if (experiment !== 'CORE_ARCHITECTURE_V1') throw new Error('PHASE5_WINNER_PROTECTION_REQUIRES_CORE_ARCHITECTURE_V1');
+    if (reentryFundingPolicy !== 'LEGACY') throw new Error('PHASE5_WINNER_PROTECTION_REQUIRES_REENTRY_LEGACY');
+    if (input.simulationMode === 'HOLD_ONLY') throw new Error('PHASE5_WINNER_PROTECTION_REQUIRES_CUSTODIA_ENGINE');
+    if (input.externalCashFlows?.length) throw new Error('PHASE5_WINNER_PROTECTION_EXTERNAL_CASH_FLOWS_NOT_IN_PROTOCOL');
+  }
 
   if (experiment === 'BASELINE') {
     const result = DynamicHistoricalReplayEngine.run(input) as DynamicReplayExperimentResult;
     result.coreSelectionAudit = [];
     result.reentryCustodyAudit = emptyReentryAudit('LEGACY');
+    result.winnerProtectionAudit = emptyPhase5WinnerProtectionAudit('LEGACY');
     return result;
   }
 
@@ -450,6 +470,8 @@ export function runDynamicReplayWithRotationExperiment(
   const pendingExits: PendingExitReservation[] = [];
   const allPredictedExits: PendingExitReservation[] = [];
   const reentryAuthorizations: ReentryAuthorization[] = [];
+  const winnerProtectionStates = new Map<string, Phase5WinnerProtectionEpisodeState>();
+  const winnerProtectionAudit = emptyPhase5WinnerProtectionAudit(winnerProtectionPolicy);
 
   const advanceResearchState = (evaluationInput: PortfolioEvaluationInput) => {
     if (reentryFundingPolicy !== EXIT_PROCEEDS_CUSTODY_V1) return;
@@ -488,7 +510,16 @@ export function runDynamicReplayWithRotationExperiment(
       const gated = applyCoreGateV1(evaluationInput, baseline, gateCounters);
       if (experiment === 'CORE_GATE_V1') return gated;
 
-      const selection = selectDynamicCoreV1(evaluationInput, gated);
+      const phase5Gated = winnerProtectionPolicy === PHASE5_WINNER_PROTECTION_V2
+        ? applyPhase5WinnerProtectionV2Overlay({
+            evaluationInput,
+            gatedResult: gated,
+            states: winnerProtectionStates,
+            audit: winnerProtectionAudit
+          })
+        : gated;
+
+      const selection = selectDynamicCoreV1(evaluationInput, phase5Gated);
       coreSelectionAudit.push({
         decisionDate: evaluationInput.decision.asOfDate,
         selectedAssetId: selection.selectedAssetId,
@@ -500,7 +531,7 @@ export function runDynamicReplayWithRotationExperiment(
         candidates: selection.candidateScores.map(candidate => ({ ...candidate }))
       });
 
-      const architecture = applyCoreArchitectureV1(evaluationInput, gated, architectureCounters);
+      const architecture = applyCoreArchitectureV1(evaluationInput, phase5Gated, architectureCounters);
       if (experiment === 'CORE_ARCHITECTURE_V1' && reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1) {
         const eligibleHealthExitAssetIds = architecture.existingPositions
           .filter(position => {
@@ -594,6 +625,10 @@ export function runDynamicReplayWithRotationExperiment(
     result.reentryCustodyAudit = reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1
       ? finalizeReentryAudit(input, result, allPredictedExits, reentryAuthorizations)
       : emptyReentryAudit('LEGACY');
+    winnerProtectionAudit.executionConfirmations = winnerProtectionPolicy === PHASE5_WINNER_PROTECTION_V2
+      ? executedPhase5WinnerProtectionSignals(result)
+      : 0;
+    result.winnerProtectionAudit = winnerProtectionAudit;
 
     const auditCarrier = (
       result.signals.find(signal => signal.executed === true)
@@ -608,7 +643,8 @@ export function runDynamicReplayWithRotationExperiment(
           ...entry,
           candidates: entry.candidates.map(candidate => ({ ...candidate }))
         })),
-        ...(reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1 ? { reentryCustodyAudit: result.reentryCustodyAudit } : {})
+        ...(reentryFundingPolicy === EXIT_PROCEEDS_CUSTODY_V1 ? { reentryCustodyAudit: result.reentryCustodyAudit } : {}),
+        ...(winnerProtectionPolicy === PHASE5_WINNER_PROTECTION_V2 ? { winnerProtectionAudit: result.winnerProtectionAudit } : {})
       };
     }
 
@@ -630,6 +666,13 @@ export function runDynamicReplayWithRotationExperiment(
       result.notes.push(
         `${EXIT_PROCEEDS_CUSTODY_V1} research-only: ${result.reentryCustodyAudit.reservationsCreated} reservas creadas y ${result.reentryCustodyAudit.reentriesExecuted} reentradas realmente financiadas por custodia. El default productivo/replay continúa LEGACY.`,
         'La custodia V1 aplica sólo a EXIT completos de instrumentos cotizados no-core, usa neto de ejecución verificado post-run, protege notional+comisión, activa la protección desde la misma tanda donde nace la reserva y estabiliza la fecha NEXT_OPEN después de desacoplar RETURN_TO_CORE. El reach sólo cuenta BUY ejecutadas con autorización estructurada positiva de la reserva correspondiente.'
+      );
+    }
+
+    if (winnerProtectionPolicy === PHASE5_WINNER_PROTECTION_V2) {
+      result.notes.push(
+        `${PHASE5_WINNER_PROTECTION_V2} research-only: ${result.winnerProtectionAudit.armedEpisodes} episodios armados, ${result.winnerProtectionAudit.proposedReductions} reducciones propuestas y ${result.winnerProtectionAudit.executionConfirmations} REDUCE 25% realmente ejecutadas. El default productivo/replay continúa LEGACY.`,
+        'Fase 5 usa exclusivamente la rama winner de TREND_PROTECTION_V2, nunca actúa sobre core diversificado, nunca debilita un REDUCE/EXIT canónico y sólo cuenta reach cuando el replay ejecuta la reducción en la trayectoria causal NEXT_OPEN.'
       );
     }
 
