@@ -4,7 +4,7 @@ import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse
 export const PHASE4_R3_VERSION = 'PHASE4_REENTRY_CASH_CUSTODY_V1_R3' as const;
 export const PHASE4_R3_MARKER = 'PHASE4_REENTRY_CASH_CUSTODY_V1_R3_RESULT' as const;
 export const PHASE4_R3_DATA_START_DATE = '2006-12-19';
-export const PHASE4_R3_REPLAY_START_DATE = '2008-03-03';
+export const PHASE4_R3_REPLAY_START_DATE = '2009-01-05';
 export const PHASE4_R3_END_DATE = '2010-12-31';
 export const PHASE4_R3_INITIAL_CAPITAL_EUR = 13_000;
 export const PHASE4_R3_MINIMUM_BARS = 252;
