@@ -32,7 +32,7 @@ Producción/default permanece `LEGACY`.
 
 Ventana temporal deliberadamente disjunta de R2 y de las ventanas Opportunity/Allocation consumidas:
 
-- data request start: `2000-12-27`;
+- data request start: `2000-09-11`;
 - replay start: `2002-01-15`;
 - end: `2003-12-31`;
 - frecuencia: `MONTHLY`;
@@ -51,26 +51,29 @@ La ventana termina antes del inicio de R2 (`2004-01-02`).
 
 ## 4. Core R3
 
-Core de control/prueba:
+Core estructural research-only fijado antes de abrir la muestra:
 
-- assetId: `CORE_PH4_R3_EXS1`;
-- ticker: `EXS1.DE`;
-- ISIN: `DE0005933931`;
-- instrumento: iShares Core DAX UCITS ETF (DE);
+- assetId: `CORE_PH4_R3_FIDELITY_WORLD`;
+- ISIN/ticker lógico: `LU0115769746`;
+- instrumento: `Fidelity Funds - World Fund E-Acc-EUR`;
+- categoría: `GLOBAL_EQUITY`;
 - moneda: EUR;
-- listed ETF, no fondo NAV por ISIN.
+- clase de fondo global creada el `2000-09-11`;
+- identidad research-only, ausente del catálogo productivo.
 
-La identidad del core se fija antes de abrir R3 y no puede cambiarse durante el one-shot. Su selección responde exclusivamente a cobertura histórica anterior a R2 y a evitar la ruta de datos de fondos que invalidó R2. No es una recomendación productiva ni sustituye el core de producción.
+La elección respeta la semántica de `CORE_ARCHITECTURE_V1`: el core sigue siendo exposición global/diversificada, no un índice regional usado como sustituto. La identidad está reconocida únicamente como core estratégico de investigación y no se incorpora al discovery productivo ni a la prioridad de core de producción.
 
-El runtime debe exigir:
+Antes de abrir R3 el job ejecutará un **preflight de datos sólo sobre este core**. Ese preflight puede consultar la infraestructura REAL del core porque no observa ningún activo ni outcome de la muestra fresh R3. Debe exigir:
 
-- `REAL`;
-- proveedor aceptado por la infraestructura normal;
+- resolución REAL por la infraestructura normal de fondos (Yahoo alias validado y/o EODHD);
+- moneda EUR;
 - >=252 barras hasta `REPLAY_START_DATE`;
-- OHLC/date integrity;
-- cobertura utilizable del periodo de replay.
+- integridad temporal/NAV;
+- cobertura utilizable hasta `END_DATE`.
 
-Si el core falla, R3 termina `INCONCLUSIVE_INVALID_DATA`; no se sustituye.
+Si este preflight falla, el job se detiene **antes de consultar el pool fresh** y R3 continúa no abierta. No se selecciona automáticamente otro core ni se consume la muestra.
+
+Una vez que el preflight del core pasa y el one-shot inicia la consulta del pool fresh, la identidad del core no puede cambiarse y cualquier fallo posterior se clasifica `INCONCLUSIVE_INVALID_DATA`.
 
 ## 5. Pool fresh y regla de selección
 
@@ -163,14 +166,16 @@ Un PASS no promociona producción: sólo habilita confirmación independiente co
 
 ## 10. Persistencia y apertura
 
-El one-shot debe:
+El flujo debe:
 
-- verificar un seal de blobs críticos antes de la primera consulta R3;
-- ejecutar todos los guards rápidos y TypeScript antes del runner largo;
+- verificar un seal de blobs críticos antes del preflight;
+- ejecutar todos los guards rápidos y TypeScript antes de cualquier consulta fresh;
+- ejecutar después el preflight REAL **sólo del core**;
+- sólo si el core pasa, iniciar el one-shot R3 y su primera consulta al pool fresh;
 - persistir el JSON completo en `replay-results` antes de declarar la ejecución cerrada;
 - no depender de memoria del backend ni de una descarga manual del usuario.
 
-La primera llamada de mercado del runner R3 consume la muestra. Desde ese instante R3 nunca vuelve a ser fresh aunque falle por datos.
+La primera consulta de mercado a cualquier asset `EQ_PH4_R3_*` consume la muestra. Las consultas previas limitadas al core no abren el holdout porque no contienen activos ni outcomes fresh de R3.
 
 ## 11. Interpretación permitida
 
