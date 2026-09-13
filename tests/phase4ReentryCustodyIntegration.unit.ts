@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { AssetUniverseScanResult } from '../src/investment/decision/assetUniverseScanner';
 import type { PortfolioDecisionResult } from '../src/investment/decision/portfolioDecisionEngine';
@@ -19,22 +18,22 @@ interface Phase4Seal {
   expectedGitBlobSha: Record<string, string>;
 }
 
-function gitBlobSha(text: string): string {
-  const bytes = Buffer.from(text, 'utf8');
-  return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
-}
-
-// The pre-open seal is authoritative. This guard executes before TypeScript and
-// before the one-shot R2 runner in ResearchValidationCenter. Any change to a
-// frozen critical source fails before the first historical download.
-const seal = JSON.parse(readFileSync('docs/phase4_reentry_cash_custody_v1_seal.json', 'utf8')) as Phase4Seal;
-assert.equal(seal.version, 'PHASE4_REENTRY_CASH_CUSTODY_V1_R2_SEAL');
-assert.equal(seal.sampleState, 'R2_SEALED_NOT_OPENED');
-assert.ok(Object.keys(seal.expectedGitBlobSha).length >= 8);
-for (const [path, expected] of Object.entries(seal.expectedGitBlobSha)) {
-  const actual = gitBlobSha(readFileSync(path, 'utf8'));
-  assert.equal(actual, expected, `PHASE4_PREOPEN_SEAL_MISMATCH:${path}:${expected}:${actual}`);
-}
+// R2 is already OPENED/CONSUMED. Its seal is now a forensic artifact, not a
+// constraint on the current repository bytes. In particular, the validation
+// route legitimately changed after R2 to archive jobs and add durable evidence.
+// Requiring current files to match the old pre-open manifest would make every
+// later research phase fail for unrelated maintenance. Exact R2 bytes remain
+// recoverable/auditable through the immutable seal + recovery script, while the
+// current R3 pre-open state is protected separately by phase4R3Seal.unit.ts.
+const r2Seal = JSON.parse(readFileSync('docs/phase4_reentry_cash_custody_v1_seal.json', 'utf8')) as Phase4Seal;
+assert.equal(r2Seal.version, 'PHASE4_REENTRY_CASH_CUSTODY_V1_R2_SEAL');
+assert.equal(r2Seal.sampleState, 'R2_SEALED_NOT_OPENED');
+assert.ok(Object.keys(r2Seal.expectedGitBlobSha).length >= 8);
+assert.equal(
+  r2Seal.expectedGitBlobSha['server/researchValidationRoutes.ts'],
+  '2b34964b1f0cd0997f50b4366c944212cff286f8',
+  'R2 forensic seal must preserve the original validation-route blob'
+);
 
 // Architecture parity: Phase 4 layers on the existing replay wrapper; production
 // still reaches CORE_GATE_V1 + CORE_ARCHITECTURE_V1 through that same path.
@@ -77,17 +76,18 @@ assert.match(wrapperSource, /authorizedReserveSpendEur/);
 assert.match(wrapperSource, /row\.sourceExitSignalId\s*===\s*predicted\.signalId/);
 assert.match(wrapperSource, /row\.reservedCashUsedEur\s*>\s*0\.01/);
 
-// One-shot runner and RVC ordering remain sealed: guards + TypeScript before blind.
+// Historical R2 runner remains available for forensic reconstruction only. Its
+// old RVC entry is archived, and current research phases must not depend on its
+// pre-open route blob.
 assert.match(runnerSource, /runDynamicReplayWithRotationExperiment\(replayInput,\s*'CORE_ARCHITECTURE_V1'\)/);
 assert.match(runnerSource, /reentryFundingPolicy:\s*EXIT_PROCEEDS_CUSTODY_V1/);
 assert.match(runnerSource, /sampleState:\s*'R2_OPENED_CONSUMED'/);
 assert.match(runnerSource, /currentOpenDiscovery:\s*false/);
 assert.match(runnerSource, /PHASE4_R2_PREOPEN_PRODUCT_CATALOG_CONTAMINATION/);
 const phase4Job = validationRoutesSource.indexOf("id: 'phase4-reentry-cash-custody-v1'");
-assert.ok(phase4Job >= 0, 'Phase 4 must be one job in the existing ResearchValidationCenter');
+assert.ok(phase4Job >= 0, 'Phase 4 R2 must remain represented in ResearchValidationCenter history');
 const phase4Slice = validationRoutesSource.slice(phase4Job, validationRoutesSource.indexOf("id: 'quality-allocation-dynamic-future-forward-v1'", phase4Job));
-assert.ok(phase4Slice.indexOf("label: 'TypeScript'") >= 0);
-assert.ok(phase4Slice.indexOf("label: 'Blind R2 REAL one-shot'") > phase4Slice.indexOf("label: 'TypeScript'"));
+assert.match(phase4Slice, /visibility:\s*'ARCHIVED'/);
 
 const core = { assetId: 'EUNL', ticker: 'EUNL.DE', name: 'Core', category: 'GLOBAL_EQUITY', currency: 'EUR' } as const;
 const incumbent = { assetId: 'EQ_PH4_R2_TEST', ticker: 'TEST.DE', name: 'Incumbent', category: 'EUROPE_EQUITY', currency: 'EUR' } as const;
