@@ -3,7 +3,7 @@ const DEFAULT_BRANCH = 'replay-results';
 const BASE_PATH = 'validation-runs/research-validation';
 const REQUEST_TIMEOUT_MS = 30_000;
 
-export type ResearchValidationEvidenceKind = 'ORIGINAL_VALIDATION' | 'AUDIT_RECONSTRUCTION';
+export type ResearchValidationEvidenceKind = 'ORIGINAL_VALIDATION' | 'AUDIT_RECONSTRUCTION' | 'OPENING_LOCK';
 
 export interface DurableResearchValidationEvidence {
   schemaVersion: 1;
@@ -63,7 +63,12 @@ export async function loadDurableResearchValidationEvidence(jobId: string): Prom
   if (typeof remote?.content !== 'string') throw new Error('RESEARCH_VALIDATION_DURABLE_INVALID_GITHUB_PAYLOAD');
   const decoded = Buffer.from(remote.content.replace(/\n/g, ''), 'base64').toString('utf8');
   const parsed = JSON.parse(decoded) as DurableResearchValidationEvidence;
-  if (parsed?.schemaVersion !== 1 || parsed?.jobId !== jobId || parsed?.status !== 'PASSED') {
+  if (
+    parsed?.schemaVersion !== 1
+    || parsed?.jobId !== jobId
+    || parsed?.status !== 'PASSED'
+    || !['ORIGINAL_VALIDATION', 'AUDIT_RECONSTRUCTION', 'OPENING_LOCK'].includes(parsed?.evidenceKind)
+  ) {
     throw new Error('RESEARCH_VALIDATION_DURABLE_INVALID_EVIDENCE');
   }
   return parsed;
@@ -72,7 +77,12 @@ export async function loadDurableResearchValidationEvidence(jobId: string): Prom
 export async function saveDurableResearchValidationEvidence(
   evidence: DurableResearchValidationEvidence
 ): Promise<{ path: string; blobSha: string; commitSha: string | null }> {
-  if (evidence.schemaVersion !== 1 || evidence.status !== 'PASSED' || !evidence.jobId) {
+  if (
+    evidence.schemaVersion !== 1
+    || evidence.status !== 'PASSED'
+    || !evidence.jobId
+    || !['ORIGINAL_VALIDATION', 'AUDIT_RECONSTRUCTION', 'OPENING_LOCK'].includes(evidence.evidenceKind)
+  ) {
     throw new Error('RESEARCH_VALIDATION_DURABLE_INVALID_EVIDENCE');
   }
   const target = syncTarget(evidence.jobId);
@@ -90,22 +100,22 @@ export async function saveDurableResearchValidationEvidence(
 
   const serialized = `${JSON.stringify(evidence, null, 2)}\n`;
   const body: Record<string, unknown> = {
-    message: `Record research validation evidence ${evidence.jobId}`,
+    message: `Record research validation ${evidence.jobId} · ${evidence.evidenceKind}`,
     content: Buffer.from(serialized, 'utf8').toString('base64'),
     branch: target.branch
   };
   if (sha) body.sha = sha;
 
-  const writeResponse = await githubFetch(apiUrl, {
+  const response = await githubFetch(apiUrl, {
     method: 'PUT',
     headers,
     body: JSON.stringify(body)
   });
-  if (!writeResponse.ok) {
-    const detail = await writeResponse.text();
-    throw new Error(`RESEARCH_VALIDATION_DURABLE_WRITE_FAILED:${writeResponse.status}:${detail.slice(0, 300)}`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`RESEARCH_VALIDATION_DURABLE_WRITE_FAILED:${response.status}:${detail.slice(0, 300)}`);
   }
-  const written = await writeResponse.json() as any;
+  const written = await response.json() as any;
   const blobSha = String(written?.content?.sha || '');
   if (!blobSha) throw new Error('RESEARCH_VALIDATION_DURABLE_WRITE_NO_BLOB_SHA');
   return {
