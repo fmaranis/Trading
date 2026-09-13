@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { EUR_PORTFOLIO_DISCOVERY_UNIVERSE } from '../src/investment/decision/portfolioDiscoveryUniverse';
+import { isStrategicGrowthCoreAssetId, RESEARCH_STRATEGIC_GROWTH_CORE_ASSET_IDS } from '../src/investment/decision/portfolioAssetRole';
 import {
   PHASE4_R2_CONSUMED_TICKERS,
   PHASE4_R3_CANDIDATE_POOL,
@@ -21,6 +22,7 @@ function assert(condition: unknown, label: string): asserts condition {
 }
 
 const productTickers = new Set(EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(row => row.ticker.toUpperCase()));
+const productAssetIds = new Set(EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(row => row.assetId.toUpperCase()));
 const poolTickers = PHASE4_R3_CANDIDATE_POOL.map(row => row.ticker.toUpperCase());
 const poolIds = PHASE4_R3_CANDIDATE_POOL.map(row => row.assetId);
 
@@ -35,8 +37,15 @@ assert(new Set(poolIds).size === poolIds.length, 'R3 coverage pool assetIds are 
 assert(PHASE4_R3_CANDIDATE_POOL.every(row => row.assetId.startsWith('EQ_PH4_R3_')), 'R3 pool uses isolated research identities');
 assert(PHASE4_R3_CANDIDATE_POOL.every(row => !productTickers.has(row.ticker.toUpperCase())), 'R3 pool excludes curated production catalogue tickers');
 assert(PHASE4_R3_CANDIDATE_POOL.every(row => !PHASE4_R2_CONSUMED_TICKERS.has(row.ticker.toUpperCase())), 'R3 pool excludes consumed R2 tickers');
-assert(!productTickers.has(PHASE4_R3_CORE.ticker.toUpperCase()), 'R3 core is not a production catalogue default');
-assert(PHASE4_R3_CORE.ticker === 'EXS1.DE' && PHASE4_R3_CORE.isin === 'DE0005933931', 'R3 core identity is frozen');
+
+assert(PHASE4_R3_CORE.assetId === 'CORE_PH4_R3_FIDELITY_WORLD', 'R3 core research identity is frozen');
+assert(PHASE4_R3_CORE.isin === 'LU0115769746', 'R3 core ISIN is frozen');
+assert(PHASE4_R3_CORE.category === 'GLOBAL_EQUITY', 'R3 core remains broad-global rather than regional');
+assert(PHASE4_R3_CORE.instrumentType === 'MUTUAL_FUND', 'R3 core uses explicit mutual-fund data semantics');
+assert(isStrategicGrowthCoreAssetId(PHASE4_R3_CORE.assetId), 'R3 core is recognized by the shared strategic-core architecture');
+assert(RESEARCH_STRATEGIC_GROWTH_CORE_ASSET_IDS.includes(PHASE4_R3_CORE.assetId as any), 'R3 core is explicitly research-only');
+assert(!productAssetIds.has(PHASE4_R3_CORE.assetId.toUpperCase()), 'R3 research core cannot enter production by assetId');
+assert(!productTickers.has(PHASE4_R3_CORE.ticker.toUpperCase()), 'R3 research core cannot enter production by ticker/ISIN');
 
 const deterministicFirst = selectPhase4R3FreshAssets(PHASE4_R3_CANDIDATE_POOL.slice(0, 40));
 const deterministicSecond = selectPhase4R3FreshAssets([...PHASE4_R3_CANDIDATE_POOL.slice(0, 40)].reverse());
@@ -53,5 +62,7 @@ assert(prereg.includes('EXIT_PROCEEDS_CUSTODY_V1'), 'R3 prereg preserves frozen 
 assert(prereg.includes('INCONCLUSIVE_INVALID_DATA'), 'R3 prereg fails closed on invalid REAL data');
 assert(prereg.includes('frictionIncreaseEur > 0'), 'R3 prereg fixes positive-friction materiality semantics before open');
 assert(prereg.includes('current Yahoo discovery: `OFF`'), 'R3 prereg forbids current discovery in historical replay');
+assert(prereg.includes('preflight de datos sólo sobre este core'), 'R3 core data preflight is explicitly pre-open');
+assert(prereg.includes('La primera consulta de mercado a cualquier asset `EQ_PH4_R3_*` consume la muestra'), 'R3 fresh-sample opening boundary is explicit');
 
 console.log('phase4R3Readiness.unit: PASS');
