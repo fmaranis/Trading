@@ -1,7 +1,7 @@
 # Fase 5 · protección de grandes ganadores · diseño pre-open
 
 Fecha de diseño: **2026-09-13**  
-Estado: **POLICY DESIGN FROZEN / SAMPLE NOT SEALED / HOLDOUT NOT OPENED / RESEARCH ONLY**
+Estado: **POLICY DESIGN FROZEN / SAMPLE-SELECTION RULE FROZEN / COVERAGE PREFLIGHT NOT RUN / HOLDOUT NOT OPENED / RESEARCH ONLY**
 
 ## 1. Objetivo
 
@@ -172,33 +172,81 @@ Reach suficiente pero no se cumplen los gates económicos/daño. La policy exact
 
 Datos insuficientes, reach insuficiente o fallo de infraestructura que impida una comparación válida. No es PASS ni FAIL económico y no autoriza retuning sobre la muestra consumida.
 
-## 10. Datos y muestra — todavía NO sellados
+## 10. Muestra y ventana pre-open congeladas
+
+La frontera temporal se fija sin mirar outcomes de winner-protection:
+
+- data request start: `1998-01-02`;
+- replay: `2000-01-03 -> 2003-12-31`;
+- motivo de la ventana: bloque continuo inmediatamente anterior al inicio R2 de 2004, y por tanto anterior también a R3, HFG y la investigación Forward Risk 2011+;
+- frecuencia: `DAILY`, porque V2 utiliza streaks medidos en sesiones y evita convertir una regla de sesiones en una revisión mensual artificial;
+- capital por cohorte: `13.000 EUR`;
+- riesgo: `MEDIUM`;
+- horizonte: `3 años`;
+- cash: BCE histórico con suelo nominal 0%;
+- tax context: mismo tratamiento canónico, sin usar fiscalidad para seleccionar la muestra;
+- `externalCashFlows`: ninguno;
+- current discovery histórico: OFF.
+
+La muestra final será `6 x 3 = 18` activos EUR listados.
+
+### Pool congelado
+
+`scripts/phase5WinnerProtectionV2SampleProtocol.ts` contiene 26 identidades `EQ_PH5_*` aisladas para research. El pool excluye explícitamente:
+
+- `HFG.DE`;
+- todos los tickers R2 consumidos;
+- todos los tickers del pool R3 consumido.
+
+Los tickers proceden del catálogo EUR ya conocido al congelar el diseño; no se llama a Yahoo current discovery para reconstruir 2000-2003. Persiste survivorship/catalog bias y se declara como limitación de Fase 8.
+
+### Regla ciega de selección
+
+El preflight sólo puede utilizar:
+
+1. `REAL` Yahoo;
+2. moneda EUR;
+3. integridad OHLC válida;
+4. al menos `252` barras anteriores a `2000-01-03`;
+5. cobertura hasta diciembre de 2003.
+
+Entre los coverage-eligible, la muestra toma los primeros 18 por orden SHA-256 fijo de `assetId` (`PHASE5_WINNER_PROTECTION_V2:<assetId>`). No utiliza retornos futuros, drawdowns futuros, MFE futuros ni señales V2 para seleccionar activos.
+
+Los 18 se particionan de forma fija y disjunta en 6 cohortes consecutivas de 3.
+
+Si hay menos de 18 activos coverage-eligible, el preflight falla cerrado y **no** se abre el holdout.
+
+## 11. Preflight actual — permitido, sin abrir outcomes
+
+Único job actual:
+
+`ResearchValidationCenter -> Fase 5 · protección de ganadores · preflight`
+
+Orden:
+
+1. guard de preregistro/muestra;
+2. guard existente `TREND_PROTECTION_V2`;
+3. arquitectura core;
+4. `PortfolioCandidateGate`;
+5. paridad replay/producto;
+6. superficie productiva;
+7. cash BCE;
+8. TypeScript;
+9. preflight REAL de cobertura/selección.
+
+Este job **no** ejecuta baseline ni candidato y no calcula ningún outcome económico. Su resultado sólo fija si existen 18 identidades válidas y cuáles son según la regla preregistrada.
+
+Tras un PASS, las identidades resultantes deberán copiarse al seal final junto con los fingerprints metodológicos críticos. Sólo entonces el mismo job podrá evolucionar a la ejecución blind one-shot. No se creará un segundo motor ni una pantalla paralela.
+
+## 12. Estado de consumo
 
 A fecha de este diseño:
 
-- no se ha elegido ni abierto el pool fresh de Fase 5;
-- no se ha consultado ningún activo como muestra Fase 5;
-- no existe seal Fase 5;
-- no se ha ejecutado ningún outcome Fase 5.
+- no se ha ejecutado el preflight REAL de Fase 5;
+- no se ha elegido todavía la lista efectiva de 18 activos;
+- no existe seal final Fase 5;
+- no se ha ejecutado ningún baseline/candidato Fase 5;
+- no se ha ejecutado ningún outcome Fase 5;
+- el holdout sigue **NO ABIERTO / NO CONSUMIDO**.
 
-Antes de abrir el holdout deberán fijarse y sellarse:
-
-- ventana temporal;
-- data request start;
-- core válido y su preflight si se utiliza;
-- pool fresh y exclusiones de identidades consumidas;
-- regla de selección ciega basada sólo en información permitida pre-replay;
-- tamaño de cohortes;
-- mínimo causal de barras;
-- REAL-only;
-- current discovery histórico OFF;
-- datos/fingerprints críticos;
-- job único integrado en `ResearchValidationCenter`.
-
-No se permite usar HFG, R2/R3 de Fase 4 ni otros outcomes consumidos para seleccionar retrospectivamente los activos que “mejor” hagan funcionar la protección.
-
-## 11. Siguiente paso permitido
-
-El siguiente trabajo pre-open es diseñar **la muestra Fase 5 y su preflight**, comprobando disponibilidad de datos sin observar outcomes económicos de la candidata.
-
-Sólo después de cerrar y sellar muestra + implementación + guards podrá ejecutarse una única validación fresh/blind/OOS.
+El siguiente paso permitido es ejecutar únicamente el preflight del Centro de validación y conservar su salida. Nada de esa ejecución puede promocionar o retirar la política; sólo valida y fija la muestra antes del blind.
