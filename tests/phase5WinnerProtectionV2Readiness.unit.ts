@@ -24,8 +24,10 @@ const tickers = PHASE5_CANDIDATE_POOL.map(asset => asset.ticker.toUpperCase());
 const assetIds = PHASE5_CANDIDATE_POOL.map(asset => asset.assetId);
 
 check(PHASE5_DATA_START_DATE < PHASE5_REPLAY_START_DATE, 'Phase 5 data begins before replay');
-check(PHASE5_REPLAY_START_DATE === '2000-01-03', 'Phase 5 replay begins at the frozen pre-R2 boundary');
+check(PHASE5_REPLAY_START_DATE === '2001-01-03', 'Phase 5 replay start is explicitly refrozen after coverage-only preflight');
 check(PHASE5_END_DATE === '2003-12-31', 'Phase 5 ends before consumed R2 starts');
+check(PHASE5_REPLAY_START_DATE < PHASE5_END_DATE, 'Phase 5 refrozen replay window remains non-empty');
+check(PHASE5_END_DATE < '2004-01-01', 'Phase 5 remains wholly before consumed R2');
 check(PHASE5_END_DATE < '2009-01-05', 'Phase 5 remains before consumed R3');
 check(PHASE5_END_DATE < '2011-01-01', 'Phase 5 remains before 2011+ Forward Risk research');
 check(PHASE5_MINIMUM_CAUSAL_BARS === 252, 'Phase 5 preserves 252 causal pre-replay bars');
@@ -60,6 +62,7 @@ const design = fs.readFileSync('docs/phase5_winner_protection_v2_preopen_design.
 check(design.includes('winnerProtectionArmed === true'), 'Phase 5 design isolates winner branch');
 check(design.includes('INCONCLUSIVE_INSUFFICIENT_WINNER_PROTECTION_REACH'), 'Phase 5 reach failure state is preregistered');
 check(design.includes('finalValueDeltaEur = candidate.finalValueEur - baseline.finalValueEur'), 'Phase 5 terminal wealth metric is frozen');
+check(design.includes('10/26') && design.includes('2001-01-03'), 'Phase 5 documents coverage-only failure and pre-open temporal refreeze');
 check(design.includes('no se ha ejecutado ningún outcome Fase 5'), 'Phase 5 design records holdout as unopened');
 
 console.log(`phase5WinnerProtectionV2Readiness.unit: PASS · ${PHASE5_CANDIDATE_POOL.length} pool assets · ${PHASE5_COHORT_COUNT}x${PHASE5_ASSETS_PER_COHORT}`);
