@@ -172,6 +172,24 @@ const JOBS: JobDefinition[] = [
     ]
   },
   {
+    id: 'phase5-winner-protection-v2',
+    name: 'Fase 5 · protección de ganadores · preflight',
+    description: 'Preflight pre-open de TREND_PROTECTION_V2 winner-only. Ejecuta guards y comprueba cobertura REAL de la muestra 2000-2003; selecciona 18 activos por regla determinista basada sólo en cobertura/identidad. NO ejecuta baseline/candidato, NO abre outcomes económicos y NO consume el holdout de Fase 5.',
+    marker: 'PHASE5_WINNER_PROTECTION_V2_SAMPLE_PREFLIGHT_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard Fase 5 preregistro y muestra', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2Readiness.unit.ts'] },
+      { label: 'Guard TREND_PROTECTION_V2', command: 'npx', args: ['tsx', 'tests/trendProtectionPolicy.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
+      { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
+      { label: 'Guard cash histórico BCE', command: 'npx', args: ['tsx', 'tests/cashRemuneration.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Preflight REAL muestra Fase 5 · sin outcomes', command: 'npx', args: ['tsx', 'scripts/phase5WinnerProtectionV2SamplePreflight.ts'] }
+    ]
+  },
+  {
     id: 'quality-allocation-dynamic-future-forward-v1',
     name: 'QUALITY allocation · future-forward dinámico',
     description: 'Phase A prospectiva sobre Top64 current/live dinámico. Una única foto mensual consecutiva en la ventana congelada del día 9, 22:30-24:00 Europe/Madrid; mismo snapshot y 13.000 EUR de notional research para LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Reglas e implementación crítica quedan fingerprintadas, el estado autoritativo se encadena en replay-results y producción continúa LEGACY.',
