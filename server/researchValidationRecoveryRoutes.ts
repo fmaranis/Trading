@@ -25,7 +25,7 @@ const R3_STEPS: Step[] = [
   { label: 'Guard future-forward congelado', command: 'npx', args: ['tsx', 'tests/qualityAllocationDynamicFutureForwardV1.unit.ts'] },
   { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
   { label: 'Preflight REAL sólo del core R3', command: 'npx', args: ['tsx', 'scripts/phase4ReentryCashCustodyV1R3CorePreflight.ts'] },
-  { label: 'Blind R3 REAL one-shot', command: 'npx', args: ['tsx', 'scripts/phase4ReentryCashCustodyV1R3BlindLive.ts'] }
+  { label: 'Blind R3 REAL one-shot', command: 'npx', args: ['tsx', 'scripts/phase4ReentryCashCustodyV1R3OpenAndRun.ts'] }
 ];
 
 interface RecoveryState {
@@ -121,9 +121,10 @@ async function runR3(): Promise<void> {
         return;
       }
     }
-    if (!(await durableEvidenceAvailable(R3_JOB_ID))) {
+    const evidence = await durableEvidence(R3_JOB_ID);
+    if (!evidence || evidence.evidenceKind !== 'ORIGINAL_VALIDATION') {
       r3State.status = 'FAILED';
-      r3State.error = 'PHASE4_R3_DURABLE_WRITE_NOT_CONFIRMED';
+      r3State.error = 'PHASE4_R3_FINAL_DURABLE_EVIDENCE_NOT_CONFIRMED';
       return;
     }
     r3State.status = 'PASSED';
@@ -184,13 +185,17 @@ researchValidationRecoveryRouter.get('/phase4-r3', async (_req: Request, res: Re
   const r2Evidence = await durableEvidence(JOB_ID);
   const r3Evidence = await durableEvidence(R3_JOB_ID);
   const reproductionVerdict = (r2Evidence?.result as any)?.reproductionVerdict ?? null;
-  const r3Verdict = (r3Evidence?.result as any)?.verdict ?? null;
+  const r3IsFinal = r3Evidence?.evidenceKind === 'ORIGINAL_VALIDATION';
+  const r3OpeningLocked = r3Evidence?.evidenceKind === 'OPENING_LOCK';
+  const r3Verdict = r3IsFinal ? (r3Evidence?.result as any)?.verdict ?? null : null;
   const tokenConfigured = Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim());
   res.json({
     jobId: R3_JOB_ID,
     r2EvidenceAvailable: Boolean(r2Evidence),
     r2ReproductionVerdict: reproductionVerdict,
-    evidenceAvailable: Boolean(r3Evidence),
+    evidenceAvailable: r3IsFinal,
+    evidenceKind: r3Evidence?.evidenceKind ?? null,
+    openingLocked: r3OpeningLocked,
     verdict: r3Verdict,
     readyToRun: Boolean(r2Evidence) && reproductionVerdict === 'INCONCLUSIVE_INVALID_DATA' && !r3Evidence && r3State.status !== 'RUNNING' && tokenConfigured,
     tokenConfigured,
@@ -201,7 +206,10 @@ researchValidationRecoveryRouter.get('/phase4-r3', async (_req: Request, res: Re
 researchValidationRecoveryRouter.get('/phase4-r3/result.json', async (_req: Request, res: Response) => {
   try {
     const evidence = await durableEvidence(R3_JOB_ID);
-    if (!evidence) { res.status(404).json({ error: 'PHASE4_R3_DURABLE_EVIDENCE_NOT_AVAILABLE' }); return; }
+    if (!evidence || evidence.evidenceKind !== 'ORIGINAL_VALIDATION') {
+      res.status(404).json({ error: 'PHASE4_R3_FINAL_DURABLE_EVIDENCE_NOT_AVAILABLE', evidenceKind: evidence?.evidenceKind ?? null });
+      return;
+    }
     res.setHeader('Content-Disposition', 'attachment; filename="phase4-reentry-cash-custody-v1-r3-evidence.json"');
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json(evidence);
@@ -225,8 +233,14 @@ researchValidationRecoveryRouter.post('/phase4-r3/run', async (_req: Request, re
     res.status(412).json({ error: 'PHASE4_R3_REQUIRES_DURABLE_R2_INCONCLUSIVE_EVIDENCE' });
     return;
   }
-  if (await durableEvidenceAvailable(R3_JOB_ID)) {
-    res.status(409).json({ error: 'PHASE4_R3_DURABLE_EVIDENCE_ALREADY_AVAILABLE' });
+  const existingR3 = await durableEvidence(R3_JOB_ID);
+  if (existingR3) {
+    res.status(409).json({
+      error: existingR3.evidenceKind === 'OPENING_LOCK'
+        ? 'PHASE4_R3_OPENING_LOCK_PRESENT_SAMPLE_CONSUMED'
+        : 'PHASE4_R3_DURABLE_EVIDENCE_ALREADY_AVAILABLE',
+      evidenceKind: existingR3.evidenceKind
+    });
     return;
   }
   if (r3State.status === 'RUNNING') {
