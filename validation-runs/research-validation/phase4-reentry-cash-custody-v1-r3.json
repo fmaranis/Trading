@@ -2,16 +2,746 @@
   "schemaVersion": 1,
   "jobId": "phase4-reentry-cash-custody-v1-r3",
   "jobName": "Fase 4 · reentrada · custodia de proceeds · R3",
-  "evidenceKind": "OPENING_LOCK",
-  "recordedAt": "2026-09-13T20:15:16.281Z",
+  "evidenceKind": "ORIGINAL_VALIDATION",
+  "recordedAt": "2026-09-13T20:15:28.484Z",
   "status": "PASSED",
-  "startedAt": "2026-09-13T20:15:16.281Z",
-  "finishedAt": null,
+  "startedAt": null,
+  "finishedAt": "2026-09-13T20:15:28.484Z",
   "result": {
-    "sampleState": "R3_OPENING_LOCKED_CONSUMED",
+    "version": "PHASE4_REENTRY_CASH_CUSTODY_V1_R3",
+    "executedAt": "2026-09-13T20:15:28.483Z",
+    "sampleState": "R3_OPENED_CONSUMED",
+    "verdict": "INCONCLUSIVE_INSUFFICIENT_REENTRY_REACH",
     "sealVersion": "PHASE4_REENTRY_CASH_CUSTODY_V1_R3_SEAL",
-    "lockedAt": "2026-09-13T20:15:16.281Z",
-    "note": "Conservative durable lock written immediately before the first EQ_PH4_R3 fresh-market-data request. If execution is interrupted after this point, R3 remains consumed and must not be rerun as fresh."
+    "fingerprints": {
+      "docs/phase4_reentry_cash_custody_v1_r3_preregistration.md": "3a533baf21a11ae0fede7339549792846bb2f867d04a1b5d757f6fe01023cb89",
+      "scripts/phase4ReentryCashCustodyV1R3Protocol.ts": "057e7e7155926ba92eb35d935830a98d0a3ce5cd24b8dbeead05b85c8228983b",
+      "scripts/phase4ReentryCashCustodyV1R3CorePreflight.ts": "cf08e91bd1fa8ff44ba04c23f052868e733e59807cfe073a7011e980fe94a273",
+      "scripts/phase4ReentryCashCustodyV1R3OpenAndRun.ts": "de302a9129d74369318ed1ef0e20c60e2c19f62a111eb40805c238f4b08c9c39",
+      "scripts/phase4ReentryCashCustodyV1R3BlindLive.ts": "a887520a9ed14117769c033f666b4df7745f2a96168967dcf36af3e483de5493",
+      "tests/phase4R3Readiness.unit.ts": "e8238c9481005937b00bdc04704d69bb845c2900143fb1cbe03369817cbef159",
+      "tests/phase4R3Seal.unit.ts": "0e7e8b8cd3adb3b10b8215656c1e0de0dd8483b3ad664ec2545620b19a85d362",
+      "src/investment/data/marketData/fundMarketData.ts": "4ed43588f65ddabd31c30bc534feb4456d5914b457f7a96d8086e2da32a4876a",
+      "server/marketDataRoutes.ts": "5bfda99aaad9a261e4b9ff82e094c8d56968ec8fd7f6165135872bed8ef4f43e",
+      "src/investment/data/marketData/historicalMarketDataService.ts": "701cef44f3d0fdd52c89654a347aedd63da0698c4e801d310c4d2b9718787f35",
+      "src/investment/data/marketData/providers/realMarketDataProvider.ts": "c572c3b5be321bfa57388a9e44badc171f5230a854781f6a2e03441605e80f41",
+      "src/investment/decision/assetUniverseScanner.ts": "7c7edb62a41d658a284fd1bbad6541dbf38fa452ab86f1e11c01d3669d88922e",
+      "src/investment/decision/portfolioDiscoveryUniverse.ts": "78e9a073f3e6db986d7538502e1cdae5af95cd2fd9500d005566f621de113cd6",
+      "src/investment/decision/reentryCashCustodyPolicy.ts": "96b3eb8173f5da25657d45a59b47710b4d0c7bcf426ada43c900246956d376f7",
+      "src/investment/decision/replayRotationPolicyExperiment.ts": "dd7803d44d1b40974e76493474c5aab1d2823d50ad951dbf9c11f0b13a75cf82",
+      "src/investment/decision/dynamicHistoricalReplayCore.ts": "42e03290ac9fcfc05db0ea2ca2b80f5fb9b64330ac59f63bae39dff27d6db64d",
+      "src/investment/decision/portfolioCoreGatePolicy.ts": "67992a25ee5513b270d3083264eab308a58732996be85129d4828ace4896b197",
+      "src/investment/decision/dynamicCoreSelector.ts": "4a2b1813d2ad6a33b813a39fedc63c28cc171a0cbb9c2163e18410c23809ba36",
+      "src/investment/decision/portfolioAssetRole.ts": "3cf92f98033aa882a869f3d95b75ec90ab46377bd37ba1f732a1d2111b0cc85b",
+      "src/investment/decision/cashBenchmark.ts": "2d877a1ff018dd363c10fd044a933881c2ecfc838d7e23b310df84f3414ba9f8",
+      "server/researchValidationEvidenceStore.ts": "9759517b5fee0e1cfcfe7feb4d5f3ca8553662d5e4b3486b5da233a3cc38b82b",
+      "server/researchValidationRecoveryRoutes.ts": "9fa4549c19955f99e556755c6d7ace0f48176167fb72c512f95d1d0636c4fdc8"
+    },
+    "protocol": {
+      "dataStartDate": "2006-12-19",
+      "replayStartDate": "2009-01-05",
+      "requestedEndDate": "2010-12-31",
+      "frequency": "MONTHLY",
+      "initialCapitalEur": 13000,
+      "riskProfile": "MEDIUM",
+      "horizonYears": 3,
+      "cashBenchmarkMode": "HISTORICAL_ECB_DFR_FLOOR_0",
+      "taxContextConfirmed": false,
+      "productionDefault": "LEGACY",
+      "coreAssetId": "CORE_PH4_R3_DBXW_WORLD",
+      "coreIsin": "LU0274208692"
+    },
+    "scanner": {
+      "scanned": 66,
+      "accepted": 66,
+      "rejected": 0,
+      "rejectionCounts": {}
+    },
+    "coverageSelection": {
+      "poolSize": 65,
+      "coverageEligible": 65,
+      "selectedFresh": [
+        {
+          "assetId": "EQ_PH4_R3_CIE",
+          "ticker": "CIE.MC"
+        },
+        {
+          "assetId": "EQ_PH4_R3_SEM",
+          "ticker": "SEM.LS"
+        },
+        {
+          "assetId": "EQ_PH4_R3_NOKIA",
+          "ticker": "NOKIA.HE"
+        },
+        {
+          "assetId": "EQ_PH4_R3_RMS",
+          "ticker": "RMS.PA"
+        },
+        {
+          "assetId": "EQ_PH4_R3_BESI",
+          "ticker": "BESI.AS"
+        },
+        {
+          "assetId": "EQ_PH4_R3_EBS",
+          "ticker": "EBS.VI"
+        },
+        {
+          "assetId": "EQ_PH4_R3_ML",
+          "ticker": "ML.PA"
+        },
+        {
+          "assetId": "EQ_PH4_R3_KBC",
+          "ticker": "KBC.BR"
+        },
+        {
+          "assetId": "EQ_PH4_R3_COLR",
+          "ticker": "COLR.BR"
+        },
+        {
+          "assetId": "EQ_PH4_R3_SOLB",
+          "ticker": "SOLB.BR"
+        },
+        {
+          "assetId": "EQ_PH4_R3_BC8",
+          "ticker": "BC8.DE"
+        },
+        {
+          "assetId": "EQ_PH4_R3_PUM",
+          "ticker": "PUM.DE"
+        },
+        {
+          "assetId": "EQ_PH4_R3_SGO",
+          "ticker": "SGO.PA"
+        },
+        {
+          "assetId": "EQ_PH4_R3_IP",
+          "ticker": "IP.MI"
+        },
+        {
+          "assetId": "EQ_PH4_R3_UPM",
+          "ticker": "UPM.HE"
+        },
+        {
+          "assetId": "EQ_PH4_R3_VIS",
+          "ticker": "VIS.MC"
+        },
+        {
+          "assetId": "EQ_PH4_R3_BKT",
+          "ticker": "BKT.MC"
+        },
+        {
+          "assetId": "EQ_PH4_R3_CA",
+          "ticker": "CA.PA"
+        },
+        {
+          "assetId": "EQ_PH4_R3_SAMPO",
+          "ticker": "SAMPO.HE"
+        },
+        {
+          "assetId": "EQ_PH4_R3_CBK",
+          "ticker": "CBK.DE"
+        },
+        {
+          "assetId": "EQ_PH4_R3_EDP",
+          "ticker": "EDP.LS"
+        },
+        {
+          "assetId": "EQ_PH4_R3_ACA",
+          "ticker": "ACA.PA"
+        },
+        {
+          "assetId": "EQ_PH4_R3_HEIA",
+          "ticker": "HEIA.AS"
+        },
+        {
+          "assetId": "EQ_PH4_R3_METSB",
+          "ticker": "METSB.HE"
+        },
+        {
+          "assetId": "EQ_PH4_R3_REC",
+          "ticker": "REC.MI"
+        },
+        {
+          "assetId": "EQ_PH4_R3_ASM",
+          "ticker": "ASM.AS"
+        },
+        {
+          "assetId": "EQ_PH4_R3_WKL",
+          "ticker": "WKL.AS"
+        },
+        {
+          "assetId": "EQ_PH4_R3_CAF",
+          "ticker": "CAF.MC"
+        },
+        {
+          "assetId": "EQ_PH4_R3_BZU",
+          "ticker": "BZU.MI"
+        },
+        {
+          "assetId": "EQ_PH4_R3_VER",
+          "ticker": "VER.VI"
+        }
+      ],
+      "rule": "REAL_COVERAGE_AND_252_PRE_REPLAY_BARS_THEN_SHA256_ORDER_FIRST_30"
+    },
+    "dataGate": [
+      {
+        "cohort": 1,
+        "valid": true,
+        "coreAccepted": true,
+        "coreBarsBeforeReplay": 256,
+        "freshRequested": [
+          "CIE.MC",
+          "SEM.LS",
+          "NOKIA.HE",
+          "RMS.PA",
+          "BESI.AS"
+        ],
+        "freshAccepted": [
+          "CIE.MC",
+          "SEM.LS",
+          "NOKIA.HE",
+          "RMS.PA",
+          "BESI.AS"
+        ],
+        "rejectedFresh": []
+      },
+      {
+        "cohort": 2,
+        "valid": true,
+        "coreAccepted": true,
+        "coreBarsBeforeReplay": 256,
+        "freshRequested": [
+          "EBS.VI",
+          "ML.PA",
+          "KBC.BR",
+          "COLR.BR",
+          "SOLB.BR"
+        ],
+        "freshAccepted": [
+          "EBS.VI",
+          "ML.PA",
+          "KBC.BR",
+          "COLR.BR",
+          "SOLB.BR"
+        ],
+        "rejectedFresh": []
+      },
+      {
+        "cohort": 3,
+        "valid": true,
+        "coreAccepted": true,
+        "coreBarsBeforeReplay": 256,
+        "freshRequested": [
+          "BC8.DE",
+          "PUM.DE",
+          "SGO.PA",
+          "IP.MI",
+          "UPM.HE"
+        ],
+        "freshAccepted": [
+          "BC8.DE",
+          "PUM.DE",
+          "SGO.PA",
+          "IP.MI",
+          "UPM.HE"
+        ],
+        "rejectedFresh": []
+      },
+      {
+        "cohort": 4,
+        "valid": true,
+        "coreAccepted": true,
+        "coreBarsBeforeReplay": 256,
+        "freshRequested": [
+          "VIS.MC",
+          "BKT.MC",
+          "CA.PA",
+          "SAMPO.HE",
+          "CBK.DE"
+        ],
+        "freshAccepted": [
+          "VIS.MC",
+          "BKT.MC",
+          "CA.PA",
+          "SAMPO.HE",
+          "CBK.DE"
+        ],
+        "rejectedFresh": []
+      },
+      {
+        "cohort": 5,
+        "valid": true,
+        "coreAccepted": true,
+        "coreBarsBeforeReplay": 256,
+        "freshRequested": [
+          "EDP.LS",
+          "ACA.PA",
+          "HEIA.AS",
+          "METSB.HE",
+          "REC.MI"
+        ],
+        "freshAccepted": [
+          "EDP.LS",
+          "ACA.PA",
+          "HEIA.AS",
+          "METSB.HE",
+          "REC.MI"
+        ],
+        "rejectedFresh": []
+      },
+      {
+        "cohort": 6,
+        "valid": true,
+        "coreAccepted": true,
+        "coreBarsBeforeReplay": 256,
+        "freshRequested": [
+          "ASM.AS",
+          "WKL.AS",
+          "CAF.MC",
+          "BZU.MI",
+          "VER.VI"
+        ],
+        "freshAccepted": [
+          "ASM.AS",
+          "WKL.AS",
+          "CAF.MC",
+          "BZU.MI",
+          "VER.VI"
+        ],
+        "rejectedFresh": []
+      }
+    ],
+    "reach": {
+      "uniqueExitReservations": 0,
+      "uniqueReentries": 0,
+      "pass": false
+    },
+    "aggregate": {
+      "positiveCohorts": 0,
+      "medianFinalValueDeltaEur": 0,
+      "medianDrawdownDeteriorationPctPoints": 0,
+      "medianPositiveFrictionIncreaseEur": 0,
+      "materialityFloorEur": 65,
+      "catastrophicLoss": false,
+      "passCandidate": false
+    },
+    "cohorts": [
+      {
+        "cohort": 1,
+        "freshAssets": [
+          {
+            "assetId": "EQ_PH4_R3_CIE",
+            "ticker": "CIE.MC"
+          },
+          {
+            "assetId": "EQ_PH4_R3_SEM",
+            "ticker": "SEM.LS"
+          },
+          {
+            "assetId": "EQ_PH4_R3_NOKIA",
+            "ticker": "NOKIA.HE"
+          },
+          {
+            "assetId": "EQ_PH4_R3_RMS",
+            "ticker": "RMS.PA"
+          },
+          {
+            "assetId": "EQ_PH4_R3_BESI",
+            "ticker": "BESI.AS"
+          }
+        ],
+        "baseline": {
+          "finalValueEur": 17171.61193260124,
+          "totalReturnPct": 32.08932255847108,
+          "cashFlowAdjustedReturnPct": 32.08932255847109,
+          "maxDrawdownPct": 10.361626201096415,
+          "totalFeesEur": 14.842511416625975,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 1,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 1
+        },
+        "candidate": {
+          "finalValueEur": 17171.61193260124,
+          "totalReturnPct": 32.08932255847108,
+          "cashFlowAdjustedReturnPct": 32.08932255847109,
+          "maxDrawdownPct": 10.361626201096415,
+          "totalFeesEur": 14.842511416625975,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 1,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 1,
+          "reentryCustodyAudit": {
+            "policy": "EXIT_PROCEEDS_CUSTODY_V1",
+            "reservationsCreated": 0,
+            "reentriesExecuted": 0,
+            "netProceedsReservedEur": 0,
+            "reservedCashUsedEur": 0,
+            "releasedRemainderEur": 0,
+            "peakReservedCashEur": 0,
+            "finalReservedCashEur": 0,
+            "episodes": []
+          }
+        },
+        "finalValueDeltaEur": 0,
+        "returnDeltaPctPoints": 0,
+        "drawdownDeteriorationPctPoints": 0,
+        "frictionIncreaseEur": 0,
+        "operationCountDelta": 0
+      },
+      {
+        "cohort": 2,
+        "freshAssets": [
+          {
+            "assetId": "EQ_PH4_R3_EBS",
+            "ticker": "EBS.VI"
+          },
+          {
+            "assetId": "EQ_PH4_R3_ML",
+            "ticker": "ML.PA"
+          },
+          {
+            "assetId": "EQ_PH4_R3_KBC",
+            "ticker": "KBC.BR"
+          },
+          {
+            "assetId": "EQ_PH4_R3_COLR",
+            "ticker": "COLR.BR"
+          },
+          {
+            "assetId": "EQ_PH4_R3_SOLB",
+            "ticker": "SOLB.BR"
+          }
+        ],
+        "baseline": {
+          "finalValueEur": 17171.61193260124,
+          "totalReturnPct": 32.08932255847108,
+          "cashFlowAdjustedReturnPct": 32.08932255847109,
+          "maxDrawdownPct": 10.361626201096415,
+          "totalFeesEur": 14.842511416625975,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 1,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 1
+        },
+        "candidate": {
+          "finalValueEur": 17171.61193260124,
+          "totalReturnPct": 32.08932255847108,
+          "cashFlowAdjustedReturnPct": 32.08932255847109,
+          "maxDrawdownPct": 10.361626201096415,
+          "totalFeesEur": 14.842511416625975,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 1,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 1,
+          "reentryCustodyAudit": {
+            "policy": "EXIT_PROCEEDS_CUSTODY_V1",
+            "reservationsCreated": 0,
+            "reentriesExecuted": 0,
+            "netProceedsReservedEur": 0,
+            "reservedCashUsedEur": 0,
+            "releasedRemainderEur": 0,
+            "peakReservedCashEur": 0,
+            "finalReservedCashEur": 0,
+            "episodes": []
+          }
+        },
+        "finalValueDeltaEur": 0,
+        "returnDeltaPctPoints": 0,
+        "drawdownDeteriorationPctPoints": 0,
+        "frictionIncreaseEur": 0,
+        "operationCountDelta": 0
+      },
+      {
+        "cohort": 3,
+        "freshAssets": [
+          {
+            "assetId": "EQ_PH4_R3_BC8",
+            "ticker": "BC8.DE"
+          },
+          {
+            "assetId": "EQ_PH4_R3_PUM",
+            "ticker": "PUM.DE"
+          },
+          {
+            "assetId": "EQ_PH4_R3_SGO",
+            "ticker": "SGO.PA"
+          },
+          {
+            "assetId": "EQ_PH4_R3_IP",
+            "ticker": "IP.MI"
+          },
+          {
+            "assetId": "EQ_PH4_R3_UPM",
+            "ticker": "UPM.HE"
+          }
+        ],
+        "baseline": {
+          "finalValueEur": 17171.61193260124,
+          "totalReturnPct": 32.08932255847108,
+          "cashFlowAdjustedReturnPct": 32.08932255847109,
+          "maxDrawdownPct": 10.361626201096415,
+          "totalFeesEur": 14.842511416625975,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 1,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 1
+        },
+        "candidate": {
+          "finalValueEur": 17171.61193260124,
+          "totalReturnPct": 32.08932255847108,
+          "cashFlowAdjustedReturnPct": 32.08932255847109,
+          "maxDrawdownPct": 10.361626201096415,
+          "totalFeesEur": 14.842511416625975,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 1,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 1,
+          "reentryCustodyAudit": {
+            "policy": "EXIT_PROCEEDS_CUSTODY_V1",
+            "reservationsCreated": 0,
+            "reentriesExecuted": 0,
+            "netProceedsReservedEur": 0,
+            "reservedCashUsedEur": 0,
+            "releasedRemainderEur": 0,
+            "peakReservedCashEur": 0,
+            "finalReservedCashEur": 0,
+            "episodes": []
+          }
+        },
+        "finalValueDeltaEur": 0,
+        "returnDeltaPctPoints": 0,
+        "drawdownDeteriorationPctPoints": 0,
+        "frictionIncreaseEur": 0,
+        "operationCountDelta": 0
+      },
+      {
+        "cohort": 4,
+        "freshAssets": [
+          {
+            "assetId": "EQ_PH4_R3_VIS",
+            "ticker": "VIS.MC"
+          },
+          {
+            "assetId": "EQ_PH4_R3_BKT",
+            "ticker": "BKT.MC"
+          },
+          {
+            "assetId": "EQ_PH4_R3_CA",
+            "ticker": "CA.PA"
+          },
+          {
+            "assetId": "EQ_PH4_R3_SAMPO",
+            "ticker": "SAMPO.HE"
+          },
+          {
+            "assetId": "EQ_PH4_R3_CBK",
+            "ticker": "CBK.DE"
+          }
+        ],
+        "baseline": {
+          "finalValueEur": 17351.012899056186,
+          "totalReturnPct": 33.46932999273988,
+          "cashFlowAdjustedReturnPct": 33.469329992739894,
+          "maxDrawdownPct": 9.903120075866049,
+          "totalFeesEur": 15.402267433929442,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 2,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 2
+        },
+        "candidate": {
+          "finalValueEur": 17351.012899056186,
+          "totalReturnPct": 33.46932999273988,
+          "cashFlowAdjustedReturnPct": 33.469329992739894,
+          "maxDrawdownPct": 9.903120075866049,
+          "totalFeesEur": 15.402267433929442,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 2,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 2,
+          "reentryCustodyAudit": {
+            "policy": "EXIT_PROCEEDS_CUSTODY_V1",
+            "reservationsCreated": 0,
+            "reentriesExecuted": 0,
+            "netProceedsReservedEur": 0,
+            "reservedCashUsedEur": 0,
+            "releasedRemainderEur": 0,
+            "peakReservedCashEur": 0,
+            "finalReservedCashEur": 0,
+            "episodes": []
+          }
+        },
+        "finalValueDeltaEur": 0,
+        "returnDeltaPctPoints": 0,
+        "drawdownDeteriorationPctPoints": 0,
+        "frictionIncreaseEur": 0,
+        "operationCountDelta": 0
+      },
+      {
+        "cohort": 5,
+        "freshAssets": [
+          {
+            "assetId": "EQ_PH4_R3_EDP",
+            "ticker": "EDP.LS"
+          },
+          {
+            "assetId": "EQ_PH4_R3_ACA",
+            "ticker": "ACA.PA"
+          },
+          {
+            "assetId": "EQ_PH4_R3_HEIA",
+            "ticker": "HEIA.AS"
+          },
+          {
+            "assetId": "EQ_PH4_R3_METSB",
+            "ticker": "METSB.HE"
+          },
+          {
+            "assetId": "EQ_PH4_R3_REC",
+            "ticker": "REC.MI"
+          }
+        ],
+        "baseline": {
+          "finalValueEur": 17171.61193260124,
+          "totalReturnPct": 32.08932255847108,
+          "cashFlowAdjustedReturnPct": 32.08932255847109,
+          "maxDrawdownPct": 10.361626201096415,
+          "totalFeesEur": 14.842511416625975,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 1,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 1
+        },
+        "candidate": {
+          "finalValueEur": 17171.61193260124,
+          "totalReturnPct": 32.08932255847108,
+          "cashFlowAdjustedReturnPct": 32.08932255847109,
+          "maxDrawdownPct": 10.361626201096415,
+          "totalFeesEur": 14.842511416625975,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 1,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 1,
+          "reentryCustodyAudit": {
+            "policy": "EXIT_PROCEEDS_CUSTODY_V1",
+            "reservationsCreated": 0,
+            "reentriesExecuted": 0,
+            "netProceedsReservedEur": 0,
+            "reservedCashUsedEur": 0,
+            "releasedRemainderEur": 0,
+            "peakReservedCashEur": 0,
+            "finalReservedCashEur": 0,
+            "episodes": []
+          }
+        },
+        "finalValueDeltaEur": 0,
+        "returnDeltaPctPoints": 0,
+        "drawdownDeteriorationPctPoints": 0,
+        "frictionIncreaseEur": 0,
+        "operationCountDelta": 0
+      },
+      {
+        "cohort": 6,
+        "freshAssets": [
+          {
+            "assetId": "EQ_PH4_R3_ASM",
+            "ticker": "ASM.AS"
+          },
+          {
+            "assetId": "EQ_PH4_R3_WKL",
+            "ticker": "WKL.AS"
+          },
+          {
+            "assetId": "EQ_PH4_R3_CAF",
+            "ticker": "CAF.MC"
+          },
+          {
+            "assetId": "EQ_PH4_R3_BZU",
+            "ticker": "BZU.MI"
+          },
+          {
+            "assetId": "EQ_PH4_R3_VER",
+            "ticker": "VER.VI"
+          }
+        ],
+        "baseline": {
+          "finalValueEur": 17171.61193260124,
+          "totalReturnPct": 32.08932255847108,
+          "cashFlowAdjustedReturnPct": 32.08932255847109,
+          "maxDrawdownPct": 10.361626201096415,
+          "totalFeesEur": 14.842511416625975,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 1,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 1
+        },
+        "candidate": {
+          "finalValueEur": 17171.61193260124,
+          "totalReturnPct": 32.08932255847108,
+          "cashFlowAdjustedReturnPct": 32.08932255847109,
+          "maxDrawdownPct": 10.361626201096415,
+          "totalFeesEur": 14.842511416625975,
+          "totalEstimatedTaxEur": 2.8863584439144687,
+          "cashInterestEur": 15.191360231128783,
+          "executedBuys": 1,
+          "executedAdds": 0,
+          "executedReductions": 0,
+          "executedExits": 0,
+          "executedTrades": 1,
+          "reentryCustodyAudit": {
+            "policy": "EXIT_PROCEEDS_CUSTODY_V1",
+            "reservationsCreated": 0,
+            "reentriesExecuted": 0,
+            "netProceedsReservedEur": 0,
+            "reservedCashUsedEur": 0,
+            "releasedRemainderEur": 0,
+            "peakReservedCashEur": 0,
+            "finalReservedCashEur": 0,
+            "episodes": []
+          }
+        },
+        "finalValueDeltaEur": 0,
+        "returnDeltaPctPoints": 0,
+        "drawdownDeteriorationPctPoints": 0,
+        "frictionIncreaseEur": 0,
+        "operationCountDelta": 0
+      }
+    ]
   },
-  "note": "R3 opening lock. This is not an economic result; it prevents accidental rerun after the fresh sample boundary."
+  "note": "Original sealed R3 validation evidence. R3 becomes consumed at the first fresh EQ_PH4_R3 market-data request."
 }
