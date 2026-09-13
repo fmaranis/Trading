@@ -122,8 +122,8 @@ FASE 0  MAPA MAESTRO / ESTADO CANÓNICO       ← DONE
 FASE 1  BASE PRODUCTIVA V1                    ← DONE salvo bug/regresión reproducible
 FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← DONE · 2A PASS · 2B PASS RUNTIME
 FASE 3  PROTOCOLO ECONÓMICO FINAL             ← DONE / FROZEN
-FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← PRE-OPEN READY · política/R2 frozen · guards locales pendientes
-FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← research fresh/blind/OOS
+FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← CLOSED V1 · R2/R3 CONSUMED · INCONCLUSIVE REACH
+FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← NEXT · diseño/prereg fresh/blind/OOS
 FASE 6  FORWARD RISK V8 COMO CONTEXTO         ← research posterior
 FASE 7  QUALITY FUTURE FORWARD                ← WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      ← pendiente para evidencia histórica fuerte
@@ -856,102 +856,100 @@ Un primer PASS no promociona producción: sólo habilita una confirmación indep
 
 # 11. FASE 4 — REENTRADA TRAS SALIDA ERRÓNEA
 
-Estado: **PRE-OPEN READY / POLICY FROZEN / R1 VOID PRE-OPEN / R2 SEALED / BLIND NOT OPENED.**
+Estado: **CLOSED FOR V1 / POLICY RESEARCH-ONLY / R2 CONSUMED-INCONCLUSIVE / R3 CONSUMED-INCONCLUSIVE / NO PRODUCTION CHANGE.**
 
-Documento específico:
+Documentos:
 
-`docs/phase4_reentry_cash_custody_v1_preregistration.md`
+- `docs/phase4_reentry_cash_custody_v1_preregistration.md` — preregistro R2;
+- `docs/phase4_reentry_cash_custody_v1_r3_preregistration.md` — preregistro y seal R3 pre-open;
+- `docs/phase4_reentry_cash_custody_v1_final_outcome.md` — cierre V1 y lectura permitida.
 
-Política congelada:
+Política investigada:
 
 `EXIT_PROCEEDS_CUSTODY_V1`
 
-Pregunta única: después de un EXIT completo de un instrumento cotizado no-core, conservar causalmente sus proceeds netos como cash remunerado reservado para la primera reentrada normal del mismo activo, sin crear señal ni relajar gates.
+Pregunta: después de un EXIT completo de un instrumento cotizado no-core, conservar causalmente sus proceeds netos como cash remunerado reservado para la primera reentrada normal del mismo activo, sin crear señal ni relajar gates.
 
 ### R1 — VOID PRE-OPEN
 
-La primera propuesta fue anulada antes de abrir resultados porque:
+R1 fue anulada antes de abrir resultados por problemas de diseño/contaminación. No consumió muestra y no genera evidencia económica.
 
-- podía romper atomicidad de rotación 1:1;
-- utilizaba texto de `reason` como autoridad;
-- tenía cohortes solapadas;
-- 18/30 tickers ya estaban en universo previo;
-- la ventana 2016–2026 estaba consumida.
+### R2 — CONSUMED / INCONCLUSIVE_INVALID_DATA
 
-R1 no consumió muestra y no genera evidencia.
+R2 se abrió, pero el core `FUND_VANGUARD_GLOBAL` no obtuvo serie REAL válida. La comparación económica no llegó a ejecutarse; no hubo baseline/candidato evaluable ni outcomes económicos utilizables para tuning. R2 queda consumida y no se reutiliza.
 
-### R2 — SEALED / NO ABIERTA
+### R3 — CONSUMED / INCONCLUSIVE_INSUFFICIENT_REENTRY_REACH
 
-- request start: `2002-12-10`;
-- replay: `2004-01-02 -> 2014-08-31`;
-- 30 acciones EUR `EQ_PH4_R2_*`;
-- 6 cohortes disjuntas de 5;
-- core común `FUND_VANGUARD_GLOBAL`;
-- REAL-only;
-- current discovery histórico OFF;
+R3 se diseñó antes de abrir el pool fresh para resolver únicamente la disponibilidad/semántica de datos del core, sin modificar `EXIT_PROCEEDS_CUSTODY_V1`.
+
+Configuración final congelada:
+
+- core research-only: `DBXW.DE` / `LU0274208692`, Xtrackers MSCI World Swap UCITS ETF 1C, acumulación;
+- data request start: `2006-12-19`;
+- replay: `2009-01-05 -> 2010-12-31`;
 - MONTHLY;
 - 13.000 EUR;
 - MEDIUM;
-- BCE histórico;
-- `contextConfirmed:false` en ambos brazos;
+- cash `HISTORICAL_ECB_DFR_FLOOR_0`;
+- `contextConfirmed:false`;
 - sin `externalCashFlows`;
-- survivorship explícito.
+- REAL-only;
+- current Yahoo discovery OFF;
+- mínimo causal: 252 barras;
+- 30 fresh seleccionados desde un pool congelado por cobertura REAL + orden SHA-256;
+- 6 cohortes disjuntas de 5.
 
-Reach congelado: >=12 EXIT-reservas únicas ejecutadas y >=6 reentradas únicas **realmente financiadas por custodia**. PASS/FAIL y materialidad están congelados en el preregistro; no se modifican después de abrir R2.
+Evidencia ejecutada 2026-09-13:
 
-### Integración pre-open
+- guards R3/readiness: PASS;
+- seal: 22 blobs PASS;
+- policy/integración/core/candidate gate/paridad/superficie/BCE/Future Forward: PASS;
+- TypeScript: PASS;
+- preflight core: 764 barras totales, 256 causales antes del replay, provider Yahoo REAL, EUR, integridad válida, PASS;
+- scanner one-shot: 66/66 aceptados;
+- pool: 65/65 coverage-eligible;
+- data gate: 6/6 cohortes válidas;
+- `uniqueExitReservations = 0`;
+- `uniqueReentries = 0`;
+- veredicto: `INCONCLUSIVE_INSUFFICIENT_REENTRY_REACH`.
 
-La capacidad se integra research-only dentro del wrapper existente `runDynamicReplayWithRotationExperiment`; no existe segundo replay ni segundo motor. El worker productivo no activa la policy y `src/investment/decision/index.ts` no exporta el módulo research.
+El reach cero no fue un fallo de datos. La arquitectura ejecutó muy pocas operaciones después de la asignación inicial y ninguna cohorte produjo un EXIT completo elegible. Por tanto la policy no llegó a activarse y baseline/candidato fueron idénticos.
 
-Guardrails implementados antes de abrir R2:
+Interpretación obligatoria:
 
-- sólo EXIT completos de instrumentos cotizados no-core crean reserva;
-- fondos/traspasos quedan fuera de V1;
-- elegibilidad por estado estructurado de health; `reason` sólo audita;
-- neto de EXIT = venta - comisión - impuesto y se verifica post-run contra ejecución real;
-- cash reservado conserva remuneración BCE/fiscalidad;
-- shortfall de múltiples reservas = pro-rata;
-- reentrada sólo si la cadena canónica ya autorizó la compra;
-- sizing nunca supera el canónico;
-- `notional + comisión` debe caber en financiación autorizada;
-- la comisión de una compra ajena no puede usar reserva de otro activo;
-- una reserva nueva queda protegida desde la misma tanda del EXIT;
-- rotaciones 1:1 mantienen financiación dedicada y atomicidad;
-- `REDUCE` parcial sin FIFO accesible al wrapper usa lower-bound fiscal conservador, nunca base media optimista;
-- `RETURN_TO_CORE` se desacopla antes de fijar `NEXT_OPEN`;
-- la fecha común de ejecución se recalcula hasta estabilizarse o falla explícitamente;
-- reach de reentrada sólo cuenta una BUY ejecutada con autorización estructurada positiva de la reserva concreta que nació de ese EXIT;
-- `reservedCashUsedEur` se limita al gasto efectivamente autorizado por esa reserva.
+- no es PASS;
+- no es FAIL económico;
+- los deltas cero no prueban equivalencia económica: reflejan que el mecanismo nunca actuó;
+- R3 está consumida y no puede usarse para ajustar frecuencia, ventanas, universo, thresholds, sizing, waiting o reglas de salida/reentrada;
+- R2/R3 no se reabren ni se repiten como fresh;
+- producción continúa `LEGACY`;
+- no se crea R4 para forzar reach después de observar este outcome.
 
-Se completó además la tabla BCE DFR desde 1999 para evitar el backfill incorrecto de 0,25% anterior a diciembre de 2011.
+Decisión V1:
 
-### Único job de ejecución
+**Fase 4 queda cerrada como INCONCLUSIVE por reach insuficiente.** `EXIT_PROCEEDS_CUSTODY_V1` queda archivada research-only. Un eventual estudio futuro tendría que ser una investigación nueva, preregistrada e independiente.
 
-`ResearchValidationCenter -> Fase 4 · reentrada · custodia de proceeds`
+Evidencia durable autoritativa R3:
 
-Orden obligatorio:
-
-1. unit guard de policy;
-2. guard de integración Fase 4;
-3. arquitectura core;
-4. `PortfolioCandidateGate`;
-5. paridad replay/producto;
-6. superficie productiva;
-7. cash histórico BCE;
-8. TypeScript / `tsc --noEmit`;
-9. **sólo si todos pasan**, `Blind R2 REAL one-shot`.
-
-Estado de verificación: **revisión estática y diff completados; guards/TypeScript todavía no ejecutados en el backend local.** Por tanto Fase 4 no es PASS, R2 no está consumida y no debe avanzarse a Fase 5 hasta obtener el veredicto del job.
+- branch `replay-results`;
+- `validation-runs/research-validation/phase4-reentry-cash-custody-v1-r3.json`;
+- `sampleState = R3_OPENED_CONSUMED`;
+- `verdict = INCONCLUSIVE_INSUFFICIENT_REENTRY_REACH`;
+- commit durable registrado por el runner: `5854bae235fc50642b33703fa6a12f7f1f05222b`.
 
 ---
 
 # 12. FASE 5 — PROTECCIÓN DE GRANDES GANADORES
+
+Estado: **NEXT / PRE-OPEN DESIGN REQUIRED.**
 
 HFG mostró que `TREND_PROTECTION_V1` detectó deterioro antes del EXIT económico, pero la muestra está consumida.
 
 No convertir retrospectivamente el `REDUCE 50%` observado en HFG en política productiva.
 
 Antes de abrir muestra nueva deben congelarse señal de deterioro, acción, sizing, definición causal de MFE/giveback, pérdida de upside tolerable, métrica primaria y guardrail de riqueza terminal bajo `ECONOMIC_VALIDATION_PROTOCOL_V1`.
+
+La siguiente tarea del carril económico es **diseñar y preregistrar Fase 5 sin abrir todavía ningún holdout fresh**.
 
 ---
 
@@ -1015,6 +1013,8 @@ La app puede ser técnicamente operativa antes de terminar QUALITY Future Forwar
 No reabrir ahora:
 
 - Fase 2 salvo bug/regresión reproducible;
+- Fase 4 R2/R3 como muestras fresh; ambas están consumidas;
+- `EXIT_PROCEEDS_CUSTODY_V1` para retuning retrospectivo sobre R2/R3;
 - V9/V10/V11;
 - V12/V13 como tuning retrospectivo;
 - SLOPE_V1;
@@ -1051,18 +1051,16 @@ Fase 10 / V2, sólo después de cierre V1:
 4. **Fase 2B: DONE.** Quick closure PASS + backend publicado + runtime real `rotationStatus:null` + `evaluatedPositions:2` + `error:null`.
 5. **Fase 2: DONE.** No reabrir salvo bug/regresión reproducible.
 6. **Fase 3: DONE / FROZEN.** `ECONOMIC_VALIDATION_PROTOCOL_V1` gobierna Fases 4–6.
-7. **Fase 4: PRE-OPEN READY.** Política `EXIT_PROCEEDS_CUSTODY_V1`, R2 y PASS/FAIL congelados; R2 sigue sin abrirse.
-8. Ejecutar **una sola vez** el job `Fase 4 · reentrada · custodia de proceeds` en `ResearchValidationCenter` local/backend.
-9. Si falla cualquier guard o TypeScript, el blind no arranca: corregir el bug sin abrir R2.
-10. Si pasan los ocho gates rápidos, el propio job abre `Blind R2 REAL one-shot`; desde la primera descarga R2 queda consumida y su veredicto se acepta sin retuning.
-11. HFG permanece consumido; sólo aporta el diagnóstico general.
-12. **Fase 5:** no abrir hasta cerrar/veredictar Fase 4 conforme al protocolo.
-13. **Fase 6:** Forward Risk V8 como contexto bajo protocolo nuevo después de Fase 5.
-14. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
-15. No tocar los 25 archivos congelados de Future Forward para avanzar Fases 4–6.
-16. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
-17. **Fase 9:** auditoría end-to-end y cierre V1.
-18. **Fase 10:** permanece deferred hasta cierre V1.
+7. **Fase 4: CLOSED FOR V1 / INCONCLUSIVE.** R2 y R3 están consumidas; R3 terminó `INCONCLUSIVE_INSUFFICIENT_REENTRY_REACH` con 6/6 data gates válidos pero 0 EXIT-reservas y 0 reentradas. No R4 reactiva ni retuning.
+8. **Fase 5: NEXT.** Diseñar/preregistrar una política de protección de grandes ganadores sin reutilizar HFG para fijar parámetros y sin abrir todavía la muestra fresh.
+9. Una vez congelados señal, acción, sizing, MFE/giveback causal, métrica primaria, materialidad, guardrails y sample-selection rule de Fase 5, preparar el único job integrado de validación.
+10. Sólo después de pasar guards + TypeScript podrá abrirse el holdout fresh Fase 5.
+11. **Fase 6:** Forward Risk V8 como contexto bajo protocolo común después de veredictar Fase 5.
+12. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
+13. No tocar los 25 archivos congelados de Future Forward para avanzar Fases 5–6.
+14. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
+15. **Fase 9:** auditoría end-to-end y cierre V1.
+16. **Fase 10:** permanece deferred hasta cierre V1.
 
 Al cerrar cada fase:
 
@@ -1078,7 +1076,9 @@ Al cerrar cada fase:
 - `docs/APP_FLOW_AND_ROADMAP.md` — mapa maestro y roadmap.
 - `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md` — discovery/Top64 normativo.
 - `docs/ECONOMIC_VALIDATION_PROTOCOL_V1.md` — protocolo económico común congelado para Fases 4–6.
-- `docs/phase4_reentry_cash_custody_v1_preregistration.md` — preregistro, muestra R2 y contrato técnico/económico congelado de Fase 4.
+- `docs/phase4_reentry_cash_custody_v1_preregistration.md` — preregistro R2 y contrato técnico/económico congelado.
+- `docs/phase4_reentry_cash_custody_v1_r3_preregistration.md` — preregistro/seal R3 consumido; conservar inmutable como evidencia.
+- `docs/phase4_reentry_cash_custody_v1_final_outcome.md` — cierre Fase 4 V1 e interpretación del `INCONCLUSIVE`.
 - `docs/DECISIONS.md` — decisiones durables alineadas.
 - `docs/PRIVATE_USERS_DEPLOYMENT.md` — seguridad, multiusuario, ADMIN y validación Fase 2A de Trading.
 - `docs/TELEGRAM_ALERTS.md` — canal de notificación de Trading.
