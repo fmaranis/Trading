@@ -4,7 +4,7 @@ import type { AssetUniverseItem } from '../src/investment/decision/assetUniverse
 export const PHASE5_WINNER_PROTECTION_VERSION = 'PHASE5_WINNER_PROTECTION_V2' as const;
 export const PHASE5_SAMPLE_PREFLIGHT_MARKER = 'PHASE5_WINNER_PROTECTION_V2_SAMPLE_PREFLIGHT_RESULT' as const;
 export const PHASE5_DATA_START_DATE = '1998-01-02';
-export const PHASE5_REPLAY_START_DATE = '2000-01-03';
+export const PHASE5_REPLAY_START_DATE = '2001-01-03';
 export const PHASE5_END_DATE = '2003-12-31';
 export const PHASE5_MINIMUM_CAUSAL_BARS = 252;
 export const PHASE5_COHORT_COUNT = 6;
@@ -17,10 +17,16 @@ export const PHASE5_HORIZON_YEARS = 3 as const;
 export const PHASE5_CURRENT_DISCOVERY_HISTORICAL = false as const;
 
 /**
- * The Phase 5 historical window is selected mechanically rather than from
- * observed winner-protection outcomes: it is the contiguous block immediately
- * before the consumed Phase 4 R2 replay starts in 2004, while remaining wholly
- * before R3 (2009-2010), HFG (2019+) and the 2011+ Forward Risk research.
+ * The original pre-open window started on 2000-01-03. The first coverage-only
+ * preflight returned only 10/26 eligible assets because many Yahoo EUR histories
+ * begin exactly on 2000-01-03, leaving zero causal warm-up bars. No baseline,
+ * candidate, return, drawdown, MFE, giveback or other economic outcome was run.
+ *
+ * Because the holdout remained unopened, the temporal boundary is refrozen to
+ * 2001-01-03 while preserving the same pool, 252-bar minimum, 2003-12-31 end,
+ * 6x3 cohort design and policy. The refreeze is based exclusively on observed
+ * provider coverage/listing history and gives the already-frozen 2000-start
+ * identities approximately one full causal year before the replay.
  *
  * The pool uses isolated research identities for EUR-listed equities from the
  * already-known production expansion catalogue at freeze time. Historical
