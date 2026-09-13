@@ -10,7 +10,11 @@ El primer diseño pre-open de R3 intentó resolver ese problema con `Fidelity Fu
 
 Antes de volver a abrir la muestra se descartó también `IQQW.DE` como core R3: aunque es MSCI World, cotiza en EUR y tiene histórico Yahoo directo, es una clase distributiva. El replay causal de cotizados usa `Close` sin dividend-adjustment retrospectivo para evitar lookahead, por lo que una clase distributiva infravaloraría estructuralmente el core y sesgaría la comparación contra la custodia. Ese descarte se hizo **sin abrir ningún activo fresh R3**.
 
-R3 se refija ahora con `DBXW.DE`, Xtrackers MSCI World Swap UCITS ETF 1C: global, Xetra/EUR, Yahoo directo, lanzado el 19/12/2006 y **acumulativo**, eliminando ese sesgo de dividendos sin cambiar la policy investigada.
+R3 se refijó después con `DBXW.DE`, Xtrackers MSCI World Swap UCITS ETF 1C: global, Xetra/EUR, Yahoo directo, lanzado el 19/12/2006 y **acumulativo**, eliminando ese sesgo de dividendos sin cambiar la policy investigada.
+
+El preflight REAL aislado posterior de `DBXW.DE`, todavía antes de consultar cualquier `EQ_PH4_R3_*`, confirmó que proveedor, moneda, integridad y cobertura final eran correctos, pero que la serie Yahoo disponible comenzaba el `2008-01-02`. Con el replay entonces fijado en `2008-03-03` sólo existían `44` barras causales anteriores/frontera, por debajo del mínimo preregistrado de `252`. El preflight falló cerrado y, por diseño, **R3 continuó sin abrirse ni consumirse**. No se observaron activos fresh ni outcomes económicos.
+
+Como corrección estrictamente pre-open se mantiene el mismo core `DBXW.DE`, el mismo mínimo de `252` barras, el mismo pool fresh, la misma policy y todos los gates económicos. Únicamente se refija la frontera de replay a `2009-01-05`, primera semana completa de 2009 tras un año natural completo de cobertura Yahoo observada. El mismo preflight deberá demostrar `>=252` barras causales antes de permitir la primera consulta fresh; si no las hubiera, volverá a fallar cerrado sin abrir R3.
 
 R3 no modifica `EXIT_PROCEEDS_CUSTODY_V1`, no cambia thresholds, sizing, waiting, confirmaciones, fiscalidad, cash ni reglas de reentrada. R2 no se reutiliza ni se reinterpreta para promoción.
 
@@ -34,10 +38,10 @@ Producción/default permanece `LEGACY`.
 
 ## 3. Ventana R3
 
-La ventana se fija **antes de abrir cualquier activo fresh R3** y responde a la fecha de lanzamiento/cotización del core global acumulativo elegido:
+La ventana se fija **antes de abrir cualquier activo fresh R3** y responde a la cobertura REAL observada del core global acumulativo elegido, sin utilizar retornos ni outcomes económicos del pool fresh:
 
 - data request start: `2006-12-19`;
-- replay start: `2008-03-03`;
+- replay start: `2009-01-05`;
 - end: `2010-12-31`;
 - frecuencia: `MONTHLY`;
 - capital inicial: `13.000 EUR`;
