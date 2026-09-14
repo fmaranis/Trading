@@ -55,7 +55,7 @@ function check(ok: unknown, label: string): void {
 
 check(PHASE5_CONFIRMATION_DATA_START_DATE === '2004-01-02', 'Confirmation warm-up starts on the first clean post-blind year');
 check(PHASE5_CONFIRMATION_DATA_START_DATE > PHASE5_END_DATE, 'Confirmation data request does not overlap consumed 2001-2003 blind');
-check(PHASE5_CONFIRMATION_REPLAY_START_DATE === '2005-01-03', 'Confirmation scoring begins 2005-01-03');
+check(PHASE5_CONFIRMATION_REPLAY_START_DATE === '2005-01-10', 'Confirmation scoring boundary is coverage-only refrozen to 2005-01-10');
 check(PHASE5_CONFIRMATION_END_DATE === '2007-12-31', 'Confirmation scoring ends 2007-12-31');
 check(PHASE5_CONFIRMATION_DATA_START_DATE < PHASE5_CONFIRMATION_REPLAY_START_DATE, 'Confirmation has a dedicated non-scored warm-up year');
 check(PHASE5_CONFIRMATION_REPLAY_START_DATE < PHASE5_CONFIRMATION_END_DATE, 'Confirmation replay window is non-empty');
@@ -103,8 +103,9 @@ check(firstOutcome.includes('PASS_CANDIDATE_FOR_CONFIRMATION'), 'First Phase 5 b
 
 const prereg = fs.readFileSync('docs/phase5_winner_protection_v2_confirmation_preregistration.md', 'utf8');
 check(prereg.includes('CONFIRMATION NOT OPENED'), 'Confirmation preregistration records holdout as unopened');
-check(prereg.includes('2005-01-03') && prereg.includes('2007-12-31'), 'Confirmation preregistration freezes 2005-2007 scored window');
+check(prereg.includes('2005-01-10') && prereg.includes('2007-12-31'), 'Confirmation preregistration freezes refrozen 2005-2007 scored window');
 check(prereg.includes('2004-01-02') && prereg.includes('warm-up'), 'Confirmation preregistration freezes non-scored 2004 warm-up');
+check(prereg.includes('17/18') && prereg.includes('REP.MC') && prereg.includes('251'), 'Confirmation preregistration records coverage-only reason for temporal refreeze');
 check(prereg.includes('mismos 18 activos') && prereg.includes('mismas 6 cohortes'), 'Confirmation preregistration freezes exact first-blind cross-section');
 check(prereg.includes('sin retuning') && prereg.includes('sin reselección'), 'Confirmation preregistration explicitly forbids tuning and re-selection');
 check(prereg.includes('Producción permanece `LEGACY`'), 'Confirmation preregistration keeps production LEGACY');
