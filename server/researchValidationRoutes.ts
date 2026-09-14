@@ -179,6 +179,25 @@ const JOBS: JobDefinition[] = [
     'PHASE5_WINNER_PROTECTION_V2_BLIND_RESULT'
   ),
   {
+    id: 'phase5-winner-protection-v2-confirmation',
+    name: 'Fase 5 · confirmación winner protection · preflight',
+    description: 'Preflight coverage-only de la confirmación temporal independiente 2005-2007. Reutiliza exactamente los mismos 18 activos, 6 cohortes, TREND_PROTECTION_V2 winner-only y gates del primer blind. Comprueba guards, TypeScript y cobertura REAL 2004-2007; no ejecuta baseline/candidato, no abre outcomes económicos y no consume la confirmación. Producción permanece LEGACY.',
+    marker: 'PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_PREFLIGHT_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard Fase 5 confirmación preregistro', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2ConfirmationReadiness.unit.ts'] },
+      { label: 'Guard TREND_PROTECTION_V2', command: 'npx', args: ['tsx', 'tests/trendProtectionPolicy.unit.ts'] },
+      { label: 'Guard integración winner-only Fase 5', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2Integration.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
+      { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
+      { label: 'Guard cash histórico BCE', command: 'npx', args: ['tsx', 'tests/cashRemuneration.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Preflight cobertura confirmación REAL', command: 'npx', args: ['tsx', 'scripts/phase5WinnerProtectionV2ConfirmationPreflight.ts'] }
+    ]
+  },
+  {
     id: 'quality-allocation-dynamic-future-forward-v1',
     name: 'QUALITY allocation · future-forward dinámico',
     description: 'Phase A prospectiva sobre Top64 current/live dinámico. Una única foto mensual consecutiva en la ventana congelada del día 9, 22:30-24:00 Europe/Madrid; mismo snapshot y 13.000 EUR de notional research para LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Reglas e implementación crítica quedan fingerprintadas, el estado autoritativo se encadena en replay-results y producción continúa LEGACY.',
