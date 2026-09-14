@@ -392,7 +392,7 @@ async function main() {
     const economicGates = {
       positiveCohorts: { actual: positiveCohorts, required: PHASE5_CONFIRMATION_PASS_MIN_POSITIVE_COHORTS, pass: positiveCohorts >= PHASE5_CONFIRMATION_PASS_MIN_POSITIVE_COHORTS },
       medianFinalValueDeltaEur: { actual: medianFinalValueDeltaEur, requiredGreaterThan: 0, pass: medianFinalValueDeltaEur > 0 },
-      materiality: { actualMedianBenefitEur: medianFinalValueDeltaEur, thresholdEur: materialityThresholdEur, medianPositiveIncrementalCostsEur, pass: medianFinalValueDeltaEur > materialityThresholdEur },
+      materiality: { actualMedianBenefitEur: medianFinalValueDeltaEur, thresholdEur: materialityThresholdEur, medianPositiveIncrementalCostsEur: medianIncrementalPositiveCostsEur, pass: medianFinalValueDeltaEur > materialityThresholdEur },
       medianMaxDrawdownDeterioration: { actualPctPoints: medianDrawdownDeltaPctPoints, maximumPctPoints: PHASE5_CONFIRMATION_MEDIAN_MAX_DRAWDOWN_WORSENING_LIMIT_PP, pass: medianDrawdownDeltaPctPoints <= PHASE5_CONFIRMATION_MEDIAN_MAX_DRAWDOWN_WORSENING_LIMIT_PP },
       singleCohortLoss: { worstDeltaEur: worstFinalValueDeltaEur, minimumAllowedEur: -PHASE5_CONFIRMATION_INITIAL_CAPITAL_EUR * PHASE5_CONFIRMATION_SINGLE_COHORT_MAX_LOSS_PCT_INITIAL / 100, pass: worstFinalValueDeltaEur >= -PHASE5_CONFIRMATION_INITIAL_CAPITAL_EUR * PHASE5_CONFIRMATION_SINGLE_COHORT_MAX_LOSS_PCT_INITIAL / 100 },
       singleCohortDrawdown: { worstDeteriorationPctPoints: worstDrawdownDeltaPctPoints, maximumPctPoints: PHASE5_CONFIRMATION_SINGLE_COHORT_MAX_DRAWDOWN_WORSENING_PP, pass: worstDrawdownDeltaPctPoints <= PHASE5_CONFIRMATION_SINGLE_COHORT_MAX_DRAWDOWN_WORSENING_PP },
