@@ -1,0 +1,69 @@
+{
+  "version": "PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_SEAL_V1",
+  "sampleState": "SEALED_NOT_OPENED",
+  "sealedAt": "2026-09-14",
+  "methodologySourceHead": "d03e01c84dff139cca1ba8dc5ac1aac6b837add3",
+  "policy": "TREND_PROTECTION_V2_WINNER_ONLY",
+  "productionDefault": "LEGACY",
+  "window": {
+    "dataStartDate": "2004-01-02",
+    "replayStartDate": "2005-01-10",
+    "endDate": "2007-12-31"
+  },
+  "selectionRule": "SAME_18_SEALED_IDENTITIES_AND_COHORTS_TEMPORAL_REPLICATION_NO_RESELECTION",
+  "protocol": {
+    "frequency": "DAILY",
+    "initialCapitalEurPerCohort": 13000,
+    "initialPortfolio": "MANUAL_EQUAL_WEIGHT_3_ASSET_STATE",
+    "cashBenchmark": "HISTORICAL_ECB_DFR_FLOOR_0",
+    "riskProfile": "MEDIUM",
+    "horizonYears": 3,
+    "minimumCausalBars": 252,
+    "execution": "NEXT_OPEN",
+    "externalCashFlows": "NONE",
+    "currentDiscoveryHistorical": false,
+    "reachMinExecutedReductions": 6,
+    "reachMinCohorts": 4,
+    "passMinPositiveCohorts": 4,
+    "materialityCapitalPct": 0.5,
+    "medianMaxDrawdownWorseningLimitPctPoints": 0.5,
+    "singleCohortMaxTerminalLossPctInitial": 5,
+    "singleCohortMaxDrawdownWorseningPctPoints": 3,
+    "dominanceRule": "aggregate delta remains > 0 after removing the single best cohort"
+  },
+  "coveragePreflight": {
+    "status": "PASS",
+    "economicOutcomesOpened": false,
+    "coverageEligible": 18,
+    "rejected": 0,
+    "minimumObservedCausalBars": 255,
+    "minimumObservedTicker": "REP.MC"
+  },
+  "sample": [
+    ["EQ_PH5_FER", "EQ_PH5_RHM", "EQ_PH5_ENEL"],
+    ["EQ_PH5_UCG", "EQ_PH5_OR", "EQ_PH5_ASML"],
+    ["EQ_PH5_REP", "EQ_PH5_DTE", "EQ_PH5_SANOFI"],
+    ["EQ_PH5_ENI", "EQ_PH5_SAP", "EQ_PH5_SU"],
+    ["EQ_PH5_ADS", "EQ_PH5_BBVA", "EQ_PH5_TTE"],
+    ["EQ_PH5_AI", "EQ_PH5_BNP", "EQ_PH5_ISP"]
+  ],
+  "expectedGitBlobSha": {
+    "docs/ECONOMIC_VALIDATION_PROTOCOL_V1.md": "2d2fe1d61fada90a18454ed31f5609e5975a2124",
+    "docs/phase5_winner_protection_v2_confirmation_preregistration.md": "9dcaf5a2907e4055b4a0d34609a18e07d9e00a11",
+    "docs/phase5_winner_protection_v2_final_outcome.md": "f5ee8c5ad1317b28b63af6a0655b01e503f84f8d",
+    "scripts/phase5WinnerProtectionV2SampleProtocol.ts": "fe58cefbf501d89ad3bbd058195019099e3d61f0",
+    "scripts/phase5WinnerProtectionV2SealedSample.ts": "7319bfd5b78dbe11da800dd29c5518fe35989c44",
+    "scripts/phase5WinnerProtectionV2ConfirmationProtocol.ts": "450a166c2241ef9b0c70575422e12fc03d9a148a",
+    "scripts/phase5WinnerProtectionV2ConfirmationPreflight.ts": "ca5c57c370e9b07a8f6fbda10367f0de23f8cab0",
+    "scripts/phase5WinnerProtectionV2ConfirmationLive.ts": "1f4ea1f278ae79fdb9ff105d36b8d4bfc3c170f0",
+    "src/investment/decision/trendProtectionPolicy.ts": "c504e06fb118eb54b37bfbc5759b0eb7d6b8ca6b",
+    "src/investment/decision/phase5WinnerProtectionV2Overlay.ts": "052205d2adbfd25d47fc8e4591ff5b764a01d012",
+    "src/investment/decision/replayRotationPolicyExperiment.ts": "ca2f2a1a2ac8b4cd8810ce88abb9f41be6802c93",
+    "src/investment/decision/portfolioCoreGatePolicy.ts": "b1a577fd6b4b3cf05714c0ae2672d59cc5a36683",
+    "src/investment/decision/dynamicHistoricalReplayCore.ts": "9223acae633a87fffa896d6fc10e89277887311d",
+    "tests/trendProtectionPolicy.unit.ts": "82f73a2e7b1b5b2f0c5270b7db9106c7993f6754",
+    "tests/phase5WinnerProtectionV2Integration.unit.ts": "192f0614837935538192575446097767493ba265",
+    "tests/phase5WinnerProtectionV2ConfirmationReadiness.unit.ts": "73479d22a9ca6abe7dd38b210713a52e4da0493d",
+    "tests/phase5WinnerProtectionV2ConfirmationSeal.unit.ts": "99d87fd69d57390e19fb901d8f0e45eeae97caaf"
+  }
+}
