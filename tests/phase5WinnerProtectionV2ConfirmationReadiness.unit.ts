@@ -108,7 +108,7 @@ check(prereg.includes('2004-01-02') && prereg.includes('warm-up'), 'Confirmation
 check(prereg.includes('mismos 18 activos') && prereg.includes('mismas 6 cohortes'), 'Confirmation preregistration freezes exact first-blind cross-section');
 check(prereg.includes('sin retuning') && prereg.includes('sin reselección'), 'Confirmation preregistration explicitly forbids tuning and re-selection');
 check(prereg.includes('Producción permanece `LEGACY`'), 'Confirmation preregistration keeps production LEGACY');
-check(prereg.includes('baseline/candidato económico: **NO EJECUTADO**'), 'Confirmation preregistration records no economic outcome as opened');
+check(/baseline\/candidato económico:\s*(?:\*\*)?NO EJECUTADO(?:\*\*)?/.test(prereg), 'Confirmation preregistration records no economic outcome as opened');
 
 console.log('PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_READINESS_PASS', JSON.stringify({
   sampleAssets: PHASE5_CONFIRMATION_SAMPLE.length,
