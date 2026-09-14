@@ -23,7 +23,9 @@ import {
 
 export const PHASE5_CONFIRMATION_VERSION = 'PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_V1' as const;
 export const PHASE5_CONFIRMATION_PREFLIGHT_MARKER = 'PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_PREFLIGHT_RESULT' as const;
+export const PHASE5_CONFIRMATION_RESULT_MARKER = 'PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_RESULT' as const;
 export const PHASE5_CONFIRMATION_JOB_ID = 'phase5-winner-protection-v2-confirmation' as const;
+export const PHASE5_CONFIRMATION_SEAL_PATH = 'validation-runs/preregistration/phase5-winner-protection-v2-confirmation-seal.json' as const;
 export const PHASE5_CONFIRMATION_DATA_START_DATE = '2004-01-02';
 
 /**
