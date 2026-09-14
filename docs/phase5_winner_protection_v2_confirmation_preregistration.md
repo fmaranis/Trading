@@ -36,20 +36,29 @@ Primer blind consumido:
 - data request: desde `1998-01-02`;
 - ventana económica: `2001-01-03 -> 2003-12-31`.
 
-Confirmación:
+Confirmación, frontera vigente tras preflight coverage-only:
 
 - data start / warm-up no puntuado: **`2004-01-02`**;
-- replay económico: **`2005-01-03 -> 2007-12-31`**;
+- replay económico: **`2005-01-10 -> 2007-12-31`**;
 - frecuencia: `DAILY`;
 - horizonte nominal: 3 años.
 
-La regla temporal se fija antes de consultar outcomes de confirmación:
+La regla temporal original se fijó antes de consultar outcomes de confirmación como el siguiente bloque cronológico limpio posterior al primer blind, con 2004 reservado exclusivamente a warm-up causal y final antes de Fase 4 R3 y Forward Risk.
 
-> usar el siguiente bloque cronológico limpio de tres años posterior al primer blind, precedido por un año completo de warm-up también posterior al blind, y terminar antes de las muestras consumidas de Fase 4 R3 y de las ventanas de evaluación Forward Risk iniciadas en 2011.
+La primera frontera propuesta fue `2005-01-03`. El primer preflight REAL fue estrictamente coverage-only y devolvió:
 
-El año 2004 es únicamente **warm-up causal**. No forma parte de la métrica económica primaria ni se puntúa como outcome. El request de confirmación comienza después del 31/12/2003, por lo que ni siquiera el warm-up se solapa con el primer blind consumido.
+- **17/18** activos elegibles;
+- `REP.MC`: provider Yahoo REAL, EUR, integridad válida y cobertura final válida;
+- `REP.MC`: **251 barras causales** anteriores a `2005-01-03` frente al mínimo congelado de **252**;
+- todos los demás activos: cobertura suficiente;
+- `economicOutcomesOpened = false`;
+- baseline/candidato económico: **NO EJECUTADO**.
 
-La ventana no se ha elegido por conocer su rentabilidad, crisis, drawdown, comportamiento de los activos o facilidad para producir reducciones winner-protection.
+Dado que no se abrió ningún outcome económico, la única corrección permitida fue desplazar la frontera de scoring sin cambiar muestra, política ni gates. Para evitar perseguir una única sesión de calendario de forma iterativa, la frontera queda refrozen de forma conservadora a **`2005-01-10`**. El final permanece **`2007-12-31`** y el data start permanece **`2004-01-02`**.
+
+Esta modificación se basa exclusivamente en cobertura observada del proveedor. No utiliza retorno, drawdown, MFE, giveback, número de reducciones ni ningún resultado del candidato.
+
+El año 2004 continúa siendo únicamente **warm-up causal**. No forma parte de la métrica económica primaria ni se puntúa como outcome. El request de confirmación comienza después del 31/12/2003, por lo que ni siquiera el warm-up se solapa con el primer blind consumido.
 
 ## 4. Muestra congelada
 
@@ -150,7 +159,7 @@ El único trabajo con datos permitido en esta etapa es coverage-only:
 - provider `yahoo_finance`;
 - currency `EUR`;
 - OHLC íntegro, fechas únicas y monotónicas;
-- al menos 252 barras causales anteriores a `2005-01-03`;
+- al menos 252 barras causales anteriores a `2005-01-10`;
 - cobertura hasta diciembre de 2007;
 - 6 cohortes x3 intactas;
 - current discovery histórico OFF.
@@ -239,14 +248,14 @@ Permanece explícita la limitación de survivorship/catalog bias: todavía no ex
 
 ## 13. Estado y siguiente paso
 
-Estado tras este preregistro:
+Estado tras el primer preflight coverage-only y el refreeze temporal:
 
 **PREREGISTERED / COVERAGE PREFLIGHT ONLY / CONFIRMATION NOT OPENED / PRODUCTION LEGACY**.
 
 Siguiente paso permitido:
 
-1. ejecutar guards rápidos;
-2. ejecutar exclusivamente el preflight REAL de cobertura 2004–2007;
+1. volver a ejecutar guards rápidos;
+2. volver a ejecutar exclusivamente el preflight REAL de cobertura con frontera `2005-01-10`;
 3. si 18/18 activos pasan, sellar muestra/implementación/runner y sólo entonces habilitar una ejecución económica one-shot;
 4. si el preflight falla, detenerse sin abrir outcomes.
 
