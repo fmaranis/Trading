@@ -125,7 +125,7 @@ FASE 1  BASE PRODUCTIVA V1                    ← DONE salvo bug/regresión repr
 FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← DONE · 2A PASS · 2B PASS RUNTIME
 FASE 3  PROTOCOLO ECONÓMICO FINAL             ← DONE / FROZEN
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← CLOSED V1 · R2/R3 CONSUMED · INCONCLUSIVE REACH
-FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← PASS CANDIDATE · SAMPLE CONSUMED · CONFIRMATION REQUIRED
+FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← BLIND PASS · CONFIRMATION PREREGISTERED · PREFLIGHT READY · NOT OPENED
 FASE 6  FORWARD RISK V8 COMO CONTEXTO         ← research posterior a cerrar confirmación F5
 FASE 7  QUALITY FUTURE FORWARD                ← WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      ← pendiente para evidencia histórica fuerte
@@ -943,12 +943,13 @@ Evidencia durable autoritativa R3:
 
 # 12. FASE 5 — PROTECCIÓN DE GRANDES GANADORES
 
-Estado: **PASS_CANDIDATE_FOR_CONFIRMATION / SAMPLE CONSUMED / RESEARCH ONLY / PRODUCTION LEGACY.**
+Estado: **FIRST BLIND PASS_CANDIDATE_FOR_CONFIRMATION / FIRST SAMPLE CONSUMED / CONFIRMATION PREREGISTERED / COVERAGE PREFLIGHT READY / CONFIRMATION NOT OPENED / RESEARCH ONLY / PRODUCTION LEGACY.**
 
 Documentos:
 
-- `docs/phase5_winner_protection_v2_preopen_design.md` — preregistro, muestra, gates y seal pre-open;
-- `docs/phase5_winner_protection_v2_final_outcome.md` — outcome blind y lectura permitida.
+- `docs/phase5_winner_protection_v2_preopen_design.md` — preregistro, muestra, gates y seal del primer blind;
+- `docs/phase5_winner_protection_v2_final_outcome.md` — outcome del primer blind y lectura permitida;
+- `docs/phase5_winner_protection_v2_confirmation_preregistration.md` — confirmación independiente temporal pre-open.
 
 Política candidata congelada:
 
@@ -956,7 +957,7 @@ Política candidata congelada:
 
 No se creó V3 ni se retuneó `TREND_PROTECTION_V2`. La candidata reutilizó únicamente la rama winner dentro del wrapper canónico `runDynamicReplayWithRotationExperiment(...)`.
 
-### Política probada
+### Política probada y congelada
 
 - MFE mínimo para armar: 8%;
 - giveback mínimo: 6 pp;
@@ -969,9 +970,9 @@ No se creó V3 ni se retuneó `TREND_PROTECTION_V2`. La candidata reutilizó ún
 - `PROTECT/WATCH` no son operaciones;
 - reach sólo cuenta `REDUCE` F5 realmente ejecutadas `NEXT_OPEN`.
 
-La rama loser/failure de V2 permaneció neutralizada para esta investigación.
+La rama loser/failure de V2 permanece neutralizada para Fase 5.
 
-### Muestra consumida
+### Primer blind consumido
 
 Configuración:
 
@@ -998,11 +999,11 @@ Cohortes:
 
 El primer intento del blind se detuvo antes de market data por un falso fallo textual del guard de paridad; la muestra seguía unopened. Se corrigió exclusivamente el guard para reconocer la variable integrada `phase5Gated`. El segundo intento pasó guards/seal/TypeScript y abrió el runner sellado.
 
-Estado final de muestra:
+Estado final de la primera muestra:
 
 `PHASE5_OPENED_CONSUMED`
 
-### Resultado blind
+### Resultado del primer blind
 
 Veredicto:
 
@@ -1043,9 +1044,66 @@ Interpretación:
 - la muestra queda consumida y no puede usarse para retuning;
 - persiste survivorship/catalog bias hasta disponer de instrument master point-in-time.
 
+### Confirmación independiente preregistrada — NOT OPENED
+
+Se ha elegido una réplica temporal para minimizar nuevos grados de libertad después de observar el primer PASS.
+
+La confirmación mantiene exactamente:
+
+- los **mismos 18 activos**;
+- las **mismas 6 cohortes**;
+- la misma política winner-only V2;
+- DAILY, MEDIUM, 13.000 EUR por cohorte, cartera manual igual ponderada y cash 0;
+- BCE DFR histórico floor 0;
+- sin `externalCashFlows`;
+- `NEXT_OPEN`;
+- current discovery histórico OFF;
+- los mismos gates de reach, signo, materialidad, drawdown, daño individual y dominancia.
+
+Ventana de confirmación congelada antes de outcomes:
+
+- warm-up/data start: **`2004-01-02`**;
+- replay económico: **`2005-01-03 -> 2007-12-31`**;
+- mínimo: 252 barras causales antes del replay.
+
+Justificación temporal congelada: siguiente bloque cronológico limpio de 3 años posterior al primer blind, con un año de warm-up también completamente posterior a 2003, y final anterior a R3 (`2009-01-05`) y a las evaluaciones Forward Risk iniciadas en 2011. No se eligió por retorno, drawdown, MFE, crisis o reach observado.
+
+Regla de muestra:
+
+`SAME_18_SEALED_IDENTITIES_AND_COHORTS_TEMPORAL_REPLICATION_NO_RESELECTION`
+
+No se permite sustituir, reordenar ni escoger activos después del resultado 2001–2003. El objetivo es probar generalización temporal de la misma cross-section, no buscar otra combinación que funcione mejor.
+
+### Preflight de confirmación
+
+Job CURRENT:
+
+`ResearchValidationCenter -> Fase 5 · confirmación winner protection · preflight`
+
+Sólo ejecuta:
+
+1. guard de preregistro de confirmación;
+2. guard de `TREND_PROTECTION_V2` original;
+3. guard de integración winner-only;
+4. arquitectura core;
+5. CandidateGate;
+6. paridad replay/producto;
+7. superficie productiva;
+8. cash BCE;
+9. TypeScript;
+10. coverage-only REAL de los 18 activos para `2004-01-02 -> 2007-12-31`.
+
+El preflight exige provider Yahoo REAL, EUR, integridad OHLC, >=252 barras causales antes de `2005-01-03`, cobertura hasta fin de 2007, mismos 18 activos y mismas 6x3 cohortes. No ejecuta baseline/candidato, no calcula deltas económicos, no cuenta reach económico y no consume la confirmación.
+
+Estado actual exacto:
+
+**baseline/candidato económico de confirmación: NO EJECUTADO / confirmación NOT OPENED / no seal económico aún.**
+
+Si el preflight pasa 18/18, el siguiente paso será sellar muestra/implementación/runner de confirmación y sólo entonces habilitar una ejecución económica one-shot. Si falla, se detiene sin abrir outcomes.
+
 ### Consecuencia metodológica
 
-Un `PASS_CANDIDATE_FOR_CONFIRMATION` **no promociona producción**.
+El primer `PASS_CANDIDATE_FOR_CONFIRMATION` **no promociona producción**.
 
 Por tanto:
 
@@ -1053,11 +1111,10 @@ Por tanto:
 - no se conecta todavía winner-only V2 al producto live;
 - no se modifican alertas productivas por este resultado;
 - no se ajustan thresholds, sizing, confirmaciones, ventana, frecuencia, muestra, reach ni gates con lo observado;
-- el job blind consumido queda `ARCHIVED` y no se repite.
+- el blind 2001–2003 permanece `ARCHIVED` y no se repite;
+- la confirmación 2005–2007 no se abre hasta pasar preflight y seal.
 
-Siguiente paso único del carril económico: **diseñar/preregistrar una confirmación independiente de la misma política congelada, sin cambios, sobre una muestra distinta fresh/blind/OOS**. Preferencia metodológica: future-forward o holdout histórico realmente reservado e independiente. Fase 6 no se abre hasta cerrar esta confirmación F5.
-
-Evidencia durable autoritativa:
+Evidencia durable autoritativa del primer blind:
 
 - branch `replay-results`;
 - `validation-runs/research-validation/phase5-winner-protection-v2.json`;
@@ -1133,6 +1190,7 @@ No reabrir ahora:
 - `EXIT_PROCEEDS_CUSTODY_V1` para retuning retrospectivo sobre R2/R3;
 - Fase 5 blind 2001–2003 como muestra fresh; está consumida;
 - `TREND_PROTECTION_V2_WINNER_ONLY` para retuning usando el outcome Fase 5; la política debe permanecer idéntica para confirmación;
+- cambiar los 18 activos/cohortes de confirmación en función del primer PASS;
 - V9/V10/V11;
 - V12/V13 como tuning retrospectivo;
 - SLOPE_V1;
@@ -1171,15 +1229,17 @@ Fase 10 / V2, sólo después de cierre V1:
 6. **Fase 3: DONE / FROZEN.** `ECONOMIC_VALIDATION_PROTOCOL_V1` gobierna Fases 4–6.
 7. **Fase 4: CLOSED FOR V1 / INCONCLUSIVE.** R2 y R3 están consumidas; no R4 reactiva ni retuning.
 8. **Fase 5 blind V1: PASS_CANDIDATE_FOR_CONFIRMATION / CONSUMED.** 18 reducciones ejecutadas en 6/6 cohortes; 4/6 cohortes positivas; mediana +118,46 EUR; todos los gates preregistrados PASS. Producción sigue `LEGACY`.
-9. **Siguiente trabajo F5:** diseñar y preregistrar la confirmación independiente de `TREND_PROTECTION_V2_WINNER_ONLY` sin cambiar la política ni utilizar la muestra 2001–2003 para selección/tuning.
-10. Seleccionar la muestra de confirmación mediante regla mecánica fresh/blind/OOS y sellarla antes de abrir outcomes; preferir future-forward o holdout histórico realmente reservado.
-11. Ejecutar la confirmación una sola vez después de guards + seal + TypeScript. Sólo una confirmación consistente puede abrir una decisión explícita de promoción; no hay promoción automática.
-12. **Fase 6:** Forward Risk V8 como contexto sólo después de cerrar la confirmación de Fase 5.
-13. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
-14. No tocar los 25 archivos congelados de Future Forward para avanzar Fase 5.
-15. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
-16. **Fase 9:** auditoría end-to-end y cierre V1.
-17. **Fase 10:** permanece deferred hasta cierre V1.
+9. **Fase 5 confirmación: PREREGISTERED / PREFLIGHT READY / NOT OPENED.** Mismos 18 activos y mismas 6 cohortes; warm-up 2004; replay congelado `2005-01-03 -> 2007-12-31`; política y gates idénticos.
+10. Sincronizar el HEAD final y ejecutar **únicamente** `Fase 5 · confirmación winner protection · preflight`.
+11. El preflight debe pasar guard de preregistro + política + integración + arquitectura + CandidateGate + paridad + superficie + BCE + TypeScript antes de consultar coverage REAL. No ejecuta economía.
+12. Si el preflight devuelve 18/18 válidos, sellar muestra/implementación/runner de confirmación y preparar una única ejecución económica blind. No abrirla antes del seal.
+13. Si el preflight falla, detenerse sin baseline/candidato y sin consumir la confirmación; no cambiar V2 ni escoger nombres por outcomes.
+14. **Fase 6:** Forward Risk V8 como contexto sólo después de cerrar la confirmación de Fase 5.
+15. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
+16. No tocar los 25 archivos congelados de Future Forward para avanzar Fase 5.
+17. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
+18. **Fase 9:** auditoría end-to-end y cierre V1.
+19. **Fase 10:** permanece deferred hasta cierre V1.
 
 Al cerrar cada fase:
 
@@ -1201,8 +1261,11 @@ Al cerrar cada fase:
 - `docs/phase4_reentry_cash_custody_v1_final_outcome.md` — cierre Fase 4 V1 e interpretación del `INCONCLUSIVE`.
 - `docs/phase5_winner_protection_v2_preopen_design.md` — política, muestra, gates y blind Fase 5 sellados antes de abrir outcomes.
 - `docs/phase5_winner_protection_v2_final_outcome.md` — resultado blind Fase 5, PASS candidato para confirmación y límites de interpretación.
-- `validation-runs/preregistration/phase5-winner-protection-v2-seal.json` — seal pre-open Fase 5; conservar como evidencia.
-- `replay-results/validation-runs/research-validation/phase5-winner-protection-v2.json` — evidencia durable autoritativa del blind Fase 5.
+- `docs/phase5_winner_protection_v2_confirmation_preregistration.md` — confirmación temporal independiente, mismos 18/6x3, ventana 2005–2007 y gates congelados.
+- `scripts/phase5WinnerProtectionV2ConfirmationProtocol.ts` — contrato ejecutable de la confirmación pre-open.
+- `scripts/phase5WinnerProtectionV2ConfirmationPreflight.ts` — coverage-only REAL, sin outcomes económicos.
+- `validation-runs/preregistration/phase5-winner-protection-v2-seal.json` — seal pre-open del primer blind Fase 5; conservar como evidencia.
+- `replay-results/validation-runs/research-validation/phase5-winner-protection-v2.json` — evidencia durable autoritativa del primer blind Fase 5.
 - `docs/DECISIONS.md` — decisiones durables alineadas.
 - `docs/PRIVATE_USERS_DEPLOYMENT.md` — seguridad, multiusuario, ADMIN y validación Fase 2A de Trading.
 - `docs/TELEGRAM_ALERTS.md` — canal de notificación de Trading.
