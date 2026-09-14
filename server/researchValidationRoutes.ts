@@ -180,12 +180,14 @@ const JOBS: JobDefinition[] = [
   ),
   {
     id: 'phase5-winner-protection-v2-confirmation',
-    name: 'Fase 5 · confirmación winner protection · preflight',
-    description: 'Preflight coverage-only de la confirmación temporal independiente 2005-2007. Reutiliza exactamente los mismos 18 activos, 6 cohortes, TREND_PROTECTION_V2 winner-only y gates del primer blind. Comprueba guards, TypeScript y cobertura REAL 2004-2007; no ejecuta baseline/candidato, no abre outcomes económicos y no consume la confirmación. Producción permanece LEGACY.',
-    marker: 'PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_PREFLIGHT_RESULT',
+    name: 'Fase 5 · confirmación winner protection · blind one-shot',
+    description: 'Confirmación temporal independiente sellada de TREND_PROTECTION_V2_WINNER_ONLY sobre 2005-01-10 -> 2007-12-31. Reutiliza exactamente los mismos 18 activos, 6 cohortes, sizing y gates del primer blind. Ejecuta primero seal, guards y TypeScript; sólo el último paso abre la muestra económica. Producción permanece LEGACY y no existe promoción automática.',
+    marker: 'PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_RESULT',
     visibility: 'CURRENT',
+    requiresGithubReplayToken: true,
     steps: [
       { label: 'Guard Fase 5 confirmación preregistro', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2ConfirmationReadiness.unit.ts'] },
+      { label: 'Guard seal confirmación Fase 5', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2ConfirmationSeal.unit.ts'] },
       { label: 'Guard TREND_PROTECTION_V2', command: 'npx', args: ['tsx', 'tests/trendProtectionPolicy.unit.ts'] },
       { label: 'Guard integración winner-only Fase 5', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2Integration.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
@@ -194,7 +196,7 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
       { label: 'Guard cash histórico BCE', command: 'npx', args: ['tsx', 'tests/cashRemuneration.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Preflight cobertura confirmación REAL', command: 'npx', args: ['tsx', 'scripts/phase5WinnerProtectionV2ConfirmationPreflight.ts'] }
+      { label: 'Confirmación económica REAL one-shot', command: 'npx', args: ['tsx', 'scripts/phase5WinnerProtectionV2ConfirmationLive.ts'] }
     ]
   },
   {
@@ -281,9 +283,9 @@ function runStep(step: Step, state: JobState): Promise<number> {
 
 function prerequisiteError(job: JobDefinition): string | null {
   if (job.requiresGithubReplayToken && !process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()) {
-    return job.id === 'quality-allocation-dynamic-future-forward-v1'
-      ? 'QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED'
-      : 'PHASE5_DURABLE_GITHUB_TOKEN_REQUIRED';
+    if (job.id === 'quality-allocation-dynamic-future-forward-v1') return 'QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED';
+    if (job.id === 'phase5-winner-protection-v2-confirmation') return 'PHASE5_CONFIRMATION_DURABLE_GITHUB_TOKEN_REQUIRED';
+    return 'PHASE5_DURABLE_GITHUB_TOKEN_REQUIRED';
   }
   return null;
 }
