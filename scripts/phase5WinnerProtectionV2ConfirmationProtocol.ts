@@ -25,7 +25,20 @@ export const PHASE5_CONFIRMATION_VERSION = 'PHASE5_WINNER_PROTECTION_V2_CONFIRMA
 export const PHASE5_CONFIRMATION_PREFLIGHT_MARKER = 'PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_PREFLIGHT_RESULT' as const;
 export const PHASE5_CONFIRMATION_JOB_ID = 'phase5-winner-protection-v2-confirmation' as const;
 export const PHASE5_CONFIRMATION_DATA_START_DATE = '2004-01-02';
-export const PHASE5_CONFIRMATION_REPLAY_START_DATE = '2005-01-03';
+
+/**
+ * Original confirmation boundary: 2005-01-03.
+ * The first coverage-only preflight opened no baseline/candidate economics and
+ * showed 17/18 assets eligible. REP.MC had 251 causal bars versus the frozen
+ * minimum of 252; provider/currency/integrity/end coverage were otherwise valid.
+ *
+ * Because the economic holdout remained unopened, only the temporal scoring
+ * boundary is refrozen to 2005-01-10. The one-week buffer is based exclusively
+ * on observed provider coverage, preserves the full 2004 non-scored warm-up,
+ * keeps all 18 identities/cohorts and every economic threshold unchanged, and
+ * avoids iterative one-session boundary chasing.
+ */
+export const PHASE5_CONFIRMATION_REPLAY_START_DATE = '2005-01-10';
 export const PHASE5_CONFIRMATION_END_DATE = '2007-12-31';
 export const PHASE5_CONFIRMATION_SAMPLE_STATE = 'PREOPEN_COVERAGE_ONLY_CONFIRMATION_NOT_OPENED' as const;
 export const PHASE5_CONFIRMATION_SELECTION_RULE = 'SAME_18_SEALED_IDENTITIES_AND_COHORTS_TEMPORAL_REPLICATION_NO_RESELECTION' as const;
