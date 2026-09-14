@@ -2,7 +2,16 @@
   "version": "PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_SEAL_V1",
   "sampleState": "SEALED_NOT_OPENED",
   "sealedAt": "2026-09-14",
-  "methodologySourceHead": "d03e01c84dff139cca1ba8dc5ac1aac6b837add3",
+  "methodologySourceHead": "be0f10cfbb5436a23ae5bef9cafe9a32e724835a",
+  "preOpenTechnicalReseal": {
+    "reason": "TypeScript-only fix before economic opening: materiality output referenced an undeclared shorthand property name. No market-data request or economic outcome was opened.",
+    "previousRunnerBlobSha": "1f4ea1f278ae79fdb9ff105d36b8d4bfc3c170f0",
+    "fixedRunnerBlobSha": "3898f8e412e67ac1252811d774b8fa5f8f4429c5",
+    "economicOutcomesOpened": false,
+    "policyChanged": false,
+    "sampleChanged": false,
+    "gatesChanged": false
+  },
   "policy": "TREND_PROTECTION_V2_WINNER_ONLY",
   "productionDefault": "LEGACY",
   "window": {
@@ -55,7 +64,7 @@
     "scripts/phase5WinnerProtectionV2SealedSample.ts": "7319bfd5b78dbe11da800dd29c5518fe35989c44",
     "scripts/phase5WinnerProtectionV2ConfirmationProtocol.ts": "450a166c2241ef9b0c70575422e12fc03d9a148a",
     "scripts/phase5WinnerProtectionV2ConfirmationPreflight.ts": "ca5c57c370e9b07a8f6fbda10367f0de23f8cab0",
-    "scripts/phase5WinnerProtectionV2ConfirmationLive.ts": "1f4ea1f278ae79fdb9ff105d36b8d4bfc3c170f0",
+    "scripts/phase5WinnerProtectionV2ConfirmationLive.ts": "3898f8e412e67ac1252811d774b8fa5f8f4429c5",
     "src/investment/decision/trendProtectionPolicy.ts": "c504e06fb118eb54b37bfbc5759b0eb7d6b8ca6b",
     "src/investment/decision/phase5WinnerProtectionV2Overlay.ts": "052205d2adbfd25d47fc8e4591ff5b764a01d012",
     "src/investment/decision/replayRotationPolicyExperiment.ts": "ca2f2a1a2ac8b4cd8810ce88abb9f41be6802c93",
