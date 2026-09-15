@@ -1,7 +1,7 @@
-# Fase 6 — Forward Risk V8 como contexto — preregistro Stage A
+# Fase 6 — Forward Risk V8 como contexto — preregistro marco
 
-Fecha de congelación: **2026-09-15**  
-Estado: **CONTEXT PREREGISTERED / SAMPLE NOT SELECTED / NOT OPENED / RESEARCH ONLY**
+Fecha de congelación inicial: **2026-09-15**  
+Estado actual: **CONTEXT PREREGISTERED / STAGE A FUTURE-FORWARD SAMPLE FROZEN / NOT OPENED / RESEARCH ONLY**
 
 ## 1. Punto de partida
 
@@ -15,7 +15,7 @@ Fase 6 no reactiva ninguna de esas políticas.
 
 ## 2. Hipótesis Stage A
 
-La primera pregunta de Fase 6 no será todavía “¿cuánto comprar/vender?”, sino:
+La primera pregunta de Fase 6 no es todavía “¿cuánto comprar/vender?”, sino:
 
 > Dentro del contexto de decisión que ya recorre `PortfolioCandidateGate`, ¿la información V8 conserva valor incremental para anticipar downside futuro antes de diseñar una nueva política económica?
 
@@ -31,8 +31,8 @@ Se crea `FORWARD_RISK_CONTEXT_V1` exclusivamente como feature research/shadow.
 
 Reglas:
 
-- score V5: el `vulnerabilityScorePct` ya existente;
-- score V7: el `signalScorePct` ya existente;
+- score V5: `vulnerabilityScorePct` ya existente;
+- score V7: `signalScorePct` ya existente;
 - score contextual continuo: `max(V5, V7)`;
 - contexto alto: `max(V5, V7) >= 80`;
 - el 80 procede de la definición V8 ya congelada, no se retunea;
@@ -55,73 +55,89 @@ Stage A es diagnóstico de información y no tiene autoridad productiva ni ejecu
 - no crea un motor paralelo;
 - no cambia `LEGACY`.
 
-Su punto conceptual de observación es **shadow en la fecha de decisión de `PortfolioCandidateGate`**, antes de que una futura política pudiera monetizarlo.
+Su punto conceptual de observación es shadow en la fecha de decisión de `PortfolioCandidateGate`.
 
-## 5. Por qué no se diseña aún la política económica
+## 5. Diseño en dos etapas
 
-V11 mostró un hallazgo estructural reutilizable: sólo 51 de 272 decisiones `ELIGIBLE` coincidieron con riesgo >80 (18,75%). Aplicar Forward Risk únicamente después del gate dejó poco reach incremental.
+### Stage A — información contextual
 
-Ese diagnóstico permite justificar estudiar el contexto antes/dentro de la decisión, pero **no permite escoger retrospectivamente un nuevo coeficiente, penalización, sizing, waiting period o hurdle económico**.
+Se valida si el contexto V8 aporta información incremental dentro del gate antes de diseñar cualquier política económica.
 
-Por ello Fase 6 se divide en dos muestras independientes si avanza:
+El primer readiness estático pasó sin abrir datos/outcomes. Después se congeló una muestra **future-forward** para evitar reutilizar las ventanas históricas ya consumidas de Forward Risk.
 
-1. **Stage A — información contextual:** comprobar valor incremental de V8 en una muestra fresh sellada.
-2. **Stage B — política económica:** sólo si Stage A pasa, diseñar una política exacta y validarla después en otra muestra fresh. La muestra Stage A quedará consumida para el diseño de Stage B y no podrá promocionar esa política.
+Preregistro específico Stage A:
 
-## 6. Muestra Stage A
+`docs/phase6_forward_risk_context_stage_a_preregistration.md`
 
-A fecha de este preregistro:
+Estado:
 
-**`NOT_SELECTED_NOT_OPENED`**.
+**`FUTURE_FORWARD_SAMPLE_FROZEN_NOT_OPENED`**.
 
-No se ha abierto market data ni outcomes para seleccionar la muestra.
+Ventana de predicción congelada:
 
-Antes de cualquier acceso a outcomes deberán congelarse en un segundo preregistro/seal:
+`2026-09-16 -> 2027-03-31`
 
-- regla de selección fresh/OOS y muestra exacta;
-- periodo y warm-up;
-- definiciones exactas de outcome predictivo;
-- reach mínimo/evaluable;
-- gates `PASS / FAIL / INCONCLUSIVE`;
-- semántica de datos faltantes;
-- fingerprint del runner.
+Cohorte exacta:
 
-La selección sólo podrá usar criterios estructurales y coverage REAL. No puede usar retornos, drawdowns, crisis, outcomes de V8, reach económico ni current Yahoo discovery para reconstruir retrospectivamente un universo histórico.
+`EUNL / SXR8 / EXSA / IS3N / IUSN / QDVE / VVSM / XDWH / EXH1 / ISPA`
 
-Todos los holdouts ya abiertos de Forward Risk V8/V9/V10/V11 permanecen consumidos para promoción.
+Outcome primario congelado:
 
-## 7. Datos y causalidad
+- referencia `NEXT_OPEN` posterior a `informationDate`;
+- horizonte 63 sesiones;
+- máximo drawdown peak-to-trough dentro de ese horizonte;
+- downside material `>=5%`.
 
-Stage A deberá exigir:
+Población primaria:
+
+`PortfolioCandidateGate = ELIGIBLE` con V5 y V7 disponibles.
+
+Reach y gates exactos están congelados en:
+
+`src/investment/decision/phase6ForwardRiskContextStageAProtocol.ts`
+
+Aún no se ha abierto mercado Stage A. Antes de la primera observación deben implementarse y sellarse collector/evaluator, persistencia durable, no-backfill y fingerprints.
+
+### Stage B — política económica futura
+
+Sólo se diseña si Stage A pasa. La muestra Stage A quedará consumida para el diseño de Stage B y no podrá validar económicamente la política que se derive de ella. La policy exacta deberá validarse en otra muestra fresh/blind/OOS.
+
+## 6. Datos y causalidad
+
+Stage A exige:
 
 - V5 macro/financial vulnerability con datos REAL vintage-safe point-in-time;
 - V7 con índices de volatilidad observados de Cboe;
 - precios REAL;
 - cero fallback sintético;
 - `informationDate` causal;
-- cualquier outcome futuro utilizado sólo para evaluación después de haber congelado la predicción/contexto de esa fecha.
+- cualquier outcome futuro sólo se lee después de su madurez congelada.
 
-## 8. Qué queda prohibido
+## 7. Qué queda prohibido
 
 - volver a V8 como interruptor diario ON/OFF;
 - reactivar V9, V10 o V11 con otro nombre;
 - crear V12/V13 como ajuste retrospectivo;
-- elegir la muestra por comportamiento económico conocido;
+- usar ventanas históricas Forward Risk ya consumidas para decidir Stage A;
+- reemplazar activos de Stage A después de abrir porque su resultado sea desfavorable;
+- backfill de observaciones prospectivas omitidas;
 - usar la misma muestra para diseñar y validar económicamente una nueva policy;
-- ajustar el umbral 80 por resultados ya observados;
+- ajustar el umbral 80, el downside 5%, el horizonte 63 o los gates después de ver Stage A;
 - conectar Stage A a producción.
 
-## 9. Readiness
+## 8. Siguiente paso antes de abrir
 
-El único job habilitado inicialmente para Fase 6 será:
+El trabajo pendiente es puramente técnico y pre-open:
 
-`Fase 6 · Forward Risk V8 como contexto · readiness`
+1. implementar collector/evaluator causal future-forward;
+2. persistencia durable/inmutable;
+3. guard de no-backfill;
+4. fingerprint/seal del runner y del estado;
+5. guards arquitectónicos + TypeScript.
 
-Sólo ejecuta guards estáticos/arquitectónicos y TypeScript. **No consulta mercado, no calcula outcomes y no consume muestra.**
+Hasta que ese sellado pase, `marketDataAccessBeforeRunnerSealAllowed=false`.
 
-Si readiness pasa, el siguiente paso será congelar la selección de muestra y los gates predictivos Stage A antes de abrir cualquier dato/outcome de validación.
-
-## 10. Producción
+## 9. Producción
 
 Producción permanece:
 
@@ -129,5 +145,3 @@ Producción permanece:
 - allocation/opportunity `LEGACY`;
 - `CORE_ELIGIBILITY_V2` shadow;
 - Forward Risk sin autoridad productiva.
-
-Este preregistro no autoriza ningún cambio productivo.
