@@ -1,7 +1,7 @@
 # APP TRADING — FLUJO MAESTRO Y ROADMAP DE CIERRE
 
 Estado: **CANÓNICO PARA ORGANIZACIÓN DEL TRABAJO**  
-Fecha base: **2026-09-14**  
+Fecha base: **2026-09-15**  
 Repositorio: `fmaranis/Trading`  
 Rama: `main`
 
@@ -58,6 +58,8 @@ La app **no** debe evolucionar hacia una colección de motores, pantallas, repla
 - Fases 4–6 quedan sometidas a `docs/ECONOMIC_VALIDATION_PROTOCOL_V1.md` antes de abrir cualquier muestra nueva.
 - Un `PASS_CANDIDATE_FOR_CONFIRMATION` no cambia producción: exige confirmación independiente con la política exacta congelada.
 - La confirmación Fase 5 no puede re-seleccionar activos o cohortes a partir del primer PASS.
+- Tras una confirmación FAIL, la política exacta probada no se retunea sobre las muestras consumidas.
+- Fase 6 separa primero información de señal de cualquier política económica nueva.
 - No crear un nuevo apartado, job, motor o replay si la capacidad cabe en un flujo existente.
 - No rehacer infraestructura operativa ya validada si basta una mejora selectiva.
 - Cubetos/Muros y Trading permanecen **completamente independientes**; Cubetos/Muros sólo puede servir como referencia técnica.
@@ -327,11 +329,12 @@ Estado 2B:
 | Allocation productiva | **DONE** | `LEGACY` |
 | QUALITY allocation | **VALIDATING** | Future Forward 1/12; no promoción |
 | `CORE_ELIGIBILITY_V2` | **SHADOW** | No productivo |
-| Forward Risk V8 | **RESEARCH RETAINED** | Señal útil; política no resuelta |
+| Forward Risk V8 | **RESEARCH RETAINED** | Señal útil; sin autoridad económica productiva |
 | V9 / V10 / V11 | **RETIRED** | No retunear |
 | HFG | **CONSUMED / CLOSED** | Diagnóstico, no tuning |
 | Fase 4 reentrada | **CLOSED / INCONCLUSIVE** | R2/R3 consumidas; R3 sin reach, no promoción ni R4 reactiva |
-| Fase 5 protección ganadores | **BLIND PASS / CONFIRMATION PREFLIGHT READY** | Winner-only V2 congelada; confirmación 2005–2007 no abierta; producción LEGACY |
+| Fase 5 protección ganadores | **CLOSED / CONFIRMATION FAIL** | Primer blind PASS; confirmación consumida FAIL; no promoción; V2 winner-only retirada como policy probada |
+| Fase 6 Forward Risk contexto | **PREREGISTERED STAGE A / NOT OPENED** | `FORWARD_RISK_CONTEXT_V1` shadow; muestra aún no seleccionada; producción LEGACY |
 | Móvil + JSON | **DONE / PASS** | Prueba física realizada |
 | Usuarios privados / Firestore | **OPERATIVO** | Arquitectura propia |
 | Fase 2A ADMIN hardening | **DONE / PASS** | Runtime + quick closure final PASS |
@@ -448,17 +451,18 @@ Evidencia durable R3: `replay-results/validation-runs/research-validation/phase4
 
 ## FASE 5 — PROTECCIÓN DE GRANDES GANADORES
 
-**FIRST BLIND PASS_CANDIDATE_FOR_CONFIRMATION / FIRST SAMPLE CONSUMED / CONFIRMATION PREREGISTERED / PREFLIGHT READY / CONFIRMATION NOT OPENED / PRODUCTION LEGACY.**
+**CLOSED / FIRST BLIND PASS / CONFIRMATION CONSUMED FAIL / NO PROMOTION / PRODUCTION LEGACY.**
 
 Documentos:
 
 - `docs/phase5_winner_protection_v2_preopen_design.md`;
 - `docs/phase5_winner_protection_v2_final_outcome.md`;
-- `docs/phase5_winner_protection_v2_confirmation_preregistration.md`.
+- `docs/phase5_winner_protection_v2_confirmation_preregistration.md`;
+- `docs/phase5_winner_protection_v2_confirmation_final_outcome.md`.
 
-La candidata reutiliza `TREND_PROTECTION_V2` existente **sin retuning** y habilita únicamente su rama de protección de ganador dentro de `runDynamicReplayWithRotationExperiment(...)`. No crea V3 ni motor paralelo.
+La candidata reutilizó `TREND_PROTECTION_V2` existente **sin retuning** y habilitó únicamente su rama winner dentro de `runDynamicReplayWithRotationExperiment(...)`.
 
-Política congelada:
+Política congelada probada:
 
 - MFE mínimo 8%;
 - giveback de armado 6 pp;
@@ -470,89 +474,87 @@ Política congelada:
 - un `REDUCE/EXIT` canónico más fuerte siempre prevalece;
 - reach sólo cuenta `REDUCE` F5 realmente ejecutadas `NEXT_OPEN`.
 
-Primer blind ejecutado:
+### Primer blind 2001–2003
 
-- replay `2001-01-03 -> 2003-12-31`;
 - 6 cohortes de 3 activos;
 - 13.000 EUR por cohorte, cartera manual inicial igual ponderada, cash 0;
-- DAILY;
+- DAILY / MEDIUM;
 - datos REAL Yahoo;
-- 6/6 data gates válidos;
-- muestra `PHASE5_OPENED_CONSUMED`.
+- muestra consumida;
+- reach 18 reducciones, 6/6 cohortes;
+- 4/6 cohortes positivas;
+- mediana +118,46 EUR;
+- agregado +736,47 EUR;
+- leave-best-out +430,63 EUR;
+- guardrails preregistrados PASS;
+- veredicto `PASS_CANDIDATE_FOR_CONFIRMATION`.
 
-Resultado:
+### Confirmación temporal 2005–2007
 
-- reach: **18** reducciones ejecutadas, **6/6** cohortes alcanzadas;
-- deltas: `-86,75 / -5,70 / +92,16 / +144,76 / +305,84 / +286,16 EUR`;
-- cohortes positivas: **4/6**;
-- mediana: **+118,46 EUR**;
-- materialidad: PASS frente a umbral **65 EUR**;
-- mediana max-DD delta: **-1,912 pp**;
-- peor delta: **-86,75 EUR** frente a límite -650 EUR;
-- peor deterioro max-DD: **0 pp** frente a límite +3 pp;
-- agregado: **+736,47 EUR**;
-- leave-best-out: **+430,63 EUR**;
-- veredicto: **`PASS_CANDIDATE_FOR_CONFIRMATION`**.
+La confirmación reutilizó exactamente los mismos 18 activos, 6 cohortes, política, sizing y gates; no hubo reselección según el primer outcome. El inicio scoring se refijó pre-open por cobertura exclusivamente a `2005-01-10`, manteniendo warm-up 2004 y final 2007-12-31.
+
+Resultado autoritativo:
+
+- muestra: `PHASE5_CONFIRMATION_OPENED_CONSUMED`;
+- veredicto: **`CONFIRMATION_FAIL_NO_PROMOTION`**;
+- reach: **63** reducciones ejecutadas;
+- cohortes alcanzadas: **6/6**;
+- cohortes con delta terminal positivo: **2/6** frente a 4/6 requeridas;
+- deltas por cohorte: aproximadamente `+667,89 / -272,69 / +277,67 / -1.853,00 / -256,69 / -1.216,59 EUR`;
+- mediana terminal: aproximadamente **-264,69 EUR**;
+- agregado: aproximadamente **-2.653,41 EUR**;
+- leave-best-out: aproximadamente **-3.321,30 EUR**;
+- mediana de max-drawdown mejoró alrededor de **4,42 pp**, mostrando valor protector parcial;
+- peor delta individual alrededor de **-1.853 EUR**, incumpliendo el guardrail -650 EUR.
 
 Lectura correcta:
 
-- hay evidencia favorable de la política exacta probada;
-- hubo dos cohortes negativas, por lo que no toda reducción es individualmente ganadora;
-- no hay dependencia de una única cohorte extrema;
-- la muestra 2001–2003 está consumida y no se retunea;
-- producción continúa `LEGACY`.
+- la policy exacta no generalizó en riqueza terminal y **no se promociona**;
+- la reducción de drawdown observada no convierte el FAIL económico en PASS;
+- no se ajustan ahora MFE/giveback/streak/worsening/sizing usando estas muestras;
+- no se crea una V3 paramétrica sobre los mismos outcomes;
+- ambas muestras quedan consumidas;
+- producción permanece `LEGACY`.
 
-### Confirmación temporal independiente
-
-Para no introducir selección posterior al outcome, la confirmación reutiliza exactamente los mismos 18 activos y las mismas 6 cohortes. Sólo cambia el bloque temporal según una regla congelada antes de outcomes.
-
-Ventana:
-
-- warm-up/data start: `2004-01-02`;
-- replay económico reservado: `2005-01-03 -> 2007-12-31`;
-- 252 barras causales mínimas antes del replay.
-
-La ventana es el siguiente bloque cronológico limpio de tres años posterior al primer blind, con un año de warm-up también posterior a 2003, y acaba antes de R3 y de Forward Risk 2011+.
-
-Se mantienen idénticos:
-
-- política V2 winner-only;
-- 18 activos / 6x3;
-- 13.000 EUR/cohorte y cartera manual igual ponderada;
-- DAILY / MEDIUM;
-- cash BCE histórico;
-- sin external flows;
-- NEXT_OPEN;
-- current discovery histórico OFF;
-- reach >=6 reducciones y >=4/6 cohortes;
-- 4/6 cohortes positivas;
-- mediana >0 y materialidad 0,5%;
-- guardrails de max drawdown, daño individual y dominancia.
-
-El job actual es únicamente:
-
-`Fase 5 · confirmación winner protection · preflight`
-
-Ejecuta guards + TypeScript + coverage REAL. No ejecuta baseline/candidato ni abre outcomes económicos. La confirmación sigue **NOT OPENED**.
-
-Si 18/18 pasan, el siguiente paso es sellar muestra/implementación/runner y preparar una única ejecución económica blind. Si falla cobertura, se detiene sin consumir la confirmación.
-
-El job del primer blind permanece archivado.
-
-Evidencia durable del primer blind: `replay-results/validation-runs/research-validation/phase5-winner-protection-v2.json`.
+El one-shot de confirmación queda **ARCHIVED / READ-ONLY** en `ResearchValidationCenter`; no puede relanzarse.
 
 ## FASE 6 — FORWARD RISK V8 COMO CONTEXTO
 
-**PENDIENTE RESEARCH.** Explorar contexto de riesgo, sizing, ranking, alertas, stress o margen de seguridad. No ON/OFF diario directo ni V12/V13 retrospectivo.
+**STAGE A PREREGISTERED / SAMPLE NOT SELECTED / NOT OPENED / RESEARCH ONLY.**
 
-No abrir Fase 6 hasta cerrar la confirmación independiente de Fase 5.
+Documento:
+
+`docs/phase6_forward_risk_context_preregistration.md`
+
+Contexto congelado:
+
+`FORWARD_RISK_CONTEXT_V1`
+
+- preserva la regla V8: `V5 >=80 OR V7 >=80`;
+- score continuo de contexto = `max(V5, V7)`;
+- exige ambas familias disponibles; sin fallback silencioso;
+- no ajusta coeficientes ni thresholds;
+- se observa en shadow en el contexto de decisión de `PortfolioCandidateGate`;
+- no cambia eligibility, ranking, sizing, holdings ni órdenes;
+- no crea ON/OFF diario ni waiting state;
+- producción continúa `LEGACY`.
+
+Razón metodológica: antes de inventar otra política económica se comprobará en una muestra fresh si V8 aporta **información incremental** dentro del flujo real de candidatos. El diagnóstico V11 de sólo 51/272 decisiones `ELIGIBLE` con riesgo >80 justifica estudiar una colocación informativa anterior, pero no autoriza a retunear V11.
+
+La muestra Stage A todavía es `NOT_SELECTED_NOT_OPENED`. Antes de cualquier outcome deben congelarse muestra, ventana, outcomes predictivos, reach, gates y seal. Si Stage A pasa, esa muestra quedará consumida para diseñar cualquier política económica posterior; la policy tendrá que validarse en otra muestra fresh.
+
+Job actual:
+
+`Fase 6 · Forward Risk V8 como contexto · readiness`
+
+Sólo ejecuta guard de preregistro + arquitectura + CandidateGate + paridad + superficie + TypeScript. No consulta mercado ni outcomes.
 
 ## FASE 7 — QUALITY FUTURE FORWARD
 
 **WAITING / COLLECTING EN PARALELO.**
 
 - 1/12 observaciones;
-- 0 outcomes maduros a 2026-09-14;
+- 0 outcomes maduros a 2026-09-15;
 - producción `LEGACY`;
 - 25 archivos metodológicos congelados;
 - siguiente observación: **2026-10-09 22:30–24:00 Europe/Madrid**.
@@ -578,7 +580,7 @@ CARRIL A — PRODUCTO / OPERACIÓN
 Fase 0 → Fase 1 → Fase 2 → Fase 9
 
 CARRIL B — EVIDENCIA ECONÓMICA
-Fase 3 → Fase 4 → Fase 5 (blind + confirmación) → Fase 6 → Fase 9
+Fase 3 → Fase 4 → Fase 5 (cerrada) → Fase 6 → Fase 9
 
 CARRIL C — PROSPECTIVO POR CALENDARIO
 Fase 7
@@ -599,10 +601,11 @@ No reabrir:
 - Fase 2 salvo bug/regresión reproducible;
 - R2/R3 de Fase 4 como muestras fresh;
 - `EXIT_PROCEEDS_CUSTODY_V1` mediante retuning sobre R2/R3;
-- Fase 5 blind 2001–2003 como fresh;
-- `TREND_PROTECTION_V2_WINNER_ONLY` con parámetros ajustados a partir del outcome ya visto;
-- re-seleccionar los 18 activos o las 6 cohortes para confirmación según el resultado 2001–2003;
+- Fase 5 blind 2001–2003 ni confirmación 2005–2007 como fresh;
+- `TREND_PROTECTION_V2_WINNER_ONLY` mediante parámetros ajustados con cualquiera de sus dos outcomes;
+- volver a ejecutar el one-shot de confirmación F5;
 - V9/V10/V11;
+- V12/V13 como parameter chasing;
 - SLOPE_V1;
 - QUALITY_V1 retrospectivo;
 - QUALITY_ALLOCATION_BRIDGE_V1 retrospectivo;
@@ -610,7 +613,6 @@ No reabrir:
 - motores/pantallas/replays duplicados;
 - jobs específicos por activo;
 - retuning de Top64/Opportunity con snapshots observados;
-- V12/V13 como parameter chasing;
 - reconstruir Firebase/usuarios/Telegram desde cero;
 - copiar planes/entitlements/monetización de Cubetos/Muros;
 - compartir sistema de usuarios entre aplicaciones;
@@ -622,11 +624,11 @@ No reabrir:
 
 1. **Fase 2 = DONE.** No reabrir salvo bug/regresión reproducible.
 2. **Fase 3 = DONE / FROZEN** mediante `ECONOMIC_VALIDATION_PROTOCOL_V1`.
-3. **Fase 4 = CLOSED FOR V1 / INCONCLUSIVE.** R2/R3 están consumidas; no R4 reactiva ni retuning.
-4. **Fase 5 blind V1 = PASS_CANDIDATE_FOR_CONFIRMATION / CONSUMED.** Producción sigue `LEGACY`.
-5. **Fase 5 confirmación = PREREGISTERED / PREFLIGHT READY / NOT OPENED.** Mismos 18 activos/6 cohortes; warm-up 2004; replay reservado 2005–2007; V2 y gates sin cambios.
-6. Sincronizar `main` y ejecutar únicamente `Fase 5 · confirmación winner protection · preflight`.
-7. El job debe pasar guards + `tsc --noEmit` y después comprobar 18/18 coberturas REAL; no calcula outcomes económicos.
-8. Si pasa, sellar muestra/implementación/runner y preparar una única confirmación económica blind. Si falla, detenerse sin consumir la muestra ni retunear.
-9. Fase 6 se aborda sólo después de cerrar esa confirmación.
+3. **Fase 4 = CLOSED FOR V1 / INCONCLUSIVE.** R2/R3 consumidas; no R4 reactiva ni retuning.
+4. **Fase 5 = CLOSED / CONFIRMATION FAIL / NO PROMOTION.** Primer blind y confirmación consumidos; one-shot archivado; producción `LEGACY`.
+5. **Fase 6 Stage A = CONTEXT PREREGISTERED / SAMPLE NOT SELECTED / NOT OPENED.**
+6. Sincronizar `main` y ejecutar únicamente `Fase 6 · Forward Risk V8 como contexto · readiness`.
+7. El readiness debe pasar guards + `tsc --noEmit`; no consulta mercado, no calcula outcomes y no consume muestra.
+8. Si pasa, congelar después la regla de selección fresh, muestra exacta, ventana, outcomes predictivos, reach/gates y seal Stage A **antes** de cualquier market/outcome access.
+9. No diseñar aún sizing/ranking/hurdle económico con resultados no abiertos. Una policy económica sólo se diseña después de una Stage A válida y necesitará otra muestra fresh.
 10. Fase 7 continúa sólo por calendario y sus 25 archivos siguen congelados.
