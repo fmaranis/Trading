@@ -73,11 +73,30 @@ assert(protocolSource.includes("status: 'NOT_SELECTED_NOT_OPENED'"), 'UNOPENED_S
 assert(protocolSource.includes("status: 'NOT_DESIGNED'"), 'FUTURE_POLICY_NOT_LEFT_UNDESIGNED');
 assert(protocolSource.includes('V12/V13 as retrospective parameter chasing'), 'NO_PARAMETER_CHASING_RULE_MISSING');
 
+const validationRoutesSource = source('server/researchValidationRoutes.ts');
+assert(
+  validationRoutesSource.includes("archivedJob(\n    'phase5-winner-protection-v2-confirmation'"),
+  'PHASE5_CONFIRMATION_ONE_SHOT_NOT_ARCHIVED'
+);
+assert(
+  !validationRoutesSource.includes("id: 'phase5-winner-protection-v2-confirmation'"),
+  'PHASE5_CONFIRMATION_EXECUTABLE_BLOCK_STILL_PRESENT'
+);
+assert(
+  validationRoutesSource.includes("id: 'phase6-forward-risk-context-readiness'"),
+  'PHASE6_READINESS_JOB_MISSING'
+);
+assert(
+  validationRoutesSource.includes("name: 'Fase 6 · Forward Risk V8 como contexto · readiness'"),
+  'PHASE6_READINESS_LABEL_CHANGED'
+);
+
 console.log('PHASE6_FORWARD_RISK_CONTEXT_READINESS_PASS', JSON.stringify({
   contextVersion: calm.version,
   thresholdPct: FORWARD_RISK_CONTEXT_HIGH_SCORE_PCT,
   protocolStatus: protocol.status,
   sampleStatus: protocol.validationSample.status,
   productionDefault: protocol.productionDefault,
-  economicPolicyDefined: protocol.stageA.economicPolicyDefined
+  economicPolicyDefined: protocol.stageA.economicPolicyDefined,
+  phase5ConfirmationArchived: true
 }));
