@@ -28,8 +28,8 @@ export interface ForwardRiskContextV1Result {
 }
 
 function normalizedScore(value: number | null | undefined): number | null {
-  if (!Number.isFinite(value)) return null;
-  return Math.max(0, Math.min(100, Number(value)));
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, value));
 }
 
 export function resolveForwardRiskContextV1(input: {
