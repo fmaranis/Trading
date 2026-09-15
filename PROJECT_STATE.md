@@ -125,8 +125,8 @@ FASE 1  BASE PRODUCTIVA V1                    ← DONE salvo bug/regresión repr
 FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      ← DONE · 2A PASS · 2B PASS RUNTIME
 FASE 3  PROTOCOLO ECONÓMICO FINAL             ← DONE / FROZEN
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         ← CLOSED V1 · R2/R3 CONSUMED · INCONCLUSIVE REACH
-FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← BLIND PASS · CONFIRMATION PREREGISTERED · PREFLIGHT READY · NOT OPENED
-FASE 6  FORWARD RISK V8 COMO CONTEXTO         ← research posterior a cerrar confirmación F5
+FASE 5  PROTECCIÓN DE GRANDES GANADORES       ← CLOSED · FIRST BLIND PASS · CONFIRMATION FAIL · NO PROMOTION
+FASE 6  FORWARD RISK V8 COMO CONTEXTO         ← STAGE A PREREGISTERED · SAMPLE NOT SELECTED · NOT OPENED
 FASE 7  QUALITY FUTURE FORWARD                ← WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      ← pendiente para evidencia histórica fuerte
 FASE 9  AUDITORÍA END-TO-END / CIERRE V1      ← cierre final de los carriles anteriores
@@ -372,12 +372,22 @@ Interpretación canónica:
 
 Estado:
 
+- V8: **PREDICTIVE INFORMATION RETAINED**;
 - V9: **RETIRED**;
 - V10: **RETIRED**;
 - V11: **RETIRED**;
 - no crear V12/V13 como parameter chasing retrospectivo.
 
+Hallazgo V11 reutilizable:
+
+- 272 decisiones `ELIGIBLE`;
+- sólo 51 coincidieron con Forward Risk >80;
+- solapamiento 18,75%;
+- aplicar riesgo sólo después de `PortfolioCandidateGate` dejó poco reach incremental.
+
 Uso futuro admisible sólo bajo protocolo fresh: contexto de riesgo, sizing, ranking/priorización, alertas, stress o margen de seguridad.
+
+Fase 6 comienza por separar información de señal de política económica: `FORWARD_RISK_CONTEXT_V1` es shadow-only y no cambia producción.
 
 ---
 
@@ -436,11 +446,6 @@ Conclusión:
 
 HFG queda consumido para promoción. No retunear MFE/giveback/streak/timing/allocation/protección con esta muestra.
 
-Hipótesis abiertas para Fases 4–5:
-
-1. reentrada después de una salida equivocada;
-2. monetización causal de protección de grandes ganadores.
-
 ---
 
 # 9. FASE 2 — USUARIOS, SEGURIDAD Y AUTONOMÍA
@@ -498,321 +503,55 @@ Ya existe y funciona:
 
 ## 9.3 Comparación diferencial Fase 2A — COMPLETADA
 
-Se revisó el sistema real de Trading contra patrones probados en Cubetos/Muros.
+Se revisó el sistema real de Trading contra patrones probados de Cubetos/Muros y se decidió mantener la arquitectura propia. Se incorporaron únicamente auditoría administrativa, búsqueda de usuarios, visibilidad de correo verificado, confirmación de acciones sensibles y rollback best-effort del alta.
 
-Conclusión:
+No se incorporan planes/entitlements/créditos/anuncios ni un `PermissionContext` genérico sin necesidad productiva.
 
-> Trading ya dispone de una base de identidad/autorización suficiente. No se sustituye `SecureAppGate`, no se migra a un `AuthContext` genérico y no se importan planes/entitlements/monetización de Cubetos/Muros porque actualmente añadirían complejidad sin resolver una necesidad real de Trading.
+## 9.4–9.8 Hardening 2A — cierre
 
-Patrones seleccionados por aportar valor objetivo:
+Quedó integrado y validado:
 
-- auditoría de operaciones administrativas;
-- búsqueda de usuarios;
-- visibilidad de correo verificado;
-- confirmación explícita de acciones administrativas sensibles;
-- rollback best-effort para no dejar una cuenta parcial si falla el alta administrada.
+- `admin_audit_log` backend-only;
+- Auth como autoridad y profile mirror best-effort;
+- `resolveManagedUserPatch(...)` para semántica acceso/ADMIN/disabled;
+- revocación de refresh tokens cuando corresponde;
+- revalidación de sesión abierta cada 15 s y al recuperar foco;
+- autosync detenido antes de limpiar caché;
+- fallo de red fail-closed sin destrucción de caché;
+- lista ADMIN independiente de fallo de audit log;
+- confirmaciones internas en `AdminUsersPanel` sin depender de `window.confirm`;
+- enlaces de reset visibles aunque clipboard falle;
+- `privateUserSecurity.unit.ts` integrado en `Producto · cierre rápido`.
 
-Patrones descartados/deferred para Trading actual:
+El usuario comprobó runtime real, revocación/recuperación, preservación de estado privado y acciones ADMIN. Quick closure final PASS.
 
-- planes `free/premium/pro/empresa`;
-- entitlements genéricos;
-- créditos de informes;
-- anuncios;
-- permisos de PDF/DXF/proyectos;
-- `PermissionContext` genérico sin necesidad productiva actual.
-
-## 9.4 Primera implementación 2A y quick closure
-
-Sin añadir dependencias, nueva pantalla, nuevo job ni tocar motor financiero se añadió:
-
-- `admin_audit_log` propio de Trading, escrito sólo por backend/Admin SDK;
-- endpoint ADMIN `/admin/audit-log`;
-- auditoría de `USER_CREATED`, `USER_UPDATED`, `PASSWORD_RESET_LINK_CREATED`, `USER_DELETED`;
-- snapshot before/after de metadatos de cuenta, nunca cartera privada;
-- `emailVerified` en la lista administrativa;
-- rollback best-effort de Auth user + `users/{uid}` si el alta administrada falla parcialmente;
-- búsqueda por correo/nombre/UID;
-- confirmaciones de acceso/ADMIN/bloqueo;
-- actividad administrativa reciente en el mismo `AdminUsersPanel`;
-- guards integrados en el cierre existente.
-
-Decisión de seguridad sobre audit log:
-
-- `firestore.rules` es deny-by-default para colecciones no declaradas;
-- `admin_audit_log` no es legible/escribible por clientes;
-- sólo backend/Admin SDK lo usa;
-- un ADMIN sigue sin endpoint para abrir la cartera privada de otro usuario.
-
-El usuario ejecutó un primer `Producto · cierre rápido` y obtuvo 32/32 + resto de guards + TypeScript PASS, pero el smoke posterior detectó un bug real. Después de la segunda auditoría se incorporó `Guard usuarios privados`; el quick closure actualizado posterior también pasó completo antes del último ajuste de confirmación interna de UI.
-
-## 9.5 Smoke real 2026-09-11 — BUG “REVOCAR ACCESO NO VA”
-
-El usuario comprobó que **“Revocar acceso” no funcionaba**.
-
-Clasificación: `BUG`.
-
-Primera revisión del camino real detectó:
-
-1. **ADMIN no-op silencioso.** La UI permitía intentar revocar acceso a una cuenta ADMIN, pero la semántica del backend es que ADMIN implica acceso. La acción podía parecer aceptada sin cambiar el estado efectivo.
-2. **Sesión ya abierta sin revalidación activa.** Un usuario normal podía tener claims/tokens revocados, pero la app ya abierta conservaba la cartera renderizada hasta una nueva verificación.
-
-## 9.6 Segunda auditoría completa posterior al bug
-
-A petición expresa del usuario se volvió a revisar de nuevo el flujo completo:
-
-`AdminUsersPanel -> accountApi -> accountRoutes -> Firebase Auth/claims -> token revocation -> SecureAppGate -> local private cache/cloud sync -> quick closure -> documentación`.
-
-La segunda revisión encontró además:
-
-3. **Lista ADMIN acoplada al audit log.** `AdminUsersPanel.refresh()` usaba `Promise.all`. Si fallaba sólo la lectura del audit log, también se descartaba la lista fresca de usuarios. Una revocación efectiva podía seguir viéndose como `CONCEDIDO`, aparentando un no-op.
-4. **Riesgo de carrera entre limpieza local y autosync.** La sesión revocada limpiaba `localStorage` sin garantizar primero que el sincronizador privado estuviese parado. Se endureció el orden para impedir que una caché vaciada pueda intentar sustituir el estado durable.
-5. **Fallo transitorio de revalidación tratado demasiado agresivamente.** Un error de red/servidor durante la comprobación periódica no debe confundirse con revocación. Ahora la UI falla cerrada, detiene autosync y conserva la caché local; sólo una revocación/disabled confirmada limpia y cierra sesión.
-6. **Mutación Auth correcta podía parecer fallida por el espejo Firestore.** Si Firebase Auth ya había aplicado la revocación pero luego fallaba `writeProfile`, el endpoint podía devolver error aunque la autoridad real hubiera cambiado. Ahora Auth es la autoridad de la mutación; el perfil es un mirror best-effort y la respuesta indica `profileSynced`.
-7. **`privateUserSecurity.unit.ts` no estaba realmente dentro de `Producto · cierre rápido`.** Se estaba usando como evidencia estática sin que el job que pulsaba el usuario lo ejecutase. Ahora se ha integrado como un paso del mismo job existente; no se creó otro job.
-8. **Los guards eran principalmente textuales.** Se añadió una política pura `resolveManagedUserPatch(...)` y aserciones de comportamiento para normal revoke, ADMIN direct revoke, demotion y demotion+revoke.
-9. **Error documental propio.** Al registrar el primer fix se compactó demasiado `PROJECT_STATE.md`, eliminando detalle histórico/metodológico útil. Se restauró la memoria canónica completa y los nuevos hallazgos se añaden sin sustituirla por un resumen.
-
-## 9.7 Fix 2A backend/gate vigente
-
-### Backend — `server/accountRoutes.ts`
-
-- `resolveManagedUserPatch(...)` centraliza semántica de acceso/ADMIN/disabled.
-- usuario normal + `accessGranted:false` => acceso efectivo false.
-- ADMIN + revocación directa sin retirar ADMIN => `ADMIN_ACCESS_REQUIRES_DEMOTION_FIRST`.
-- retirar ADMIN sin pedir revocación conserva acceso como usuario normal.
-- retirar ADMIN + revocar en la misma mutación deja ambos false.
-- `/session-status` devuelve estado real actual de `disabled/isAdmin/accessGranted`.
-- revocar acceso, deshabilitar o retirar privilegios relevantes revoca refresh tokens.
-- Auth es autoridad del cambio; si falla el mirror de perfil tras una mutación Auth correcta:
-  - no se devuelve un falso fallo de la revocación;
-  - se registra `ADMIN_USER_PROFILE_SYNC_FAILED`;
-  - respuesta `profileSynced:false`;
-  - audit metadata registra ese estado.
-
-### Cliente API — `src/auth/accountApi.ts`
-
-- `loadAccountSessionStatus(...)`.
-- respuesta de `updateManagedUser(...)` tipada con `ManagedUserUpdateResult`, incluyendo `profileSynced` y `auditLogged`.
-
-### ADMIN — `src/components/AdminUsersPanel.tsx`
-
-- ADMIN muestra acceso `POR ADMIN`.
-- no se ofrece botón de revocación directa mientras conserve ADMIN.
-- explicación: primero retirar ADMIN y después revocar.
-- carga de usuarios y audit log desacoplada mediante `Promise.allSettled`:
-  - si audit falla, la lista de usuarios se actualiza igualmente;
-  - se muestra un warning separado de auditoría;
-  - una lista stale ya no puede ocultar una revocación por culpa del audit log.
-- si Auth se actualiza pero el profile mirror falla, el panel lo comunica sin presentar el cambio como inexistente.
-
-### Gate — `src/auth/SecureAppGate.tsx`
-
-- revalida acceso cada 15 s;
-- revalida también al recuperar foco/visibilidad;
-- una revocación/disabled confirmada:
-  - para autosync primero;
-  - limpia estado privado local después;
-  - cierra sesión;
-  - deja de renderizar la cartera.
-- un token revocado se trata como pérdida real de acceso.
-- un fallo genérico de red/servidor:
-  - para autosync;
-  - falla cerrado en UI;
-  - **no borra** la caché privada local como si fuera una revocación.
-- reintentar verificación para autosync antes de rehidratar/rearrancar sincronización, evitando carreras.
-
-### Guards y Centro de validación
-
-- `tests/productSurfaceClosureV1.unit.ts`: guard actualizado para el flujo ADMIN final;
-- `tests/privateUserSecurity.unit.ts`:
-  - invariantes estructurales;
-  - aserciones reales de `resolveManagedUserPatch`;
-  - stop-sync-before-clear;
-  - audit failure independiente de lista;
-  - profile mirror best-effort;
-- `Producto · cierre rápido` incorpora **`Guard usuarios privados`** ejecutando `tests/privateUserSecurity.unit.ts`;
-- no se creó otro job/panel.
-
-## 9.7.1 Tercer hallazgo runtime — botones ADMIN bloqueados por APIs nativas
-
-Después del quick closure actualizado PASS, el usuario comprobó que no sólo `Revocar acceso`, sino **las demás acciones sensibles del ADMIN tampoco respondían**.
-
-Revisión del camino común encontró:
-
-- `revocar/conceder acceso`, `hacer/quitar ADMIN`, `bloquear/reactivar` y `borrar` dependían de `window.confirm(...)`;
-- el preview/iframe donde se usa la app puede bloquear ese diálogo nativo;
-- en ese caso la acción se corta **antes** de llamar al backend, por lo que todos los botones parecen muertos aunque las rutas API estén correctas;
-- los enlaces de contraseña dependían además de `navigator.clipboard`, que también puede estar restringido en previews/iframes.
-
-Corrección en `a22c4de9940d974a32045e2f10adf21731a1f3eb`:
-
-- eliminado `window.confirm` como dependencia funcional;
-- confirmación sensible renderizada dentro del propio `AdminUsersPanel`;
-- botones `type="button"` explícitos;
-- enlaces de configuración/reset visibles en el panel aunque clipboard falle;
-- clipboard queda como mejora opcional;
-- guards prohíben reintroducir `window.confirm` y exigen confirmación interna/fallback visible.
-
-Evidencia runtime final:
-
-- el usuario confirmó que la nueva confirmación interna aparece;
-- las acciones ADMIN vuelven a responder;
-- la revocación efectiva funciona;
-- la sesión revocada pierde acceso;
-- el estado durable se conserva y se recupera al volver a conceder acceso;
-- las acciones comunes ADMIN/bloqueo responden con el mismo flujo interno;
-- el quick closure final sobre `472e7d1f20db3901a4bac1ab5003cb16bfe4d79a` terminó **PASS**.
-
-Revisión de alcance del ajuste final:
-
-- sólo `src/components/AdminUsersPanel.tsx`;
-- `tests/privateUserSecurity.unit.ts`;
-- `tests/productSurfaceClosureV1.unit.ts`;
-- ningún motor financiero;
-- ningún replay;
-- ninguna lógica de alertas/Telegram;
-- ningún archivo congelado de Future Forward;
-- ninguna dependencia nueva.
-
-**Estado 2A: DONE / RUNTIME PASS / QUICK CLOSURE FINAL PASS.**
-
-## 9.8 Cierre Fase 2A — DONE
-
-Criterios de cierre cumplidos:
-
-1. sistema de usuarios de Trading independiente de Cubetos/Muros;
-2. login/ADMIN/Firestore/aislamiento/cartera siguen la arquitectura existente;
-3. acciones ADMIN sensibles funcionan con confirmación interna;
-4. revocación de acceso efectiva y no silenciosa;
-5. sesión abierta pierde acceso mediante revalidación;
-6. autosync se detiene antes de limpiar estado local;
-7. fallo de red no se trata como revocación destructiva;
-8. estado privado durable no se borra por revocar acceso;
-9. al volver a conceder acceso se recupera el estado propio;
-10. la cartera principal permanece intacta;
-11. quick closure final PASS.
-
-No volver a abrir 2A salvo bug/regresión reproducible.
+**Estado 2A: DONE.**
 
 ## 9.9 Alertas y autonomía — Fase 2B
 
-Las alarmas **ya están funcionando en operación real para la configuración actual del usuario**. No tratarlas como funcionalidad por construir desde cero.
+Las alarmas ya funcionan para la configuración actual.
 
-Ya existe:
+Se eliminó la autoridad paralela residual de `PortfolioRotationReviewEngine`/`ROTATE_NOW` del backend de alertas. Se preservan `ADD / WATCH / REDUCE / EXIT`, scheduler, Telegram, Firestore, UID configurado y dedupe.
 
-- backend de oportunidades de entrada;
-- dedupe `GOOD_ENTRY / HIGH_CONVICTION`;
-- persistencia Firestore;
-- webhook/Telegram;
-- `server/portfolioManagementAlerts.ts`;
-- lectura de `users/{uid}/private/state`;
-- reconstrucción de cartera, historial de ejecución, tax lots y cash benchmark;
-- reutilización de `PortfolioPositionHealthService` / `classifyPositionHealth`;
-- dedupe por UID;
-- capacidad de enviar `ADD / WATCH / REDUCE / EXIT` por Telegram.
+`rotationStatus` permanece en el summary como `null` por compatibilidad. El guard productivo impide reintroducir esa cadena paralela.
 
-### Auditoría 2B realizada 2026-09-11
-
-Se inspeccionó el flujo real:
-
-`runDailyOpportunityCheck -> runPortfolioManagementAlerts -> estado privado por UID -> PortfolioPositionHealthService/classifyPositionHealth -> Telegram`.
-
-Hallazgo original:
-
-- `server/portfolioManagementAlerts.ts` importaba `PortfolioRotationReviewEngine`;
-- llamaba directamente a `PortfolioRotationReviewEngine.evaluate(...)`;
-- si devolvía `ROTATE_NOW`, construía un `rotationEvent`;
-- ese evento podía notificarse por Telegram;
-- esa rotación **no** provenía de `evaluatePortfolioDecision` ni del `executionPlan` canónico.
-
-Clasificación:
-
-**RESIDUAL ARCHITECTURE BUG / PARALLEL AUTHORITY.**
-
-No implicaba que las alertas health estuvieran mal. `ADD / WATCH / REDUCE / EXIT` reutilizan la salud de posiciones compartida y debían preservarse.
-
-### Corrección 2B implementada
-
-Cambios limitados a:
-
-- `server/portfolioManagementAlerts.ts`;
-- `server/telegramNotifier.ts`;
-- `tests/productSurfaceClosureV1.unit.ts`.
-
-Se ha hecho lo siguiente:
-
-1. eliminado `PortfolioRotationReviewEngine` del backend de alertas;
-2. eliminado el cálculo y dedupe específicos de `ROTATE_NOW`;
-3. eliminado `rotationEvent` del contrato de `notifyTelegramPortfolioManagement`;
-4. eliminado el texto `ROTAR` del notificador de gestión de cartera;
-5. preservadas sin cambios conceptuales las alertas `ADD / WATCH / REDUCE / EXIT`;
-6. preservados scheduler, Telegram, persistencia Firestore, UID configurado y dedupe de acciones health;
-7. mantenido `rotationStatus: null` en `PortfolioManagementAlertSummary` para conservar compatibilidad con consumidores ya existentes;
-8. añadido invariante **1034** al mismo `tests/productSurfaceClosureV1.unit.ts`;
-9. el guard de cierre de superficie pasa de **33 a 34 invariantes** y falla si reaparecen `PortfolioRotationReviewEngine`, `ROTATE_NOW` o `rotationEvent` en el backend/notificador de cartera.
-
-Decisión V1:
-
-- mantener el alcance operativo actual por UID configurado (`ALERT_PORTFOLIO_UID` o bootstrap UID único);
-- la generalización fan-out a todos los usuarios queda **DEFERRED** porque no es necesaria para el alcance V1 actual y modificaría el comportamiento operativo;
-- si en el futuro vuelve una alerta de rotación, deberá consumir exclusivamente una decisión/plan canónicos, no recalcular una política paralela.
-
-Revisión estática posterior:
-
-- no se toca discovery/Top64;
-- no se toca `PortfolioCandidateGate`;
-- no se toca `InvestmentDecisionEngine`;
-- no se toca `PortfolioDecisionEngine` ni `evaluatePortfolioDecision`;
-- no se toca replay;
-- no se toca fiscalidad;
-- no se toca Future Forward ni sus 25 archivos congelados;
-- no se añaden dependencias.
-
-### Quick closure 2B
-
-El usuario ejecutó el `Producto · cierre rápido` posterior al fix y confirmó **PASS**. El guard de superficie ampliado a 34 invariantes y TypeScript quedaron cerrados antes de la verificación runtime final.
-
-### Continuidad runtime real — 2026-09-12
-
-Tras publicar el backend corregido, una ejecución real de producción de `/api/alerts/run-now` devolvió:
+Runtime real 2026-09-12:
 
 - `ok:true`;
-- `lastSuccessAt: 2026-09-12T17:37:55.800Z`;
-- `lastMarketDate: 2026-09-11`;
 - `lastError:null`;
-- oportunidades `GOOD_ENTRY` calculadas normalmente;
-- dedupe de oportunidades sin nuevos envíos repetidos;
-- `lastPortfolioManagementSummary.configured:true`;
+- `portfolioManagement.configured:true`;
 - `evaluated:true`;
 - `evaluatedPositions:2`;
 - `pendingEventCount:0`;
 - `rotationStatus:null`;
-- `notificationSent:false`;
+- `notificationSent:false` porque no había evento health nuevo;
 - `error:null`.
 
-Telegram de oportunidades ya había sido comprobado físicamente en ejecuciones anteriores. En esta ejecución no había un nuevo evento `ADD/WATCH/REDUCE/EXIT`, por lo que `notificationSent:false` es el resultado correcto; no se fuerza una señal inexistente sólo para probar el canal.
+Multiuser fan-out queda deferred; no bloquea V1.
 
-`CROSS_PROVIDER_UNAVAILABLE` pertenece a la evidencia secundaria de mercado y no invalida el cierre 2B mientras `lastError` permanezca `null`.
-
-Estado 2B:
-
-**DONE / QUICK CLOSURE PASS / RUNTIME ALERT CONTINUITY PASS.**
-
-No existe ni se debe introducir ahora ejecución automática de órdenes de broker.
+**Estado 2B: DONE.**
 
 ## 9.10 Cierre Fase 2 — DONE
-
-Criterios cumplidos:
-
-- 2A permanece DONE;
-- sistema de usuarios de Trading sigue independiente;
-- login/ADMIN/Firestore/aislamiento/cartera siguen funcionando;
-- quick closure del fix 2B pasó con el guard de 34 invariantes y TypeScript;
-- las alertas de entrada siguen funcionando y llegan físicamente a Telegram;
-- el backend de cartera sigue evaluando el estado privado real;
-- `ROTATE_NOW` paralelo ya no tiene autoridad y runtime devuelve `rotationStatus:null`;
-- guard impide reintroducir una segunda cadena;
-- multiuser fan-out queda deferred para V1 actual.
 
 No volver a abrir Fase 2 salvo bug/regresión reproducible.
 
@@ -831,26 +570,24 @@ Antes de abrir nuevas muestras de Fases 4–6 quedan congelados:
 - definición `FRESH / BLIND / OUT-OF-SAMPLE`;
 - registro de muestras consumidas;
 - baseline/control emparejado;
-- reglas de causalidad y `NEXT_OPEN`;
-- benchmarks comparables;
+- causalidad y `NEXT_OPEN`;
+- benchmarks;
 - costes, fiscalidad y cash;
 - métricas económicas comunes;
-- reach real del mecanismo experimental;
-- materialidad económica;
+- reach real;
+- materialidad;
 - estados `PASS_CANDIDATE_FOR_CONFIRMATION / FAIL_RETIRED_AS_TESTED / INCONCLUSIVE`;
 - promoción en dos etapas;
-- reglas específicas previas para reentrada, protección de ganadores y Forward Risk V8 contextual.
+- reglas específicas de Fases 4–6.
 
-Regla de materialidad común congelada:
+Materialidad común:
 
 - al menos 60% de casos evaluables favorables;
-- mediana de la métrica primaria favorable;
-- mejora mediana superior al mayor de los costes incrementales atribuibles a la política o **0,5% del capital económico expuesto**, expresada de forma equivalente en la métrica primaria;
-- guardrail explícito contra deterioro material de riesgo, drawdown, fiscalidad, turnover o riqueza terminal.
+- mediana favorable;
+- mejora mediana superior al mayor de costes incrementales o **0,5% del capital económico expuesto**;
+- guardrail de daño.
 
-El 0,5% es un umbral de gobernanza fijado antes de nuevas muestras, no derivado de resultados observados.
-
-Un primer PASS no promociona producción: sólo habilita una confirmación independiente con la política congelada sin cambios.
+Un primer PASS no promociona producción: sólo habilita confirmación independiente.
 
 **FASE 3: CERRADA.**
 
@@ -862,131 +599,80 @@ Estado: **CLOSED FOR V1 / POLICY RESEARCH-ONLY / R2 CONSUMED-INCONCLUSIVE / R3 C
 
 Documentos:
 
-- `docs/phase4_reentry_cash_custody_v1_preregistration.md` — preregistro R2;
-- `docs/phase4_reentry_cash_custody_v1_r3_preregistration.md` — preregistro y seal R3 pre-open;
-- `docs/phase4_reentry_cash_custody_v1_final_outcome.md` — cierre V1 y lectura permitida.
+- `docs/phase4_reentry_cash_custody_v1_preregistration.md`;
+- `docs/phase4_reentry_cash_custody_v1_r3_preregistration.md`;
+- `docs/phase4_reentry_cash_custody_v1_final_outcome.md`.
 
-Política investigada:
+Política: `EXIT_PROCEEDS_CUSTODY_V1`.
 
-`EXIT_PROCEEDS_CUSTODY_V1`
+R1: `VOID PRE-OPEN`.
 
-Pregunta: después de un EXIT completo de un instrumento cotizado no-core, conservar causalmente sus proceeds netos como cash remunerado reservado para la primera reentrada normal del mismo activo, sin crear señal ni relajar gates.
+R2: `CONSUMED / INCONCLUSIVE_INVALID_DATA`; el core no obtuvo serie REAL válida, sin comparación económica utilizable.
 
-### R1 — VOID PRE-OPEN
+R3:
 
-R1 fue anulada antes de abrir resultados por problemas de diseño/contaminación. No consumió muestra y no genera evidencia económica.
-
-### R2 — CONSUMED / INCONCLUSIVE_INVALID_DATA
-
-R2 se abrió, pero el core `FUND_VANGUARD_GLOBAL` no obtuvo serie REAL válida. La comparación económica no llegó a ejecutarse; no hubo baseline/candidato evaluable ni outcomes económicos utilizables para tuning. R2 queda consumida y no se reutiliza.
-
-### R3 — CONSUMED / INCONCLUSIVE_INSUFFICIENT_REENTRY_REACH
-
-R3 se diseñó antes de abrir el pool fresh para resolver únicamente la disponibilidad/semántica de datos del core, sin modificar `EXIT_PROCEEDS_CUSTODY_V1`.
-
-Configuración final congelada:
-
-- core research-only: `DBXW.DE` / `LU0274208692`, Xtrackers MSCI World Swap UCITS ETF 1C, acumulación;
-- data request start: `2006-12-19`;
-- replay: `2009-01-05 -> 2010-12-31`;
-- MONTHLY;
-- 13.000 EUR;
-- MEDIUM;
-- cash `HISTORICAL_ECB_DFR_FLOOR_0`;
-- `contextConfirmed:false`;
+- core research-only `DBXW.DE` / `LU0274208692`;
+- data start `2006-12-19`;
+- replay `2009-01-05 -> 2010-12-31`;
+- MONTHLY, 13.000 EUR, MEDIUM;
+- cash BCE histórico floor 0;
 - sin `externalCashFlows`;
 - REAL-only;
-- current Yahoo discovery OFF;
-- mínimo causal: 252 barras;
-- 30 fresh seleccionados desde un pool congelado por cobertura REAL + orden SHA-256;
-- 6 cohortes disjuntas de 5.
+- current discovery OFF;
+- 252 barras causales mínimas;
+- 30 fresh seleccionados desde pool congelado por coverage + SHA-256;
+- 6 cohortes de 5.
 
-Evidencia ejecutada 2026-09-13:
+Ejecución:
 
-- guards R3/readiness: PASS;
-- seal: 22 blobs PASS;
-- policy/integración/core/candidate gate/paridad/superficie/BCE/Future Forward: PASS;
-- TypeScript: PASS;
-- preflight core: 764 barras totales, 256 causales antes del replay, provider Yahoo REAL, EUR, integridad válida, PASS;
-- scanner one-shot: 66/66 aceptados;
-- pool: 65/65 coverage-eligible;
-- data gate: 6/6 cohortes válidas;
+- guards/seal/TypeScript PASS;
+- preflight core PASS con 256 barras causales;
+- scanner 66/66;
+- pool 65/65 coverage-eligible;
+- data gate 6/6;
 - `uniqueExitReservations = 0`;
 - `uniqueReentries = 0`;
-- veredicto: `INCONCLUSIVE_INSUFFICIENT_REENTRY_REACH`.
+- veredicto `INCONCLUSIVE_INSUFFICIENT_REENTRY_REACH`.
 
-El reach cero no fue un fallo de datos. La arquitectura ejecutó muy pocas operaciones después de la asignación inicial y ninguna cohorte produjo un EXIT completo elegible. Por tanto la policy no llegó a activarse y baseline/candidato fueron idénticos.
+No es PASS ni FAIL económico; el mecanismo no actuó. R2/R3 están consumidas. No crear R4 para forzar reach ni retunear con estas muestras.
 
-Interpretación obligatoria:
+Evidencia durable R3:
 
-- no es PASS;
-- no es FAIL económico;
-- los deltas cero no prueban equivalencia económica: reflejan que el mecanismo nunca actuó;
-- R3 está consumida y no puede usarse para ajustar frecuencia, ventanas, universo, thresholds, sizing, waiting o reglas de salida/reentrada;
-- R2/R3 no se reabren ni se repiten como fresh;
-- producción continúa `LEGACY`;
-- no se crea R4 para forzar reach después de observar este outcome.
-
-Decisión V1:
-
-**Fase 4 queda cerrada como INCONCLUSIVE por reach insuficiente.** `EXIT_PROCEEDS_CUSTODY_V1` queda archivada research-only. Un eventual estudio futuro tendría que ser una investigación nueva, preregistrada e independiente.
-
-Evidencia durable autoritativa R3:
-
-- branch `replay-results`;
-- `validation-runs/research-validation/phase4-reentry-cash-custody-v1-r3.json`;
-- `sampleState = R3_OPENED_CONSUMED`;
-- `verdict = INCONCLUSIVE_INSUFFICIENT_REENTRY_REACH`;
-- commit durable registrado por el runner: `5854bae235fc50642b33703fa6a12f7f1f05222b`.
+`replay-results/validation-runs/research-validation/phase4-reentry-cash-custody-v1-r3.json`
 
 ---
 
 # 12. FASE 5 — PROTECCIÓN DE GRANDES GANADORES
 
-Estado: **FIRST BLIND PASS_CANDIDATE_FOR_CONFIRMATION / FIRST SAMPLE CONSUMED / CONFIRMATION PREREGISTERED / COVERAGE PREFLIGHT READY / CONFIRMATION NOT OPENED / RESEARCH ONLY / PRODUCTION LEGACY.**
+Estado: **CLOSED / FIRST BLIND PASS / FIRST SAMPLE CONSUMED / CONFIRMATION CONSUMED FAIL / NO PROMOTION / PRODUCTION LEGACY.**
 
 Documentos:
 
-- `docs/phase5_winner_protection_v2_preopen_design.md` — preregistro, muestra, gates y seal del primer blind;
-- `docs/phase5_winner_protection_v2_final_outcome.md` — outcome del primer blind y lectura permitida;
-- `docs/phase5_winner_protection_v2_confirmation_preregistration.md` — confirmación independiente temporal pre-open.
+- `docs/phase5_winner_protection_v2_preopen_design.md`;
+- `docs/phase5_winner_protection_v2_final_outcome.md`;
+- `docs/phase5_winner_protection_v2_confirmation_preregistration.md`;
+- `docs/phase5_winner_protection_v2_confirmation_final_outcome.md`.
 
-Política candidata congelada:
+Política exacta probada:
 
 `TREND_PROTECTION_V2_WINNER_ONLY`
 
-No se creó V3 ni se retuneó `TREND_PROTECTION_V2`. La candidata reutilizó únicamente la rama winner dentro del wrapper canónico `runDynamicReplayWithRotationExperiment(...)`.
+Parámetros congelados:
 
-### Política probada y congelada
-
-- MFE mínimo para armar: 8%;
-- giveback mínimo: 6 pp;
-- giveback fuerte: 8 pp;
-- confirmación: 3 sesiones o 3 observaciones protegidas + 2 pp de empeoramiento;
-- reducción: 25% una sola vez por episodio;
-- reclaim desarma/reset;
-- no actúa sobre `isDiversifiedCore=true`;
+- MFE mínimo 8%;
+- giveback 6 pp;
+- giveback fuerte 8 pp;
+- 3 sesiones/observaciones de confirmación + 2 pp de empeoramiento;
+- reducción 25% una sola vez por episodio;
+- reclaim resetea;
+- no actúa sobre core diversificado;
 - `REDUCE/EXIT` canónico más fuerte prevalece;
 - `PROTECT/WATCH` no son operaciones;
-- reach sólo cuenta `REDUCE` F5 realmente ejecutadas `NEXT_OPEN`.
+- reach cuenta sólo reducciones F5 ejecutadas `NEXT_OPEN`.
 
-La rama loser/failure de V2 permanece neutralizada para Fase 5.
+## Primer blind — consumido
 
-### Primer blind consumido
-
-Configuración:
-
-- data start `1998-01-02`;
-- replay `2001-01-03 -> 2003-12-31`;
-- DAILY;
-- 13.000 EUR por cohorte;
-- cartera manual inicial igual ponderada 3 activos, cash 0;
-- MEDIUM;
-- BCE DFR histórico floor 0;
-- sin `externalCashFlows`;
-- current discovery histórico OFF;
-- ejecución `NEXT_OPEN`;
-- 6 cohortes x 3 activos.
+Replay `2001-01-03 -> 2003-12-31`, DAILY, 13.000 EUR por cohorte, cartera inicial manual igual ponderada, cash 0, MEDIUM, BCE histórico, sin external flows, current discovery OFF, seis cohortes x tres activos.
 
 Cohortes:
 
@@ -997,155 +683,160 @@ Cohortes:
 5. `ADS.DE / BBVA.MC / TTE.PA`
 6. `AI.PA / BNP.PA / ISP.MI`
 
-El primer intento del blind se detuvo antes de market data por un falso fallo textual del guard de paridad; la muestra seguía unopened. Se corrigió exclusivamente el guard para reconocer la variable integrada `phase5Gated`. El segundo intento pasó guards/seal/TypeScript y abrió el runner sellado.
+Resultado:
 
-Estado final de la primera muestra:
+- `PHASE5_OPENED_CONSUMED`;
+- `PASS_CANDIDATE_FOR_CONFIRMATION`;
+- 18 reducciones ejecutadas;
+- reach 6/6 cohortes;
+- deltas `-86,75 / -5,70 / +92,16 / +144,76 / +305,84 / +286,16 EUR`;
+- 4/6 cohortes positivas;
+- mediana +118,46 EUR;
+- agregado +736,47 EUR;
+- leave-best-out +430,63 EUR;
+- guardrails preregistrados PASS.
 
-`PHASE5_OPENED_CONSUMED`
+## Confirmación temporal — consumida / FAIL
 
-### Resultado del primer blind
+La confirmación reutilizó exactamente los mismos 18 activos, las mismas seis cohortes, la misma política, sizing y gates. No hubo reselección por outcomes.
 
-Veredicto:
+Ventana final pre-open:
 
-**`PASS_CANDIDATE_FOR_CONFIRMATION`**
+- warm-up/data start `2004-01-02`;
+- scoring/replay `2005-01-10 -> 2007-12-31`;
+- el start se refijó pre-open únicamente por coverage: `REP.MC` tenía 251 barras a 2005-01-03 y 255 a 2005-01-10;
+- 252 barras causales mínimas;
+- DAILY / MEDIUM / 13.000 EUR;
+- NEXT_OPEN;
+- cash BCE histórico;
+- sin external flows;
+- current discovery OFF.
 
-Reach:
+El primer intento se detuvo en TypeScript antes de abrir economía por un nombre de variable; se corrigió y resealó sin cambiar policy, muestra ni gates. La ejecución final pasó guards/TypeScript y abrió el runner económico.
 
-- reducciones winner-protection únicas ejecutadas: **18**;
-- requerido: 6;
-- cohortes con reducción ejecutada: **6/6**;
-- requerido: 4/6.
+El UI reportó timeout durante la persistencia durable, pero la operación GitHub sí creó la evidencia original antes de que expirara el cliente. El JSON durable recuperado es autoritativo; no se repitió el replay.
 
-Deltas terminales por cohorte:
+Resultado autoritativo:
 
-- C1: **-86,75 EUR**;
-- C2: **-5,70 EUR**;
-- C3: **+92,16 EUR**;
-- C4: **+144,76 EUR**;
-- C5: **+305,84 EUR**;
-- C6: **+286,16 EUR**.
+- `sampleState = PHASE5_CONFIRMATION_OPENED_CONSUMED`;
+- `verdict = CONFIRMATION_FAIL_NO_PROMOTION`;
+- `productionDefault = LEGACY`;
+- 63 reducciones winner-protection ejecutadas;
+- reach 6/6 cohortes;
+- 2/6 cohortes con delta terminal positivo frente a 4/6 requeridas;
+- deltas aprox.: `+667,89 / -272,69 / +277,67 / -1.853,00 / -256,69 / -1.216,59 EUR`;
+- mediana terminal aprox. `-264,69 EUR`;
+- agregado aprox. `-2.653,41 EUR`;
+- leave-best-out aprox. `-3.321,30 EUR`;
+- mediana de max drawdown mejoró aprox. `-4,42 pp`;
+- peor delta individual aprox. `-1.853 EUR`, por debajo del guardrail -650 EUR.
 
-Gates económicos preregistrados:
+Interpretación obligatoria:
 
-- cohortes positivas: **4/6**, PASS;
-- mediana `finalValueDeltaEur`: **+118,46 EUR**, PASS;
-- materialidad: +118,46 EUR > **65 EUR** y > mediana de costes incrementales positivos **12,66 EUR**, PASS;
-- mediana de deterioro de max drawdown: **-1,912 pp** frente a límite +0,5 pp, PASS;
-- peor delta individual: **-86,75 EUR** frente a límite -650 EUR, PASS;
-- peor deterioro individual de max drawdown: **0 pp** frente a límite +3 pp, PASS;
-- agregado de deltas: **+736,47 EUR**;
-- agregado eliminando la mejor cohorte: **+430,63 EUR**, PASS de dominancia.
+- hubo reach de sobra; no es `INCONCLUSIVE`;
+- la política exacta sí redujo drawdown en mediana, pero no generalizó como mejora de riqueza terminal;
+- el FAIL económico no implica que toda información de deterioro carezca de valor;
+- `TREND_PROTECTION_V2_WINNER_ONLY` queda **retirada para promoción en la forma probada**;
+- no se retunean 8%, 6/8 pp, streak 3, worsening 2 pp ni reducción 25% usando ambas muestras;
+- no se crea V3 paramétrica reactiva;
+- ambas muestras quedan consumidas;
+- producción sigue `LEGACY`.
 
-Interpretación:
-
-- es evidencia favorable de la política económica exacta probada en esta muestra OOS;
-- no implica que cada reducción individual sea beneficiosa: hubo dos cohortes negativas;
-- el resultado no depende de una única cohorte extrema;
-- la muestra queda consumida y no puede usarse para retuning;
-- persiste survivorship/catalog bias hasta disponer de instrument master point-in-time.
-
-### Confirmación independiente preregistrada — NOT OPENED
-
-Se ha elegido una réplica temporal para minimizar nuevos grados de libertad después de observar el primer PASS.
-
-La confirmación mantiene exactamente:
-
-- los **mismos 18 activos**;
-- las **mismas 6 cohortes**;
-- la misma política winner-only V2;
-- DAILY, MEDIUM, 13.000 EUR por cohorte, cartera manual igual ponderada y cash 0;
-- BCE DFR histórico floor 0;
-- sin `externalCashFlows`;
-- `NEXT_OPEN`;
-- current discovery histórico OFF;
-- los mismos gates de reach, signo, materialidad, drawdown, daño individual y dominancia.
-
-Ventana de confirmación congelada antes de outcomes:
-
-- warm-up/data start: **`2004-01-02`**;
-- replay económico: **`2005-01-03 -> 2007-12-31`**;
-- mínimo: 252 barras causales antes del replay.
-
-Justificación temporal congelada: siguiente bloque cronológico limpio de 3 años posterior al primer blind, con un año de warm-up también completamente posterior a 2003, y final anterior a R3 (`2009-01-05`) y a las evaluaciones Forward Risk iniciadas en 2011. No se eligió por retorno, drawdown, MFE, crisis o reach observado.
-
-Regla de muestra:
-
-`SAME_18_SEALED_IDENTITIES_AND_COHORTS_TEMPORAL_REPLICATION_NO_RESELECTION`
-
-No se permite sustituir, reordenar ni escoger activos después del resultado 2001–2003. El objetivo es probar generalización temporal de la misma cross-section, no buscar otra combinación que funcione mejor.
-
-### Preflight de confirmación
-
-Job CURRENT:
-
-`ResearchValidationCenter -> Fase 5 · confirmación winner protection · preflight`
-
-Sólo ejecuta:
-
-1. guard de preregistro de confirmación;
-2. guard de `TREND_PROTECTION_V2` original;
-3. guard de integración winner-only;
-4. arquitectura core;
-5. CandidateGate;
-6. paridad replay/producto;
-7. superficie productiva;
-8. cash BCE;
-9. TypeScript;
-10. coverage-only REAL de los 18 activos para `2004-01-02 -> 2007-12-31`.
-
-El preflight exige provider Yahoo REAL, EUR, integridad OHLC, >=252 barras causales antes de `2005-01-03`, cobertura hasta fin de 2007, mismos 18 activos y mismas 6x3 cohortes. No ejecuta baseline/candidato, no calcula deltas económicos, no cuenta reach económico y no consume la confirmación.
-
-Estado actual exacto:
-
-**baseline/candidato económico de confirmación: NO EJECUTADO / confirmación NOT OPENED / no seal económico aún.**
-
-Si el preflight pasa 18/18, el siguiente paso será sellar muestra/implementación/runner de confirmación y sólo entonces habilitar una ejecución económica one-shot. Si falla, se detiene sin abrir outcomes.
-
-### Consecuencia metodológica
-
-El primer `PASS_CANDIDATE_FOR_CONFIRMATION` **no promociona producción**.
-
-Por tanto:
-
-- producción continúa `LEGACY`;
-- no se conecta todavía winner-only V2 al producto live;
-- no se modifican alertas productivas por este resultado;
-- no se ajustan thresholds, sizing, confirmaciones, ventana, frecuencia, muestra, reach ni gates con lo observado;
-- el blind 2001–2003 permanece `ARCHIVED` y no se repite;
-- la confirmación 2005–2007 no se abre hasta pasar preflight y seal.
-
-Evidencia durable autoritativa del primer blind:
-
-- branch `replay-results`;
-- `validation-runs/research-validation/phase5-winner-protection-v2.json`;
-- blob `20172a1f4a144f322471a1b68d723b8a071beb9e`;
-- `sampleState = PHASE5_OPENED_CONSUMED`;
-- `verdict = PASS_CANDIDATE_FOR_CONFIRMATION`.
+`ResearchValidationCenter`: el one-shot de confirmación queda `ARCHIVED / READ_ONLY`; el POST de jobs archivados devuelve 409 y no puede relanzarlo.
 
 ---
 
 # 13. FASE 6 — FORWARD RISK V8 COMO CONTEXTO
 
-V8 mantiene información predictiva de downside.
+Estado: **STAGE A CONTEXT PREREGISTERED / SAMPLE NOT SELECTED / NOT OPENED / RESEARCH ONLY / PRODUCTION LEGACY.**
 
-Investigar sólo bajo `ECONOMIC_VALIDATION_PROTOCOL_V1` usos como:
+Documentos/código:
 
-- contexto de riesgo;
-- sizing;
-- ranking/priorización;
-- alertas;
-- stress;
-- margen de seguridad.
+- `docs/phase6_forward_risk_context_preregistration.md`;
+- `src/investment/decision/forwardRiskContextV1.ts`;
+- `src/investment/decision/phase6ForwardRiskContextProtocol.ts`;
+- `tests/phase6ForwardRiskContextReadiness.unit.ts`;
+- `docs/forward_risk_research_state.md`.
 
-No volver a un ON/OFF diario directo ni crear V12/V13 por tuning retrospectivo.
+## Principio
 
-En cualquier nueva investigación separar explícitamente:
+V8 conserva información predictiva de downside. V9/V10/V11 fallaron como políticas económicas y permanecen retiradas. Fase 6 no crea V12/V13 ni vuelve a un ON/OFF diario.
 
-- calidad de señal;
-- reach de la política;
-- calidad económica de la política.
+La primera pregunta de Fase 6 es informativa antes de ser económica:
 
-No iniciar Fase 6 mientras Fase 5 siga pendiente de su confirmación independiente obligatoria tras el primer PASS.
+> ¿Dentro del contexto de decisión que ya recorre `PortfolioCandidateGate`, V8 conserva valor incremental para anticipar downside futuro?
+
+Esto responde al hallazgo V11 de que sólo 51/272 decisiones `ELIGIBLE` (18,75%) coincidieron con riesgo >80; aplicar el overlay sólo después del gate dejó poco reach.
+
+## `FORWARD_RISK_CONTEXT_V1`
+
+Stage A congela únicamente un feature research/shadow:
+
+- score continuo = `max(V5 vulnerabilityScorePct, V7 signalScorePct)`;
+- contexto alto = score >=80;
+- el 80 es el umbral ya congelado en V8, no uno nuevo;
+- no hay pesos/coeficientes ajustados;
+- se requieren ambas familias; si falta una, `UNAVAILABLE`;
+- no existe fallback sintético ni a una sola rama;
+- punto conceptual: shadow en la fecha de decisión de `PortfolioCandidateGate`.
+
+Autoridad Stage A:
+
+- `canChangeEligibility=false`;
+- `canChangeRanking=false`;
+- `canChangeSizing=false`;
+- `canSellOrReduce=false`;
+- no waiting/reentry state;
+- no direct daily ON/OFF;
+- no motor paralelo;
+- no cambio productivo.
+
+## Diseño en dos etapas
+
+### Stage A — señal/información
+
+Aún no hay política económica. Primero se validará en una muestra fresh si V8 aporta información incremental dentro del flujo de candidatos.
+
+Muestra actual:
+
+**`NOT_SELECTED_NOT_OPENED`**.
+
+Antes de acceder a market/outcomes se debe congelar y sellar:
+
+- regla de selección fresh/OOS y muestra exacta;
+- ventana/warm-up;
+- outcomes predictivos exactos;
+- reach mínimo;
+- gates PASS/FAIL/INCONCLUSIVE;
+- datos faltantes;
+- runner/fingerprint.
+
+La selección sólo puede usar criterios estructurales y coverage REAL. No usar current Yahoo discovery para reconstrucción histórica ni outcomes/retornos/drawdowns/crisis para elegir muestra.
+
+### Stage B — futura política económica
+
+Sólo si Stage A pasa. La muestra Stage A quedará consumida para el diseño de Stage B y **no puede validar económicamente la policy** que se diseñe con sus resultados. Cualquier policy exacta requerirá otra muestra fresh.
+
+Esto impide repetir el patrón de ajustar una política después de mirar su propio holdout.
+
+## Readiness actual
+
+Job CURRENT:
+
+`Fase 6 · Forward Risk V8 como contexto · readiness`
+
+Ejecuta únicamente:
+
+1. guard de preregistro Fase 6;
+2. guard arquitectura core;
+3. guard `PortfolioCandidateGate`;
+4. paridad replay/producto;
+5. superficie productiva;
+6. TypeScript.
+
+No consulta mercado, no abre outcomes, no selecciona muestra y no consume Stage A.
+
+Siguiente paso si readiness pasa: congelar la muestra y gates predictivos Stage A; **todavía no ejecutar economía**.
 
 ---
 
@@ -1186,13 +877,15 @@ La app puede ser técnicamente operativa antes de terminar QUALITY Future Forwar
 No reabrir ahora:
 
 - Fase 2 salvo bug/regresión reproducible;
-- Fase 4 R2/R3 como muestras fresh; ambas están consumidas;
+- Fase 4 R2/R3 como muestras fresh;
 - `EXIT_PROCEEDS_CUSTODY_V1` para retuning retrospectivo sobre R2/R3;
-- Fase 5 blind 2001–2003 como muestra fresh; está consumida;
-- `TREND_PROTECTION_V2_WINNER_ONLY` para retuning usando el outcome Fase 5; la política debe permanecer idéntica para confirmación;
-- cambiar los 18 activos/cohortes de confirmación en función del primer PASS;
+- Fase 5 blind 2001–2003 ni confirmación 2005–2007 como muestras fresh;
+- volver a ejecutar el one-shot Fase 5;
+- `TREND_PROTECTION_V2_WINNER_ONLY` para retuning usando cualquiera de sus outcomes;
+- cambiar retrospectivamente los 18 activos/cohortes de Fase 5;
 - V9/V10/V11;
 - V12/V13 como tuning retrospectivo;
+- diseñar una policy económica Fase 6 mirando primero outcomes de su propia muestra;
 - SLOPE_V1;
 - QUALITY_V1 retrospectivo;
 - QUALITY bridge sobre ventanas consumidas;
@@ -1223,23 +916,20 @@ Fase 10 / V2, sólo después de cierre V1:
 
 1. **Fase 0: DONE.**
 2. **Fase 1: congelada.** No tocar motor productivo salvo bug/regresión reproducible.
-3. **Fase 2A: DONE.** Runtime smoke + revocación/recuperación + estado privado + quick closure final PASS.
-4. **Fase 2B: DONE.** Quick closure PASS + backend publicado + runtime real `rotationStatus:null` + `evaluatedPositions:2` + `error:null`.
-5. **Fase 2: DONE.** No reabrir salvo bug/regresión reproducible.
-6. **Fase 3: DONE / FROZEN.** `ECONOMIC_VALIDATION_PROTOCOL_V1` gobierna Fases 4–6.
-7. **Fase 4: CLOSED FOR V1 / INCONCLUSIVE.** R2 y R3 están consumidas; no R4 reactiva ni retuning.
-8. **Fase 5 blind V1: PASS_CANDIDATE_FOR_CONFIRMATION / CONSUMED.** 18 reducciones ejecutadas en 6/6 cohortes; 4/6 cohortes positivas; mediana +118,46 EUR; todos los gates preregistrados PASS. Producción sigue `LEGACY`.
-9. **Fase 5 confirmación: PREREGISTERED / PREFLIGHT READY / NOT OPENED.** Mismos 18 activos y mismas 6 cohortes; warm-up 2004; replay congelado `2005-01-03 -> 2007-12-31`; política y gates idénticos.
-10. Sincronizar el HEAD final y ejecutar **únicamente** `Fase 5 · confirmación winner protection · preflight`.
-11. El preflight debe pasar guard de preregistro + política + integración + arquitectura + CandidateGate + paridad + superficie + BCE + TypeScript antes de consultar coverage REAL. No ejecuta economía.
-12. Si el preflight devuelve 18/18 válidos, sellar muestra/implementación/runner de confirmación y preparar una única ejecución económica blind. No abrirla antes del seal.
-13. Si el preflight falla, detenerse sin baseline/candidato y sin consumir la confirmación; no cambiar V2 ni escoger nombres por outcomes.
-14. **Fase 6:** Forward Risk V8 como contexto sólo después de cerrar la confirmación de Fase 5.
-15. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
-16. No tocar los 25 archivos congelados de Future Forward para avanzar Fase 5.
-17. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
-18. **Fase 9:** auditoría end-to-end y cierre V1.
-19. **Fase 10:** permanece deferred hasta cierre V1.
+3. **Fase 2: DONE.** No reabrir salvo bug/regresión reproducible.
+4. **Fase 3: DONE / FROZEN.** `ECONOMIC_VALIDATION_PROTOCOL_V1` gobierna Fases 4–6.
+5. **Fase 4: CLOSED FOR V1 / INCONCLUSIVE.** R2/R3 consumidas; no R4 reactiva ni retuning.
+6. **Fase 5: CLOSED / CONFIRMATION FAIL / NO PROMOTION.** Primer blind + confirmación consumidos; one-shot archivado; producción `LEGACY`.
+7. **Fase 6 Stage A: CONTEXT PREREGISTERED / SAMPLE NOT SELECTED / NOT OPENED.** `FORWARD_RISK_CONTEXT_V1` es shadow-only.
+8. Sincronizar `main` y ejecutar únicamente **`Fase 6 · Forward Risk V8 como contexto · readiness`**.
+9. El readiness debe pasar preregistro + arquitectura + CandidateGate + paridad + superficie + TypeScript. No consulta mercado/outcomes y no consume muestra.
+10. Si readiness pasa, congelar después selección fresh, muestra exacta, ventana, outcomes predictivos, reach, gates y seal Stage A **antes de cualquier market/outcome access**.
+11. No diseñar todavía sizing/ranking/hurdle económico. Si Stage A pasa, diseñar la policy con esa evidencia y validarla después en otra muestra fresh independiente.
+12. **Fase 7:** QUALITY Future Forward continúa sólo por calendario; próxima ventana válida **2026-10-09 22:30–24:00 Europe/Madrid**.
+13. No tocar los 25 archivos congelados de Future Forward para avanzar Fase 6.
+14. **Fase 8:** instrument master point-in-time antes de afirmar validación histórica completa sin survivorship.
+15. **Fase 9:** auditoría end-to-end y cierre V1.
+16. **Fase 10:** permanece deferred hasta cierre V1.
 
 Al cerrar cada fase:
 
@@ -1256,26 +946,29 @@ Al cerrar cada fase:
 - `docs/APP_FLOW_AND_ROADMAP.md` — mapa maestro y roadmap.
 - `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md` — discovery/Top64 normativo.
 - `docs/ECONOMIC_VALIDATION_PROTOCOL_V1.md` — protocolo económico común congelado para Fases 4–6.
-- `docs/phase4_reentry_cash_custody_v1_preregistration.md` — preregistro R2 y contrato técnico/económico congelado.
-- `docs/phase4_reentry_cash_custody_v1_r3_preregistration.md` — preregistro/seal R3 consumido; conservar inmutable como evidencia.
-- `docs/phase4_reentry_cash_custody_v1_final_outcome.md` — cierre Fase 4 V1 e interpretación del `INCONCLUSIVE`.
-- `docs/phase5_winner_protection_v2_preopen_design.md` — política, muestra, gates y blind Fase 5 sellados antes de abrir outcomes.
-- `docs/phase5_winner_protection_v2_final_outcome.md` — resultado blind Fase 5, PASS candidato para confirmación y límites de interpretación.
-- `docs/phase5_winner_protection_v2_confirmation_preregistration.md` — confirmación temporal independiente, mismos 18/6x3, ventana 2005–2007 y gates congelados.
-- `scripts/phase5WinnerProtectionV2ConfirmationProtocol.ts` — contrato ejecutable de la confirmación pre-open.
-- `scripts/phase5WinnerProtectionV2ConfirmationPreflight.ts` — coverage-only REAL, sin outcomes económicos.
-- `validation-runs/preregistration/phase5-winner-protection-v2-seal.json` — seal pre-open del primer blind Fase 5; conservar como evidencia.
-- `replay-results/validation-runs/research-validation/phase5-winner-protection-v2.json` — evidencia durable autoritativa del primer blind Fase 5.
+- `docs/phase4_reentry_cash_custody_v1_preregistration.md` — preregistro R2.
+- `docs/phase4_reentry_cash_custody_v1_r3_preregistration.md` — preregistro/seal R3 consumido.
+- `docs/phase4_reentry_cash_custody_v1_final_outcome.md` — cierre Fase 4.
+- `docs/phase5_winner_protection_v2_preopen_design.md` — política/muestra/gates del primer blind Fase 5.
+- `docs/phase5_winner_protection_v2_final_outcome.md` — primer blind Fase 5.
+- `docs/phase5_winner_protection_v2_confirmation_preregistration.md` — confirmación temporal Fase 5.
+- `docs/phase5_winner_protection_v2_confirmation_final_outcome.md` — confirmación FAIL y cierre Fase 5.
+- `docs/phase6_forward_risk_context_preregistration.md` — preregistro Stage A Fase 6.
+- `src/investment/decision/forwardRiskContextV1.ts` — feature shadow Fase 6.
+- `src/investment/decision/phase6ForwardRiskContextProtocol.ts` — contrato Stage A pre-sample.
+- `tests/phase6ForwardRiskContextReadiness.unit.ts` — guard readiness Fase 6.
+- `docs/forward_risk_research_state.md` — estado canónico Forward Risk.
+- `validation-runs/preregistration/phase5-winner-protection-v2-seal.json` — seal primer blind Fase 5.
+- `replay-results/validation-runs/research-validation/phase5-winner-protection-v2.json` — evidencia durable primer blind Fase 5.
 - `docs/DECISIONS.md` — decisiones durables alineadas.
-- `docs/PRIVATE_USERS_DEPLOYMENT.md` — seguridad, multiusuario, ADMIN y validación Fase 2A de Trading.
-- `docs/TELEGRAM_ALERTS.md` — canal de notificación de Trading.
+- `docs/PRIVATE_USERS_DEPLOYMENT.md` — seguridad/multiusuario/ADMIN.
+- `docs/TELEGRAM_ALERTS.md` — notificaciones.
 - `docs/V1_PILOT_DEPLOYMENT.md` — piloto/autonomía.
 - `docs/DYNAMIC_HISTORICAL_REPLAY.md` — replay.
 - `docs/dynamic_market_top64_v1_final_outcome.md` — cierre Top64.
 - `docs/replay_explicit_cash_flows_v1_outcome.md` — flujos externos.
 - `docs/quality_allocation_dynamic_future_forward_v1_preregistration.md` — protocolo QUALITY.
 - `docs/quality_allocation_dynamic_future_forward_v1_status.md` — estado QUALITY.
-- `docs/forward_risk_research_state.md` — estado Forward Risk.
 
 Referencia externa de diseño, **no dependencia**:
 
