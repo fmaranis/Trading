@@ -39,7 +39,11 @@ const missing = resolveForwardRiskContextV1({ v5VulnerabilityScorePct: null, v7O
 assert(missing.status === 'UNAVAILABLE', 'MISSING_LEG_MUST_NOT_FALL_BACK');
 assert(missing.contextScorePct === null && missing.highRiskContext === false, 'MISSING_LEG_CREATED_SIGNAL');
 
-for (const row of [calm, v5High, v7High, both, missing]) {
+const invalid = resolveForwardRiskContextV1({ v5VulnerabilityScorePct: 101, v7OptionsScorePct: 90 });
+assert(invalid.status === 'UNAVAILABLE', 'OUT_OF_RANGE_SCORE_MUST_FAIL_CLOSED');
+assert(invalid.contextScorePct === null && invalid.highRiskContext === false, 'INVALID_SCORE_CREATED_SIGNAL');
+
+for (const row of [calm, v5High, v7High, both, missing, invalid]) {
   assert(row.authority === 'SHADOW_CONTEXT_ONLY', 'CONTEXT_GAINED_AUTHORITY');
   assert(row.canChangeEligibility === false, 'CONTEXT_CAN_CHANGE_ELIGIBILITY');
   assert(row.canChangeRanking === false, 'CONTEXT_CAN_CHANGE_RANKING');
