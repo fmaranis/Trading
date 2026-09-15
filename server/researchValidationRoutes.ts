@@ -174,29 +174,29 @@ const JOBS: JobDefinition[] = [
   archivedJob(
     'phase5-winner-protection-v2',
     'Fase 5 · protección de ganadores · blind V1',
-    'Blind fresh/OOS consumido el 2026-09-14. PASS_CANDIDATE_FOR_CONFIRMATION: 18 reducciones winner-protection ejecutadas en 6/6 cohortes; 4/6 cohortes positivas; mediana +118,46 EUR; todos los guardrails preregistrados PASS. No promociona producción; TREND_PROTECTION_V2_WINNER_ONLY queda congelada research-only a la espera de confirmación independiente.',
-    'Fase 5 · winner protection V2 · PASS candidate for confirmation · consumed',
+    'Blind fresh/OOS consumido el 2026-09-14. PASS_CANDIDATE_FOR_CONFIRMATION: 18 reducciones winner-protection ejecutadas en 6/6 cohortes; 4/6 cohortes positivas; mediana +118,46 EUR; todos los guardrails preregistrados PASS. No promociona producción; la confirmación temporal posterior falló y la policy exacta queda retirada para promoción.',
+    'Fase 5 · winner protection V2 · primer blind PASS · confirmación posterior FAIL',
     'PHASE5_WINNER_PROTECTION_V2_BLIND_RESULT'
   ),
+  archivedJob(
+    'phase5-winner-protection-v2-confirmation',
+    'Fase 5 · confirmación winner protection · blind one-shot',
+    'Confirmación temporal 2005-01-10 -> 2007-12-31 consumida. CONFIRMATION_FAIL_NO_PROMOTION: 63 reducciones ejecutadas y 6/6 cohortes alcanzadas, pero sólo 2/6 cohortes mejoraron; mediana terminal negativa y guardrail de daño individual fallido. El job queda archivado y no puede relanzarse.',
+    'Fase 5 · confirmación FAIL · no promoción · consumida',
+    'PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_RESULT'
+  ),
   {
-    id: 'phase5-winner-protection-v2-confirmation',
-    name: 'Fase 5 · confirmación winner protection · blind one-shot',
-    description: 'Confirmación temporal independiente sellada de TREND_PROTECTION_V2_WINNER_ONLY sobre 2005-01-10 -> 2007-12-31. Reutiliza exactamente los mismos 18 activos, 6 cohortes, sizing y gates del primer blind. Ejecuta primero seal, guards y TypeScript; sólo el último paso abre la muestra económica. Producción permanece LEGACY y no existe promoción automática.',
-    marker: 'PHASE5_WINNER_PROTECTION_V2_CONFIRMATION_RESULT',
+    id: 'phase6-forward-risk-context-readiness',
+    name: 'Fase 6 · Forward Risk V8 como contexto · readiness',
+    description: 'Readiness Stage A de FORWARD_RISK_CONTEXT_V1. Verifica que V8 se conserva únicamente como contexto shadow sin autoridad productiva, que V9/V10/V11 siguen retiradas y que la muestra Stage A continúa NOT_SELECTED_NOT_OPENED. Ejecuta sólo guards y TypeScript: no consulta mercado, no abre outcomes y no consume muestra.',
     visibility: 'CURRENT',
-    requiresGithubReplayToken: true,
     steps: [
-      { label: 'Guard Fase 5 confirmación preregistro', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2ConfirmationReadiness.unit.ts'] },
-      { label: 'Guard seal confirmación Fase 5', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2ConfirmationSeal.unit.ts'] },
-      { label: 'Guard TREND_PROTECTION_V2', command: 'npx', args: ['tsx', 'tests/trendProtectionPolicy.unit.ts'] },
-      { label: 'Guard integración winner-only Fase 5', command: 'npx', args: ['tsx', 'tests/phase5WinnerProtectionV2Integration.unit.ts'] },
+      { label: 'Guard preregistro Fase 6', command: 'npx', args: ['tsx', 'tests/phase6ForwardRiskContextReadiness.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
       { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
       { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
-      { label: 'Guard cash histórico BCE', command: 'npx', args: ['tsx', 'tests/cashRemuneration.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Confirmación económica REAL one-shot', command: 'npx', args: ['tsx', 'scripts/phase5WinnerProtectionV2ConfirmationLive.ts'] }
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
     ]
   },
   {
@@ -284,8 +284,7 @@ function runStep(step: Step, state: JobState): Promise<number> {
 function prerequisiteError(job: JobDefinition): string | null {
   if (job.requiresGithubReplayToken && !process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()) {
     if (job.id === 'quality-allocation-dynamic-future-forward-v1') return 'QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED';
-    if (job.id === 'phase5-winner-protection-v2-confirmation') return 'PHASE5_CONFIRMATION_DURABLE_GITHUB_TOKEN_REQUIRED';
-    return 'PHASE5_DURABLE_GITHUB_TOKEN_REQUIRED';
+    return 'DURABLE_GITHUB_TOKEN_REQUIRED';
   }
   return null;
 }
