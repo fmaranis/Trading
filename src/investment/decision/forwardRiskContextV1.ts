@@ -28,8 +28,8 @@ export interface ForwardRiskContextV1Result {
 }
 
 function normalizedScore(value: number | null | undefined): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
-  return Math.max(0, Math.min(100, value));
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) return null;
+  return value;
 }
 
 export function resolveForwardRiskContextV1(input: {
@@ -40,7 +40,7 @@ export function resolveForwardRiskContextV1(input: {
   const v7 = normalizedScore(input.v7OptionsScorePct);
 
   // V8 was validated as complementarity of the two information families.
-  // Missing one family is therefore unavailable, never a silent one-leg fallback.
+  // Missing or invalid data in either family is unavailable, never a silent one-leg fallback.
   if (v5 == null || v7 == null) {
     return {
       version: FORWARD_RISK_CONTEXT_V1,
