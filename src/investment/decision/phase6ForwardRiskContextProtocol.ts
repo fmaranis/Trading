@@ -2,18 +2,17 @@ import {
   FORWARD_RISK_CONTEXT_HIGH_SCORE_PCT,
   FORWARD_RISK_CONTEXT_V1
 } from './forwardRiskContextV1';
+import { PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_PROTOCOL } from './phase6ForwardRiskContextStageAProtocol';
 
 /**
- * Phase 6 Stage A freezes how retained V8 information may be carried into the
- * canonical decision chain as research context. It deliberately does NOT yet
- * define an economic execution policy or open a validation sample.
- *
- * This two-stage boundary prevents a new sizing/ranking/hurdle rule from being
- * designed after observing its own economic holdout.
+ * Phase 6 carries retained V8 information into the canonical decision chain as
+ * research-only context. Stage A now has a frozen future-forward sample and
+ * predictive gate, but market/outcome access remains prohibited until the
+ * collector/evaluator and durable state are implemented and sealed.
  */
 export const PHASE6_FORWARD_RISK_CONTEXT_PROTOCOL = {
   protocolVersion: 'PHASE6_FORWARD_RISK_CONTEXT_PREREG_2026_09_15',
-  status: 'CONTEXT_PREREGISTERED_SAMPLE_NOT_SELECTED_NOT_OPENED',
+  status: 'CONTEXT_PREREGISTERED_STAGE_A_SAMPLE_FROZEN_NOT_OPENED',
   researchOnly: true,
   productionDefault: 'LEGACY',
   productionPromotionAllowed: false,
@@ -55,11 +54,12 @@ export const PHASE6_FORWARD_RISK_CONTEXT_PROTOCOL = {
   stageA: {
     purpose: 'SIGNAL_INFORMATION_ONLY_BEFORE_ECONOMIC_POLICY_DESIGN',
     question: 'Conditional on the canonical candidate-decision context, does high/continuous V8 risk retain incremental information about subsequent downside?',
+    protocol: PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_PROTOCOL,
     requiredReporting: [
       'signal quality separately from any future economic policy',
       'coverage and missing-data rate for both V5 and V7 legs',
       'context reach inside the candidate-decision population',
-      'future downside outcomes only after sample and predictive gate are sealed'
+      'future downside outcomes only after runner/state seal and observation maturity'
     ] as const,
     economicOrdersAllowed: false,
     economicPolicyDefined: false
@@ -67,7 +67,7 @@ export const PHASE6_FORWARD_RISK_CONTEXT_PROTOCOL = {
 
   futureEconomicStage: {
     status: 'NOT_DESIGNED',
-    rule: 'Only if Stage A passes a separately sealed fresh predictive validation may an economic policy be designed. The Stage A sample is then consumed for policy design and cannot validate that economic policy.',
+    rule: 'Only if Stage A passes the separately sealed fresh predictive validation may an economic policy be designed. The Stage A sample is then consumed for policy design and cannot validate that economic policy.',
     forbiddenShortcuts: [
       'reuse Stage A outcomes to both design and promote one policy',
       'restore V8 daily ON/OFF trading authority',
@@ -77,9 +77,10 @@ export const PHASE6_FORWARD_RISK_CONTEXT_PROTOCOL = {
   },
 
   validationSample: {
-    status: 'NOT_SELECTED_NOT_OPENED',
-    selectionMustBeFrozenBeforeAnyOutcomeAccess: true,
-    selectionBasisAllowed: 'STRUCTURAL_AND_REAL_DATA_COVERAGE_ONLY',
+    status: 'FUTURE_FORWARD_FROZEN_NOT_OPENED',
+    sampleVersion: PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_PROTOCOL.version,
+    selectionFrozenBeforeAnyOutcomeAccess: true,
+    selectionBasis: 'PRESELECTED_CANONICAL_ASSET_IDENTITIES_PLUS_POST_FREEZE_FUTURE_OUTCOMES',
     currentYahooDiscoveryHistoricalReconstructionAllowed: false,
     previouslyOpenedForwardRiskHoldoutsAllowedForPromotion: false,
     replacementAfterOpeningAllowed: false,
@@ -96,15 +97,12 @@ export const PHASE6_FORWARD_RISK_CONTEXT_PROTOCOL = {
 
   nextFreezeBeforeOpening: {
     required: [
-      'fresh sample-selection rule and exact sample',
-      'observation window and warm-up',
-      'predictive outcome definitions',
-      'minimum evaluable observations / reach',
-      'PASS / FAIL / INCONCLUSIVE predictive gate',
-      'missing-data semantics',
-      'fingerprint/seal of the Stage A runner'
+      'causal future-forward collector/evaluator',
+      'durable immutable prospective state',
+      'no-backfill guard',
+      'fingerprint/seal of Stage A runner and state contract'
     ] as const,
-    marketDataAccessBeforeFreezeAllowed: false
+    marketDataAccessBeforeRunnerSealAllowed: false
   },
 
   governance: {
