@@ -56,13 +56,11 @@ function completedInformationDates(anchorDates: string[], existingState: Phase6S
   const counts = new Map<string, number>();
   for (const row of existingState.observations) counts.set(row.informationDate, (counts.get(row.informationDate) ?? 0) + 1);
   for (const [date, count] of counts) if (count !== expectedPerDate) throw new Error(`PHASE6_STAGE_A_PARTIAL_DURABLE_SESSION:${date}:${count}`);
+  // A date is collectible only after the anchor has a later completed session.
+  // That successor proves the information-date bar is closed, but it is never
+  // fed into V5/V7 or the candidate gate for the earlier information date.
   const datesWithSuccessor = anchorDates.slice(0, -1).filter(date => date >= STAGE_A.sample.predictionStartDate && date <= STAGE_A.sample.predictionEndDate);
   return datesWithSuccessor.filter(date => !counts.has(date)).slice(0, MAX_CATCH_UP_SESSIONS_PER_RUN);
-}
-function successorDate(anchorDates: string[], informationDate: string): string {
-  const index = anchorDates.indexOf(informationDate);
-  if (index < 0 || index + 1 >= anchorDates.length) throw new Error(`PHASE6_STAGE_A_SUCCESSOR_SESSION_MISSING:${informationDate}`);
-  return anchorDates[index + 1];
 }
 
 async function main() {
@@ -130,11 +128,10 @@ async function main() {
     }
 
     const lastInformationDate = pendingDates.at(-1)!;
-    const signalEndDate = successorDate(anchorDates, lastInformationDate);
     const signalScan = await AssetUniverseScanner.scan(
       SIGNAL_CATALOG,
       STAGE_A.sample.historyWarmupStartDate,
-      signalEndDate,
+      lastInformationDate,
       { forceRefresh: false, concurrency: 3, maxSelected: 10, minimumBars: 252, maxDataAgeDays: 7, currentOpenDiscovery: false }
     );
     const signalCore = signalScan.acceptedDataset.assets.find(row => row.assetId === 'EUNL');
