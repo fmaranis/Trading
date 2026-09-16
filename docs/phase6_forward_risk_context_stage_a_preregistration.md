@@ -1,7 +1,8 @@
 # Fase 6 — Forward Risk V8 como contexto — preregistro Stage A
 
-Fecha de congelación: **2026-09-15**  
-Estado: **FUTURE-FORWARD SAMPLE FROZEN / NOT OPENED / RESEARCH ONLY**
+Fecha de congelación de muestra: **2026-09-15**  
+Refreeze operativo pre-open: **2026-09-16**  
+Estado: **FUTURE-FORWARD SAMPLE FROZEN / NOT OPENED / RUNNER SEALED FOR STATIC CHECK / RESEARCH ONLY**
 
 ## 1. Motivo del diseño
 
@@ -33,8 +34,8 @@ Ventana de predicción:
 
 - inicio: `2026-09-16`;
 - fin: `2027-03-31`;
-- frecuencia: DAILY, una observación máxima por activo y `informationDate`;
-- sin backfill;
+- frecuencia conceptual: DAILY, una observación máxima por activo y `informationDate`;
+- ningún dato anterior al 2026-09-16 puede incorporarse como observación Stage A;
 - sin sustitución de activos después de abrir;
 - warm-up de datos: desde `2022-01-03`;
 - mínimo 252 barras causales por activo en cada fecha evaluada;
@@ -57,7 +58,30 @@ Deben resultar válidos al menos 8/10. No se sustituye un activo por otro si fal
 
 El uso de estos activos no pretende reconstruir un universo histórico completo ni elimina survivorship. La inferencia queda limitada a esta cohorte prospectiva preseleccionada.
 
-## 4. Contexto de decisión
+## 4. Refreeze operativo pre-open de continuidad
+
+Antes de abrir mercado se detectó un problema puramente operativo: exigir que la aplicación estuviera activa cada sesión produciría huecos accidentales en una validación DAILY. Eso no aporta independencia metodológica y sí puede romper la continuidad por una causa ajena a la señal.
+
+Se congela por ello, **antes de la primera lectura Stage A**, el modo:
+
+`DETERMINISTIC_POST_FREEZE_CAUSAL_CATCH_UP`
+
+Reglas exactas:
+
+- sigue prohibido cualquier backfill pre-freeze: ninguna sesión anterior a `2026-09-16` puede convertirse en observación Stage A;
+- cada sesión de mercado completada desde el inicio congelado debe registrarse exactamente una vez para los diez activos;
+- si la app no se ejecutó un día, la siguiente ejecución reconstruye las sesiones post-freeze faltantes **en orden cronológico, empezando por la más antigua**;
+- no puede omitirse ni escoger una fecha según retorno, drawdown, contexto observado u outcome;
+- el prefijo de mercado de cada activo termina exactamente en su `informationDate`;
+- V5/V7 sólo pueden usar información disponible hasta esa misma fecha;
+- la sesión posterior del activo ancla `EUNL` sirve únicamente para demostrar que la sesión anterior ya cerró; **esa sesión sucesora no entra en V5, V7 ni `PortfolioCandidateGate` para la fecha anterior**;
+- el collector no puede leer outcomes de 63 sesiones;
+- el máximo de 5 fechas pendientes por ejecución es sólo batching operativo; si quedan más, permanecen pendientes y deben procesarse después con las mismas reglas;
+- una vez persistida una observación en estado durable, es inmutable.
+
+Este refreeze **no cambia** fechas de muestra, activos, regla V8, threshold 80, definición del outcome, reach ni gates predictivos.
+
+## 5. Contexto de decisión
 
 Para cada fecha se reconstruye causalmente el prefijo histórico disponible y se evalúa el flujo existente hasta `PortfolioCandidateGate`.
 
@@ -71,7 +95,7 @@ Población secundaria descriptiva:
 
 Stage A no puede cambiar eligibility, ranking, sizing, cartera, órdenes ni ejecución.
 
-## 5. Outcome predictivo congelado
+## 6. Outcome predictivo congelado
 
 Para cada observación:
 
@@ -81,11 +105,11 @@ Para cada observación:
 - métrica: máximo drawdown peak-to-trough dentro de esas 63 sesiones;
 - evento de downside material: drawdown máximo `>= 5%`.
 
-El outcome no se puede leer antes de que hayan transcurrido las 63 sesiones correspondientes.
+El collector de señal no importa ni ejecuta el evaluator de outcomes.
 
-El veredicto final sólo puede calcularse cuando hayan madurado todas las observaciones pertenecientes a la ventana congelada.
+El outcome no se puede leer antes de que hayan transcurrido las 63 sesiones correspondientes. El veredicto final sólo puede calcularse cuando hayan madurado todas las observaciones pertenecientes a la ventana congelada.
 
-## 6. Reach mínimo
+## 7. Reach mínimo
 
 Antes de juzgar capacidad predictiva deben cumplirse simultáneamente:
 
@@ -98,7 +122,7 @@ Antes de juzgar capacidad predictiva deben cumplirse simultáneamente:
 
 Si no hay reach suficiente, el resultado es `INCONCLUSIVE`, no FAIL y no autorización para retunear.
 
-## 7. Gate predictivo Stage A
+## 8. Gate predictivo Stage A
 
 Comparación primaria dentro de población `ELIGIBLE`:
 
@@ -112,7 +136,7 @@ Para PASS deben cumplirse simultáneamente:
 
 Estos umbrales se congelan antes de abrir Stage A y no proceden de observar los outcomes futuros.
 
-## 8. Datos y causalidad
+## 9. Datos y causalidad
 
 Obligatorio:
 
@@ -121,10 +145,46 @@ Obligatorio:
 - V7 con índices Cboe observados;
 - cero fallback `SYNTHETIC`;
 - `informationDate` causal;
-- si falta V5 o V7, observación no disponible;
-- fallo de proveedor = no observación, sin backfill posterior.
+- si falta V5 o V7, contexto `UNAVAILABLE`;
+- si un activo no dispone de datos REAL válidos, no puede aparecer como `ELIGIBLE`;
+- fallo de proveedor deja la sesión pendiente para reconstrucción causal post-freeze; nunca autoriza sustitución ni datos sintéticos;
+- `currentOpenDiscovery=false` durante toda reconstrucción Stage A.
 
-## 9. Veredictos
+## 10. Apertura y persistencia durable
+
+El estado autoritativo se guarda en:
+
+`replay-results/validation-runs/phase6-forward-risk-context-stage-a-state.json`
+
+Reglas:
+
+- requiere `GITHUB_REPLAY_SYNC_TOKEN`;
+- la copia `.runtime` es sólo cache de recuperación, nunca autoridad;
+- antes de la primera llamada de mercado el runner debe persistir `sampleState=OPENED_COLLECTING` y `openedAt` en el estado durable;
+- por tanto, si el proveedor falla después, la muestra sigue correctamente registrada como abierta/consumida;
+- cada observación queda encadenada por SHA-256 y no puede reescribirse silenciosamente;
+- el collector persiste por fecha completa de diez activos, no por activo seleccionado según resultado.
+
+## 11. Seal pre-open
+
+El contrato queda sellado en:
+
+`validation-runs/preregistration/phase6-forward-risk-context-stage-a-seal.json`
+
+El seal fingerprinta por Git blob SHA-1 los archivos críticos de:
+
+- protocolo Stage A;
+- contexto V8/V5/V7;
+- scanner/gate;
+- collector;
+- estado prospectivo y persistencia durable;
+- evaluator predictivo.
+
+`tests/phase6ForwardRiskContextStageASeal.unit.ts` comprueba fingerprints, apertura durable antes de mercado, causalidad del corte por `informationDate`, ausencia de acceso a outcomes en el collector, inmutabilidad/hash chain y mecánica pura del evaluator.
+
+Mientras ese guard y TypeScript no hayan pasado en el HEAD sellado, **el collector REAL no se conecta al Centro de validación**.
+
+## 12. Veredictos
 
 Únicos estados permitidos:
 
@@ -138,17 +198,17 @@ PASS no promociona producción. Únicamente permite diseñar Stage B.
 
 La muestra Stage A quedará consumida para validar económicamente cualquier política diseñada después de verla: Stage B necesitará otra muestra fresh.
 
-## 10. Estado antes de abrir
+## 13. Estado antes de abrir
 
-Aún está prohibido consultar mercado/outcomes Stage A.
+A fecha 2026-09-16:
 
-Antes de la primera observación prospectiva deben quedar implementados y sellados:
+- muestra y gates: congelados;
+- continuity refreeze: congelado pre-open;
+- collector/evaluator: implementados;
+- persistencia durable/hash chain: implementada;
+- seal: creado;
+- collector REAL: **NO conectado al Centro de validación**;
+- mercado/outcomes Stage A: **NO abiertos**;
+- producción: `LEGACY`.
 
-- collector/evaluator causal;
-- persistencia durable e inmutable;
-- no-backfill;
-- fingerprint del runner y estado;
-- guards arquitectónicos;
-- TypeScript.
-
-El siguiente job del Centro de validación será exclusivamente estático para comprobar este preregistro. No abre mercado ni consume muestra.
+El siguiente job del Centro de validación sigue siendo exclusivamente estático. Debe demostrar `PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_SEAL_PASS`, después el freeze/readiness existente, arquitectura y TypeScript. Sólo tras ese PASS podrá habilitarse explícitamente el primer collector REAL.
