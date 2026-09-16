@@ -21,7 +21,7 @@ export interface Phase6StageASignalObservation {
   contextScorePct: number | null;
   highRiskContext: boolean;
   source: 'V5' | 'V7' | 'BOTH' | 'NONE';
-  marketDataSourceType: 'REAL';
+  marketDataSourceType: 'REAL' | 'UNAVAILABLE';
   collectedAt: string;
   previousObservationHashSha256: string | null;
   observationHashSha256: string;
@@ -158,7 +158,8 @@ export function verifyPhase6StageAState(state: Phase6StageAProspectiveState): vo
     const expected = sha256Canonical(payload);
     if (observationHashSha256 !== expected) throw new Error(`PHASE6_STAGE_A_STATE_HASH_MISMATCH:${row.id}`);
     previous = observationHashSha256;
-    if (row.marketDataSourceType !== 'REAL') throw new Error(`PHASE6_STAGE_A_NON_REAL_OBSERVATION:${row.id}`);
+    if (row.marketDataSourceType === 'UNAVAILABLE' && row.gateStatus === 'ELIGIBLE') throw new Error(`PHASE6_STAGE_A_UNAVAILABLE_DATA_CANNOT_BE_ELIGIBLE:${row.id}`);
+    if (row.marketDataSourceType !== 'REAL' && row.marketDataSourceType !== 'UNAVAILABLE') throw new Error(`PHASE6_STAGE_A_INVALID_DATA_PROVENANCE:${row.id}`);
   }
   const expectedLastDate = state.observations.at(-1)?.informationDate ?? null;
   if (state.lastInformationDate !== expectedLastDate) throw new Error('PHASE6_STAGE_A_STATE_LAST_DATE_MISMATCH');
