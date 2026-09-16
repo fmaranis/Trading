@@ -6,6 +6,17 @@
   "marketOutcomesOpened": false,
   "productionDefault": "LEGACY",
   "economicPolicyDefined": false,
+  "preOpenTechnicalReseal": {
+    "reason": "TYPESCRIPT_ONLY_SET_MEMBERSHIP_TYPING_FIX",
+    "sampleChanged": false,
+    "signalChanged": false,
+    "thresholdChanged": false,
+    "outcomeChanged": false,
+    "reachGateChanged": false,
+    "predictiveGateChanged": false,
+    "continuityChanged": false,
+    "marketOpenedBeforeReseal": false
+  },
   "sample": {
     "mode": "FUTURE_FORWARD",
     "predictionStartDate": "2026-09-16",
@@ -80,7 +91,7 @@
     "src/investment/decision/entryTiming.ts": "dd99821d797da27861f9e64956a2c840c3dc1beb",
     "scripts/phase6ForwardRiskContextStageAProspectiveProtocol.ts": "963ee44c6dd3ac27983d66a70e08fe7eab01b1f7",
     "scripts/phase6ForwardRiskContextStageAStateStore.ts": "2b6444251cdcbd4b004dd379078c92e3a256bd20",
-    "scripts/phase6ForwardRiskContextStageACollectorLive.ts": "23da6db08fcf1deb5959a90f0ecacbd2202416eb"
+    "scripts/phase6ForwardRiskContextStageACollectorLive.ts": "bb5e9bacd31b491c130d617c6875ea0039f5e80a"
   },
   "rules": [
     "No file in manifest may change after opening without invalidating this Stage A methodology.",
