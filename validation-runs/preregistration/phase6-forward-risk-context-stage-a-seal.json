@@ -1,0 +1,92 @@
+{
+  "version": "PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_SEAL_V1",
+  "createdOn": "2026-09-16",
+  "methodologySourceHead": "09b267e8291ce4ac06862c0ce49d47ecc41f36da",
+  "sampleOpened": false,
+  "marketOutcomesOpened": false,
+  "productionDefault": "LEGACY",
+  "economicPolicyDefined": false,
+  "sample": {
+    "mode": "FUTURE_FORWARD",
+    "predictionStartDate": "2026-09-16",
+    "predictionEndDate": "2027-03-31",
+    "historyWarmupStartDate": "2022-01-03",
+    "assets": [
+      "EUNL",
+      "SXR8",
+      "EXSA",
+      "IS3N",
+      "IUSN",
+      "QDVE",
+      "VVSM",
+      "XDWH",
+      "EXH1",
+      "ISPA"
+    ]
+  },
+  "signal": {
+    "contextVersion": "FORWARD_RISK_CONTEXT_V1",
+    "score": "MAX_V5_VULNERABILITY_PCT_V7_OPTIONS_PCT",
+    "highRiskThresholdPct": 80,
+    "bothLegsRequired": true
+  },
+  "predictiveOutcome": {
+    "reference": "NEXT_OPEN_AFTER_INFORMATION_DATE",
+    "horizonSessions": 63,
+    "metric": "MAX_PEAK_TO_TROUGH_DRAWDOWN_PCT_WITHIN_63_SESSIONS",
+    "materialDownsideThresholdPct": 5
+  },
+  "reachGate": {
+    "minimumEvaluableEligibleObservations": 200,
+    "minimumHighRiskEligibleObservations": 30,
+    "minimumNormalRiskEligibleObservations": 100,
+    "minimumAssetsWithHighRiskEligibleObservations": 4,
+    "minimumDistinctCalendarWeeksWithHighRiskEligibleObservations": 6,
+    "maximumSingleAssetShareOfHighRiskEligiblePct": 35
+  },
+  "predictiveGate": {
+    "minimumAbsoluteMaterialDownsideRateLiftPctPoints": 10,
+    "minimumMaterialDownsideRiskRatio": 1.5,
+    "minimumMedianMaxDrawdownSeverityLiftPctPoints": 1
+  },
+  "continuity": {
+    "mode": "DETERMINISTIC_POST_FREEZE_CAUSAL_CATCH_UP",
+    "preFreezeBackfillAllowed": false,
+    "allCompletedAnchorSessionsRequired": true,
+    "processOldestMissingSessionFirst": true,
+    "dateSelectionByOutcomeAllowed": false,
+    "causalPrefixEndsAtInformationDate": true,
+    "outcomeReadDuringSignalCollectionAllowed": false,
+    "durableOpenMarkerBeforeMarketAccess": true,
+    "durableAuthority": "GITHUB_REPLAY_RESULTS"
+  },
+  "manifestGitBlobSha1": {
+    "src/investment/decision/phase6ForwardRiskContextStageAProtocol.ts": "a611ba2476b5aa36a6d195e45ab8327a94b751ea",
+    "src/investment/decision/phase6ForwardRiskContextStageAEvaluator.ts": "fc4dcaf9fe020e7c6a4ea585918ddc2d5ce43507",
+    "src/investment/decision/forwardRiskContextV1.ts": "38428807832abfdf0abbce57bd9891ca27fc1768",
+    "src/investment/decision/phase6ForwardRiskContextProtocol.ts": "d0bc1dc20159ece54a98eb05146ff6fc0f02bd8f",
+    "src/investment/decision/forwardRiskComplementarityV8.ts": "63bd10798560480bd2b5636209b061cbd0cdf578",
+    "src/investment/decision/forwardRiskVulnerabilityV5.ts": "6c5be46f515c8451dce53a9a616da44db50cfc17",
+    "src/investment/decision/forwardRiskMacroDataV5.ts": "9635bb456b9ab59d97c4c66337cd6ffb26419c4c",
+    "src/investment/decision/forwardRiskMacroDataV5VintageSafe.ts": "cb812fa39e6e5ad7330971a2b3f3bac52ce34eb3",
+    "src/investment/decision/forwardRiskDiagnosticData.ts": "46f5fbfe83f0ecfa50fdd2dbdb29647570d70066",
+    "src/investment/decision/forwardRiskOptionsDataV7.ts": "9de8b13669b62532a1c8670c42cabcb0f76798b8",
+    "src/investment/decision/forwardRiskOptionsV7.ts": "ea4b5035ae153057a5c4d8681f21b36cb21625f8",
+    "src/investment/decision/assetUniverse.ts": "a4f4a071d9727ca2b80c8040e17b4366166680e7",
+    "src/investment/decision/assetUniverseScanner.ts": "6a8d09f136909bf7a15acbf4b40ed40dfc1115b4",
+    "src/investment/decision/assetSelectionQuality.ts": "75bc51cb673cfc6b975e79130dc637d0ffd9503e",
+    "src/investment/decision/portfolioCandidateGate.ts": "adb8b18b48b4d3188c0d235d901982d9d5c93a88",
+    "src/investment/decision/cashBenchmark.ts": "7116e98b8df2621f63328f2224fc6b5528b5d076",
+    "src/investment/decision/entryTiming.ts": "dd99821d797da27861f9e64956a2c840c3dc1beb",
+    "scripts/phase6ForwardRiskContextStageAProspectiveProtocol.ts": "963ee44c6dd3ac27983d66a70e08fe7eab01b1f7",
+    "scripts/phase6ForwardRiskContextStageAStateStore.ts": "2b6444251cdcbd4b004dd379078c92e3a256bd20",
+    "scripts/phase6ForwardRiskContextStageACollectorLive.ts": "23da6db08fcf1deb5959a90f0ecacbd2202416eb"
+  },
+  "rules": [
+    "No file in manifest may change after opening without invalidating this Stage A methodology.",
+    "No market or outcome access occurred before this seal.",
+    "The live collector is not wired into ResearchValidationCenter at seal time.",
+    "Post-freeze catch-up is operational reconstruction only and cannot select dates by outcome.",
+    "Stage A cannot authorize production or evaluate an economic policy."
+  ]
+}
