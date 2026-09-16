@@ -4,6 +4,7 @@ export const PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_PROTOCOL = {
   version: 'PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_V1',
   status: 'FUTURE_FORWARD_SAMPLE_FROZEN_NOT_OPENED',
   frozenOn: '2026-09-15',
+  continuityRefrozenPreOpenOn: '2026-09-16',
   researchOnly: true,
   productionDefault: 'LEGACY',
   productionPromotionAllowed: false,
@@ -28,7 +29,9 @@ export const PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_PROTOCOL = {
     predictionEndDate: '2027-03-31',
     historyWarmupStartDate: '2022-01-03',
     decisionCadence: 'DAILY',
-    backfillAllowed: false,
+    historicalOrPreFreezeBackfillAllowed: false,
+    deterministicPostFreezeCausalCatchUpAllowed: true,
+    continuityRefreezeReason: 'Operational continuity only: the local app need not be running every market day. Catch-up must reconstruct every missing post-freeze anchor session in order, with causal date prefixes and without outcome-based selection.',
     replacementAfterOpeningAllowed: false,
     currentYahooDiscoveryHistoricalReconstructionAllowed: false,
     assets: [
@@ -46,6 +49,23 @@ export const PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_PROTOCOL = {
     minimumValidAssets: 8,
     minimumCandidateHistoryBarsAtInformationDate: 252,
     minimumSignalCalibrationBarsBeforePredictionWindow: 756
+  },
+
+  observationContinuity: {
+    mode: 'DETERMINISTIC_POST_FREEZE_CAUSAL_CATCH_UP',
+    anchorAssetId: 'EUNL',
+    firstInformationDate: '2026-09-16',
+    allCompletedAnchorSessionsRequired: true,
+    processOldestMissingSessionFirst: true,
+    preFreezeSessionAllowed: false,
+    dateOmissionOrSelectionByOutcomeAllowed: false,
+    causalCandidatePrefixMustEndAtInformationDate: true,
+    signalPointMayUseOnlyInformationAvailableAtOrBeforeInformationDate: true,
+    outcomeReadDuringSignalCollectionAllowed: false,
+    immutableAfterDurableCommit: true,
+    durableAuthority: 'GITHUB_REPLAY_RESULTS',
+    localCacheAuthoritative: false,
+    note: 'This pre-open continuity refreeze changes only how missed future sessions are materialized. It does not change sample dates, assets, V8 threshold, predictive outcome, reach gates or predictive gates.'
   },
 
   decisionContext: {
@@ -96,7 +116,9 @@ export const PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_PROTOCOL = {
     syntheticFallbackAllowed: false,
     causalInformationDateRequired: true,
     invalidOrMissingSignalLeg: 'OBSERVATION_UNAVAILABLE_NOT_FALLBACK',
-    providerFailure: 'NO_OBSERVATION_NO_BACKFILL'
+    providerFailure: 'FAIL_CLOSED_SESSION_REMAINS_MISSING_FOR_LATER_DETERMINISTIC_CAUSAL_CATCH_UP',
+    preFreezeBackfill: 'FORBIDDEN',
+    postFreezeCatchUp: 'REQUIRED_FOR_EVERY_MISSING_COMPLETED_ANCHOR_SESSION'
   },
 
   verdicts: {
@@ -119,7 +141,7 @@ export const PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_PROTOCOL = {
     required: [
       'implement causal future-forward collector/evaluator',
       'seal runner and durable-state fingerprints',
-      'guard no-backfill and observation immutability',
+      'guard deterministic post-freeze catch-up and observation immutability',
       'run TypeScript and architecture guards'
     ] as const,
     marketOrOutcomeAccessAllowedBeforeRunnerSeal: false
