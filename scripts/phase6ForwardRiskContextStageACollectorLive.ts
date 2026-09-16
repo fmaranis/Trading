@@ -23,7 +23,7 @@ import { loadPhase6StageADurableState, savePhase6StageADurableState } from './ph
 
 const MAX_CATCH_UP_SESSIONS_PER_RUN = 5;
 const SIGNAL_ANCHOR_IDS = new Set(['EUNL', 'VAGF', 'EUNA', 'IBCI', 'EUN6', 'DBX0AN', 'XEON', '4GLD', 'SGLD', 'AIGC', 'WCOA']);
-const SAMPLE_ASSET_IDS = new Set(STAGE_A.sample.assets.map(row => row.assetId));
+const SAMPLE_ASSET_IDS = new Set<string>(STAGE_A.sample.assets.map(row => row.assetId));
 const SIGNAL_CATALOG = EUR_ASSET_UNIVERSE.filter(asset => SIGNAL_ANCHOR_IDS.has(asset.assetId));
 const SAMPLE_CATALOG = EUR_ASSET_UNIVERSE.filter(asset => SAMPLE_ASSET_IDS.has(asset.assetId));
 
