@@ -1,3 +1,4 @@
+import './phase6ForwardRiskContextStageASeal.unit';
 import fs from 'node:fs';
 import path from 'node:path';
 import { FORWARD_RISK_CONTEXT_HIGH_SCORE_PCT, resolveForwardRiskContextV1 } from '../src/investment/decision/forwardRiskContextV1';
