@@ -64,11 +64,24 @@ assert(stageA.sample.predictionStartDate === '2026-09-16', 'PREDICTION_START_CHA
 assert(stageA.sample.predictionEndDate === '2027-03-31', 'PREDICTION_END_CHANGED');
 assert(stageA.sample.historyWarmupStartDate === '2022-01-03', 'WARMUP_START_CHANGED');
 assert(stageA.sample.decisionCadence === 'DAILY', 'CADENCE_CHANGED');
-assert(stageA.sample.backfillAllowed === false, 'BACKFILL_ALLOWED');
+assert(stageA.sample.historicalOrPreFreezeBackfillAllowed === false, 'PRE_FREEZE_BACKFILL_ALLOWED');
+assert(stageA.sample.deterministicPostFreezeCausalCatchUpAllowed === true, 'POST_FREEZE_CAUSAL_CATCHUP_DISABLED');
 assert(stageA.sample.replacementAfterOpeningAllowed === false, 'ASSET_REPLACEMENT_ALLOWED');
 assert(stageA.sample.minimumValidAssets === 8, 'MINIMUM_VALID_ASSETS_CHANGED');
 assert(stageA.sample.minimumCandidateHistoryBarsAtInformationDate === 252, 'CANDIDATE_HISTORY_CHANGED');
 assert(stageA.sample.minimumSignalCalibrationBarsBeforePredictionWindow === 756, 'SIGNAL_CALIBRATION_HISTORY_CHANGED');
+
+assert(stageA.observationContinuity.mode === 'DETERMINISTIC_POST_FREEZE_CAUSAL_CATCH_UP', 'CONTINUITY_MODE_CHANGED');
+assert(stageA.observationContinuity.firstInformationDate === '2026-09-16', 'FIRST_INFORMATION_DATE_CHANGED');
+assert(stageA.observationContinuity.allCompletedAnchorSessionsRequired === true, 'ALL_COMPLETED_SESSIONS_NOT_REQUIRED');
+assert(stageA.observationContinuity.processOldestMissingSessionFirst === true, 'OLDEST_MISSING_NOT_FIRST');
+assert(stageA.observationContinuity.preFreezeSessionAllowed === false, 'PRE_FREEZE_SESSION_ALLOWED');
+assert(stageA.observationContinuity.dateOmissionOrSelectionByOutcomeAllowed === false, 'OUTCOME_BASED_DATE_SELECTION_ALLOWED');
+assert(stageA.observationContinuity.causalCandidatePrefixMustEndAtInformationDate === true, 'CAUSAL_PREFIX_BOUNDARY_WEAKENED');
+assert(stageA.observationContinuity.signalPointMayUseOnlyInformationAvailableAtOrBeforeInformationDate === true, 'SIGNAL_LOOKAHEAD_ALLOWED');
+assert(stageA.observationContinuity.outcomeReadDuringSignalCollectionAllowed === false, 'SIGNAL_COLLECTION_CAN_READ_OUTCOME');
+assert(stageA.observationContinuity.durableAuthority === 'GITHUB_REPLAY_RESULTS', 'DURABLE_AUTHORITY_CHANGED');
+assert(stageA.observationContinuity.localCacheAuthoritative === false, 'LOCAL_CACHE_BECAME_AUTHORITATIVE');
 
 const expectedIds = ['EUNL','SXR8','EXSA','IS3N','IUSN','QDVE','VVSM','XDWH','EXH1','ISPA'];
 assert(stageA.sample.assets.length === expectedIds.length, 'ASSET_COUNT_CHANGED');
@@ -83,6 +96,7 @@ assert(stageA.predictiveOutcome.reference === 'NEXT_OPEN_AFTER_INFORMATION_DATE'
 assert(stageA.predictiveOutcome.horizonSessions === 63, 'OUTCOME_HORIZON_CHANGED');
 assert(stageA.predictiveOutcome.materialDownsideThresholdPct === 5, 'DOWNSIDE_THRESHOLD_CHANGED');
 assert(stageA.predictiveOutcome.outcomeMayBeReadBeforeMaturity === false, 'PREMATURE_OUTCOME_READ_ALLOWED');
+assert(stageA.predictiveOutcome.finalVerdictRequiresAllFrozenWindowObservationsMature === true, 'FINAL_VERDICT_CAN_OPEN_EARLY');
 
 assert(stageA.reachGate.minimumEvaluableEligibleObservations === 200, 'REACH_TOTAL_CHANGED');
 assert(stageA.reachGate.minimumHighRiskEligibleObservations === 30, 'REACH_HIGH_CHANGED');
@@ -100,6 +114,7 @@ assert(stageA.dataContract.prices === 'REAL_ONLY', 'NON_REAL_PRICES_ALLOWED');
 assert(stageA.dataContract.v5 === 'REAL_VINTAGE_SAFE_POINT_IN_TIME_MACRO_REQUIRED', 'V5_VINTAGE_SAFETY_WEAKENED');
 assert(stageA.dataContract.v7 === 'REAL_CBOE_OBSERVED_OPTIONS_INDEX_DATA_REQUIRED', 'V7_REAL_DATA_WEAKENED');
 assert(stageA.dataContract.syntheticFallbackAllowed === false, 'SYNTHETIC_FALLBACK_ENABLED');
+assert(stageA.dataContract.preFreezeBackfill === 'FORBIDDEN', 'PRE_FREEZE_BACKFILL_CONTRACT_CHANGED');
 assert(stageA.interpretation.passDoesNotPromoteProduction === true, 'PASS_CAN_PROMOTE_PRODUCTION');
 assert(stageA.interpretation.noEconomicPolicyMayBeEvaluatedOnThisSample === true, 'STAGE_A_CAN_EVALUATE_ECONOMIC_POLICY');
 
@@ -113,6 +128,7 @@ assert(!candidateGateSource.includes('FORWARD_RISK_CONTEXT_V1'), 'PHASE6_SHADOW_
 const validationRoutesSource = source('server/researchValidationRoutes.ts');
 assert(validationRoutesSource.includes("id: 'phase6-forward-risk-context-readiness'"), 'PHASE6_READINESS_JOB_MISSING');
 assert(validationRoutesSource.includes("name: 'Fase 6 · Forward Risk V8 como contexto · readiness'"), 'PHASE6_READINESS_LABEL_CHANGED');
+assert(!validationRoutesSource.includes('scripts/phase6ForwardRiskContextStageACollectorLive.ts'), 'PHASE6_LIVE_COLLECTOR_WIRED_BEFORE_STATIC_SEAL_PASS');
 
 console.log('PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_FREEZE_PASS', JSON.stringify({
   contextVersion: calm.version,
@@ -123,6 +139,7 @@ console.log('PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_FREEZE_PASS', JSON.stringify({
   predictionWindow: `${stageA.sample.predictionStartDate}->${stageA.sample.predictionEndDate}`,
   assets: stageA.sample.assets.length,
   outcomeHorizonSessions: stageA.predictiveOutcome.horizonSessions,
+  continuityMode: stageA.observationContinuity.mode,
   productionDefault: protocol.productionDefault,
   economicPolicyDefined: protocol.stageA.economicPolicyDefined,
   marketOpened: false
