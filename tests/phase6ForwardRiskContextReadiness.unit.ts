@@ -127,9 +127,13 @@ const candidateGateSource = source('src/investment/decision/portfolioCandidateGa
 assert(!candidateGateSource.includes('FORWARD_RISK_CONTEXT_V1'), 'PHASE6_SHADOW_WIRED_INTO_PRODUCT_GATE');
 
 const validationRoutesSource = source('server/researchValidationRoutes.ts');
-assert(validationRoutesSource.includes("id: 'phase6-forward-risk-context-readiness'"), 'PHASE6_READINESS_JOB_MISSING');
-assert(validationRoutesSource.includes("name: 'Fase 6 · Forward Risk V8 como contexto · readiness'"), 'PHASE6_READINESS_LABEL_CHANGED');
-assert(!validationRoutesSource.includes('scripts/phase6ForwardRiskContextStageACollectorLive.ts'), 'PHASE6_LIVE_COLLECTOR_WIRED_BEFORE_STATIC_SEAL_PASS');
+const phase6Start = validationRoutesSource.indexOf("id: 'phase6-forward-risk-context-readiness'");
+const phase6End = validationRoutesSource.indexOf("id: 'quality-allocation-dynamic-future-forward-v1'", phase6Start);
+assert(phase6Start >= 0 && phase6End > phase6Start, 'PHASE6_JOB_MISSING');
+const phase6Job = validationRoutesSource.slice(phase6Start, phase6End);
+assert(phase6Job.includes("name: 'Fase 6 · Forward Risk V8 como contexto · collector Stage A'"), 'PHASE6_COLLECTOR_LABEL_MISSING');
+assert(phase6Job.includes('scripts/phase6ForwardRiskContextStageACollectorLive.ts'), 'PHASE6_LIVE_COLLECTOR_NOT_WIRED_AFTER_STATIC_PASS');
+assert(phase6Job.includes('requiresGithubReplayToken: true'), 'PHASE6_LIVE_COLLECTOR_TOKEN_PREFLIGHT_MISSING');
 
 console.log('PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_FREEZE_PASS', JSON.stringify({
   contextVersion: calm.version,
@@ -141,6 +145,7 @@ console.log('PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_FREEZE_PASS', JSON.stringify({
   assets: stageA.sample.assets.length,
   outcomeHorizonSessions: stageA.predictiveOutcome.horizonSessions,
   continuityMode: stageA.observationContinuity.mode,
+  collectorWired: true,
   productionDefault: protocol.productionDefault,
   economicPolicyDefined: protocol.stageA.economicPolicyDefined,
   marketOpened: false
