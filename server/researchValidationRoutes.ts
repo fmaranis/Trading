@@ -187,16 +187,19 @@ const JOBS: JobDefinition[] = [
   ),
   {
     id: 'phase6-forward-risk-context-readiness',
-    name: 'Fase 6 · Forward Risk V8 como contexto · readiness',
-    description: 'Readiness Stage A de FORWARD_RISK_CONTEXT_V1. Verifica que V8 se conserva únicamente como contexto shadow sin autoridad productiva, que V9/V10/V11 siguen retiradas y que la muestra Stage A continúa NOT_SELECTED_NOT_OPENED. Ejecuta sólo guards y TypeScript: no consulta mercado, no abre outcomes y no consume muestra.',
+    name: 'Fase 6 · Forward Risk V8 como contexto · collector Stage A',
+    description: 'Collector prospectivo Stage A de FORWARD_RISK_CONTEXT_V1. Vuelve a ejecutar seal/readiness, arquitectura, PortfolioCandidateGate, paridad, superficie productiva y TypeScript; sólo si todo pasa abre de forma durable la muestra Stage A y registra señal/contexto REAL causal. La primera ejecución cambia el estado a OPENED_COLLECTING antes del primer acceso a mercado. No lee outcomes de 63 sesiones, no ejecuta órdenes y producción permanece LEGACY.',
+    marker: 'PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_COLLECTOR_RESULT',
     visibility: 'CURRENT',
+    requiresGithubReplayToken: true,
     steps: [
       { label: 'Guard preregistro Fase 6', command: 'npx', args: ['tsx', 'tests/phase6ForwardRiskContextReadiness.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
       { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
       { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Collector prospectivo REAL Stage A', command: 'npx', args: ['tsx', 'scripts/phase6ForwardRiskContextStageACollectorLive.ts'] }
     ]
   },
   {
