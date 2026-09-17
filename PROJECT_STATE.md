@@ -56,7 +56,7 @@ FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      DONE · 2A PASS · 2B PASS RUNTIM
 FASE 3  PROTOCOLO ECONÓMICO FINAL             DONE / FROZEN
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         CLOSED · R2/R3 CONSUMED · INCONCLUSIVE REACH
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       CLOSED · FIRST BLIND PASS · CONFIRMATION FAIL · NO PROMOTION
-FASE 6  FORWARD RISK V8 COMO CONTEXTO         STAGE A FUTURE-FORWARD FROZEN · RUNNER SEALED PRE-OPEN · NOT OPENED
+FASE 6  FORWARD RISK V8 COMO CONTEXTO         STAGE A FROZEN · COLLECTOR ACTIVATED BEHIND GUARDS · NOT OPENED
 FASE 7  QUALITY FUTURE FORWARD                WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      PENDIENTE
 FASE 9  AUDITORÍA END-TO-END / CIERRE V1      PENDIENTE
@@ -257,7 +257,7 @@ Reglas:
 - máximo 5 fechas pendientes por ejecución es batching, no selección;
 - datos/provider failure quedan pendientes para catch-up causal, nunca sintético.
 
-## 6.4 Collector/evaluator/state — implementados pero NO abiertos
+## 6.4 Collector/evaluator/state — implementados y activados, todavía NO abiertos
 
 Archivos críticos:
 
@@ -278,9 +278,10 @@ Semántica pre-open:
 - observaciones encadenadas por SHA-256;
 - copia `.runtime` no autoritativa;
 - collector no importa el evaluator de outcomes y reporta `outcomeAccessed:false`;
-- evaluator está separado y no tiene autoridad productiva.
+- evaluator está separado y no tiene autoridad productiva;
+- el mismo job de Fase 6 exige `GITHUB_REPLAY_SYNC_TOKEN` y ejecuta todos los guards + TypeScript antes del collector.
 
-## 6.5 Seal pre-open
+## 6.5 Seal pre-open y activación
 
 Seal:
 
@@ -296,7 +297,9 @@ El seal fija 20 archivos críticos por Git blob SHA-1 y registra:
 - `marketOutcomesOpened=false`;
 - producción `LEGACY`;
 - no policy económica;
-- sample/gates/continuity exactos.
+- sample/gates/continuity exactos;
+- reseal técnico pre-open del fix TypeScript sin cambio metodológico;
+- activación pre-open del collector sólo después del readiness estático PASS.
 
 El guard verifica además:
 
@@ -307,34 +310,40 @@ El guard verifica además:
 - `currentOpenDiscovery=false`;
 - hash chain / inmutabilidad;
 - evaluator puro;
-- collector live todavía no conectado al Centro de validación.
+- collector cableado sólo detrás de token durable, guards y TypeScript;
+- collector posterior al paso TypeScript;
+- ningún evaluator de outcomes conectado al job live.
 
 ## 6.6 Estado exacto ahora
 
-**STAGE A FUTURE-FORWARD FROZEN / RUNNER+STATE SEALED FOR STATIC VALIDATION / NOT OPENED / NO MARKET OUTCOMES OPENED / RESEARCH ONLY / PRODUCTION LEGACY.**
+**STAGE A FUTURE-FORWARD FROZEN / RUNNER+STATE SEALED / COLLECTOR WIRED BEHIND GUARDS / NOT OPENED / NO MARKET OUTCOMES OPENED / RESEARCH ONLY / PRODUCTION LEGACY.**
 
-El `ResearchValidationCenter` sigue ejecutando sólo el job estático:
+El `ResearchValidationCenter` reutiliza el mismo job/id de Fase 6, ahora mostrado como:
 
-`Fase 6 · Forward Risk V8 como contexto · readiness`.
+`Fase 6 · Forward Risk V8 como contexto · collector Stage A`.
 
-`tests/phase6ForwardRiskContextReadiness.unit.ts` importa primero el seal guard, por lo que la siguiente ejecución debe mostrar:
+Orden obligatorio del job:
 
-1. `PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_SEAL_PASS`;
-2. `PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_FREEZE_PASS`;
-3. guards arquitectura/gate/paridad/superficie;
-4. TypeScript.
+1. seal/readiness Fase 6;
+2. arquitectura core;
+3. `PortfolioCandidateGate`;
+4. paridad replay/producto;
+5. superficie productiva;
+6. TypeScript;
+7. collector prospectivo REAL Stage A.
 
-El collector REAL **NO está cableado** en el job y no debe ejecutarse manualmente.
+La primera ejecución del collector **sí abre/consume Stage A para señal predictiva**: primero persiste `OPENED_COLLECTING` en `replay-results` y sólo después accede a mercado. No abre ni evalúa outcomes de 63 sesiones.
 
 ### Siguiente paso exacto
 
 1. sincronizar la app al HEAD que contenga este estado;
-2. ejecutar sólo `Fase 6 · Forward Risk V8 como contexto · readiness`;
-3. si seal/readiness/arquitectura/TypeScript pasan, habilitar en un cambio posterior el collector REAL con requisito de `GITHUB_REPLAY_SYNC_TOKEN`;
-4. la primera ejecución live marcará la muestra `OPENED_COLLECTING` durable antes de acceder a mercado;
-5. no leer outcomes de 63 sesiones durante signal collection.
+2. comprobar que `GITHUB_REPLAY_SYNC_TOKEN` está configurado;
+3. ejecutar únicamente `Fase 6 · Forward Risk V8 como contexto · collector Stage A`;
+4. conservar la salida completa del collector;
+5. tras la primera ejecución, verificar el estado durable `OPENED_COLLECTING`, fechas registradas, provenance REAL y `outcomeAccessed:false`;
+6. actualizar este estado canónico con el resultado real de apertura/collection.
 
-No ejecutar el collector REAL en el mismo cambio que introduce el seal.
+No ejecutar el evaluator de outcomes de 63 sesiones durante signal collection.
 
 ---
 
