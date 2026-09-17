@@ -17,6 +17,23 @@
     "continuityChanged": false,
     "marketOpenedBeforeReseal": false
   },
+  "preOpenActivation": {
+    "activatedOn": "2026-09-17",
+    "collectorWired": true,
+    "requiresGithubReplayToken": true,
+    "guardsAndTypeScriptBeforeCollector": true,
+    "durableOpenMarkerBeforeFirstMarketRequest": true,
+    "outcomeEvaluatorWiredIntoCollectorJob": false,
+    "marketOpenedBeforeActivation": false,
+    "outcomesOpenedBeforeActivation": false,
+    "sampleChanged": false,
+    "signalChanged": false,
+    "thresholdChanged": false,
+    "outcomeChanged": false,
+    "reachGateChanged": false,
+    "predictiveGateChanged": false,
+    "continuityChanged": false
+  },
   "sample": {
     "mode": "FUTURE_FORWARD",
     "predictionStartDate": "2026-09-16",
@@ -95,8 +112,10 @@
   },
   "rules": [
     "No file in manifest may change after opening without invalidating this Stage A methodology.",
-    "No market or outcome access occurred before this seal.",
-    "The live collector is not wired into ResearchValidationCenter at seal time.",
+    "No market or outcome access occurred before this seal and activation record.",
+    "The live collector was wired only after the static seal/readiness/architecture/TypeScript pass and remains behind the same guards plus durable-token preflight.",
+    "The first live collector execution must persist OPENED_COLLECTING before its first market request.",
+    "The collector job must not wire or read the 63-session outcome evaluator.",
     "Post-freeze catch-up is operational reconstruction only and cannot select dates by outcome.",
     "Stage A cannot authorize production or evaluate an economic policy."
   ]
