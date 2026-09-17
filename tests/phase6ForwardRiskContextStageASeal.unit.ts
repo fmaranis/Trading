@@ -33,6 +33,11 @@ assert(seal.sampleOpened === false, 'SEAL_RECORDS_SAMPLE_OPENED');
 assert(seal.marketOutcomesOpened === false, 'SEAL_RECORDS_OUTCOMES_OPENED');
 assert(seal.productionDefault === 'LEGACY', 'SEAL_PRODUCTION_NOT_LEGACY');
 assert(seal.economicPolicyDefined === false, 'SEAL_ECONOMIC_POLICY_DEFINED');
+assert(seal.preOpenActivation?.collectorWired === true, 'COLLECTOR_ACTIVATION_NOT_SEALED');
+assert(seal.preOpenActivation?.requiresGithubReplayToken === true, 'COLLECTOR_TOKEN_NOT_SEALED');
+assert(seal.preOpenActivation?.guardsAndTypeScriptBeforeCollector === true, 'COLLECTOR_GUARD_ORDER_NOT_SEALED');
+assert(seal.preOpenActivation?.marketOpenedBeforeActivation === false, 'MARKET_OPENED_BEFORE_ACTIVATION');
+assert(seal.preOpenActivation?.outcomesOpenedBeforeActivation === false, 'OUTCOMES_OPENED_BEFORE_ACTIVATION');
 assert(seal.sample.predictionStartDate === STAGE_A.sample.predictionStartDate, 'SEALED_START_MISMATCH');
 assert(seal.sample.predictionEndDate === STAGE_A.sample.predictionEndDate, 'SEALED_END_MISMATCH');
 assert(seal.sample.assets.join('|') === STAGE_A.sample.assets.map(row => row.assetId).join('|'), 'SEALED_ASSET_SAMPLE_MISMATCH');
@@ -117,7 +122,17 @@ assert(evaluatorPreview.verdict === STAGE_A.verdicts.immature, 'EVALUATOR_CAN_VE
 assert(evaluatorPreview.economicPolicyDefined === false && evaluatorPreview.productionDefault === 'LEGACY', 'EVALUATOR_GAINED_PRODUCT_AUTHORITY');
 
 const routes = text('server/researchValidationRoutes.ts');
-assert(!routes.includes("scripts/phase6ForwardRiskContextStageACollectorLive.ts"), 'LIVE_COLLECTOR_ALREADY_WIRED_PREOPEN');
+const phase6Start = routes.indexOf("id: 'phase6-forward-risk-context-readiness'");
+const phase6End = routes.indexOf("id: 'quality-allocation-dynamic-future-forward-v1'", phase6Start);
+assert(phase6Start >= 0 && phase6End > phase6Start, 'PHASE6_JOB_BOUNDARY_MISSING');
+const phase6Job = routes.slice(phase6Start, phase6End);
+assert(phase6Job.includes("name: 'Fase 6 · Forward Risk V8 como contexto · collector Stage A'"), 'LIVE_COLLECTOR_LABEL_NOT_ACTIVATED');
+assert(phase6Job.includes("marker: 'PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_COLLECTOR_RESULT'"), 'LIVE_COLLECTOR_MARKER_MISSING');
+assert(phase6Job.includes('requiresGithubReplayToken: true'), 'LIVE_COLLECTOR_TOKEN_PREFLIGHT_MISSING');
+const typeScriptStep = phase6Job.indexOf("{ label: 'TypeScript'");
+const collectorStep = phase6Job.indexOf("scripts/phase6ForwardRiskContextStageACollectorLive.ts");
+assert(typeScriptStep >= 0 && collectorStep > typeScriptStep, 'LIVE_COLLECTOR_NOT_AFTER_TYPESCRIPT');
+assert(!phase6Job.includes('phase6ForwardRiskContextStageAEvaluator'), 'LIVE_JOB_WIRES_OUTCOME_EVALUATOR');
 
 console.log('PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_SEAL_PASS', JSON.stringify({
   version: seal.version,
@@ -127,6 +142,6 @@ console.log('PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_SEAL_PASS', JSON.stringify({
   marketOutcomesOpened: seal.marketOutcomesOpened,
   methodologySourceHead: seal.methodologySourceHead,
   continuityMode: STAGE_A.observationContinuity.mode,
-  liveCollectorWired: false,
+  liveCollectorWired: true,
   productionDefault: STAGE_A.productionDefault
 }));
