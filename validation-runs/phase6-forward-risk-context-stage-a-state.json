@@ -1,0 +1,14 @@
+{
+  "version": "PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_PROSPECTIVE_V1",
+  "schemaVersion": 1,
+  "methodologyFingerprintSha256": "cfc71d4c6902bbdff36575cfdfc55e16ae48d5c598515534979ae5118b22ad5b",
+  "sampleState": "OPENED_COLLECTING",
+  "predictionStartDate": "2026-09-16",
+  "predictionEndDate": "2027-03-31",
+  "openedAt": "2026-09-17T16:52:49.017Z",
+  "createdAt": "2026-09-17T16:52:49.017Z",
+  "updatedAt": "2026-09-17T16:52:49.017Z",
+  "lastInformationDate": null,
+  "observationCount": 0,
+  "observations": []
+}
