@@ -1,7 +1,7 @@
 # APP TRADING — FLUJO MAESTRO Y ROADMAP DE CIERRE
 
 Estado: **CANÓNICO PARA ORGANIZACIÓN DEL TRABAJO**  
-Actualizado: **2026-09-16**  
+Actualizado: **2026-09-20**  
 Repositorio: `fmaranis/Trading`  
 Rama: `main`
 
@@ -114,7 +114,7 @@ Los trabajos consumidos pasan a `ARCHIVED / READ_ONLY` y no se relanzan como si 
 | F5 protección ganadores | CLOSED / CONFIRMATION FAIL | no promoción/retune |
 | **F6 Forward Risk contexto** | **STAGE A FROZEN + SEALED PRE-OPEN / NOT OPENED** | **static seal/readiness PASS antes de habilitar collector REAL** |
 | F7 QUALITY future-forward | WAITING/COLLECTING | maduración calendario |
-| F8 universo PIT histórico | PENDING | instrument master |
+| F8 universo PIT histórico | ARCHITECTURE IMPLEMENTED / DATA COVERAGE PENDING | poblar master histórico REAL/STATIC_REFERENCE |
 | F9 auditoría end-to-end | PENDING | cerrar carriles previos |
 | F10 expansiones V2 | DEFERRED | después de V1 |
 
@@ -305,14 +305,45 @@ Producción de allocation sigue `LEGACY`.
 
 # 10. Fase 8 — histórico point-in-time
 
-Objetivo: instrument master mínimo con:
+Arquitectura implementada:
+
+`HISTORICAL_INSTRUMENT_MASTER_V1`
+
+integrada opcionalmente en `CausalUniverseBacktestEngine`.
+
+El contrato cubre:
 
 - altas/listings;
 - bajas/delistings;
-- cambios de ticker/mercado;
-- existencia/disponibilidad por fecha.
+- cambios de ticker/mercado mediante alias con intervalos;
+- identidad económica estable;
+- existencia verificada por fecha;
+- horizonte máximo de evidencia;
+- autoridad/fuente y procedencia `STATIC_REFERENCE`;
+- cobertura declarada `CURRENT_REFERENCE_ONLY / PARTIAL_POINT_IN_TIME / COMPLETE_POINT_IN_TIME`.
 
-Hasta entonces no afirmar que un replay histórico reproduce el mercado completo disponible de cada fecha.
+Regla dura:
+
+> una lista actual o la mera existencia de barras antiguas no demuestra pertenencia al universo histórico de una fecha.
+
+El catálogo actual sólo puede convertirse a `CURRENT_REFERENCE_ONLY` y el replay causal rechaza ese estado si se intenta usar como instrument master PIT.
+
+Con master parcial, el replay usa sólo identidades verificadas y conserva la etiqueta de cobertura parcial. Sólo un master `COMPLETE_POINT_IN_TIME` permite una afirmación de cobertura completa del universo objetivo.
+
+Guard estructural:
+
+`tests/historicalInstrumentMaster.unit.ts`
+
+Job:
+
+`Fase 8 · universo histórico PIT · cierre estructural`
+
+Documento:
+
+`docs/PHASE8_HISTORICAL_INSTRUMENT_MASTER_V1.md`.
+
+Pendiente real de Fase 8: poblar el master con una fuente histórica suficientemente exhaustiva de listings/delistings/ticker history. Mientras falte, survivorship sigue explícito y no se usa Yahoo current discovery retrospectivamente.
+
 
 ---
 
