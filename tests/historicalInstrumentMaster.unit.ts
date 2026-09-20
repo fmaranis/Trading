@@ -2,6 +2,7 @@ import { EUR_ASSET_UNIVERSE } from '../src/investment/decision/assetUniverse';
 import {
   HISTORICAL_INSTRUMENT_MASTER_V1,
   buildCurrentReferenceOnlyInstrumentMaster,
+  historicalCatalogAtDate,
   historicalInstrumentMasterCoverageSummary,
   historicalInstrumentStatusAtDate,
   historicalTickerAtDate,
@@ -28,6 +29,9 @@ assert(is3n != null, 'IS3N_IDENTITY_NOT_FOUND');
 assert(is3n.aliases.some(row => row.ticker === 'IS3N.DE'), 'IS3N_ALIAS_MISSING');
 assert(is3n.aliases.some(row => row.ticker === 'EIMI.DE'), 'EIMI_ALIAS_MISSING');
 assert(historicalInstrumentStatusAtDate(currentOnly, is3n, '2018-01-02') === 'UNVERIFIED_POINT_IN_TIME', 'CURRENT_REFERENCE_LEAKED_INTO_HISTORY');
+let currentOnlyFilterRejected = false;
+try { historicalCatalogAtDate(currentOnly, EUR_ASSET_UNIVERSE, '2018-01-02'); } catch { currentOnlyFilterRejected = true; }
+assert(currentOnlyFilterRejected, 'CURRENT_REFERENCE_FILTERED_HISTORICAL_UNIVERSE');
 
 const verifiedFixture: HistoricalInstrumentMaster = {
   version: HISTORICAL_INSTRUMENT_MASTER_V1,
@@ -62,6 +66,10 @@ assert(historicalInstrumentStatusAtDate(verifiedFixture, fixture, '2020-07-01') 
 assert(historicalInstrumentStatusAtDate(verifiedFixture, fixture, '2021-01-04') === 'AFTER_EVIDENCE_HORIZON', 'AFTER_EVIDENCE_NOT_BLOCKED');
 assert(historicalTickerAtDate(fixture, '2014-01-02') === 'OLD.DE', 'OLD_TICKER_NOT_RESOLVED');
 assert(historicalTickerAtDate(fixture, '2018-01-02') === 'NEW.DE', 'NEW_TICKER_NOT_RESOLVED');
+const fixtureCatalog = [{ assetId: 'FIXTURE', ticker: 'NEW.DE', isin: 'TEST-ISIN-1', name: 'Fixture instrument', category: 'GLOBAL_EQUITY', currency: 'EUR' as const }];
+assert(historicalCatalogAtDate(verifiedFixture, fixtureCatalog, '2018-01-02').length === 1, 'VERIFIED_PIT_CATALOG_FILTER_FAILED');
+assert(historicalCatalogAtDate(verifiedFixture, fixtureCatalog, '2009-12-31').length === 0, 'PRE_LISTING_ASSET_LEAKED_INTO_CATALOG');
+assert(historicalCatalogAtDate(verifiedFixture, fixtureCatalog, '2020-07-01').length === 0, 'DELISTED_ASSET_LEAKED_INTO_CATALOG');
 
 let currentReferenceCannotVerify = false;
 try {
