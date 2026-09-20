@@ -227,3 +227,23 @@ export function historicalInstrumentMasterCoverageSummary(master: HistoricalInst
     canClaimCompletePointInTimeUniverse: master.coverage === 'COMPLETE_POINT_IN_TIME'
   };
 }
+
+
+export function historicalCatalogAtDate(
+  master: HistoricalInstrumentMaster,
+  catalog: AssetUniverseItem[],
+  date: string
+): AssetUniverseItem[] {
+  validateHistoricalInstrumentMaster(master);
+  if (master.coverage === 'CURRENT_REFERENCE_ONLY') {
+    throw new Error('HISTORICAL_INSTRUMENT_MASTER_CURRENT_REFERENCE_CANNOT_FILTER_HISTORICAL_UNIVERSE');
+  }
+  return catalog.filter(item => {
+    const record = resolveHistoricalInstrumentRecord(master, {
+      assetId: item.assetId,
+      isin: item.isin ?? null,
+      ticker: item.ticker
+    });
+    return historicalInstrumentStatusAtDate(master, record, date) === 'TRADABLE_VERIFIED';
+  });
+}
