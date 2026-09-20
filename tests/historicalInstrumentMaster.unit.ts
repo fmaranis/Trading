@@ -1,0 +1,97 @@
+import { EUR_ASSET_UNIVERSE } from '../src/investment/decision/assetUniverse';
+import {
+  HISTORICAL_INSTRUMENT_MASTER_V1,
+  buildCurrentReferenceOnlyInstrumentMaster,
+  historicalInstrumentMasterCoverageSummary,
+  historicalInstrumentStatusAtDate,
+  historicalTickerAtDate,
+  resolveHistoricalInstrumentRecord,
+  validateHistoricalInstrumentMaster,
+  type HistoricalInstrumentMaster
+} from '../src/investment/decision/historicalInstrumentMaster';
+
+function assert(condition: unknown, label: string): asserts condition {
+  if (!condition) throw new Error(`PHASE8_HISTORICAL_INSTRUMENT_MASTER_FAIL:${label}`);
+}
+
+const currentOnly = buildCurrentReferenceOnlyInstrumentMaster(EUR_ASSET_UNIVERSE, '2026-09-20');
+const currentSummary = historicalInstrumentMasterCoverageSummary(currentOnly);
+
+assert(currentOnly.version === HISTORICAL_INSTRUMENT_MASTER_V1, 'VERSION');
+assert(currentOnly.coverage === 'CURRENT_REFERENCE_ONLY', 'CURRENT_CATALOG_MUST_NOT_PRETEND_PIT');
+assert(currentSummary.canClaimCompletePointInTimeUniverse === false, 'CURRENT_CATALOG_CLAIMS_COMPLETE_PIT');
+assert(currentSummary.pointInTimeVerifiedRecords === 0, 'CURRENT_CATALOG_RECORDS_VERIFIED_PIT');
+assert(currentOnly.records.length < EUR_ASSET_UNIVERSE.length, 'ECONOMIC_IDENTITIES_NOT_DEDUPED_BY_ISIN');
+
+const is3n = resolveHistoricalInstrumentRecord(currentOnly, { isin: 'IE00BKM4GZ66' });
+assert(is3n != null, 'IS3N_IDENTITY_NOT_FOUND');
+assert(is3n.aliases.some(row => row.ticker === 'IS3N.DE'), 'IS3N_ALIAS_MISSING');
+assert(is3n.aliases.some(row => row.ticker === 'EIMI.DE'), 'EIMI_ALIAS_MISSING');
+assert(historicalInstrumentStatusAtDate(currentOnly, is3n, '2018-01-02') === 'UNVERIFIED_POINT_IN_TIME', 'CURRENT_REFERENCE_LEAKED_INTO_HISTORY');
+
+const verifiedFixture: HistoricalInstrumentMaster = {
+  version: HISTORICAL_INSTRUMENT_MASTER_V1,
+  targetUniverse: 'TEST_VERIFIED_PIT_UNIVERSE',
+  coverage: 'COMPLETE_POINT_IN_TIME',
+  asOfDate: '2020-12-31',
+  records: [{
+    canonicalInstrumentId: 'TEST-ISIN-1',
+    isin: 'TEST-ISIN-1',
+    name: 'Fixture instrument',
+    instrumentType: 'LISTED_INSTRUMENT',
+    currency: 'EUR',
+    listingDate: '2010-01-04',
+    delistingDate: '2020-06-30',
+    aliases: [
+      { ticker: 'OLD.DE', venue: 'XETRA', validFrom: '2010-01-04', validTo: '2015-12-31' },
+      { ticker: 'NEW.DE', venue: 'XETRA', validFrom: '2016-01-01', validTo: '2020-06-30' }
+    ],
+    authority: 'EXCHANGE_OFFICIAL',
+    authorityReference: 'fixture://exchange-history',
+    evidenceAsOfDate: '2020-12-31',
+    pointInTimeVerified: true,
+    dataProvenance: 'STATIC_REFERENCE'
+  }]
+};
+validateHistoricalInstrumentMaster(verifiedFixture);
+const fixture = verifiedFixture.records[0];
+
+assert(historicalInstrumentStatusAtDate(verifiedFixture, fixture, '2009-12-31') === 'NOT_YET_LISTED', 'PRE_LISTING_NOT_BLOCKED');
+assert(historicalInstrumentStatusAtDate(verifiedFixture, fixture, '2014-01-02') === 'TRADABLE_VERIFIED', 'LISTED_DATE_NOT_TRADABLE');
+assert(historicalInstrumentStatusAtDate(verifiedFixture, fixture, '2020-07-01') === 'DELISTED', 'POST_DELIST_NOT_BLOCKED');
+assert(historicalInstrumentStatusAtDate(verifiedFixture, fixture, '2021-01-04') === 'AFTER_EVIDENCE_HORIZON', 'AFTER_EVIDENCE_NOT_BLOCKED');
+assert(historicalTickerAtDate(fixture, '2014-01-02') === 'OLD.DE', 'OLD_TICKER_NOT_RESOLVED');
+assert(historicalTickerAtDate(fixture, '2018-01-02') === 'NEW.DE', 'NEW_TICKER_NOT_RESOLVED');
+
+let currentReferenceCannotVerify = false;
+try {
+  validateHistoricalInstrumentMaster({
+    ...verifiedFixture,
+    records: [{
+      ...fixture,
+      authority: 'CURRENT_CATALOG_REFERENCE',
+      authorityReference: 'EUR_ASSET_UNIVERSE'
+    }]
+  });
+} catch { currentReferenceCannotVerify = true; }
+assert(currentReferenceCannotVerify, 'CURRENT_REFERENCE_ALLOWED_TO_VERIFY_PIT');
+
+let incompleteCannotClaimComplete = false;
+try {
+  validateHistoricalInstrumentMaster({
+    ...verifiedFixture,
+    records: [{ ...fixture, pointInTimeVerified: false }]
+  });
+} catch { incompleteCannotClaimComplete = true; }
+assert(incompleteCannotClaimComplete, 'UNVERIFIED_MASTER_CLAIMS_COMPLETE');
+
+console.log('PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS', JSON.stringify({
+  version: currentOnly.version,
+  currentCatalogAssets: EUR_ASSET_UNIVERSE.length,
+  dedupedEconomicIdentities: currentOnly.records.length,
+  currentReferencePointInTimeVerified: currentSummary.pointInTimeVerifiedRecords,
+  currentReferenceCanClaimCompletePIT: currentSummary.canClaimCompletePointInTimeUniverse,
+  verifiedFixtureTickerChange: true,
+  verifiedFixtureDelisting: true,
+  priceHistoryIsNotListingEvidence: true
+}));
