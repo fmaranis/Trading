@@ -211,6 +211,19 @@ const JOBS: JobDefinition[] = [
     ]
   },
   {
+    id: 'phase8-historical-instrument-master-v1',
+    name: 'Fase 8 · universo histórico PIT · cierre estructural',
+    description: 'Valida el contrato del instrument master point-in-time y su integración opcional en el replay causal existente. Bloquea el uso del catálogo current como evidencia histórica, cubre listing/delisting/ticker changes y ejecuta TypeScript. No lanza replay largo ni consulta mercado.',
+    marker: 'PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard instrument master PIT', command: 'npx', args: ['tsx', 'tests/historicalInstrumentMaster.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+    ]
+  },
+  {
     id: 'quality-allocation-dynamic-future-forward-v1',
     name: 'QUALITY allocation · future-forward dinámico',
     description: 'Phase A prospectiva sobre Top64 current/live dinámico. Una única foto mensual consecutiva en la ventana congelada del día 9, 22:30-24:00 Europe/Madrid; mismo snapshot y 13.000 EUR de notional research para LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Reglas e implementación crítica quedan fingerprintadas, el estado autoritativo se encadena en replay-results y producción continúa LEGACY.',
