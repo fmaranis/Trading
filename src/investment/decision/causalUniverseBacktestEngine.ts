@@ -5,6 +5,7 @@ import { AssetUniverseItem } from './assetUniverse';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
 import {
   historicalCatalogAtDate,
+  historicalMasterMissingFromCatalogAtDate,
   validateHistoricalInstrumentMaster,
   type HistoricalInstrumentMaster
 } from './historicalInstrumentMaster';
@@ -229,6 +230,18 @@ export class CausalUniverseBacktestEngine {
       const scheduled = i >= warmupBars && previousDate != null && (!allocated || isRebalanceDate(previousDate, executionDate, 'MONTHLY'));
 
       if (scheduled && previousDate) {
+        if (historicalInstrumentMaster?.coverage === 'COMPLETE_POINT_IN_TIME') {
+          const missingCatalog = historicalMasterMissingFromCatalogAtDate(historicalInstrumentMaster, catalog, previousDate);
+          if (missingCatalog.length) {
+            throw new Error(`HISTORICAL_INSTRUMENT_MASTER_COMPLETE_CATALOG_GAP:${previousDate}:${missingCatalog.join(',')}`);
+          }
+          const pitCatalog = historicalCatalogAtDate(historicalInstrumentMaster, catalog, previousDate);
+          const datasetIds = new Set(universeDataset.assets.map(asset => asset.assetId));
+          const missingDataset = pitCatalog.filter(item => !datasetIds.has(item.assetId)).map(item => item.assetId).sort();
+          if (missingDataset.length) {
+            throw new Error(`HISTORICAL_INSTRUMENT_MASTER_COMPLETE_DATASET_GAP:${previousDate}:${missingDataset.join(',')}`);
+          }
+        }
         const selection = selectDiversified(universeDataset, catalog, previousDate, Math.min(maxSelected, 8), historicalInstrumentMaster);
         if (selection.assetIds.length >= 2) {
           const historicalSelected = sliceDataset(universeDataset, selection.assetIds, previousDate);
