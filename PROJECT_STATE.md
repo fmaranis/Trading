@@ -58,7 +58,7 @@ FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         CLOSED · R2/R3 CONSUMED · INCON
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       CLOSED · FIRST BLIND PASS · CONFIRMATION FAIL · NO PROMOTION
 FASE 6  FORWARD RISK V8 COMO CONTEXTO         V1 CONSUMED TECHNICAL FAIL · R2 OPENED/COLLECTING · 0 OBS
 FASE 7  QUALITY FUTURE FORWARD                WAITING/COLLECTING en paralelo
-FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      ARCHITECTURE IMPLEMENTED · REAL MASTER COVERAGE PENDING
+FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      STRUCTURAL CLOSED · REAL MASTER POPULATION PENDING
 FASE 9  AUDITORÍA END-TO-END / CIERRE V1      PENDIENTE
 FASE 10 EXPANSIONES V2                         DEFERRED
 ```
@@ -505,7 +505,22 @@ Documento:
 
 ## 8.4 Estado real pendiente
 
-**La arquitectura PIT ya está implementada; el master histórico exhaustivo todavía no está poblado.**
+**Cierre estructural PASS reportado el 2026-09-20. El master histórico exhaustivo todavía no está poblado.**
+
+La ejecución confirmó:
+
+- `PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS`;
+- arquitectura core PASS;
+- paridad replay/producto PASS;
+- TypeScript PASS;
+- catálogo current: 38 assets / 36 identidades económicas deduplicadas;
+- 0 identidades current autorizadas como PIT;
+- integración del master en el replay causal activa;
+- master COMPLETE obligado a cubrir catálogo + dataset de cada fecha.
+
+El inventario live EODHD no llegó a ejecutarse por límite diario del proveedor (`HTTP 402 / daily API requests limit`). Esto no invalida el cierre estructural: es una indisponibilidad temporal de la fuente, no un fallo del contrato PIT ni del replay.
+
+El script live ahora trata específicamente ese 402 como `SOURCE_DAILY_LIMIT_EXCEEDED`, devuelve resultado informativo y no bloquea el cierre estructural. No promociona ningún master ni inventa cobertura.
 
 Falta incorporar una fuente histórica suficientemente completa que aporte altas, bajas/delistings y cambios de ticker/mercado. Hasta entonces:
 
