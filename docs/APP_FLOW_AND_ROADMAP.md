@@ -114,8 +114,8 @@ Los trabajos consumidos pasan a `ARCHIVED / READ_ONLY` y no se relanzan como si 
 | F5 protección ganadores | CLOSED / CONFIRMATION FAIL | no promoción/retune |
 | **F6 Forward Risk contexto** | **V1 CONSUMED TECH FAIL · R2 OPENED/COLLECTING** | **esperar sesiones maduras; no tocar metodología** |
 | F7 QUALITY future-forward | WAITING/COLLECTING | maduración calendario |
-| F8 universo PIT histórico | ARCHITECTURE IMPLEMENTED / DATA COVERAGE PENDING | poblar master histórico REAL/STATIC_REFERENCE |
-| F9 auditoría end-to-end | PENDING | cerrar carriles previos |
+| F8 universo PIT histórico | STRUCTURAL CLOSED / DATA POPULATION PENDING | poblar master histórico REAL/STATIC_REFERENCE sin reabrir arquitectura |
+| F9 auditoría end-to-end | PRE-CLOSE JOB READY | ejecutar una auditoría técnica consolidada |
 | F10 expansiones V2 | DEFERRED | después de V1 |
 
 ---
@@ -333,12 +333,18 @@ Documento:
 
 `docs/PHASE8_HISTORICAL_INSTRUMENT_MASTER_V1.md`.
 
-Pendiente real de Fase 8: poblar el master con una fuente histórica suficientemente exhaustiva de listings/delistings/ticker history. Mientras falte, survivorship sigue explícito y no se usa Yahoo current discovery retrospectivamente.
+Pendiente real de Fase 8: poblar el master con una fuente histórica suficientemente exhaustiva de listings/delistings/ticker history. La arquitectura queda cerrada y el job estructural archivado; una cuota diaria agotada de EODHD no obliga a repetir guards. Mientras falte cobertura, survivorship sigue explícito y no se usa Yahoo current discovery retrospectivamente.
 
 
 ---
 
 # 11. Fase 9 — cierre V1
+
+Job consolidado vigente:
+
+`Fase 9 · auditoría end-to-end V1 · pre-cierre técnico`
+
+No usa APIs externas ni replay largo. Ejecuta en un único botón todos los guards técnicos todavía relevantes y TypeScript.
 
 Auditoría final debe comprobar conjuntamente:
 
