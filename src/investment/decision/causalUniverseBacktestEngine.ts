@@ -3,6 +3,11 @@ import { MutablePortfolioPosition, RebalanceEngine, isRebalanceDate } from '../p
 import { MultiAssetDataset, PortfolioBacktestConfig, PortfolioTrade } from '../portfolioBacktesting/types';
 import { AssetUniverseItem } from './assetUniverse';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
+import {
+  historicalCatalogAtDate,
+  validateHistoricalInstrumentMaster,
+  type HistoricalInstrumentMaster
+} from './historicalInstrumentMaster';
 import { DecisionBacktestConfig, DecisionBacktestPoint, InvestmentDecisionResult } from './types';
 
 export const CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS = 252;
@@ -18,7 +23,12 @@ export interface CausalUniverseSelectionRecord {
 }
 
 export interface CausalUniverseBacktestResult {
-  scope: 'CAUSAL_SELECTION_WITHIN_CURRENTLY_VALIDATED_UNIVERSE';
+  scope:
+    | 'CAUSAL_SELECTION_WITHIN_CURRENTLY_VALIDATED_UNIVERSE'
+    | 'CAUSAL_SELECTION_WITHIN_PARTIAL_POINT_IN_TIME_MASTER'
+    | 'CAUSAL_SELECTION_WITHIN_COMPLETE_POINT_IN_TIME_MASTER';
+  historicalInstrumentMasterVersion: string | null;
+  historicalInstrumentMasterCoverage: HistoricalInstrumentMaster['coverage'] | null;
   initialCapital: number;
   finalEquity: number;
   totalReturnPct: number;
@@ -132,9 +142,13 @@ function selectDiversified(
   dataset: MultiAssetDataset,
   catalog: AssetUniverseItem[],
   informationEndDate: string,
-  maxSelected: number
+  maxSelected: number,
+  historicalInstrumentMaster?: HistoricalInstrumentMaster
 ): { assetIds: string[]; scores: Record<string, number> } {
-  const catalogById = new Map(catalog.map(x => [x.assetId, x]));
+  const effectiveCatalog = historicalInstrumentMaster
+    ? historicalCatalogAtDate(historicalInstrumentMaster, catalog, informationEndDate)
+    : catalog;
+  const catalogById = new Map(effectiveCatalog.map(x => [x.assetId, x]));
   const ranked = dataset.assets.map(asset => {
     const item = catalogById.get(asset.assetId);
     const prices = asset.bars.filter(b => b.timestamp.slice(0, 10) <= informationEndDate).map(b => b.close);
@@ -178,9 +192,16 @@ export class CausalUniverseBacktestEngine {
     universeDataset: MultiAssetDataset,
     catalog: AssetUniverseItem[],
     config: DecisionBacktestConfig,
-    maxSelected = 8
+    maxSelected = 8,
+    historicalInstrumentMaster?: HistoricalInstrumentMaster
   ): CausalUniverseBacktestResult {
     if (!(config.initialCapital > 0)) throw new Error('initialCapital debe ser > 0.');
+    if (historicalInstrumentMaster) {
+      validateHistoricalInstrumentMaster(historicalInstrumentMaster);
+      if (historicalInstrumentMaster.coverage === 'CURRENT_REFERENCE_ONLY') {
+        throw new Error('El backtest causal no puede usar un catálogo CURRENT_REFERENCE_ONLY como universo histórico point-in-time.');
+      }
+    }
     if (universeDataset.assets.length < 2) throw new Error('Se requieren al menos 2 activos en el universo causal.');
     const provenance = buildPortfolioProvenance(universeDataset);
     if (provenance.portfolioEvidence !== 'REAL_ONLY') throw new Error('El backtest causal exige universo REAL_ONLY.');
@@ -208,7 +229,7 @@ export class CausalUniverseBacktestEngine {
       const scheduled = i >= warmupBars && previousDate != null && (!allocated || isRebalanceDate(previousDate, executionDate, 'MONTHLY'));
 
       if (scheduled && previousDate) {
-        const selection = selectDiversified(universeDataset, catalog, previousDate, Math.min(maxSelected, 8));
+        const selection = selectDiversified(universeDataset, catalog, previousDate, Math.min(maxSelected, 8), historicalInstrumentMaster);
         if (selection.assetIds.length >= 2) {
           const historicalSelected = sliceDataset(universeDataset, selection.assetIds, previousDate);
           const equityBefore = cash + universeDataset.assets.reduce((sum, asset) => {
@@ -274,8 +295,16 @@ export class CausalUniverseBacktestEngine {
     const finalEquity = equityCurve.at(-1)!.equity;
     const totalCommissionEur = trades.reduce((s, t) => s + t.commissionEur, 0);
     const totalSlippageEur = trades.reduce((s, t) => s + t.slippageEur, 0);
+    const scope: CausalUniverseBacktestResult['scope'] = !historicalInstrumentMaster
+      ? 'CAUSAL_SELECTION_WITHIN_CURRENTLY_VALIDATED_UNIVERSE'
+      : historicalInstrumentMaster.coverage === 'COMPLETE_POINT_IN_TIME'
+        ? 'CAUSAL_SELECTION_WITHIN_COMPLETE_POINT_IN_TIME_MASTER'
+        : 'CAUSAL_SELECTION_WITHIN_PARTIAL_POINT_IN_TIME_MASTER';
+
     return {
-      scope: 'CAUSAL_SELECTION_WITHIN_CURRENTLY_VALIDATED_UNIVERSE',
+      scope,
+      historicalInstrumentMasterVersion: historicalInstrumentMaster?.version ?? null,
+      historicalInstrumentMasterCoverage: historicalInstrumentMaster?.coverage ?? null,
       initialCapital: config.initialCapital,
       finalEquity,
       totalReturnPct: (finalEquity / config.initialCapital - 1) * 100,
@@ -293,7 +322,11 @@ export class CausalUniverseBacktestEngine {
         'En cada rebalanceo, ranking y shortlist usan solo datos hasta Close(t-1).',
         'La asignación se calcula solo sobre el shortlist causal y se ejecuta en Open(t).',
         'Los activos que salen del shortlist reciben peso objetivo 0 y se liquidan con costes.',
-        'Persiste riesgo residual de survivorship porque el catálogo parte de instrumentos actualmente consultables.'
+        historicalInstrumentMaster
+          ? historicalInstrumentMaster.coverage === 'COMPLETE_POINT_IN_TIME'
+            ? 'La selección histórica se restringe al instrument master point-in-time declarado COMPLETE_POINT_IN_TIME; listing/delisting/ticker vigente se resuelven por fecha.'
+            : 'La selección histórica usa sólo el subconjunto PIT verificado del instrument master. La cobertura se declara PARTIAL_POINT_IN_TIME y no autoriza afirmaciones sobre el mercado histórico completo.'
+          : 'Persiste riesgo residual de survivorship porque el catálogo parte de instrumentos actualmente consultables.'
       ]
     };
   }
