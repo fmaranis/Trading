@@ -214,7 +214,7 @@ const JOBS: JobDefinition[] = [
   {
     id: 'phase8-historical-instrument-master-v1',
     name: 'Fase 8 · universo histórico PIT · cierre estructural',
-    description: 'Valida el contrato del instrument master point-in-time y su integración opcional en el replay causal existente. Bloquea el uso del catálogo current como evidencia histórica, cubre listing/delisting/ticker changes y ejecuta TypeScript. No lanza replay largo ni consulta mercado.',
+    description: 'Valida el instrument master point-in-time y su integración en el replay causal, ejecuta TypeScript y después hace un inventario live ligero EODHD de activos EUR actuales+delistados en los mercados primarios. No lanza replay largo ni convierte el inventario en master PIT sin fechas verificadas.',
     marker: 'PHASE8_EODHD_INSTRUMENT_INVENTORY_RESULT',
     visibility: 'CURRENT',
     requiresEodhdApiKey: true,
