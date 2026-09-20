@@ -72,6 +72,7 @@ Estados por fecha:
 - `NOT_YET_LISTED`;
 - `DELISTED`;
 - `AFTER_EVIDENCE_HORIZON`;
+- `NO_ACTIVE_ALIAS`;
 - `UNVERIFIED_POINT_IN_TIME`;
 - `IDENTITY_NOT_FOUND`.
 
@@ -88,7 +89,7 @@ Semántica:
 - sin master: comportamiento previo intacto, con warning de survivorship;
 - `CURRENT_REFERENCE_ONLY`: rechazado explícitamente para selección histórica;
 - `PARTIAL_POINT_IN_TIME`: sólo entran instrumentos PIT verificados y el resultado se etiqueta como subset parcial;
-- `COMPLETE_POINT_IN_TIME`: sólo entran instrumentos verificados y el resultado puede etiquetar el universo objetivo como PIT completo.
+- `COMPLETE_POINT_IN_TIME`: sólo puede etiquetarse como PIT completo si, en cada fecha de decisión, todos los instrumentos que el master marca como `TRADABLE_VERIFIED` están también presentes en el catálogo y en el dataset del replay; cualquier hueco hace fallar cerrado.
 
 No se modifica la cadena de decisión posterior: selección -> InvestmentDecisionEngine -> rebalance/execution.
 
@@ -108,7 +109,25 @@ Comprueba:
 - imposibilidad de declarar `COMPLETE_POINT_IN_TIME` con registros no verificados;
 - filtro por fecha de catálogo PIT.
 
-## 8. Qué falta para cerrar Fase 8
+## 8. Fuente operativa candidata
+
+La app ya dispone de integración backend con EODHD mediante `EODHD_API_KEY`.
+
+EODHD ofrece dos piezas útiles para esta fase:
+
+- `exchange-symbol-list/{EXCHANGE}` permite obtener activos actuales y, con `delisted=1`, los delistados;
+- Fundamentals expone `IPODate` / `IsDelisted` / fecha de delisting para acciones y `Inception_Date` para ETF/fondos.
+
+Esto permite construir cobertura PIT parcial con identidades activas y delistadas sin depender de Yahoo current discovery.
+
+Limitación que debe mantenerse explícita:
+
+- el historial de cambios de símbolo de EODHD está documentado de forma específica para US;
+- para mercados europeos no debe asumirse que el histórico de ticker/exchange es exhaustivo sólo por disponer de active+delisted.
+
+Por tanto, EODHD es una fuente válida para poblar progresivamente `PARTIAL_POINT_IN_TIME`, pero no se promoverá automáticamente a `COMPLETE_POINT_IN_TIME` sin verificar cobertura de ticker/exchange history para el universo objetivo.
+
+## 9. Qué falta para cerrar Fase 8
 
 La arquitectura ya está preparada. Falta poblar un master histórico REAL/STATIC_REFERENCE suficientemente exhaustivo para el universo objetivo con una fuente que aporte, como mínimo:
 
