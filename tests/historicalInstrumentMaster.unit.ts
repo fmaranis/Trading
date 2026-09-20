@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { EUR_ASSET_UNIVERSE } from '../src/investment/decision/assetUniverse';
 import {
   HISTORICAL_INSTRUMENT_MASTER_V1,
@@ -10,6 +12,8 @@ import {
   validateHistoricalInstrumentMaster,
   type HistoricalInstrumentMaster
 } from '../src/investment/decision/historicalInstrumentMaster';
+
+function source(relativePath: string): string { return fs.readFileSync(path.resolve(process.cwd(), relativePath), 'utf8'); }
 
 function assert(condition: unknown, label: string): asserts condition {
   if (!condition) throw new Error(`PHASE8_HISTORICAL_INSTRUMENT_MASTER_FAIL:${label}`);
@@ -93,6 +97,12 @@ try {
 } catch { incompleteCannotClaimComplete = true; }
 assert(incompleteCannotClaimComplete, 'UNVERIFIED_MASTER_CLAIMS_COMPLETE');
 
+const causalEngine = source('src/investment/decision/causalUniverseBacktestEngine.ts');
+assert(causalEngine.includes('historicalCatalogAtDate(historicalInstrumentMaster, catalog, informationEndDate)'), 'CAUSAL_ENGINE_NOT_FILTERED_BY_PIT_MASTER');
+assert(causalEngine.includes("historicalInstrumentMaster.coverage === 'CURRENT_REFERENCE_ONLY'"), 'CAUSAL_ENGINE_ACCEPTS_CURRENT_ONLY_MASTER');
+assert(causalEngine.includes("'CAUSAL_SELECTION_WITHIN_PARTIAL_POINT_IN_TIME_MASTER'"), 'PARTIAL_PIT_SCOPE_MISSING');
+assert(causalEngine.includes("'CAUSAL_SELECTION_WITHIN_COMPLETE_POINT_IN_TIME_MASTER'"), 'COMPLETE_PIT_SCOPE_MISSING');
+
 console.log('PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS', JSON.stringify({
   version: currentOnly.version,
   currentCatalogAssets: EUR_ASSET_UNIVERSE.length,
@@ -101,5 +111,6 @@ console.log('PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS', JSON.stringify({
   currentReferenceCanClaimCompletePIT: currentSummary.canClaimCompletePointInTimeUniverse,
   verifiedFixtureTickerChange: true,
   verifiedFixtureDelisting: true,
-  priceHistoryIsNotListingEvidence: true
+  priceHistoryIsNotListingEvidence: true,
+  integratedIntoExistingCausalReplay: true
 }));
