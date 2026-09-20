@@ -56,7 +56,7 @@ FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      DONE · 2A PASS · 2B PASS RUNTIM
 FASE 3  PROTOCOLO ECONÓMICO FINAL             DONE / FROZEN
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         CLOSED · R2/R3 CONSUMED · INCONCLUSIVE REACH
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       CLOSED · FIRST BLIND PASS · CONFIRMATION FAIL · NO PROMOTION
-FASE 6  FORWARD RISK V8 COMO CONTEXTO         V1 CONSUMED TECHNICAL FAIL · R2 FROZEN NOT OPENED
+FASE 6  FORWARD RISK V8 COMO CONTEXTO         V1 CONSUMED TECHNICAL FAIL · R2 SEALED NOT OPENED
 FASE 7  QUALITY FUTURE FORWARD                WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      PENDIENTE
 FASE 9  AUDITORÍA END-TO-END / CIERRE V1      PENDIENTE
@@ -370,13 +370,36 @@ El collector R2 está implementado pero **NO está cableado al Centro de validac
 
 y ejecuta guard R2 + arquitectura + CandidateGate + paridad + superficie + TypeScript, sin token y sin mercado.
 
+### Seal pre-open R2
+
+Seal:
+
+`validation-runs/preregistration/phase6-forward-risk-context-stage-a-r2-seal.json`
+
+Guard:
+
+`tests/phase6ForwardRiskContextStageAR2Seal.unit.ts`
+
+El seal fija 18 archivos críticos por Git blob SHA-1, incluidos protocolo R2, V4/V5/V7, loaders de macro/opciones, scanner/gate y runner/state R2. Registra explícitamente:
+
+- `sampleOpened=false`;
+- `marketOutcomesOpened=false`;
+- producción `LEGACY`;
+- no policy económica;
+- V1 preservada/consumida;
+- ventana R2 2026-09-21 -> 2027-03-31;
+- mismos activos, threshold, outcome, reach y predictive gates;
+- regla exacta de successor-session materialization.
+
+El guard verifica además que V5/V7/V4 mantienen la semántica histórica de `executionDate`, que macro/opciones/gate siguen cortados en `informationDate`, que V5/V7 deben materializar el punto exacto y que el collector R2 todavía NO está cableado al job.
+
 ### Siguiente paso exacto
 
 1. ejecutar únicamente `Fase 6 · Forward Risk V8 como contexto · R2 readiness`;
-2. si guard y TypeScript pasan, sellar fingerprints R2;
-3. volver a ejecutar validación estática del seal;
-4. sólo después cablear el collector R2 detrás de token durable, guards y TypeScript;
-5. no abrir R2 ni outcomes en el mismo cambio que introduce el seal;
+2. comprobar primero `PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_SEAL_PASS`;
+3. después comprobar `PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_READINESS_PASS` y todos los guards + TypeScript;
+4. si todo pasa, cablear el collector R2 detrás de token durable, guards y TypeScript en un cambio posterior;
+5. no abrir R2 ni outcomes en este paso de validación estática;
 6. producción permanece `LEGACY`.
 
 
