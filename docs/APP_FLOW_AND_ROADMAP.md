@@ -115,7 +115,7 @@ Los trabajos consumidos pasan a `ARCHIVED / READ_ONLY` y no se relanzan como si 
 | **F6 Forward Risk contexto** | **V1 CONSUMED TECH FAIL · R2 OPENED/COLLECTING** | **esperar sesiones maduras; no tocar metodología** |
 | F7 QUALITY future-forward | WAITING/COLLECTING | maduración calendario |
 | F8 universo PIT histórico | STRUCTURAL CLOSED / DATA POPULATION PENDING | poblar master histórico REAL/STATIC_REFERENCE sin reabrir arquitectura |
-| F9 auditoría end-to-end | PRE-CLOSE JOB READY | ejecutar una auditoría técnica consolidada |
+| F9 auditoría end-to-end | CLOSED · TECHNICAL_V1_PRECLOSE_PASS | sólo reabrir por bug/regresión reproducible |
 | F10 expansiones V2 | DEFERRED | después de V1 |
 
 ---
@@ -340,13 +340,17 @@ Pendiente real de Fase 8: poblar el master con una fuente histórica suficientem
 
 # 11. Fase 9 — cierre V1
 
-Job consolidado vigente:
+Resultado final: **TECHNICAL_V1_PRECLOSE_PASS** el 2026-09-20.
 
-`Fase 9 · auditoría end-to-end V1 · pre-cierre técnico`
+El job consolidado queda archivado/read-only. Pasaron runtime, arquitectura, CandidateGate, paridad, superficie productiva, usuarios/seguridad, ejecución, cartera, broker, fiscalidad, replay causal, flujos externos, cash BCE/fiscalidad, PIT estructural y TypeScript.
 
-No usa APIs externas ni replay largo. Ejecuta en un único botón todos los guards técnicos todavía relevantes y TypeScript.
+Documento final:
 
-Auditoría final debe comprobar conjuntamente:
+`docs/PHASE9_END_TO_END_PRECLOSE_FINAL.md`
+
+Quedan fuera del cierre técnico únicamente F6/F7 por calendario prospectivo y la población REAL del master PIT de F8.
+
+Auditoría final comprobó conjuntamente:
 
 - cadena productiva única;
 - usuarios/seguridad/persistencia;
