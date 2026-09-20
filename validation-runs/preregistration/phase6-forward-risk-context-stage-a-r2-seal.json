@@ -47,9 +47,11 @@
     "maximumSingleAssetShareOfHighRiskEligiblePct": 35
   },
   "predictiveGate": {
+    "primaryComparison": "HIGH_RISK_CONTEXT_VS_NORMAL_CONTEXT_WITHIN_ELIGIBLE_POPULATION",
     "minimumAbsoluteMaterialDownsideRateLiftPctPoints": 10,
     "minimumMaterialDownsideRiskRatio": 1.5,
-    "minimumMedianMaxDrawdownSeverityLiftPctPoints": 1
+    "minimumMedianMaxDrawdownSeverityLiftPctPoints": 1,
+    "thresholdsDerivedFromOpenedStageAOutcomes": false
   },
   "successorMaterialization": {
     "rule": "REAL_SUCCESSOR_SESSION_MAY_BE_PRESENT_ONLY_TO_MATERIALIZE_EXECUTION_DATE",
@@ -86,5 +88,17 @@
     "V5 and V7 must both materialize the exact informationDate or collection fails closed.",
     "No synthetic fallback is allowed.",
     "R2 cannot authorize production or evaluate an economic policy."
-  ]
+  ],
+  "preOpenSealCorrection": {
+    "correctedOn": "2026-09-20",
+    "reason": "SERIALIZATION_OMISSION_IN_SEAL_PREDICTIVE_GATE_METADATA",
+    "sampleChanged": false,
+    "signalChanged": false,
+    "thresholdChanged": false,
+    "outcomeChanged": false,
+    "reachGateChanged": false,
+    "predictiveGateChanged": false,
+    "marketOpenedBeforeCorrection": false,
+    "outcomesOpenedBeforeCorrection": false
+  }
 }
