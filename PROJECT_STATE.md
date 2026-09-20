@@ -477,6 +477,7 @@ Estados por fecha:
 - `NOT_YET_LISTED`;
 - `DELISTED`;
 - `AFTER_EVIDENCE_HORIZON`;
+- `NO_ACTIVE_ALIAS`;
 - `UNVERIFIED_POINT_IN_TIME`;
 - `IDENTITY_NOT_FOUND`.
 
@@ -578,7 +579,7 @@ Ninguno de esos tres justifica seguir retocando código cada pocos minutos.
 
 ---
 
-# 9. DEFERRED / RETIRED
+# 10. DEFERRED / RETIRED
 
 No reabrir ahora:
 
@@ -598,7 +599,7 @@ No reabrir ahora:
 
 ---
 
-# 10. CRITERIO DE CIERRE V1
+# 11. CRITERIO DE CIERRE V1
 
 V1 puede cerrarse integralmente cuando estén suficientemente cerrados:
 
