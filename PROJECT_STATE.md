@@ -56,7 +56,7 @@ FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      DONE · 2A PASS · 2B PASS RUNTIM
 FASE 3  PROTOCOLO ECONÓMICO FINAL             DONE / FROZEN
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         CLOSED · R2/R3 CONSUMED · INCONCLUSIVE REACH
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       CLOSED · FIRST BLIND PASS · CONFIRMATION FAIL · NO PROMOTION
-FASE 6  FORWARD RISK V8 COMO CONTEXTO         V1 CONSUMED TECHNICAL FAIL · R2 SEALED NOT OPENED
+FASE 6  FORWARD RISK V8 COMO CONTEXTO         V1 CONSUMED TECHNICAL FAIL · R2 SEALED · COLLECTOR ACTIVATED · NOT OPENED
 FASE 7  QUALITY FUTURE FORWARD                WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      PENDIENTE
 FASE 9  AUDITORÍA END-TO-END / CIERRE V1      PENDIENTE
@@ -364,11 +364,11 @@ Archivos nuevos R2:
 - `scripts/phase6ForwardRiskContextStageAR2CollectorLive.ts`;
 - `tests/phase6ForwardRiskContextStageAR2.unit.ts`.
 
-El collector R2 está implementado pero **NO está cableado al Centro de validación**. El job vigente es sólo:
+Tras PASS completo de seal/readiness, el collector R2 quedó **activado detrás de token durable, guards y TypeScript**, sin modificar ninguno de los 18 archivos metodológicos sellados. El job vigente es ahora:
 
-`Fase 6 · Forward Risk V8 como contexto · R2 readiness`
+`Fase 6 · Forward Risk V8 como contexto · R2 collector`
 
-y ejecuta guard R2 + arquitectura + CandidateGate + paridad + superficie + TypeScript, sin token y sin mercado.
+y exige `GITHUB_REPLAY_SYNC_TOKEN`. El orden es: seal R2 -> readiness R2 -> arquitectura -> CandidateGate -> paridad -> superficie -> TypeScript -> collector REAL R2. El collector persiste `OPENED_COLLECTING` antes del primer acceso a mercado y no conecta el evaluator de outcomes.
 
 ### Seal pre-open R2
 
@@ -397,12 +397,13 @@ El guard verifica además que V5/V7/V4 mantienen la semántica histórica de `ex
 
 ### Siguiente paso exacto
 
-1. ejecutar únicamente `Fase 6 · Forward Risk V8 como contexto · R2 readiness`;
-2. comprobar primero `PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_SEAL_PASS`;
-3. después comprobar `PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_READINESS_PASS` y todos los guards + TypeScript;
-4. si todo pasa, cablear el collector R2 detrás de token durable, guards y TypeScript en un cambio posterior;
-5. no abrir R2 ni outcomes en este paso de validación estática;
-6. producción permanece `LEGACY`.
+1. sincronizar la app al HEAD que contenga esta activación;
+2. comprobar que `GITHUB_REPLAY_SYNC_TOKEN` está configurado;
+3. ejecutar únicamente `Fase 6 · Forward Risk V8 como contexto · R2 collector`;
+4. si todos los guards y TypeScript pasan, esa ejecución **abre/consume R2** y debe persistir `OPENED_COLLECTING` antes de la primera llamada de mercado;
+5. verificar que el resultado tenga `outcomeAccessed:false`, contexto V5/V7 materializado para cada fecha y persistencia en `replay-results/validation-runs/phase6-forward-risk-context-stage-a-r2-state.json`;
+6. no ejecutar evaluator de outcomes de 63 sesiones durante collection;
+7. producción permanece `LEGACY`.
 
 
 ---
