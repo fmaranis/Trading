@@ -11,8 +11,8 @@ assert.match(routes, /id: 'phase6-forward-risk-context-stage-a-r2-readiness'/);
 assert.match(routes, /scripts\/phase6ForwardRiskContextStageAR2CollectorLive\.ts/);
 assert.match(routes, /id: 'quality-allocation-dynamic-future-forward-v1'/);
 assert.match(routes, /scripts\/qualityAllocationDynamicFutureForwardV1CheckpointLive\.ts/);
-assert.match(routes, /id: 'phase9-end-to-end-preclose-v1'/);
-assert.match(routes, /tests\/phase9EndToEndPreclose\.unit\.ts/);
+assert.match(routes, /'phase9-end-to-end-preclose-v1'/);
+assert.match(routes, /Fase 9 · pre-cierre técnico V1 PASS · cerrado/);
 
 assert.match(routes, /aiTokensUsed: false/);
 assert.match(routes, /LOCAL_APP_BACKEND/);
