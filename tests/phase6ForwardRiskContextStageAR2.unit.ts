@@ -47,8 +47,13 @@ assert(routes.includes("id: 'phase6-forward-risk-context-stage-a-r2-readiness'")
 const r2Start = routes.indexOf("id: 'phase6-forward-risk-context-stage-a-r2-readiness'");
 const qualityStart = routes.indexOf("id: 'quality-allocation-dynamic-future-forward-v1'", r2Start);
 const r2Job = routes.slice(r2Start, qualityStart);
-assert(!r2Job.includes('phase6ForwardRiskContextStageAR2CollectorLive.ts'), 'R2_COLLECTOR_WIRED_BEFORE_SEAL');
-assert(!r2Job.includes('requiresGithubReplayToken: true'), 'R2_READINESS_SHOULD_NOT_REQUIRE_DURABLE_TOKEN');
+assert(r2Job.includes('phase6ForwardRiskContextStageAR2CollectorLive.ts'), 'R2_COLLECTOR_NOT_WIRED_AFTER_SEAL');
+assert(r2Job.includes('requiresGithubReplayToken: true'), 'R2_COLLECTOR_TOKEN_PREFLIGHT_MISSING');
+assert(r2Job.includes("marker: 'PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_COLLECTOR_RESULT'"), 'R2_COLLECTOR_MARKER_MISSING');
+const typeScriptStep = r2Job.indexOf("{ label: 'TypeScript'");
+const collectorStep = r2Job.indexOf('phase6ForwardRiskContextStageAR2CollectorLive.ts');
+assert(typeScriptStep >= 0 && collectorStep > typeScriptStep, 'R2_COLLECTOR_NOT_AFTER_TYPESCRIPT');
+assert(!r2Job.includes('phase6ForwardRiskContextStageAEvaluator'), 'R2_JOB_WIRES_OUTCOME_EVALUATOR');
 
 console.log('PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_READINESS_PASS', JSON.stringify({
   version: R2.version,
