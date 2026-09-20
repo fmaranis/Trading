@@ -56,7 +56,7 @@ FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      DONE · 2A PASS · 2B PASS RUNTIM
 FASE 3  PROTOCOLO ECONÓMICO FINAL             DONE / FROZEN
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         CLOSED · R2/R3 CONSUMED · INCONCLUSIVE REACH
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       CLOSED · FIRST BLIND PASS · CONFIRMATION FAIL · NO PROMOTION
-FASE 6  FORWARD RISK V8 COMO CONTEXTO         STAGE A FROZEN · COLLECTOR ACTIVATED BEHIND GUARDS · NOT OPENED
+FASE 6  FORWARD RISK V8 COMO CONTEXTO         STAGE A OPENED/COLLECTING · 2 SESSIONS · SIGNAL AVAILABILITY ANOMALY UNDER REVIEW
 FASE 7  QUALITY FUTURE FORWARD                WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      PENDIENTE
 FASE 9  AUDITORÍA END-TO-END / CIERRE V1      PENDIENTE
@@ -257,7 +257,7 @@ Reglas:
 - máximo 5 fechas pendientes por ejecución es batching, no selección;
 - datos/provider failure quedan pendientes para catch-up causal, nunca sintético.
 
-## 6.4 Collector/evaluator/state — implementados y activados, todavía NO abiertos
+## 6.4 Collector/evaluator/state — Stage A ABIERTA / COLLECTING
 
 Archivos críticos:
 
@@ -316,34 +316,35 @@ El guard verifica además:
 
 ## 6.6 Estado exacto ahora
 
-**STAGE A FUTURE-FORWARD FROZEN / RUNNER+STATE SEALED / COLLECTOR WIRED BEHIND GUARDS / NOT OPENED / NO MARKET OUTCOMES OPENED / RESEARCH ONLY / PRODUCTION LEGACY.**
+**STAGE A FUTURE-FORWARD OPENED / COLLECTING / SAMPLE CONSUMED FOR THIS STUDY / NO MARKET OUTCOMES OPENED / RESEARCH ONLY / PRODUCTION LEGACY.**
 
-El `ResearchValidationCenter` reutiliza el mismo job/id de Fase 6, ahora mostrado como:
+Primera apertura durable:
 
-`Fase 6 · Forward Risk V8 como contexto · collector Stage A`.
+- `openedAt = 2026-09-17T16:52:49.017Z`;
+- primera ejecución de collection observada el 2026-09-20;
+- sesiones registradas: `2026-09-16` y `2026-09-17`;
+- 20 observaciones (10 activos × 2 sesiones);
+- `lastInformationDate = 2026-09-17`;
+- `outcomeAccessed = false`;
+- estado autoritativo: `replay-results/validation-runs/phase6-forward-risk-context-stage-a-state.json`;
+- producción continúa `LEGACY`;
+- no existe policy económica Stage B.
 
-Orden obligatorio del job:
+### Anomalía detectada tras apertura
 
-1. seal/readiness Fase 6;
-2. arquitectura core;
-3. `PortfolioCandidateGate`;
-4. paridad replay/producto;
-5. superficie productiva;
-6. TypeScript;
-7. collector prospectivo REAL Stage A.
+La evidencia durable de las primeras 20 observaciones muestra `contextStatus=UNAVAILABLE` y V5/V7 nulos en todos los activos de ambas sesiones. El gate sí produjo estado causal de candidatos (por ejemplo, ISPA fue `ELIGIBLE` el 2026-09-17), por lo que no debe confundirse ausencia de contexto V8 con ausencia de datos de precio.
 
-La primera ejecución del collector **sí abre/consume Stage A para señal predictiva**: primero persiste `OPENED_COLLECTING` en `replay-results` y sólo después accede a mercado. No abre ni evalúa outcomes de 63 sesiones.
+La revisión estática del collector muestra que V5/V7 se ejecutan sobre un `signalScan` cuyo límite es `lastInformationDate`, mientras las implementaciones históricas V5/V7 sólo emiten puntos hasta `dates.length - 2` porque cada punto conserva un `executionDate` de sesión sucesora. Debe auditarse esta incompatibilidad operacional antes de seguir acumulando observaciones. No se permite reescribir las 20 observaciones ya encadenadas ni relanzar la apertura como si la muestra siguiera fresh.
 
 ### Siguiente paso exacto
 
-1. sincronizar la app al HEAD que contenga este estado;
-2. comprobar que `GITHUB_REPLAY_SYNC_TOKEN` está configurado;
-3. ejecutar únicamente `Fase 6 · Forward Risk V8 como contexto · collector Stage A`;
-4. conservar la salida completa del collector;
-5. tras la primera ejecución, verificar el estado durable `OPENED_COLLECTING`, fechas registradas, provenance REAL y `outcomeAccessed:false`;
-6. actualizar este estado canónico con el resultado real de apertura/collection.
+1. no ejecutar de nuevo el collector hasta cerrar la auditoría de disponibilidad V5/V7;
+2. no leer outcomes de 63 sesiones;
+3. no modificar threshold 80, muestra, activos, reach ni gates;
+4. determinar si existe una corrección puramente técnica compatible con el protocolo congelado sin reescribir observaciones ya abiertas;
+5. si la corrección exige cambiar metodología o semántica causal sellada, Stage A actual debe quedar consumida/no promocionable y cualquier nueva validación deberá preregistrarse sobre evidencia fresh;
+6. producción permanece `LEGACY`.
 
-No ejecutar el evaluator de outcomes de 63 sesiones durante signal collection.
 
 ---
 
