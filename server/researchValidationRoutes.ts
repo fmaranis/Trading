@@ -211,19 +211,41 @@ const JOBS: JobDefinition[] = [
       { label: 'Collector prospectivo REAL R2', command: 'npx', args: ['tsx', 'scripts/phase6ForwardRiskContextStageAR2CollectorLive.ts'] }
     ]
   },
+  archivedJob(
+    'phase8-historical-instrument-master-v1',
+    'Fase 8 · universo histórico PIT · cierre estructural',
+    'Cierre estructural PASS el 2026-09-20: instrument master PIT integrado en el replay causal, current catalogue bloqueado como evidencia histórica y cobertura COMPLETE fail-closed. El inventario EODHD quedó pendiente por cuota diaria externa; no invalida la arquitectura ni exige repetir el job.',
+    'Fase 8 · estructura PIT PASS · población REAL pendiente',
+    'PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS'
+  ),
   {
-    id: 'phase8-historical-instrument-master-v1',
-    name: 'Fase 8 · universo histórico PIT · cierre estructural',
-    description: 'Valida el instrument master point-in-time y su integración en el replay causal, ejecuta TypeScript y después hace un inventario live ligero EODHD de activos EUR actuales+delistados en los mercados primarios. No lanza replay largo ni convierte el inventario en master PIT sin fechas verificadas.',
-    marker: 'PHASE8_EODHD_INSTRUMENT_INVENTORY_RESULT',
+    id: 'phase9-end-to-end-preclose-v1',
+    name: 'Fase 9 · auditoría end-to-end V1 · pre-cierre técnico',
+    description: 'Una sola ejecución rápida para cerrar todo lo comprobable hoy: arquitectura única, producto, usuarios/seguridad, ejecución, cartera, broker, fiscalidad, replay causal, cash/flujos externos, PIT histórico estructural y TypeScript. No usa APIs externas, no ejecuta replay largo y no abre outcomes prospectivos.',
+    marker: 'PHASE9_END_TO_END_PRECLOSE_RESULT',
     visibility: 'CURRENT',
-    requiresEodhdApiKey: true,
     steps: [
-      { label: 'Guard instrument master PIT', command: 'npx', args: ['tsx', 'tests/historicalInstrumentMaster.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
       { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
+      { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
+      { label: 'Guard usuarios privados', command: 'npx', args: ['tsx', 'tests/privateUserSecurity.unit.ts'] },
+      { label: 'Guard decisión productiva', command: 'npx', args: ['tsx', 'tests/productDecisionSurface.unit.ts'] },
+      { label: 'Guard plan de ejecución', command: 'npx', args: ['tsx', 'tests/portfolioExecutionPlan.unit.ts'] },
+      { label: 'Guard cartera', command: 'npx', args: ['tsx', 'tests/userPortfolio.unit.ts'] },
+      { label: 'Guard salud de posiciones', command: 'npx', args: ['tsx', 'tests/portfolioPositionHealth.unit.ts'] },
+      { label: 'Guard broker', command: 'npx', args: ['tsx', 'tests/brokerAvailability.unit.ts'] },
+      { label: 'Guard fiscalidad ejecución', command: 'npx', args: ['tsx', 'tests/taxAwareExecutionOverlay.unit.ts'] },
+      { label: 'Guard modos cartera inicial replay', command: 'npx', args: ['tsx', 'tests/replayInitialPortfolioModes.unit.ts'] },
+      { label: 'Guard replay causal', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
+      { label: 'Guard flujos externos', command: 'npx', args: ['tsx', 'tests/replayExternalCashFlows.unit.ts'] },
+      { label: 'Guard integración flujos externos', command: 'npx', args: ['tsx', 'tests/replayExternalCashFlowIntegration.unit.ts'] },
+      { label: 'Guard cash histórico BCE', command: 'npx', args: ['tsx', 'tests/cashRemuneration.unit.ts'] },
+      { label: 'Guard fiscalidad cash', command: 'npx', args: ['tsx', 'tests/cashInterestTax.unit.ts'] },
+      { label: 'Guard universo histórico PIT', command: 'npx', args: ['tsx', 'tests/historicalInstrumentMaster.unit.ts'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Inventario live EODHD activo + delistado', command: 'npx', args: ['tsx', 'scripts/phase8HistoricalInstrumentMasterEodhdInventoryLive.ts'] }
+      { label: 'Resumen pre-cierre V1', command: 'npx', args: ['tsx', 'tests/phase9EndToEndPreclose.unit.ts'] }
     ]
   },
   {
