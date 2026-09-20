@@ -56,7 +56,7 @@ FASE 2  USUARIOS / SEGURIDAD / AUTONOMÍA      DONE · 2A PASS · 2B PASS RUNTIM
 FASE 3  PROTOCOLO ECONÓMICO FINAL             DONE / FROZEN
 FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         CLOSED · R2/R3 CONSUMED · INCONCLUSIVE REACH
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       CLOSED · FIRST BLIND PASS · CONFIRMATION FAIL · NO PROMOTION
-FASE 6  FORWARD RISK V8 COMO CONTEXTO         STAGE A OPENED/COLLECTING · 2 SESSIONS · SIGNAL AVAILABILITY ANOMALY UNDER REVIEW
+FASE 6  FORWARD RISK V8 COMO CONTEXTO         V1 CONSUMED TECHNICAL FAIL · R2 FROZEN NOT OPENED
 FASE 7  QUALITY FUTURE FORWARD                WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      PENDIENTE
 FASE 9  AUDITORÍA END-TO-END / CIERRE V1      PENDIENTE
@@ -316,33 +316,67 @@ El guard verifica además:
 
 ## 6.6 Estado exacto ahora
 
-**STAGE A FUTURE-FORWARD OPENED / COLLECTING / SAMPLE CONSUMED FOR THIS STUDY / NO MARKET OUTCOMES OPENED / RESEARCH ONLY / PRODUCTION LEGACY.**
+**Stage A V1: CONSUMED / INVALID FOR PROMOTION DUE TECHNICAL SIGNAL-MATERIALIZATION FAILURE / OUTCOMES NOT OPENED.**
 
-Primera apertura durable:
+V1 durable se conserva intacta:
 
 - `openedAt = 2026-09-17T16:52:49.017Z`;
-- primera ejecución de collection observada el 2026-09-20;
-- sesiones registradas: `2026-09-16` y `2026-09-17`;
-- 20 observaciones (10 activos × 2 sesiones);
-- `lastInformationDate = 2026-09-17`;
-- `outcomeAccessed = false`;
-- estado autoritativo: `replay-results/validation-runs/phase6-forward-risk-context-stage-a-state.json`;
-- producción continúa `LEGACY`;
-- no existe policy económica Stage B.
+- 20 observaciones correspondientes a 2026-09-16 y 2026-09-17;
+- las 20 quedaron con `contextStatus=UNAVAILABLE` por incompatibilidad entre el corte del collector y la necesidad de V5/V7/V4 de una sesión sucesora para materializar `executionDate`;
+- no se reescriben ni se borran;
+- no se han leído outcomes de 63 sesiones;
+- V1 no puede promover nada.
 
-### Anomalía detectada tras apertura
+### Stage A R2 — preregistro fresh congelado
 
-La evidencia durable de las primeras 20 observaciones muestra `contextStatus=UNAVAILABLE` y V5/V7 nulos en todos los activos de ambas sesiones. El gate sí produjo estado causal de candidatos (por ejemplo, ISPA fue `ELIGIBLE` el 2026-09-17), por lo que no debe confundirse ausencia de contexto V8 con ausencia de datos de precio.
+R2 se congeló el 2026-09-20 **antes de abrir mercado R2**:
 
-La revisión estática del collector muestra que V5/V7 se ejecutan sobre un `signalScan` cuyo límite es `lastInformationDate`, mientras las implementaciones históricas V5/V7 sólo emiten puntos hasta `dates.length - 2` porque cada punto conserva un `executionDate` de sesión sucesora. Debe auditarse esta incompatibilidad operacional antes de seguir acumulando observaciones. No se permite reescribir las 20 observaciones ya encadenadas ni relanzar la apertura como si la muestra siguiera fresh.
+- versión: `PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_V1`;
+- inicio fresh: `2026-09-21`;
+- fin: `2027-03-31`;
+- mismos 10 activos que V1;
+- mismo `FORWARD_RISK_CONTEXT_V1`;
+- mismo threshold alto `80`;
+- ambas ramas V5/V7 obligatorias;
+- mismo outcome `NEXT_OPEN` + max drawdown a 63 sesiones + umbral 5%;
+- mismos reach gates y predictive gates;
+- producción `LEGACY`;
+- sin policy económica.
+
+La única corrección técnica congelada es:
+
+`REAL_SUCCESSOR_SESSION_MAY_BE_PRESENT_ONLY_TO_MATERIALIZE_EXECUTION_DATE`.
+
+Semántica exacta:
+
+- la sesión sucesora REAL sólo permite que las implementaciones históricas sin modificar de V5/V7/V4 emitan el punto de la `informationDate` previa y su `executionDate`;
+- macro, opciones y diagnóstico se cortan en `informationDate`;
+- el `PortfolioCandidateGate` se calcula con prefix terminado en `informationDate`;
+- la sesión sucesora no puede modificar componentes, score, eligibility, ranking, sizing ni outcome;
+- si V5 o V7 no materializan el punto exacto, R2 falla cerrado y no registra una observación degradada silenciosamente;
+- no hay fallback sintético.
+
+Archivos nuevos R2:
+
+- `src/investment/decision/phase6ForwardRiskContextStageAR2Protocol.ts`;
+- `scripts/phase6ForwardRiskContextStageAR2ProspectiveProtocol.ts`;
+- `scripts/phase6ForwardRiskContextStageAR2StateStore.ts`;
+- `scripts/phase6ForwardRiskContextStageAR2CollectorLive.ts`;
+- `tests/phase6ForwardRiskContextStageAR2.unit.ts`.
+
+El collector R2 está implementado pero **NO está cableado al Centro de validación**. El job vigente es sólo:
+
+`Fase 6 · Forward Risk V8 como contexto · R2 readiness`
+
+y ejecuta guard R2 + arquitectura + CandidateGate + paridad + superficie + TypeScript, sin token y sin mercado.
 
 ### Siguiente paso exacto
 
-1. no ejecutar de nuevo el collector hasta cerrar la auditoría de disponibilidad V5/V7;
-2. no leer outcomes de 63 sesiones;
-3. no modificar threshold 80, muestra, activos, reach ni gates;
-4. determinar si existe una corrección puramente técnica compatible con el protocolo congelado sin reescribir observaciones ya abiertas;
-5. si la corrección exige cambiar metodología o semántica causal sellada, Stage A actual debe quedar consumida/no promocionable y cualquier nueva validación deberá preregistrarse sobre evidencia fresh;
+1. ejecutar únicamente `Fase 6 · Forward Risk V8 como contexto · R2 readiness`;
+2. si guard y TypeScript pasan, sellar fingerprints R2;
+3. volver a ejecutar validación estática del seal;
+4. sólo después cablear el collector R2 detrás de token durable, guards y TypeScript;
+5. no abrir R2 ni outcomes en el mismo cambio que introduce el seal;
 6. producción permanece `LEGACY`.
 
 
