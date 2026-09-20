@@ -382,6 +382,8 @@ Guard:
 
 El seal fija 18 archivos críticos por Git blob SHA-1, incluidos protocolo R2, V4/V5/V7, loaders de macro/opciones, scanner/gate y runner/state R2. Registra explícitamente:
 
+Corrección pre-open registrada el 2026-09-20: el primer JSON del seal omitió dos campos descriptivos ya congelados de `predictiveGate` (`primaryComparison` y `thresholdsDerivedFromOpenedStageAOutcomes`). Se corrigió únicamente la serialización del seal antes de abrir R2; no cambió ninguna regla, threshold, muestra ni outcome.
+
 - `sampleOpened=false`;
 - `marketOutcomesOpened=false`;
 - producción `LEGACY`;
