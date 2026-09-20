@@ -198,6 +198,7 @@ const JOBS: JobDefinition[] = [
     description: 'Preregistro fresh R2 desde 2026-09-21. Conserva activos, V8, threshold 80, outcome 63 sesiones, reach y gates; corrige sólo la materialización técnica con una sesión sucesora REAL usada exclusivamente para executionDate. Ejecuta sólo guards y TypeScript: no abre R2 ni consulta mercado.',
     visibility: 'CURRENT',
     steps: [
+      { label: 'Guard seal R2 Fase 6', command: 'npx', args: ['tsx', 'tests/phase6ForwardRiskContextStageAR2Seal.unit.ts'] },
       { label: 'Guard R2 Fase 6', command: 'npx', args: ['tsx', 'tests/phase6ForwardRiskContextStageAR2.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
