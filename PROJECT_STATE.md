@@ -59,7 +59,7 @@ FASE 5  PROTECCIÓN DE GRANDES GANADORES       CLOSED · FIRST BLIND PASS · CON
 FASE 6  FORWARD RISK V8 COMO CONTEXTO         V1 CONSUMED TECHNICAL FAIL · R2 OPENED/COLLECTING · 0 OBS
 FASE 7  QUALITY FUTURE FORWARD                WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      STRUCTURAL CLOSED · REAL MASTER POPULATION PENDING
-FASE 9  AUDITORÍA END-TO-END / CIERRE V1      PENDIENTE
+FASE 9  AUDITORÍA END-TO-END / CIERRE V1      PRE-CLOSE JOB READY
 FASE 10 EXPANSIONES V2                         DEFERRED
 ```
 
@@ -520,6 +520,8 @@ La ejecución confirmó:
 
 El inventario live EODHD no llegó a ejecutarse por límite diario del proveedor (`HTTP 402 / daily API requests limit`). Esto no invalida el cierre estructural: es una indisponibilidad temporal de la fuente, no un fallo del contrato PIT ni del replay.
 
+El job de Fase 8 queda archivado para evitar repeticiones inútiles. La población REAL del master pasa a deuda de datos, no a bloqueo de arquitectura.
+
 El script live ahora trata específicamente ese 402 como `SOURCE_DAILY_LIMIT_EXCEEDED`, devuelve resultado informativo y no bloquea el cierre estructural. No promociona ningún master ni inventa cobertura.
 
 Falta incorporar una fuente histórica suficientemente completa que aporte altas, bajas/delistings y cambios de ticker/mercado. Hasta entonces:
@@ -531,6 +533,48 @@ Falta incorporar una fuente histórica suficientemente completa que aporte altas
 
 Fuente operativa seleccionada para el siguiente incremento: EODHD, reutilizando `EODHD_API_KEY` ya soportada por el backend. La Exchange Symbols API aporta activos activos/delistados e ISIN cuando existe; Fundamentals aporta `IPODate`/estado y fecha de delisting para acciones e `Inception_Date` para ETF/fondos. Debido a que el historial de cambios de ticker no es exhaustivo para todos los mercados europeos, EODHD puede poblar `PARTIAL_POINT_IN_TIME` de forma rigurosa, pero no se declarará `COMPLETE_POINT_IN_TIME` sin cobertura adicional verificada.
 
+
+---
+
+# 9. FASE 9 — AUDITORÍA END-TO-END / PRE-CIERRE V1
+
+Job vigente:
+
+`Fase 9 · auditoría end-to-end V1 · pre-cierre técnico`
+
+Objetivo: una sola ejecución rápida que consolida todo lo comprobable hoy, sin replay largo, sin APIs externas y sin abrir outcomes prospectivos.
+
+Incluye:
+
+- arquitectura `CORE_ARCHITECTURE_V1`;
+- `PortfolioCandidateGate`;
+- paridad replay/producto;
+- superficie productiva única;
+- usuarios/seguridad;
+- plan ejecutable;
+- cartera y salud de posiciones;
+- broker;
+- fiscalidad de ejecución;
+- modos de cartera inicial del replay;
+- replay causal;
+- externalCashFlows;
+- cash BCE + fiscalidad del cash;
+- instrument master PIT estructural;
+- runtime del Centro de validación;
+- TypeScript;
+- resumen de cierre.
+
+El resultado esperado no fingirá que F6/F7/F8 han madurado. Si todo lo técnico pasa, el estado será:
+
+`TECHNICAL_V1_PRECLOSE_PASS`
+
+y quedarán únicamente tres carriles externos/calendario:
+
+1. F6 R2 future-forward;
+2. F7 QUALITY future-forward;
+3. población REAL del master PIT de F8.
+
+Ninguno de esos tres justifica seguir retocando código cada pocos minutos.
 
 ---
 
