@@ -24,6 +24,12 @@ assert(seal.sampleOpened === false, 'SEAL_RECORDS_SAMPLE_OPENED');
 assert(seal.marketOutcomesOpened === false, 'SEAL_RECORDS_OUTCOMES_OPENED');
 assert(seal.productionDefault === 'LEGACY', 'PRODUCTION_NOT_LEGACY');
 assert(seal.economicPolicyDefined === false, 'ECONOMIC_POLICY_DEFINED');
+assert(seal.preOpenActivation?.collectorWired === true, 'R2_COLLECTOR_ACTIVATION_NOT_SEALED');
+assert(seal.preOpenActivation?.requiresGithubReplayToken === true, 'R2_COLLECTOR_TOKEN_NOT_SEALED');
+assert(seal.preOpenActivation?.guardsAndTypeScriptBeforeCollector === true, 'R2_COLLECTOR_GUARD_ORDER_NOT_SEALED');
+assert(seal.preOpenActivation?.marketOpenedBeforeActivation === false, 'R2_MARKET_OPENED_BEFORE_ACTIVATION');
+assert(seal.preOpenActivation?.outcomesOpenedBeforeActivation === false, 'R2_OUTCOMES_OPENED_BEFORE_ACTIVATION');
+assert(seal.preOpenActivation?.methodologyManifestChanged === false, 'R2_METHOD_MANIFEST_CHANGED_DURING_ACTIVATION');
 assert(seal.predecessor.disposition === 'CONSUMED_INVALID_FOR_PROMOTION_TECHNICAL_SIGNAL_MATERIALIZATION_FAILURE', 'V1_DISPOSITION_CHANGED');
 assert(seal.predecessor.observationsPreserved === 20, 'V1_OBSERVATION_COUNT_CHANGED');
 assert(seal.predecessor.outcomesOpened === false, 'V1_OUTCOMES_MARKED_OPEN');
@@ -77,8 +83,13 @@ const r2Start = routes.indexOf("id: 'phase6-forward-risk-context-stage-a-r2-read
 const qualityStart = routes.indexOf("id: 'quality-allocation-dynamic-future-forward-v1'", r2Start);
 assert(r2Start >= 0 && qualityStart > r2Start, 'R2_READINESS_JOB_MISSING');
 const r2Job = routes.slice(r2Start, qualityStart);
-assert(!r2Job.includes('phase6ForwardRiskContextStageAR2CollectorLive.ts'), 'R2_COLLECTOR_WIRED_DURING_SEAL');
-assert(!r2Job.includes('requiresGithubReplayToken: true'), 'R2_READINESS_REQUIRES_TOKEN_PREMATURELY');
+assert(r2Job.includes('phase6ForwardRiskContextStageAR2CollectorLive.ts'), 'R2_COLLECTOR_NOT_WIRED_AFTER_SEAL_PASS');
+assert(r2Job.includes('requiresGithubReplayToken: true'), 'R2_COLLECTOR_TOKEN_PREFLIGHT_MISSING');
+assert(r2Job.includes("marker: 'PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_COLLECTOR_RESULT'"), 'R2_COLLECTOR_MARKER_MISSING');
+const typeScriptStep = r2Job.indexOf("{ label: 'TypeScript'");
+const collectorStep = r2Job.indexOf('phase6ForwardRiskContextStageAR2CollectorLive.ts');
+assert(typeScriptStep >= 0 && collectorStep > typeScriptStep, 'R2_COLLECTOR_NOT_AFTER_TYPESCRIPT');
+assert(!r2Job.includes('phase6ForwardRiskContextStageAEvaluator'), 'R2_JOB_WIRES_OUTCOME_EVALUATOR');
 
 console.log('PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_SEAL_PASS', JSON.stringify({
   version: seal.version,
@@ -92,6 +103,6 @@ console.log('PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_SEAL_PASS', JSON.stringify({
   successorMaterialization: true,
   sampleOpened: seal.sampleOpened,
   outcomesOpened: seal.marketOutcomesOpened,
-  liveCollectorWired: false,
+  liveCollectorWired: true,
   productionDefault: R2.productionDefault
 }));
