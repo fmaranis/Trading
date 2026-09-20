@@ -100,5 +100,23 @@
     "predictiveGateChanged": false,
     "marketOpenedBeforeCorrection": false,
     "outcomesOpenedBeforeCorrection": false
+  },
+  "preOpenActivation": {
+    "activatedOn": "2026-09-20",
+    "collectorWired": true,
+    "requiresGithubReplayToken": true,
+    "guardsAndTypeScriptBeforeCollector": true,
+    "durableOpenMarkerBeforeFirstMarketRequest": true,
+    "outcomeEvaluatorWiredIntoCollectorJob": false,
+    "marketOpenedBeforeActivation": false,
+    "outcomesOpenedBeforeActivation": false,
+    "methodologyManifestChanged": false,
+    "sampleChanged": false,
+    "signalChanged": false,
+    "thresholdChanged": false,
+    "outcomeChanged": false,
+    "reachGateChanged": false,
+    "predictiveGateChanged": false,
+    "successorMaterializationChanged": false
   }
 }
