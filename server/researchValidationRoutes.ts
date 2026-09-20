@@ -15,6 +15,7 @@ interface JobDefinition {
   visibility: JobVisibility;
   historyLabel?: string;
   requiresGithubReplayToken?: boolean;
+  requiresEodhdApiKey?: boolean;
 }
 interface JobState {
   status: JobStatus;
@@ -214,13 +215,15 @@ const JOBS: JobDefinition[] = [
     id: 'phase8-historical-instrument-master-v1',
     name: 'Fase 8 · universo histórico PIT · cierre estructural',
     description: 'Valida el contrato del instrument master point-in-time y su integración opcional en el replay causal existente. Bloquea el uso del catálogo current como evidencia histórica, cubre listing/delisting/ticker changes y ejecuta TypeScript. No lanza replay largo ni consulta mercado.',
-    marker: 'PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS',
+    marker: 'PHASE8_EODHD_INSTRUMENT_INVENTORY_RESULT',
     visibility: 'CURRENT',
+    requiresEodhdApiKey: true,
     steps: [
       { label: 'Guard instrument master PIT', command: 'npx', args: ['tsx', 'tests/historicalInstrumentMaster.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Inventario live EODHD activo + delistado', command: 'npx', args: ['tsx', 'scripts/phase8HistoricalInstrumentMasterEodhdInventoryLive.ts'] }
     ]
   },
   {
@@ -310,6 +313,7 @@ function prerequisiteError(job: JobDefinition): string | null {
     if (job.id === 'quality-allocation-dynamic-future-forward-v1') return 'QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED';
     return 'DURABLE_GITHUB_TOKEN_REQUIRED';
   }
+  if (job.requiresEodhdApiKey && !process.env.EODHD_API_KEY?.trim()) return 'EODHD_API_KEY_REQUIRED';
   return null;
 }
 
@@ -371,7 +375,8 @@ researchValidationRouter.get('/jobs', (_req: Request, res: Response) => {
     aiTokensUsed: false,
     execution: 'LOCAL_APP_BACKEND',
     prerequisites: {
-      githubReplaySyncConfigured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim())
+      githubReplaySyncConfigured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()),
+      eodhdConfigured: Boolean(process.env.EODHD_API_KEY?.trim())
     },
     jobs: currentJobs,
     history
