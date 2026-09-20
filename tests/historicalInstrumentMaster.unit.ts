@@ -42,6 +42,7 @@ const verifiedFixture: HistoricalInstrumentMaster = {
   targetUniverse: 'TEST_VERIFIED_PIT_UNIVERSE',
   coverage: 'COMPLETE_POINT_IN_TIME',
   asOfDate: '2020-12-31',
+  notes: ['Synthetic fixture for PIT contract tests only.'],
   records: [{
     canonicalInstrumentId: 'TEST-ISIN-1',
     isin: 'TEST-ISIN-1',
