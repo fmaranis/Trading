@@ -114,6 +114,21 @@ async function main() {
 }
 
 main().catch(error => {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes('PHASE8_EODHD_HTTP_402') && message.toLowerCase().includes('daily api requests limit')) {
+    console.log('PHASE8_EODHD_INSTRUMENT_INVENTORY_RESULT');
+    console.log(JSON.stringify({
+      status: 'SOURCE_DAILY_LIMIT_EXCEEDED',
+      provider: 'EODHD',
+      inventoryCollected: false,
+      pointInTimeMasterPromoted: false,
+      coverageClassification: 'SOURCE_TEMPORARILY_UNAVAILABLE_NOT_PIT_MASTER',
+      retryRequiredForStructuralClosure: false,
+      productionImpact: 'NONE',
+      note: 'EODHD daily request quota was exhausted. Phase 8 structural PIT architecture remains valid; source inventory is informational and must not block structural closure.'
+    }, null, 2));
+    process.exit(0);
+  }
   console.error('PHASE8_EODHD_INSTRUMENT_INVENTORY_FATAL', error);
   process.exit(1);
 });
