@@ -218,36 +218,13 @@ const JOBS: JobDefinition[] = [
     'Fase 8 · estructura PIT PASS · población REAL pendiente',
     'PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS'
   ),
-  {
-    id: 'phase9-end-to-end-preclose-v1',
-    name: 'Fase 9 · auditoría end-to-end V1 · pre-cierre técnico',
-    description: 'Una sola ejecución rápida para cerrar todo lo comprobable hoy: arquitectura única, producto, usuarios/seguridad, ejecución, cartera, broker, fiscalidad, replay causal, cash/flujos externos, PIT histórico estructural y TypeScript. No usa APIs externas, no ejecuta replay largo y no abre outcomes prospectivos.',
-    marker: 'PHASE9_END_TO_END_PRECLOSE_RESULT',
-    visibility: 'CURRENT',
-    steps: [
-      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
-      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
-      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
-      { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
-      { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
-      { label: 'Guard usuarios privados', command: 'npx', args: ['tsx', 'tests/privateUserSecurity.unit.ts'] },
-      { label: 'Guard decisión productiva', command: 'npx', args: ['tsx', 'tests/productDecisionSurface.unit.ts'] },
-      { label: 'Guard plan de ejecución', command: 'npx', args: ['tsx', 'tests/portfolioExecutionPlan.unit.ts'] },
-      { label: 'Guard cartera', command: 'npx', args: ['tsx', 'tests/userPortfolio.unit.ts'] },
-      { label: 'Guard salud de posiciones', command: 'npx', args: ['tsx', 'tests/portfolioPositionHealth.unit.ts'] },
-      { label: 'Guard broker', command: 'npx', args: ['tsx', 'tests/brokerAvailability.unit.ts'] },
-      { label: 'Guard fiscalidad ejecución', command: 'npx', args: ['tsx', 'tests/taxAwareExecutionOverlay.unit.ts'] },
-      { label: 'Guard modos cartera inicial replay', command: 'npx', args: ['tsx', 'tests/replayInitialPortfolioModes.unit.ts'] },
-      { label: 'Guard replay causal', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
-      { label: 'Guard flujos externos', command: 'npx', args: ['tsx', 'tests/replayExternalCashFlows.unit.ts'] },
-      { label: 'Guard integración flujos externos', command: 'npx', args: ['tsx', 'tests/replayExternalCashFlowIntegration.unit.ts'] },
-      { label: 'Guard cash histórico BCE', command: 'npx', args: ['tsx', 'tests/cashRemuneration.unit.ts'] },
-      { label: 'Guard fiscalidad cash', command: 'npx', args: ['tsx', 'tests/cashInterestTax.unit.ts'] },
-      { label: 'Guard universo histórico PIT', command: 'npx', args: ['tsx', 'tests/historicalInstrumentMaster.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Resumen pre-cierre V1', command: 'npx', args: ['tsx', 'tests/phase9EndToEndPreclose.unit.ts'] }
-    ]
-  },
+  archivedJob(
+    'phase9-end-to-end-preclose-v1',
+    'Fase 9 · auditoría end-to-end V1 · pre-cierre técnico',
+    'PASS FINAL el 2026-09-20. TECHNICAL_V1_PRECLOSE_PASS: arquitectura, producto, usuarios/seguridad, ejecución, cartera, broker, fiscalidad, replay causal, flujos externos, cash BCE/fiscalidad, PIT estructural, runtime y TypeScript pasaron en una única ejecución consolidada. No relanzar salvo bug/regresión reproducible.',
+    'Fase 9 · pre-cierre técnico V1 PASS · cerrado',
+    'PHASE9_END_TO_END_PRECLOSE_RESULT'
+  ),
   {
     id: 'quality-allocation-dynamic-future-forward-v1',
     name: 'QUALITY allocation · future-forward dinámico',
