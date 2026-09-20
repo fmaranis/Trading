@@ -58,7 +58,7 @@ FASE 4  REENTRADA TRAS SALIDA ERRÓNEA         CLOSED · R2/R3 CONSUMED · INCON
 FASE 5  PROTECCIÓN DE GRANDES GANADORES       CLOSED · FIRST BLIND PASS · CONFIRMATION FAIL · NO PROMOTION
 FASE 6  FORWARD RISK V8 COMO CONTEXTO         V1 CONSUMED TECHNICAL FAIL · R2 OPENED/COLLECTING · 0 OBS
 FASE 7  QUALITY FUTURE FORWARD                WAITING/COLLECTING en paralelo
-FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      PENDIENTE
+FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      ARCHITECTURE IMPLEMENTED · REAL MASTER COVERAGE PENDING
 FASE 9  AUDITORÍA END-TO-END / CIERRE V1      PENDIENTE
 FASE 10 EXPANSIONES V2                         DEFERRED
 ```
@@ -432,13 +432,90 @@ No usar esta vía para modificar Fase 6 ni viceversa.
 
 # 8. FASE 8 — UNIVERSO HISTÓRICO POINT-IN-TIME
 
-Sigue pendiente un instrument master histórico con listings, delistings, cambios de ticker/mercado y disponibilidad por fecha.
+## 8.1 Arquitectura implementada
 
-Hasta disponer de él:
+Se integró `HISTORICAL_INSTRUMENT_MASTER_V1` en:
 
-- no afirmar que el replay histórico reconstruye el mercado completo de cada fecha;
+- `src/investment/decision/historicalInstrumentMaster.ts`;
+- `src/investment/decision/causalUniverseBacktestEngine.ts`.
+
+No existe un motor paralelo. El master actúa como capa opcional de elegibilidad histórica dentro del replay causal existente.
+
+Contrato por identidad económica:
+
+- identidad canónica;
+- ISIN;
+- listing date;
+- delisting date;
+- alias ticker/venue con intervalo de vigencia;
+- autoridad/fuente;
+- `evidenceAsOfDate`;
+- `pointInTimeVerified`;
+- procedencia `STATIC_REFERENCE`.
+
+Cobertura declarada:
+
+- `CURRENT_REFERENCE_ONLY`;
+- `PARTIAL_POINT_IN_TIME`;
+- `COMPLETE_POINT_IN_TIME`.
+
+Sólo `COMPLETE_POINT_IN_TIME` permite afirmar cobertura completa del universo objetivo histórico.
+
+## 8.2 Guard anti-survivorship
+
+El catálogo actual `EUR_ASSET_UNIVERSE` puede convertirse a referencia deduplicada por identidad económica, pero queda obligatoriamente:
+
+`CURRENT_REFERENCE_ONLY`
+
+y no puede autorizar selección histórica PIT.
+
+La primera barra disponible tampoco se acepta como prueba de listing date.
+
+Estados por fecha:
+
+- `TRADABLE_VERIFIED`;
+- `NOT_YET_LISTED`;
+- `DELISTED`;
+- `AFTER_EVIDENCE_HORIZON`;
+- `UNVERIFIED_POINT_IN_TIME`;
+- `IDENTITY_NOT_FOUND`.
+
+El replay causal, cuando recibe master PIT explícito:
+
+- rechaza `CURRENT_REFERENCE_ONLY`;
+- con `PARTIAL_POINT_IN_TIME` usa sólo identidades verificadas y mantiene la limitación de cobertura;
+- con `COMPLETE_POINT_IN_TIME` puede etiquetar el universo objetivo como PIT completo;
+- sin master mantiene el comportamiento histórico previo y el warning de survivorship.
+
+## 8.3 Validación estructural
+
+Guard:
+
+`tests/historicalInstrumentMaster.unit.ts`
+
+Job:
+
+`Fase 8 · universo histórico PIT · cierre estructural`
+
+Comprueba contrato, dedupe ISIN, ticker changes, listing/delisting, horizonte de evidencia, bloqueo del catálogo current y la integración en el replay causal. No consulta mercado ni ejecuta replay largo.
+
+Documento:
+
+`docs/PHASE8_HISTORICAL_INSTRUMENT_MASTER_V1.md`.
+
+## 8.4 Estado real pendiente
+
+**La arquitectura PIT ya está implementada; el master histórico exhaustivo todavía no está poblado.**
+
+Falta incorporar una fuente histórica suficientemente completa que aporte altas, bajas/delistings y cambios de ticker/mercado. Hasta entonces:
+
+- no afirmar que el replay histórico reproduce el mercado completo de cada fecha;
 - current Yahoo discovery no puede usarse retrospectivamente;
-- survivorship permanece limitación explícita.
+- survivorship permanece limitación explícita;
+- no inventar listing dates a partir de precios.
+
+Siguiente paso después del PASS estructural: seleccionar/adaptar una fuente histórica de instrumentos y poblar el master sin modificar la arquitectura del replay.
+
 
 ---
 
