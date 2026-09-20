@@ -70,6 +70,15 @@ assert(historicalInstrumentStatusAtDate(verifiedFixture, fixture, '2020-07-01') 
 assert(historicalInstrumentStatusAtDate(verifiedFixture, fixture, '2021-01-04') === 'AFTER_EVIDENCE_HORIZON', 'AFTER_EVIDENCE_NOT_BLOCKED');
 assert(historicalTickerAtDate(fixture, '2014-01-02') === 'OLD.DE', 'OLD_TICKER_NOT_RESOLVED');
 assert(historicalTickerAtDate(fixture, '2018-01-02') === 'NEW.DE', 'NEW_TICKER_NOT_RESOLVED');
+const aliasGapFixture: HistoricalInstrumentMaster = {
+  ...verifiedFixture,
+  records: [{ ...fixture, aliases: [
+    { ticker: 'OLD.DE', venue: 'XETRA', validFrom: '2010-01-04', validTo: '2014-12-31' },
+    { ticker: 'NEW.DE', venue: 'XETRA', validFrom: '2016-01-01', validTo: '2020-06-30' }
+  ] }]
+};
+validateHistoricalInstrumentMaster(aliasGapFixture);
+assert(historicalInstrumentStatusAtDate(aliasGapFixture, aliasGapFixture.records[0], '2015-06-01') === 'NO_ACTIVE_ALIAS', 'ALIAS_GAP_NOT_BLOCKED');
 const fixtureCatalog = [{ assetId: 'FIXTURE', ticker: 'NEW.DE', isin: 'TEST-ISIN-1', name: 'Fixture instrument', category: 'GLOBAL_EQUITY' as const, currency: 'EUR' as const }];
 assert(historicalCatalogAtDate(verifiedFixture, fixtureCatalog, '2018-01-02').length === 1, 'VERIFIED_PIT_CATALOG_FILTER_FAILED');
 assert(historicalCatalogAtDate(verifiedFixture, fixtureCatalog, '2009-12-31').length === 0, 'PRE_LISTING_ASSET_LEAKED_INTO_CATALOG');
@@ -102,6 +111,8 @@ assert(causalEngine.includes('historicalCatalogAtDate(historicalInstrumentMaster
 assert(causalEngine.includes("historicalInstrumentMaster.coverage === 'CURRENT_REFERENCE_ONLY'"), 'CAUSAL_ENGINE_ACCEPTS_CURRENT_ONLY_MASTER');
 assert(causalEngine.includes("'CAUSAL_SELECTION_WITHIN_PARTIAL_POINT_IN_TIME_MASTER'"), 'PARTIAL_PIT_SCOPE_MISSING');
 assert(causalEngine.includes("'CAUSAL_SELECTION_WITHIN_COMPLETE_POINT_IN_TIME_MASTER'"), 'COMPLETE_PIT_SCOPE_MISSING');
+assert(causalEngine.includes('HISTORICAL_INSTRUMENT_MASTER_COMPLETE_CATALOG_GAP'), 'COMPLETE_MASTER_CATALOG_GAP_NOT_FAIL_CLOSED');
+assert(causalEngine.includes('HISTORICAL_INSTRUMENT_MASTER_COMPLETE_DATASET_GAP'), 'COMPLETE_MASTER_DATASET_GAP_NOT_FAIL_CLOSED');
 
 console.log('PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS', JSON.stringify({
   version: currentOnly.version,
@@ -112,5 +123,6 @@ console.log('PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS', JSON.stringify({
   verifiedFixtureTickerChange: true,
   verifiedFixtureDelisting: true,
   priceHistoryIsNotListingEvidence: true,
-  integratedIntoExistingCausalReplay: true
+  integratedIntoExistingCausalReplay: true,
+  completeMasterRequiresCatalogAndDatasetCoverage: true
 }));
