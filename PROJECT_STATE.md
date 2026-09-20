@@ -59,7 +59,7 @@ FASE 5  PROTECCIÓN DE GRANDES GANADORES       CLOSED · FIRST BLIND PASS · CON
 FASE 6  FORWARD RISK V8 COMO CONTEXTO         V1 CONSUMED TECHNICAL FAIL · R2 OPENED/COLLECTING · 0 OBS
 FASE 7  QUALITY FUTURE FORWARD                WAITING/COLLECTING en paralelo
 FASE 8  UNIVERSO HISTÓRICO POINT-IN-TIME      STRUCTURAL CLOSED · REAL MASTER POPULATION PENDING
-FASE 9  AUDITORÍA END-TO-END / CIERRE V1      PRE-CLOSE JOB READY
+FASE 9  AUDITORÍA END-TO-END / CIERRE V1      CLOSED · TECHNICAL_V1_PRECLOSE_PASS
 FASE 10 EXPANSIONES V2                         DEFERRED
 ```
 
@@ -539,11 +539,23 @@ Fuente operativa seleccionada para el siguiente incremento: EODHD, reutilizando 
 
 # 9. FASE 9 — AUDITORÍA END-TO-END / PRE-CIERRE V1
 
-Job vigente:
+Estado: **CLOSED · TECHNICAL_V1_PRECLOSE_PASS**.
 
-`Fase 9 · auditoría end-to-end V1 · pre-cierre técnico`
+La ejecución consolidada del 2026-09-20 pasó completa y el job quedó archivado/read-only. No debe relanzarse salvo bug o regresión reproducible.
 
-Objetivo: una sola ejecución rápida que consolida todo lo comprobable hoy, sin replay largo, sin APIs externas y sin abrir outcomes prospectivos.
+Resultado final:
+
+`PHASE9_END_TO_END_PRECLOSE_RESULT`
+
+con:
+
+- `status = TECHNICAL_V1_PRECLOSE_PASS`;
+- producción `LEGACY`;
+- `CORE_ARCHITECTURE_V1`;
+- sin motores productivos paralelos;
+- sin replay largo;
+- sin APIs externas;
+- TypeScript PASS.
 
 Incluye:
 
@@ -567,17 +579,13 @@ Incluye:
 
 Primera ejecución F9 del 2026-09-20: todos los guards funcionales, replay, cash, fiscalidad y PIT pasaron hasta `Guard runtime validación`. Ese único fallo fue un falso negativo del test legado `researchValidationRuntime.unit.ts`, que todavía buscaba el antiguo job `forward-risk-v6`. Se actualizó el guard a los jobs vigentes F6 R2/F7/F9 y se movió al primer paso del job para fail-fast.
 
-El resultado esperado no fingirá que F6/F7/F8 han madurado. Si todo lo técnico pasa, el estado será:
-
-`TECHNICAL_V1_PRECLOSE_PASS`
-
-y quedarán únicamente tres carriles externos/calendario:
+El pre-cierre técnico no finge que F6/F7/F8 hayan madurado. Tras el PASS quedan únicamente tres carriles externos/calendario:
 
 1. F6 R2 future-forward;
 2. F7 QUALITY future-forward;
 3. población REAL del master PIT de F8.
 
-Ninguno de esos tres justifica seguir retocando código cada pocos minutos.
+Ninguno de esos tres justifica seguir retocando código cada pocos minutos. Fase 9 queda cerrada y fuera de la superficie CURRENT del Centro de validación.
 
 ---
 
