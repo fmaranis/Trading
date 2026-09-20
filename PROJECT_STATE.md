@@ -364,7 +364,7 @@ Archivos nuevos R2:
 - `scripts/phase6ForwardRiskContextStageAR2CollectorLive.ts`;
 - `tests/phase6ForwardRiskContextStageAR2.unit.ts`.
 
-Tras PASS completo de seal/readiness, el collector R2 quedó **activado detrás de token durable, guards y TypeScript**, sin modificar ninguno de los 18 archivos metodológicos sellados. El job vigente es ahora:
+Tras PASS completo de seal/readiness, el collector R2 quedó **activado detrás de token durable, guards y TypeScript**, sin modificar ninguno de los 18 archivos metodológicos sellados. El readiness post-seal se ajustó para validar precisamente ese estado activado; el fallo `R2_COLLECTOR_WIRED_BEFORE_SEAL` fue un falso negativo del guard antiguo y ocurrió antes de cualquier acceso de mercado. El job vigente es ahora:
 
 `Fase 6 · Forward Risk V8 como contexto · R2 collector`
 
@@ -393,7 +393,7 @@ Corrección pre-open registrada el 2026-09-20: el primer JSON del seal omitió d
 - mismos activos, threshold, outcome, reach y predictive gates;
 - regla exacta de successor-session materialization.
 
-El guard verifica además que V5/V7/V4 mantienen la semántica histórica de `executionDate`, que macro/opciones/gate siguen cortados en `informationDate`, que V5/V7 deben materializar el punto exacto y que el collector R2 todavía NO está cableado al job.
+El guard verifica además que V5/V7/V4 mantienen la semántica histórica de `executionDate`, que macro/opciones/gate siguen cortados en `informationDate`, que V5/V7 deben materializar el punto exacto y, tras la activación pre-open, que el collector R2 está cableado únicamente detrás de token durable, guards y TypeScript, sin evaluator de outcomes.
 
 ### Siguiente paso exacto
 
