@@ -51,6 +51,7 @@ export type HistoricalInstrumentDateStatus =
   | 'NOT_YET_LISTED'
   | 'DELISTED'
   | 'AFTER_EVIDENCE_HORIZON'
+  | 'NO_ACTIVE_ALIAS'
   | 'UNVERIFIED_POINT_IN_TIME'
   | 'IDENTITY_NOT_FOUND';
 
@@ -155,6 +156,7 @@ export function historicalInstrumentStatusAtDate(
   if (date > record.evidenceAsOfDate) return 'AFTER_EVIDENCE_HORIZON';
   if (record.listingDate && date < record.listingDate) return 'NOT_YET_LISTED';
   if (record.delistingDate && date > record.delistingDate) return 'DELISTED';
+  if (historicalTickerAtDate(record, date) == null) return 'NO_ACTIVE_ALIAS';
   return 'TRADABLE_VERIFIED';
 }
 
@@ -246,4 +248,32 @@ export function historicalCatalogAtDate(
     });
     return historicalInstrumentStatusAtDate(master, record, date) === 'TRADABLE_VERIFIED';
   });
+}
+
+
+export function historicalTradableRecordsAtDate(
+  master: HistoricalInstrumentMaster,
+  date: string
+): HistoricalInstrumentRecord[] {
+  validateHistoricalInstrumentMaster(master);
+  if (master.coverage === 'CURRENT_REFERENCE_ONLY') {
+    throw new Error('HISTORICAL_INSTRUMENT_MASTER_CURRENT_REFERENCE_HAS_NO_HISTORICAL_TRADABLE_SET');
+  }
+  return master.records.filter(record => historicalInstrumentStatusAtDate(master, record, date) === 'TRADABLE_VERIFIED');
+}
+
+export function historicalMasterMissingFromCatalogAtDate(
+  master: HistoricalInstrumentMaster,
+  catalog: AssetUniverseItem[],
+  date: string
+): string[] {
+  const tradable = historicalTradableRecordsAtDate(master, date);
+  return tradable
+    .filter(record => !catalog.some(item => resolveHistoricalInstrumentRecord(master, {
+      assetId: item.assetId,
+      isin: item.isin ?? null,
+      ticker: item.ticker
+    })?.canonicalInstrumentId === record.canonicalInstrumentId))
+    .map(record => record.canonicalInstrumentId)
+    .sort();
 }
