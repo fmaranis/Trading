@@ -497,7 +497,7 @@ Job:
 
 `Fase 8 · universo histórico PIT · cierre estructural`
 
-Comprueba contrato, dedupe ISIN, ticker changes, listing/delisting, horizonte de evidencia, bloqueo del catálogo current y la integración en el replay causal. No consulta mercado ni ejecuta replay largo.
+Comprueba contrato, dedupe ISIN, ticker changes, listing/delisting, horizonte de evidencia, bloqueo del catálogo current y la integración en el replay causal. Después de guards + TypeScript ejecuta un inventario live ligero de EODHD para los mercados EUR primarios, consultando listas activas y `delisted=1`. No lanza replay largo y ese inventario no se promociona automáticamente a PIT.
 
 Documento:
 
@@ -514,7 +514,7 @@ Falta incorporar una fuente histórica suficientemente completa que aporte altas
 - survivorship permanece limitación explícita;
 - no inventar listing dates a partir de precios.
 
-Siguiente paso después del PASS estructural: seleccionar/adaptar una fuente histórica de instrumentos y poblar el master sin modificar la arquitectura del replay.
+Fuente operativa seleccionada para el siguiente incremento: EODHD, reutilizando `EODHD_API_KEY` ya soportada por el backend. La Exchange Symbols API aporta activos activos/delistados e ISIN cuando existe; Fundamentals aporta `IPODate`/estado y fecha de delisting para acciones e `Inception_Date` para ETF/fondos. Debido a que el historial de cambios de ticker no es exhaustivo para todos los mercados europeos, EODHD puede poblar `PARTIAL_POINT_IN_TIME` de forma rigurosa, pero no se declarará `COMPLETE_POINT_IN_TIME` sin cobertura adicional verificada.
 
 
 ---
