@@ -194,9 +194,11 @@ const JOBS: JobDefinition[] = [
   ),
   {
     id: 'phase6-forward-risk-context-stage-a-r2-readiness',
-    name: 'Fase 6 · Forward Risk V8 como contexto · R2 readiness',
-    description: 'Preregistro fresh R2 desde 2026-09-21. Conserva activos, V8, threshold 80, outcome 63 sesiones, reach y gates; corrige sólo la materialización técnica con una sesión sucesora REAL usada exclusivamente para executionDate. Ejecuta sólo guards y TypeScript: no abre R2 ni consulta mercado.',
+    name: 'Fase 6 · Forward Risk V8 como contexto · R2 collector',
+    description: 'Stage A R2 fresh desde 2026-09-21. Ejecuta seal/readiness, arquitectura, PortfolioCandidateGate, paridad, superficie y TypeScript; sólo si todo pasa abre/continúa la muestra R2, persiste OPENED_COLLECTING antes del primer acceso a mercado y registra señal/contexto REAL causal. La sesión sucesora sólo materializa executionDate; no lee outcomes de 63 sesiones, no ejecuta órdenes y producción permanece LEGACY.',
+    marker: 'PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_COLLECTOR_RESULT',
     visibility: 'CURRENT',
+    requiresGithubReplayToken: true,
     steps: [
       { label: 'Guard seal R2 Fase 6', command: 'npx', args: ['tsx', 'tests/phase6ForwardRiskContextStageAR2Seal.unit.ts'] },
       { label: 'Guard R2 Fase 6', command: 'npx', args: ['tsx', 'tests/phase6ForwardRiskContextStageAR2.unit.ts'] },
@@ -204,7 +206,8 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
       { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
       { label: 'Guard superficie productiva', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Collector prospectivo REAL R2', command: 'npx', args: ['tsx', 'scripts/phase6ForwardRiskContextStageAR2CollectorLive.ts'] }
     ]
   },
   {
