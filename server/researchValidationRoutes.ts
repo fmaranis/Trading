@@ -225,6 +225,7 @@ const JOBS: JobDefinition[] = [
     marker: 'PHASE9_END_TO_END_PRECLOSE_RESULT',
     visibility: 'CURRENT',
     steps: [
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
       { label: 'Guard paridad replay/producto', command: 'npx', args: ['tsx', 'tests/decisionArchitectureParity.unit.ts'] },
@@ -243,7 +244,6 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard cash histórico BCE', command: 'npx', args: ['tsx', 'tests/cashRemuneration.unit.ts'] },
       { label: 'Guard fiscalidad cash', command: 'npx', args: ['tsx', 'tests/cashInterestTax.unit.ts'] },
       { label: 'Guard universo histórico PIT', command: 'npx', args: ['tsx', 'tests/historicalInstrumentMaster.unit.ts'] },
-      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Resumen pre-cierre V1', command: 'npx', args: ['tsx', 'tests/phase9EndToEndPreclose.unit.ts'] }
     ]
