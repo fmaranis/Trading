@@ -112,7 +112,7 @@ Los trabajos consumidos pasan a `ARCHIVED / READ_ONLY` y no se relanzan como si 
 | F3 protocolo económico | DONE / FROZEN | gobierna F4–F6 |
 | F4 reentrada | CLOSED / INCONCLUSIVE REACH | no R4 reactivo |
 | F5 protección ganadores | CLOSED / CONFIRMATION FAIL | no promoción/retune |
-| **F6 Forward Risk contexto** | **STAGE A FROZEN + SEALED PRE-OPEN / NOT OPENED** | **static seal/readiness PASS antes de habilitar collector REAL** |
+| **F6 Forward Risk contexto** | **V1 CONSUMED TECH FAIL · R2 OPENED/COLLECTING** | **esperar sesiones maduras; no tocar metodología** |
 | F7 QUALITY future-forward | WAITING/COLLECTING | maduración calendario |
 | F8 universo PIT histórico | ARCHITECTURE IMPLEMENTED / DATA COVERAGE PENDING | poblar master histórico REAL/STATIC_REFERENCE |
 | F9 auditoría end-to-end | PENDING | cerrar carriles previos |
@@ -274,22 +274,13 @@ El seal fingerprinta 20 archivos críticos y comprueba además:
 
 Estado:
 
-**FROZEN / SEALED FOR STATIC VALIDATION / NOT OPENED / NO MARKET OUTCOMES OPENED.**
+**R2 OPENED / COLLECTING / NO OUTCOMES OPENED.**
 
-El job visible sigue siendo:
+El job visible vigente es:
 
-`Fase 6 · Forward Risk V8 como contexto · readiness`.
+`Fase 6 · Forward Risk V8 como contexto · R2 collector`.
 
-Su test principal importa primero el seal guard. Por tanto la siguiente ejecución estática debe mostrar:
-
-1. `PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_SEAL_PASS`;
-2. `PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_FREEZE_PASS`;
-3. arquitectura/gate/paridad/superficie PASS;
-4. TypeScript PASS.
-
-Ese job **no ejecuta** `scripts/phase6ForwardRiskContextStageACollectorLive.ts` y no consume Stage A.
-
-Sólo después de ese PASS se hará un cambio posterior para habilitar el collector REAL con `GITHUB_REPLAY_SYNC_TOKEN`.
+R2 ya fue abierta durablemente el 2026-09-20 con `observationCount=0` y `outcomeAccessed=false`. No requiere más actividad hasta que exista una sesión sucesora cerrada que permita materializar la primera observación desde 2026-09-21.
 
 ---
 
