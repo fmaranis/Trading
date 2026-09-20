@@ -565,6 +565,8 @@ Incluye:
 - TypeScript;
 - resumen de cierre.
 
+Primera ejecución F9 del 2026-09-20: todos los guards funcionales, replay, cash, fiscalidad y PIT pasaron hasta `Guard runtime validación`. Ese único fallo fue un falso negativo del test legado `researchValidationRuntime.unit.ts`, que todavía buscaba el antiguo job `forward-risk-v6`. Se actualizó el guard a los jobs vigentes F6 R2/F7/F9 y se movió al primer paso del job para fail-fast.
+
 El resultado esperado no fingirá que F6/F7/F8 han madurado. Si todo lo técnico pasa, el estado será:
 
 `TECHNICAL_V1_PRECLOSE_PASS`
