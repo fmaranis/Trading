@@ -609,7 +609,53 @@ No reabrir ahora:
 
 ---
 
-# 11. CRITERIO DE CIERRE V1
+# 12. OPPORTUNITY ALPHA RESEARCH — DIAGNÓSTICO 2026-09-24
+
+Documento canónico:
+
+- `docs/OPPORTUNITY_ALPHA_RESEARCH_2026-09-24.md`.
+
+Resultado retenido del replay mixto 2021-01-04 -> 2024-01-03:
+
+- motor: 27.886,51 EUR / +21,25% / max DD 25,81%;
+- exact hold: 26.712,01 EUR / +16,14%;
+- structural core: 31.585,57 EUR / +37,33% / max DD 16,90%;
+- la lógica de salida mejoró frente a mantener la cesta mala, pero no batió al core.
+
+Contrafactuales realizados **sin modificar producción**:
+
+1. `EXIT/REDUCE -> mejor oportunidad válida inmediata`: 15 episodios evaluables, 9/15 batieron al core a ~6 meses, pero sólo ~+38,5 EUR de exceso ponderado sobre ~7.515 EUR desviados (~+0,51%) antes de costes/fiscalidad. **ARCHIVED / NO IMPLEMENTATION**.
+2. reentrada simple del mismo activo cuando vuelve a `ENTRY_READY`: resultados mixtos y no robustos. **ARCHIVED / NO IMPLEMENTATION**.
+3. filtro retrospectivo por régimen: aparente mejora en muestra consumida pero contradicha por replay independiente. **ARCHIVED / NO IMPLEMENTATION**.
+
+Conclusión obligatoria:
+
+> El siguiente problema no es liberar más capital del core. Es identificar causalmente qué oportunidad tiene una probabilidad razonable de **batir al structural core**, no sólo de superar cash o mostrar momentum absoluto.
+
+Nueva línea research-only, todavía **sin implementación**:
+
+- `CORE_RELATIVE_LEADERSHIP_RESEARCH_V1`: relative strength/momentum frente al core + calidad de tendencia + proximidad a máximos + fundamentales causales cuando existan;
+- `OWNERSHIP_CONFIRMATION_RESEARCH_V1`: sponsorship institucional/insider como contexto, usando filings oficiales y sus timestamps causales.
+
+Familias de referencia a estudiar y traducir a features cuantificables:
+
+- William O'Neil / CAN SLIM;
+- Mark Minervini / SEPA, Trend Template, VCP;
+- Stan Weinstein / Stage Analysis;
+- momentum/trend following académico.
+
+Smart-money / ownership:
+
+- 13F: sólo contexto lento; trimestral y con hasta 45 días de retraso;
+- Form 4: insider transactions generalmente dentro de 2 business days;
+- EU MAR/PDMR: transacciones notificadas normalmente dentro de 3 working days;
+- agregadores sólo como discovery/conveniencia; fuente canónica preferida = filing oficial.
+
+No tocar `LEGACY`, allocator ni core hasta que una feature/policy nueva tenga evidencia fresh/blind y confirmación independiente.
+
+---
+
+# 13. CRITERIO DE CIERRE V1
 
 V1 puede cerrarse integralmente cuando estén suficientemente cerrados:
 
