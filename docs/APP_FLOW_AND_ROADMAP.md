@@ -1,7 +1,7 @@
 # APP TRADING — FLUJO MAESTRO Y ROADMAP DE CIERRE
 
 Estado: **CANÓNICO PARA ORGANIZACIÓN DEL TRABAJO**  
-Actualizado: **2026-09-20**  
+Actualizado: **2026-09-24**  
 Repositorio: `fmaranis/Trading`  
 Rama: `main`
 
@@ -379,3 +379,34 @@ No:
 - leer outcomes F6 durante collection;
 - utilizar current discovery para reconstrucción histórica;
 - crear motores/recomendaciones productivas paralelas.
+
+---
+
+# 13. Opportunity alpha research — siguiente expansión V2
+
+Diagnóstico archivado:
+
+`docs/OPPORTUNITY_ALPHA_RESEARCH_2026-09-24.md`
+
+No se implementa ninguna policy nueva todavía.
+
+Hallazgo principal:
+
+- reciclar inmediatamente proceeds de EXIT/REDUCE hacia la mejor oportunidad vigente mostró reach, pero ventaja económica demasiado pequeña e inestable frente al core;
+- reentrada simple y filtros de régimen retrospectivos tampoco justifican implementación;
+- el hurdle correcto para una oportunidad es el **structural core**, no únicamente cash.
+
+Dos líneas de investigación quedan abiertas:
+
+1. `CORE_RELATIVE_LEADERSHIP_RESEARCH_V1`: momentum/relative strength frente al core, calidad de tendencia, stage/leadership y fundamentales causales;
+2. `OWNERSHIP_CONFIRMATION_RESEARCH_V1`: 13F lento como sponsorship, Form 4 / PDMR como insider confirmation causal.
+
+Fuentes/metodologías de referencia:
+
+- O'Neil / CAN SLIM;
+- Minervini / SEPA + Trend Template + VCP;
+- Weinstein / Stage Analysis;
+- literatura académica de momentum/trend following;
+- filings oficiales SEC / EU MAR para ownership.
+
+Regla de continuidad: primero diagnóstico offline y feature separation; después freeze; sólo entonces fresh/blind validation. Ninguna de estas ideas tiene autoridad productiva.
