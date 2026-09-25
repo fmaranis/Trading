@@ -283,3 +283,58 @@ Interpretation:
 - simple absolute trend quality, Stage-2-like structure, or stronger timing labels do not robustly identify candidates that will beat the structural core;
 - do not retune moving-average/trend thresholds on these consumed observations;
 - the next materially different research direction is an orthogonal information source: fundamentals and/or timestamped ownership/insider evidence, evaluated offline before any product integration.
+
+## 12. OWNERSHIP / INSIDER diagnostic — first offline result (2026-09-25)
+
+No production code was changed.
+
+SEC Form 4 evidence was checked for the U.S. names in/around the consumed sample.
+
+Key findings:
+
+- NVIDIA 2021 CEO filing inspected: acquisition shown was an award/RSU-style transaction, not an open-market purchase;
+- AMD 2021 CEO filing inspected: option exercise plus open-market sales under a 10b5-1 plan, not discretionary open-market buying;
+- Tesla 2021 CEO filing inspected: option exercise plus sales, not discretionary open-market buying;
+- Carvana produced genuine open-market insider purchases (code P) during the 2022 collapse, including 300,000 shares by the CEO at $80 plus an additional 850,000 shares through a trust, later purchases around $21.85, $10 and $7.62.
+
+Interpretation:
+
+- open-market insider buying cannot be a hard opportunity gate: it would miss strong winners that do not show discretionary insider buying, while Carvana demonstrates that insiders can buy materially too early during a severe decline;
+- ownership/insider data may remain useful as contextual/contrarian evidence or as a cluster-strength feature, but not as a direct BUY authorization.
+
+Decision:
+
+**HARD INSIDER-BUY GATE ARCHIVED / NO IMPLEMENTATION.**
+
+## 13. FUNDAMENTAL_PROFITABILITY_GUARD — promising diagnostic, not validated
+
+A simple pre-entry profitability split was evaluated on the consumed 2021-2024 mixed-stock basket using only financial information available before entry.
+
+Clearly loss-making / negative operating-profitability names at the start included:
+
+- Carvana: 2020 net loss before tax about $462.5m;
+- Delivery Hero: 2020 adjusted EBITDA negative (segments about -EUR567.7m);
+- Siemens Energy: FY2020 adjusted EBITA before special items about -EUR17m and adjusted EBITA about -EUR1.543bn.
+
+Those three 1,000 EUR starting positions produced approximately **-550.5 EUR net** combined in the replay.
+
+The remaining seven individual-stock positions, all with positive operating profitability / EBITDA-type measures before entry, produced approximately **+1,438.6 EUR net** combined.
+
+A rough counterfactual that reallocates only those excluded 3,000 EUR to the structural core for the same full window would improve terminal wealth by about **+1,670 EUR**, lifting the replay's approximate terminal return from +21.25% to about **+28.5%**. This is diagnostic only: it does not rerun all portfolio interactions, taxes and later sizing decisions.
+
+Additional observations:
+
+- requiring high revenue growth would not help: it would remove Rheinmetall, the best winner, while retaining several later losers;
+- among already-profitable mature candidates, profitability alone does not identify the future winner; its apparent value is mainly **tail-risk exclusion**, not ranking;
+- this direction is consistent with the established academic profitability premium (e.g. Novy-Marx; Fama/French RMW), but project-level promotion still requires broader causal validation.
+
+Status:
+
+**PROMISING_DIAGNOSTIC / NO IMPLEMENTATION YET.**
+
+Next test:
+
+- broaden the sample beyond the known 10-stock basket;
+- keep the rule literature-derived and simple (positive operating profitability / robust profitability), not tuned to this basket;
+- compare filtered vs unfiltered opportunity outcomes against the structural core;
+- if the effect survives, freeze a research-only guard before any fresh/blind validation.
