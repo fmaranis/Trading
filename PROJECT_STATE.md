@@ -664,6 +664,17 @@ Actualización 2026-09-25 — `CORE_RELATIVE_LEADERSHIP_RESEARCH_V1` simple:
 
 Siguiente línea materialmente distinta: fundamentales causales y/o ownership/insider timestamped como señal ortogonal, siempre offline primero.
 
+Actualización 2026-09-25 — ownership/fundamentals offline:
+
+- insider buying como gate duro: **ARCHIVED / NO IMPLEMENTATION**. Form 4 de NVIDIA/AMD/Tesla muestra que grandes ganadores pueden no tener compra discrecional abierta, mientras Carvana tuvo compras `P` importantes durante su desplome de 2022; útil como contexto, no como autorización directa;
+- `FUNDAMENTAL_PROFITABILITY_GUARD`: **PROMISING_DIAGNOSTIC / NO IMPLEMENTATION YET**;
+- en la cesta consumida 2021-2024, Carvana + Delivery Hero + Siemens Energy eran claramente deficitarias operacionalmente al inicio y las tres posiciones sumaron aprox. -550,5 EUR netos;
+- las otras siete acciones con rentabilidad operativa positiva sumaron aprox. +1.438,6 EUR netos;
+- contrafactual simple de mandar esos 3.000 EUR excluidos al structural core: mejora terminal aproximada +1.670 EUR y retorno aproximado ~+28,5% vs +21,25% baseline, todavía por debajo del core puro +37,33%;
+- no usar crecimiento de ventas como gate adicional: excluiría Rheinmetall y retendría varios perdedores;
+- la hipótesis útil es `profitability as tail-risk guard`, no `profitability as winner ranking`;
+- siguiente paso: ampliar muestra y contrastar contra core antes de congelar cualquier research-only guard.
+
 ---
 
 # 13. CRITERIO DE CIERRE V1
