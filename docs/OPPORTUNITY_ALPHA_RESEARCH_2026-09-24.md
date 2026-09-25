@@ -252,3 +252,34 @@ Do **not** implement a new allocator first.
 - do not promote chart-pattern rules because they worked on known winners;
 - do not create a parallel recommendation engine.
 
+
+## 11. CORE_RELATIVE_LEADERSHIP_RESEARCH_V1 — offline diagnostic result (2026-09-25)
+
+No production code was changed.
+
+Simple literature-inspired trend/leadership proxies were evaluated offline against the already-consumed opportunity-routing diagnostic set.
+
+Diagnostic set:
+
+- 15 evaluable opportunity-routing episodes with six-month excess return versus the contemporaneous structural core;
+- baseline mean excess of the whole evaluable set: approximately +1.43 pp;
+- baseline routing itself was previously rejected because weighted economic improvement was only about +0.51% before incremental costs/tax and dispersion was large.
+
+Results:
+
+- positive 20d + positive 60d trend slopes: 8 observations, mean excess -3.11 pp, median -3.76 pp, only 37.5% beat the core;
+- HEALTHY_UPTREND plus positive 20d/60d slopes: same effective subset and same negative result;
+- ENTRY_STRONG plus positive 20d/60d slopes: 4 observations, mean excess -4.50 pp, only 25% beat the core;
+- positive 20d + positive 60d + positive acceleration (simple strict-trend proxy): 4 observations, mean excess +1.53 pp, median +6.04 pp, 75% beat the core, but this improves the full-set mean by only about +0.10 pp and still contains an approximately -20.92 pp loser.
+
+Independent stored replay cross-checks did not justify promotion either. Strong/trend-selected initial non-core positions were somewhat positive in 2019-2020 and 2024-2025, but samples were tiny and the rule did not consistently improve selection within the 2021-2022 rotation episodes.
+
+Decision:
+
+**ARCHIVED / NO IMPLEMENTATION.**
+
+Interpretation:
+
+- simple absolute trend quality, Stage-2-like structure, or stronger timing labels do not robustly identify candidates that will beat the structural core;
+- do not retune moving-average/trend thresholds on these consumed observations;
+- the next materially different research direction is an orthogonal information source: fundamentals and/or timestamped ownership/insider evidence, evaluated offline before any product integration.
