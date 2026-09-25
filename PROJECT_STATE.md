@@ -653,6 +653,17 @@ Smart-money / ownership:
 
 No tocar `LEGACY`, allocator ni core hasta que una feature/policy nueva tenga evidencia fresh/blind y confirmación independiente.
 
+Actualización 2026-09-25 — `CORE_RELATIVE_LEADERSHIP_RESEARCH_V1` simple:
+
+- 15 episodios evaluables de routing con outcome a ~6 meses contra structural core;
+- slopes 20d/60d positivos: media -3,11 pp vs core, mediana -3,76 pp, 37,5% winners;
+- `ENTRY_STRONG` + slopes 20d/60d positivos: media -4,50 pp, 25% winners;
+- slopes 20d/60d + aceleración positiva: media +1,53 pp vs baseline del conjunto +1,43 pp; mejora sólo ~+0,10 pp y mantiene un caso ≈ -20,92 pp;
+- cross-check 2019-2020 / 2024-2025 no aporta evidencia suficiente por tamaño pequeño e inconsistencia con los episodios de rotación;
+- **ARCHIVED / NO IMPLEMENTATION**. No retunear medias/slopes sobre estas observaciones consumidas.
+
+Siguiente línea materialmente distinta: fundamentales causales y/o ownership/insider timestamped como señal ortogonal, siempre offline primero.
+
 ---
 
 # 13. CRITERIO DE CIERRE V1
