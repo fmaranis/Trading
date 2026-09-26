@@ -675,6 +675,16 @@ Actualización 2026-09-25 — ownership/fundamentals offline:
 - la hipótesis útil es `profitability as tail-risk guard`, no `profitability as winner ranking`;
 - siguiente paso: ampliar muestra y contrastar contra core antes de congelar cualquier research-only guard.
 
+Actualización 2026-09-26 — validación externa fija:
+
+- muestra: Top 20 performers Nasdaq-100 2020 publicada por Nasdaq; 17/20 con par exacto de precios 2021-05-03 -> 2022-05-03 disponible en la fuente usada;
+- regla sin tuning: último FY publicado con operating income > 0;
+- 13 rentables: retorno medio -11,27%, exceso medio vs QQQ -6,11 pp, 46,2% batieron QQQ;
+- 4 no rentables: retorno medio -31,69%, exceso medio vs QQQ -26,52 pp, 25% batieron QQQ;
+- filtro mejora la media equal-weight de -16,08% a -11,27% (~+4,80 pp), pero QQQ hizo aprox. -5,17%;
+- conclusión: confirma valor como **guard de calidad/tail-risk**, pero no crea alpha suficiente frente al core;
+- estado: `PROMISING QUALITY GUARD / NO IMPLEMENTATION YET`; siguiente investigación debe discriminar entre compañías ya rentables con una señal ortogonal y mantener el core como hurdle.
+
 ---
 
 # 13. CRITERIO DE CIERRE V1
