@@ -375,3 +375,53 @@ Next research question:
 
 - combine the profitability guard with a genuinely orthogonal ranking feature that can discriminate among already-profitable companies (for example robust profitability/quality, cash-flow quality, valuation-aware quality, or fundamental acceleration), while continuing to compare every candidate against the structural core;
 - do not add arbitrary thresholds based on this consumed sample.
+
+## 15. FUNDAMENTAL_QUALITY_ALPHA — external factor evidence (2026-09-26)
+
+No production code was changed.
+
+A materially different quality concept was separated from the project's historical `QUALITY_V1`. The archived project bridge used internal `reliability` and `opportunity` scores. The new research family is **corporate fundamental quality**.
+
+Reference methodology:
+
+- MSCI World Quality ranks securities using high ROE, low Debt/Equity and low five-year year-over-year EPS-growth variability;
+- AQR QMJ uses a broader quality family based on profitability, growth, safety and payout.
+
+External benchmark evidence:
+
+- MSCI World Quality annualized gross return since 1994 through 2026: about **12.02%** versus **9.01%** for MSCI World, approximately **+3.01 pp/year**;
+- 10-year annualized return: **14.74%** vs **13.29%**;
+- 10-year Sharpe: **0.83** vs **0.76**;
+- historical maximum drawdown: **48.01%** vs **57.46%** for MSCI World;
+- in published annual returns 2012-2025, Quality beat World in **9/14** calendar years with mean annual excess about **+1.92 pp**;
+- using only full post-launch calendar years 2014-2025, Quality compounded at about **13.11% CAGR** versus **10.97%** for World.
+
+Momentum cross-check:
+
+- MSCI World Momentum annualized since 1994: about **11.92%** versus **9.01%** for World;
+- 10-year annualized: **15.16%** vs **13.29%**;
+- however, project diagnostics showed simple momentum/trend filters did not robustly improve opportunity selection, so momentum should remain an entry/timing or secondary ranking input rather than the primary alpha source.
+
+Simple external Quality+Momentum diversification check:
+
+- a deterministic 50/50 annual-rebalanced blend of published MSCI World Quality and MSCI World Momentum annual calendar returns for 2014-2025 compounds at about **13.03% CAGR** versus **10.97%** for MSCI World;
+- 10,000 units would grow to roughly **43,478** versus **34,888** for World before fees/tax;
+- the blend does not dominate every subperiod: 2021-2024 it slightly lagged World, while Quality alone still beat World over those calendar years.
+
+Multi-factor caution:
+
+- adding factors indiscriminately is not enough: the S&P 500 Quality/Value/Momentum Top-90% index shows only a small 10-year price-return edge (13.65% annualized vs 13.48% for S&P 500 as of 2026-08-31);
+- therefore the next project hypothesis should not be 'add value/momentum coefficients until performance improves'.
+
+Retained hypothesis:
+
+**FUNDAMENTAL_QUALITY_SCORE_RESEARCH_V1 = PROMISING EXTERNAL ALPHA FAMILY / NOT YET PROJECT-VALIDATED.**
+
+Proposed offline project translation:
+
+1. keep the already promising positive-operating-profitability guard;
+2. among profitable candidates, rank **corporate quality** using causal fundamentals patterned after MSCI: ROE high, Debt/Equity low, earnings variability low;
+3. use the existing price/timing engine only for entry timing and execution, not as the source of quality alpha;
+4. compare each candidate's subsequent return directly against the structural core;
+5. do not tune weights on the consumed 2021-2024 basket; first use literature-defined equal standardized descriptors or an externally defined methodology;
+6. only after offline separation is demonstrated freeze a research-only version for fresh/blind confirmation.
