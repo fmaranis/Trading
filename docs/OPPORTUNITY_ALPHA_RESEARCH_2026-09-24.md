@@ -338,3 +338,40 @@ Next test:
 - keep the rule literature-derived and simple (positive operating profitability / robust profitability), not tuned to this basket;
 - compare filtered vs unfiltered opportunity outcomes against the structural core;
 - if the effect survives, freeze a research-only guard before any fresh/blind validation.
+
+## 14. FUNDAMENTAL_PROFITABILITY_GUARD — external fixed-sample validation (2026-09-26)
+
+No production code was changed.
+
+To reduce cherry-picking risk, the profitability hypothesis was tested on an external fixed sample: Nasdaq's published top 20 Nasdaq-100 price performers for calendar 2020 (source list fixed as of 2020-12-31). The test date was 2021-05-03, after the relevant FY2020/FY2021 annual reports were publicly available, with outcome measured to 2022-05-03. QQQ over the same dates was used as market/core proxy for this external diagnostic.
+
+Exact price pairs were obtained for 17 of the 20 names. Three names (PDD, OKTA, TEAM) were excluded from the numerical aggregate because an exact matched price pair was not available from the chosen price source during this run; they were not removed based on outcome.
+
+Profitability definition:
+
+- simple, literature-derived guard: latest published full-year operating income > 0 using GAAP/IFRS reported operating result;
+- no margin threshold, growth threshold, or retrospective tuning.
+
+Results for the 17 exactly evaluable names:
+
+- profitable group: 13 names; mean 12-month return **-11.27%**; median **-19.28%**; mean excess vs QQQ **-6.11 pp**; 46.2% beat QQQ;
+- unprofitable group: 4 names; mean 12-month return **-31.69%**; median **-41.10%**; mean excess vs QQQ **-26.52 pp**; 25% beat QQQ;
+- all 17 names equal-weighted: mean return **-16.08%**;
+- applying the simple profitability guard raises the equal-weight mean by about **+4.80 pp** (-16.08% -> -11.27%);
+- QQQ itself returned approximately **-5.17%**, so the filtered profitable basket still underperformed the market/core proxy by about **-6.11 pp** on average.
+
+Interpretation:
+
+- the result supports the earlier finding that operating profitability is useful primarily as a **tail-risk / quality guard**;
+- it materially separates the loss-making group from the profitable group in this external, non-hand-picked leader sample;
+- however, it does **not** create positive alpha versus the core: profitable leaders still underperformed QQQ on average;
+- therefore positive operating profitability is not sufficient as an opportunity-selection strategy or core-replacement rule.
+
+Status:
+
+**RETAIN AS PROMISING QUALITY GUARD / NOT SUFFICIENT FOR IMPLEMENTATION OR PROMOTION.**
+
+Next research question:
+
+- combine the profitability guard with a genuinely orthogonal ranking feature that can discriminate among already-profitable companies (for example robust profitability/quality, cash-flow quality, valuation-aware quality, or fundamental acceleration), while continuing to compare every candidate against the structural core;
+- do not add arbitrary thresholds based on this consumed sample.
