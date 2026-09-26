@@ -425,3 +425,63 @@ Proposed offline project translation:
 4. compare each candidate's subsequent return directly against the structural core;
 5. do not tune weights on the consumed 2021-2024 basket; first use literature-defined equal standardized descriptors or an externally defined methodology;
 6. only after offline separation is demonstrated freeze a research-only version for fresh/blind confirmation.
+
+
+## 16. FUNDAMENTAL_QUALITY_SCORE_RESEARCH_V1 — broad external live validation (2026-09-26)
+
+No production code was changed.
+
+The broad-validation question was deliberately narrower than a product backtest:
+
+> Does the same three-descriptor corporate-quality family (high ROE, low leverage, low earnings variability) show a repeatable post-launch advantage across broad live equity universes, or was the encouraging small-sample result likely an isolated accident?
+
+Methodology discipline:
+
+- no score weights or thresholds were changed after observing project samples;
+- only full calendar years after each index launch were used for the primary comparison, avoiding pre-launch back-tested history;
+- parent-index returns from the same MSCI factsheet were used as the contemporaneous market comparison;
+- the attempt to reconstruct a large 2021 point-in-time stock-level panel was not accepted when candidate public fundamental sources could contain later restatements/reported comparatives; coverage was sacrificed rather than introduce lookahead;
+- AQR QMJ is used only as independent evidence for the broader quality family, because its definition is broader than the exact MSCI three-descriptor score.
+
+Live/post-launch broad results from published annual returns:
+
+| Universe | Actual calendar years used | Quality CAGR | Parent CAGR | CAGR delta | Years Quality beat parent |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| MSCI USA Quality | 2013-2025 | 16.17% | 14.85% | +1.31 pp/yr | 8/13 |
+| MSCI World Quality | 2013-2025 | 14.17% | 12.16% | +2.02 pp/yr | 9/13 |
+| MSCI Europe Quality | 2013-2025 | 8.62% | 8.23% | +0.39 pp/yr | 7/13 |
+| MSCI World ex USA Quality | 2015-2025 | 7.62% | 7.44% | +0.18 pp/yr | 7/11 |
+| MSCI USA Sector Neutral Quality | 2015-2025 | 12.97% | 13.50% | -0.52 pp/yr | 5/11 |
+
+The 2021-2024 subperiod is also non-uniform:
+
+- USA Quality: about +0.73 pp/year CAGR versus parent;
+- World Quality: about +1.16 pp/year;
+- Europe Quality: about -2.31 pp/year;
+- World ex USA Quality: about -2.25 pp/year;
+- USA Sector Neutral Quality: approximately flat versus parent (+0.03 pp/year).
+
+Independent literature cross-check:
+
+- AQR's Quality Minus Junk evidence reports significant historical risk-adjusted returns in the U.S. and internationally, but its score combines profitability, growth, safety and payout and therefore does not validate the exact project formula by itself.
+
+Interpretation:
+
+1. the encouraging project-small-sample result is **not isolated from the broader empirical quality family**;
+2. the exact MSCI-style three-descriptor family has meaningful live evidence in USA and World after launch;
+3. the effect is **not universal**: recent Europe/ex-USA edges are small or negative over relevant subperiods;
+4. the USA sector-neutral version lagged its parent over 2015-2025, so the observed broad-index alpha cannot be assumed to be pure within-sector stock-ranking alpha; sector and concentration exposures may contribute materially;
+5. therefore the correct retained claim is not "QUALITY always generates alpha", but that fundamental quality is a credible, externally supported candidate discriminator that still needs project-specific causal validation against the structural core.
+
+Status:
+
+**BROAD EXTERNAL VALIDATION SUPPORTS THE QUALITY FAMILY / PROJECT-SPECIFIC CAUSAL VALIDATION STILL REQUIRED / NO PRODUCTION AUTHORITY.**
+
+Research consequence:
+
+- retain the frozen profitability + ROE / D-E / earnings-variability hypothesis;
+- do not tune weights from these results;
+- preserve momentum as timing rather than fundamental-quality alpha;
+- before any promotion, test the frozen score causally inside the project's opportunity population against the structural core;
+- treat raw cross-sectional quality and sector-relative quality as separate research hypotheses if both are studied; do not choose between them retrospectively on the same consumed project sample;
+- production remains LEGACY.
