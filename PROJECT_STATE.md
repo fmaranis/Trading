@@ -685,6 +685,18 @@ Actualización 2026-09-26 — validación externa fija:
 - conclusión: confirma valor como **guard de calidad/tail-risk**, pero no crea alpha suficiente frente al core;
 - estado: `PROMISING QUALITY GUARD / NO IMPLEMENTATION YET`; siguiente investigación debe discriminar entre compañías ya rentables con una señal ortogonal y mantener el core como hurdle.
 
+Actualización 2026-09-26 — nueva familia de alpha fundamental:
+
+- se confirma que el antiguo `QUALITY_V1` del proyecto (reliability/opportunity) **no es** calidad corporativa;
+- MSCI World Quality usa ROE alto + D/E bajo + baja variabilidad de beneficios;
+- evidencia externa: ~12,02% anualizado desde 1994 vs ~9,01% MSCI World; 10y 14,74% vs 13,29%; Sharpe 10y 0,83 vs 0,76; max DD 48,01% vs 57,46%;
+- en años completos post-lanzamiento 2014-2025: ~13,11% CAGR vs ~10,97% World;
+- una mezcla 50/50 Quality+Momentum sobre retornos anuales publicados 2014-2025 da ~13,03% CAGR vs ~10,97% World, pero no domina todos los subperiodos;
+- un QVM genérico no garantiza alpha: S&P 500 QVM Top-90% sólo supera ligeramente al S&P 500 en 10y (13,65% vs 13,48% price CAGR);
+- nueva hipótesis retained: `FUNDAMENTAL_QUALITY_SCORE_RESEARCH_V1` = **PROMISING EXTERNAL ALPHA FAMILY / NOT YET PROJECT-VALIDATED**;
+- traducción prevista offline: profitability guard + ranking causal por ROE/D-E/earnings variability; momentum sólo como timing; core siempre hurdle;
+- sin implementación productiva ni retuning sobre la muestra 2021-2024.
+
 ---
 
 # 13. CRITERIO DE CIERRE V1
