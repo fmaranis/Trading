@@ -697,6 +697,21 @@ Actualización 2026-09-26 — nueva familia de alpha fundamental:
 - traducción prevista offline: profitability guard + ranking causal por ROE/D-E/earnings variability; momentum sólo como timing; core siempre hurdle;
 - sin implementación productiva ni retuning sobre la muestra 2021-2024.
 
+
+Actualización 2026-09-26 — validación amplia live de fundamental Quality:
+
+- se contrastó externamente la misma familia MSCI de tres descriptores (ROE alto, apalancamiento bajo y baja variabilidad de beneficios) usando sólo años completos posteriores al lanzamiento de cada índice, evitando tratar backtests pre-lanzamiento como evidencia live;
+- MSCI USA Quality 2013-2025: CAGR ~16,17% vs ~14,85% parent, ventaja ~+1,31 pp/año, 8/13 años por encima;
+- MSCI World Quality 2013-2025: ~14,17% vs ~12,16%, ventaja ~+2,02 pp/año, 9/13;
+- MSCI Europe Quality 2013-2025: ~8,62% vs ~8,23%, ventaja pequeña ~+0,39 pp/año, 7/13;
+- MSCI World ex USA Quality 2015-2025: ~7,62% vs ~7,44%, ventaja pequeña ~+0,18 pp/año, 7/11;
+- MSCI USA Sector Neutral Quality 2015-2025: ~12,97% vs ~13,50%, **underperformance ~-0,52 pp/año**, 5/11;
+- subperiodo 2021-2024 no uniforme: USA/World positivos frente a parent, Europa/ex-USA negativos y USA sector-neutral prácticamente plano;
+- AQR QMJ aporta corroboración independiente de la familia Quality, pero no se toma como validación exacta porque usa una definición más amplia (profitability/growth/safety/payout);
+- conclusión: el hallazgo pequeño previo no parece una anomalía aislada, pero **Quality no genera alpha universalmente** y parte de la ventaja broad-index puede depender de exposiciones sectoriales/concentración; no se puede afirmar todavía alpha puro de ranking dentro de sector;
+- estado de `FUNDAMENTAL_QUALITY_SCORE_RESEARCH_V1`: **BROAD EXTERNAL VALIDATION SUPPORTS QUALITY FAMILY / PROJECT-SPECIFIC CAUSAL VALIDATION STILL REQUIRED / NO PRODUCTION AUTHORITY**;
+- no cambiar pesos ni thresholds; producción continúa `LEGACY`; siguiente requisito es validación causal del score congelado dentro de la población de oportunidades del proyecto contra structural core.
+
 ---
 
 # 13. CRITERIO DE CIERRE V1
