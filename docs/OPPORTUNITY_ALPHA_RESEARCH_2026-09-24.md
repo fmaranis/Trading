@@ -1016,3 +1016,22 @@ Machine-readable evidence:
 - `validation-runs/diagnostics/core-outperformance-profitability-future-forward-v1-verification-2026-09-27.json`.
 
 Production remains `LEGACY`. No production authority is created by this prospective snapshot.
+
+
+### Pre-integration look-through audit
+
+Before any future outcome and without changing the frozen V1 weights, current official holdings of the structural-core candidates were compared with the frozen profitability basket.
+
+The profitability basket has NVDA at 34.275% and AAPL at 31.424%. Current core candidates carry roughly 4.77–5.66% NVDA and 4.24–5.41% AAPL. If the entire existing non-core budget were filled by profitability, a simplified core+sleeve scenario would put NVDA+AAPL together at roughly 19–21% of total capital for LOW, 23–25% for MEDIUM and 29–30% for HIGH.
+
+As a non-retrospective implementation reference, the already-existing Custodia BUILD caps are 6% / 8% / 12% per direct asset for LOW / MEDIUM / HIGH. Reusing those existing limits as a look-through reference makes NVDA the binding exposure. Depending on which structural core is selected, the implied upper bound for the profitability sleeve is approximately:
+
+- LOW: **1.19–4.18%**;
+- MEDIUM: **8.18–10.96%**;
+- HIGH: **22.16–24.51%**.
+
+These are not new optimized weights and do not modify the future-forward basket. They are risk-capacity diagnostics. Full integration must still resolve all selected-name overlaps and any other sleeves/holdings.
+
+Evidence: `validation-runs/diagnostics/core-outperformance-profitability-look-through-audit-2026-09-27.json`.
+
+Decision: the existing 18%/25%/35% maximum non-core budget must **not** be interpreted as an authorized profitability allocation. Signal validation and portfolio sizing remain separate. Production stays `LEGACY`.
