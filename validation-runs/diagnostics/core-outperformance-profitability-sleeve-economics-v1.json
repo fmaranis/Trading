@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_SLEEVE_ECONOMICS_V1",
+  "recordedAt": "2026-09-27",
+  "role": "CONSUMED_SAMPLE_POLICY_DIAGNOSTIC_NOT_PROMOTION",
+  "source": "validation-runs/diagnostics/core-outperformance-profitability-v1-input.json",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "interpretationRule": "Separate signal quality from economic policy quality.",
+  "marketCagrPct": {
+    "diagnostic2016_2021": 17.51611211252586,
+    "confirmation2009_2014": 17.71665374419049
+  },
+  "cases": [
+    {
+      "label": "LOW_BINDING_MIN",
+      "sleevePct": 1.1881884859083873,
+      "diagnosticExcessPp": 0.04054611275814324,
+      "confirmationExcessPp": 0.007506306118830963
+    },
+    {
+      "label": "LOW_BINDING_MAX",
+      "sleevePct": 4.181841606356371,
+      "diagnosticExcessPp": 0.14254308502981416,
+      "confirmationExcessPp": 0.026276378813339107
+    },
+    {
+      "label": "MEDIUM_BINDING_MIN",
+      "sleevePct": 8.177532520663611,
+      "diagnosticExcessPp": 0.2783242335579814,
+      "confirmationExcessPp": 0.05101215760987543
+    },
+    {
+      "label": "MEDIUM_BINDING_MAX",
+      "sleevePct": 10.959432903671438,
+      "diagnosticExcessPp": 0.3726172755442967,
+      "confirmationExcessPp": 0.06801984602999767
+    },
+    {
+      "label": "HIGH_BINDING_MIN",
+      "sleevePct": 22.156220590174055,
+      "diagnosticExcessPp": 0.750122513871144,
+      "confirmationExcessPp": 0.13469808327108979
+    },
+    {
+      "label": "HIGH_BINDING_MAX",
+      "sleevePct": 24.514615498301577,
+      "diagnosticExcessPp": 0.8292242131734184,
+      "confirmationExcessPp": 0.14838012120497268
+    },
+    {
+      "label": "REFERENCE_10",
+      "sleevePct": 10,
+      "diagnosticExcessPp": 0.34011951895633885,
+      "confirmationExcessPp": 0.062174007922433105
+    },
+    {
+      "label": "REFERENCE_25",
+      "sleevePct": 25,
+      "diagnosticExcessPp": 0.8454863543788669,
+      "confirmationExcessPp": 0.1511803944892911
+    },
+    {
+      "label": "REFERENCE_35",
+      "sleevePct": 35,
+      "diagnosticExcessPp": 1.1791591424321837,
+      "confirmationExcessPp": 0.20768415974987775
+    }
+  ],
+  "bindingEvidence": "The independent temporal confirmation is the conservative economic-margin reference because candidate excess there was only +0.5198 pp/year before implementation.",
+  "conclusion": "SIGNAL_PASS_DIRECT_VALUE_WEIGHTED_POLICY_MARGIN_THIN",
+  "meaning": [
+    "Do not reclassify Operating Profitability signal as failed.",
+    "The exact value-weighted top-decile translation has weak portfolio-level reach once existing concentration limits constrain sleeve size.",
+    "At MEDIUM risk the gross historical confirmation edge is only about 5-7 bps/year at total-portfolio level before transaction costs, taxes, tracking and implementation error.",
+    "Do not increase sleeve size beyond existing look-through risk capacity merely to recover alpha."
+  ],
+  "nextResearchQuestion": "Can a preregistered profitability-plus-valuation construction retain a larger gross edge while naturally reducing megacap concentration?"
+}
