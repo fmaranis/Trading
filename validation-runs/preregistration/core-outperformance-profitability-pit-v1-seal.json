@@ -1,0 +1,15 @@
+{
+  "version": "CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1_SEAL",
+  "frozenAt": "2026-09-27",
+  "sampleRole": "IMPLEMENTATION_TRANSLATION_DIAGNOSTIC_CONSUMED_MARKET_WINDOW",
+  "stockOutcomesOpened": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "noRetuningAfterOutcome": true,
+  "expectedGitBlobSha": {
+    "docs/CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1_PREREGISTRATION_2026-09-27.md": "47472fcc4a90422db4d8480d4a8e19c7b998f867",
+    "scripts/coreOutperformanceProfitabilityPitV1Protocol.mjs": "c19ff1f464affd9a1e5adb081f69b89adeb1db87",
+    "scripts/coreOutperformanceProfitabilityPitV1Live.mjs": "bb570ef46b9d4023185ba9977f9a975e66e86317",
+    "tests/coreOutperformanceProfitabilityPitV1.unit.mjs": "249621472681648def956d02a68b103314b3ef83"
+  }
+}
