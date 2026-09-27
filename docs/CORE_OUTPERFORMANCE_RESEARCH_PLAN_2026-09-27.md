@@ -1,6 +1,6 @@
 # Plan de investigación para superar al core — 2026-09-27
 
-Estado: PLAN DE IMPLEMENTACIÓN AUTORIZADO / SIN RESULTADOS / NO PRODUCCIÓN.
+Estado: EJECUTADO HASTA ETAPA B / FAIL_DIAGNOSTIC / PARADA OBLIGATORIA / NO PRODUCCIÓN.
 Repositorio: fmaranis/Trading, rama main. HEAD de partida: e06190921e60f338b7e2eceff1ab3ef4abfc3f04.
 
 ## 1. Objetivo y alcance
@@ -99,3 +99,31 @@ Tras PASS diagnóstico, sellar el mismo código/configuración antes de abrir co
 Estados permitidos: BLOCKED_DATA_ACCESS, INCONCLUSIVE_COVERAGE, FAIL_DIAGNOSTIC, FAIL_CONFIRMATION, INCONCLUSIVE_STATISTICAL_EVIDENCE, PASS_CANDIDATE_NO_PROMOTION. No etiquetar PASSED por terminar un proceso si el resultado económico falla.
 
 Detener trabajo costoso al primer bloqueo material o FAIL de etapa. No relanzar las investigaciones archivadas ni seguir probando variantes para encontrar un ganador. El resultado deseado es evidencia válida de superioridad; el resultado aceptable incluye demostrar que esta candidata no la proporciona.
+
+
+## 9. Execution outcome — 2026-09-27
+
+The plan was executed through Stage B and stopped at the first economic FAIL as required.
+
+- diagnostic: 2016-01 -> 2021-12;
+- winner 12-2 value-weighted momentum CAGR: **16.68%**;
+- US parent CAGR: **17.52%**;
+- URTH global proxy CAGR: **14.22%**;
+- excess vs US parent: **-0.84 pp/year**;
+- excess vs URTH: **+2.46 pp/year**;
+- Stage B gate: **FAIL_DIAGNOSTIC**.
+
+Consequences mandated by this plan:
+
+- confirmation 2009-01 -> 2014-12 remains unopened;
+- Stage C is not implemented or executed;
+- no parameter/grid/decile/lookback rescue search;
+- production stays `LEGACY`.
+
+Durable evidence:
+
+- `docs/CORE_OUTPERFORMANCE_MOMENTUM_V1_EXECUTION_2026-09-27.md`;
+- `docs/CORE_OUTPERFORMANCE_SAMPLE_REGISTRY_2026-09-27.md`;
+- `validation-runs/diagnostics/core-outperformance-momentum-v1-result.json`.
+
+Methodological note: the windows were declared in the working chat before outcomes, but the repository seal was not committed pre-outcome. The run is therefore retained as a diagnostic FAIL rather than described as a valid repository-level preregistered confirmation.
