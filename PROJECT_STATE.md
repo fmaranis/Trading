@@ -940,3 +940,20 @@ Actualización 2026-09-27 — future-forward start capture preparado y PIT secun
 - evidencia: `validation-runs/diagnostics/core-outperformance-profitability-pit-secondary-source-audit-2026-09-27.json` y `...future-forward-v1-start-verification-2026-09-27.json`;
 - siguiente acción: ejecutar **sin cambios** el capturador tras completar la sesión del 28-09-2026 y fijar el punto cero del future-forward;
 - producción permanece **LEGACY**.
+
+
+---
+
+Actualización 2026-09-27 — SimFin stock-level bridge V1 cerrado inconcluso:
+
+- se preregistró antes de abrir precios `CORE_OUTPERFORMANCE_PROFITABILITY_SIMFIN_BRIDGE_V1`, como diagnóstico de traducción stock-level secundario y sin autoridad de promoción;
+- fuentes congeladas: reconstrucción histórica S&P 500 `chinobing@019beba...` + SimFin quarterly versionado `income 117ac76...` / `balance 035c230...`, con `Publish Date <= anchor`;
+- señal congelada: cuatro trimestres TTM de `Revenue + CostOfRevenue + SG&A + InterestExpenseNet` (gastos con signo negativo en SimFin), dividido por `Total Equity > 0`; top decile, value-weight por close causal × Shares Basic;
+- coverage pre-price pasó los mismos mínimos heredados de Stage C1 en 2020–2024: 266–292 evaluables y 27–30 seleccionados, sin reducir thresholds;
+- 2020 y 2021 obtuvieron **100% de cobertura de precios** para seleccionados + SPY + URTH;
+- en la formación 2022, `CTXS` quedó seleccionada (rank 16) pero no existe precio de salida el 03-07-2023 porque Citrix fue adquirida y dejó de cotizar el 30-09-2022; la operación convirtió las acciones en derecho a recibir **104 USD cash/share**;
+- el preregistro V1 exigía adjusted-open en el endpoint y 100% de coverage, sin survivor renormalization ni terminal-value fallback; por tanto el estudio se cierra **INCONCLUSIVE_PRICE_OR_COVERAGE**, no FAIL;
+- no se introduce retrospectivamente el pago de 104 USD dentro de V1. Cualquier accounting delisting/corporate-action aware debe existir en un protocolo separado y no puede promocionarse con esta muestra ya consumida;
+- resultado machine-readable: `validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-result.json`;
+- el SEC PIT estricto permanece **BLOCKED_DATA_ACCESS / outcomes unopened** y future-forward V1 permanece sellado a la espera del arranque 28-09-2026;
+- producción continúa **LEGACY**.
