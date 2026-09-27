@@ -17,7 +17,7 @@ const snapshot = {
   ]
 };
 assert.equal(validateFrozenSnapshot(snapshot).length, 2);
-assert.equal(totalReturnPct(100, 110), 10);
+assert.ok(Math.abs(totalReturnPct(100, 110) - 10) < 1e-12);
 
 const descriptive = evaluateFutureForwardCheckpoint(snapshot, {
   months: 3,
