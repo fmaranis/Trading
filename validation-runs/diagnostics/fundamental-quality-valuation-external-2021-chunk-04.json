@@ -1,0 +1,253 @@
+{
+  "version": "FUNDAMENTAL_QUALITY_VALUATION_EXTERNAL_REPLICATION_V1",
+  "role": "OUTCOME_RAW_CHUNK",
+  "chunk": 4,
+  "rowsCovered": "151-190/190",
+  "informationDate": "2021-05-03",
+  "outcomeDate": "2022-05-03",
+  "source": "Wolfram FinancialData",
+  "returnField": "AdjustedClose",
+  "valuationPriceField": "Close",
+  "rows": [
+    {
+      "ticker": "KR",
+      "rawClose20210503": 37.380001068115234,
+      "adjustedClose20210503": 33.221317627142554,
+      "adjustedClose20220503": 49.64399092632877
+    },
+    {
+      "ticker": "TDY",
+      "rawClose20210503": 442.1600036621094,
+      "adjustedClose20210503": 442.1600036621094,
+      "adjustedClose20220503": 417.9800109863281
+    },
+    {
+      "ticker": "PLD",
+      "rawClose20210503": 116.01000213623047,
+      "adjustedClose20210503": 99.87579129633414,
+      "adjustedClose20220503": 133.65666434057002
+    },
+    {
+      "ticker": "CNC",
+      "rawClose20210503": 62.41999816894531,
+      "adjustedClose20210503": 62.41999816894531,
+      "adjustedClose20220503": 80.33999633789062
+    },
+    {
+      "ticker": "INFO",
+      "rawClose20210503": null,
+      "adjustedClose20210503": null,
+      "adjustedClose20220503": null
+    },
+    {
+      "ticker": "LEN",
+      "rawClose20210503": 101.8010025024414,
+      "adjustedClose20210503": 94.13786557235521,
+      "adjustedClose20220503": 71.34555818571121
+    },
+    {
+      "ticker": "GPN",
+      "rawClose20210503": 212.47000122070312,
+      "adjustedClose20210503": 201.96611272428146,
+      "adjustedClose20220503": 122.51822561410482
+    },
+    {
+      "ticker": "IFF",
+      "rawClose20210503": 144.1199951171875,
+      "adjustedClose20210503": 125.56778049276213,
+      "adjustedClose20220503": 108.6445717540551
+    },
+    {
+      "ticker": "LEG",
+      "rawClose20210503": 50.900001525878906,
+      "adjustedClose20210503": 41.3262810780148,
+      "adjustedClose20220503": 32.36139612013467
+    },
+    {
+      "ticker": "FTV",
+      "rawClose20210503": 71.25,
+      "adjustedClose20210503": 69.61045637584573,
+      "adjustedClose20220503": 58.44480075398223
+    },
+    {
+      "ticker": "KMB",
+      "rawClose20210503": 134.74000549316406,
+      "adjustedClose20210503": 110.12166793595817,
+      "adjustedClose20220503": 116.12757014878439
+    },
+    {
+      "ticker": "DXCM",
+      "rawClose20210503": 95.14250183105469,
+      "adjustedClose20210503": 95.14250183105469,
+      "adjustedClose20220503": 98.8499984741211
+    },
+    {
+      "ticker": "PH",
+      "rawClose20210503": 311.3800048828125,
+      "adjustedClose20210503": 290.7772569280302,
+      "adjustedClose20220503": 261.5594407755066
+    },
+    {
+      "ticker": "TRMB",
+      "rawClose20210503": 81.19999694824219,
+      "adjustedClose20210503": 81.19999694824219,
+      "adjustedClose20220503": 67.16999816894531
+    },
+    {
+      "ticker": "CME",
+      "rawClose20210503": 203.6999969482422,
+      "adjustedClose20210503": 178.04235275687878,
+      "adjustedClose20220503": 197.62212280901736
+    },
+    {
+      "ticker": "EA",
+      "rawClose20210503": 141.17999267578125,
+      "adjustedClose20210503": 137.35158546613312,
+      "adjustedClose20220503": 119.79543651597486
+    },
+    {
+      "ticker": "LDOS",
+      "rawClose20210503": 103.69999694824219,
+      "adjustedClose20210503": 96.78057719289161,
+      "adjustedClose20220503": 97.08231935883983
+    },
+    {
+      "ticker": "HCA",
+      "rawClose20210503": 204.50999450683594,
+      "adjustedClose20210503": 195.6676928337495,
+      "adjustedClose20220503": 208.65661198798256
+    },
+    {
+      "ticker": "K",
+      "rawClose20210503": 9.050000190734863,
+      "adjustedClose20210503": 8.238448104285629,
+      "adjustedClose20220503": 6.023208463777443
+    },
+    {
+      "ticker": "BEN",
+      "rawClose20210503": 30.260000228881836,
+      "adjustedClose20210503": 23.762751376899512,
+      "adjustedClose20220503": 20.813708557542782
+    },
+    {
+      "ticker": "MRK",
+      "rawClose20210503": 72.44889831542969,
+      "adjustedClose20210503": 61.632217795250284,
+      "adjustedClose20220503": 76.78890184189487
+    },
+    {
+      "ticker": "UPS",
+      "rawClose20210503": 212.1999969482422,
+      "adjustedClose20210503": 164.08758194686075,
+      "adjustedClose20220503": 140.82396918945335
+    },
+    {
+      "ticker": "ICE",
+      "rawClose20210503": 115.45999908447266,
+      "adjustedClose20210503": 108.93940356834776,
+      "adjustedClose20220503": 109.20631284027334
+    },
+    {
+      "ticker": "ESS",
+      "rawClose20210503": 286.80999755859375,
+      "adjustedClose20210503": 240.25091291377308,
+      "adjustedClose20220503": 276.78915276795556
+    },
+    {
+      "ticker": "DISH",
+      "rawClose20210503": 44.45000076293945,
+      "adjustedClose20210503": 44.450000762939446,
+      "adjustedClose20220503": 28.090000152587887
+    },
+    {
+      "ticker": "IVZ",
+      "rawClose20210503": 27.420000076293945,
+      "adjustedClose20210503": 21.9263086197469,
+      "adjustedClose20220503": 15.792522954717981
+    },
+    {
+      "ticker": "KSU",
+      "rawClose20210503": null,
+      "adjustedClose20210503": null,
+      "adjustedClose20220503": null
+    },
+    {
+      "ticker": "MKC",
+      "rawClose20210503": 90.9000015258789,
+      "adjustedClose20210503": 81.33663839555508,
+      "adjustedClose20220503": 88.82779503671672
+    },
+    {
+      "ticker": "WMT",
+      "rawClose20210503": 47.37329864501953,
+      "adjustedClose20210503": 44.54157576174897,
+      "adjustedClose20220503": 48.53936823701591
+    },
+    {
+      "ticker": "PNW",
+      "rawClose20210503": 84.52999877929688,
+      "adjustedClose20210503": 68.83094074281728,
+      "adjustedClose20220503": 61.61870618496623
+    },
+    {
+      "ticker": "UNP",
+      "rawClose20210503": 223.74000549316406,
+      "adjustedClose20210503": 198.15897487704322,
+      "adjustedClose20220503": 209.56222184118138
+    },
+    {
+      "ticker": "ORLY",
+      "rawClose20210503": 36.99729919433594,
+      "adjustedClose20210503": 36.99729919433594,
+      "adjustedClose20220503": 40.23270034790039
+    },
+    {
+      "ticker": "LNT",
+      "rawClose20210503": 56.16999816894531,
+      "adjustedClose20210503": 48.3148724650185,
+      "adjustedClose20220503": 51.130711691109276
+    },
+    {
+      "ticker": "NUE",
+      "rawClose20210503": 85.69999694824219,
+      "adjustedClose20210503": 79.49508157047346,
+      "adjustedClose20220503": 143.42577981194614
+    },
+    {
+      "ticker": "FMC",
+      "rawClose20210503": 119.05999755859375,
+      "adjustedClose20210503": 101.76118137226122,
+      "adjustedClose20220503": 107.51035650363909
+    },
+    {
+      "ticker": "JNPR",
+      "rawClose20210503": 25.8700008392334,
+      "adjustedClose20210503": 23.101012298825196,
+      "adjustedClose20220503": 29.633461009553184
+    },
+    {
+      "ticker": "IPG",
+      "rawClose20210503": 32.06999969482422,
+      "adjustedClose20210503": 26.867760195779244,
+      "adjustedClose20220503": 28.711748148773655
+    },
+    {
+      "ticker": "J",
+      "rawClose20210503": 135.74000549316406,
+      "adjustedClose20210503": 129.60364827544547,
+      "adjustedClose20220503": 133.19927734890334
+    },
+    {
+      "ticker": "EXR",
+      "rawClose20210503": 145.6199951171875,
+      "adjustedClose20210503": 118.60099110180477,
+      "adjustedClose20220503": 153.16438279061012
+    },
+    {
+      "ticker": "BAX",
+      "rawClose20210503": 86.54000091552734,
+      "adjustedClose20210503": 78.46634290117917,
+      "adjustedClose20220503": 66.23851254268409
+    }
+  ]
+}
