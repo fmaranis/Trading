@@ -1,0 +1,15 @@
+{
+  "version": "CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1_SEAL",
+  "frozenAt": "2026-09-27",
+  "outcomeOpened": false,
+  "sampleRole": "FUTURE_FORWARD_PRIMARY_12M",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "noRetuningAfterSnapshot": true,
+  "expectedGitBlobSha": {
+    "docs/CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1_2026-09-27.md": "cc50789f979d9c5ea015d2283bb71d7bd8c4c80c",
+    "validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-snapshot.json": "2b5bc6cd32403b5b3f8e1e5903b79d740a49666a",
+    "scripts/coreOutperformanceProfitabilityFutureForwardV1Protocol.mjs": "7289c79c17ccc469b31d50cf675c71bd3fc8bd75",
+    "tests/coreOutperformanceProfitabilityFutureForwardV1.unit.mjs": "31f779fe663a61ce97b64041f4b6c067cabb6055"
+  }
+}
