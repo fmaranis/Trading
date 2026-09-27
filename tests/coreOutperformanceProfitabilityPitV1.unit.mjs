@@ -5,7 +5,8 @@ import {
   CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1 as P,
   reconstructHistoricalMembers,
   selectTopDecile,
-  topDecileCount
+  topDecileCount,
+  yahooTicker
 } from '../scripts/coreOutperformanceProfitabilityPitV1Protocol.mjs';
 
 assert.equal(P.productionDefault,'LEGACY');
@@ -16,6 +17,9 @@ assert.equal(P.stageC1Gate.requiredPeriods,5);
 assert.equal(P.fundamentals.noOperatingIncomeFallback,true);
 assert.equal(topDecileCount(250),25);
 assert.equal(topDecileCount(251),26);
+assert.equal(yahooTicker('BRK.B'),'BRK-B');
+assert.equal(yahooTicker('BRKB'),'BRK-B');
+assert.equal(yahooTicker('BF.B'),'BF-B');
 
 const rows=Array.from({length:21},(_,i)=>({ticker:`T${String(i).padStart(2,'0')}`,operatingProfitability:i===19?20:i}));
 const selected=selectTopDecile(rows);
