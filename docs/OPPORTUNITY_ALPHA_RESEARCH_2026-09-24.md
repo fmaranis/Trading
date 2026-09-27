@@ -948,3 +948,71 @@ Machine-readable preflight:
 - `validation-runs/diagnostics/core-outperformance-profitability-pit-v1-preflight-2026-09-27.json`.
 
 Next allowed action: run the **unchanged sealed Stage C1** once a valid SEC EDGAR User-Agent is available to the execution runtime. A Stage C1 PASS would allow the existing Custodia costs/tax harness; a FAIL closes this translation without retuning. No production authority.
+
+
+## 24. Profitability future-forward V1 — fresh prospective implementation sample (2026-09-27)
+
+The strict historical stock-level translation in §23 remains blocked before outcomes by the missing SEC EDGAR User-Agent in this execution runtime. That block is preserved; no provider without filing-date causality is substituted into the sealed PIT study.
+
+To obtain independent evidence without consuming another retrospective window, a separate prospective study was frozen **before its future price outcomes**:
+
+`CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1`.
+
+### Frozen snapshot
+
+- date: 2026-09-27;
+- current S&P 500 members from Wolfram: **500**;
+- Company entities mapped: **500**;
+- evaluable rows: **451**;
+- selected top decile: **46**;
+- frozen proxy: `TotalRevenue × OperatingMargin / positive StockholdersEquity`;
+- value-weighted by current market capitalization;
+- no sector neutralization, value overlay, momentum, trend, Forward Risk or timing filter;
+- future price outcomes: **UNOPENED**.
+
+The proxy is deliberately labeled an implementation proxy. It is not byte-identical to the Kenneth French operating-profitability definition and does not replace the pending SEC filing-date PIT reconstruction.
+
+### Frozen outcome protocol
+
+Start = first common tradable session after 2026-09-27.
+
+- ~3 months: descriptive only;
+- ~6 months: descriptive only;
+- 12 months: primary endpoint;
+- primary PASS requires basket total return > SPY **and** > URTH;
+- 100% selected-symbol outcome coverage required; missing/delisted securities make the endpoint inconclusive rather than silently renormalizing survivors.
+
+Pre-outcome evaluator, test and Git-blob seal are committed. Verification status: **PASS_PRE_OUTCOME_GUARDS**.
+
+### Concentration discovered before outcomes
+
+The exact market-cap-weighted top-decile replication is internally concentrated:
+
+| Item | Weight |
+| --- | ---: |
+| NVDA | 34.27% |
+| AAPL | 31.42% |
+| LLY | 7.03% |
+| Top 5 | 78.81% |
+| Top 10 | 87.22% |
+
+HHI = 0.2252; effective number of positions ≈ 4.44.
+
+This observation does not authorize changing V1. The exact snapshot remains frozen so the prospective test is not retrofitted. Before any future Custodia integration, a separate implementation guard must quantify look-through overlap with the structural core, because the core itself already embeds major US megacaps.
+
+### External live implementation evidence
+
+High-profitability products provide a useful reality check but are not exact strategy replicas.
+
+- Dimensional U.S. High Relative Profitability Portfolio (DURPX), inception 2017-05-16: through 2025-12-31, since-inception before-tax annualized return **14.48%** versus **14.55%** for Russell 1000.
+- Dimensional US High Profitability ETF (DUHP), inception 2022-02-23: through 2025-12-31, since-inception before-tax annualized return **13.49%** versus **14.63%** for Russell 1000.
+
+The implementation evidence therefore argues against assuming that the academic profitability premium transfers automatically through real portfolio construction, expenses, turnover and tax. It does **not** reject the frozen French Hi-10 result or the future-forward Custodia hypothesis because those constructions differ.
+
+Machine-readable evidence:
+
+- `validation-runs/diagnostics/core-outperformance-profitability-live-implementation-evidence-2026-09-27.json`;
+- `validation-runs/diagnostics/core-outperformance-profitability-future-forward-v1-risk-audit.json`;
+- `validation-runs/diagnostics/core-outperformance-profitability-future-forward-v1-verification-2026-09-27.json`.
+
+Production remains `LEGACY`. No production authority is created by this prospective snapshot.
