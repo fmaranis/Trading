@@ -101,3 +101,14 @@ This window had remained unopened by the failed momentum study and was subsequen
 - no candidate CAGR was computed and no economic PASS/FAIL claim is valid;
 - this bridge sample is **CONSUMED** for any future delisting-aware accounting rule because the CTXS failure and its $104 cash consideration are now known;
 - SEC PIT Stage C1 remains separately unopened; future-forward V1 remains fresh/prospective.
+
+
+### Post-hoc terminal-value diagnostic
+
+- sample: same already-consumed SimFin bridge 2020-07 -> 2024-07;
+- rule added after CTXS blocker was known: CTXS terminal value = USD 104 cash/share, no reinvestment;
+- role: **POSTHOC_ARCHITECTURE_DIAGNOSTIC_ONLY**;
+- outcome: candidate CAGR 13.9390%, SPY 16.9444%, URTH 14.3837%;
+- verdict: `POSTHOC_GROSS_EDGE_NOT_PRESENT`;
+- promotion authority: **NONE**;
+- the sample may not be used to tune or validate a replacement direct-profitability policy.
