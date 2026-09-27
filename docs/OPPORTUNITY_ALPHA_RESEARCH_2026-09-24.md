@@ -485,3 +485,112 @@ Research consequence:
 - before any promotion, test the frozen score causally inside the project's opportunity population against the structural core;
 - treat raw cross-sectional quality and sector-relative quality as separate research hypotheses if both are studied; do not choose between them retrospectively on the same consumed project sample;
 - production remains LEGACY.
+
+## 17. VALUATION_AWARE_QUALITY_RECONSTRUCTION — QARP interaction diagnostic (2026-09-27)
+
+No production code was changed.
+
+This section reconstructs and durably records a promising diagnostic that had been explored in chat but had not been committed: the interaction between the frozen fundamental-quality signal and the valuation paid for that quality.
+
+### 17.1 Fixed external leader sample
+
+Source population:
+
+- Nasdaq's published Top 20 Nasdaq-100 price performers for calendar 2020;
+- profitability guard retained from the prior diagnostic: latest published operating result positive;
+- 13 profitable names: TSLA, ZM, MELI, JD, NVDA, PYPL, AMD, CDNS, ALGN, IDXX, SNPS, AAPL and AMZN;
+- information / valuation date: **2021-05-03**;
+- outcome date: **2022-05-03**;
+- QQQ total-return proxy over the same dates: approximately **-4.71%**.
+
+Quality reconstruction:
+
+- ROE high is positive;
+- Debt/Equity low is positive;
+- five-year EPS-growth variability low is positive;
+- descriptors are winsorized at 5/95 and standardized by cross-sectional z-score;
+- composite uses equal descriptor weight;
+- under the contemporaneous MSCI missing-data rule, if EVAR is missing but ROE and D/E are available, the composite is calculated from those two descriptors;
+- `HIGH_QUALITY` is the upper half of the reconstructed Quality Z-score distribution;
+- no score coefficient or threshold was fitted to subsequent return.
+
+Valuation reconstruction:
+
+- valuation descriptor = historical **earnings yield** available on 2021-05-03;
+- after selecting `HIGH_QUALITY`, `CHEAP_OR_REASONABLE` means earnings yield at or above the median earnings yield of that high-quality subgroup;
+- `EXPENSIVE` means below that median;
+- this median split is deterministic and was declared before recalculating the outcomes in this reconstruction.
+
+Results inside the `HIGH_QUALITY` subgroup:
+
+| Valuation branch | Names | N | Mean 12m return | Mean excess vs QQQ | Median 12m return | Median excess vs QQQ | Beat QQQ |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CHEAP_OR_REASONABLE | PYPL, CDNS, SNPS, AAPL | 4 | **-1.67%** | **+3.04 pp** | **+18.64%** | **+23.35 pp** | **3/4** |
+| EXPENSIVE | ZM, ALGN, IDXX | 3 | **-45.85%** | **-41.14 pp** | **-49.81%** | **-45.10 pp** | **0/3** |
+
+Important negative control:
+
+- valuation by itself is not enough;
+- across all 13 profitable names, the cheap half was only about **-0.51 pp** versus QQQ on mean excess;
+- several lower-quality expensive names (notably TSLA and NVDA) still performed strongly;
+- therefore the retained hypothesis is **an interaction between quality and valuation**, not a universal cheap-stock rule.
+
+Interpretation:
+
+- the prior failure of pure Quality ranking is materially explained by expensive high-quality names;
+- the observed separation is consistent with a QARP / valuation-aware-quality hypothesis: good business quality can fail economically when too much of that quality is already embedded in price;
+- this sample is fully consumed for promotion and is only diagnostic.
+
+### 17.2 Independent fixed-size cross-check
+
+A second sample was selected independently of 2020 winner performance: the largest distinct Nasdaq-100 issuers by index weight reported on **2020-12-14**.
+
+Distinct issuers evaluated:
+
+AAPL, MSFT, AMZN, TSLA, META/FB, GOOGL, NVDA, PYPL and ADBE.
+
+The same 2021-05-03 information date, 2022-05-03 outcome date, Quality construction and within-high-quality median earnings-yield split were used.
+
+Results:
+
+| Valuation branch | Names | N | Mean 12m return | Mean excess vs QQQ | Median excess vs QQQ | Beat QQQ |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| CHEAP_OR_REASONABLE high Quality | AAPL, META, GOOGL | 3 | **-4.36%** | **+0.35 pp** | **+4.86 pp** | **2/3** |
+| EXPENSIVE high Quality | PYPL, ADBE | 2 | **-42.02%** | **-37.31 pp** | **-37.31 pp** | **0/2** |
+
+Interpretation of the cross-check:
+
+- the second sample reproduces the **directional penalty of expensive Quality**;
+- it does **not** demonstrate a robust positive alpha for cheap Quality: the mean edge is only about +0.35 pp in this tiny independent sample;
+- therefore the correct status is promising interaction evidence, not validation or promotion.
+
+Status:
+
+**VALUATION_AWARE_QUALITY / PROMISING DIAGNOSTIC INTERACTION / BROAD POINT-IN-TIME STOCK-LEVEL CONFIRMATION REQUIRED / NO PRODUCTION AUTHORITY.**
+
+Next required test:
+
+1. keep the fundamental Quality construction fixed;
+2. keep valuation as a separate orthogonal descriptor rather than retuning Quality weights;
+3. use a broad point-in-time stock population with filing-date-safe fundamentals;
+4. measure high-Quality cheap/reasonable vs high-Quality expensive directly against the contemporaneous structural core;
+5. do not choose the valuation metric or cut after opening the new outcomes;
+6. only after a broad offline separation is demonstrated freeze a research-only candidate for fresh/blind confirmation.
+
+### 17.3 Research continuity safeguard
+
+From this point forward, any research result that creates a materially new retained hypothesis or a promising directional separation must be committed **before moving to the next test**.
+
+The durable record must contain, at minimum:
+
+- hypothesis / signal name;
+- exact frozen definition used in that test;
+- causal information date and outcome horizon;
+- sample definition and exclusions;
+- raw or sufficiently reconstructible group membership;
+- aggregate result versus structural core;
+- consumed/fresh status;
+- what the result does and does not establish;
+- exact next test.
+
+A promising but incomplete result must be marked explicitly as `PROMISING_DIAGNOSTIC_UNCONFIRMED`; it must not remain only in chat memory.
