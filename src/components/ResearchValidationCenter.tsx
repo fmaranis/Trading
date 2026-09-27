@@ -19,7 +19,7 @@ interface ValidationJob {
 }
 interface ValidationHistoryItem { id: string; label: string; }
 interface ProviderStatus { provider: string; configured: boolean; role?: string; primaryProvider?: string; }
-interface ValidationPrerequisites { githubReplaySyncConfigured: boolean; }
+interface ValidationPrerequisites { githubReplaySyncConfigured: boolean; eodhdConfigured?: boolean; secEdgarUserAgentConfigured?: boolean; }
 interface Phase4RecoveryStatus {
   jobId: string;
   evidenceAvailable: boolean;
@@ -137,9 +137,11 @@ function resultSummary(result: any): React.ReactNode {
 }
 
 function blockedMessage(reason: string | null | undefined): string | null {
-  if (reason === 'QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED') {
-    return 'Falta GITHUB_REPLAY_SYNC_TOKEN en el backend. El job no arrancará hasta que el secreto esté disponible; no se consumirá ninguna observación.';
+  if (reason === 'QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED' || reason === 'DURABLE_GITHUB_TOKEN_REQUIRED') {
+    return 'Falta GITHUB_REPLAY_SYNC_TOKEN en el backend. El job no arrancará hasta que la persistencia durable esté disponible.';
   }
+  if (reason === 'EODHD_API_KEY_REQUIRED') return 'Falta EODHD_API_KEY. La validación PIT amplia necesita la membresía histórica del S&P 500 y no arrancará sin ella.';
+  if (reason === 'SEC_EDGAR_USER_AGENT_REQUIRED') return 'Falta SEC_EDGAR_USER_AGENT. Debe identificar el acceso automatizado a SEC EDGAR; sin ese dato el job queda bloqueado antes de abrir la muestra.';
   return reason || null;
 }
 
@@ -240,9 +242,10 @@ export const ResearchValidationCenter: React.FC = () => {
       <button type="button" onClick={() => void refresh()} className="touch-target w-full rounded-xl border border-slate-700 px-3 py-2 text-[11px] font-bold text-slate-300 hover:bg-slate-900 sm:w-auto"><RefreshCw className="mr-1 inline h-3.5 w-3.5"/>Actualizar estado</button>
     </div>
 
-    <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4 text-[10px]">
+    <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5 text-[10px]">
       <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Yahoo Finance</div><b className="mt-1 block text-emerald-200">PRINCIPAL · ACTIVO</b><div className="mt-1 text-slate-600">Histórico REAL y discovery current/live.</div></div>
       <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">EODHD</div><b className={`mt-1 block ${providerClass(eodhd?.configured ?? null)}`}>{eodhd == null ? 'COMPROBANDO…' : eodhd.configured ? 'CONFIGURADO' : 'SIN API KEY'}</b><div className="mt-1 text-slate-600">Contraste secundario y fondos.</div></div>
+      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">SEC EDGAR PIT</div><b className={`mt-1 block ${providerClass(prerequisites?.secEdgarUserAgentConfigured ?? null)}`}>{prerequisites == null ? 'COMPROBANDO…' : prerequisites.secEdgarUserAgentConfigured ? 'USER-AGENT LISTO' : 'FALTA USER-AGENT'}</b><div className="mt-1 text-slate-600">Fundamentales causales por fecha de filing.</div></div>
       <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Alpha Vantage</div><b className={`mt-1 block ${providerClass(alpha?.configured ?? null)}`}>{alpha == null ? 'COMPROBANDO…' : alpha.configured ? 'CONFIGURADO' : 'SIN API KEY'}</b><div className="mt-1 text-slate-600">Contraste secundario; no bloquea Yahoo.</div></div>
       <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Persistencia research</div><b className={`mt-1 block ${providerClass(prerequisites?.githubReplaySyncConfigured ?? null)}`}>{prerequisites == null ? 'COMPROBANDO…' : prerequisites.githubReplaySyncConfigured ? 'GITHUB LISTO' : 'FALTA TOKEN'}</b><div className="mt-1 text-slate-600">Future-forward y evidencia de validación se anclan en replay-results.</div></div>
     </div>
