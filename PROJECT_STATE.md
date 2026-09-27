@@ -957,3 +957,19 @@ Actualización 2026-09-27 — SimFin stock-level bridge V1 cerrado inconcluso:
 - resultado machine-readable: `validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-result.json`;
 - el SEC PIT estricto permanece **BLOCKED_DATA_ACCESS / outcomes unopened** y future-forward V1 permanece sellado a la espera del arranque 28-09-2026;
 - producción continúa **LEGACY**.
+
+
+---
+
+Actualización 2026-09-27 — diagnóstico post-hoc delisting-aware del bridge SimFin:
+
+- exclusivamente como **diagnóstico de arquitectura sobre muestra consumida**, se contabilizó CTXS con el cash merger consideration conocido de **104 USD/acción**, sin reinversión ni interés, después de que V1 ya hubiese quedado INCONCLUSIVE;
+- esta regla terminal se definió después de observar el caso CTXS y por tanto **no tiene autoridad de validación/promoción**;
+- ventana 01-07-2020 -> 01-07-2024: basket direct profitability total **+68,53%**, CAGR **13,9390%**; SPY **+87,03%**, CAGR **16,9444%**; URTH **+71,18%**, CAGR **14,3837%**;
+- exceso post-hoc: **-3,0054 pp/año vs SPY** y **-0,4447 pp/año vs URTH** -> `POSTHOC_GROSS_EDGE_NOT_PRESENT`;
+- periodos: +30,88% / -20,04% / +15,68% / +39,22% para candidate, frente a SPY +40,62% / -10,95% / +19,56% / +24,92%;
+- la traducción value-weighted quedó dominada por megacaps: AMZN representó aprox. **50,3% / 45,9% / 42,0% / 36,7%** del basket en los cuatro periodos;
+- interpretación metodológica: **no declarar fallida la señal Operating Profitability externa**, pero sí cerrar esta construcción stock-level directa/value-weighted como una política con mala transferencia económica en la muestra consumida;
+- no retunear score, decil, pesos, equity floor ni añadir filtros sobre 2020-2024;
+- evidencia: `validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-posthoc-result.json`;
+- siguiente investigación sólo puede ser una hipótesis distinta y congelada antes de outcomes fresh; producción permanece `LEGACY`.
