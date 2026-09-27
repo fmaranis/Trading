@@ -5,7 +5,8 @@ import {
   CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1 as P,
   normalizeTicker,
   reconstructHistoricalMembers,
-  selectTopDecile
+  selectTopDecile,
+  yahooTicker
 } from './coreOutperformanceProfitabilityPitV1Protocol.mjs';
 
 const SEAL_PATH = 'validation-runs/preregistration/core-outperformance-profitability-pit-v1-seal.json';
@@ -72,7 +73,6 @@ function parseChanges(text) {
   });
 }
 function tickerKey(value) { return normalizeTicker(value); }
-function yahooTicker(value) { return String(value).trim().toUpperCase().replace(/\./g,'-'); }
 function iso(value) { return String(value ?? '').slice(0,10); }
 function valuesOfObject(value) { return value && typeof value==='object' ? Object.values(value) : []; }
 function sleep(ms) { return new Promise(resolve=>setTimeout(resolve,ms)); }
