@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_SIMFIN_BRIDGE_V1_POSTHOC_TERMINAL_VALUE_DIAGNOSTIC",
+  "postHoc": true,
+  "promotionAuthority": false,
+  "productionDefault": "LEGACY",
+  "window": {
+    "start": "2020-07-01",
+    "end": "2024-07-01",
+    "years": 4
+  },
+  "accountingCaveat": "CTXS 2022 position uses the known $104/share cash merger consideration as terminal value, without reinvestment or cash interest. This rule was added only after V1 became inconclusive and cannot validate promotion.",
+  "metrics": {
+    "candidate": {
+      "wealth": 1.6853492115626767,
+      "cagrPct": 13.939018903719624,
+      "totalReturnPct": 68.53492115626767
+    },
+    "spy": {
+      "wealth": 1.870329080545463,
+      "cagrPct": 16.944420627437196,
+      "totalReturnPct": 87.03290805454631
+    },
+    "urth": {
+      "wealth": 1.7118127551465214,
+      "cagrPct": 14.383679942535199,
+      "totalReturnPct": 71.18127551465214
+    },
+    "excessCagrVsSpyPctPoints": -3.005401723717572,
+    "excessCagrVsUrthPctPoints": -0.4446610388155747
+  },
+  "periods": [
+    {
+      "anchor": "2020-06-30",
+      "executionDate": "2020-07-01",
+      "nextExecutionDate": "2021-07-01",
+      "candidateReturnPct": 30.878086956423417,
+      "spyReturnPct": 40.61678789150447,
+      "urthReturnPct": 39.42628840805267,
+      "ctxs": null,
+      "topWeights": [
+        {
+          "ticker": "AMZN",
+          "weightPct": 50.308292411831914,
+          "returnPct": 24.53227217431888
+        },
+        {
+          "ticker": "ORCL",
+          "weightPct": 6.257715860060522,
+          "returnPct": 44.92571643153278
+        },
+        {
+          "ticker": "AMGN",
+          "weightPct": 5.095574939921722,
+          "returnPct": 6.4083805172849395
+        },
+        {
+          "ticker": "TXN",
+          "weightPct": 4.328502681105842,
+          "returnPct": 55.624586274534614
+        },
+        {
+          "ticker": "QCOM",
+          "weightPct": 3.8041099563109526,
+          "returnPct": 60.131725397061466
+        }
+      ]
+    },
+    {
+      "anchor": "2021-06-30",
+      "executionDate": "2021-07-01",
+      "nextExecutionDate": "2022-07-01",
+      "candidateReturnPct": -20.039298253089207,
+      "spyReturnPct": -10.945801137063638,
+      "urthReturnPct": -14.565517615468215,
+      "ctxs": {
+        "ticker": "CTXS",
+        "rank": 8,
+        "weight": 0.003813520530934251,
+        "returnPct": -16.33593646921394,
+        "terminalType": "LISTED_ADJUSTED_OPEN"
+      },
+      "topWeights": [
+        {
+          "ticker": "AMZN",
+          "weightPct": 45.868569119714095,
+          "returnPct": -38.10632763063511
+        },
+        {
+          "ticker": "HD",
+          "weightPct": 9.035171833837657,
+          "returnPct": -11.933249496825205
+        },
+        {
+          "ticker": "ORCL",
+          "weightPct": 5.8667999728577485,
+          "returnPct": -9.106657797097995
+        },
+        {
+          "ticker": "ABBV",
+          "weightPct": 5.271406376624831,
+          "returnPct": 41.37331265341926
+        },
+        {
+          "ticker": "QCOM",
+          "weightPct": 4.284097108906856,
+          "returnPct": -10.422923643197091
+        }
+      ]
+    },
+    {
+      "anchor": "2022-06-30",
+      "executionDate": "2022-07-01",
+      "nextExecutionDate": "2023-07-03",
+      "candidateReturnPct": 15.677773724654125,
+      "spyReturnPct": 19.560596621747848,
+      "urthReturnPct": 18.954796012477605,
+      "ctxs": {
+        "ticker": "CTXS",
+        "rank": 16,
+        "weight": 0.004715368280978988,
+        "returnPct": 6.962867848737608,
+        "terminalType": "POSTHOC_CASH_MERGER_VALUE"
+      },
+      "topWeights": [
+        {
+          "ticker": "AMZN",
+          "weightPct": 42.02133034216292,
+          "returnPct": 23.07837632646774
+        },
+        {
+          "ticker": "ABBV",
+          "weightPct": 10.526092628221644,
+          "returnPct": -9.0847988307726
+        },
+        {
+          "ticker": "QCOM",
+          "weightPct": 5.580200840679776,
+          "returnPct": -2.786925926220196
+        },
+        {
+          "ticker": "AMGN",
+          "weightPct": 5.314165117705393,
+          "returnPct": -6.033530145232479
+        },
+        {
+          "ticker": "ADP",
+          "weightPct": 3.4268969452649394,
+          "returnPct": 6.1041147115101335
+        }
+      ]
+    },
+    {
+      "anchor": "2023-06-30",
+      "executionDate": "2023-07-03",
+      "nextExecutionDate": "2024-07-01",
+      "candidateReturnPct": 39.21833812196996,
+      "spyReturnPct": 24.9218418174878,
+      "urthReturnPct": 20.808208070818466,
+      "ctxs": null,
+      "topWeights": [
+        {
+          "ticker": "AMZN",
+          "weightPct": 36.70635774685499,
+          "returnPct": 47.90551495202613
+        },
+        {
+          "ticker": "AVGO",
+          "weightPct": 9.889073156011264,
+          "returnPct": 88.41606635870347
+        },
+        {
+          "ticker": "ORCL",
+          "weightPct": 9.817239057282807,
+          "returnPct": 21.783190173031386
+        },
+        {
+          "ticker": "HD",
+          "weightPct": 8.618900073593448,
+          "returnPct": 13.91710992920936
+        },
+        {
+          "ticker": "ABBV",
+          "weightPct": 6.529363647708614,
+          "returnPct": 33.02337550510715
+        }
+      ]
+    }
+  ],
+  "interpretation": "POSTHOC_GROSS_EDGE_NOT_PRESENT",
+  "nextAction": "USE_ONLY_AS_ARCHITECTURE_DIAGNOSTIC; DO_NOT PROMOTE OR RETUNE ON THIS SAMPLE"
+}
