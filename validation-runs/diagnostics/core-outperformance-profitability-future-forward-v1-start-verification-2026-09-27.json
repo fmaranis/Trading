@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1_START_CAPTURE",
+  "checkedAt": "2026-09-27",
+  "status": "PASS_PRE_START_GUARDS",
+  "futurePricesOpened": false,
+  "expectedFirstSession": "2026-09-28",
+  "officialCalendarCheck": "NYSE 2026 calendar shows 2026-09-28 is not a market holiday; runner still requires an actual common tradable session across every selected symbol plus SPY and URTH.",
+  "localUnitGuard": "CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1_START_UNIT_PASS",
+  "sealFingerprintsPass": true,
+  "checks": {
+    "scripts/coreOutperformanceProfitabilityFutureForwardV1Start.mjs": {
+      "expected": "37e072053594f9ae6bf8d8adfcbefeb5b1af1d15",
+      "actual": "37e072053594f9ae6bf8d8adfcbefeb5b1af1d15",
+      "pass": true
+    },
+    "tests/coreOutperformanceProfitabilityFutureForwardV1Start.unit.mjs": {
+      "expected": "c78a2851975d6d6db38b9bf699485e241e8410bb",
+      "actual": "c78a2851975d6d6db38b9bf699485e241e8410bb",
+      "pass": true
+    },
+    "validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-snapshot.json": {
+      "expected": "2b5bc6cd32403b5b3f8e1e5903b79d740a49666a",
+      "actual": "2b5bc6cd32403b5b3f8e1e5903b79d740a49666a",
+      "pass": true
+    },
+    "validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-seal.json": {
+      "expected": "f36f527d5911f58508347c2a28e77726cec1c0e0",
+      "actual": "f36f527d5911f58508347c2a28e77726cec1c0e0",
+      "pass": true
+    }
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "nextAction": "RUN SEALED START CAPTURE AFTER THE 2026-09-28 SESSION IS COMPLETE"
+}
