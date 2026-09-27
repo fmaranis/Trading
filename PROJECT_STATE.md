@@ -991,3 +991,23 @@ Actualización 2026-09-27 — profitability capped policy + value intersection:
 - V2 permanece sellada para diagnóstico future-forward, pero la **promoción queda bloqueada por concentración aunque eventualmente bata SPY/URTH**; CHTR ya pertenece a las 46 de V1 y puede reutilizar el mismo start price;
 - archivos: `docs/CORE_OUTPERFORMANCE_PROFITABILITY_CAPPED_POLICY_V1_2026-09-27.md`, `...PROFITABILITY_VALUE_FUTURE_FORWARD_V1_2026-09-27.md`, snapshots/seals y evaluadores correspondientes;
 - lectura retenida: profitability contiene información; la ponderación raw fue un problema importante; cap 5% mejora mucho la transferencia, pero todavía no acredita exceso conjunto frente a SPY+core. La intersección literal value×profitability 5×5 es demasiado estrecha como política Custodia.
+
+
+---
+
+Actualización 2026-09-27 — direct-stock profitability no viable + ex-US no generaliza:
+
+- se auditó la ejecución exacta de las 46 acciones del basket profitability congelado con títulos enteros y la tarifa vigente de MyInvestor para acciones USA: 0,12% por operación con mínimo 3 € / máximo 25 € y 0,30% de cambio de divisa;
+- la réplica directa exige aprox. **396.286 € sólo en la sleeve** para poder comprar al menos una acción de las 46 respetando los pesos congelados; a 5.000 € sólo 3 posiciones son ejecutables y a 10.000 €, 5;
+- el modelo productivo actual de `brokerExecution.ts` no es suficiente para validar esta sleeve: usa el mínimo ETF de 1 € y no incorpora el coste FX al `totalCost`; producción no se modifica ahora;
+- decisión metodológica: **FAIL_DIRECT_STOCK_IMPLEMENTATION_FOR_NORMAL_SLEEVE**. Es un FAIL de política/implementación, no de calidad de señal. La réplica future-forward raw permanece intacta como experimento;
+- evidencia: `validation-runs/diagnostics/core-outperformance-profitability-direct-stock-implementation-2026-09-27.json`;
+
+- se ejecutó después, exactamente como estaba preregistrado, `CORE_OUTPERFORMANCE_PROFITABILITY_EXUS_GENERALIZATION_V1`;
+- Developed ex-US Big/Robust OP 2009-2014: CAGR **9,6855%** vs mercado ex-US **10,2713%** -> **-0,5858 pp/año**;
+- Developed ex-US Big/Robust OP 2016-2021: CAGR **10,6934%** vs mercado ex-US **9,3268%** -> **+1,3667 pp/año**;
+- el gate exigía exceso positivo en ambas ventanas; resultado **FAIL_GEOGRAPHIC_GENERALIZATION**;
+- la rama ex-US se cierra sin abrir rescates Europe/Japan/Small+Big ni cambiar buckets/ventanas;
+- la señal U.S. Operating Profitability conserva su PASS + confirmación temporal, pero ya no se puede describir como ventaja geográficamente generalizada bajo esta construcción;
+- archivos: `docs/CORE_OUTPERFORMANCE_PROFITABILITY_EXUS_GENERALIZATION_V1_EXECUTION_2026-09-27.md`, input/result y runner reproducible;
+- siguiente dirección: implementación empaquetada UCITS/fondo seleccionada por metodología, accesibilidad y costes antes de abrir su histórico objetivo; producción continúa **LEGACY**.
