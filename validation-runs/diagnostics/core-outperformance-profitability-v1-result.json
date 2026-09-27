@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_V1",
+  "status": "PASS_CONFIRMATION_SIGNAL_ONLY",
+  "diagnostic": {
+    "candidate": {
+      "months": 72,
+      "totalReturnPct": 210.73543146510664,
+      "cagrPct": 20.799497963853277,
+      "annualizedVolPct": 15.821421555819454,
+      "maxMonthlyPathDrawdownPct": -19.46953900000001,
+      "returnVolRatio": 1.3146415377702125
+    },
+    "usParent": {
+      "months": 72,
+      "totalReturnPct": 163.38102851412177,
+      "cagrPct": 17.51611211252586,
+      "annualizedVolPct": 15.303216261109046,
+      "maxMonthlyPathDrawdownPct": -20.207874000000015,
+      "returnVolRatio": 1.1446033182606572
+    },
+    "urth": {
+      "totalReturnPct": 122.06154011253653,
+      "cagrPct": 14.220894759040426
+    },
+    "excessCagrVsUsPctPoints": 3.2833858513274166,
+    "excessCagrVsUrthPctPoints": 6.57860320481285,
+    "passed": true
+  },
+  "confirmation": {
+    "candidate": {
+      "months": 72,
+      "totalReturnPct": 173.21795271191047,
+      "cagrPct": 18.23649275776218,
+      "annualizedVolPct": 14.116165133460202,
+      "maxMonthlyPathDrawdownPct": -13.191516999999997,
+      "returnVolRatio": 1.291887179368239
+    },
+    "usParent": {
+      "months": 72,
+      "totalReturnPct": 166.0893233615439,
+      "cagrPct": 17.71665374419049,
+      "annualizedVolPct": 15.164886912549743,
+      "maxMonthlyPathDrawdownPct": -17.701264813225293,
+      "returnVolRatio": 1.1682681081867499
+    },
+    "developedGlobal": {
+      "months": 72,
+      "totalReturnPct": 117.42203087791978,
+      "cagrPct": 13.81965319911249,
+      "annualizedVolPct": 16.346458281744315,
+      "maxMonthlyPathDrawdownPct": -20.408832090232277,
+      "returnVolRatio": 0.8454218620890034
+    },
+    "excessCagrVsUsPctPoints": 0.519839013571687,
+    "excessCagrVsDevelopedPctPoints": 4.416839558649688,
+    "passed": true
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "nextAction": "FREEZE_ACTIONABLE_PIT_TRANSLATION"
+}
