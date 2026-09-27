@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1 as P,
   epsGrowthVariability,
@@ -18,6 +20,8 @@ assert.equal(P.fundamentals.earningsVariability, 'SAMPLE_STDDEV_OF_4_YOY_EPS_GRO
 assert.deepEqual(P.fundamentals.winsorizationPct, [5, 95]);
 assert.deepEqual(P.fundamentals.descriptorWeights, { roe: 1, debtEquity: 1, earningsVariability: 1 });
 assert.equal(P.qualityBranch.noOutcomeTuning, true);
+assert.match(P.fundamentals.translationStatus, /PROVIDER_INDEPENDENT_SEC_TRANSLATION/);
+assert.match(P.valuation.translationStatus, /ANNUAL_CAUSAL_EARNINGS_YIELD_TRANSLATION/);
 assert.equal(P.valuation.noOutcomeTuning, true);
 assert.equal(P.outcomes.primaryBenchmark, 'SPY');
 assert.equal(P.outcomes.secondaryStructuralCoreProxy, 'URTH');
@@ -50,5 +54,13 @@ assert.equal(
   split.cheapReasonable.length + split.expensive.length,
   'valuation branches must be disjoint'
 );
+
+const runner = fs.readFileSync(path.resolve(process.cwd(), 'scripts/fundamentalQualityValuationBroadPitV1Live.ts'), 'utf8');
+assert.match(runner, /HistoricalTickerComponents/);
+assert.match(runner, /filed <= P\.informationDate/);
+assert.match(runner, /data\.sec\.gov\/api\/xbrl\/companyfacts/);
+assert.match(runner, /sourceType !== 'REAL'/);
+assert.match(runner, /saveDurableResearchValidationEvidence/);
+assert.doesNotMatch(runner, /SYNTHETIC.*fallback|currentOpenDiscovery\s*:\s*true/i);
 
 console.log('fundamentalQualityValuationBroadPitV1.unit: PASS');
