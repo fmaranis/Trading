@@ -869,3 +869,22 @@ Actualización 2026-09-27 — verificación independiente de CORE_OUTPERFORMANCE
 - desde el commit del plan `e905503fd9c95299e4ca3fe0eeefc29f257f76ff` hasta el cierre verificado no se modificó ningún archivo productivo;
 - evidencia de verificación: `validation-runs/diagnostics/core-outperformance-momentum-v1-verification-2026-09-27.json`;
 - producción permanece `LEGACY` y sin autoridad de promoción.
+
+
+---
+
+Actualización 2026-09-27 — Operating Profitability: primer candidato con confirmación positiva:
+
+- se preregistró antes de outcomes una cola finita de familias ortogonales; Candidate A = French Operating Profitability `Hi 10`, value-weighted, long-only;
+- diagnóstico 2016-01 -> 2021-12: CAGR **20,7995%** vs US parent **17,5161%** y URTH **14,2209%**; excesos **+3,2834 pp/año** y **+6,5786 pp/año** -> **PASS_EXTERNAL_DIAGNOSTIC_CANDIDATE**;
+- al pasar A se detuvo la cola: las candidatas B/C no se abrieron;
+- confirmación 2009-01 -> 2014-12 fue congelada en Git antes de abrir esos returns: CAGR **18,2365%** vs US parent **17,7167%** y developed global **13,8197%**; excesos **+0,5198 pp/año** y **+4,4168 pp/año** -> **PASS_CONFIRMATION_SIGNAL_ONLY**;
+- drawdown mensual descriptivo: diagnóstico -19,47% vs -20,21% parent; confirmación -13,19% vs -17,70% parent. No equivale todavía al guard diario de promoción;
+- runner/caché reproducibles: `scripts/coreOutperformanceProfitabilityV1.mjs`, `validation-runs/diagnostics/core-outperformance-profitability-v1-input.json` y `...-result.json`;
+- Stage C1 stock-level PIT quedó preregistrada y sellada **antes de stock outcomes**: SEC causal `filed <= signalDate`, operating profitability estricta, top decile, value-weighted, annual June/NEXT_OPEN, SPY+URTH, fail-closed en delistings/missing;
+- universo histórico Stage C1 usa reconstrucción estática versionada `chinobing/historical_sp500_constituents@019beba...`; no usa current constituents como universo histórico ni requiere EODHD;
+- se corrigieron aliases `BRK.B/BF.B` y se reseñaló el protocolo pre-outcome; no cambió fórmula, muestra, decil, ponderación ni gates;
+- preflight Stage C1: **BLOCKED_DATA_ACCESS** únicamente porque falta `SEC_EDGAR_USER_AGENT` en este runtime; **stock outcomes no abiertos** y no hay FAIL económico;
+- evidencia: `docs/CORE_OUTPERFORMANCE_PROFITABILITY_V1_EXECUTION_2026-09-27.md`, `docs/CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1_PREREGISTRATION_2026-09-27.md`, seal y preflight machine-readable;
+- siguiente paso permitido: ejecutar el Stage C1 sellado sin modificarlo cuando el runtime disponga de User-Agent SEC válido; sólo un PASS abre Stage C2 de costes/fiscalidad/riesgo y después confirmación future-forward;
+- producción permanece **LEGACY**; no hay promoción automática.
