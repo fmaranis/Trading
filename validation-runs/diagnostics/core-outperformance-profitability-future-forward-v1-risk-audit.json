@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1",
+  "recordedAt": "2026-09-27",
+  "sourceSnapshot": "validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-snapshot.json",
+  "status": "PRE_OUTCOME_RISK_AUDIT",
+  "outcomeOpened": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "counts": {
+    "members": 500,
+    "mapped": 500,
+    "evaluable": 451,
+    "selected": 46
+  },
+  "concentration": {
+    "largestPositions": [
+      {
+        "ticker": "NVDA",
+        "profitabilityRank": 28,
+        "weightPct": 34.27498861774148
+      },
+      {
+        "ticker": "AAPL",
+        "profitabilityRank": 12,
+        "weightPct": 31.423852800366824
+      },
+      {
+        "ticker": "LLY",
+        "profitabilityRank": 19,
+        "weightPct": 7.027007317458349
+      },
+      {
+        "ticker": "MA",
+        "profitabilityRank": 9,
+        "weightPct": 3.1431976335492626
+      },
+      {
+        "ticker": "ABBV",
+        "profitabilityRank": 1,
+        "weightPct": 2.945865901512329
+      }
+    ],
+    "top5WeightPct": 78.81491227062824,
+    "top10WeightPct": 87.22092833601488,
+    "hhi": 0.22519641625113598,
+    "effectiveNumberOfPositions": 4.440568001245693
+  },
+  "architectureTranslation": {
+    "note": "The basket is a research sleeve, not a replacement for the structural core. Multiplying sleeve weights by existing CORE_ARCHITECTURE_V1 maximum non-core shares gives direct incremental exposure only; it does not include look-through overlap already present inside the core.",
+    "directIncrementalPctOfTotalPortfolio": {
+      "LOW_18pctSleeve": {
+        "NVDA": 6.169497951193466,
+        "AAPL": 5.656293504066028
+      },
+      "MEDIUM_25pctSleeve": {
+        "NVDA": 8.56874715443537,
+        "AAPL": 7.855963200091706
+      },
+      "HIGH_35pctSleeve": {
+        "NVDA": 11.996246016209517,
+        "AAPL": 10.998348480128389
+      }
+    },
+    "unresolvedGuard": "CORE_LOOK_THROUGH_OVERLAP_NOT_YET_MEASURED"
+  },
+  "decision": "KEEP_V1_FROZEN_AS_SIGNAL_REPLICA; DO_NOT_RETUNE_WEIGHTS_PRE_OUTCOME; REQUIRE_LOOK_THROUGH_CONCENTRATION_CHECK_BEFORE_ANY_CUSTODIA_INTEGRATION"
+}
