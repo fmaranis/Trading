@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_EXUS_GENERALIZATION_V1",
+  "status": "FAIL_GEOGRAPHIC_GENERALIZATION",
+  "windows": [
+    {
+      "id": "2009_2014",
+      "start": "2009-01",
+      "end": "2014-12",
+      "candidate": {
+        "months": 72,
+        "totalReturnPct": 74.13907588913955,
+        "cagrPct": 9.685538707295049,
+        "annualizedVolPct": 16.904572818016565,
+        "maxMonthlyPathDrawdownPct": -19.821384595925306
+      },
+      "benchmark": {
+        "months": 72,
+        "totalReturnPct": 79.79438854849204,
+        "cagrPct": 10.271349335559332,
+        "annualizedVolPct": 18.116011382914586,
+        "maxMonthlyPathDrawdownPct": -22.487019071913107
+      },
+      "excessCagrPctPoints": -0.5858106282642837,
+      "passed": false
+    },
+    {
+      "id": "2016_2021",
+      "start": "2016-01",
+      "end": "2021-12",
+      "candidate": {
+        "months": 72,
+        "totalReturnPct": 83.96329650610063,
+        "cagrPct": 10.693434833284886,
+        "annualizedVolPct": 13.388741223479366,
+        "maxMonthlyPathDrawdownPct": -20.368693300000007
+      },
+      "benchmark": {
+        "months": 72,
+        "totalReturnPct": 70.74947879238005,
+        "cagrPct": 9.326781868665934,
+        "annualizedVolPct": 14.405513182973365,
+        "maxMonthlyPathDrawdownPct": -23.081965220923372
+      },
+      "excessCagrPctPoints": 1.366652964618952,
+      "passed": true
+    }
+  ],
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "interpretation": "Big/Robust Developed ex-US profitability beats its regional market in 2016-2021 but not in 2009-2014, so the preregistered both-window gate fails.",
+  "nextAction": "DO_NOT_RESCUE_WITH_REGIONAL_VARIANTS; retain U.S. profitability signal evidence and continue only separately preregistered implementation/future-forward work."
+}
