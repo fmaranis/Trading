@@ -55,31 +55,43 @@ export function qualityScoreFromZ(z) {
 
 export function capWeights(rows, cap=0.05) {
   if (!Array.isArray(rows) || !rows.length) throw new Error('QUALITY_CAP_EMPTY');
-  const base=rows.map(r=>({ ...r, rawWeight:Number(r.rawWeight) }));
-  if (base.some(r=>!(r.rawWeight>0))) throw new Error('QUALITY_CAP_RAW_INVALID');
-  const total=base.reduce((s,r)=>s+r.rawWeight,0);
-  const weights=base.map(r=>r.rawWeight/total);
-  const capped=new Array(base.length).fill(false);
+  const base=rows.map(r=>({ ...r, rawWeight:Number(r.rawWeight), issuerKey:String(r.issuerKey ?? r.ticker ?? '') }));
+  if (base.some(r=>!(r.rawWeight>0) || !r.issuerKey)) throw new Error('QUALITY_CAP_RAW_OR_ISSUER_INVALID');
+
+  const issuerRaw=new Map();
+  for (const r of base) issuerRaw.set(r.issuerKey,(issuerRaw.get(r.issuerKey)??0)+r.rawWeight);
+  const issuerKeys=[...issuerRaw.keys()];
+  const issuerWeights=new Map(issuerKeys.map(k=>[k,issuerRaw.get(k)]));
+  const total=[...issuerRaw.values()].reduce((a,b)=>a+b,0);
+  for (const k of issuerKeys) issuerWeights.set(k,issuerWeights.get(k)/total);
+
+  const capped=new Set();
   let remaining=1;
-  for (let guard=0; guard<base.length+2; guard++) {
-    const free=weights.map((_,i)=>i).filter(i=>!capped[i]);
-    const freeRaw=free.reduce((s,i)=>s+base[i].rawWeight,0);
+  for (let guard=0; guard<issuerKeys.length+2; guard++) {
+    const free=issuerKeys.filter(k=>!capped.has(k));
+    const freeRaw=free.reduce((s,k)=>s+issuerRaw.get(k),0);
     if (!free.length || !(freeRaw>0)) break;
     let changed=false;
-    for (const i of free) {
-      const tentative=remaining*base[i].rawWeight/freeRaw;
+    for (const k of free) {
+      const tentative=remaining*issuerRaw.get(k)/freeRaw;
       if (tentative>cap+1e-15) {
-        weights[i]=cap; capped[i]=true; remaining-=cap; changed=true;
+        issuerWeights.set(k,cap); capped.add(k); remaining-=cap; changed=true;
       }
     }
     if (!changed) {
-      for (const i of free) weights[i]=remaining*base[i].rawWeight/freeRaw;
+      for (const k of free) issuerWeights.set(k,remaining*issuerRaw.get(k)/freeRaw);
       break;
     }
   }
-  const sum=weights.reduce((a,b)=>a+b,0);
-  if (Math.abs(sum-1)>1e-10 || weights.some(w=>w>cap+1e-10 || w<0)) {
-    throw new Error('QUALITY_CAP_INVALID_RESULT');
+
+  const issuerSum=[...issuerWeights.values()].reduce((a,b)=>a+b,0);
+  if (Math.abs(issuerSum-1)>1e-10 || [...issuerWeights.values()].some(w=>w>cap+1e-10 || w<0)) {
+    throw new Error('QUALITY_ISSUER_CAP_INVALID_RESULT');
   }
-  return base.map((r,i)=>({ ...r, weight:weights[i] }));
+
+  return base.map(r=>{
+    const groupRaw=issuerRaw.get(r.issuerKey);
+    const groupWeight=issuerWeights.get(r.issuerKey);
+    return { ...r, weight:groupWeight*(r.rawWeight/groupRaw), issuerWeight:groupWeight };
+  });
 }
