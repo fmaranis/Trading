@@ -784,3 +784,14 @@ Reproducible audit: `python scripts/auditFundamentalQualityValuationEvidence.py`
 Machine-readable result: `validation-runs/diagnostics/fundamental-quality-valuation-evidence-audit-2026-09-27.json` (source SHA-256, seal fingerprints, exact metrics and unavailable controls).
 
 **Conclusion:** the preserved external result reports FAIL of the full alpha gate; strict PIT confirmation remains incomplete and cannot authorize improved alpha or production promotion. LEGACY remains the default.
+
+
+## 21. Siguiente implementación autorizada — momentum relativo (2026-09-27)
+
+Plan: `docs/CORE_OUTPERFORMANCE_RESEARCH_PLAN_2026-09-27.md`. Estado: PLAN / NO RESULTS / NO PRODUCTION CHANGE.
+
+Investigar una réplica compradora del momentum académico meses 2–12, mensual, separando señal y traducción económica en Custodia. Primero inventario y sello, después diagnóstico externo de bajo coste, luego réplica accionable y confirmación sólo si los gates previos justifican continuar. No reinterpretar los 15 episodios de pendientes 20/60d como rechazo de toda esta familia.
+
+El usuario prioriza pocos tokens: scripts deterministas, caché/checkpoints, resultados agregados, sin subagentes/Actions ni rejillas de parámetros. El plan fija paradas por FAIL o bloqueo y exige comparación neta/riesgo contra core y parent, stress de costes e incertidumbre. No se ha ejecutado ninguna prueba de rentabilidad al crear este documento. Las fechas y fuentes operativas deberán sellarse antes de outcomes; no se ha declarado ninguna muestra fresh sin auditar consumo.
+
+La investigación Quality × valoración mantiene el estado de §20. No cambiar su protocolo ni producción para implementar esta línea.

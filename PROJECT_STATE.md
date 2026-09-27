@@ -808,6 +808,17 @@ Actualización 2026-09-27 — auditoría de cierre PIT y ejecución directa:
 
 ---
 
+Actualización 2026-09-27 — plan de implementación de momentum relativo, con presupuesto de tokens limitado:
+
+- plan canónico: `docs/CORE_OUTPERFORMANCE_RESEARCH_PLAN_2026-09-27.md`; **PLAN AUTORIZADO / SIN RESULTADOS / NO PRODUCCIÓN**;
+- prioridad única: réplica long-only de momentum meses 2–12, revisión mensual; no equivale a las pendientes 20/60d ya diagnosticadas;
+- orden: inventario + registro de muestras + sello -> diagnóstico externo barato -> réplica accionable -> traducción Custodia sólo con ventaja neta previa -> confirmación temporal;
+- etapas con parada por bloqueo/FAIL; cálculos deterministas en backend local, sin subagentes, sin Actions, sin búsquedas paramétricas ni polling continuo;
+- fechas/universo/costes restantes se congelan antes de outcomes; el plan no es un preregistro de muestra ya ejecutable;
+- medir exceso neto frente a core y parent, costes duplicados, drawdown/Sharpe, incertidumbre y reach; no confundir mayor riesgo con alpha;
+- otro chat debe implementar y ejecutar este plan directamente sin pedir al usuario lanzar manualmente el Centro de validación;
+- Quality × valoración conserva estado y sellos; LEGACY sigue default. No nuevas pruebas numéricas realizadas al escribir este plan.
+
 # 13. CRITERIO DE CIERRE V1
 
 V1 puede cerrarse integralmente cuando estén suficientemente cerrados:
