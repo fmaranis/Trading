@@ -72,3 +72,20 @@ This window had remained unopened by the failed momentum study and was subsequen
 - stock outcomes: **NOT OPENED**.
 - current status: **BLOCKED_DATA_ACCESS** because `SEC_EDGAR_USER_AGENT` is absent in the available execution runtime.
 - this block is not a negative economic result and does not consume stock outcomes.
+
+
+## CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1
+
+- snapshot frozen: **2026-09-27**, before future price outcomes;
+- universe: current S&P 500 from Wolfram, frozen at 500 symbols;
+- 500/500 mapped, 451 evaluable, 46 top-decile selected;
+- signal proxy: current TotalRevenue × OperatingMargin / positive StockholdersEquity;
+- weighting: current market-cap value-weighted;
+- start: first common tradable session after 2026-09-27;
+- 3m and 6m: descriptive checkpoints only;
+- 12m: primary outcome versus SPY and URTH;
+- future outcomes: **UNOPENED**;
+- pre-outcome guard status: **PASS_PRE_OUTCOME_GUARDS**;
+- exact value-weighted basket is concentrated (NVDA 34.27%, AAPL 31.42% internally); V1 remains frozen rather than being retuned;
+- look-through overlap with the structural core must be quantified before any future Custodia integration;
+- strict historical `CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1` remains separately **BLOCKED_DATA_ACCESS** on SEC User-Agent and has not opened stock outcomes.
