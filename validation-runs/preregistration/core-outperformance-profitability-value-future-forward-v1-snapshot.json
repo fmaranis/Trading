@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_VALUE_FUTURE_FORWARD_V1",
+  "snapshotDate": "2026-09-27",
+  "status": "SNAPSHOT_FROZEN_SINGLE_NAME_INTERSECTION",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "source": {
+    "provider": "WOLFRAM",
+    "universe": "FinancialData[\"^GSPC\",\"Members\"]",
+    "fundamentals": [
+      "TotalRevenue",
+      "OperatingMargin",
+      "StockholdersEquity"
+    ],
+    "weighting": "FinancialData MarketCap"
+  },
+  "formulas": {
+    "operatingProfitabilityProxy": "TotalRevenue * (OperatingMarginPct / 100) / StockholdersEquity",
+    "bookToMarketProxy": "StockholdersEquity / MarketCap"
+  },
+  "rules": {
+    "positiveRevenue": true,
+    "finiteOperatingMargin": true,
+    "positiveEquity": true,
+    "positiveMarketCap": true,
+    "opTopQuintile": "ceil(evaluable/5)",
+    "bmTopQuintile": "ceil(evaluable/5)",
+    "selection": "exact intersection",
+    "weighting": "VALUE_WEIGHTED_MARKET_CAP",
+    "noNeighboringQuintiles": true,
+    "noRankSumRescue": true,
+    "noThresholdRelaxation": true,
+    "noRetuningAfterSnapshot": true
+  },
+  "counts": {
+    "members": 500,
+    "mapped": 500,
+    "evaluable": 451,
+    "quintileCount": 91,
+    "opTop": 91,
+    "bmTop": 91,
+    "selected": 1
+  },
+  "cutoffs": {
+    "opTopQuintileMin": 0.4811576033100067,
+    "bmTopQuintileMin": 0.4902056685170209
+  },
+  "concentration": {
+    "maxWeightPct": 100,
+    "top5WeightPct": 100,
+    "top10WeightPct": 100,
+    "hhi": 1,
+    "effectiveNumberOfPositions": 1
+  },
+  "selected": [
+    {
+      "symbol": "NASDAQ:CHTR",
+      "ticker": "CHTR",
+      "companyId": "CharterCommunications::z6kjg",
+      "totalRevenue": 55099000000,
+      "operatingMarginPct": 22.7,
+      "stockholdersEquity": 15845750000,
+      "marketCap": 13467622961.807251,
+      "operatingProfitabilityProxy": 0.7893266648785952,
+      "bookToMarketProxy": 1.1765810525685836,
+      "opRank": 41,
+      "bmRank": 10,
+      "weight": 1
+    }
+  ],
+  "preOutcomeInterpretation": {
+    "signalReplicaRetained": true,
+    "implementability": "NOT_DIVERSIFIED_ENOUGH_FOR_CUSTODIA_POLICY",
+    "reason": "Exact preregistered top-quintile intersection contains one security. Protocol forbids relaxing quintiles or rank-sum rescue after observing the cross-section.",
+    "futureOutcomeCanStillRun": true,
+    "promotionBlockedByConcentration": true
+  },
+  "outcome": {
+    "startRule": "FIRST_COMMON_TRADABLE_SESSION_AFTER_2026-09-27",
+    "reuseStartPriceFrom": "CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1 if CHTR common-session coverage exists",
+    "descriptiveCheckpointsMonths": [
+      3,
+      6
+    ],
+    "primaryHorizonMonths": 12,
+    "benchmarks": [
+      "SPY",
+      "URTH"
+    ],
+    "outcomeOpened": false
+  }
+}
