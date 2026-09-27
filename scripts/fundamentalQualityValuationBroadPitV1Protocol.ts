@@ -21,7 +21,8 @@ export const FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1 = {
     winsorizationPct: [5, 95],
     descriptorWeights: { roe: 1, debtEquity: 1, earningsVariability: 1 },
     descriptorSigns: { roe: 1, debtEquity: -1, earningsVariability: -1 },
-    missingRule: 'ROE_REQUIRED; D_E_OR_EVAR_MAY_BE_MISSING_SINGLY; BOTH_MISSING_EXCLUDES_SCORE'
+    missingRule: 'ROE_REQUIRED; D_E_OR_EVAR_MAY_BE_MISSING_SINGLY; BOTH_MISSING_EXCLUDES_SCORE',
+    translationStatus: 'PROVIDER_INDEPENDENT_SEC_TRANSLATION_NOT_BYTE_IDENTICAL_TO_WOLFRAM_SMALL_SAMPLE'
   },
   qualityBranch: {
     highQualityRule: 'QUALITY_SCORE_AT_OR_ABOVE_CROSS_SECTIONAL_MEDIAN',
@@ -32,7 +33,8 @@ export const FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1 = {
     formula: 'LATEST_CAUSAL_ANNUAL_NET_INCOME / (RAW_CLOSE_ON_INFORMATION_DATE * LATEST_CAUSAL_SHARES_OUTSTANDING)',
     cheapReasonableRule: 'WITHIN_HIGH_QUALITY_EARNINGS_YIELD_AT_OR_ABOVE_MEDIAN',
     expensiveRule: 'WITHIN_HIGH_QUALITY_EARNINGS_YIELD_BELOW_MEDIAN',
-    noOutcomeTuning: true
+    noOutcomeTuning: true,
+    translationStatus: 'ANNUAL_CAUSAL_EARNINGS_YIELD_TRANSLATION_NOT_TRAILING_PROVIDER_REPLICATION'
   },
   outcomes: {
     priceProvider: 'YAHOO_FINANCE_REAL',
