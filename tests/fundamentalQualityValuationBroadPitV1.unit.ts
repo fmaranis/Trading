@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import {
   FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1 as P,
   epsGrowthVariability,
@@ -54,6 +55,25 @@ assert.equal(
   split.cheapReasonable.length + split.expensive.length,
   'valuation branches must be disjoint'
 );
+
+const gitBlobSha = (text: string) => {
+  const normalized = text.replace(/\r\n/g, '\n');
+  const bytes = Buffer.from(normalized, 'utf8');
+  return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+};
+const sealPath = path.resolve(process.cwd(), 'validation-runs/preregistration/fundamental-quality-valuation-broad-pit-v1-seal.json');
+const seal = JSON.parse(fs.readFileSync(sealPath, 'utf8'));
+assert.equal(seal.version, 'FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1_SEAL');
+assert.equal(seal.informationDate, P.informationDate);
+assert.equal(seal.outcomeDate, P.outcomeDate);
+assert.equal(seal.productionDefault, 'LEGACY');
+assert.equal(seal.productionAuthority, false);
+assert.equal(seal.noRetuningAfterOutcome, true);
+assert.equal(seal.currentYahooDiscoveryHistorical, false);
+for (const [relative, expected] of Object.entries(seal.expectedGitBlobSha as Record<string, string>)) {
+  const content = fs.readFileSync(path.resolve(process.cwd(), relative), 'utf8');
+  assert.equal(gitBlobSha(content), expected, `seal mismatch: ${relative}`);
+}
 
 const runner = fs.readFileSync(path.resolve(process.cwd(), 'scripts/fundamentalQualityValuationBroadPitV1Live.ts'), 'utf8');
 assert.match(runner, /HistoricalTickerComponents/);
