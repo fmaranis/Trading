@@ -1035,3 +1035,31 @@ These are not new optimized weights and do not modify the future-forward basket.
 Evidence: `validation-runs/diagnostics/core-outperformance-profitability-look-through-audit-2026-09-27.json`.
 
 Decision: the existing 18%/25%/35% maximum non-core budget must **not** be interpreted as an authorized profitability allocation. Signal validation and portfolio sizing remain separate. Production stays `LEGACY`.
+
+
+### Start-capture readiness and secondary PIT source audit
+
+The first expected U.S. session after the Sunday 2026-09-27 snapshot is Monday 2026-09-28. The official NYSE 2026 holiday calendar shows no closure on that date. The start capturer does not rely on the calendar assumption alone: it searches for the first date on or after 2026-09-28 with a valid adjusted open for all 46 frozen names plus SPY and URTH.
+
+Frozen start semantics:
+
+- completed session only;
+- adjusted open = raw open × adjusted close / raw close on the same session;
+- 100% selected-symbol + benchmark coverage;
+- no survivor renormalization;
+- no fallback symbol or later hand-picked date.
+
+Artifacts:
+
+- `scripts/coreOutperformanceProfitabilityFutureForwardV1Start.mjs`;
+- `tests/coreOutperformanceProfitabilityFutureForwardV1Start.unit.mjs`;
+- `validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-start-seal.json`;
+- `validation-runs/diagnostics/core-outperformance-profitability-future-forward-v1-start-verification-2026-09-27.json`.
+
+Local unit guard and Git-blob fingerprint verification both pass. Future prices remain unopened.
+
+A secondary historical-source audit also searched for a causal alternative to SEC. A versioned modern SimFin mirror exposes 3,863 tickers and the required income/balance fields with publication dates but only spans report dates 2019-06-30 through 2024-04-30. An older SimFin research snapshot demonstrably contains 45,645 merged rows, 69 columns, publication dates, Total Equity and observations back to 2009, but the full rows are committed only as a pandas pickle that this runtime cannot materialize. The frozen Stage C1 window is therefore **not shortened or stitched across heterogeneous snapshots**.
+
+Evidence: `validation-runs/diagnostics/core-outperformance-profitability-pit-secondary-source-audit-2026-09-27.json`.
+
+Strict SEC PIT remains `BLOCKED_DATA_ACCESS`; this is not an economic FAIL. Production remains `LEGACY`.
