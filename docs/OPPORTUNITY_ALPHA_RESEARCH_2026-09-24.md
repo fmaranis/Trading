@@ -1173,3 +1173,39 @@ Artifacts:
 - `validation-runs/preregistration/core-outperformance-profitability-value-future-forward-v1-seal.json`.
 
 Production remains `LEGACY`.
+
+
+### Direct-stock execution economics and ex-US generalization
+
+The exact 46-name raw profitability basket was tested for practical whole-share execution under the current MyInvestor U.S.-stock tariff. This is an implementation diagnostic; it does not alter the frozen signal or future-forward sample.
+
+Key result:
+
+- all 46 names require approximately **€396k** of sleeve capital before every frozen target can buy even one whole share;
+- €5k supports 3/46 positions;
+- €10k supports 5/46;
+- €20k supports 14/46;
+- the calculation includes current stock trading commission plus 0.30% FX, but not spreads, sell-side costs or tax.
+
+Therefore direct 46-stock replication is **not** retained as the primary Custodia implementation for normal sleeve sizes. Evidence:
+`validation-runs/diagnostics/core-outperformance-profitability-direct-stock-implementation-2026-09-27.json`.
+
+Separately, the preregistered geographic holdout was executed without changing its frozen Big/Robust Developed ex-US construction:
+
+| Window | Big Robust OP CAGR | Developed ex-US market CAGR | Excess |
+| --- | ---: | ---: | ---: |
+| 2009–2014 | 9.69% | 10.27% | **-0.59 pp/y** |
+| 2016–2021 | 10.69% | 9.33% | **+1.37 pp/y** |
+
+Because both windows had to pass, the result is **FAIL_GEOGRAPHIC_GENERALIZATION**.
+
+The candidate nevertheless showed lower monthly volatility and less severe monthly-path drawdown than the regional market in both windows. This is descriptive risk information only; it cannot rescue the failed return gate.
+
+No regional variant, Big+Small blend, bucket change or alternate window is opened as a rescue. The U.S. profitability signal remains positive, but geographic universality is not established.
+
+Evidence:
+- `validation-runs/diagnostics/core-outperformance-profitability-exus-generalization-v1-input.json`;
+- `validation-runs/diagnostics/core-outperformance-profitability-exus-generalization-v1-result.json`;
+- `docs/CORE_OUTPERFORMANCE_PROFITABILITY_EXUS_GENERALIZATION_V1_EXECUTION_2026-09-27.md`.
+
+Next research focus is a packaged UCITS/fund implementation selected by ex-ante methodology and execution economics, not by retrospective winner selection. Production stays `LEGACY`.
