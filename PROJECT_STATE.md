@@ -973,3 +973,21 @@ Actualización 2026-09-27 — diagnóstico post-hoc delisting-aware del bridge S
 - no retunear score, decil, pesos, equity floor ni añadir filtros sobre 2020-2024;
 - evidencia: `validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-posthoc-result.json`;
 - siguiente investigación sólo puede ser una hipótesis distinta y congelada antes de outcomes fresh; producción permanece `LEGACY`.
+
+
+---
+
+Actualización 2026-09-27 — profitability capped policy + value intersection:
+
+- `CORE_OUTPERFORMANCE_PROFITABILITY_CAPPED_POLICY_V1` quedó preregistrada y sellada **antes de outcomes future-forward** usando exactamente las mismas 46 acciones de Profitability V1; sólo cambia la política de pesos mediante cap externo del **5% por emisor** con redistribución pro-rata;
+- no cambia score, ranking, universo ni señal. Referencia del cap: metodología pública MSCI Quality para control de concentración; producción sigue `LEGACY`;
+- concentración prospectiva pre-outcome: max 5%, top-5 25%, top-10 49,39%, HHI 0,03472, effective N **28,80**, frente a effective N 4,44 del value-weight raw;
+- cross-diagnostic sobre la muestra SimFin **ya consumida**, sin autoridad de promoción: raw CAGR 13,9390% -> capped 16,4654%; SPY 16,9444%; URTH 14,3837%;
+- el cap recupera **+2,5264 pp/año** frente al raw y supera URTH en **+2,0818 pp/año**, pero sigue **-0,4790 pp/año vs SPY**; no se ajusta 5%/quintiles/pesos para cerrar esa diferencia;
+- evidencia: `validation-runs/diagnostics/core-outperformance-profitability-capped-policy-historical-cross-diagnostic-2026-09-27.json`; la prueba limpia del cap sigue siendo el brazo future-forward aún **UNOPENED**;
+- la hipótesis previa Candidate B `profitability × value` se abrió sólo de forma prospectiva, sin consultar sus retornos históricos: `CORE_OUTPERFORMANCE_PROFITABILITY_VALUE_FUTURE_FORWARD_V1`;
+- snapshot 27-09-2026: 500 miembros -> 451 evaluables -> top quintile OP 91 + top quintile BM 91 -> **intersección exacta de 1 sola acción: CHTR**;
+- CHTR queda al **100%** del signal replica; effective N = 1. El protocolo prohíbe ampliar quintiles, rank-sum o rescatar con vecinos tras ver el cross-section;
+- V2 permanece sellada para diagnóstico future-forward, pero la **promoción queda bloqueada por concentración aunque eventualmente bata SPY/URTH**; CHTR ya pertenece a las 46 de V1 y puede reutilizar el mismo start price;
+- archivos: `docs/CORE_OUTPERFORMANCE_PROFITABILITY_CAPPED_POLICY_V1_2026-09-27.md`, `...PROFITABILITY_VALUE_FUTURE_FORWARD_V1_2026-09-27.md`, snapshots/seals y evaluadores correspondientes;
+- lectura retenida: profitability contiene información; la ponderación raw fue un problema importante; cap 5% mejora mucho la transferencia, pero todavía no acredita exceso conjunto frente a SPY+core. La intersección literal value×profitability 5×5 es demasiado estrecha como política Custodia.
