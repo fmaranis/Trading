@@ -863,3 +863,88 @@ Sequencing caveat:
 - because the diagnostic gate already failed, opening another window to recover a PASS would contradict the anti-retuning/stop rule.
 
 Production remains `LEGACY`.
+
+
+## 23. CORE_OUTPERFORMANCE_PROFITABILITY_V1 — external signal PASS + PIT translation frozen (2026-09-27)
+
+No production code was changed. Production remains `LEGACY`.
+
+A finite factor queue was preregistered before opening candidate returns:
+
+1. Operating Profitability top decile, value-weighted;
+2. high book-to-market × high operating profitability;
+3. high operating profitability × low investment.
+
+The sequential rule required stopping the queue at the first PASS. Candidate A passed, so Candidates B/C remain unopened and were not used to improve the observed result.
+
+### External diagnostic — 2016-01 -> 2021-12
+
+Frozen construction: Kenneth French Operating Profitability `Hi 10`, value-weighted, long-only.
+
+| Series | Total return | CAGR |
+| --- | ---: | ---: |
+| Operating Profitability Hi 10 | +210.74% | **20.80%** |
+| US parent | +163.38% | **17.52%** |
+| URTH proxy | +122.06% | **14.22%** |
+
+Excess CAGR:
+
+- vs US parent: **+3.28 pp/year**;
+- vs URTH: **+6.58 pp/year**.
+
+Monthly-path diagnostics were not worse in drawdown: candidate -19.47% vs US parent -20.21%, with return/vol ratio 1.315 vs 1.145. These are monthly diagnostics, not the project's required daily-risk promotion gate.
+
+Verdict: **PASS_EXTERNAL_DIAGNOSTIC_CANDIDATE**.
+
+### Preregistered temporal confirmation — 2009-01 -> 2014-12
+
+The exact same candidate and weighting were retained. The window, sources and gate were committed before opening Candidate A returns for this period.
+
+| Series | Total return | CAGR |
+| --- | ---: | ---: |
+| Operating Profitability Hi 10 | +173.22% | **18.24%** |
+| US parent | +166.09% | **17.72%** |
+| Developed-global market | +117.42% | **13.82%** |
+
+Excess CAGR:
+
+- vs US parent: **+0.52 pp/year**;
+- vs developed global market: **+4.42 pp/year**.
+
+Candidate monthly-path max drawdown was -13.19% vs -17.70% for US parent and -20.41% for developed global.
+
+Verdict: **PASS_CONFIRMATION_SIGNAL_ONLY**.
+
+This is evidence that the long-only high-operating-profitability family deserves an actionable translation. It is not yet evidence that Custodia can capture the same edge after execution frictions and Spanish taxation.
+
+### Stock-level actionable translation — Stage C1
+
+Frozen protocol:
+
+- `docs/CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1_PREREGISTRATION_2026-09-27.md`;
+- `scripts/coreOutperformanceProfitabilityPitV1Protocol.mjs`;
+- `scripts/coreOutperformanceProfitabilityPitV1Live.mjs`;
+- `tests/coreOutperformanceProfitabilityPitV1.unit.mjs`;
+- seal: `validation-runs/preregistration/core-outperformance-profitability-pit-v1-seal.json`.
+
+Key semantics:
+
+- reconstructed historical S&P 500 membership from a pinned/versioned static source;
+- SEC CompanyFacts with `filed <= signalDate`;
+- strict causal operating-profitability translation `(Revenue - COGS - SG&A - Interest) / positive BookEquity`;
+- top decile, value-weighted by causal market cap;
+- annual June formation and `NEXT_OPEN`;
+- SPY + URTH hurdles;
+- selected missing/delisted outcome => inconclusive, never survivor renormalization;
+- no momentum, value, sector, regime or stop overlay;
+- no synthetic fallback.
+
+Pre-outcome technical correction: share-class Yahoo aliases (`BRK.B`, `BF.B`) were frozen and the Git-blob seal was regenerated before any stock outcome access. No methodology or threshold changed.
+
+Current execution status: **BLOCKED_DATA_ACCESS / STOCK OUTCOMES NOT OPENED** because `SEC_EDGAR_USER_AGENT` is absent in the available runtime. This runner no longer requires EODHD or a GitHub replay token: historical membership uses the pinned public static reconstruction. The blocker is therefore narrower than the older Quality × valuation runner.
+
+Machine-readable preflight:
+
+- `validation-runs/diagnostics/core-outperformance-profitability-pit-v1-preflight-2026-09-27.json`.
+
+Next allowed action: run the **unchanged sealed Stage C1** once a valid SEC EDGAR User-Agent is available to the execution runtime. A Stage C1 PASS would allow the existing Custodia costs/tax harness; a FAIL closes this translation without retuning. No production authority.
