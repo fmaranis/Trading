@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_CAPPED_POLICY_V1_HISTORICAL_CROSS_DIAGNOSTIC",
+  "recordedAt": "2026-09-27",
+  "role": "CONSUMED_SAMPLE_CROSS_POLICY_DIAGNOSTIC_NOT_PROMOTION",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "methodologyTiming": {
+    "capPolicyPreregisterCommit": "cdf00266ac425f30d8a2d07c7b4213cfd11c0584",
+    "capPolicySealCommit": "b1fc5b9ffc4c27ef8b9484522cb77d3489a4755d",
+    "firstSimfinPriceOutcomeCommit": "aaa78bea25a54e0173897ab36fd01bf45fb431ee",
+    "weightingRuleFrozenBeforeSimfinPriceOutcomes": true,
+    "caveat": "The 5% rule was frozen before SimFin price outcomes, but applying it to the SimFin bridge was not itself preregistered for this consumed historical sample."
+  },
+  "weightingRule": {
+    "issuerCapPct": 5,
+    "startingWeights": "causal market-cap weights of each frozen SimFin bridge selection",
+    "redistribution": "iterative pro-rata redistribution among uncapped names",
+    "signalMembershipChanged": false
+  },
+  "corporateActionCaveat": {
+    "postHoc": true,
+    "ticker": "CTXS",
+    "terminalValueUsd": 104,
+    "effectiveDate": "2022-09-30",
+    "reason": "The 2022-2023 period requires the already-recorded post-hoc cash merger terminal value because V1 became inconclusive under its frozen listed-endpoint rule.",
+    "promotionAuthority": false
+  },
+  "periods": [
+    {
+      "anchor": "2020-06-30",
+      "rawReturnPct": 30.878086956423417,
+      "cappedReturnPct": 37.150954219817514,
+      "spyReturnPct": 40.61678789150447,
+      "urthReturnPct": 39.42628840805267,
+      "rawEffectiveN": 3.7157816795538117,
+      "cappedEffectiveN": 22.734703988953136,
+      "maxRawWeightPct": 50.308292411831914,
+      "maxCappedWeightPct": 5
+    },
+    {
+      "anchor": "2021-06-30",
+      "rawReturnPct": -20.039298253089207,
+      "cappedReturnPct": -8.484940030969556,
+      "spyReturnPct": -10.945801137063638,
+      "urthReturnPct": -14.565517615468215,
+      "rawEffectiveN": 4.297052412732758,
+      "cappedEffectiveN": 23.57820277416759,
+      "maxRawWeightPct": 45.868569119714095,
+      "maxCappedWeightPct": 5
+    },
+    {
+      "anchor": "2022-06-30",
+      "rawReturnPct": 15.677773724654125,
+      "cappedReturnPct": 16.111067905189948,
+      "spyReturnPct": 19.560596621747848,
+      "urthReturnPct": 18.954796012477605,
+      "rawEffectiveN": 4.971217977343804,
+      "cappedEffectiveN": 23.42301771740013,
+      "maxRawWeightPct": 42.02133034216292,
+      "maxCappedWeightPct": 5
+    },
+    {
+      "anchor": "2023-06-30",
+      "rawReturnPct": 39.21833812196996,
+      "cappedReturnPct": 26.247666283339818,
+      "spyReturnPct": 24.9218418174878,
+      "urthReturnPct": 20.808208070818466,
+      "rawEffectiveN": 5.834593485721553,
+      "cappedEffectiveN": 23.24053761997906,
+      "maxRawWeightPct": 36.70635774685499,
+      "maxCappedWeightPct": 5
+    }
+  ],
+  "metrics": {
+    "rawCagrPct": 13.939018903719624,
+    "cappedCagrPct": 16.465446257889106,
+    "spyCagrPct": 16.944420627437196,
+    "urthCagrPct": 14.383679942535199,
+    "cappedImprovementVsRawPctPoints": 2.5264273541694813,
+    "cappedExcessVsSpyPctPoints": -0.4789743695480908,
+    "cappedExcessVsUrthPctPoints": 2.0817663153539065
+  },
+  "interpretation": [
+    "The externally frozen 5% concentration rule materially improves the consumed stock-level translation and raises effective diversification from roughly 4-6 names to roughly 23 names.",
+    "The capped diagnostic still does not clear the joint SPY+URTH hurdle because it remains 0.479 percentage points/year below SPY.",
+    "Do not tune the cap, ranking, membership, or formula on this sample to erase the remaining gap.",
+    "The clean test of the capped policy is the already-sealed future-forward arm; this historical cross-application is architecture evidence only."
+  ],
+  "status": "DIAGNOSTIC_IMPROVEMENT_NOT_JOINT_HURDLE_PASS",
+  "nextAction": "KEEP_5PCT_CAPPED_FUTURE_FORWARD_ARM_FROZEN; DO_NOT RETUNE ON 2020-2024"
+}
