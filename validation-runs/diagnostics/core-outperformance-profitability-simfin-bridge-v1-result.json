@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_SIMFIN_BRIDGE_V1",
+  "recordedAt": "2026-09-27",
+  "status": "INCONCLUSIVE_PRICE_OR_COVERAGE",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "preregistration": "docs/CORE_OUTPERFORMANCE_PROFITABILITY_SIMFIN_BRIDGE_V1_2026-09-27.md",
+  "seal": "validation-runs/preregistration/core-outperformance-profitability-simfin-bridge-v1-seal.json",
+  "frozenSignalInput": "validation-runs/preregistration/core-outperformance-profitability-simfin-bridge-v1-input.json",
+  "partialPriceEvidence": "validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-prices.json",
+  "openedPricePeriods": [
+    {
+      "anchor": "2020-06-30",
+      "status": "COMPLETE_100_PERCENT_COVERAGE"
+    },
+    {
+      "anchor": "2021-06-30",
+      "status": "COMPLETE_100_PERCENT_COVERAGE"
+    },
+    {
+      "anchor": "2022-06-30",
+      "status": "STOPPED_BEFORE_PERSISTING_PERIOD_DUE_MISSING_SELECTED_END_PRICE",
+      "missingTicker": "CTXS",
+      "requiredEndDate": "2023-07-03"
+    }
+  ],
+  "blocker": {
+    "ticker": "CTXS",
+    "selectedAtAnchor": "2022-06-30",
+    "rank": 16,
+    "requiredOutcomeDate": "2023-07-03",
+    "reason": "NO_LISTED_MARKET_PRICE_AFTER_2022_ACQUISITION_AND_DELISTING",
+    "mergerCompletedDate": "2022-09-30",
+    "mergerConsiderationUsdPerShare": 104,
+    "secSources": [
+      "https://www.sec.gov/Archives/edgar/data/877890/000119312522256805/d393433d8k.htm",
+      "https://www.sec.gov/Archives/edgar/data/877890/000119312522256778/d351063ds8pos.htm"
+    ]
+  },
+  "frozenCoverageRule": "100% selected outcome coverage; no survivor renormalization or post-hoc terminal-value substitution",
+  "economicMetricsComputed": false,
+  "interpretation": [
+    "This is not a FAIL of the profitability signal.",
+    "The secondary bridge cannot produce a valid chained CAGR under its frozen NEXT_OPEN endpoint because one selected security ceased trading before the required endpoint.",
+    "Do not retrofit the $104 merger cash consideration into V1 after observing CTXS. A delisting/corporate-action-aware replay must be designed separately before a fresh sample.",
+    "The strict SEC PIT study remains blocked but unopened; the future-forward V1 remains the primary independent prospective test."
+  ],
+  "nextAction": "KEEP_SIMFIN_BRIDGE_V1_CLOSED_INCONCLUSIVE; CONTINUE_SEALED_FUTURE_FORWARD_START_CAPTURE; ANY DELISTING_AWARE_REPLAY_REQUIRES_SEPARATE_PREREGISTRATION_AND_FRESH_EVIDENCE"
+}
