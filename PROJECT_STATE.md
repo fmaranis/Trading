@@ -712,6 +712,26 @@ Actualización 2026-09-26 — validación amplia live de fundamental Quality:
 - estado de `FUNDAMENTAL_QUALITY_SCORE_RESEARCH_V1`: **BROAD EXTERNAL VALIDATION SUPPORTS QUALITY FAMILY / PROJECT-SPECIFIC CAUSAL VALIDATION STILL REQUIRED / NO PRODUCTION AUTHORITY**;
 - no cambiar pesos ni thresholds; producción continúa `LEGACY`; siguiente requisito es validación causal del score congelado dentro de la población de oportunidades del proyecto contra structural core.
 
+Actualización 2026-09-27 — interacción fundamental Quality × valoración recuperada y preservada:
+
+- se reconstruyó el diagnóstico `VALUATION_AWARE_QUALITY` que había quedado sólo en chat;
+- muestra fija principal: 13 líderes Nasdaq-100 2020 con operating profitability positiva; corte causal 2021-05-03 y outcome 2022-05-03; QQQ ~-4,71%;
+- Quality congelado: ROE alto + D/E bajo + EVAR bajo, z-scores equiponderados; tratamiento de EVAR faltante según regla MSCI contemporánea;
+- dentro de `HIGH_QUALITY`, valoración = earnings yield histórico y split determinista por mediana del propio subgrupo;
+- high Quality + cheap/reasonable: PYPL, CDNS, SNPS, AAPL; retorno medio -1,67%, exceso medio **+3,04 pp** vs QQQ, exceso mediano **+23,35 pp**, 3/4 winners;
+- high Quality + expensive: ZM, ALGN, IDXX; retorno medio -45,85%, exceso medio **-41,14 pp**, 0/3 winners;
+- control negativo: valoración sola no explica el resultado; existen lower-quality expensive winners como TSLA/NVDA, por lo que la hipótesis retained es la **interacción Quality × valuation**, no `cheap stocks` en general;
+- cross-check independiente por mayores pesos Nasdaq-100 a 2020-12-14: high Quality cheap/reasonable AAPL/META/GOOGL => exceso medio +0,35 pp, 2/3 winners; high Quality expensive PYPL/ADBE => -37,31 pp, 0/2;
+- interpretación: se reproduce con otra selección la penalización de `expensive Quality`, pero todavía no se demuestra alpha robusto de `cheap Quality`;
+- estado: `VALUATION_AWARE_QUALITY = PROMISING_DIAGNOSTIC_INTERACTION / BROAD PIT STOCK-LEVEL CONFIRMATION REQUIRED / NO PRODUCTION AUTHORITY`;
+- no cambiar pesos ni thresholds; producción continúa `LEGACY`.
+
+Regla nueva de continuidad de investigación:
+
+- todo hallazgo que abra una hipótesis materialmente prometedora debe registrarse en `PROJECT_STATE.md` y/o documento research **antes de pasar al test siguiente**;
+- el registro mínimo incluye definición, fecha causal, muestra, grupos reconstruibles, resultado vs core, estado consumed/fresh y siguiente prueba;
+- un resultado prometedor incompleto se etiqueta `PROMISING_DIAGNOSTIC_UNCONFIRMED`; no debe quedar únicamente en el chat.
+
 ---
 
 # 13. CRITERIO DE CIERRE V1
