@@ -888,3 +888,22 @@ Actualización 2026-09-27 — Operating Profitability: primer candidato con conf
 - evidencia: `docs/CORE_OUTPERFORMANCE_PROFITABILITY_V1_EXECUTION_2026-09-27.md`, `docs/CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1_PREREGISTRATION_2026-09-27.md`, seal y preflight machine-readable;
 - siguiente paso permitido: ejecutar el Stage C1 sellado sin modificarlo cuando el runtime disponga de User-Agent SEC válido; sólo un PASS abre Stage C2 de costes/fiscalidad/riesgo y después confirmación future-forward;
 - producción permanece **LEGACY**; no hay promoción automática.
+
+
+---
+
+Actualización 2026-09-27 — Profitability future-forward V1 congelado:
+
+- la validación histórica stock-level estricta `CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1` permanece **BLOCKED_DATA_ACCESS** por ausencia de `SEC_EDGAR_USER_AGENT`; no se han abierto CompanyFacts ni outcomes stock-level y este bloqueo no es un FAIL económico;
+- como evidencia independiente y causal desde hoy se preregistró antes del cross-section completo `CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1`;
+- snapshot congelado 2026-09-27 con universo S&P 500 current de Wolfram: **500 miembros / 500 mapeados / 451 evaluables / 46 seleccionados**;
+- proxy congelado: `TotalRevenue × OperatingMargin / StockholdersEquity`, sólo revenue/equity/market-cap positivos; top decile, value-weighted por market cap; sin valuation, momentum, trend, sector filters, Forward Risk ni timing;
+- future outcomes: **UNOPENED**; regla de inicio = primera sesión común negociable posterior al 2026-09-27;
+- 3m y 6m son checkpoints descriptivos sin autoridad; **12m es el único endpoint primario**, PASS sólo si el basket supera simultáneamente SPY y URTH con cobertura 100%;
+- el basket académico-style value-weighted quedó muy concentrado **antes de outcomes**: NVDA 34,27%, AAPL 31,42%, top-5 78,81%, effective N 4,44. V1 se mantiene congelada y no se retunea;
+- bajo los límites actuales de `CORE_ARCHITECTURE_V1`, esa concentración se reduciría si se usase como sleeve no-core, pero sigue pendiente medir el **look-through overlap** con las megacaps ya contenidas en el core antes de cualquier integración;
+- evidencia live de implementación: los vehículos reales de Dimensional de high profitability son implementables pero no mostraron una ventaja persistente frente a Russell 1000 en los periodos estandarizados citados; se conserva como contexto de fricciones/implementación, no como FAIL de nuestra construcción;
+- evaluator future-forward y unit guard quedaron sellados; verificación **PASS_PRE_OUTCOME_GUARDS**, 46 símbolos únicos, pesos suman 1 dentro de tolerancia y producción sin autoridad;
+- archivos clave: `docs/CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1_2026-09-27.md`, `..._SNAPSHOT_2026-09-27.md`, snapshot/seal/verification bajo `validation-runs`, y `scripts/coreOutperformanceProfitabilityFutureForwardV1Protocol.mjs`;
+- siguiente hito: fijar los precios adjusted de arranque en la primera sesión común posterior al snapshot; después no hay nada que optimizar hasta los checkpoints congelados;
+- producción permanece **LEGACY**.
