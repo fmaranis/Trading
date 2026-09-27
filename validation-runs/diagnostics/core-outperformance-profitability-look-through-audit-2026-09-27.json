@@ -1,0 +1,348 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_LOOK_THROUGH_AUDIT_V1",
+  "recordedAt": "2026-09-27",
+  "role": "PRE_INTEGRATION_CONCENTRATION_AUDIT_NO_FUTURE_OUTCOMES",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "basket": {
+    "source": "validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-snapshot.json",
+    "NVDAWeightPct": 34.27498861774148,
+    "AAPLWeightPct": 31.423852800366824
+  },
+  "coreCandidates": [
+    {
+      "assetId": "FUND_VANGUARD_GLOBAL",
+      "isin": "IE00B03HD191",
+      "holdingsAsOf": "2026-08-31",
+      "coreWeightsPct": {
+        "NVDA": 5.39537,
+        "AAPL": 4.94679
+      },
+      "source": "https://www.vanguard.co.uk/professional/product/fund/equity/9837/global-stock-index-fund-eur-acc"
+    },
+    {
+      "assetId": "FUND_VANGUARD_ESG_DEVELOPED",
+      "isin": "IE00B5456744",
+      "holdingsAsOf": "2026-07-31",
+      "coreWeightsPct": {
+        "NVDA": 5.6164,
+        "AAPL": 5.35744
+      },
+      "source": "https://www.vanguard.co.uk/professional/product/fund/equity/9164/esg-developed-world-all-cap-equity-index-fund-acc"
+    },
+    {
+      "assetId": "VWCE",
+      "isin": "IE00BK5BQT80",
+      "holdingsAsOf": "2026-08-31",
+      "coreWeightsPct": {
+        "NVDA": 4.76598,
+        "AAPL": 4.23529
+      },
+      "source": "https://www.vanguard.co.uk/professional/product/etf/equity/9679/ftse-all-world-ucits-etf-usd-accumulating"
+    },
+    {
+      "assetId": "EUNL_IWDA",
+      "isin": "IE00B4L5Y983",
+      "holdingsAsOf": "2026-09-24",
+      "coreWeightsPct": {
+        "NVDA": 5.66,
+        "AAPL": 5.41
+      },
+      "source": "https://www.ishares.com/uk/individual/en/products/251882/ishares-core-msci-world-ucits-etf"
+    }
+  ],
+  "architectureReferences": {
+    "maximumNonCoreSharePct": {
+      "LOW": 18,
+      "MEDIUM": 25,
+      "HIGH": 35
+    },
+    "existingBuildPortfolioShareCapPct": {
+      "LOW": 6,
+      "MEDIUM": 8,
+      "HIGH": 12
+    },
+    "note": "Existing BUILD caps are used only as an existing-governance reference for look-through concentration. They were not created from profitability outcomes."
+  },
+  "scenarios": [
+    {
+      "assetId": "FUND_VANGUARD_GLOBAL",
+      "profiles": {
+        "LOW": {
+          "assumedProfitabilitySleevePct": 18,
+          "combinedIssuerExposurePct": {
+            "NVDA": 10.593701351193467,
+            "AAPL": 9.712661304066028
+          },
+          "combinedNvdaAaplPct": 20.306362655259495,
+          "existingBuildCapReferencePct": 6,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 2.0936218306863674,
+              "AAPL": 3.977820379628395
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 2.0936218306863674
+          }
+        },
+        "MEDIUM": {
+          "assumedProfitabilitySleevePct": 25,
+          "combinedIssuerExposurePct": {
+            "NVDA": 12.61527465443537,
+            "AAPL": 11.566055700091706
+          },
+          "combinedNvdaAaplPct": 24.181330354527077,
+          "existingBuildCapReferencePct": 8,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 9.018921040736702,
+              "AAPL": 11.531528338399
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 9.018921040736702
+          }
+        },
+        "HIGH": {
+          "assumedProfitabilitySleevePct": 35,
+          "combinedIssuerExposurePct": {
+            "NVDA": 15.503236516209517,
+            "AAPL": 14.213761980128387
+          },
+          "combinedNvdaAaplPct": 29.716998496337904,
+          "existingBuildCapReferencePct": 12,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 22.869519460837374,
+              "AAPL": 26.63894425594021
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 22.869519460837374
+          }
+        }
+      }
+    },
+    {
+      "assetId": "FUND_VANGUARD_ESG_DEVELOPED",
+      "profiles": {
+        "LOW": {
+          "assumedProfitabilitySleevePct": 18,
+          "combinedIssuerExposurePct": {
+            "NVDA": 10.774945951193466,
+            "AAPL": 10.049394304066029
+          },
+          "combinedNvdaAaplPct": 20.824340255259493,
+          "existingBuildCapReferencePct": 6,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 1.3385167187281781,
+              "AAPL": 2.4650879463972775
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 1.3385167187281781
+          }
+        },
+        "MEDIUM": {
+          "assumedProfitabilitySleevePct": 25,
+          "combinedIssuerExposurePct": {
+            "NVDA": 12.78104715443537,
+            "AAPL": 11.874043200091705
+          },
+          "combinedNvdaAaplPct": 24.655090354527076,
+          "existingBuildCapReferencePct": 8,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 8.317227452451728,
+              "AAPL": 10.137796942902751
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 8.317227452451728
+          }
+        },
+        "HIGH": {
+          "assumedProfitabilitySleevePct": 35,
+          "combinedIssuerExposurePct": {
+            "NVDA": 15.646906016209517,
+            "AAPL": 14.480684480128387
+          },
+          "combinedNvdaAaplPct": 30.127590496337902,
+          "existingBuildCapReferencePct": 12,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 22.274648919898826,
+              "AAPL": 25.4832149359137
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 22.274648919898826
+          }
+        }
+      }
+    },
+    {
+      "assetId": "VWCE",
+      "profiles": {
+        "LOW": {
+          "assumedProfitabilitySleevePct": 18,
+          "combinedIssuerExposurePct": {
+            "NVDA": 10.077601551193466,
+            "AAPL": 9.129231304066028
+          },
+          "combinedNvdaAaplPct": 19.206832855259492,
+          "existingBuildCapReferencePct": 6,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 4.181841606356371,
+              "AAPL": 6.490633627667111
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 4.181841606356371
+          }
+        },
+        "MEDIUM": {
+          "assumedProfitabilitySleevePct": 25,
+          "combinedIssuerExposurePct": {
+            "NVDA": 12.14323215443537,
+            "AAPL": 11.032430700091705
+          },
+          "combinedNvdaAaplPct": 23.175662854527076,
+          "existingBuildCapReferencePct": 8,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 10.959432903671438,
+              "AAPL": 13.846667908276517
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 10.959432903671438
+          }
+        },
+        "HIGH": {
+          "assumedProfitabilitySleevePct": 35,
+          "combinedIssuerExposurePct": {
+            "NVDA": 15.094133016209517,
+            "AAPL": 13.751286980128388
+          },
+          "combinedNvdaAaplPct": 28.845419996337903,
+          "existingBuildCapReferencePct": 12,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 24.514615498301577,
+              "AAPL": 28.558736469495326
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 24.514615498301577
+          }
+        }
+      }
+    },
+    {
+      "assetId": "EUNL_IWDA",
+      "profiles": {
+        "LOW": {
+          "assumedProfitabilitySleevePct": 18,
+          "combinedIssuerExposurePct": {
+            "NVDA": 10.810697951193466,
+            "AAPL": 10.092493504066027
+          },
+          "combinedNvdaAaplPct": 20.903191455259496,
+          "existingBuildCapReferencePct": 6,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 1.1881884859083873,
+              "AAPL": 2.2680223668816955
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 1.1881884859083873
+          }
+        },
+        "MEDIUM": {
+          "assumedProfitabilitySleevePct": 25,
+          "combinedIssuerExposurePct": {
+            "NVDA": 12.813747154435369,
+            "AAPL": 11.913463200091705
+          },
+          "combinedNvdaAaplPct": 24.727210354527074,
+          "existingBuildCapReferencePct": 8,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 8.177532520663611,
+              "AAPL": 9.956233780039987
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 8.177532520663611
+          }
+        },
+        "HIGH": {
+          "assumedProfitabilitySleevePct": 35,
+          "combinedIssuerExposurePct": {
+            "NVDA": 15.675246016209517,
+            "AAPL": 14.514848480128387
+          },
+          "combinedNvdaAaplPct": 30.190094496337906,
+          "existingBuildCapReferencePct": 12,
+          "exceedsReference": {
+            "NVDA": true,
+            "AAPL": true
+          },
+          "maximumProfitabilitySleevePctBeforeReference": {
+            "byIssuer": {
+              "NVDA": 22.156220590174055,
+              "AAPL": 25.33265660635657
+            },
+            "bindingTicker": "NVDA",
+            "bindingMaxPct": 22.156220590174055
+          }
+        }
+      }
+    }
+  ],
+  "interpretation": {
+    "formula": "combined issuer exposure = (1 - sleeveShare) * coreIssuerWeight + sleeveShare * profitabilityBasketIssuerWeight",
+    "caveat": "Assumes the remainder of the portfolio is the selected structural core and ignores other sleeves/cash. Other overlapping holdings could raise exposure; non-overlapping holdings/cash could lower it.",
+    "integrationRule": "Do not integrate a profitability sleeve until look-through issuer exposure is explicitly checked. V1 signal weights remain frozen and are not retrospectively capped.",
+    "decision": "FULL_NONCORE_BUDGET_AS_PROFITABILITY_SLEEVE_FAILS_EXISTING_BUILD_CAP_REFERENCE_FOR_NVDA_AND_AAPL"
+  }
+}
