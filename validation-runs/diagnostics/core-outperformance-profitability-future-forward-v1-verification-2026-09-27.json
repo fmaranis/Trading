@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1",
+  "verifiedAt": "2026-09-27",
+  "head": "2677e5a27277af075f60e568fa1afce581d25cda",
+  "status": "PASS_PRE_OUTCOME_GUARDS",
+  "futureOutcomesOpened": false,
+  "checks": {
+    "sealedBlobFingerprints": true,
+    "selectedCount": 46,
+    "selectedSymbolsUnique": true,
+    "selectedWeightsSum": 0.9999999999999997,
+    "selectedWeightsSumPass": true,
+    "snapshotMembers": 500,
+    "snapshotMapped": 500,
+    "snapshotEvaluable": 451,
+    "snapshotSelected": 46,
+    "localUnitGuard": "PASS",
+    "localUnitGuardMarker": "CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1_UNIT_PASS",
+    "localRuntime": "Node v22.16.0"
+  },
+  "blobChecks": {
+    "docs/CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1_2026-09-27.md": {
+      "expected": "cc50789f979d9c5ea015d2283bb71d7bd8c4c80c",
+      "actual": "cc50789f979d9c5ea015d2283bb71d7bd8c4c80c",
+      "pass": true
+    },
+    "validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-snapshot.json": {
+      "expected": "2b5bc6cd32403b5b3f8e1e5903b79d740a49666a",
+      "actual": "2b5bc6cd32403b5b3f8e1e5903b79d740a49666a",
+      "pass": true
+    },
+    "scripts/coreOutperformanceProfitabilityFutureForwardV1Protocol.mjs": {
+      "expected": "7289c79c17ccc469b31d50cf675c71bd3fc8bd75",
+      "actual": "7289c79c17ccc469b31d50cf675c71bd3fc8bd75",
+      "pass": true
+    },
+    "tests/coreOutperformanceProfitabilityFutureForwardV1.unit.mjs": {
+      "expected": "4dd43c29ed9bd8128113756f74092a10c22fbd2b",
+      "actual": "4dd43c29ed9bd8128113756f74092a10c22fbd2b",
+      "pass": true
+    }
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "nextAction": "LOCK_FIRST_COMMON_TRADABLE_SESSION_START_PRICES_THEN_WAIT_FOR_FROZEN_3M_6M_12M_CHECKPOINTS"
+}
