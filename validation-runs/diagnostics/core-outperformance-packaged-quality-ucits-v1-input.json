@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PACKAGED_QUALITY_UCITS_V1",
+  "role": "POST_SELECTION_IMPLEMENTATION_DIAGNOSTIC_ONLY_NOT_BLIND",
+  "window": {
+    "start": "2017",
+    "end": "2025",
+    "years": 9
+  },
+  "vehicle": {
+    "name": "iShares Edge MSCI USA Quality Factor UCITS ETF USD (Acc)",
+    "isin": "IE00BD1F4L37",
+    "preferredListing": "QDVB/Xetra/EUR",
+    "annualNavTotalReturnPct": {
+      "2017": 21.8,
+      "2018": -6.1,
+      "2019": 33.7,
+      "2020": 16.6,
+      "2021": 26.6,
+      "2022": -20.6,
+      "2023": 30.5,
+      "2024": 22,
+      "2025": 12.5
+    },
+    "terPct": 0.2
+  },
+  "parent": {
+    "name": "State Street SPDR S&P 500 UCITS ETF (net)",
+    "annualTotalReturnPct": {
+      "2017": 21.35,
+      "2018": -4.72,
+      "2019": 30.93,
+      "2020": 17.97,
+      "2021": 28.32,
+      "2022": -18.36,
+      "2023": 25.86,
+      "2024": 24.72,
+      "2025": 17.59
+    }
+  },
+  "global": {
+    "name": "iShares MSCI World ETF (URTH) NAV",
+    "annualTotalReturnPct": {
+      "2017": 22.5,
+      "2018": -8.4,
+      "2019": 28.1,
+      "2020": 16.1,
+      "2021": 22,
+      "2022": -18,
+      "2023": 23.9,
+      "2024": 18.7,
+      "2025": 21.3
+    }
+  },
+  "sources": {
+    "vehicle": "BlackRock/iShares official current product page; calendar-year NAV total return",
+    "parent": "State Street official SPDR S&P 500 UCITS ETF page; Fund Net calendar-year return",
+    "global": "BlackRock/iShares official URTH page; NAV calendar-year total return"
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false
+}
