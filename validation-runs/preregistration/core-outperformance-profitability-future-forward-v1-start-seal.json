@@ -1,0 +1,17 @@
+{
+  "version": "CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1_START_SEAL",
+  "frozenAt": "2026-09-27",
+  "futurePricesOpened": false,
+  "expectedFirstSession": "2026-09-28",
+  "startRule": "FIRST_COMMON_TRADABLE_SESSION_AFTER_2026-09-27",
+  "startPriceSemantics": "ADJUSTED_OPEN = raw open * adjustedClose / raw close on same completed session",
+  "coverageRule": "100% selected symbols + SPY + URTH",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "expectedGitBlobSha": {
+    "scripts/coreOutperformanceProfitabilityFutureForwardV1Start.mjs": "37e072053594f9ae6bf8d8adfcbefeb5b1af1d15",
+    "tests/coreOutperformanceProfitabilityFutureForwardV1Start.unit.mjs": "c78a2851975d6d6db38b9bf699485e241e8410bb",
+    "validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-snapshot.json": "2b5bc6cd32403b5b3f8e1e5903b79d740a49666a",
+    "validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-seal.json": "f36f527d5911f58508347c2a28e77726cec1c0e0"
+  }
+}
