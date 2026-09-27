@@ -1,0 +1,64 @@
+{
+  "version": "FUNDAMENTAL_QUALITY_VALUATION_EXTERNAL_R2_SEAL_V1",
+  "frozenAt": "2026-09-27",
+  "sampleRole": "INDEPENDENT_TEMPORAL_CONFIRMATION",
+  "state": "SEALED_NOT_OPENED",
+  "informationDate": "2022-05-03",
+  "outcomeDate": "2023-05-03",
+  "universe": {
+    "sourceRepo": "pierrebrunelle/sp500-historical-constituents",
+    "sourcePath": "data/spy202205",
+    "rule": "Historical S&P 500 members in May 2022 snapshot"
+  },
+  "fundamentals": {
+    "source": "Public SimFin-derived annual datasets",
+    "causalRule": "Use FY2021 only; because fiscal year ended during 2021, standard 10-K filing deadlines place publication before 2022-05-03; this is conservative for issuers with newer FY2022 data already public.",
+    "profitabilityGuard": "FY2021 operating income > 0",
+    "roe": "FY2021 ROE",
+    "debtEquity": "FY2021 total debt / FY2021 positive total equity",
+    "earningsVariability": "sample stddev of 4 YoY EPS growth rates from FY2017-FY2021 diluted EPS",
+    "winsorizationPct": [
+      5,
+      95
+    ],
+    "descriptorWeights": {
+      "roe": 1,
+      "debtEquity": 1,
+      "earningsVariability": 1
+    },
+    "signs": {
+      "roe": 1,
+      "debtEquity": -1,
+      "earningsVariability": -1
+    },
+    "missingRule": "ROE required; D/E or EVAR may be missing singly; both missing excludes",
+    "highQualityRule": "score >= cross-sectional median among profitable evaluable companies"
+  },
+  "valuation": {
+    "descriptor": "FY2021 diluted EPS / raw close on 2022-05-03",
+    "cheapReasonableRule": "earnings yield >= median within high Quality",
+    "expensiveRule": "earnings yield < median within high Quality",
+    "quartiles": "predeclared monotonicity control"
+  },
+  "outcomes": {
+    "adjustedReturn": "AdjustedClose 2022-05-03 -> 2023-05-03",
+    "primaryBenchmark": "SPY",
+    "secondaryBenchmark": "URTH"
+  },
+  "primaryGate": {
+    "rule": "cheap/reasonable mean return > expensive mean return AND cheap mean excess positive vs SPY and URTH AND expensive mean excess negative vs SPY and URTH"
+  },
+  "secondaryGuardDiagnostic": {
+    "frozenBeforeOutcomes": true,
+    "rule": "Most-expensive valuation quartile inside high Quality underperforms remaining 75% in mean return; Q1 mean excess must be negative vs SPY and URTH. This is confirmation-only for the extreme-expensive penalty observed in R1, not a production policy."
+  },
+  "noRetuningAfterOutcome": true,
+  "productionAuthority": false,
+  "productionDefault": "LEGACY",
+  "sourceFingerprints": {
+    "oldSimFinIncomeBlob": "fd8d46045f5da802aaff0e410313f21080bfe402",
+    "cleanedIncomeBlob": "4477fc57c9f14a15a60d1f81e93702dec7b1c5d9",
+    "cleanedBalanceBlob": "f75259e7541fe08996f67de38d9a3f60e0ce416c",
+    "derivedMetricsBlob": "31fc358fefdc05c8a9f209ab239b38c5cef335c0"
+  }
+}
