@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_LIVE_IMPLEMENTATION_EVIDENCE",
+  "recordedAt": "2026-09-27",
+  "role": "EXTERNAL_DESCRIPTIVE_IMPLEMENTATION_CHECK_NOT_BLIND_NOT_IDENTICAL_STRATEGY",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "evidence": [
+    {
+      "vehicle": "Dimensional U.S. High Relative Profitability Portfolio",
+      "ticker": "DURPX",
+      "inceptionDate": "2017-05-16",
+      "strategySimilarity": "HIGH_PROFITABILITY_LARGE_US_STOCKS; NOT IDENTICAL TO FRENCH HI10 OR CUSTODIA PIT FORMULA",
+      "asOf": "2025-12-31",
+      "beforeTaxAnnualizedPct": {
+        "oneYear": 12.81,
+        "fiveYear": 12.6,
+        "sinceInception": 14.48
+      },
+      "benchmark": {
+        "name": "Russell 1000 Index",
+        "oneYearPct": 17.37,
+        "fiveYearPct": 13.59,
+        "sinceInceptionPct": 14.55
+      },
+      "excessBeforeTaxPctPoints": {
+        "oneYear": -4.56,
+        "fiveYear": -0.99,
+        "sinceInception": -0.07
+      },
+      "afterTaxUSAnnualizedPct": {
+        "sinceInceptionAfterDistributions": 13.97,
+        "sinceInceptionAfterDistributionsAndSale": 11.95
+      },
+      "turnoverMostRecentFiscalYearPct": 11,
+      "sourceUrls": [
+        "https://www.sec.gov/Archives/edgar/data/355437/000035543726000120/R7.htm",
+        "https://www.sec.gov/Archives/edgar/data/355437/000035543726000135/c497k.htm"
+      ]
+    },
+    {
+      "vehicle": "Dimensional US High Profitability ETF",
+      "ticker": "DUHP",
+      "inceptionDate": "2022-02-23",
+      "strategySimilarity": "HIGH_PROFITABILITY_LARGE_US_STOCKS; NOT IDENTICAL TO FRENCH HI10 OR CUSTODIA PIT FORMULA",
+      "asOf": "2025-12-31",
+      "beforeTaxAnnualizedPct": {
+        "oneYear": 13.81,
+        "sinceInception": 13.49
+      },
+      "benchmark": {
+        "name": "Russell 1000 Index",
+        "oneYearPct": 17.37,
+        "sinceInceptionPct": 14.63
+      },
+      "excessBeforeTaxPctPoints": {
+        "oneYear": -3.56,
+        "sinceInception": -1.14
+      },
+      "afterTaxUSAnnualizedPct": {
+        "sinceInceptionAfterDistributions": 13.14,
+        "sinceInceptionAfterDistributionsAndSale": 10.62
+      },
+      "expenseRatioPct": 0.2,
+      "sourceUrls": [
+        "https://www.sec.gov/Archives/edgar/data/1816125/000181612526000046/R7.htm",
+        "https://www.sec.gov/Archives/edgar/data/1816125/000181612526000075/c497k.htm"
+      ]
+    }
+  ],
+  "interpretation": [
+    "Real high-profitability vehicles demonstrate implementability but have not shown a persistent broad-market excess in the cited standardized periods.",
+    "These vehicles are not exact replicas of the frozen French Hi10 construction, so their relative underperformance is contextual evidence, not a FAIL of CORE_OUTPERFORMANCE_PROFITABILITY_V1.",
+    "US after-tax figures use US federal tax assumptions and are not transferable to Spanish taxation.",
+    "The evidence increases the importance of Stage C2 costs, taxes, turnover and concentration before any production claim."
+  ]
+}
