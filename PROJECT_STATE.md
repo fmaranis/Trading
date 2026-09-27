@@ -819,6 +819,30 @@ Actualización 2026-09-27 — plan de implementación de momentum relativo, con 
 - otro chat debe implementar y ejecutar este plan directamente sin pedir al usuario lanzar manualmente el Centro de validación;
 - Quality × valoración conserva estado y sellos; LEGACY sigue default. No nuevas pruebas numéricas realizadas al escribir este plan.
 
+
+Actualización 2026-09-27 — CORE_OUTPERFORMANCE_MOMENTUM_REFERENCE_V1 ejecutado y cerrado por gate:
+
+- plan ejecutado: `docs/CORE_OUTPERFORMANCE_RESEARCH_PLAN_2026-09-27.md`;
+- familia primaria: long-only winner decile por momentum previo 12-2, revisión mensual, value-weighted; no se probaron variantes posteriores al outcome;
+- registro de muestras: `docs/CORE_OUTPERFORMANCE_SAMPLE_REGISTRY_2026-09-27.md`;
+- diagnóstico fijado antes de abrir outcomes en conversación: 2016-01 -> 2021-12, 72 meses;
+- confirmación reservada: 2009-01 -> 2014-12, con 2015 como separación; **NO ABIERTA**;
+- runner reproducible: `scripts/coreOutperformanceMomentumDiagnosticV1.mjs`;
+- caché/manifest: `validation-runs/diagnostics/core-outperformance-momentum-v1-input.json`;
+- resultado machine-readable: `validation-runs/diagnostics/core-outperformance-momentum-v1-result.json`;
+- winner decile momentum: retorno total **+152,33%**, CAGR **16,68%**;
+- French/CRSP US market: retorno total **+163,38%**, CAGR **17,52%**;
+- URTH proxy global: retorno total **+122,06%**, CAGR **14,22%**;
+- SPY cross-check: CAGR **17,55%**;
+- exceso CAGR momentum vs parent USA: **-0,84 pp/año**;
+- exceso CAGR momentum vs URTH: **+2,46 pp/año**;
+- gate Etapa B exigía exceso bruto > 0 frente a ambos benchmarks; resultado **FAIL_DIAGNOSTIC**;
+- criterio de parada activado: **STOP_PRIMARY_REPLICA_NO_VARIANTS**;
+- no se abre confirmación, no se implementa Etapa C, no se crean lookbacks/deciles/filtros alternativos para rescatar el FAIL;
+- producción sigue `LEGACY`; ninguna autoridad productiva.
+- caveat de secuencia: las ventanas se declararon aquí antes de calcular outcomes, pero el sello GitHub no llegó a committearse pre-outcome; por tanto no se presenta esta ejecución como validación formal preregistrada. El FAIL económico se conserva como diagnóstico y hace improcedente repetir otra ventana para buscar un PASS.
+
+
 # 13. CRITERIO DE CIERRE V1
 
 V1 puede cerrarse integralmente cuando estén suficientemente cerrados:
