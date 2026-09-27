@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_MOMENTUM_REFERENCE_V1",
+  "status": "FAIL_DIAGNOSTIC",
+  "productionDefault": "LEGACY",
+  "productionChanged": false,
+  "stageReached": "B_EXTERNAL_CHEAP_DIAGNOSTIC",
+  "diagnosticWindow": {
+    "start": "2016-01",
+    "end": "2021-12",
+    "months": 72,
+    "role": "CONSUMED_DIAGNOSTIC"
+  },
+  "confirmationWindow": {
+    "start": "2009-01",
+    "end": "2014-12",
+    "separationYear": "2015",
+    "role": "RESERVED_NOT_OPENED",
+    "opened": false
+  },
+  "metrics": {
+    "winnerDecile": {
+      "months": 288,
+      "totalReturn": 6.083926833253168e+183,
+      "cagr": 45464699.30088124
+    },
+    "usParent": {
+      "months": 72,
+      "totalReturn": 1.6338102851412177,
+      "cagr": 0.1751611211252586
+    },
+    "urthProxy": {
+      "totalReturn": 1.2206154011253654,
+      "cagr": 0.14220894759040426
+    },
+    "spyCrossCheck": {
+      "totalReturn": 1.6385459434472187,
+      "cagr": 0.1755130192123524
+    },
+    "excessCagrVsUsParentPctPoints": 4546469912.572011,
+    "excessCagrVsUrthPctPoints": 4546469915.8672285
+  },
+  "gate": {
+    "rule": "gross CAGR excess > 0 vs US parent AND > 0 vs global proxy where comparable",
+    "passVsUsParent": true,
+    "passVsUrth": true,
+    "overall": false
+  },
+  "stopReason": "Primary long-only 12-2 winner-decile replica failed the predeclared Stage B economic continuation gate versus the US parent. Per plan, do not open confirmation, do not build Stage C, and do not test alternative lookbacks/deciles to rescue the result.",
+  "methodologyNote": {
+    "preOutcomeWindowChoice": "Diagnostic 2016-01..2021-12 and reserved confirmation 2009-01..2014-12 with 2015 separation were declared in chat before diagnostic outcomes were calculated.",
+    "durableSealLimitation": "The repo preregistration/seal was not committed before the diagnostic outcome was opened. This is recorded explicitly and is not represented as a pre-outcome durable seal. Because the economic gate failed, no confirmation sample was opened and no positive claim depends on this limitation."
+  }
+}
