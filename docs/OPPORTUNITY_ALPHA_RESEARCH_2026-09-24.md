@@ -594,3 +594,36 @@ The durable record must contain, at minimum:
 - exact next test.
 
 A promising but incomplete result must be marked explicitly as `PROMISING_DIAGNOSTIC_UNCONFIRMED`; it must not remain only in chat memory.
+
+
+## 18. BROAD_PIT_QUALITY_X_VALUATION_V1 — frozen execution protocol (2026-09-27)
+
+The broad stock-level confirmation job is now integrated and preregistered.
+
+- job: `fundamental-quality-valuation-broad-pit-v1`;
+- UI label: `Fundamental Quality × valoración · validación PIT amplia`;
+- protocol: `scripts/fundamentalQualityValuationBroadPitV1Protocol.ts`;
+- runner: `scripts/fundamentalQualityValuationBroadPitV1Live.ts`;
+- guard: `tests/fundamentalQualityValuationBroadPitV1.unit.ts`;
+- pre-run seal: `validation-runs/preregistration/fundamental-quality-valuation-broad-pit-v1-seal.json`.
+
+Frozen data architecture:
+
+1. historical S&P 500 membership on 2021-05-03 from EODHD historical index components;
+2. CIK mapping from SEC;
+3. SEC EDGAR companyfacts constrained to `filed <= 2021-05-03`;
+4. positive causal annual operating income guard;
+5. Quality = high ROE + low D/E + low five-year EPS-growth variability, equal standardized descriptors and 5/95 winsorization;
+6. high Quality = upper half of the evaluable profitable cross-section;
+7. valuation = causal annual earnings yield from published annual net income / causal market capitalization on 2021-05-03;
+8. cheap/reasonable vs expensive = within-high-Quality median earnings yield;
+9. adjusted Yahoo REAL return to 2022-05-03;
+10. frozen benchmarks = SPY plus URTH/MSCI World USD proxy.
+
+Coverage gates were frozen before opening the new broad sample: >=400 historical members, >=350 CIK mappings, >=250 profitable/evaluable rows, >=100 high-Quality rows and >=40 rows per valuation branch. Failure of any gate returns `INCONCLUSIVE_*`; there is no synthetic or current-discovery fallback.
+
+The SEC implementation is intentionally treated as a **provider-independent causal translation**, not a byte-identical reproduction of the earlier Wolfram descriptors.
+
+The diagnostic verdict can support or reject the interaction hypothesis, but **cannot authorize production promotion**. A positive result would justify freezing a research-only project translation for later fresh/blind confirmation; a negative result must not be retuned on this sample.
+
+Current state: **PREPARED_AND_SEALED / NOT YET EXECUTED**.
