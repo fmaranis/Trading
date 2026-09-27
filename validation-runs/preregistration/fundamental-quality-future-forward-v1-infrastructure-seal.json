@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "study": "FUNDAMENTAL_QUALITY_FUTURE_FORWARD_V1",
+  "frozenAt": "2026-09-27",
+  "baseHead": "8708155950912a0b6dd9e8ea6e48e414f4053397",
+  "snapshotSha256": "06ad777b20970fe8c957d9febe8ccadcbcc75ecbf08cc870cd600236488ab2f2",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "outcomesState": "UNOPENED",
+  "startState": "NOT_CAPTURED",
+  "primaryMonths": 12,
+  "descriptiveMonths": [
+    3,
+    6
+  ],
+  "filesSha256": {
+    "validation-runs/preregistration/fundamental-quality-future-forward-v1-snapshot.json": "06ad777b20970fe8c957d9febe8ccadcbcc75ecbf08cc870cd600236488ab2f2",
+    "validation-runs/preregistration/fundamental-quality-future-forward-v1-descriptors-part1.json": "5aee3dafef326174118c39c49b3dadf07c7668101a4c3074cbd99e4008631627",
+    "validation-runs/preregistration/fundamental-quality-future-forward-v1-descriptors-part2.json": "6a920f0816a5a7e2580cdacda8d11220d04feb7d5a3ad6a379d4203b83fbd166",
+    "scripts/fundamentalQualityFutureForwardV1Protocol.mjs": "af4603ac7700a5868232cc5d1b06893e088a6d2a2b72345c80ff557b925eee63",
+    "tests/fundamentalQualityFutureForwardV1.unit.mjs": "5a9bb3c9ab2fb6c353605cf02f2fee294863183c7a5d7ca764c5ad40aa6830f4",
+    "docs/FUNDAMENTAL_QUALITY_FUTURE_FORWARD_V1_2026-09-27.md": "dd576d0b9f11f5fcc18eb4a03dbfe4d98fc2dca4c81759aba3b90c4b8d19b32c",
+    "docs/FUNDAMENTAL_QUALITY_FUTURE_FORWARD_V1_INFRASTRUCTURE_2026-09-27.md": "00685b9a91f58f8594e3d3bf2ab8c267745aff4a3e6a41cfe029769372306332",
+    "scripts/researchCorporateActionsFailClosedV1.mjs": "daf15b7fd4cdc294abb730c4ef47cbec3d12dfbdb4f01032bb5ff3e33fb429eb",
+    "scripts/researchImmutableEvidenceStore.mjs": "7bc42d43103d1b150eeb2da5a3ddedb6eff4f6e593c0a2ae924da0653a7ce726",
+    "tests/fundamentalQualityFutureForwardV1Infrastructure.unit.mjs": "c1df07acdc43b54e4235218052a297e4cab166473ddfd2bb1690fd8300a8767c",
+    "scripts/fundamentalQualityFutureForwardV1Infrastructure.mjs": "2370182c4c75ce893ad61b1548e1ece484eac76ac5a445eb6dcd42acb1968f85",
+    "scripts/fundamentalQualityFutureForwardV1Start.mjs": "fe5ee3e233029f869c992e1f72f7f650c0a28106b52f33b735f335004b024a64",
+    "scripts/fundamentalQualityFutureForwardV1Evaluator.mjs": "9ac463c54b9cadc5303756b03b137e58ab9a334651580b43069ebfc33514eb06",
+    "scripts/fundamentalQualityFutureForwardV1Live.mjs": "756821d5bedaf560bc16c1e5672ee6bfdc535ef36dbb13148a5476ebd6193aa1"
+  }
+}

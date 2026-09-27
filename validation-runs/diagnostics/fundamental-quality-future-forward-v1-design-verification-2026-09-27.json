@@ -1,0 +1,69 @@
+{
+  "study": "FUNDAMENTAL_QUALITY_FUTURE_FORWARD_V1",
+  "status": "PASS_DESIGN_AND_PRE_OUTCOME_INFRASTRUCTURE",
+  "baseHead": "8708155950912a0b6dd9e8ea6e48e414f4053397",
+  "recordedAt": "2026-09-27T21:55:29.566403+00:00",
+  "nodeVersion": "v24.19.0",
+  "sealSha256": "3fe883e889c8724ddce802a081aa31972b5056cd348589789f891384c8d7b7e6",
+  "snapshotSha256": "06ad777b20970fe8c957d9febe8ccadcbcc75ecbf08cc870cd600236488ab2f2",
+  "outcomesState": "UNOPENED",
+  "startState": "NOT_CAPTURED",
+  "liveMarketRequests": 0,
+  "unitFixtures": "ARTIFICIAL_UNIT_ONLY_NEVER_STUDY_EVIDENCE",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "corporateActions": "STRUCTURAL_EVENTS_FORMALLY_BLOCKED_FAIL_CLOSED",
+  "remainingOperationalDependencies": [
+    "Completed common session",
+    "GITHUB_REPLAY_SYNC_TOKEN for immutable durable evidence",
+    "REAL auditable corporate-action review for all 102 identities",
+    "Complete REAL Yahoo data for frozen symbols"
+  ],
+  "runtimeCredentialPresence": {
+    "GITHUB_REPLAY_SYNC_TOKEN": false
+  },
+  "commands": [
+    {
+      "command": "node tests/fundamentalQualityFutureForwardV1.unit.mjs",
+      "exitCode": 0,
+      "stdout": "FUNDAMENTAL_QUALITY_FUTURE_FORWARD_V1_UNIT_PASS",
+      "stderr": ""
+    },
+    {
+      "command": "node tests/fundamentalQualityFutureForwardV1Infrastructure.unit.mjs",
+      "exitCode": 0,
+      "stdout": "{\"status\":\"PASS_PRE_OUTCOME_INFRASTRUCTURE\",\"testGroups\":22,\"checks\":[\"frozen snapshot hash, cardinality, issuer cap, immutable objects\",\"explicit symbol mapping, no regexp wildcard alias\",\"same-session adjusted open, invalid numbers\",\"no future start even if input claims prices available\",\"calendar weekends, holidays, early close and DST\",\"start missing data cannot choose a later date\",\"snapshot and start evidence cannot be silently rewritten\",\"3m gate, immutable weights and complete paths\",\"6m gate, immutable weights and complete paths\",\"12m gate, immutable weights and complete paths\",\"12m tie is FAIL, neither checkpoint nor horizon can rescue\",\"daily coverage fails for missing benchmark, constituent, middle bar or duplicates\",\"REAL-only, currency/identity and future-bar checks\",\"same-vintage rebasing cancels later uniform dividend rescaling\",\"unresolved corporate actions including ticker changes never receive invented terminal values\",\"independent risk arithmetic: close-to-close plus entry, actual CAGR and zero-vol Sharpe\",\"live wrapper Sunday does not construct store, ask for review or fetch\",\"checkpoint maturity blocks price IO, valid durable start is reused\",\"provider cannot be called pre-close; exact symbol preserved\",\"create-only store refuses conflicting locks without writing\",\"capture pipeline persists opening before prices, all inputs, and reuses locked start\",\"bad event review fails before first market call\"],\"fixtureUse\":\"UNIT_ONLY_NOT_MARKET_EVIDENCE\",\"marketRequests\":0,\"productionDefault\":\"LEGACY\",\"productionAuthority\":false}",
+      "stderr": ""
+    },
+    {
+      "command": "node --import tsx tests/coreArchitectureV1.unit.ts",
+      "exitCode": 0,
+      "stdout": "coreArchitectureV1.unit: PASS",
+      "stderr": ""
+    },
+    {
+      "command": "node --import tsx tests/researchValidationRuntime.unit.ts",
+      "exitCode": 0,
+      "stdout": "researchValidationRuntime.unit: PASS",
+      "stderr": ""
+    },
+    {
+      "command": "node --import tsx tests/historicalInstrumentMaster.unit.ts",
+      "exitCode": 0,
+      "stdout": "PHASE8_HISTORICAL_INSTRUMENT_MASTER_PASS {\"version\":\"HISTORICAL_INSTRUMENT_MASTER_V1\",\"currentCatalogAssets\":38,\"dedupedEconomicIdentities\":36,\"currentReferencePointInTimeVerified\":0,\"currentReferenceCanClaimCompletePIT\":false,\"verifiedFixtureTickerChange\":true,\"verifiedFixtureDelisting\":true,\"priceHistoryIsNotListingEvidence\":true,\"integratedIntoExistingCausalReplay\":true,\"completeMasterRequiresCatalogAndDatasetCoverage\":true}",
+      "stderr": ""
+    },
+    {
+      "command": "npm run lint",
+      "exitCode": 0,
+      "stdout": "> react-example@0.0.0 lint\n> tsc --noEmit",
+      "stderr": "npm warn Unknown env config \"http-proxy\". This will stop working in the next major version of npm."
+    },
+    {
+      "command": "node scripts/fundamentalQualityFutureForwardV1Live.mjs start",
+      "exitCode": 0,
+      "stdout": "{\"study\":\"FUNDAMENTAL_QUALITY_FUTURE_FORWARD_V1\",\"snapshotSha256\":\"06ad777b20970fe8c957d9febe8ccadcbcc75ecbf08cc870cd600236488ab2f2\",\"designSealSha256\":\"572487b6d881c5ae3c1422e71d1e308de0fa5cc0e000fb9ad01557a4e860690c\",\"productionDefault\":\"LEGACY\",\"productionAuthority\":false,\"promotionAllowed\":false,\"status\":\"WAITING_FOR_COMPLETED_SESSION\",\"startCaptured\":false,\"outcomesState\":\"UNOPENED\",\"earliestStartReadAt\":\"2026-09-28T22:00:00Z\"}",
+      "stderr": ""
+    }
+  ]
+}
