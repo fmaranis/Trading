@@ -16,6 +16,7 @@ interface JobDefinition {
   historyLabel?: string;
   requiresGithubReplayToken?: boolean;
   requiresEodhdApiKey?: boolean;
+  requiresSecEdgarUserAgent?: boolean;
 }
 interface JobState {
   status: JobStatus;
@@ -194,6 +195,24 @@ const JOBS: JobDefinition[] = [
     'PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_COLLECTOR_RESULT'
   ),
   {
+    id: 'fundamental-quality-valuation-broad-pit-v1',
+    name: 'Fundamental Quality × valoración · validación PIT amplia',
+    description: 'Diagnóstico research-only sobre miembros históricos del S&P 500 a 2021-05-03: EODHD fija la membresía PIT, SEC EDGAR aporta fundamentales con filed <= informationDate y Yahoo REAL mide outcomes. Quality y valoración están congelados antes de abrir outcomes; no puede promocionar producción.',
+    marker: 'FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1_RESULT',
+    visibility: 'CURRENT',
+    requiresGithubReplayToken: true,
+    requiresEodhdApiKey: true,
+    requiresSecEdgarUserAgent: true,
+    steps: [
+      { label: 'Guard Quality × valoración PIT', command: 'npx', args: ['tsx', 'tests/fundamentalQualityValuationBroadPitV1.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard master histórico PIT', command: 'npx', args: ['tsx', 'tests/historicalInstrumentMaster.unit.ts'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Validación stock-level PIT REAL', command: 'npx', args: ['tsx', 'scripts/fundamentalQualityValuationBroadPitV1Live.ts'] }
+    ]
+  },
+  {
     id: 'phase6-forward-risk-context-stage-a-r2-readiness',
     name: 'Fase 6 · Forward Risk V8 como contexto · R2 collector',
     description: 'Stage A R2 fresh desde 2026-09-21. Ejecuta seal/readiness, arquitectura, PortfolioCandidateGate, paridad, superficie y TypeScript; sólo si todo pasa abre/continúa la muestra R2, persiste OPENED_COLLECTING antes del primer acceso a mercado y registra señal/contexto REAL causal. La sesión sucesora sólo materializa executionDate; no lee outcomes de 63 sesiones, no ejecuta órdenes y producción permanece LEGACY.',
@@ -313,6 +332,7 @@ function prerequisiteError(job: JobDefinition): string | null {
     return 'DURABLE_GITHUB_TOKEN_REQUIRED';
   }
   if (job.requiresEodhdApiKey && !process.env.EODHD_API_KEY?.trim()) return 'EODHD_API_KEY_REQUIRED';
+  if (job.requiresSecEdgarUserAgent && !process.env.SEC_EDGAR_USER_AGENT?.trim()) return 'SEC_EDGAR_USER_AGENT_REQUIRED';
   return null;
 }
 
@@ -375,7 +395,8 @@ researchValidationRouter.get('/jobs', (_req: Request, res: Response) => {
     execution: 'LOCAL_APP_BACKEND',
     prerequisites: {
       githubReplaySyncConfigured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()),
-      eodhdConfigured: Boolean(process.env.EODHD_API_KEY?.trim())
+      eodhdConfigured: Boolean(process.env.EODHD_API_KEY?.trim()),
+      secEdgarUserAgentConfigured: Boolean(process.env.SEC_EDGAR_USER_AGENT?.trim())
     },
     jobs: currentJobs,
     history
