@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PACKAGED_QUALITY_UCITS_V1",
+  "status": "POST_SELECTION_PACKAGED_PARENT_EDGE_NOT_PRESENT",
+  "vehicle": {
+    "years": 9,
+    "totalReturnPct": 221.0109975145918,
+    "cagrPct": 13.836095185268004,
+    "annualReturnVolPct": 17.820899091921387,
+    "maxAnnualPathDrawdownPct": -20.599999999999994
+  },
+  "parent": {
+    "years": 9,
+    "totalReturnPct": 245.33758165030383,
+    "cagrPct": 14.763787193979127,
+    "annualReturnVolPct": 16.556312827572583,
+    "maxAnnualPathDrawdownPct": -18.36
+  },
+  "global": {
+    "years": 9,
+    "totalReturnPct": 197.83067179741195,
+    "cagrPct": 12.892026494142339,
+    "annualReturnVolPct": 15.96329992340069,
+    "maxAnnualPathDrawdownPct": -17.999999999999993
+  },
+  "excessCagrVsParentPctPoints": -0.9276920087111229,
+  "excessCagrVsGlobalPctPoints": 0.9440686911256648,
+  "interpretation": "The packaged quality vehicle is operationally attractive and beats the global comparator over the fixed diagnostic years, but it does not preserve a gross/net-NAV excess versus the U.S. parent. Historical evidence is non-blind and has no promotion authority.",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "nextAction": "KEEP_VEHICLE_AS_IMPLEMENTATION_REFERENCE; DO_NOT_SWITCH_ETF_TO_RESCUE; CONTINUE_SEPARATELY_PREREGISTERED_FUNDAMENTAL_QUALITY_FUTURE_FORWARD_V1"
+}
