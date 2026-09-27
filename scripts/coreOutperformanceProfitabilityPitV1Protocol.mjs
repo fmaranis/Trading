@@ -31,7 +31,8 @@ export const CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1 = Object.freeze({
     count: 'ceil(N/10)',
     tieBreak: 'NORMALIZED_TICKER_ASC',
     weighting: 'CAUSAL_MARKET_CAP_VALUE_WEIGHTED',
-    noEqualWeightFallback: true
+    noEqualWeightFallback: true,
+    yahooTickerAliases: { BRKB: 'BRK-B', BFB: 'BF-B' }
   },
   execution: {
     signalDate: 'LAST_REAL_SESSION_ON_OR_BEFORE_JUNE_30',
@@ -85,4 +86,11 @@ export function reconstructHistoricalMembers(currentSymbols, changes, targetDate
     for (const ticker of row.removed ?? []) members.add(normalizeTicker(ticker));
   }
   return [...members].filter(Boolean).sort();
+}
+
+export function yahooTicker(value) {
+  const raw = String(value ?? '').trim().toUpperCase();
+  const key = normalizeTicker(raw);
+  return CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1.selection.yahooTickerAliases[key]
+    ?? raw.replace(/\./g, '-');
 }
