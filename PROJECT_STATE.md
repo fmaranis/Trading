@@ -763,6 +763,24 @@ Estado operativo del job a 2026-09-27:
 - la SEC no requiere API key para `companyfacts`, pero exige User-Agent declarado para acceso automatizado; el runner limita SEC a <=8 req/s;
 - siguiente acción única tras sincronizar el HEAD: comprobar que los tres prerequisitos estén verdes y ejecutar **`Fundamental Quality × valoración · validación PIT amplia`**. No modificar fórmula ni thresholds antes de ese resultado.
 
+
+Actualización 2026-09-27 — Quality × valoración, broad external R1 cerrado y R2 sellado:
+
+- R1 externo amplio completado sobre población histórica S&P 500 mayo-2021;
+- 506 miembros históricos -> 379 profitable/evaluable -> 190 high Quality -> 185 con outcome usable;
+- high Quality + cheap/reasonable: mean +0,47%, median +4,01%, mean excess vs SPY -0,41 pp, vs URTH +3,63 pp, beat SPY 54,8%;
+- high Quality + expensive: mean -2,71%, median -5,41%, mean excess vs SPY -3,59 pp, vs URTH +0,45 pp, beat SPY 39,1%;
+- interacción media cheap - expensive: **+3,18 pp**;
+- full alpha gate **FAIL** porque cheap/reasonable no bate SPY en retorno medio;
+- control de cuartiles preregistrado: el cuartil más caro fue claramente peor, mean -7,61%, -8,49 pp vs SPY y -4,45 pp vs URTH;
+- lectura retained: `PARTIAL_SUPPORT_EXPENSIVE_QUALITY_PENALTY`; posible guard de valoración extrema, no motor de alpha validado;
+- muestra 2021-2022 queda consumed; prohibido retunear threshold/peso sobre ella;
+- evidencia durable: `validation-runs/diagnostics/fundamental-quality-valuation-external-2021-result.json` + 4 chunks raw;
+- R2 temporal independiente sellado ANTES de outcomes en `validation-runs/preregistration/fundamental-quality-valuation-external-r2-seal.json`;
+- R2: 2022-05-03 -> 2023-05-03, población histórica S&P 500 mayo-2022, FY2021, misma Quality y mismo split mediana;
+- diagnóstico secundario R2 congelado: confirmar o rechazar la penalización del cuartil más caro;
+- producción continúa `LEGACY`; ninguna integración productiva autorizada todavía.
+
 ---
 
 # 13. CRITERIO DE CIERRE V1
