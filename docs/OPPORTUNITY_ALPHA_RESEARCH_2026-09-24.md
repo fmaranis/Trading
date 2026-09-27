@@ -1124,3 +1124,52 @@ Evidence:
 `validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-posthoc-result.json`.
 
 A new policy must be frozen before new outcomes. Production remains `LEGACY`.
+
+
+### Capped profitability policy V1 — pre-outcome policy arm
+
+The exact 46-name `CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1` signal was retained unchanged while a separate policy arm froze an externally grounded **5% issuer cap** before future outcomes.
+
+The cap redistributes excess weight pro rata among the remaining frozen base weights. It does not change membership, score, ranking or signal.
+
+Pre-outcome concentration changed from effective N ≈ 4.44 in the raw value-weighted basket to **28.80**, with max issuer weight 5%, top-5 25% and top-10 ≈49.39%.
+
+A cross-application on the already-consumed SimFin 2020-2024 bridge is architecture diagnosis only:
+
+| 2020-07 -> 2024-07 | CAGR |
+| --- | ---: |
+| Raw direct profitability | 13.94% |
+| 5% capped policy | **16.47%** |
+| SPY | **16.94%** |
+| URTH | 14.38% |
+
+The cap improved the raw translation by **+2.53 pp/year** and exceeded URTH by **+2.08 pp/year**, but remained **-0.48 pp/year versus SPY**. No cap, score, decile or membership is retuned on this consumed sample.
+
+Evidence:
+`validation-runs/diagnostics/core-outperformance-profitability-capped-policy-historical-cross-diagnostic-2026-09-27.json`.
+
+The clean test remains the sealed future-forward capped arm with outcomes unopened.
+
+### Profitability × value future-forward V1 — exact Candidate B translation
+
+Candidate B had been frozen before Candidate A outcomes as a high-profitability × high-book-to-market 5×5 intersection. Its historical Candidate B returns remain unopened. A prospective translation was therefore allowed without rescuing Candidate A retrospectively.
+
+Snapshot 2026-09-27:
+
+- 500 S&P 500 members;
+- 451 evaluable;
+- OP top quintile = 91;
+- BM top quintile = 91;
+- exact intersection = **1 security: CHTR**;
+- CHTR OP rank 41, BM rank 10;
+- signal-replica weight = **100%**;
+- effective N = 1.
+
+The protocol explicitly forbids widening quintiles, neighboring-cell blends or rank-sum rescue after observing the cross-section. Therefore the signal snapshot is retained, but it is **not diversified enough for a Custodia policy**. Even a future 12m benchmark PASS cannot remove the concentration block by itself.
+
+Artifacts:
+- `docs/CORE_OUTPERFORMANCE_PROFITABILITY_VALUE_FUTURE_FORWARD_V1_2026-09-27.md`;
+- `validation-runs/preregistration/core-outperformance-profitability-value-future-forward-v1-snapshot.json`;
+- `validation-runs/preregistration/core-outperformance-profitability-value-future-forward-v1-seal.json`.
+
+Production remains `LEGACY`.
