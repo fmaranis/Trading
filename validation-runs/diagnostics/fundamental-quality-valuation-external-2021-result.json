@@ -1,0 +1,139 @@
+{
+  "version": "FUNDAMENTAL_QUALITY_VALUATION_EXTERNAL_REPLICATION_V1",
+  "sampleState": "CONSUMED_DIAGNOSTIC",
+  "informationDate": "2021-05-03",
+  "outcomeDate": "2022-05-03",
+  "universe": "Historical S&P 500 constituents from public May-2021 constituent snapshot",
+  "fundamentals": {
+    "source": "Public SimFin-derived annual datasets",
+    "causalTranslation": "Conservative FY2020-only annual fundamentals; EPS 2016-2019 from older SimFin snapshot + EPS 2020 from later public annual dataset",
+    "profitabilityGuard": "FY2020 operating income > 0",
+    "quality": "ROE high + D/E low + five-year EPS-growth variability low; 5/95 winsorization; equal z-score descriptors",
+    "highQuality": "score >= cross-sectional median",
+    "valuation": "FY2020 diluted EPS / raw close on 2021-05-03",
+    "valuationSplit": "median earnings yield within high Quality",
+    "quartiles": "predeclared monotonicity diagnostic"
+  },
+  "coverage": {
+    "historicalMembers": 506,
+    "profitableEvaluable": 379,
+    "fullThreeDescriptor": 323,
+    "highQuality": 190,
+    "highQualityWithOutcome": 185,
+    "missingOutcomeTickers": [
+      "APTV",
+      "LH",
+      "BLK",
+      "INFO",
+      "KSU"
+    ]
+  },
+  "benchmarks": {
+    "SPYReturnPct": 0.8838483082879156,
+    "URTHReturnPct": -3.158655412004163
+  },
+  "cuts": {
+    "qualityMedian": 0.07146962897265814,
+    "valuationMedianEarningsYieldPct": 3.070692842535567,
+    "q1EarningsYieldPct": 2.2883760127367716,
+    "q3EarningsYieldPct": 4.205507463310524
+  },
+  "groups": {
+    "cheapReasonable": {
+      "n": 93,
+      "meanReturnPct": 0.47279603138178944,
+      "medianReturnPct": 4.013284590377553,
+      "meanExcessVsSpyPctPoints": -0.4110522769061269,
+      "medianExcessVsSpyPctPoints": 3.129436282089637,
+      "beatSpyPct": 54.83870967741935,
+      "meanExcessVsUrthPctPoints": 3.631451443385952,
+      "medianExcessVsUrthPctPoints": 7.1719400023817155,
+      "beatUrthPct": 60.215053763440864
+    },
+    "expensive": {
+      "n": 92,
+      "meanReturnPct": -2.7078741275133975,
+      "medianReturnPct": -5.40917254649832,
+      "meanExcessVsSpyPctPoints": -3.5917224358013145,
+      "medianExcessVsSpyPctPoints": -6.293020854786236,
+      "beatSpyPct": 39.130434782608695,
+      "meanExcessVsUrthPctPoints": 0.45078128449076593,
+      "medianExcessVsUrthPctPoints": -2.250517134494157,
+      "beatUrthPct": 46.73913043478261
+    }
+  },
+  "interaction": {
+    "meanReturnDeltaCheapMinusExpensivePctPoints": 3.180670158895187,
+    "approxWelchT": 1.0214127909262427,
+    "cohensD": 0.15029436833772503,
+    "spearmanEarningsYieldVsReturn": 0.11942875554376256
+  },
+  "quartiles": [
+    {
+      "label": "Q1_MOST_EXPENSIVE",
+      "n": 46,
+      "meanEarningsYieldPct": 1.6541121793104276,
+      "meanReturnPct": -7.606486227834108,
+      "medianReturnPct": -8.51204977594806,
+      "meanExcessVsSpyPctPoints": -8.49033453612203,
+      "meanExcessVsUrthPctPoints": -4.447830815829946,
+      "beatSpyPct": 34.78260869565217,
+      "beatUrthPct": 39.130434782608695
+    },
+    {
+      "label": "Q2",
+      "n": 46,
+      "meanEarningsYieldPct": 2.6795566344243045,
+      "meanReturnPct": 2.1907379728073155,
+      "medianReturnPct": -1.7395481997921014,
+      "meanExcessVsSpyPctPoints": 1.306889664519399,
+      "meanExcessVsUrthPctPoints": 5.349393384811477,
+      "beatSpyPct": 43.47826086956522,
+      "beatUrthPct": 54.347826086956516
+    },
+    {
+      "label": "Q3",
+      "n": 46,
+      "meanEarningsYieldPct": 3.500331837758935,
+      "meanReturnPct": -0.08194321793067956,
+      "medianReturnPct": 5.702134688687266,
+      "meanExcessVsSpyPctPoints": -0.9657915262185959,
+      "meanExcessVsUrthPctPoints": 3.076712194073483,
+      "beatSpyPct": 58.69565217391305,
+      "beatUrthPct": 65.21739130434783
+    },
+    {
+      "label": "Q4_CHEAPEST",
+      "n": 47,
+      "meanEarningsYieldPct": 7.717904958387897,
+      "meanReturnPct": 1.01573231794293,
+      "medianReturnPct": 2.1734527051640473,
+      "meanExcessVsSpyPctPoints": 0.13188400965501287,
+      "meanExcessVsUrthPctPoints": 4.174387729947094,
+      "beatSpyPct": 51.06382978723404,
+      "beatUrthPct": 55.319148936170215
+    }
+  ],
+  "gate": {
+    "cheapBeatsExpensiveMean": true,
+    "cheapMeanExcessVsSpyPositive": false,
+    "cheapMeanExcessVsUrthPositive": true,
+    "expensiveMeanExcessVsSpyNegative": true,
+    "expensiveMeanExcessVsUrthNegative": false,
+    "fullPreregisteredDirectionalGatePass": false
+  },
+  "interpretation": {
+    "verdict": "FAIL_FULL_ALPHA_GATE__PARTIAL_SUPPORT_EXPENSIVE_QUALITY_PENALTY",
+    "retainedFinding": "Valuation shows weak positive ordering inside high Quality, with a pronounced penalty concentrated in the most-expensive quartile; evidence does not justify a production alpha engine or a tuned valuation threshold.",
+    "productionAuthority": false,
+    "productionDefault": "LEGACY",
+    "noRetuningOnThisSample": true,
+    "nextStep": "Freeze an independent historical window before opening outcomes to test whether the expensive-Quality penalty replicates."
+  },
+  "rawEvidence": [
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-2021-chunk-01.json",
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-2021-chunk-02.json",
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-2021-chunk-03.json",
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-2021-chunk-04.json"
+  ]
+}
