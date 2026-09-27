@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1",
+  "checkedAt": "2026-09-27",
+  "status": "BLOCKED_DATA_ACCESS",
+  "blocker": "SEC_EDGAR_USER_AGENT_REQUIRED",
+  "stockOutcomesOpened": false,
+  "secCompanyFactsOpened": false,
+  "yahooStockOutcomesOpened": false,
+  "historicalUniverseOutcomesOpened": false,
+  "runtimeEnvironment": {
+    "SEC_EDGAR_USER_AGENT": "MISSING",
+    "EODHD_API_KEY": "MISSING_NOT_REQUIRED_BY_THIS_RUNNER",
+    "GITHUB_REPLAY_SYNC_TOKEN": "MISSING_NOT_REQUIRED_BY_THIS_RUNNER"
+  },
+  "implementation": {
+    "preregistration": "docs/CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1_PREREGISTRATION_2026-09-27.md",
+    "protocol": "scripts/coreOutperformanceProfitabilityPitV1Protocol.mjs",
+    "runner": "scripts/coreOutperformanceProfitabilityPitV1Live.mjs",
+    "guard": "tests/coreOutperformanceProfitabilityPitV1.unit.mjs",
+    "seal": "validation-runs/preregistration/core-outperformance-profitability-pit-v1-seal.json",
+    "cache": ".runtime/core-outperformance-profitability-pit-v1-cache",
+    "preOutcomeCheckpoint": ".runtime/core-outperformance-profitability-pit-v1-pre-outcome.json"
+  },
+  "sourcePolicy": {
+    "historicalMembership": "PINNED_STATIC_REFERENCE_PUBLIC_GITHUB",
+    "fundamentals": "SEC_EDGAR_COMPANYFACTS_FILED_LTE_SIGNAL_DATE",
+    "prices": "YAHOO_REAL",
+    "syntheticFallback": false
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "nextAction": "RUN_UNMODIFIED_SEALED_STAGE_C1_WHEN_SEC_EDGAR_USER_AGENT_IS_AVAILABLE_IN_EXECUTION_RUNTIME"
+}
