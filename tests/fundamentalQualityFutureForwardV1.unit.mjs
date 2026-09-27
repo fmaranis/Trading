@@ -16,9 +16,17 @@ assert.ok(Math.abs(z.sd-Math.sqrt(2/3))<1e-12);
 assert.equal(qualityScoreFromZ(1),2);
 assert.equal(qualityScoreFromZ(-1),0.5);
 
-const rows=Array.from({length:25},(_,i)=>({ticker:`T${i}`,rawWeight:i===0?100:1}));
+const rows=Array.from({length:25},(_,i)=>({ticker:`T${i}`,issuerKey:`I${i}`,rawWeight:i===0?100:1}));
 const capped=capWeights(rows,0.05);
 assert.ok(capped.every(r=>r.weight<=0.0500000001));
 assert.ok(Math.abs(capped.reduce((s,r)=>s+r.weight,0)-1)<1e-10);
+
+const dual=capWeights([
+  {ticker:'GOOG',issuerKey:'ALPHABET',rawWeight:40},
+  {ticker:'GOOGL',issuerKey:'ALPHABET',rawWeight:30},
+  ...Array.from({length:25},(_,i)=>({ticker:`X${i}`,issuerKey:`X${i}`,rawWeight:10}))
+],0.05);
+const alphabetWeight=dual.filter(r=>r.issuerKey==='ALPHABET').reduce((s,r)=>s+r.weight,0);
+assert.ok(alphabetWeight<=0.0500000001);
 
 console.log('FUNDAMENTAL_QUALITY_FUTURE_FORWARD_V1_UNIT_PASS');
