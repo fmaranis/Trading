@@ -1092,3 +1092,35 @@ Artifacts:
 - `validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-result.json`.
 
 The strict SEC PIT remains blocked but unopened. The fresh prospective future-forward V1 remains the independent path. Production stays `LEGACY`.
+
+
+### Post-hoc delisting-aware diagnostic — direct profitability translation
+
+After `CORE_OUTPERFORMANCE_PROFITABILITY_SIMFIN_BRIDGE_V1` was already closed INCONCLUSIVE because CTXS had no listed 2023 endpoint, a **non-promotable architecture diagnostic** inserted the subsequently known USD 104/share merger cash consideration for CTXS. No reinvestment or cash interest was credited.
+
+This accounting rule was defined after the CTXS outcome became known. Therefore the result is consumed-sample diagnosis only.
+
+| 2020-07-01 -> 2024-07-01 | Total return | CAGR |
+| --- | ---: | ---: |
+| Direct profitability stock basket | +68.53% | **13.94%** |
+| SPY | +87.03% | **16.94%** |
+| URTH | +71.18% | **14.38%** |
+
+Post-hoc excess CAGR:
+
+- vs SPY: **-3.01 pp/year**;
+- vs URTH: **-0.44 pp/year**.
+
+The direct value-weighted implementation was also highly concentrated. AMZN carried roughly 50.3%, 45.9%, 42.0% and 36.7% of the candidate portfolio in the four annual periods.
+
+Interpretation:
+
+- retain the distinction between **signal quality** and **policy quality**;
+- the external French Operating Profitability signal remains a positive signal result;
+- this direct S&P 500 / strict TTM / top-decile / value-weight stock construction did **not** preserve the gross edge in this consumed implementation window;
+- do not rescue it with new equity floors, caps, deciles, sector exclusions or alternative formulas on 2020-2024.
+
+Evidence:
+`validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-posthoc-result.json`.
+
+A new policy must be frozen before new outcomes. Production remains `LEGACY`.
