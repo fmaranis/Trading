@@ -138,3 +138,43 @@ Methodology only; return outcomes were not opened before this file was committed
 - blending A/B/C after seeing returns;
 - opening later queue candidates after the first PASS;
 - changing production from `LEGACY`.
+
+
+## Post-PASS confirmation freeze — Candidate A
+
+Frozen on 2026-09-27 **after Candidate A passed the diagnostic and before accessing Candidate A returns for the confirmation window**.
+
+Candidate:
+
+- `OPERATING_PROFITABILITY_DECILE_10_VW`;
+- exact same `Hi 10` value-weighted French operating-profitability portfolio;
+- no formula, weighting or breakpoints changed.
+
+Confirmation window:
+
+- 2009-01 through 2014-12;
+- exactly 72 months;
+- 2015 excluded as a full separation year from the 2016-2021 diagnostic;
+- this period had been reserved but never opened by the closed momentum study; it is now explicitly reassigned to this profitability confirmation;
+- Candidate A return rows for 2009-2014 have not been accessed in this study before this freeze.
+
+Frozen sources:
+
+1. Candidate A: pinned public mirror of Kenneth French `Portfolios_Formed_on_OP.CSV`, repository `a91quaini/reproduceTFRP`, commit `a5ba25ace97100bb4a5ac26339f72ea43d05c4c6`, blob SHA `3ea0f8ba11a3d793348b8b0062cefcbb346a5f4d`.
+2. US parent: pinned French research-factor mirror already used by the momentum study, `zborok/Modelling-Financial-Risk:F-F_Research_Data_Factors.CSV`, blob SHA `5c59f23bb11b3a0f2b7472c3f2a5aa933f80b9b7`. Monthly total-market return = `Mkt-RF + RF`.
+3. Global developed proxy: Kenneth French Developed 3 Factors, monthly developed-market total return = `Mkt-RF + RF`. A pinned public mirror is required; if the exact target rows cannot be recovered reproducibly, confirmation is `BLOCKED_DATA_ACCESS`.
+
+Confirmation gate:
+
+- exactly 72 valid candidate months;
+- candidate gross CAGR > US parent gross CAGR;
+- candidate gross CAGR > developed global market gross CAGR;
+- all conditions must hold.
+
+Outcome states:
+
+- `PASS_CONFIRMATION_SIGNAL_ONLY`: proceed to stock-level PIT/actionability work, still no production authority.
+- `FAIL_CONFIRMATION`: close Candidate A and do not open Candidates B/C as a rescue of Candidate A; B/C remain separate preregistered hypotheses and may be studied only as their own queue steps after this failure.
+- `INCONCLUSIVE_COVERAGE` / `BLOCKED_DATA_ACCESS`: no inference and no silent substitute.
+
+No risk/drawdown promotion claim is permitted from monthly academic portfolios alone. Formal economic promotion still requires the actionable causal replay, costs/tax comparability and risk guardrails.
