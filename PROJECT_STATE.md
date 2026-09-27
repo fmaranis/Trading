@@ -923,3 +923,20 @@ Actualización 2026-09-27 — audit look-through profitability vs core:
 - decisión: **no usar el 18/25/35% completo como profitability sleeve**. La señal V1 no se retunea; sizing/riesgo se mantiene separado y fail-closed;
 - evidencia: `validation-runs/diagnostics/core-outperformance-profitability-look-through-audit-2026-09-27.json`;
 - future-forward sigue con outcomes **UNOPENED**; producción continúa **LEGACY**.
+
+
+---
+
+Actualización 2026-09-27 — future-forward start capture preparado y PIT secundario auditado:
+
+- calendario NYSE oficial: 28-09-2026 no es festivo; es la primera sesión esperada posterior al snapshot del 27-09, pero el runner exige de todos modos una **sesión común real** para las 46 seleccionadas + SPY + URTH;
+- capturador pre-outcome añadido: `scripts/coreOutperformanceProfitabilityFutureForwardV1Start.mjs`;
+- semántica congelada: `adjusted open = raw open × adjusted close / raw close` de la misma sesión ya completada; cobertura obligatoria 100%, sin sustitución ni renormalización;
+- sello separado: `validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-start-seal.json`;
+- unit guard local: **PASS** (`CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1_START_UNIT_PASS`);
+- verificación de fingerprints: **PASS_PRE_START_GUARDS**; precios futuros siguen **UNOPENED**;
+- se auditó una vía secundaria SimFin para intentar desbloquear el histórico sin SEC: fuente moderna 2019-2024 completa en columnas y `Publish Date`; snapshot antiguo demuestra 45.645 filas/69 columnas con datos al menos 2009-2019 y `Total Equity`, pero sólo está accesible como pickle binario no materializable aquí;
+- decisión anti-bias: no acortar Stage C1, no coser snapshots heterogéneos sin filas auditables, no usar current fundamentals; el PIT SEC estricto permanece **BLOCKED_DATA_ACCESS** y sus stock outcomes siguen sin abrir;
+- evidencia: `validation-runs/diagnostics/core-outperformance-profitability-pit-secondary-source-audit-2026-09-27.json` y `...future-forward-v1-start-verification-2026-09-27.json`;
+- siguiente acción: ejecutar **sin cambios** el capturador tras completar la sesión del 28-09-2026 y fijar el punto cero del future-forward;
+- producción permanece **LEGACY**.
