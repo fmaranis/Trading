@@ -1,0 +1,15 @@
+{
+  "version": "CORE_OUTPERFORMANCE_PROFITABILITY_SIMFIN_BRIDGE_V1_SEAL",
+  "frozenAt": "2026-09-27",
+  "priceOutcomesOpened": false,
+  "role": "IMPLEMENTATION_TRANSLATION_DIAGNOSTIC_CONSUMED_WINDOW",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "noRetuningAfterOutcome": true,
+  "expectedGitBlobSha": {
+    "docs/CORE_OUTPERFORMANCE_PROFITABILITY_SIMFIN_BRIDGE_V1_2026-09-27.md": "8fe687c5695922587edcc7471842d15cab674e0f",
+    "validation-runs/preregistration/core-outperformance-profitability-simfin-bridge-v1-input.json": "5619ea17c62fb6491b48f4d9dc9f266496c21ff3",
+    "scripts/coreOutperformanceProfitabilitySimfinBridgeV1.mjs": "56772e6a50907c11581f5a91c5dab5b97dab3223",
+    "tests/coreOutperformanceProfitabilitySimfinBridgeV1.unit.mjs": "cdb050bdb26873222c87b52d26e98e140879fd37"
+  }
+}
