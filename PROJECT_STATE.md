@@ -732,6 +732,37 @@ Regla nueva de continuidad de investigación:
 - el registro mínimo incluye definición, fecha causal, muestra, grupos reconstruibles, resultado vs core, estado consumed/fresh y siguiente prueba;
 - un resultado prometedor incompleto se etiqueta `PROMISING_DIAGNOSTIC_UNCONFIRMED`; no debe quedar únicamente en el chat.
 
+
+Actualización 2026-09-27 — confirmación amplia PIT de Quality × valoración preparada y sellada:
+
+- se integró el job research-only `Fundamental Quality × valoración · validación PIT amplia` (`fundamental-quality-valuation-broad-pit-v1`) dentro de `ResearchValidationCenter`;
+- versión: `FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1`;
+- seal pre-run: `validation-runs/preregistration/fundamental-quality-valuation-broad-pit-v1-seal.json`;
+- el seal fija por Git blob SHA el protocolo, runner y guard; cualquier modificación de esos archivos invalida la ejecución antes de consultar datos;
+- muestra: miembros históricos del S&P 500 existentes a 2021-05-03, obtenidos mediante componentes históricos EODHD; no usa Yahoo current discovery para reconstruir el universo;
+- fundamentales: SEC EDGAR `companyfacts`, aceptando exclusivamente hechos con `filed <= 2021-05-03`; no se aceptan reexpresiones conocidas después del corte;
+- guard previo: operating income anual causal > 0;
+- Quality congelado: ROE alto + D/E bajo + EVAR bajo; winsor 5/95, z-score cross-sectional, pesos iguales, cinco ejercicios de EPS -> cuatro crecimientos YoY; ROE obligatorio y regla de missing equivalente a la metodología MSCI usada en la reconstrucción;
+- la implementación SEC es una traducción independiente del mismo concepto económico, no una reproducción byte-a-byte del proveedor Wolfram del diagnóstico pequeño;
+- high Quality = score >= mediana cross-sectional entre compañías rentables/evaluables;
+- valoración congelada = earnings yield anual causal SEC, calculado como beneficio anual / (precio raw en informationDate × acciones causales en circulación); dentro de high Quality se divide por la mediana del earnings yield;
+- outcomes: Yahoo REAL ajustado 2021-05-03 -> 2022-05-03;
+- benchmarks congelados antes de abrir outcomes: SPY como parent USA y URTH/MSCI World USD como proxy adicional del structural global core;
+- gates de cobertura preregistrados: >=400 miembros históricos, >=350 CIK mapeados, >=250 rentables/evaluables, >=100 high Quality y >=40 observaciones por rama de valoración;
+- verdict direccional sólo confirma la interacción si cheap/reasonable supera expensive y además cheap/reasonable tiene exceso medio positivo frente a SPY y URTH mientras expensive queda negativo frente a ambos;
+- el resultado, sea positivo o negativo, se persistirá en `replay-results`; no autoriza promoción productiva y no puede utilizarse para retunear sobre la misma muestra;
+- producción permanece `LEGACY`.
+
+Estado operativo del job a 2026-09-27:
+
+- **PREPARED_AND_SEALED / NOT YET EXECUTED**;
+- este chat no ha abierto todavía la población S&P 500 ni sus outcomes mediante el nuevo runner;
+- el módulo matemático aislado del protocolo fue compilado con TypeScript 5.8.3 sin errores;
+- no fue posible ejecutar el `tsc --noEmit` del HEAD completo desde el entorno de ChatGPT porque su contenedor no puede resolver GitHub; por diseño, el job local ejecuta guards + `npm run lint` antes de cualquier cálculo largo;
+- prerequisitos fail-closed: `GITHUB_REPLAY_SYNC_TOKEN`, `EODHD_API_KEY` y `SEC_EDGAR_USER_AGENT`;
+- la SEC no requiere API key para `companyfacts`, pero exige User-Agent declarado para acceso automatizado; el runner limita SEC a <=8 req/s;
+- siguiente acción única tras sincronizar el HEAD: comprobar que los tres prerequisitos estén verdes y ejecutar **`Fundamental Quality × valoración · validación PIT amplia`**. No modificar fórmula ni thresholds antes de ese resultado.
+
 ---
 
 # 13. CRITERIO DE CIERRE V1
