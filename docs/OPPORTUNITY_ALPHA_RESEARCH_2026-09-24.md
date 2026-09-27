@@ -627,3 +627,87 @@ The SEC implementation is intentionally treated as a **provider-independent caus
 The diagnostic verdict can support or reject the interaction hypothesis, but **cannot authorize production promotion**. A positive result would justify freezing a research-only project translation for later fresh/blind confirmation; a negative result must not be retuned on this sample.
 
 Current state: **PREPARED_AND_SEALED / NOT YET EXECUTED**.
+
+
+## 19. FUNDAMENTAL_QUALITY × VALUATION — broad external replication R1 (2021-05-03 -> 2022-05-03)
+
+No production code was changed.
+
+A broad external replication was completed outside the app runtime to prevent the research line from depending on manual execution of the local validation center.
+
+Frozen translation used before opening outcomes:
+
+- historical S&P 500 population from the May-2021 constituent snapshot: 506 names;
+- conservative FY2020-only fundamentals;
+- operating income > 0 guard;
+- Quality = high ROE + low D/E + low five-year EPS-growth variability;
+- 5/95 winsorization and equal cross-sectional z-score descriptors;
+- high Quality = score >= median;
+- valuation = FY2020 diluted EPS / raw close on 2021-05-03;
+- cheap/reasonable vs expensive = median earnings yield within high Quality;
+- adjusted outcomes to 2022-05-03;
+- benchmarks frozen in advance: SPY and URTH.
+
+Coverage:
+
+- 379 profitable/evaluable names;
+- 323 with all three Quality descriptors;
+- 190 high-Quality names;
+- 185 with usable valuation/outcome data.
+
+Results:
+
+| Branch | N | Mean return | Median return | Mean excess vs SPY | Beat SPY | Mean excess vs URTH | Beat URTH |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| High Quality + cheap/reasonable | 93 | +0.47% | +4.01% | **-0.41 pp** | 54.8% | **+3.63 pp** | 60.2% |
+| High Quality + expensive | 92 | -2.71% | -5.41% | **-3.59 pp** | 39.1% | **+0.45 pp** | 46.7% |
+
+Interaction:
+
+- cheap/reasonable minus expensive mean return = **+3.18 pp**;
+- Spearman earnings-yield vs subsequent return = **+0.119**;
+- approximate Welch t = **1.02**;
+- Cohen d = **0.15**.
+
+Predeclared valuation quartile control:
+
+- most-expensive quartile: mean return **-7.61%**, **-8.49 pp vs SPY**, **-4.45 pp vs URTH**;
+- Q2: +2.19%;
+- Q3: -0.08%;
+- cheapest quartile: +1.02%.
+
+Interpretation:
+
+- the broad sample reproduces the directional advantage of cheaper high-Quality over expensive high-Quality;
+- it does **not** pass the full alpha gate because cheap/reasonable does not have positive mean excess versus SPY;
+- the strongest retained finding is the concentrated penalty in the **most-expensive high-Quality quartile**;
+- this is evidence for a possible valuation guard, not a validated alpha engine;
+- the 2021-2022 sample is consumed and must not be used to choose/tune a production threshold.
+
+Verdict:
+
+**FAIL_FULL_ALPHA_GATE / PARTIAL_SUPPORT_EXPENSIVE_QUALITY_PENALTY / NO PRODUCTION AUTHORITY.**
+
+Durable evidence:
+
+- `validation-runs/diagnostics/fundamental-quality-valuation-external-2021-result.json`;
+- four raw outcome chunks under `validation-runs/diagnostics/fundamental-quality-valuation-external-2021-chunk-0*.json`.
+
+### 19.1 R2 temporal confirmation preregistered before outcomes
+
+R2 was sealed before opening any 2022-2023 outcomes:
+
+- information date: 2022-05-03;
+- outcome date: 2023-05-03;
+- historical S&P 500 May-2022 population;
+- FY2021 fundamentals only;
+- identical Quality construction;
+- identical median valuation split;
+- primary gate unchanged;
+- secondary, explicitly frozen diagnostic: whether the most-expensive high-Quality quartile again underperforms the remaining 75% and both SPY and URTH.
+
+Seal:
+
+`validation-runs/preregistration/fundamental-quality-valuation-external-r2-seal.json`
+
+State: **SEALED_NOT_OPENED**.
