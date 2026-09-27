@@ -2,7 +2,7 @@
 
 Date: 2026-09-27
 
-Status: **PREREGISTERED / OUTCOMES NOT OPENED / RESEARCH ONLY / NO PRODUCTION AUTHORITY**
+Status: **CANDIDATE A PASS DIAGNOSTIC + TEMPORAL CONFIRMATION / B-C UNOPENED / PIT TRANSLATION BLOCKED PRE-OUTCOME / NO PRODUCTION AUTHORITY**
 
 Repository: `fmaranis/Trading`, branch `main`.
 Starting HEAD: `633cef61b10f8ba0b1940cac039e7a2068be843f`.
@@ -178,3 +178,16 @@ Outcome states:
 - `INCONCLUSIVE_COVERAGE` / `BLOCKED_DATA_ACCESS`: no inference and no silent substitute.
 
 No risk/drawdown promotion claim is permitted from monthly academic portfolios alone. Formal economic promotion still requires the actionable causal replay, costs/tax comparability and risk guardrails.
+
+
+## Execution outcome — Candidate A
+
+- Candidate A `OPERATING_PROFITABILITY_DECILE_10_VW` diagnostic 2016-2021: **PASS**.
+- CAGR: 20.799498% vs US parent 17.516112% and URTH 14.220895%.
+- The queue stopped immediately after that PASS; Candidates B and C remain unopened.
+- Candidate A temporal confirmation 2009-2014 was frozen before those returns were opened and also **PASS**.
+- Confirmation CAGR: 18.236493% vs US parent 17.716654% and developed-global 13.819653%.
+- Status is `PASS_CONFIRMATION_SIGNAL_ONLY`, not production promotion.
+- Stock-level PIT translation was subsequently frozen and Git-blob sealed before any stock outcomes.
+- Current PIT state: `BLOCKED_DATA_ACCESS` due missing `SEC_EDGAR_USER_AGENT`; stock outcomes remain unopened.
+- Production remains `LEGACY`.
