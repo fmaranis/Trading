@@ -907,3 +907,19 @@ Actualización 2026-09-27 — Profitability future-forward V1 congelado:
 - archivos clave: `docs/CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1_2026-09-27.md`, `..._SNAPSHOT_2026-09-27.md`, snapshot/seal/verification bajo `validation-runs`, y `scripts/coreOutperformanceProfitabilityFutureForwardV1Protocol.mjs`;
 - siguiente hito: fijar los precios adjusted de arranque en la primera sesión común posterior al snapshot; después no hay nada que optimizar hasta los checkpoints congelados;
 - producción permanece **LEGACY**.
+
+
+---
+
+Actualización 2026-09-27 — audit look-through profitability vs core:
+
+- se auditó la concentración look-through del basket future-forward congelado frente a los cinco IDs de core estructural; EUNL/IWDA comparten ISIN y se tratan como un mismo fondo a efectos de holdings;
+- holdings oficiales recientes usados: Vanguard Global IE00B03HD191 (31-08-2026), Vanguard ESG Developed IE00B5456744 (31-07-2026), VWCE IE00BK5BQT80 (31-08-2026) e iShares Core MSCI World IE00B4L5Y983 (24-09-2026);
+- el basket profitability contiene **NVDA 34,275%** y **AAPL 31,424%**; los cores contienen aproximadamente NVDA 4,77–5,66% y AAPL 4,24–5,41%;
+- escenario conservador core + profitability sleeve al máximo presupuesto no-core: exposición combinada NVDA+AAPL ≈ **19,21–20,90% LOW**, **23,18–24,73% MEDIUM**, **28,85–30,19% HIGH**;
+- cada NVDA y AAPL excedería el cap de BUILD ya existente en Custodia (6% LOW / 8% MEDIUM / 12% HIGH) si se llenase todo el presupuesto no-core con esta sleeve;
+- usando esos caps ya existentes sólo como referencia de gobierno —no como tuning por outcomes—, **NVDA es vinculante** y el máximo teórico de profitability sleeve antes de alcanzarlos queda aprox.: LOW **1,19–4,18%**, MEDIUM **8,18–10,96%**, HIGH **22,16–24,51%**, según core seleccionado;
+- esta capacidad es un upper bound basado en los overlaps auditados principales; una integración real debe comprobar todos los holdings seleccionados y otras sleeves existentes;
+- decisión: **no usar el 18/25/35% completo como profitability sleeve**. La señal V1 no se retunea; sizing/riesgo se mantiene separado y fail-closed;
+- evidencia: `validation-runs/diagnostics/core-outperformance-profitability-look-through-audit-2026-09-27.json`;
+- future-forward sigue con outcomes **UNOPENED**; producción continúa **LEGACY**.
