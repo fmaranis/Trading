@@ -1063,3 +1063,32 @@ A secondary historical-source audit also searched for a causal alternative to SE
 Evidence: `validation-runs/diagnostics/core-outperformance-profitability-pit-secondary-source-audit-2026-09-27.json`.
 
 Strict SEC PIT remains `BLOCKED_DATA_ACCESS`; this is not an economic FAIL. Production remains `LEGACY`.
+
+
+### SimFin causal stock-level bridge V1
+
+A secondary causal stock-level translation was preregistered before opening price outcomes:
+
+`CORE_OUTPERFORMANCE_PROFITABILITY_SIMFIN_BRIDGE_V1`.
+
+It used reconstructed historical S&P 500 membership, versioned SimFin quarterly statements with publication dates, a strict four-quarter profitability numerator, positive equity, top-decile selection, causal market-cap weighting and NEXT_OPEN-style adjusted-open endpoints. No zero-imputation, Operating Income fallback, equal weighting or sector exclusion was permitted.
+
+Coverage inherited from Stage C1 passed before prices. The 2020 and 2021 periods had 100% selected-price coverage. The 2022 formation selected CTXS, but Citrix became private after its 30-09-2022 acquisition. A listed adjusted-open therefore does not exist for the required 03-07-2023 endpoint.
+
+Because V1 had frozen a 100% listed-price endpoint rule, the correct status is:
+
+**INCONCLUSIVE_PRICE_OR_COVERAGE**
+
+—not FAIL and not PASS.
+
+The known $104/share cash merger consideration is not inserted retrospectively into V1. A corporate-action-aware replay can be designed as infrastructure, but this already-opened window cannot validate or promote that amended accounting policy.
+
+Artifacts:
+
+- `docs/CORE_OUTPERFORMANCE_PROFITABILITY_SIMFIN_BRIDGE_V1_2026-09-27.md`;
+- `validation-runs/preregistration/core-outperformance-profitability-simfin-bridge-v1-input.json`;
+- `validation-runs/preregistration/core-outperformance-profitability-simfin-bridge-v1-seal.json`;
+- `validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-prices.json`;
+- `validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-result.json`.
+
+The strict SEC PIT remains blocked but unopened. The fresh prospective future-forward V1 remains the independent path. Production stays `LEGACY`.
