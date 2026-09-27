@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_MOMENTUM_REFERENCE_V1",
+  "verificationDate": "2026-09-27",
+  "planCommit": "e905503fd9c95299e4ca3fe0eeefc29f257f76ff",
+  "verifiedHeadBeforeAudit": "e636748525f51c1cd9cba797b66b2a3372bed6d9",
+  "scope": "independent arithmetic and repository-scope verification of the existing Stage B diagnostic closure",
+  "cachedInput": "validation-runs/diagnostics/core-outperformance-momentum-v1-input.json",
+  "storedResult": "validation-runs/diagnostics/core-outperformance-momentum-v1-result.json",
+  "recomputed": {
+    "momentumMonths": 72,
+    "usParentMonths": 72,
+    "momentumTotalReturnPct": 152.33201737494207,
+    "momentumCagrPct": 16.67972404318714,
+    "usParentTotalReturnPct": 163.38102851412177,
+    "usParentCagrPct": 17.51611211252586,
+    "urthTotalReturnPct": 122.06154011253653,
+    "urthCagrPct": 14.220894759040426,
+    "spyCrossCheckTotalReturnPct": 163.85459434472187,
+    "spyCrossCheckCagrPct": 17.55130192123524,
+    "excessCagrVsUsParentPctPoints": -0.8363880693387209,
+    "excessCagrVsUrthPctPoints": 2.458829284146713
+  },
+  "storedResultReconciles": true,
+  "stageBGate": {
+    "rule": "gross CAGR excess > 0 versus US parent and URTH global proxy",
+    "passed": false,
+    "status": "FAIL_DIAGNOSTIC",
+    "stopDecision": "STOP_PRIMARY_REPLICA_NO_VARIANTS"
+  },
+  "confirmationReserve": {
+    "start": "2009-01",
+    "end": "2014-12",
+    "separationYear": "2015",
+    "opened": false
+  },
+  "repositoryScopeSincePlanCommit": {
+    "commitsAhead": 8,
+    "productionFilesChanged": false,
+    "changedPaths": [
+      "PROJECT_STATE.md",
+      "docs/CORE_OUTPERFORMANCE_MOMENTUM_V1_EXECUTION_2026-09-27.md",
+      "docs/CORE_OUTPERFORMANCE_RESEARCH_PLAN_2026-09-27.md",
+      "docs/CORE_OUTPERFORMANCE_SAMPLE_REGISTRY_2026-09-27.md",
+      "docs/OPPORTUNITY_ALPHA_RESEARCH_2026-09-24.md",
+      "scripts/coreOutperformanceMomentumDiagnosticV1.mjs",
+      "validation-runs/diagnostics/core-outperformance-momentum-v1-input.json",
+      "validation-runs/diagnostics/core-outperformance-momentum-v1-result.json"
+    ]
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "nextAction": "STOP: do not open confirmation, implement Stage C, or try parameter variants for this primary replica."
+}
