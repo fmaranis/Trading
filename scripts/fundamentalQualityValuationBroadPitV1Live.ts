@@ -224,6 +224,7 @@ function isAnnualDuration(row: SecFactRow): boolean {
 }
 
 function annualSeries(payload: any, tags: string[], unitKind: 'USD' | 'EPS'): AnnualFact[] {
+  let best: AnnualFact[] = [];
   for (const tag of tags) {
     const rows = normalizedUnitRows(payload, 'us-gaap', tag, unitKind)
       .filter(row => causal(row)
@@ -238,7 +239,7 @@ function annualSeries(payload: any, tags: string[], unitKind: 'USD' | 'EPS'): An
       const previous = byEnd.get(end);
       if (!previous || iso(row.filed) > iso(previous.filed)) byEnd.set(end, row);
     }
-    return [...byEnd.entries()]
+    const series = [...byEnd.entries()]
       .map(([end, row]) => ({
         start: iso(row.start),
         end,
@@ -248,8 +249,9 @@ function annualSeries(payload: any, tags: string[], unitKind: 'USD' | 'EPS'): An
         tag
       }))
       .sort((a, b) => a.end.localeCompare(b.end));
+    if (series.length > best.length) best = series;
   }
-  return [];
+  return best;
 }
 
 function instantAtEnd(
