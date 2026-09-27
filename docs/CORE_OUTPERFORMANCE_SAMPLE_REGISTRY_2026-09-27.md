@@ -40,3 +40,35 @@ No claim is made that this reserve is globally pristine for every conceivable fu
 ## Rule
 
 A failed diagnostic cannot be rescued by opening the reserve, changing dates, trying another decile, another lookback or adding filters. A materially different future hypothesis requires a new documented design and independent evidence.
+
+
+## CORE_OUTPERFORMANCE_PROFITABILITY_V1
+
+### Diagnostic
+
+- 2016-01 -> 2021-12.
+- 72 monthly observations from the frozen French Operating Profitability `Hi 10` value-weighted portfolio.
+- role: **DIAGNOSTIC_CONSUMED**.
+- result: **PASS_EXTERNAL_DIAGNOSTIC_CANDIDATE**.
+- CAGR 20.799498% vs US parent 17.516112% and URTH 14.220895%.
+
+### Temporal confirmation
+
+- 2009-01 -> 2014-12.
+- 72 monthly observations.
+- 2015 kept as the full separation year.
+- role: **CONFIRMATION_OPENED_CONSUMED**.
+- opened only after the diagnostic PASS and after the confirmation rule/source/window were committed.
+- result: **PASS_CONFIRMATION_SIGNAL_ONLY**.
+- CAGR 18.236493% vs US parent 17.716654% and developed-global market 13.819653%.
+
+This window had remained unopened by the failed momentum study and was subsequently reassigned to this materially different profitability hypothesis. It is no longer an unopened reserve for future historical confirmation claims.
+
+### Actionable PIT translation
+
+- 2016-06 -> 2021-06 annual formations.
+- role: **IMPLEMENTATION_TRANSLATION_DIAGNOSTIC / CONSUMED MARKET WINDOW**.
+- protocol and Git-blob seal frozen before stock outcomes.
+- stock outcomes: **NOT OPENED**.
+- current status: **BLOCKED_DATA_ACCESS** because `SEC_EDGAR_USER_AGENT` is absent in the available execution runtime.
+- this block is not a negative economic result and does not consume stock outcomes.
