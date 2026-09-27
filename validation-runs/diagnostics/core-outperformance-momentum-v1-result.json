@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_MOMENTUM_REFERENCE_V1",
+  "executedOn": "2026-09-27",
+  "diagnosticWindow": {
+    "start": "2016-01",
+    "end": "2021-12",
+    "months": 72,
+    "role": "DIAGNOSTIC_CONSUMED"
+  },
+  "confirmationReserved": {
+    "start": "2009-01",
+    "end": "2014-12",
+    "months": 72,
+    "opened": false,
+    "separationYear": "2015",
+    "role": "RESERVED_UNOPENED"
+  },
+  "status": "FAIL_DIAGNOSTIC",
+  "gate": {
+    "rule": "gross CAGR excess > 0 versus US parent and URTH global proxy",
+    "passed": false
+  },
+  "metrics": {
+    "momentumWinnerDecile": {
+      "totalReturnPct": 152.33201737494207,
+      "cagrPct": 16.67972404318714
+    },
+    "usMarket": {
+      "totalReturnPct": 163.38102851412177,
+      "cagrPct": 17.51611211252586
+    },
+    "urth": {
+      "totalReturnPct": 122.06154011253653,
+      "cagrPct": 14.220894759040426
+    },
+    "spyCrossCheck": {
+      "totalReturnPct": 163.85459434472187,
+      "cagrPct": 17.55130192123524
+    },
+    "excessCagrVsUsParentPctPoints": -0.8363880693387227,
+    "excessCagrVsUrthPctPoints": 2.458829284146713
+  },
+  "stopDecision": "STOP_PRIMARY_REPLICA_NO_VARIANTS",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "confirmationOpened": false,
+  "sequencingCaveat": {
+    "sampleChoiceDeclaredBeforeOutcomeInChat": true,
+    "repositorySealCommittedBeforeOutcome": false,
+    "formalPreOpenSealValid": false,
+    "consequence": "DIAGNOSTIC_ONLY; DO NOT CLAIM PRE-REGISTERED HOLDOUT VALIDATION"
+  },
+  "notes": [
+    "Primary 12-2 value-weighted winner-decile diagnostic only.",
+    "No alternative lookbacks, deciles, regime filters or tuning after this result.",
+    "Confirmation reserve remains unopened because the diagnostic gate failed.",
+    "The repository seal was not committed before outcomes; this execution is not represented as a valid pre-open preregistered test."
+  ],
+  "sources": {
+    "frenchPrimary": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/det_10_port_form_pr_12_2.html",
+    "momentumMirror": {
+      "repo": "zborok/Modelling-Financial-Risk",
+      "path": "10_Portfolios_Prior_12_2.CSV",
+      "blobSha": "ff6512ef300f6095515b2d13ee9f4e90aad1907d"
+    },
+    "marketMirror": {
+      "repo": "zborok/Modelling-Financial-Risk",
+      "path": "F-F_Research_Data_Factors.CSV",
+      "blobSha": "5c59f23bb11b3a0f2b7472c3f2a5aa933f80b9b7"
+    },
+    "globalProxyProvider": "Wolfram FinancialData AdjustedClose"
+  }
+}
