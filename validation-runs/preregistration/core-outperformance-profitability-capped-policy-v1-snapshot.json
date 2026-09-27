@@ -1,0 +1,559 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_CAPPED_POLICY_V1",
+  "frozenAt": "2026-09-27",
+  "sourceSignalSnapshot": "validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-snapshot.json",
+  "sourceSignalSnapshotBlobSha": "2b5bc6cd32403b5b3f8e1e5903b79d740a49666a",
+  "signalMembershipChanged": false,
+  "outcomeOpened": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "rationale": "Economic-policy translation of the already frozen profitability signal. 5% issuer cap chosen pre-outcome from published MSCI Quality broad-index concentration control, not from observed returns.",
+  "methodologyReference": {
+    "source": "MSCI Quality Indexes Methodology",
+    "rule": "Broad-parent Quality indexes cap issuers at 5% to mitigate concentration risk.",
+    "url": "https://www.msci.com/indexes/documents/methodology/2_MSCI_Quality_Indexes_Methodology_20220519.pdf"
+  },
+  "weighting": {
+    "startingWeights": "Frozen FUTURE_FORWARD_V1 market-cap value weights",
+    "issuerCapPct": 5,
+    "redistribution": "Iteratively redistribute capped excess pro rata to remaining uncapped frozen base weights until all weights <= 5%.",
+    "noSecurityAdditionOrRemoval": true,
+    "noScoreChange": true,
+    "noSectorAdjustment": true
+  },
+  "counts": {
+    "selected": 46,
+    "capped": 9
+  },
+  "concentration": {
+    "maxWeightPct": 5,
+    "top5WeightPct": 25,
+    "top10WeightPct": 49.38871664512675,
+    "hhi": 0.03472112730221285,
+    "effectiveNumberOfPositions": 28.80090819909145,
+    "weightSum": 0.9999999999999999
+  },
+  "selected": [
+    {
+      "symbol": "NYSE:ABBV",
+      "ticker": "ABBV",
+      "companyId": "AbbVie::2476h",
+      "profitabilityProxy": 14.997980833333333,
+      "marketCap": 467107092290.79895,
+      "rank": 1,
+      "baseWeight": 0.02945865901512329,
+      "policyWeight": 0.05,
+      "capped": true
+    },
+    {
+      "symbol": "NYSE:LYV",
+      "ticker": "LYV",
+      "companyId": "LiveNationEntertainment::5zk79",
+      "profitabilityProxy": 7.891582574172805,
+      "marketCap": 39804763407.53174,
+      "rank": 2,
+      "baseWeight": 0.0025103342932548153,
+      "policyWeight": 0.009942133792819986,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:CL",
+      "ticker": "CL",
+      "companyId": "ColgatePalmoliveCompany::9c382",
+      "profitabilityProxy": 7.778754430379747,
+      "marketCap": 68604706433.776855,
+      "rank": 3,
+      "baseWeight": 0.004326636625776356,
+      "policyWeight": 0.01713556649485541,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:CLX",
+      "ticker": "CLX",
+      "companyId": "Clorox::k232v",
+      "profitabilityProxy": 7.117865263157895,
+      "marketCap": 10133641069.038391,
+      "rank": 4,
+      "baseWeight": 0.0006390900111801443,
+      "policyWeight": 0.002531104488306829,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:VRSK",
+      "ticker": "VRSK",
+      "companyId": "VeriskAnalytics::92x88",
+      "profitabilityProxy": 5.98521513987932,
+      "marketCap": 22020347275.717163,
+      "rank": 5,
+      "baseWeight": 0.0013887391403299592,
+      "policyWeight": 0.005500076373726517,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:APP",
+      "ticker": "APP",
+      "companyId": "AppLovin::x46tr",
+      "profitabilityProxy": 3.93826144570983,
+      "marketCap": 104191989000,
+      "rank": 6,
+      "baseWeight": 0.006570990521693128,
+      "policyWeight": 0.026024289710563135,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:GDDY",
+      "ticker": "GDDY",
+      "companyId": "GoDaddy::js954",
+      "profitabilityProxy": 3.2909743515850143,
+      "marketCap": 12320654682.58667,
+      "rank": 7,
+      "baseWeight": 0.000777016600962777,
+      "policyWeight": 0.003077360265033829,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:EXPE",
+      "ticker": "EXPE",
+      "companyId": "Expedia::x4vn2",
+      "profitabilityProxy": 2.810558933777593,
+      "marketCap": 31699344931.274414,
+      "rank": 8,
+      "baseWeight": 0.0019991565290809954,
+      "policyWeight": 0.007917623456891263,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:MA",
+      "ticker": "MA",
+      "companyId": "MasterCard::6653t",
+      "profitabilityProxy": 2.562072645522776,
+      "marketCap": 498396721435.5469,
+      "rank": 9,
+      "baseWeight": 0.03143197633549263,
+      "policyWeight": 0.05,
+      "capped": true
+    },
+    {
+      "symbol": "NASDAQ:KMB",
+      "ticker": "KMB",
+      "companyId": "KimberlyClarkCorporation::9729x",
+      "profitabilityProxy": 2.3810894366197184,
+      "marketCap": 32737818101.501465,
+      "rank": 10,
+      "baseWeight": 0.002064649062855301,
+      "policyWeight": 0.008177005458310158,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:HD",
+      "ticker": "HD",
+      "companyId": "HomeDepot::cb9gp",
+      "profitabilityProxy": 2.301461536815068,
+      "marketCap": 292354716571.8384,
+      "rank": 11,
+      "baseWeight": 0.01843769458672903,
+      "policyWeight": 0.05,
+      "capped": true
+    },
+    {
+      "symbol": "NASDAQ:AAPL",
+      "ticker": "AAPL",
+      "companyId": "Apple::5zkjq",
+      "profitabilityProxy": 1.929062731356891,
+      "marketCap": 4982679117409.24,
+      "rank": 12,
+      "baseWeight": 0.31423852800366825,
+      "policyWeight": 0.05,
+      "capped": true
+    },
+    {
+      "symbol": "NYSE:SOLV",
+      "ticker": "SOLV",
+      "companyId": "KTGEnergie::txnb7",
+      "profitabilityProxy": 1.7360663614328036,
+      "marketCap": 15225167200,
+      "rank": 13,
+      "baseWeight": 0.0009601931043123966,
+      "policyWeight": 0.0038028275101319284,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:SYY",
+      "ticker": "SYY",
+      "companyId": "Sysco::7bjbn",
+      "profitabilityProxy": 1.5835174262734584,
+      "marketCap": 37546530417.88025,
+      "rank": 14,
+      "baseWeight": 0.0023679161696236917,
+      "policyWeight": 0.009378089377115036,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:NTAP",
+      "ticker": "NTAP",
+      "companyId": "NetApp::q26j7",
+      "profitabilityProxy": 1.5546126126126125,
+      "marketCap": 39424420837.40234,
+      "rank": 15,
+      "baseWeight": 0.0024863475410361138,
+      "policyWeight": 0.00984713469231997,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:MSI",
+      "ticker": "MSI",
+      "companyId": "MotorolaSolutions::n6z6t",
+      "profitabilityProxy": 1.5117568268097918,
+      "marketCap": 75613640808.10547,
+      "rank": 16,
+      "baseWeight": 0.004768663328432761,
+      "policyWeight": 0.018886205296076992,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:LMT",
+      "ticker": "LMT",
+      "companyId": "LockheedMartin::m9k3j",
+      "profitabilityProxy": 1.4651261668908728,
+      "marketCap": 119498799438.47656,
+      "rank": 17,
+      "baseWeight": 0.007536332553013624,
+      "policyWeight": 0.029847509453451295,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:HAS",
+      "ticker": "HAS",
+      "companyId": "Hasbro::367n5",
+      "profitabilityProxy": 1.4405193949579833,
+      "marketCap": 12444368074.658203,
+      "rank": 18,
+      "baseWeight": 0.000784818731764873,
+      "policyWeight": 0.0031082604636695037,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:LLY",
+      "ticker": "LLY",
+      "companyId": "EliLillyAndCompany::mtn7p",
+      "profitabilityProxy": 1.3810672575881906,
+      "marketCap": 1114227553222.6562,
+      "rank": 19,
+      "baseWeight": 0.07027007317458349,
+      "policyWeight": 0.05,
+      "capped": true
+    },
+    {
+      "symbol": "NYSE:TPR",
+      "ticker": "TPR",
+      "companyId": "Coach::kcv9j",
+      "profitabilityProxy": 1.3577664155005382,
+      "marketCap": 22821551449.58496,
+      "rank": 20,
+      "baseWeight": 0.0014392680253522642,
+      "policyWeight": 0.005700195113546792,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:TRGP",
+      "ticker": "TRGP",
+      "companyId": "TargaResourcesCorporation::qgh7j",
+      "profitabilityProxy": 1.3554474252331026,
+      "marketCap": 59575118830.76172,
+      "rank": 21,
+      "baseWeight": 0.0037571750469767595,
+      "policyWeight": 0.014880224159968463,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:ITW",
+      "ticker": "ITW",
+      "companyId": "IllinoisToolWorks::966g2",
+      "profitabilityProxy": 1.3416391522157998,
+      "marketCap": 78921866107.17773,
+      "rank": 22,
+      "baseWeight": 0.0049773004539206845,
+      "policyWeight": 0.01971250887696814,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:FTNT",
+      "ticker": "FTNT",
+      "companyId": "Fortinet::8582h",
+      "profitabilityProxy": 1.3306076645020954,
+      "marketCap": 127250260925.29297,
+      "rank": 23,
+      "baseWeight": 0.008025187602696379,
+      "policyWeight": 0.03178361108035452,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:AMGN",
+      "ticker": "AMGN",
+      "companyId": "Amgen::6yq5w",
+      "profitabilityProxy": 1.305432055198929,
+      "marketCap": 224304002075.1953,
+      "rank": 24,
+      "baseWeight": 0.01414599611505587,
+      "policyWeight": 0.05,
+      "capped": true
+    },
+    {
+      "symbol": "NYSE:AMT",
+      "ticker": "AMT",
+      "companyId": "AmericanTowerCorporation::n9msr",
+      "profitabilityProxy": 1.301666608606206,
+      "marketCap": 78761049201.2024,
+      "rank": 25,
+      "baseWeight": 0.004967158346307286,
+      "policyWeight": 0.01967234124228119,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:MMM",
+      "ticker": "MMM",
+      "companyId": "3MCompany::k67x2",
+      "profitabilityProxy": 1.2798769159312589,
+      "marketCap": 87440666673.85864,
+      "rank": 26,
+      "baseWeight": 0.00551454864658024,
+      "policyWeight": 0.02184027067575493,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:LII",
+      "ticker": "LII",
+      "companyId": "LennoxInternational::xvg34",
+      "profitabilityProxy": 1.2648394522636324,
+      "marketCap": 12917117050.323486,
+      "rank": 27,
+      "baseWeight": 0.0008146332028009976,
+      "policyWeight": 0.003226340139671133,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:NVDA",
+      "ticker": "NVDA",
+      "companyId": "NVIDIACorporation::7ymsk",
+      "profitabilityProxy": 1.2372393513309856,
+      "marketCap": 5434765466857.91,
+      "rank": 28,
+      "baseWeight": 0.34274988617741475,
+      "policyWeight": 0.05,
+      "capped": true
+    },
+    {
+      "symbol": "NASDAQ:KLAC",
+      "ticker": "KLAC",
+      "companyId": "KLATencor::4dq28",
+      "profitabilityProxy": 1.2087073079153234,
+      "marketCap": 245608242966.84265,
+      "rank": 29,
+      "baseWeight": 0.01548957316272008,
+      "policyWeight": 0.05,
+      "capped": true
+    },
+    {
+      "symbol": "NYSE:SPG",
+      "ticker": "SPG",
+      "companyId": "SimonPropertyGroup::3dg8j",
+      "profitabilityProxy": 1.2076655213608696,
+      "marketCap": 66271459159.82056,
+      "rank": 30,
+      "baseWeight": 0.004179487637940706,
+      "policyWeight": 0.01655278557660439,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:NCLH",
+      "ticker": "NCLH",
+      "companyId": "NorwegianCruiseLineHoldings::5jq73",
+      "profitabilityProxy": 1.188708032824266,
+      "marketCap": 6708305527.360439,
+      "rank": 31,
+      "baseWeight": 0.00042306719028952465,
+      "policyWeight": 0.0016755499936852158,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:LVS",
+      "ticker": "LVS",
+      "companyId": "LasVegasSandsCorporation::q7889",
+      "profitabilityProxy": 1.1581400109349371,
+      "marketCap": 25265521087.646484,
+      "rank": 32,
+      "baseWeight": 0.0015933998495082273,
+      "policyWeight": 0.006310631429382294,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:CVNA",
+      "ticker": "CVNA",
+      "companyId": "Carvana::y2227",
+      "profitabilityProxy": 1.0280524435257639,
+      "marketCap": 71535093815.6128,
+      "rank": 33,
+      "baseWeight": 0.004511444957930694,
+      "policyWeight": 0.01786749656856844,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:AMP",
+      "ticker": "AMP",
+      "companyId": "AmeripriseFinancial::q74sh",
+      "profitabilityProxy": 1.0179715234358155,
+      "marketCap": 43605258400,
+      "rank": 34,
+      "baseWeight": 0.002750016986837439,
+      "policyWeight": 0.010891392787458608,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:IBKR",
+      "ticker": "IBKR",
+      "companyId": "InteractiveBrokersGroup::4przy",
+      "profitabilityProxy": 1.0173691444450381,
+      "marketCap": 39755080448.34137,
+      "rank": 35,
+      "baseWeight": 0.0025072009789082624,
+      "policyWeight": 0.009929724357737138,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:ADP",
+      "ticker": "ADP",
+      "companyId": "AutomaticDataProcessing::39s9j",
+      "profitabilityProxy": 0.9163787497020669,
+      "marketCap": 104887931341.55273,
+      "rank": 36,
+      "baseWeight": 0.006614880945264827,
+      "policyWeight": 0.02619811694327309,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:SHW",
+      "ticker": "SHW",
+      "companyId": "SherwinWilliams::6794n",
+      "profitabilityProxy": 0.9152856845509334,
+      "marketCap": 79905481481.9336,
+      "rank": 37,
+      "baseWeight": 0.005039333316202567,
+      "policyWeight": 0.01995818891170105,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:MCO",
+      "ticker": "MCO",
+      "companyId": "MoodysCorporation::v9vq5",
+      "profitabilityProxy": 0.9036205655526991,
+      "marketCap": 81870643332.27539,
+      "rank": 38,
+      "baseWeight": 0.005163268563203071,
+      "policyWeight": 0.020449032227125626,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:IDXX",
+      "ticker": "IDXX",
+      "companyId": "IdexxLaboratories::4c758",
+      "profitabilityProxy": 0.8827846650830508,
+      "marketCap": 40956114010.25391,
+      "rank": 39,
+      "baseWeight": 0.002582945575276056,
+      "policyWeight": 0.010229709468562899,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:TJX",
+      "ticker": "TJX",
+      "companyId": "TJXCompanies::q8ddh",
+      "profitabilityProxy": 0.8389826143902509,
+      "marketCap": 143677799542.96875,
+      "rank": 40,
+      "baseWeight": 0.009061209676826236,
+      "policyWeight": 0.035886757860841244,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:CHTR",
+      "ticker": "CHTR",
+      "companyId": "CharterCommunications::z6kjg",
+      "profitabilityProxy": 0.7893266648785952,
+      "marketCap": 13467622961.807251,
+      "rank": 41,
+      "baseWeight": 0.0008493515065901291,
+      "policyWeight": 0.003363841357042375,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:ORCL",
+      "ticker": "ORCL",
+      "companyId": "OracleCorporation::9vf5q",
+      "profitabilityProxy": 0.787661117805578,
+      "marketCap": 394912591680.99976,
+      "rank": 42,
+      "baseWeight": 0.024905627790953462,
+      "policyWeight": 0.05,
+      "capped": true
+    },
+    {
+      "symbol": "NYSE:ALL",
+      "ticker": "ALL",
+      "companyId": "AllstateCorporation::k9hzw",
+      "profitabilityProxy": 0.7859352269498322,
+      "marketCap": 57810401550.29297,
+      "rank": 43,
+      "baseWeight": 0.0036458810728937016,
+      "policyWeight": 0.014439446378442898,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:JBL",
+      "ticker": "JBL",
+      "companyId": "JabilCircuit::w25n5",
+      "profitabilityProxy": 0.7716023999999999,
+      "marketCap": 33202047758.325195,
+      "rank": 44,
+      "baseWeight": 0.0020939262530131507,
+      "policyWeight": 0.008292957243062211,
+      "capped": false
+    },
+    {
+      "symbol": "NYSE:BMY",
+      "ticker": "BMY",
+      "companyId": "BristolMyersSquibbCompany::m3cdt",
+      "profitabilityProxy": 0.7422390268393797,
+      "marketCap": 128422981246.94824,
+      "rank": 45,
+      "baseWeight": 0.0080991465912151,
+      "policyWeight": 0.03207652432342757,
+      "capped": false
+    },
+    {
+      "symbol": "NASDAQ:PEP",
+      "ticker": "PEP",
+      "companyId": "PepsiCo::9c3gz",
+      "profitabilityProxy": 0.7420534834851015,
+      "marketCap": 175708586669.92188,
+      "rank": 46,
+      "baseWeight": 0.011081268998407853,
+      "policyWeight": 0.043887166451267556,
+      "capped": false
+    }
+  ],
+  "outcome": {
+    "startPrices": "Reuse exactly the same first-common-session prices captured for CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1.",
+    "descriptiveCheckpointsMonths": [
+      3,
+      6
+    ],
+    "primaryHorizonMonths": 12,
+    "benchmarks": [
+      "SPY",
+      "URTH"
+    ],
+    "primaryPass": "Policy basket total return > SPY and > URTH at 12 months with 100% selected outcome coverage.",
+    "outcomeOpened": false
+  }
+}
