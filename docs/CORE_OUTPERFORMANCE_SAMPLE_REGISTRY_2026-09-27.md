@@ -134,3 +134,25 @@ This window had remained unopened by the failed momentum study and was subsequen
 - start convention: same first common tradable session after 2026-09-27; CHTR is already included in raw profitability V1 so the start observation can be shared;
 - status: **PROSPECTIVE SIGNAL SNAPSHOT FROZEN / IMPLEMENTATION CONCENTRATION BLOCKED**;
 - no widening of quintiles or alternative weighting is allowed on V1.
+
+
+## CORE_OUTPERFORMANCE_PROFITABILITY_EXUS_GENERALIZATION_V1
+
+- preregistered before target returns at commit `3043670bb7cacc073053a6c77c4c1beddede6446`;
+- role: **GEOGRAPHIC_GENERALIZATION / NON-US HOLDOUT**, but calendar windows overlap periods used in prior U.S. research;
+- candidate: Developed ex-US Big / Robust Operating Profitability, value-weighted;
+- windows: 2009-01 -> 2014-12 and 2016-01 -> 2021-12, 72 months each;
+- 2009-2014 excess CAGR: **-0.5858 pp/year** -> FAIL window;
+- 2016-2021 excess CAGR: **+1.3667 pp/year** -> PASS window;
+- overall status: **FAIL_GEOGRAPHIC_GENERALIZATION** because both windows were required to pass;
+- sample is now **CONSUMED** for this exact geographic-generalization claim;
+- no regional rescue variants may be opened from this result.
+
+## CORE_OUTPERFORMANCE_PROFITABILITY_DIRECT_STOCK_IMPLEMENTATION_V1
+
+- role: **IMPLEMENTATION ECONOMICS / NO SIGNAL PROMOTION**;
+- frozen 46-name future-forward basket retained unchanged;
+- current whole-share MyInvestor execution shows exact 46-name replication requires ~€396k of sleeve capital for at least one share per frozen target;
+- status: **FAIL_DIRECT_STOCK_IMPLEMENTATION_FOR_NORMAL_SLEEVE**;
+- this does not consume future price outcomes and does not alter signal status;
+- next implementation hypothesis must be separately defined rather than changing the frozen basket.
