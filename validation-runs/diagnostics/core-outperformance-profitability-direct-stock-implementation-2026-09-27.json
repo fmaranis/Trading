@@ -1,0 +1,596 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_DIRECT_STOCK_IMPLEMENTATION_V1",
+  "recordedAt": "2026-09-27",
+  "status": "FAIL_DIRECT_STOCK_IMPLEMENTATION_FOR_NORMAL_SLEEVE",
+  "signalStatus": "PASS_CONFIRMATION_SIGNAL_ONLY",
+  "futureForwardOutcomesOpened": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "frozenBasket": "validation-runs/preregistration/core-outperformance-profitability-future-forward-v1-snapshot.json",
+  "broker": {
+    "name": "MyInvestor",
+    "officialCurrentPricingChecked": "2026-09-27",
+    "stockTradingCommissionPct": 0.12,
+    "stockMinCommissionEur": 3,
+    "stockMaxCommissionEur": 25,
+    "fxCommissionPct": 0.3,
+    "fractionalShares": false,
+    "officialSource": "https://myinvestor.es/inversion/broker/"
+  },
+  "appModelAudit": {
+    "file": "src/investment/decision/brokerExecution.ts",
+    "finding": "MYINVESTOR_BROKER_PROFILE currently models etfMinCommissionEur=1 and buildWholeShareExecutionPlan applies trading commission but does not add fxCommissionPct to totalCost. That is not sufficient for validating a US-stock profitability sleeve.",
+    "productionChanged": false
+  },
+  "priceReference": {
+    "provider": "Wolfram FinancialData",
+    "retrievalDate": "2026-09-27",
+    "usdToEur": 0.8637070610244916,
+    "prices": [
+      {
+        "symbol": "NYSE:ABBV",
+        "ticker": "ABBV",
+        "priceUsd": 264.3399963378906,
+        "priceEur": 228.31232134822437,
+        "weightPct": 2.945865901512329
+      },
+      {
+        "symbol": "NYSE:LYV",
+        "ticker": "LYV",
+        "priceUsd": 170.8699951171875,
+        "priceEur": 147.58162129993525,
+        "weightPct": 0.2510334293254815
+      },
+      {
+        "symbol": "NYSE:CL",
+        "ticker": "CL",
+        "priceUsd": 86.05999755859375,
+        "priceEur": 74.33062756310792,
+        "weightPct": 0.4326636625776356
+      },
+      {
+        "symbol": "NYSE:CLX",
+        "ticker": "CLX",
+        "priceUsd": 83.80000305175781,
+        "priceEur": 72.37865434967716,
+        "weightPct": 0.06390900111801442
+      },
+      {
+        "symbol": "NASDAQ:VRSK",
+        "ticker": "VRSK",
+        "priceUsd": 169.2100067138672,
+        "priceEur": 146.14787759476872,
+        "weightPct": 0.13887391403299593
+      },
+      {
+        "symbol": "NASDAQ:APP",
+        "ticker": "APP",
+        "priceUsd": 310.75,
+        "priceEur": 268.39696921336076,
+        "weightPct": 0.6570990521693127
+      },
+      {
+        "symbol": "NYSE:GDDY",
+        "ticker": "GDDY",
+        "priceUsd": 97.13999938964844,
+        "priceEur": 83.90050338075416,
+        "weightPct": 0.0777016600962777
+      },
+      {
+        "symbol": "NASDAQ:EXPE",
+        "ticker": "EXPE",
+        "priceUsd": 264.1700134277344,
+        "priceEur": 228.16550590846893,
+        "weightPct": 0.19991565290809954
+      },
+      {
+        "symbol": "NYSE:MA",
+        "ticker": "MA",
+        "priceUsd": 567.6500244140625,
+        "priceEur": 490.2833342771508,
+        "weightPct": 3.1431976335492626
+      },
+      {
+        "symbol": "NASDAQ:KMB",
+        "ticker": "KMB",
+        "priceUsd": 98.43000030517578,
+        "priceEur": 85.01468628022319,
+        "weightPct": 0.20646490628553008
+      },
+      {
+        "symbol": "NYSE:HD",
+        "ticker": "HD",
+        "priceUsd": 293.20001220703125,
+        "priceEur": 253.23892083568,
+        "weightPct": 1.8437694586729032
+      },
+      {
+        "symbol": "NASDAQ:AAPL",
+        "ticker": "AAPL",
+        "priceUsd": 341.07000732421875,
+        "priceEur": 294.5845736296028,
+        "weightPct": 31.423852800366824
+      },
+      {
+        "symbol": "NYSE:SOLV",
+        "ticker": "SOLV",
+        "priceUsd": 89.5,
+        "priceEur": 77.301781961692,
+        "weightPct": 0.09601931043123967
+      },
+      {
+        "symbol": "NYSE:SYY",
+        "ticker": "SYY",
+        "priceUsd": 78.45999908447266,
+        "priceEur": 67.76645521723418,
+        "weightPct": 0.23679161696236917
+      },
+      {
+        "symbol": "NASDAQ:NTAP",
+        "ticker": "NTAP",
+        "priceUsd": 201.14500427246094,
+        "priceEur": 173.73036047992605,
+        "weightPct": 0.24863475410361138
+      },
+      {
+        "symbol": "NYSE:MSI",
+        "ticker": "MSI",
+        "priceUsd": 456.8800048828125,
+        "priceEur": 394.6104862581893,
+        "weightPct": 0.4768663328432761
+      },
+      {
+        "symbol": "NYSE:LMT",
+        "ticker": "LMT",
+        "priceUsd": 519.5599975585938,
+        "priceEur": 448.747638517225,
+        "weightPct": 0.7536332553013624
+      },
+      {
+        "symbol": "NASDAQ:HAS",
+        "ticker": "HAS",
+        "priceUsd": 88.08999633789062,
+        "priceEur": 76.08395184265774,
+        "weightPct": 0.0784818731764873
+      },
+      {
+        "symbol": "NYSE:LLY",
+        "ticker": "LLY",
+        "priceUsd": 1183.4599609375,
+        "priceEur": 1022.1627247014877,
+        "weightPct": 7.027007317458349
+      },
+      {
+        "symbol": "NYSE:TPR",
+        "ticker": "TPR",
+        "priceUsd": 113.87999725341797,
+        "priceEur": 98.3589577372268,
+        "weightPct": 0.1439268025352264
+      },
+      {
+        "symbol": "NYSE:TRGP",
+        "ticker": "TRGP",
+        "priceUsd": 277.8399963378906,
+        "priceEur": 239.97236667205502,
+        "weightPct": 0.37571750469767595
+      },
+      {
+        "symbol": "NYSE:ITW",
+        "ticker": "ITW",
+        "priceUsd": 274.32000732421875,
+        "priceEur": 236.93212730621798,
+        "weightPct": 0.49773004539206844
+      },
+      {
+        "symbol": "NASDAQ:FTNT",
+        "ticker": "FTNT",
+        "priceUsd": 173.4600067138672,
+        "priceEur": 149.8186326041228,
+        "weightPct": 0.8025187602696379
+      },
+      {
+        "symbol": "NASDAQ:AMGN",
+        "ticker": "AMGN",
+        "priceUsd": 414.6099853515625,
+        "priceEur": 358.10157191940556,
+        "weightPct": 1.414599611505587
+      },
+      {
+        "symbol": "NYSE:AMT",
+        "ticker": "AMT",
+        "priceUsd": 169.02999877929688,
+        "priceEur": 145.9924034706399,
+        "weightPct": 0.4967158346307286
+      },
+      {
+        "symbol": "NYSE:MMM",
+        "ticker": "MMM",
+        "priceUsd": 169.5500030517578,
+        "priceEur": 146.4415348325273,
+        "weightPct": 0.551454864658024
+      },
+      {
+        "symbol": "NYSE:LII",
+        "ticker": "LII",
+        "priceUsd": 373.7699890136719,
+        "priceEur": 322.82777871015503,
+        "weightPct": 0.08146332028009975
+      },
+      {
+        "symbol": "NASDAQ:NVDA",
+        "ticker": "NVDA",
+        "priceUsd": 225.07000732421875,
+        "priceEur": 194.39455455076177,
+        "weightPct": 34.27498861774148
+      },
+      {
+        "symbol": "NASDAQ:KLAC",
+        "ticker": "KLAC",
+        "priceUsd": 187.9199981689453,
+        "priceEur": 162.3078293262276,
+        "weightPct": 1.548957316272008
+      },
+      {
+        "symbol": "NYSE:SPG",
+        "ticker": "SPG",
+        "priceUsd": 204.82000732421875,
+        "priceEur": 176.90448656501582,
+        "weightPct": 0.41794876379407064
+      },
+      {
+        "symbol": "NYSE:NCLH",
+        "ticker": "NCLH",
+        "priceUsd": 14.609999656677246,
+        "priceEur": 12.618759865037536,
+        "weightPct": 0.042306719028952465
+      },
+      {
+        "symbol": "NYSE:LVS",
+        "ticker": "LVS",
+        "priceUsd": 38.9900016784668,
+        "priceEur": 33.67593975904855,
+        "weightPct": 0.15933998495082274
+      },
+      {
+        "symbol": "NYSE:CVNA",
+        "ticker": "CVNA",
+        "priceUsd": 65.05999755859375,
+        "priceEur": 56.1927792815936,
+        "weightPct": 0.45114449579306937
+      },
+      {
+        "symbol": "NYSE:AMP",
+        "ticker": "AMP",
+        "priceUsd": 493,
+        "priceEur": 425.80758108507433,
+        "weightPct": 0.2750016986837439
+      },
+      {
+        "symbol": "NASDAQ:IBKR",
+        "ticker": "IBKR",
+        "priceUsd": 89.23999786376953,
+        "priceEur": 77.07721628074829,
+        "weightPct": 0.2507200978908262
+      },
+      {
+        "symbol": "NASDAQ:ADP",
+        "ticker": "ADP",
+        "priceUsd": 263.6700134277344,
+        "priceEur": 227.73365237795667,
+        "weightPct": 0.6614880945264827
+      },
+      {
+        "symbol": "NYSE:SHW",
+        "ticker": "SHW",
+        "priceUsd": 329.1000061035156,
+        "priceEur": 284.2459990548097,
+        "weightPct": 0.5039333316202567
+      },
+      {
+        "symbol": "NYSE:MCO",
+        "ticker": "MCO",
+        "priceUsd": 468.70001220703125,
+        "priceEur": 404.8195100454783,
+        "weightPct": 0.5163268563203072
+      },
+      {
+        "symbol": "NASDAQ:IDXX",
+        "ticker": "IDXX",
+        "priceUsd": 519.260009765625,
+        "priceEur": 448.48853694221674,
+        "weightPct": 0.2582945575276056
+      },
+      {
+        "symbol": "NYSE:TJX",
+        "ticker": "TJX",
+        "priceUsd": 130.05999755859375,
+        "priceEur": 112.33373824818555,
+        "weightPct": 0.9061209676826236
+      },
+      {
+        "symbol": "NASDAQ:CHTR",
+        "ticker": "CHTR",
+        "priceUsd": 112.91000366210938,
+        "priceEur": 97.52116742326507,
+        "weightPct": 0.08493515065901291
+      },
+      {
+        "symbol": "NYSE:ORCL",
+        "ticker": "ORCL",
+        "priceUsd": 137.10000610351562,
+        "priceEur": 118.41424333810734,
+        "weightPct": 2.490562779095346
+      },
+      {
+        "symbol": "NYSE:ALL",
+        "ticker": "ALL",
+        "priceUsd": 227.60000610351562,
+        "priceEur": 196.5797323608238,
+        "weightPct": 0.3645881072893702
+      },
+      {
+        "symbol": "NYSE:JBL",
+        "ticker": "JBL",
+        "priceUsd": 316.739990234375,
+        "priceEur": 273.5705660742582,
+        "weightPct": 0.20939262530131506
+      },
+      {
+        "symbol": "NYSE:BMY",
+        "ticker": "BMY",
+        "priceUsd": 62.86000061035156,
+        "priceEur": 54.292626383164496,
+        "weightPct": 0.80991465912151
+      },
+      {
+        "symbol": "NASDAQ:PEP",
+        "ticker": "PEP",
+        "priceUsd": 128.6300048828125,
+        "priceEur": 111.09864347689998,
+        "weightPct": 1.1081268998407854
+      }
+    ]
+  },
+  "exactReplication": {
+    "selectedCount": 46,
+    "allPositionsAtLeastOneShareMinimumCapitalEur": 396286.0556139361,
+    "bindingPositions": [
+      {
+        "ticker": "LII",
+        "weightPct": 0.08146332028009975,
+        "priceEur": 322.82777871015503,
+        "minCapitalOneShareEur": 396286.0556139361
+      },
+      {
+        "ticker": "IDXX",
+        "weightPct": 0.2582945575276056,
+        "priceEur": 448.48853694221674,
+        "minCapitalOneShareEur": 173634.52843727992
+      },
+      {
+        "ticker": "AMP",
+        "weightPct": 0.2750016986837439,
+        "priceEur": 425.80758108507433,
+        "minCapitalOneShareEur": 154838.1639543105
+      },
+      {
+        "ticker": "JBL",
+        "weightPct": 0.20939262530131506,
+        "priceEur": 273.5705660742582,
+        "minCapitalOneShareEur": 130649.57071940396
+      },
+      {
+        "ticker": "CHTR",
+        "weightPct": 0.08493515065901291,
+        "priceEur": 97.52116742326507,
+        "minCapitalOneShareEur": 114818.38398660283
+      },
+      {
+        "ticker": "EXPE",
+        "weightPct": 0.19991565290809954,
+        "priceEur": 228.16550590846893,
+        "minCapitalOneShareEur": 114130.88599588335
+      },
+      {
+        "ticker": "CLX",
+        "weightPct": 0.06390900111801442,
+        "priceEur": 72.37865434967716,
+        "minCapitalOneShareEur": 113252.67659249228
+      },
+      {
+        "ticker": "GDDY",
+        "weightPct": 0.0777016600962777,
+        "priceEur": 83.90050338075416,
+        "minCapitalOneShareEur": 107977.74883676316
+      },
+      {
+        "ticker": "VRSK",
+        "weightPct": 0.13887391403299593,
+        "priceEur": 146.14787759476872,
+        "minCapitalOneShareEur": 105237.81850063255
+      },
+      {
+        "ticker": "HAS",
+        "weightPct": 0.0784818731764873,
+        "priceEur": 76.08395184265774,
+        "minCapitalOneShareEur": 96944.61760814858
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "capitalEur": 1000,
+      "executablePositions": 2,
+      "selectedWeightRepresentedPct": 65.6988414181083,
+      "grossInvestedEur": 488.97912818036457,
+      "buyTradingCommissionEur": 6,
+      "buyFxFeeEur": 1.4669373845410938,
+      "buyExplicitCostEur": 7.466937384541094,
+      "buyExplicitCostPctOfCapital": 0.7466937384541095,
+      "buyExplicitCostPctOfInvested": 1.5270462386253105
+    },
+    {
+      "capitalEur": 2000,
+      "executablePositions": 2,
+      "selectedWeightRepresentedPct": 65.6988414181083,
+      "grossInvestedEur": 1172.352810911491,
+      "buyTradingCommissionEur": 6,
+      "buyFxFeeEur": 3.5170584327344727,
+      "buyExplicitCostEur": 9.517058432734473,
+      "buyExplicitCostPctOfCapital": 0.47585292163672366,
+      "buyExplicitCostPctOfInvested": 0.8117913263102997
+    },
+    {
+      "capitalEur": 3000,
+      "executablePositions": 2,
+      "selectedWeightRepresentedPct": 65.6988414181083,
+      "grossInvestedEur": 1855.7264936426172,
+      "buyTradingCommissionEur": 6,
+      "buyFxFeeEur": 5.567179480927852,
+      "buyExplicitCostEur": 11.567179480927852,
+      "buyExplicitCostPctOfCapital": 0.3855726493642617,
+      "buyExplicitCostPctOfInvested": 0.623323508100731
+    },
+    {
+      "capitalEur": 5000,
+      "executablePositions": 3,
+      "selectedWeightRepresentedPct": 68.18940419720366,
+      "grossInvestedEur": 3146.4935478922157,
+      "buyTradingCommissionEur": 9,
+      "buyFxFeeEur": 9.439480643676646,
+      "buyExplicitCostEur": 18.439480643676646,
+      "buyExplicitCostPctOfCapital": 0.3687896128735329,
+      "buyExplicitCostPctOfInvested": 0.5860326856868641
+    },
+    {
+      "capitalEur": 7500,
+      "executablePositions": 4,
+      "selectedWeightRepresentedPct": 68.99931885632516,
+      "grossInvestedEur": 5056.512667917997,
+      "buyTradingCommissionEur": 12.032555050991883,
+      "buyFxFeeEur": 15.16953800375399,
+      "buyExplicitCostEur": 27.202093054745873,
+      "buyExplicitCostPctOfCapital": 0.3626945740632783,
+      "buyExplicitCostPctOfInvested": 0.5379615328037188
+    },
+    {
+      "capitalEur": 10000,
+      "executablePositions": 5,
+      "selectedWeightRepresentedPct": 71.9451847578375,
+      "grossInvestedEur": 6769.986598066582,
+      "buyTradingCommissionEur": 16.500663796390775,
+      "buyFxFeeEur": 20.309959794199745,
+      "buyExplicitCostEur": 36.810623590590524,
+      "buyExplicitCostPctOfCapital": 0.3681062359059052,
+      "buyExplicitCostPctOfInvested": 0.5437325917469785
+    },
+    {
+      "capitalEur": 15000,
+      "executablePositions": 11,
+      "selectedWeightRepresentedPct": 84.83031121355722,
+      "grossInvestedEur": 12177.0865363924,
+      "buyTradingCommissionEur": 38.72113391567214,
+      "buyFxFeeEur": 36.531259609177205,
+      "buyExplicitCostEur": 75.25239352484934,
+      "buyExplicitCostPctOfCapital": 0.5016826234989956,
+      "buyExplicitCostPctOfInvested": 0.6179835652801702
+    },
+    {
+      "capitalEur": 20000,
+      "executablePositions": 14,
+      "selectedWeightRepresentedPct": 89.20869126995376,
+      "grossInvestedEur": 16460.719554627984,
+      "buyTradingCommissionEur": 51.58810254659798,
+      "buyFxFeeEur": 49.38215866388395,
+      "buyExplicitCostEur": 100.97026121048194,
+      "buyExplicitCostPctOfCapital": 0.5048513060524097,
+      "buyExplicitCostPctOfInvested": 0.6134012603482685
+    },
+    {
+      "capitalEur": 30000,
+      "executablePositions": 20,
+      "selectedWeightRepresentedPct": 92.10989990169024,
+      "grossInvestedEur": 26061.514653641298,
+      "buyTradingCommissionEur": 77.44226783134428,
+      "buyFxFeeEur": 78.18454396092393,
+      "buyExplicitCostEur": 155.6268117922682,
+      "buyExplicitCostPctOfCapital": 0.5187560393075606,
+      "buyExplicitCostPctOfInvested": 0.5971518304310227
+    },
+    {
+      "capitalEur": 50000,
+      "executablePositions": 26,
+      "selectedWeightRepresentedPct": 94.80135086174852,
+      "grossInvestedEur": 45037.185112944055,
+      "buyTradingCommissionEur": 111.94342965232853,
+      "buyFxFeeEur": 135.11155533883218,
+      "buyExplicitCostEur": 247.05498499116072,
+      "buyExplicitCostPctOfCapital": 0.49410996998232143,
+      "buyExplicitCostPctOfInvested": 0.5485577847984889
+    },
+    {
+      "capitalEur": 75000,
+      "executablePositions": 33,
+      "selectedWeightRepresentedPct": 97.4428180466215,
+      "grossInvestedEur": 70343.78949644422,
+      "buyTradingCommissionEur": 146.13297634820893,
+      "buyFxFeeEur": 211.03136848933264,
+      "buyExplicitCostEur": 357.16434483754153,
+      "buyExplicitCostPctOfCapital": 0.47621912645005543,
+      "buyExplicitCostPctOfInvested": 0.5077411202812662
+    },
+    {
+      "capitalEur": 100000,
+      "executablePositions": 37,
+      "selectedWeightRepresentedPct": 98.6105124193928,
+      "grossInvestedEur": 94293.60947084789,
+      "buyTradingCommissionEur": 160.17730905206062,
+      "buyFxFeeEur": 282.88082841254356,
+      "buyExplicitCostEur": 443.0581374646042,
+      "buyExplicitCostPctOfCapital": 0.4430581374646042,
+      "buyExplicitCostPctOfInvested": 0.46987080031291145
+    },
+    {
+      "capitalEur": 150000,
+      "executablePositions": 43,
+      "selectedWeightRepresentedPct": 99.38524042350852,
+      "grossInvestedEur": 144910.93383111988,
+      "buyTradingCommissionEur": 188.21041053555635,
+      "buyFxFeeEur": 434.7328014933594,
+      "buyExplicitCostEur": 622.9432120289157,
+      "buyExplicitCostPctOfCapital": 0.41529547468594386,
+      "buyExplicitCostPctOfInvested": 0.42988006188332045
+    },
+    {
+      "capitalEur": 250000,
+      "executablePositions": 45,
+      "selectedWeightRepresentedPct": 99.91853667971988,
+      "grossInvestedEur": 246057.32472764005,
+      "buyTradingCommissionEur": 218.43859621442022,
+      "buyFxFeeEur": 738.17197418292,
+      "buyExplicitCostEur": 956.6105703973403,
+      "buyExplicitCostPctOfCapital": 0.3826442281589361,
+      "buyExplicitCostPctOfInvested": 0.3887754902058734
+    },
+    {
+      "capitalEur": 500000,
+      "executablePositions": 46,
+      "selectedWeightRepresentedPct": 99.99999999999997,
+      "grossInvestedEur": 495659.15207905846,
+      "buyTradingCommissionEur": 278.1223622014491,
+      "buyFxFeeEur": 1486.977456237175,
+      "buyExplicitCostEur": 1765.099818438624,
+      "buyExplicitCostPctOfCapital": 0.3530199636877248,
+      "buyExplicitCostPctOfInvested": 0.356111616427308
+    }
+  ],
+  "interpretation": [
+    "The academic-style value-weighted basket is executable only very incompletely at ordinary sleeve sizes because MyInvestor does not support fractional shares.",
+    "At 5000 EUR, only 3 of 46 positions are executable and they represent about 68.19% of frozen basket weight; at 10000 EUR, 5 positions represent about 71.95%.",
+    "Exact one-share coverage of all 46 positions requires approximately 396k EUR in the sleeve, driven by low-weight high-price names.",
+    "Initial explicit buy-side costs shown include current MyInvestor stock trading commission and FX fee, but exclude spread, market impact, sell-side costs and taxes.",
+    "This is an implementation-policy FAIL, not a signal-quality FAIL. The frozen future-forward basket remains unchanged."
+  ],
+  "decision": "DO_NOT_USE_DIRECT_46_STOCK_REPLICATION_AS_PRIMARY_CUSTODIA_IMPLEMENTATION; STUDY_A_PACKAGED_UCITS_OR_FUND_IMPLEMENTATION_SEPARATELY"
+}
