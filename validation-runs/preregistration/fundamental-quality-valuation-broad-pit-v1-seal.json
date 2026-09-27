@@ -1,0 +1,21 @@
+{
+  "version": "FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1_SEAL",
+  "frozenAt": "2026-09-27",
+  "sampleRole": "BROAD_HISTORICAL_DIAGNOSTIC_ONLY_NOT_PROMOTION",
+  "informationDate": "2021-05-03",
+  "outcomeDate": "2022-05-03",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "noRetuningAfterOutcome": true,
+  "currentYahooDiscoveryHistorical": false,
+  "dataSources": {
+    "historicalMembership": "EODHD_GSPC_HISTORICAL_COMPONENTS",
+    "fundamentals": "SEC_EDGAR_COMPANYFACTS_FILED_CUTOFF",
+    "prices": "YAHOO_FINANCE_REAL"
+  },
+  "expectedGitBlobSha": {
+    "scripts/fundamentalQualityValuationBroadPitV1Protocol.ts": "b3eab89d8ebed069e6242f55d8f030d7a95bb064",
+    "scripts/fundamentalQualityValuationBroadPitV1Live.ts": "bc43911a966f22fa516f7fe8020a91eb7a1ddd01",
+    "tests/fundamentalQualityValuationBroadPitV1.unit.ts": "779f832227e887e723718042f5f6e729f829e8cb"
+  }
+}
