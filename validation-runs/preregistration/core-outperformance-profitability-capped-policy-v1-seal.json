@@ -1,0 +1,17 @@
+{
+  "version": "CORE_OUTPERFORMANCE_PROFITABILITY_CAPPED_POLICY_V1_SEAL",
+  "frozenAt": "2026-09-27",
+  "futureOutcomesOpened": false,
+  "signalMembershipChanged": false,
+  "issuerCapPct": 5,
+  "sourceSignalStudy": "CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "noRetuningAfterOutcome": true,
+  "expectedGitBlobSha": {
+    "docs/CORE_OUTPERFORMANCE_PROFITABILITY_CAPPED_POLICY_V1_2026-09-27.md": "1468ef2f93e80d4b2b161dbdc216088319681235",
+    "validation-runs/preregistration/core-outperformance-profitability-capped-policy-v1-snapshot.json": "f81b0399a21d040cc718e00bc3aaa66264ab1979",
+    "scripts/coreOutperformanceProfitabilityCappedPolicyV1.mjs": "879e9e9bba4934363b477e9198a399124e0b1407",
+    "tests/coreOutperformanceProfitabilityCappedPolicyV1.unit.mjs": "1d90f2d4d58f17a9ab96b1203b352b03b4cbd462"
+  }
+}
