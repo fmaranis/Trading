@@ -55,7 +55,7 @@ Tags equivalentes se resuelven por listas congeladas en el runner. Si no hay cob
 - value-weight dentro del decil usando market cap causal = raw close en signalDate × últimas shares outstanding con evidencia causal <= signalDate;
 - no equal-weight fallback;
 - no mínimo de profitability retrospectivo;
-- no sector filter, momentum, valuation, Forward Risk ni stops.
+- aliases de share class congelados para ejecución: `BRK.B/BRKB -> BRK-B` y `BF.B/BFB -> BF-B`;\n- no sector filter, momentum, valuation, Forward Risk ni stops.
 
 ## Calendario y ejecución
 
