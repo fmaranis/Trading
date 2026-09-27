@@ -112,3 +112,25 @@ This window had remained unopened by the failed momentum study and was subsequen
 - verdict: `POSTHOC_GROSS_EDGE_NOT_PRESENT`;
 - promotion authority: **NONE**;
 - the sample may not be used to tune or validate a replacement direct-profitability policy.
+
+
+## CORE_OUTPERFORMANCE_PROFITABILITY_CAPPED_POLICY_V1
+
+- signal population: exactly the same frozen 46 securities as `CORE_OUTPERFORMANCE_PROFITABILITY_FUTURE_FORWARD_V1`;
+- policy difference only: 5% issuer cap with deterministic pro-rata redistribution;
+- future sample: **same prospective sample as V1, not independent**;
+- future outcomes: **UNOPENED**;
+- historical cross-diagnostic 2020-2024: **CONSUMED / ARCHITECTURE DIAGNOSTIC ONLY**;
+- historical capped CAGR 16.4654% vs SPY 16.9444% and URTH 14.3837%; no promotion and no retuning.
+
+## CORE_OUTPERFORMANCE_PROFITABILITY_VALUE_FUTURE_FORWARD_V1
+
+- hypothesis lineage: Candidate B was frozen before Candidate A outcomes; historical Candidate B returns remain unopened;
+- snapshot: **2026-09-27**;
+- universe: current S&P 500, 500 members / 451 evaluable;
+- frozen selection: exact intersection of OP top quintile and BM top quintile;
+- selected: **1 / CHTR**, weight 100%, effective N 1;
+- future outcomes: **UNOPENED**;
+- start convention: same first common tradable session after 2026-09-27; CHTR is already included in raw profitability V1 so the start observation can be shared;
+- status: **PROSPECTIVE SIGNAL SNAPSHOT FROZEN / IMPLEMENTATION CONCENTRATION BLOCKED**;
+- no widening of quintiles or alternative weighting is allowed on V1.
