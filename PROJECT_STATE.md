@@ -856,3 +856,16 @@ V1 puede cerrarse integralmente cuando estén suficientemente cerrados:
 - QUALITY future-forward cuando madure;
 - limitación survivorship explícita / Fase 8 suficientemente resuelta;
 - auditoría end-to-end Fase 9.
+
+
+---
+
+Actualización 2026-09-27 — verificación independiente de CORE_OUTPERFORMANCE_MOMENTUM_REFERENCE_V1:
+
+- se recomputó desde la caché comprometida el resultado de Etapa B y coincide con el JSON durable dentro de precisión numérica;
+- momentum winner decile: CAGR 16,679724%; parent USA: 17,516112%; URTH: 14,220895%; exceso vs parent -0,836388 pp/año y vs URTH +2,458829 pp/año;
+- el gate conjunto permanece **FAIL_DIAGNOSTIC** y la decisión **STOP_PRIMARY_REPLICA_NO_VARIANTS**;
+- la reserva 2009-01 -> 2014-12 continúa **NO ABIERTA**; Etapa C continúa no implementada;
+- desde el commit del plan `e905503fd9c95299e4ca3fe0eeefc29f257f76ff` hasta el cierre verificado no se modificó ningún archivo productivo;
+- evidencia de verificación: `validation-runs/diagnostics/core-outperformance-momentum-v1-verification-2026-09-27.json`;
+- producción permanece `LEGACY` y sin autoridad de promoción.
