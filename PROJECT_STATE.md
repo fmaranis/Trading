@@ -755,16 +755,18 @@ Actualización 2026-09-27 — confirmación amplia PIT de Quality × valoración
 
 Estado operativo del job a 2026-09-27:
 
-- **PREPARED_AND_SEALED / NOT YET EXECUTED**;
+- **SEALED / GUARDS + FULL TYPESCRIPT PASS / LIVE ATTEMPT BLOCKED BEFORE DATA** (auditoría posterior del 2026-09-27; detalle al final de esta sección);
 - este chat no ha abierto todavía la población S&P 500 ni sus outcomes mediante el nuevo runner;
 - el módulo matemático aislado del protocolo fue compilado con TypeScript 5.8.3 sin errores;
 - no fue posible ejecutar el `tsc --noEmit` del HEAD completo desde el entorno de ChatGPT porque su contenedor no puede resolver GitHub; por diseño, el job local ejecuta guards + `npm run lint` antes de cualquier cálculo largo;
 - prerequisitos fail-closed: `GITHUB_REPLAY_SYNC_TOKEN`, `EODHD_API_KEY` y `SEC_EDGAR_USER_AGENT`;
 - la SEC no requiere API key para `companyfacts`, pero exige User-Agent declarado para acceso automatizado; el runner limita SEC a <=8 req/s;
-- siguiente acción única tras sincronizar el HEAD: comprobar que los tres prerequisitos estén verdes y ejecutar **`Fundamental Quality × valoración · validación PIT amplia`**. No modificar fórmula ni thresholds antes de ese resultado.
+- siguiente acción: disponer de los tres prerequisitos en el runtime de ejecución del runner; no trasladar al usuario la ejecución manual del Centro de validación. No modificar fórmula ni thresholds.
 
 
 Actualización 2026-09-27 — Quality × valoración, broad external R1 cerrado y R2 sellado:
+
+**Calificación posterior de auditoría:** R1 externo conserva un FAIL reportado, pero no acredita PIT estricto con la evidencia guardada. R2 ya contiene outcomes parciales en main y no está unopened. Prevalece la actualización de auditoría que sigue.
 
 - R1 externo amplio completado sobre población histórica S&P 500 mayo-2021;
 - 506 miembros históricos -> 379 profitable/evaluable -> 190 high Quality -> 185 con outcome usable;
@@ -780,6 +782,29 @@ Actualización 2026-09-27 — Quality × valoración, broad external R1 cerrado 
 - R2: 2022-05-03 -> 2023-05-03, población histórica S&P 500 mayo-2022, FY2021, misma Quality y mismo split mediana;
 - diagnóstico secundario R2 congelado: confirmar o rechazar la penalización del cuartil más caro;
 - producción continúa `LEGACY`; ninguna integración productiva autorizada todavía.
+
+Actualización 2026-09-27 — auditoría de cierre PIT y ejecución directa:
+
+- HEAD auditado: `6075b5eb43fe909d1fdf68945262829fd6e2e8da`;
+- estado vigente: **STRICT_PIT_VALIDATION_INCOMPLETE / EXTERNAL_R1_REPORTED_FAIL / NO_PROMOTION**;
+- el sello y sus tres archivos permanecen intactos; no se ha cambiado producción, fórmula, pesos, thresholds, fechas ni fuentes del protocolo;
+- ejecutados y PASS: guard Quality × valoración/sello, core architecture, historical instrument master, validation runtime y `npm run lint` (`tsc --noEmit`) del HEAD completo;
+- runner live sin modificar ejecutado después de esos gates: fallo explícito `FUNDAMENTAL_QUALITY_VALUATION_EODHD_API_KEY_REQUIRED` antes de datos; tampoco están disponibles `SEC_EDGAR_USER_AGENT` ni `GITHUB_REPLAY_SYNC_TOKEN` en este runtime;
+- instalación local de dependencias sin cambiar package.json/lockfile; guards ejecutados mediante `node --import tsx` por restricción del socket IPC del CLI tsx;
+- no hay resultado recuperable de esta investigación en la rama `replay-results` inspeccionada;
+- cobertura **reportada** externa: 506 miembros -> 379 evaluables -> 190 HIGH_QUALITY; cobertura **recomputada**: 190 tickers únicos, 185 pares de precios positivos, 5 ausentes (APTV, BLK, INFO, KSU, LH), cero duplicados;
+- no están preservados los fundamentales por empresa, fechas de publicación/revisión, scores, earnings yields ni etiquetas de rama; no se pueden reconstruir independientemente los grupos o acreditar `filed <= informationDate`;
+- FY2020 por sí solo no prueba causalidad; la traducción externa SimFin + EPS diluido/precio no equivale al runner congelado SEC + beneficio/(precio × acciones causales);
+- resúmenes reportados: cheap N=93, media +0,4727960314%, mediana +4,0132845904%, exceso medio SPY -0,4110522769 pp / URTH +3,6314514434 pp; expensive N=92, media -2,7078741275%, mediana -5,4091725465%, exceso medio SPY -3,5917224358 pp / URTH +0,4507812845 pp;
+- FAIL completo por **dos** condiciones: cheap no bate SPY y expensive no queda negativo contra URTH. Diferencia condicional cheap-expensive +3,1806701589 pp no demuestra interacción incremental ni alpha ajustado por riesgo;
+- pooled 185 precios recomputados: media -1,1089426422%, mediana -0,7375249299%, desviación típica 21,1655058673 pp, percentil 10 -26,7683072004%, peor -64,9889998199%, 94/185 negativos. No equivalen a volatilidad temporal ni drawdown;
+- controles QUALITY sola, value solo e interacción incremental: **NO IDENTIFICABLES** por falta del panel lower-quality; dispersión por rama y drawdown: **N/D** por falta de etiquetas/series. El runner sellado sólo recoge valoración/outcomes HIGH_QUALITY y no cubre por sí mismo esos controles;
+- R2: tres chunks ya comprometidos contienen 150 filas de las 198 declaradas; estado corregido **PARTIALLY_OPENED / CONSUMED_FOR_BLIND_CLAIMS / INCOMPLETE_EVIDENCE**. No se han pedido más outcomes ni calculado retornos R2 en esta auditoría;
+- R1 sigue consumida; una reconstrucción futura no será fresh. No nuevo holdout ni V2 escogidos sobre estos resultados;
+- evidencia reproducible: `scripts/auditFundamentalQualityValuationEvidence.py` y `validation-runs/diagnostics/fundamental-quality-valuation-evidence-audit-2026-09-27.json`;
+- detalle, tabla completa de medianas/excesos/hit-rates y límites en §20 de `docs/OPPORTUNITY_ALPHA_RESEARCH_2026-09-24.md`;
+- pendiente concreto: habilitar de forma segura los prerequisitos del runner o recuperar un paquete auténtico completo ya ejecutado; preservar entradas PIT/etiquetas antes de outcomes y completar controles lower-quality explícitamente diagnósticos, sin modificar el protocolo primario;
+- no presentar el trabajo como validación PIT terminada ni afirmar que ya se mejora al core. Producción sigue `LEGACY`.
 
 ---
 

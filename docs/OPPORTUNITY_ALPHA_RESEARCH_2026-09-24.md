@@ -626,14 +626,14 @@ The SEC implementation is intentionally treated as a **provider-independent caus
 
 The diagnostic verdict can support or reject the interaction hypothesis, but **cannot authorize production promotion**. A positive result would justify freezing a research-only project translation for later fresh/blind confirmation; a negative result must not be retuned on this sample.
 
-Current state: **PREPARED_AND_SEALED / NOT YET EXECUTED**.
+Current state: **SEALED / LOCAL GUARDS AND TYPESCRIPT PASS / LIVE ATTEMPT BLOCKED BEFORE DATA BY MISSING EODHD_API_KEY**. See section 20 for the controlling completion audit and other absent prerequisites.
 
 
 ## 19. FUNDAMENTAL_QUALITY × VALUATION — broad external replication R1 (2021-05-03 -> 2022-05-03)
 
 No production code was changed.
 
-A broad external replication was completed outside the app runtime to prevent the research line from depending on manual execution of the local validation center.
+A broad external replication was reported outside the app runtime. **Audit qualification: its row-level fundamental/filing and branch-membership evidence is incomplete, so it is not verified strict PIT confirmation; section 20 governs interpretation.**
 
 Frozen translation used before opening outcomes:
 
@@ -710,4 +710,77 @@ Seal:
 
 `validation-runs/preregistration/fundamental-quality-valuation-external-r2-seal.json`
 
-State: **SEALED_NOT_OPENED**.
+State corrected by repository audit on 2026-09-27: **PARTIALLY_OPENED / CONSUMED_FOR_BLIND_CLAIMS / INCOMPLETE_EVIDENCE**. Three committed R2 outcome chunks already contain 150 rows of the declared 198. The pre-open seal remains unchanged as a historical record, but R2 cannot now be represented as unopened. This audit does not fetch or calculate further R2 outcomes.
+
+## 20. Strict PIT completion audit — 2026-09-27
+
+**Controlling status: STRICT PIT VALIDATION INCOMPLETE. External R1 reports FAIL; it is not a completed run of FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1.**
+
+Audited main: `6075b5eb43fe909d1fdf68945262829fd6e2e8da`. The following qualifications govern the external claims in section 19. Original evidence is retained without alteration. No production code, sealed protocol, weights, thresholds, dates, or source definitions changed.
+
+### Coverage before interpretation
+
+| Stage | Count | Audit status |
+| --- | ---: | --- |
+| Historical members | 506 | Reported; original membership snapshot not preserved in these evidence files |
+| Profitable/evaluable | 379 | Reported; underlying fundamentals and filing dates absent |
+| HIGH_QUALITY | 190 | Reported classification; 190 distinct tickers verified in raw chunks |
+| Usable endpoint pairs | 185 | Recomputed; 97.368421% of the 190 stored tickers |
+| Cheap/reasonable with outcomes | 93 | Reported; per-ticker frozen branch labels absent |
+| Expensive with outcomes | 92 | Reported; per-ticker frozen branch labels absent |
+
+No duplicate tickers. Missing pairs are APTV, BLK, INFO, KSU and LH. Missing outcomes are not zero returns. A high completion rate alone does not establish unbiased coverage of delistings or correct corporate-action treatment.
+
+### Exact reported branch results and independent arithmetic checks
+
+These values are preserved from the external result JSON. Benchmark subtraction and the pooled mean/hit counts reconcile with stored endpoint returns; branch membership, branch medians and PIT fundamentals cannot be independently reconstructed from the committed evidence.
+
+| Metric | Cheap/reasonable | Expensive |
+| --- | ---: | ---: |
+| N | 93 | 92 |
+| Mean return, % | 0.4727960314 | -2.7078741275 |
+| Median return, % | 4.0132845904 | -5.4091725465 |
+| Mean excess vs SPY, pp | -0.4110522769 | -3.5917224358 |
+| Median excess vs SPY, pp | 3.1294362821 | -6.2930208548 |
+| Mean excess vs URTH, pp | 3.6314514434 | 0.4507812845 |
+| Median excess vs URTH, pp | 7.1719400024 | -2.2505171345 |
+| Hit rate vs SPY, % | 54.8387096774 | 39.1304347826 |
+| Hit rate vs URTH, % | 60.2150537634 | 46.7391304348 |
+
+Reported SPY return is 0.8838483083%; reported URTH return is -3.1586554120%. Their original endpoint pairs are not in the four stock chunks. Excess return here is an arithmetic benchmark difference, not a risk-adjusted alpha estimate.
+
+The reported full directional gate fails **two** conditions: cheap/reasonable does not beat SPY on average, and expensive is not negative versus URTH. The within-HIGH_QUALITY spread is 3.1806701589 pp; it does not establish incremental QUALITY × valuation interaction by itself.
+
+Across all 185 stored endpoint pairs, independently recomputed mean return is -1.1089426422%, median -0.7375249299%, sample standard deviation 21.1655058673 pp, tenth percentile -26.7683072004%, worst -64.9889998199%, and 94/185 (50.8108108108%) have negative endpoint returns. These are pooled endpoint diagnostics, not branch-specific dispersion, annualized volatility or path drawdown. Daily paths and branch labels are missing, so those requested risk measures remain unavailable.
+
+### Causality and negative controls
+
+- **Strict PIT:** a FY2020 label does not prove publication by 2021-05-03 or exclude later restatements. The external result describes SimFin-derived data from different snapshots but preserves no row-level publication/revision evidence. Causality is unverified, not proven false.
+- **Frozen implementation:** external diluted EPS/raw close differs from the sealed SEC net-income/(raw close × causal shares) definition. Wolfram external prices are not a completed run through the sealed Yahoo REAL path. Do not silently substitute either.
+- **QUALITY alone:** no lower-quality comparison panel is preserved. A pooled high-quality return alone cannot estimate the quality effect.
+- **Value alone:** no full-universe earnings-yield/outcome panel is preserved. The small Nasdaq control cannot establish this control for the broad S&P sample.
+- **Interaction:** cheap minus expensive within HIGH_QUALITY is a conditional valuation spread. Separating incremental interaction requires the lower-quality valuation cells on a comparable valuation definition, without changing the frozen primary split or retrospectively selecting a favorable control.
+- **Runner scope:** the sealed runner fetches valuation/outcomes only for HIGH_QUALITY. Even a successful run would need a separate, explicitly diagnostic lower-quality control dataset to answer the requested value-alone question. The sealed runner is left intact.
+
+### Execution and concrete blocker
+
+Executed on the audited HEAD:
+
+- frozen Quality × valuation guard and Git-blob seal: PASS;
+- core architecture guard: PASS;
+- historical instrument master guard: PASS;
+- validation runtime guard: PASS;
+- full `npm run lint` / `tsc --noEmit`: PASS;
+- stored-evidence audit and arithmetic reconciliation: PASS.
+
+The guards used `node --import tsx` because the tsx CLI's IPC socket was unavailable in this runtime. Dependencies installed locally with `npm install --package-lock=false --ignore-scripts --no-audit --no-fund` after `npm ci` rejected missing optional-platform entries in the existing lockfile; no manifests/lockfiles changed.
+
+After guards and TypeScript, the **unmodified** live runner was invoked and stopped before any experiment data call with `FUNDAMENTAL_QUALITY_VALUATION_EODHD_API_KEY_REQUIRED`. Environment presence checks also found `SEC_EDGAR_USER_AGENT` and `GITHUB_REPLAY_SYNC_TOKEN` absent. No secrets were printed, no placeholders substituted, and no fail-closed prerequisite bypassed. The replay-results branch was inspected and contained no Quality × valuation result to recover.
+
+Next necessary action is to make the existing runner's three prerequisites available securely to the execution runtime, or recover an authentic complete already-run evidence package. This is an access/evidence blocker, not a request for the user to run the validation center. Completion requires preserving historical membership, causal fundamentals with publication/accession lineage, frozen scores and valuation labels **before** outcomes, exact benchmark/stock price dates and missingness, and the lower-quality diagnostic controls. R1 remains consumed; any completed rerun is a reconstruction, not fresh confirmation. Do not label the already partially opened R2 as blind. No new test/window or V2 is selected from these outcomes.
+
+Reproducible audit: `python scripts/auditFundamentalQualityValuationEvidence.py`.
+
+Machine-readable result: `validation-runs/diagnostics/fundamental-quality-valuation-evidence-audit-2026-09-27.json` (source SHA-256, seal fingerprints, exact metrics and unavailable controls).
+
+**Conclusion:** the preserved external result reports FAIL of the full alpha gate; strict PIT confirmation remains incomplete and cannot authorize improved alpha or production promotion. LEGACY remains the default.

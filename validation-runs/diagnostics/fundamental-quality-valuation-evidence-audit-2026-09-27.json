@@ -1,0 +1,152 @@
+{
+  "version": "FUNDAMENTAL_QUALITY_VALUATION_EVIDENCE_AUDIT_2026_09_27",
+  "scope": "STORED_EXTERNAL_R1_EVIDENCE_ONLY_NOT_SEALED_PIT_RUN",
+  "status": "STRICT_PIT_VALIDATION_INCOMPLETE_EVIDENCE_AND_RUNTIME_PREREQUISITES",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "sampleState": "R1_CONSUMED; R2_ALREADY_PARTIALLY_OPENED_IN_REPOSITORY",
+  "sealedFilesIntact": {
+    "scripts/fundamentalQualityValuationBroadPitV1Protocol.ts": "b3eab89d8ebed069e6242f55d8f030d7a95bb064",
+    "scripts/fundamentalQualityValuationBroadPitV1Live.ts": "781e3bc455f4d6e80e74ef101c90534c7f630af9",
+    "tests/fundamentalQualityValuationBroadPitV1.unit.ts": "8313ad6819ec5c061ed5b2e8cb5139ed7f133ca3"
+  },
+  "sourceSha256": {
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-2021-result.json": "51209b45dacec03e7515842174c470668d13b75e38448561b22a90de22925983",
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-2021-chunk-01.json": "01cd51807fb118af8d85c2b82191f542ff95f72484ca0a05efb7d9ae602eae42",
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-2021-chunk-02.json": "e8515688d8a7f8f088acd5aaa0add8e951bc487e5621c0bfdd1608019ffca211",
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-2021-chunk-03.json": "1c4f24616632f01e2bef0ef19b1611a3217d25abf6c010fba65d57ac65e0435c",
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-2021-chunk-04.json": "991b464cf7dc934e13baff75be81c61968c0d1133349e93883323badd2190678",
+    "validation-runs/preregistration/fundamental-quality-valuation-broad-pit-v1-seal.json": "c06693558390b3a5a96ea45677917c274ab93718bdc68b901b055730334258f0",
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-r2-chunk-01.json": "60202235f4517729695c6171ce7c8a05e45ed1e3b1c683da8004ac786cb1b2dd",
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-r2-chunk-02.json": "aa49c577cbf7614aa3037712ee4a5f6effd545773260c74b4b9e8a18de1e99b4",
+    "validation-runs/diagnostics/fundamental-quality-valuation-external-r2-chunk-03.json": "1d7d8929489ff2fa08b3597e844bf7e87ca4ac9af402c3d662f8147cbdf82acc"
+  },
+  "coverage": {
+    "reportedHistoricalMembersNotReconstructed": 506,
+    "reportedProfitableEvaluableNotReconstructed": 379,
+    "reportedHighQualityNotReconstructed": 190,
+    "storedUniqueOutcomeTickers": 190,
+    "validPositiveEndpointPairs": 185,
+    "missingOutcomeTickers": [
+      "APTV",
+      "BLK",
+      "INFO",
+      "KSU",
+      "LH"
+    ],
+    "duplicateTickers": [],
+    "endpointCoverageOfClaimedHighQualityPct": 97.36842105263158,
+    "rowLevelFundamentalsStoredInChunks": false,
+    "filingDatesStoredInChunks": false,
+    "rowLevelQualityScoresStoredInChunks": false,
+    "rowLevelEarningsYieldStoredInChunks": false,
+    "rowLevelBranchMembershipStoredInChunks": false
+  },
+  "reportedGroupsNotIndependentlyReconstructed": {
+    "cheapReasonable": {
+      "n": 93,
+      "meanReturnPct": 0.47279603138178944,
+      "medianReturnPct": 4.013284590377553,
+      "meanExcessVsSpyPctPoints": -0.4110522769061269,
+      "medianExcessVsSpyPctPoints": 3.129436282089637,
+      "beatSpyPct": 54.83870967741935,
+      "meanExcessVsUrthPctPoints": 3.631451443385952,
+      "medianExcessVsUrthPctPoints": 7.1719400023817155,
+      "beatUrthPct": 60.215053763440864
+    },
+    "expensive": {
+      "n": 92,
+      "meanReturnPct": -2.7078741275133975,
+      "medianReturnPct": -5.40917254649832,
+      "meanExcessVsSpyPctPoints": -3.5917224358013145,
+      "medianExcessVsSpyPctPoints": -6.293020854786236,
+      "beatSpyPct": 39.130434782608695,
+      "meanExcessVsUrthPctPoints": 0.45078128449076593,
+      "medianExcessVsUrthPctPoints": -2.250517134494157,
+      "beatUrthPct": 46.73913043478261
+    }
+  },
+  "summaryArithmeticChecks": {
+    "SPY": {
+      "benchmarkReturnPctReportedNotIndependentlyVerified": 0.8838483082879156,
+      "pooledWinsRecomputed": 87,
+      "pooledHitRatePct": 47.027027027027025
+    },
+    "URTH": {
+      "benchmarkReturnPctReportedNotIndependentlyVerified": -3.158655412004163,
+      "pooledWinsRecomputed": 99,
+      "pooledHitRatePct": 53.513513513513516
+    }
+  },
+  "reportedGateRecomputed": {
+    "cheapBeatsExpensiveMean": true,
+    "cheapMeanExcessVsSpyPositive": false,
+    "cheapMeanExcessVsUrthPositive": true,
+    "expensiveMeanExcessVsSpyNegative": true,
+    "expensiveMeanExcessVsUrthNegative": false,
+    "fullPass": false
+  },
+  "pooledStoredEndpointDiagnostics": {
+    "interpretation": "Recomputed from stored prices; membership, date authenticity and corporate-action correctness not independently certified",
+    "n": 185,
+    "meanReturnPct": -1.108942642230952,
+    "medianReturnPct": -0.7375249299073072,
+    "sampleStdDevPctPoints": 21.165505867290584,
+    "p10ReturnPct": -26.768307200429977,
+    "p25ReturnPct": -15.986925811745778,
+    "worstReturnPct": -64.98899981990283,
+    "bestReturnPct": 80.42094803663704,
+    "negativeReturnCount": 94,
+    "negativeReturnPct": 50.810810810810814,
+    "maxDrawdown": null,
+    "maxDrawdownReason": "Only endpoint prices stored; no daily path"
+  },
+  "negativeControls": {
+    "qualityAlone": {
+      "status": "NOT_IDENTIFIABLE",
+      "reason": "No lower-quality comparison panel preserved"
+    },
+    "valueAlone": {
+      "status": "NOT_IDENTIFIABLE",
+      "reason": "No full-universe earnings yields/outcomes preserved"
+    },
+    "qualityTimesValuation": {
+      "status": "NOT_IDENTIFIABLE_AS_INCREMENTAL_INTERACTION",
+      "reason": "Within-high-quality spread is not a difference-in-differences interaction; lower-quality valuation cells absent"
+    },
+    "branchDispersion": {
+      "status": "UNAVAILABLE",
+      "reason": "Cannot map returns to frozen branches without saved inputs/labels"
+    }
+  },
+  "r2ExistingOutcomeEvidence": {
+    "chunks": [
+      {
+        "path": "validation-runs/diagnostics/fundamental-quality-valuation-external-r2-chunk-01.json",
+        "rowCount": 50,
+        "declaredRowsCovered": "1-50/198"
+      },
+      {
+        "path": "validation-runs/diagnostics/fundamental-quality-valuation-external-r2-chunk-02.json",
+        "rowCount": 50,
+        "declaredRowsCovered": "51-100/198"
+      },
+      {
+        "path": "validation-runs/diagnostics/fundamental-quality-valuation-external-r2-chunk-03.json",
+        "rowCount": 50,
+        "declaredRowsCovered": "101-150/198"
+      }
+    ],
+    "storedRows": 150,
+    "additionalR2OutcomesFetched": false,
+    "r2ReturnsComputedByAudit": false
+  },
+  "strictPitLimitations": [
+    "FY2020 label alone does not prove publication by 2021-05-03 or exclude later restatements.",
+    "External diluted EPS/raw close valuation is not the sealed SEC net-income/(raw-close*causal-shares) formula.",
+    "Historical constituent rows and source snapshot are not included in external evidence files.",
+    "Stored prices lack per-observation source date/corporate-action lineage; delisted/renamed identities require verification.",
+    "The sealed runner enriches valuation and outcomes only for HIGH_QUALITY, so by itself it cannot supply requested lower-quality/value-alone controls.",
+    "No weights, thresholds, dates, provider substitutions or sealed code changed by this audit."
+  ]
+}
