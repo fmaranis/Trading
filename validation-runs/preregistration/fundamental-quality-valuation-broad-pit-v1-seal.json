@@ -15,7 +15,7 @@
   },
   "expectedGitBlobSha": {
     "scripts/fundamentalQualityValuationBroadPitV1Protocol.ts": "b3eab89d8ebed069e6242f55d8f030d7a95bb064",
-    "scripts/fundamentalQualityValuationBroadPitV1Live.ts": "bc43911a966f22fa516f7fe8020a91eb7a1ddd01",
-    "tests/fundamentalQualityValuationBroadPitV1.unit.ts": "779f832227e887e723718042f5f6e729f829e8cb"
+    "scripts/fundamentalQualityValuationBroadPitV1Live.ts": "781e3bc455f4d6e80e74ef101c90534c7f630af9",
+    "tests/fundamentalQualityValuationBroadPitV1.unit.ts": "8313ad6819ec5c061ed5b2e8cb5139ed7f133ca3"
   }
 }
