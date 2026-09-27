@@ -89,3 +89,15 @@ This window had remained unopened by the failed momentum study and was subsequen
 - exact value-weighted basket is concentrated (NVDA 34.27%, AAPL 31.42% internally); V1 remains frozen rather than being retuned;
 - look-through overlap with the structural core must be quantified before any future Custodia integration;
 - strict historical `CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1` remains separately **BLOCKED_DATA_ACCESS** on SEC User-Agent and has not opened stock outcomes.
+
+
+## CORE_OUTPERFORMANCE_PROFITABILITY_SIMFIN_BRIDGE_V1
+
+- role: **IMPLEMENTATION_TRANSLATION_DIAGNOSTIC_CONSUMED_WINDOW**;
+- anchors frozen before prices: 2020-06-30 through 2024-06-30;
+- stock-price outcomes opened for complete 2020 and 2021 periods; 2022 stopped on missing terminal listed price for CTXS;
+- status: **INCONCLUSIVE_PRICE_OR_COVERAGE**;
+- reason: selected CTXS ceased trading after the 2022 cash acquisition; frozen V1 required a listed adjusted-open endpoint and prohibited survivor renormalization;
+- no candidate CAGR was computed and no economic PASS/FAIL claim is valid;
+- this bridge sample is **CONSUMED** for any future delisting-aware accounting rule because the CTXS failure and its $104 cash consideration are now known;
+- SEC PIT Stage C1 remains separately unopened; future-forward V1 remains fresh/prospective.
