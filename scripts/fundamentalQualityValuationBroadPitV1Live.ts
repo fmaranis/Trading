@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { dirname } from 'node:path';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { HistoricalMarketDataService } from '../src/investment/data/marketData/historicalMarketDataService';
 import { MarketDataProviderRegistry } from '../src/investment/data/marketData/registry';
 import { RealMarketDataProvider } from '../src/investment/data/marketData/providers/realMarketDataProvider';
@@ -18,6 +19,7 @@ const JOB_ID = 'fundamental-quality-valuation-broad-pit-v1';
 const JOB_NAME = 'Fundamental Quality × valoración · validación PIT amplia';
 const MARKER = 'FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1_RESULT';
 const LOCAL_RECOVERY_PATH = '.runtime/fundamental-quality-valuation-broad-pit-v1-result.json';
+const SEAL_PATH = 'validation-runs/preregistration/fundamental-quality-valuation-broad-pit-v1-seal.json';
 const BASE_URL = 'http://127.0.0.1:3000';
 const INFO_PRICE_END_DATE = '2021-05-04';
 const OUTCOME_REQUEST_END_DATE = '2022-05-04';
@@ -100,6 +102,38 @@ type OutcomeRow = {
   excessVsSpyPctPoints: number;
   excessVsUrthPctPoints: number;
 };
+
+type BroadPitSeal = {
+  version: string;
+  frozenAt: string;
+  sampleRole: string;
+  informationDate: string;
+  outcomeDate: string;
+  productionDefault: string;
+  productionAuthority: boolean;
+  noRetuningAfterOutcome: boolean;
+  currentYahooDiscoveryHistorical: boolean;
+  expectedGitBlobSha: Record<string, string>;
+};
+
+function gitBlobSha(text: string): string {
+  const normalized = text.replace(/\r\n/g, '\n');
+  const bytes = Buffer.from(normalized, 'utf8');
+  return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+}
+
+function verifyPreRunSeal(): BroadPitSeal {
+  const seal = JSON.parse(readFileSync(SEAL_PATH, 'utf8')) as BroadPitSeal;
+  if (seal.version !== 'FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1_SEAL') throw new Error('QUALITY_VALUATION_SEAL_VERSION_INVALID');
+  if (seal.informationDate !== P.informationDate || seal.outcomeDate !== P.outcomeDate) throw new Error('QUALITY_VALUATION_SEAL_DATES_MISMATCH');
+  if (seal.productionDefault !== 'LEGACY' || seal.productionAuthority !== false) throw new Error('QUALITY_VALUATION_SEAL_PRODUCTION_AUTHORITY_INVALID');
+  if (seal.noRetuningAfterOutcome !== true || seal.currentYahooDiscoveryHistorical !== false) throw new Error('QUALITY_VALUATION_SEAL_METHODOLOGY_INVALID');
+  for (const [path, expected] of Object.entries(seal.expectedGitBlobSha)) {
+    const actual = gitBlobSha(readFileSync(path, 'utf8'));
+    if (actual !== expected) throw new Error(`QUALITY_VALUATION_SEAL_MISMATCH:${path}:${expected}:${actual}`);
+  }
+  return seal;
+}
 
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -503,6 +537,7 @@ async function persist(payload: unknown): Promise<unknown> {
 }
 
 async function main() {
+  const seal = verifyPreRunSeal();
   const eodhdKey = requiredEnv('EODHD_API_KEY');
   const secUserAgent = requiredEnv('SEC_EDGAR_USER_AGENT');
   requiredEnv('GITHUB_REPLAY_SYNC_TOKEN');
@@ -771,6 +806,7 @@ async function main() {
         ? 'BROAD_PIT_DIRECTIONAL_CONFIRMATION_SUPPORTS_QUALITY_X_VALUATION'
         : 'BROAD_PIT_DOES_NOT_CONFIRM_QUALITY_X_VALUATION',
       protocol: P,
+      seal: { version: seal.version, frozenAt: seal.frozenAt, sampleRole: seal.sampleRole },
       productionDefault: 'LEGACY',
       productionAuthority: false,
       promotionAllowedFromThisResult: false,
