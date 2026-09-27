@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_PIT_SECONDARY_SOURCE_AUDIT_2026-09-27",
+  "checkedAt": "2026-09-27",
+  "status": "INSUFFICIENT_FULL_WINDOW_ACCESS",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "strictPitStudy": "CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1",
+  "strictPitStatus": "BLOCKED_DATA_ACCESS",
+  "stockOutcomesOpened": false,
+  "sources": [
+    {
+      "source": "rikkyrocky/SIGML",
+      "commit": "faefaa62e67450096c4dfe2903d2890b3b34c309",
+      "incomeBlob": "117ac76ff7cf2fb83a7db85054a7b0b8ad3d9198",
+      "balanceBlob": "035c230e907cc4e55cad4d913a0b0fc2736110c8",
+      "rows": {
+        "income": 54841,
+        "balance": 54836
+      },
+      "tickers": 3863,
+      "observedReportDateRange": "2019-06-30 to 2024-04-30",
+      "causalFields": [
+        "Publish Date",
+        "Report Date"
+      ],
+      "balanceHasTotalEquity": true,
+      "conclusion": "Column-complete for a secondary causal bridge but starts too late to execute all five frozen 2016-2021 annual formations."
+    },
+    {
+      "source": "salnad/qis-scripts",
+      "commit": "782e9e8cbefb9b48bd24fa6003a996cfda0c8fc8",
+      "notebook": "fundamentals-project/extra notebooks/testing.ipynb",
+      "notebookBlob": "b33f7c38d1673718ae8aa5b24988fa6f3f576722",
+      "mergedBinary": "fundamentals-project/all-data.pkl",
+      "mergedBinaryBlob": "781aa0226a22433398c213022284566d9702f65a",
+      "notebookEvidence": {
+        "mergedRows": 45645,
+        "mergedColumns": 69,
+        "rowExamplesReachBackTo": "2009-06-30",
+        "tailReachesAtLeast": "2019-08-31",
+        "causalFields": [
+          "Cashflow Publish Date",
+          "Balance Publish Date",
+          "Income Publish Date"
+        ],
+        "requiredFieldsPresent": [
+          "Revenue",
+          "Cost of Revenue",
+          "Selling, General & Administrative",
+          "Interest Expense, Net",
+          "Total Equity"
+        ]
+      },
+      "limitation": "The full historical dataset is only committed as a binary pandas pickle. The available GitHub connector cannot UTF-8 decode it and this runtime cannot materialize the binary via direct network access.",
+      "conclusion": "Historically promising but not inspectable row-by-row in the current runtime, so it cannot be used to execute or claim the frozen PIT result."
+    },
+    {
+      "source": "devam29/Impact500",
+      "commit": "5c94d35edfdf7b6bbcc0f57451c1b6149e469b76",
+      "incomeAnnualBlob": "9c50b3d3e21a8a24c1a739d2803e9246186dd01c",
+      "note": "Full UTF-8 income annual blob is readable and contains Publish Date, but no matching committed full balance annual file was found in the same versioned source."
+    }
+  ],
+  "antiBiasDecision": [
+    "Do not shorten the frozen 2016-2021 Stage C1 window to fit the accessible 2019-2024 dataset.",
+    "Do not splice the inaccessible old pickle and newer extraction snapshot without row-level reproducibility.",
+    "Do not substitute current fundamentals or current constituents for missing historical rows.",
+    "Keep strict SEC PIT stock outcomes unopened."
+  ],
+  "nextAction": "STRICT_PIT_REMAINS_BLOCKED; FUTURE_FORWARD_V1_PROCEEDS INDEPENDENTLY."
+}
