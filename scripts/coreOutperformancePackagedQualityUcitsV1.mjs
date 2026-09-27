@@ -1,0 +1,6 @@
+import fs from 'node:fs';
+const p=process.argv[2]??'validation-runs/diagnostics/core-outperformance-packaged-quality-ucits-v1-input.json';
+const x=JSON.parse(fs.readFileSync(p,'utf8'));
+function metrics(obj){const vals=Object.values(obj).map(Number),rs=vals.map(v=>v/100);let w=1,pk=1,dd=0;const m=rs.reduce((a,b)=>a+b,0)/rs.length;const sd=Math.sqrt(rs.reduce((s,r)=>s+(r-m)**2,0)/(rs.length-1));for(const r of rs){w*=1+r;pk=Math.max(pk,w);dd=Math.min(dd,w/pk-1);}return{years:vals.length,totalReturnPct:(w-1)*100,cagrPct:(Math.pow(w,1/vals.length)-1)*100,annualReturnVolPct:sd*100,maxAnnualPathDrawdownPct:dd*100};}
+const vehicle=metrics(x.vehicle.annualNavTotalReturnPct),parent=metrics(x.parent.annualTotalReturnPct),global=metrics(x.global.annualTotalReturnPct);
+console.log(JSON.stringify({schemaVersion:1,study:x.study,status:vehicle.cagrPct>parent.cagrPct&&vehicle.cagrPct>global.cagrPct?'POST_SELECTION_PACKAGED_BOTH_HURDLES_PASS_NO_PROMOTION':'POST_SELECTION_PACKAGED_PARENT_EDGE_NOT_PRESENT',vehicle,parent,global,excessCagrVsParentPctPoints:vehicle.cagrPct-parent.cagrPct,excessCagrVsGlobalPctPoints:vehicle.cagrPct-global.cagrPct,productionDefault:'LEGACY',productionAuthority:false},null,2));
