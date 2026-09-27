@@ -1011,3 +1011,20 @@ Actualización 2026-09-27 — direct-stock profitability no viable + ex-US no ge
 - la señal U.S. Operating Profitability conserva su PASS + confirmación temporal, pero ya no se puede describir como ventaja geográficamente generalizada bajo esta construcción;
 - archivos: `docs/CORE_OUTPERFORMANCE_PROFITABILITY_EXUS_GENERALIZATION_V1_EXECUTION_2026-09-27.md`, input/result y runner reproducible;
 - siguiente dirección: implementación empaquetada UCITS/fondo seleccionada por metodología, accesibilidad y costes antes de abrir su histórico objetivo; producción continúa **LEGACY**.
+
+
+---
+
+Actualización 2026-09-27 — checkpoint quality future-forward tras snapshot:
+
+- HEAD de checkpoint: `382d7d3f3b57abf1c8f0728621a8c140f42adde0`;
+- `CORE_OUTPERFORMANCE_PROFITABILITY_DIRECT_STOCK_IMPLEMENTATION_V1`: cerrado como **FAIL_DIRECT_STOCK_IMPLEMENTATION_FOR_NORMAL_SLEEVE**; la réplica exacta de 46 acciones requiere aprox. 396k EUR de sleeve para disponer de al menos una acción por target congelado;
+- `CORE_OUTPERFORMANCE_PROFITABILITY_EXUS_GENERALIZATION_V1`: ejecutado bajo preregistro y cerrado **FAIL_GEOGRAPHIC_GENERALIZATION**; 2009-2014 = -0,5858 pp/año vs mercado ex-US y 2016-2021 = +1,3667 pp/año; no abrir rescates regionales;
+- `CORE_OUTPERFORMANCE_PACKAGED_QUALITY_UCITS_V1`: candidato principal congelado por metodología/ejecutabilidad = iShares Edge MSCI USA Quality Factor UCITS ETF, ISIN IE00BD1F4L37, QDVB/Xetra/EUR; diagnóstico histórico no-blind 2017-2025: CAGR 13,8361% vs parent USA 14,7638% y URTH 12,8920%; estado **POST_SELECTION_PACKAGED_PARENT_EDGE_NOT_PRESENT**; no cambiar ETF para rescatar;
+- `FUNDAMENTAL_QUALITY_FUTURE_FORWARD_V1`: protocolo y guard pre-outcome integrados; convención congelada = winsor 5/95 lineal `p*(n-1)`, z-score poblacional, 100 seleccionados, `QualityScore × market cap`, cap **5% por emisor**;
+- descriptores fundamentales actuales capturados en dos partes para los 500 miembros del S&P 500; **347/500 evaluables**, sin abrir retornos;
+- snapshot prospectivo congelado en `validation-runs/preregistration/fundamental-quality-future-forward-v1-snapshot.json`;
+- snapshot: **100 acciones / 99 emisores**, max issuer 5%, top-5 25%, top-10 46,0156%, HHI 0,0292515, effective N **34,1863**;
+- top ranks de quality antes de outcome incluyen FTNT, LII, AAPL, KLAC, IDXX, ADP, WSM, LRCX, ITW y MA; estos nombres y pesos están congelados y no se retunean;
+- future outcomes continúan **UNOPENED**; producción sigue **LEGACY**;
+- único trabajo que quedó pendiente al producirse una interrupción de sesión: completar y commitear el evaluador de checkpoints + capturador del primer common adjusted-open posterior al 27-09-2026, sin cambiar el snapshot.
