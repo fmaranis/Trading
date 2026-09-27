@@ -795,3 +795,71 @@ Investigar una réplica compradora del momentum académico meses 2–12, mensual
 El usuario prioriza pocos tokens: scripts deterministas, caché/checkpoints, resultados agregados, sin subagentes/Actions ni rejillas de parámetros. El plan fija paradas por FAIL o bloqueo y exige comparación neta/riesgo contra core y parent, stress de costes e incertidumbre. No se ha ejecutado ninguna prueba de rentabilidad al crear este documento. Las fechas y fuentes operativas deberán sellarse antes de outcomes; no se ha declarado ninguna muestra fresh sin auditar consumo.
 
 La investigación Quality × valoración mantiene el estado de §20. No cambiar su protocolo ni producción para implementar esta línea.
+
+
+## 22. CORE_OUTPERFORMANCE_MOMENTUM_REFERENCE_V1 — Stage B outcome (2026-09-27)
+
+No production code was changed.
+
+Primary hypothesis executed:
+
+- long-only winner decile;
+- monthly prior 12-2 momentum;
+- value-weighted;
+- no alternative lookback, decile, timing filter or regime variant after opening the result.
+
+Diagnostic window:
+
+- 2016-01 -> 2021-12;
+- 72 months;
+- role: diagnostic / consumed.
+
+Reserved confirmation:
+
+- 2009-01 -> 2014-12;
+- 2015 full separation year;
+- **not opened** because the diagnostic failed.
+
+Result:
+
+| Series | Total return | CAGR |
+| --- | ---: | ---: |
+| Winner momentum decile | +152.33% | **16.68%** |
+| French/CRSP US market | +163.38% | **17.52%** |
+| URTH global proxy | +122.06% | **14.22%** |
+| SPY cross-check | +163.85% | **17.55%** |
+
+Primary Stage B gate:
+
+- excess CAGR vs US parent = **-0.84 pp/year**;
+- excess CAGR vs URTH = **+2.46 pp/year**;
+- required: positive versus both;
+- verdict: **FAIL_DIAGNOSTIC**.
+
+Interpretation:
+
+- the published winner momentum decile did beat the global URTH proxy over this diagnostic window;
+- it did **not** beat its US parent market, which is the stronger like-for-like hurdle for this external replication;
+- therefore this exact primary replica does not justify proceeding to the actionable Custodia implementation under the frozen plan;
+- this does not erase the broader academic momentum premium, but it rejects the specific claim needed here: that this frozen long-only winner-decile construction clears both core hurdles in the selected diagnostic window.
+
+Stop decision:
+
+**STOP_PRIMARY_REPLICA_NO_VARIANTS / NO ETAPA C / NO CONFIRMATION OPEN / NO PRODUCTION CHANGE.**
+
+Evidence:
+
+- `docs/CORE_OUTPERFORMANCE_MOMENTUM_V1_EXECUTION_2026-09-27.md`;
+- `docs/CORE_OUTPERFORMANCE_SAMPLE_REGISTRY_2026-09-27.md`;
+- `scripts/coreOutperformanceMomentumDiagnosticV1.mjs`;
+- `validation-runs/diagnostics/core-outperformance-momentum-v1-input.json`;
+- `validation-runs/diagnostics/core-outperformance-momentum-v1-result.json`.
+
+Sequencing caveat:
+
+- window choices were explicitly stated before outcome calculation in the working chat;
+- however, the repository-level preregistration seal was not committed before outcome access;
+- therefore this is **not claimed as a valid pre-open preregistered confirmation**;
+- because the diagnostic gate already failed, opening another window to recover a PASS would contradict the anti-retuning/stop rule.
+
+Production remains `LEGACY`.
