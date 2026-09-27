@@ -1,9 +1,11 @@
 {
   "schemaVersion": 1,
   "study": "CORE_OUTPERFORMANCE_MOMENTUM_REFERENCE_V1",
+  "executedAt": "2026-09-27",
   "status": "FAIL_DIAGNOSTIC",
   "productionDefault": "LEGACY",
   "productionChanged": false,
+  "productionAuthority": false,
   "stageReached": "B_EXTERNAL_CHEAP_DIAGNOSTIC",
   "diagnosticWindow": {
     "start": "2016-01",
@@ -14,15 +16,16 @@
   "confirmationWindow": {
     "start": "2009-01",
     "end": "2014-12",
+    "months": 72,
     "separationYear": "2015",
     "role": "RESERVED_NOT_OPENED",
     "opened": false
   },
   "metrics": {
     "winnerDecile": {
-      "months": 288,
-      "totalReturn": 6.083926833253168e+183,
-      "cagr": 45464699.30088124
+      "months": 72,
+      "totalReturn": 1.5233201737494206,
+      "cagr": 0.16679724043187139
     },
     "usParent": {
       "months": 72,
@@ -37,18 +40,30 @@
       "totalReturn": 1.6385459434472187,
       "cagr": 0.1755130192123524
     },
-    "excessCagrVsUsParentPctPoints": 4546469912.572011,
-    "excessCagrVsUrthPctPoints": 4546469915.8672285
+    "excessCagrVsUsParentPctPoints": -0.8363880693387227,
+    "excessCagrVsUrthPctPoints": 2.458829284146713
   },
   "gate": {
     "rule": "gross CAGR excess > 0 vs US parent AND > 0 vs global proxy where comparable",
-    "passVsUsParent": true,
-    "passVsUrth": true,
-    "overall": false
+    "passed": false,
+    "failedConditions": [
+      "EXCESS_VS_US_PARENT_NOT_POSITIVE"
+    ]
   },
-  "stopReason": "Primary long-only 12-2 winner-decile replica failed the predeclared Stage B economic continuation gate versus the US parent. Per plan, do not open confirmation, do not build Stage C, and do not test alternative lookbacks/deciles to rescue the result.",
-  "methodologyNote": {
-    "preOutcomeWindowChoice": "Diagnostic 2016-01..2021-12 and reserved confirmation 2009-01..2014-12 with 2015 separation were declared in chat before diagnostic outcomes were calculated.",
-    "durableSealLimitation": "The repo preregistration/seal was not committed before the diagnostic outcome was opened. This is recorded explicitly and is not represented as a pre-outcome durable seal. Because the economic gate failed, no confirmation sample was opened and no positive claim depends on this limitation."
+  "stopDecision": {
+    "openConfirmation": false,
+    "implementActionableReplica": false,
+    "implementCustodiaResearchMode": false,
+    "testVariants": false,
+    "reason": "Stage B gate failed. Stop per CORE_OUTPERFORMANCE_RESEARCH_PLAN_2026-09-27."
+  },
+  "methodologyDeviation": {
+    "repositorySealBeforeOutcome": false,
+    "windowSelectionDeclaredBeforeOutcomeInChat": true,
+    "interpretation": "Do not describe D1 as repository-sealed pre-outcome. No alternate window or variant is opened to rescue the FAIL."
+  },
+  "sources": {
+    "momentumMirror": "ff6512ef300f6095515b2d13ee9f4e90aad1907d",
+    "usMarketMirror": "5c59f23bb11b3a0f2b7472c3f2a5aa933f80b9b7"
   }
 }
