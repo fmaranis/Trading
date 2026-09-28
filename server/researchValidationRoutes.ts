@@ -246,6 +246,7 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Yahoo REAL · descargar/cachear input congelado', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1YahooInput.mjs'] },
+      { label: 'Yahoo REAL · auditar corporate actions', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1YahooCorporateActions.mjs'] },
       { label: 'Diagnóstico / replicación sector 52W', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1Live.mjs'] }
     ]
   },
