@@ -126,6 +126,43 @@ function hitRates(candidate,spy,urth,labels){
   return {rolling12:summarize(windows),nonOverlapping12:summarize(nonoverlap),windows};
 }
 
+function rolling12Diagnostics(candidate,spy,urth){
+  const n=Math.min(candidate.length,spy.length,urth.length),rows=[];
+  for(let i=0;i+12<=n;i++){
+    const c=candidate.slice(i,i+12).reduce((w,r)=>w*(1+r),1)-1;
+    const s=spy.slice(i,i+12).reduce((w,r)=>w*(1+r),1)-1;
+    const u=urth.slice(i,i+12).reduce((w,r)=>w*(1+r),1)-1;
+    const jointRelative=c-Math.max(s,u);
+    rows.push({candidate:c,spy:s,urth:u,jointRelative});
+  }
+  const wins=rows.filter(x=>x.jointRelative>0).map(x=>x.jointRelative);
+  const losses=rows.filter(x=>x.jointRelative<0).map(x=>x.jointRelative);
+  return {
+    windows:rows.length,
+    worst12mPct:rows.length?Math.min(...rows.map(x=>x.candidate))*100:null,
+    averageJointRelativeWinPctPoints:wins.length?wins.reduce((a,b)=>a+b,0)/wins.length*100:null,
+    averageJointRelativeLossPctPoints:losses.length?losses.reduce((a,b)=>a+b,0)/losses.length*100:null,
+    maxJointRelativeLossPctPoints:losses.length?Math.min(...losses)*100:0
+  };
+}
+
+function concentrationDiagnostics(events){
+  if(!events.length) return {events:0,averageActivePositions:null,averageHhi:null,maxHhi:null,averageMaxWeight:null,maxWeight:null};
+  const rows=events.map(e=>{
+    const ws=Object.values(e.weights??{}).map(Number).filter(Number.isFinite);
+    return {active:ws.filter(w=>w>0).length,hhi:ws.reduce((s,w)=>s+w*w,0),maxWeight:ws.length?Math.max(...ws):0};
+  });
+  const avg=key=>rows.reduce((s,r)=>s+r[key],0)/rows.length;
+  return {
+    events:rows.length,
+    averageActivePositions:avg('active'),
+    averageHhi:avg('hhi'),
+    maxHhi:Math.max(...rows.map(r=>r.hhi)),
+    averageMaxWeight:avg('maxWeight'),
+    maxWeight:Math.max(...rows.map(r=>r.maxWeight))
+  };
+}
+
 function hacAlpha(y,x,lag=12){
   const n=Math.min(y.length,x.length);if(n<lag+5)return null;
   let mx=0,my=0;for(let i=0;i<n;i++){mx+=x[i];my+=y[i];}mx/=n;my/=n;
@@ -171,6 +208,9 @@ function evaluateBlock({input,primarySignals,eqSignals,momSignals,executionCalen
     gates,gatePassed:Object.values(gates).every(Boolean),
     monthly:{candidate:pr.returns,spy:sr.returns,urth:ur.returns,labels:pr.labels},
     hitRates:hitRates(pr.returns,sr.returns,ur.returns,pr.labels),
+    rolling12Diagnostics:rolling12Diagnostics(pr.returns,sr.returns,ur.returns),
+    concentration:concentrationDiagnostics(primary.eventEquity),
+    monthlyObservations:pr.returns.length,
     selectorIncrementalHac12
   };
 }
@@ -181,7 +221,9 @@ function publicBlock(block){
   return {
     costBpsPerSide:block.costBpsPerSide,gatePassed:block.gatePassed,gates:block.gates,
     candidate:pick(block.primary),spy:pick(block.spy),urth:pick(block.urth),equal9:pick(block.equal9),momentum12_2:pick(block.momentum12_2),
-    hitRates:block.hitRates.nonOverlapping12,selectorIncrementalHac12:block.selectorIncrementalHac12,
+    hitRates:block.hitRates.nonOverlapping12,rolling12Diagnostics:block.rolling12Diagnostics,concentration:block.concentration,
+    monthlyObservations:block.monthlyObservations,years:block.primary.metrics.years,
+    selectorIncrementalHac12:block.selectorIncrementalHac12,
     start:block.primary.start,end:block.primary.end,totalCost:block.primary.totalCost,turnoverOnInitialCapital:block.primary.turnoverOnInitialCapital
   };
 }
@@ -279,14 +321,20 @@ if(replication?.cost20.gatePassed){
   const rb=bootstrapJointExcess(r.candidate,r.spy,r.urth,{block:12,reps:2000,seed:20260928});
   const statisticsPassed=db.lowerOneSided95PctPoints>0&&rb.lowerOneSided95PctPoints>0;
   result.statistics={diagnostic:db,replication:rb,passed:statisticsPassed,rule:'one-sided 95% lower bound of joint min(CAGR excess vs SPY, URTH) > 0 in each block'};
+  const frequencyMet=diagnostic.cost20.hitRates.nonOverlapping12.bothPct>=80&&replication.cost20.hitRates.nonOverlapping12.bothPct>=80;
   result.userFrequencyTarget={
     targetPct:80,
     diagnosticPct:diagnostic.cost20.hitRates.nonOverlapping12.bothPct,
     replicationPct:replication.cost20.hitRates.nonOverlapping12.bothPct,
-    met:diagnostic.cost20.hitRates.nonOverlapping12.bothPct>=80&&replication.cost20.hitRates.nonOverlapping12.bothPct>=80,
+    met:frequencyMet,
+    status:frequencyMet?'MEETS_OBSERVED_80PCT_TARGET':'BELOW_USER_FREQUENCY_TARGET',
     futureProbabilityClaim:false
   };
-  result.status=statisticsPassed?'PASS_RESEARCH_CANDIDATE_NO_PROMOTION':'INCONCLUSIVE_STATISTICAL_EVIDENCE';
+  result.status=!statisticsPassed
+    ?'INCONCLUSIVE_STATISTICAL_EVIDENCE'
+    :frequencyMet
+      ?'PASS_RESEARCH_CANDIDATE_NO_PROMOTION'
+      :'PROMISING_ECONOMICS_BELOW_USER_FREQUENCY_TARGET';
 }
 
 fs.mkdirSync(path.dirname(outputPath),{recursive:true});
