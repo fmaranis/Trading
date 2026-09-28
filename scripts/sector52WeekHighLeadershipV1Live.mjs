@@ -44,7 +44,8 @@ function simulate({seriesBySymbol,valuationCalendar,executionCalendar,signals,st
   for(let ci=startIdx;ci<endIdx;ci++){
     const date=valuationCalendar[ci],ev=eventMap.get(date);
     if(ev){
-      const r=rebalanceAtOpen(state,ev.weights,opensAt(maps,date,Object.keys(ev.weights)),costBps);
+      const rebalanceSymbols=[...new Set([...Object.keys(state.shares??{}),...Object.keys(ev.weights)])];
+      const r=rebalanceAtOpen(state,ev.weights,opensAt(maps,date,rebalanceSymbols),costBps);
       state={shares:r.shares,cash:r.cash};totalCost+=r.cost;totalTraded+=r.tradedNotional;
       eventEquity.push({date,equity:r.equity,weights:ev.weights,selected:ev.selected,descriptive:ev.descriptive??null});
     }
@@ -174,6 +175,27 @@ function publicBlock(block){
   };
 }
 
+function finiteMetricBlock(block){
+  if(!block) return false;
+  const metricObjects=[block.primary?.metrics,block.equal9?.metrics,block.momentum12_2?.metrics,block.spy?.metrics,block.urth?.metrics];
+  const metricKeys=['totalReturnPct','cagrPct','annualizedVolPct','maxDrawdownPct'];
+  return metricObjects.every(m=>m&&metricKeys.every(k=>Number.isFinite(Number(m[k]))))
+    && Number.isFinite(Number(block.primary?.totalCost))
+    && Number.isFinite(Number(block.primary?.turnoverOnInitialCapital));
+}
+function assertFiniteEconomicBlock(block,label){
+  if(!finiteMetricBlock(block)) throw new Error('NON_FINITE_ECONOMIC_BLOCK:'+label);
+}
+function existingResultIsValid(existing){
+  if(!existing||existing.study!==P.version) return false;
+  if(!existing.diagnostic?.cost10||!existing.diagnostic?.cost20) return false;
+  if(!finiteMetricBlock(existing.diagnostic.cost10)||!finiteMetricBlock(existing.diagnostic.cost20)) return false;
+  if(existing.replication){
+    if(!finiteMetricBlock(existing.replication.cost10)||!finiteMetricBlock(existing.replication.cost20)) return false;
+  }
+  return true;
+}
+
 function publicSummary(result){
   return {
     schemaVersion:1,study:result.study,status:result.status,provider:result.provider,inputSha256:result.inputSha256,
@@ -185,10 +207,17 @@ function publicSummary(result){
 }
 
 if(fs.existsSync(outputPath)){
-  const existing=JSON.parse(fs.readFileSync(outputPath,'utf8'));
+  const existingText=fs.readFileSync(outputPath,'utf8');
+  const existing=JSON.parse(existingText);
   if(existing.study!==P.version)throw new Error('EXISTING_RESULT_STUDY_MISMATCH');
-  console.log(RESULT_MARKER,JSON.stringify(publicSummary(existing)));
-  process.exit(0);
+  if(existingResultIsValid(existing)){
+    console.log(RESULT_MARKER,JSON.stringify(publicSummary(existing)));
+    process.exit(0);
+  }
+  const invalidPath=outputPath.replace(/\.json$/,'-invalid-technical-v1.json');
+  if(!fs.existsSync(invalidPath)) fs.writeFileSync(invalidPath,existingText);
+  fs.unlinkSync(outputPath);
+  console.error('SECTOR_52W_HIGH_LEADERSHIP_V1_TECHNICAL_INVALID_ARCHIVED',invalidPath);
 }
 
 const inputText=fs.readFileSync(inputPath,'utf8'),input=JSON.parse(inputText);
@@ -213,6 +242,8 @@ const diagnostic={
   cost10:evaluateBlock({input,primarySignals,eqSignals,momSignals,executionCalendar,valuationCalendar,startB:P.diagnostic.startOnOrAfter,endB:P.diagnostic.endOnOrAfter,costBps:P.costs.primaryBpsPerSide}),
   cost20:evaluateBlock({input,primarySignals,eqSignals,momSignals,executionCalendar,valuationCalendar,startB:P.diagnostic.startOnOrAfter,endB:P.diagnostic.endOnOrAfter,costBps:P.costs.doubleBpsPerSide})
 };
+assertFiniteEconomicBlock(diagnostic.cost10,'diagnostic10');
+assertFiniteEconomicBlock(diagnostic.cost20,'diagnostic20');
 
 let replication=null,status=diagnostic.cost20.gatePassed?'PASS_DIAGNOSTIC_CONTINUE_REPLICATION':'FAIL_DIAGNOSTIC';
 if(diagnostic.cost20.gatePassed){
@@ -220,6 +251,8 @@ if(diagnostic.cost20.gatePassed){
     cost10:evaluateBlock({input,primarySignals,eqSignals,momSignals,executionCalendar,valuationCalendar,startB:P.replication.startOnOrAfter,endB:P.replication.endOnOrAfter,costBps:P.costs.primaryBpsPerSide}),
     cost20:evaluateBlock({input,primarySignals,eqSignals,momSignals,executionCalendar,valuationCalendar,startB:P.replication.startOnOrAfter,endB:P.replication.endOnOrAfter,costBps:P.costs.doubleBpsPerSide})
   };
+  assertFiniteEconomicBlock(replication.cost10,'replication10');
+  assertFiniteEconomicBlock(replication.cost20,'replication20');
   status=replication.cost20.gatePassed?'PASS_REPLICATION_GATES_PENDING_STATISTICS':'FAIL_REPLICATION';
 }
 
