@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "study": "SECTOR_52W_HIGH_LEADERSHIP_V1",
+  "recordedAt": "2026-09-28",
+  "firstRun": {
+    "startedAt": "2026-09-28T19:25:13.026Z",
+    "finishedAt": "2026-09-28T19:25:43.136Z",
+    "jobExecutionStatus": "PASSED",
+    "reportedStudyStatus": "FAIL_DIAGNOSTIC",
+    "provider": "YAHOO_FINANCE",
+    "inputSha256": "35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f"
+  },
+  "validity": "TECHNICAL_INVALID_NO_ECONOMIC_VERDICT",
+  "evidence": {
+    "diagnostic10CandidateAllEconomicMetricsNull": true,
+    "diagnostic20CandidateAllEconomicMetricsNull": true,
+    "diagnostic10MomentumControlAllEconomicMetricsNull": true,
+    "diagnostic20MomentumControlAllEconomicMetricsNull": true,
+    "benchmarksAndEqual9Finite": true,
+    "replicationOpened": false
+  },
+  "rootCause": {
+    "id": "ROTATION_EXIT_OPEN_NOT_REQUESTED",
+    "detail": "At a monthly rebalance the runner requested opening prices only for new target symbols. If an existing holding left the target set, rebalanceAtOpen valued that old holding with opens[symbol] undefined, producing NaN. JSON serialization converted NaN to null. Equal-weight9 was unaffected because it always retained all nine sectors."
+  },
+  "repair": {
+    "signalParametersChanged": false,
+    "datesChanged": false,
+    "gatesChanged": false,
+    "costsChanged": false,
+    "dataInputChanged": false,
+    "changes": [
+      "Rebalance opening-price request now uses union(current holdings, new targets).",
+      "rebalanceAtOpen and liquidateAtOpen now fail on missing/non-finite prices or values.",
+      "runner rejects non-finite economic blocks before evaluating gates.",
+      "pre-existing invalid result is archived as -invalid-technical-v1.json and recomputed from the same frozen Yahoo input."
+    ]
+  },
+  "methodology": {
+    "diagnosticDataOpened": true,
+    "diagnosticRole": "CONSUMED_DIAGNOSTIC_ONLY",
+    "replicationDataOpened": false,
+    "replicationRole": "UNOPENED_UNTIL_VALID_DIAGNOSTIC_GATE",
+    "retuningAllowed": false,
+    "productionDefault": "LEGACY",
+    "productionAuthority": false
+  },
+  "headAfterRepair": "35fa8f5238a8519c24222349520516c8b867e816",
+  "nextAction": "RE-RUN_SAME_LOCAL_JOB_AFTER_SYNC; SAME_FROZEN_INPUT_AND_POLICY"
+}
