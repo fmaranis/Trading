@@ -210,3 +210,15 @@ Exact Fundamental Quality historical reconstruction remains BLOCKED_MISSING_HIST
 - temporal replication 2019-2025 remains **UNOPENED**;
 - repaired rerun must reuse the same frozen Yahoo input hash `35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f`;
 - evidence: `validation-runs/diagnostics/sector-52w-high-leadership-v1-first-run-technical-invalid-2026-09-28.json`.
+
+
+### Technical R3 after two invalid exports — SECTOR_52W_HIGH_LEADERSHIP_V1
+
+- exports 19:25 and 19:33 on 2026-09-28: **INVALID / NO ECONOMIC VERDICT**;
+- both returned candidate and 12-2 economics as null; neither reported implementation revision;
+- same Yahoo input hash was used; second export is not independent evidence;
+- diagnostic data are consumed as technical diagnostic only; not promotable;
+- replication 2019-2025 remains **UNOPENED**;
+- current implementation fingerprint: `SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28`;
+- exact local job must pass revision/unit/causal/E2E/runtime/architecture/TypeScript/corporate-action/NAV guards before any future economic runner;
+- no retuning allowed; production remains `LEGACY`.
