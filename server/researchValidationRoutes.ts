@@ -242,12 +242,14 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard causalidad sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.causal.unit.mjs'] },
       { label: 'Guard Yahoo REAL sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1YahooInput.unit.mjs'] },
       { label: 'Guard corporate actions sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1YahooCorporateActions.unit.mjs'] },
+      { label: 'Guard NAV Yahoo sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1YahooNavAudit.unit.mjs'] },
       { label: 'E2E runner sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.e2e.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Yahoo REAL · descargar/cachear input congelado', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1YahooInput.mjs'] },
       { label: 'Yahoo REAL · auditar corporate actions', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1YahooCorporateActions.mjs'] },
+      { label: 'Yahoo REAL · reconciliar NAV oficial', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1YahooNavAudit.mjs'] },
       { label: 'Diagnóstico / replicación sector 52W', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1Live.mjs'] }
     ]
   },
