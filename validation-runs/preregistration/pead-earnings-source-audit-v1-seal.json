@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "study": "PEAD_EARNINGS_SOURCE_AUDIT_V1",
+  "frozenAt": "2026-09-28",
+  "headBeforeLiveSourceAudit": "af986727634135e1a7be1f9f3dfe5f6d3b2aaa71",
+  "sourceWindow": {
+    "from": "2024-01-15",
+    "to": "2024-03-15"
+  },
+  "sourceProvider": "EODHD",
+  "universe": "S&P500 PIT via GSPC.INDX HistoricalTickerComponents",
+  "gates": {
+    "minimumPitEvents": 200,
+    "minimumKnownTimingPct": 70,
+    "minimumActualEstimatePct": 70,
+    "minimumCausalEligible": 150,
+    "duplicates": 0,
+    "inconsistentDifference": 0
+  },
+  "outcomes": {
+    "priceOutcomesFetched": false,
+    "economicOutcomesOpened": false,
+    "signalThresholdFrozen": false,
+    "economicPolicyFrozen": false
+  },
+  "authority": {
+    "productionDefault": "LEGACY",
+    "productionAuthority": false,
+    "promotionAllowed": false
+  },
+  "gitBlobSha": {
+    "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_PLAN_2026-09-28.md": "88b1a64154c78e530cc627f480c2972687ac9828",
+    "scripts/peadEarningsSourceAuditV1.mjs": "cfa49c62d751e07f63844346373da86209760334",
+    "tests/peadEarningsSourceAuditV1.unit.mjs": "3786471df6be2ccf38e61c200fee04c9ba019ea9",
+    "server/researchValidationRoutes.ts": "342db40d2b191f31c32583c8eeb473f77ba7d2de",
+    "tests/researchValidationRuntime.unit.ts": "cb0fc0b3941c86b7f1890716c1ec639d8e7b8b24"
+  },
+  "runtimeVerification": {
+    "pureParserFixture": "PASS",
+    "fixturePitEvents": 220,
+    "fixtureCausalEligible": 220,
+    "badDifferenceRejected": true,
+    "liveEodhdAudit": "NOT_RUN"
+  }
+}
