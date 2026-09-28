@@ -19,7 +19,7 @@
     "docs/CORE_OUTPERFORMANCE_PRICE_DISCOVERY_HANDOFF_2026-09-28.md": "fc8855c53e85c64837cb1ae7046e94047cfbbcb7",
     "validation-runs/preregistration/sector-52w-high-leadership-v1-design.json": "2c0c4a6d1165f133e033032035451fc0b53c4837",
     "validation-runs/preregistration/sector-52w-high-leadership-v1-design-seal.json": "98650f463fba96625bd7bc70a1c950d3f2fae6a7",
-    "docs/SECTOR_52W_HIGH_LEADERSHIP_V1_SOURCE_FALLBACK_2026-09-28.md": "817cfbedafffc37cacca6b4c7e4a12f8b1babfec",
+    "docs/SECTOR_52W_HIGH_LEADERSHIP_V1_SOURCE_FALLBACK_2026-09-28.md": "5135085e6fe9e7b3d38cf3dd447bc1f39c6cc3a1",
     "scripts/sector52WeekHighLeadershipV1Protocol.mjs": "f981a9934d88524c39b5e5426fd90f6ca8e09f4d",
     "scripts/sector52WeekHighLeadershipV1Live.mjs": "385c7880020f121f491234dbbe093c03b06e808f",
     "tests/sector52WeekHighLeadershipV1.unit.mjs": "de238dddaf8b2b27c2830bc378f438146a5476d1",
@@ -32,5 +32,7 @@
     "nodeShellAvailable": false,
     "nodeNpmTscExecuted": false,
     "note": "No shell/Codespace is exposed in this chat; do not interpret this seal as a Node/npm execution result."
-  }
+  },
+  "resealedAt": "2026-09-28",
+  "resealReason": "Fallback reconciliation tolerance <=0.20 pp/year versus both official NAV and Market Value was frozen before candidate economic returns; no candidate outcomes opened."
 }
