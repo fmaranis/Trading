@@ -10,6 +10,9 @@ const main = fs.readFileSync(path.resolve(process.cwd(), 'src/decisionMain.tsx')
 assert.match(routes, /id: 'sector-52w-high-leadership-v1'/);
 assert.match(routes, /scripts\/sector52WeekHighLeadershipV1YahooInput\.mjs/);
 assert.match(routes, /scripts\/sector52WeekHighLeadershipV1Live\.mjs/);
+assert.match(routes, /scripts\/sector52WeekHighLeadershipV1YahooNavAudit\.mjs/);
+assert.match(routes, /tests\/sector52WeekHighLeadershipV1YahooNavAudit\.unit\.mjs/);
+assert.match(routes, /tests\/sector52WeekHighLeadershipV1YahooCorporateActions\.unit\.mjs/);
 assert.match(routes, /scripts\/sector52WeekHighLeadershipV1RevisionGuard\.mjs/);
 assert.match(routes, /tests\/sector52WeekHighLeadershipV1\.e2e\.unit\.mjs/);
 assert.match(routes, /scripts\/sector52WeekHighLeadershipV1YahooCorporateActions\.mjs/);
