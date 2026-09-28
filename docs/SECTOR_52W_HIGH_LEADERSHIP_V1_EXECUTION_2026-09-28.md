@@ -168,3 +168,29 @@ Methodological status:
 Evidence:
 
 `validation-runs/diagnostics/sector-52w-high-leadership-v1-first-run-technical-invalid-2026-09-28.json`.
+
+
+## Technical R3 closure after two invalid exports
+
+Both local exports generated on 2026-09-28 at 19:25 and 19:33 are **technically invalid** and must not be interpreted as `FAIL_DIAGNOSTIC`.
+
+Common evidence:
+
+- same frozen Yahoo input hash: `35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f`;
+- candidate economics = null;
+- 12-2 control economics = null;
+- SPY / URTH / equal9 finite;
+- no implementation revision fingerprint;
+- replication unopened.
+
+Canonical status: **BOTH_RUNS_TECHNICAL_INVALID_NO_ECONOMIC_VERDICT**.
+
+Current technical revision:
+
+`SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28`.
+
+The local job now refuses a missing/wrong revision and runs a full synthetic E2E **before Yahoo**. The E2E covers both a rotation-heavy portfolio and a deliberately strong scenario that must pass diagnostic, open replication and execute bootstrap/frequency classification. Real-data execution is additionally blocked unless the Yahoo raw corporate-action audit and the 9/9 State Street NAV reconciliation pass.
+
+No signal, date, top-3, six-vote rule, transaction cost or economic gate was retuned after outcomes.
+
+Production remains `LEGACY`.
