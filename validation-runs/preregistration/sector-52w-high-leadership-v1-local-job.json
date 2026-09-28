@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "study": "SECTOR_52W_HIGH_LEADERSHIP_V1",
   "recordedAt": "2026-09-28",
-  "status": "R3_TECHNICALLY_HARDENED_NO_VALID_ECONOMIC_VERDICT",
+  "status": "READY_FOR_SINGLE_REAL_ECONOMIC_RUN",
   "economicResult": "NO_VALID_ECONOMIC_VERDICT",
   "outcomesOpened": true,
   "productionDefault": "LEGACY",
@@ -53,7 +53,7 @@
   "preOutcomeSeal": "validation-runs/preregistration/sector-52w-high-leadership-v1-execution-seal.json",
   "currentHead": "5919a224fcd490aba9c5cf9b9203a2d2c815203d",
   "chatLimitation": "ChatGPT cannot execute the user's local backend or access its Yahoo cache. R3 logic has independent Node/pure-function tests here and exact E2E is mandatory inside the local job before Yahoo/economic execution.",
-  "nextAction": "NO USER TEST ACTION REQUESTED UNTIL R3 TECHNICAL CLOSURE IS RECORDED; both prior exports are invalid.",
+  "nextAction": "Run exactly once from ResearchValidationCenter using the rev. técnica 3 job. All technical/unit/E2E/runtime/architecture/TypeScript/data guards execute before the economic runner.",
   "implementationRevision": "SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28",
   "invalidLocalRuns": 2,
   "preRealDataSelfTests": {
@@ -72,5 +72,6 @@
     "corporateActions": "PASS required from raw Yahoo cache before economic runner",
     "navReconciliation": "All 9 sectors must be within ±0.20 pp/year versus both State Street official NAV and market-value 10y returns as of 2026-08-31",
     "failClosed": true
-  }
+  },
+  "technicalVerification": "validation-runs/diagnostics/sector-52w-high-leadership-v1-r3-technical-verification-2026-09-28.json"
 }
