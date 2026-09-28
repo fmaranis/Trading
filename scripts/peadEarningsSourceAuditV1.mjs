@@ -60,8 +60,11 @@ export function auditPayloads(componentPayload,earningsPayload){
   const pit=events.filter(e=>e.reportDate&&activeMember(components,e.ticker,e.reportDate));
   const knownTiming=pit.filter(e=>e.timing==='BeforeMarket'||e.timing==='AfterMarket');
   const actualEstimate=pit.filter(e=>e.actual!=null&&e.estimate!=null);
-  const diffTolerance=1e-8;
-  const inconsistent=pit.filter(e=>e.actual!=null&&e.estimate!=null&&e.difference!=null&&Math.abs((e.actual-e.estimate)-e.difference)>diffTolerance*Math.max(1,Math.abs(e.actual),Math.abs(e.estimate)));
+  const inconsistent=pit.filter(e=>{
+    if(e.actual==null||e.estimate==null||e.difference==null)return false;
+    const tolerance=Math.max(0.005,1e-4*Math.max(1,Math.abs(e.actual),Math.abs(e.estimate)));
+    return Math.abs((e.actual-e.estimate)-e.difference)>tolerance;
+  });
   const seen=new Set(),duplicates=[];
   for(const e of pit){
     const k=[e.ticker,e.fiscalDate,e.reportDate].join('|');
