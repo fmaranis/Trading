@@ -3,7 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import {
   SECTOR_52W_HIGH_LEADERSHIP_V1 as P,
-  assertSeries, assertFullCoverage, sortBars, toDate,
+  assertSeries, assertFullCoverage, firstDateOnOrAfter, sortBars, toDate,
   buildPrimaryMonthlySignals, buildMomentumMonthlySignals, addExecutionDates,
   rebalanceAtOpen, liquidateAtOpen, markAtClose, metrics, bootstrapJointExcess
 } from './sector52WeekHighLeadershipV1Protocol.mjs';
@@ -16,7 +16,6 @@ const RESULT_MARKER='SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT';
 
 function sha256(text){return crypto.createHash('sha256').update(text).digest('hex');}
 function byDate(bars){return new Map(sortBars(bars).map(r=>[toDate(r),r]));}
-function firstDateOnOrAfter(calendar,d){const x=calendar.find(v=>v>=d);if(!x)throw new Error('BOUNDARY_MISSING:'+d);return x;}
 function opensAt(maps,date,symbols){
   return Object.fromEntries(symbols.map(s=>{
     const row=maps[s]?.get(date); if(!row) throw new Error('OPEN_MISSING:'+s+':'+date);
