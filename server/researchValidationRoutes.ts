@@ -237,6 +237,7 @@ const JOBS: JobDefinition[] = [
     marker: 'SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT',
     visibility: 'CURRENT',
     steps: [
+      { label: 'Guard revisión sector 52W', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1RevisionGuard.mjs'] },
       { label: 'Guard protocolo sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.unit.mjs'] },
       { label: 'Guard causalidad sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.causal.unit.mjs'] },
       { label: 'Guard Yahoo REAL sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1YahooInput.unit.mjs'] },
