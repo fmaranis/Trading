@@ -194,3 +194,30 @@ The local job now refuses a missing/wrong revision and runs a full synthetic E2E
 No signal, date, top-3, six-vote rule, transaction cost or economic gate was retuned after outcomes.
 
 Production remains `LEGACY`.
+
+
+## Valid economic diagnostic — final V1 decision
+
+The R3 local run produced the first technically valid economic result.
+
+Status: **FAIL_DIAGNOSTIC**.
+
+At the frozen 20 bps/side hurdle:
+
+| Metric | 52W V1 | Comparator |
+|---|---:|---:|
+| CAGR | 10.1157% | SPY 11.3116% |
+| CAGR | 10.1157% | URTH 7.1922% |
+| CAGR | 10.1157% | equal-weight 9-sector basket 10.2581% |
+| CAGR | 10.1157% | 12-2 sector control 9.4761% |
+| Max drawdown | -20.5044% | URTH -18.8925% |
+| Sharpe | 0.8181 | URTH 0.5329 |
+| Joint 12m hit rate vs SPY+URTH | 33.33% | target reported separately |
+
+Frozen gates: FAIL vs SPY, PASS vs URTH, FAIL vs equal9, FAIL drawdown, PASS Sharpe. Therefore the joint diagnostic gate fails.
+
+Replication 2019–2025 remains **UNOPENED** by construction.
+
+The 52-week-high selector modestly outperformed the same-universe 12-2 control in this diagnostic, but did not outperform the equal-weight sector basket and its incremental selector HAC12 alpha is negative with t-stat approximately -0.61. This does not justify parameter rescue.
+
+Decision: **close V1; no retrospective change to top-count, six-month voting, lookback, costs or dates; no parametric V2 on this consumed diagnostic.**
