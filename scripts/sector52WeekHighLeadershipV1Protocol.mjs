@@ -1,5 +1,6 @@
 export const SECTOR_52W_HIGH_LEADERSHIP_V1 = Object.freeze({
   version:'SECTOR_52W_HIGH_LEADERSHIP_V1',
+  implementationRevision:'SECTOR_52W_HIGH_LEADERSHIP_V1_ROTATION_FIX_R2_2026_09_28',
   researchOnly:true,
   productionAuthority:false,
   productionDefault:'LEGACY',
