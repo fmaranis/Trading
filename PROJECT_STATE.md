@@ -1134,3 +1134,20 @@ Actualización 2026-09-28 — SECTOR_52W_HIGH_LEADERSHIP_V1 integrada en Researc
 - estado económico en main: **READY_LOCAL_APP_EXECUTION / NOT_RUN**; diagnóstico y replicación siguen **UNOPENED** en el repositorio;
 - siguiente acción normal: sincronizar/usar este HEAD en la app local, abrir **Validación de investigación** y pulsar una sola vez **Ejecutar diagnóstico 52W**. No ejecutar scripts manualmente;
 - Quality/Profitability se conservan; producción productiva sigue **LEGACY**, sin cambio en `CORE_ARCHITECTURE_V1` ni autoridad productiva.
+
+
+---
+
+Actualización 2026-09-28 — primer run 52W inválido técnicamente; fix de rotación:
+
+- primera ejecución local del job `sector-52w-high-leadership-v1`: backend/job terminó, pero el resultado económico reportado como `FAIL_DIAGNOSTIC` **NO ES VÁLIDO**;
+- evidencia observada: candidata 52W y control 12-2 devolvieron `null` en total return/CAGR/vol/drawdown/Sharpe, además de `null` en costes/turnover/HAC, mientras SPY/URTH/equal9 sí fueron finitos; esto identifica contaminación `NaN` serializada como `null`;
+- root cause confirmado en código: al rotar una cartera mensual, `simulate` pedía opens sólo de los nuevos targets. Una posición que salía de cartera no tenía precio de apertura para ser valorada/vendida en `rebalanceAtOpen`, generando `undefined -> NaN`. Equal9 no sufría el bug porque siempre mantiene los nueve sectores;
+- clasificación correcta del primer run: **TECHNICAL_INVALID_NO_ECONOMIC_VERDICT**. No usar su `FAIL_DIAGNOSTIC` como evidencia contra la señal;
+- reparación técnica, sin retuning: el rebalanceo usa ahora la unión de **holdings actuales + nuevos targets**; precios/costes/equity no finitos hacen hard-fail; el runner rechaza bloques económicos no finitos antes de gates;
+- el runner detecta el resultado local inválido existente, lo archiva como `sector-52w-high-leadership-v1-result-invalid-technical-v1.json` y recalcula usando **el mismo input Yahoo congelado**, sin refrescar datos ni cambiar política;
+- test añadido para rotación explícita A/B -> B/C y para precio faltante de una posición saliente; checks dirigidos en runtime JS: PASS;
+- evidencia durable: `validation-runs/diagnostics/sector-52w-high-leadership-v1-first-run-technical-invalid-2026-09-28.json`;
+- metodología: diagnóstico histórico ya **OPENED/CONSUMED como diagnóstico técnico**, sin autoridad de promoción; replicación 2019-2025 sigue **UNOPENED** porque nunca fue calculada. La reparación no cambia señal, top3, seis votos, fechas, costes ni gates;
+- execution seal actualizado tras el fix; producción sigue **LEGACY**;
+- siguiente acción: sincronizar al HEAD corregido y volver a pulsar **Ejecutar diagnóstico 52W** una sola vez. El job reutilizará el mismo input Yahoo y sólo abrirá replicación si el diagnóstico válido pasa.
