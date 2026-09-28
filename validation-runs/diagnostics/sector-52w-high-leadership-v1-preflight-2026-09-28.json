@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "study": "SECTOR_52W_HIGH_LEADERSHIP_V1",
+  "checkedAt": "2026-09-28",
+  "headAtCheck": "614ab08b8f4a959ac94021a11f6dc63f38a73d29",
+  "status": "INCONCLUSIVE_DATA_RECONCILIATION",
+  "economicResult": "NOT_RUN",
+  "diagnosticOpened": false,
+  "replicationOpened": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "promotionAllowed": false,
+  "implementation": {
+    "protocol": "scripts/sector52WeekHighLeadershipV1Protocol.mjs",
+    "runner": "scripts/sector52WeekHighLeadershipV1Live.mjs",
+    "unit": "tests/sector52WeekHighLeadershipV1.unit.mjs",
+    "causalUnit": "tests/sector52WeekHighLeadershipV1.causal.unit.mjs",
+    "executionSeal": "validation-runs/preregistration/sector-52w-high-leadership-v1-execution-seal.json"
+  },
+  "verification": {
+    "exactProtocolJavascriptIsolate": {
+      "status": "PASS",
+      "checks": 13,
+      "marker": "SECTOR_52W_HIGH_LEADERSHIP_V1_PROTOCOL_RUNTIME_PASS"
+    },
+    "nodeShellAvailable": false,
+    "nodeNpmTscExecuted": false
+  },
+  "primarySource": {
+    "id": "YAHOO_CHART_EXISTING_PROVIDER",
+    "status": "BLOCKED_CURRENT_CHAT_RUNTIME",
+    "detail": "Direct Yahoo chart URL is inaccessible through the available web/runtime tools; no server/Codespace shell is exposed."
+  },
+  "secondarySource": {
+    "id": "WOLFRAM_FINANCIALDATA",
+    "provenance": "REAL_SECONDARY",
+    "smallIntervalPreflight": {
+      "status": "PASS",
+      "interval": [
+        "2024-01-02",
+        "2024-01-12"
+      ],
+      "sessions": 9,
+      "symbols": 11,
+      "commonCalendar": true,
+      "exchange": "NewYorkStockExchange",
+      "adjustedOpenFormulaMaxRelativeErrorLt": 2.3e-16
+    },
+    "frozenReconciliation": {
+      "asOf": "2026-08-31",
+      "periodYears": 10,
+      "toleranceAbsPctPointsPerYear": 0.2,
+      "requiredAgainst": [
+        "State Street official NAV",
+        "State Street official Market Value"
+      ],
+      "status": "FAIL",
+      "passedSymbols": [
+        "XLF",
+        "XLI",
+        "XLP",
+        "XLV"
+      ],
+      "failedSymbols": [
+        "XLB",
+        "XLE",
+        "XLK",
+        "XLU",
+        "XLY"
+      ],
+      "rows": [
+        {
+          "symbol": "XLB",
+          "wolframCagrPct": 12.247364018217933,
+          "officialNavPct": 10.21,
+          "officialMarketValuePct": 10.21,
+          "diffNavPp": 2.0373640182179322,
+          "diffMarketValuePp": 2.0373640182179322,
+          "pass": false
+        },
+        {
+          "symbol": "XLE",
+          "wolframCagrPct": 14.998761081067435,
+          "officialNavPct": 10.79,
+          "officialMarketValuePct": 10.79,
+          "diffNavPp": 4.208761081067436,
+          "diffMarketValuePp": 4.208761081067436,
+          "pass": false
+        },
+        {
+          "symbol": "XLF",
+          "wolframCagrPct": 13.267688637769304,
+          "officialNavPct": 13.28,
+          "officialMarketValuePct": 13.28,
+          "diffNavPp": -0.012311362230695622,
+          "diffMarketValuePp": -0.012311362230695622,
+          "pass": true
+        },
+        {
+          "symbol": "XLI",
+          "wolframCagrPct": 13.471915080079988,
+          "officialNavPct": 13.48,
+          "officialMarketValuePct": 13.49,
+          "diffNavPp": -0.008084919920012368,
+          "diffMarketValuePp": -0.018084919920012155,
+          "pass": true
+        },
+        {
+          "symbol": "XLK",
+          "wolframCagrPct": 25.560805943332852,
+          "officialNavPct": 24.3,
+          "officialMarketValuePct": 24.3,
+          "diffNavPp": 1.2608059433328513,
+          "diffMarketValuePp": 1.2608059433328513,
+          "pass": false
+        },
+        {
+          "symbol": "XLP",
+          "wolframCagrPct": 7.321156099277926,
+          "officialNavPct": 7.39,
+          "officialMarketValuePct": 7.4,
+          "diffNavPp": -0.06884390072207403,
+          "diffMarketValuePp": -0.0788439007220747,
+          "pass": true
+        },
+        {
+          "symbol": "XLU",
+          "wolframCagrPct": 12.082593733232061,
+          "officialNavPct": 8.92,
+          "officialMarketValuePct": 8.92,
+          "diffNavPp": 3.162593733232061,
+          "diffMarketValuePp": 3.162593733232061,
+          "pass": false
+        },
+        {
+          "symbol": "XLV",
+          "wolframCagrPct": 10.758840693462869,
+          "officialNavPct": 10.72,
+          "officialMarketValuePct": 10.72,
+          "diffNavPp": 0.038840693462868,
+          "diffMarketValuePp": 0.038840693462868,
+          "pass": true
+        },
+        {
+          "symbol": "XLY",
+          "wolframCagrPct": 13.456131927378356,
+          "officialNavPct": 12.36,
+          "officialMarketValuePct": 12.36,
+          "diffNavPp": 1.096131927378357,
+          "diffMarketValuePp": 1.096131927378357,
+          "pass": false
+        }
+      ]
+    }
+  },
+  "officialCorporateActionFinding": {
+    "source": "State Street Select Sector SPDR Fund Share Splits FAQ / AP notice",
+    "announcementDate": "2025-11-20",
+    "effectiveTradingDate": "2025-12-05",
+    "split": "2:1",
+    "affected": [
+      "XLB",
+      "XLE",
+      "XLK",
+      "XLU",
+      "XLY"
+    ],
+    "observation": "The reconciliation failures are exactly the five funds in the official 2025 2:1 split set. This is treated as evidence of an unresolved adjustment incompatibility, not repaired after the fact."
+  },
+  "stopDecision": "STOP_BEFORE_DIAGNOSTIC_OUTCOMES",
+  "nextAction": "RUN_THE_ALREADY_SEALED_IMPLEMENTATION_UNCHANGED_IN_A_RUNTIME_WITH_WORKING_PRIMARY_YAHOO_PROVIDER; DO_NOT_USE_WOLFRAM_FOR_ECONOMIC_CLAIMS_OR MODIFY_SIGNAL_PARAMETERS."
+}
