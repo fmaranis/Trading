@@ -1092,3 +1092,23 @@ Actualización 2026-09-28 — nueva prioridad autorizada: gráficos/liderazgo se
 - Calidad corporativa/Profitability conservan avances de señal; el FAIL de slopes20/60 en15 episodios no invalida todo análisis técnico. Tampoco permite retunear aquella política. Ramas cerradas, snapshots, sellos e infraestructura prospectiva permanecen intactos.
 - Siguiente acción: el chat ejecutor debe implementar/tests/seal/preflight/diagnóstico siguiendo el plan; no entregar otro plan, no pedir al usuario ejecutar el Centro. Si hay bloqueo, registrar causa exacta y parar sin inventar precios ni reducir cobertura.
 - Cambios de esta sesión sólo documentación/especificación; comprobados hashes y coherencia del diseño. **No se ejecutó backtest nuevo ni se capturó inicio prospectivo.** Producción LEGACY, authority=false. No Actions/subagentes ni automatización.
+
+
+---
+
+Actualización 2026-09-28 — SECTOR_52W_HIGH_LEADERSHIP_V1 implementada, bloqueada antes de outcomes:
+
+- diseño canónico seguido sin replantear: `docs/CORE_OUTPERFORMANCE_PRICE_DISCOVERY_PLAN_2026-09-28.md` + handoff; candidata `SECTOR_52W_HIGH_LEADERSHIP_V1`;
+- implementación research-only añadida: `scripts/sector52WeekHighLeadershipV1Protocol.mjs` y `scripts/sector52WeekHighLeadershipV1Live.mjs`; tests `tests/sector52WeekHighLeadershipV1.unit.mjs` y `tests/sector52WeekHighLeadershipV1.causal.unit.mjs`;
+- semántica congelada preservada: nueve Select Sector originales; max252 causal incluido t; top3; empate ticker ASCII; seis votos /18; monthly NEXT_OPEN; equal-weight9; ablación 12-2 congelada antes de outcomes como close[t-2]/close[t-12]-1; stress 10/20 pb/side; gates/riesgo/hit-rate/bootstrap del plan;
+- sello de ejecución pre-outcome: `validation-runs/preregistration/sector-52w-high-leadership-v1-execution-seal.json`; `economicResult=NOT_RUN`, `outcomesOpened=false`;
+- exact protocol ejecutado en el runtime JS disponible: **13 checks PASS**, marker `SECTOR_52W_HIGH_LEADERSHIP_V1_PROTOCOL_RUNTIME_PASS`; se corrigió únicamente un fixture de prefix-invariance que cortaba artificialmente a mitad de mes; protocolo económico no cambió;
+- limitación del chat: **no existe shell/Codespace expuesto**, por lo que Node CLI/npm/tsc no se ejecutaron y no se declaran PASS;
+- fuente primaria Yahoo del proveedor existente: **BLOCKED_CURRENT_CHAT_RUNTIME**; acceso directo al endpoint no disponible desde las herramientas actuales;
+- fallback Wolfram `REAL_SECONDARY` se congeló antes de outcomes, incluido guard de reconciliación oficial <= **0,20 pp/año** frente a NAV y Market Value State Street a 10 años para los 9 sectores;
+- preflight corto Wolfram: 11/11 símbolos, 9 sesiones comunes, NYSE, adjusted-open reconstruido coincide con `rawOpen × adjustedClose/rawClose` a precisión de coma flotante;
+- reconciliación oficial 31-08-2026: PASS sólo XLF/XLI/XLP/XLV; FAIL XLB/XLE/XLK/XLU/XLY. Los cinco FAIL coinciden exactamente con los cinco Select Sector sometidos por State Street a split 2:1 efectivo 05-12-2025; se registra incompatibilidad de ajuste no resuelta y **no se corrige post-hoc**;
+- estado de ejecución: **INCONCLUSIVE_DATA_RECONCILIATION**; diagnóstico 2013-2018 **NO ABIERTO / NO CALCULADO**; replicación 2019-2025 **NO ABIERTA / NO CALCULADA**; no existe CAGR/hit-rate/gate económico válido de la candidata;
+- evidencia: `validation-runs/diagnostics/sector-52w-high-leadership-v1-preflight-2026-09-28.json` y `docs/SECTOR_52W_HIGH_LEADERSHIP_V1_EXECUTION_2026-09-28.md`;
+- siguiente acción permitida: ejecutar **sin modificar** la implementación sellada en un runtime donde funcione el proveedor Yahoo primario; si falta reconciliación/cobertura/accounting, conservar INCONCLUSIVE. No cambiar signal/window/top3/votes/costs para rescatar;
+- Quality/Profitability y sus snapshots/sellos permanecen intactos; producción continúa **LEGACY**, `productionAuthority=false`, sin integración productiva.
