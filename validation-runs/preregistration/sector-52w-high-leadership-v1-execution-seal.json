@@ -4,8 +4,8 @@
   "frozenAt": "2026-09-28",
   "scope": "EXECUTION_CODE_AND_TESTS_PRE_OUTCOME",
   "headBeforeMarketData": "e9d30b991d3746c3ba8650126a4a0db6b6eb6062",
-  "economicResult": "NOT_RUN",
-  "outcomesOpened": false,
+  "economicResult": "NOT_VALID_YET",
+  "outcomesOpened": true,
   "productionDefault": "LEGACY",
   "productionAuthority": false,
   "retuneAllowed": false,
@@ -20,10 +20,10 @@
     "validation-runs/preregistration/sector-52w-high-leadership-v1-design.json": "2c0c4a6d1165f133e033032035451fc0b53c4837",
     "validation-runs/preregistration/sector-52w-high-leadership-v1-design-seal.json": "98650f463fba96625bd7bc70a1c950d3f2fae6a7",
     "docs/SECTOR_52W_HIGH_LEADERSHIP_V1_SOURCE_FALLBACK_2026-09-28.md": "5135085e6fe9e7b3d38cf3dd447bc1f39c6cc3a1",
-    "scripts/sector52WeekHighLeadershipV1Protocol.mjs": "9062b9664e6b8055653c1c9129d63be9edf086d7",
+    "scripts/sector52WeekHighLeadershipV1Protocol.mjs": "dcc0b3fba7acacec9da55fcd9c5a0fe88279d914",
     "scripts/sector52WeekHighLeadershipV1YahooInput.mjs": "0aca2adeb7a6b7e36d1226ae555e18e5721ff67a",
-    "scripts/sector52WeekHighLeadershipV1Live.mjs": "d75c79db0147fd05df9a71035e0a5ce445a1cb22",
-    "tests/sector52WeekHighLeadershipV1.unit.mjs": "b2da4aa09c2ed3902c0c9c4ec49afc31389d167f",
+    "scripts/sector52WeekHighLeadershipV1Live.mjs": "25bba6a3d1a6ed69f7c968372aef9f799a2e54ff",
+    "tests/sector52WeekHighLeadershipV1.unit.mjs": "6501d5828b84b587ab07710950ae5f4ec0a8f7f8",
     "tests/sector52WeekHighLeadershipV1.causal.unit.mjs": "290a54d84d0a1bda200f8eaab4b41d96cec16c44",
     "tests/sector52WeekHighLeadershipV1YahooInput.unit.mjs": "96eda77f8d895cf0e9ded3d7058e7db309bb4422",
     "tests/researchValidationRuntime.unit.ts": "d6d50e4a32e392c5a8a902240496882b5f0d1de0",
@@ -38,8 +38,11 @@
     "nodeNpmTscExecuted": false,
     "localAppJobIntegrated": true,
     "localAppJobId": "sector-52w-high-leadership-v1",
-    "note": "This chat has no shell/Codespace. The integrated local-app job runs Node guards, researchValidationRuntime, coreArchitectureV1, npm run lint, Yahoo REAL input freeze and the economic runner in that order."
+    "note": "The first local run opened diagnostic data but produced NaN/null candidate metrics due a rotation accounting bug. Repair is technical only; replication remained unopened.",
+    "postFixRotationChecks": 6,
+    "technicalFirstRunInvalid": true,
+    "validEconomicVerdictAvailable": false
   },
   "resealedAt": "2026-09-28",
-  "resealReason": "ResearchValidationCenter integration completed before economic outcomes: Yahoo REAL input freezer/cache, 10/20 bps runner, causal boundary fix, descriptive technicals, joint-CAGR bootstrap, backend job, runtime guard and UI are all fingerprinted. Signal/weights/windows/gates unchanged."
+  "resealReason": "Technical repair after first invalid run: monthly rotation now prices union(current holdings,new targets); non-finite values hard-fail; invalid cached result is archived/recomputed from same frozen Yahoo input. No signal/date/gate/cost/data retuning."
 }
