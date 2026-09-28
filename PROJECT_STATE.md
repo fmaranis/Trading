@@ -1112,3 +1112,25 @@ Actualización 2026-09-28 — SECTOR_52W_HIGH_LEADERSHIP_V1 implementada, bloque
 - evidencia: `validation-runs/diagnostics/sector-52w-high-leadership-v1-preflight-2026-09-28.json` y `docs/SECTOR_52W_HIGH_LEADERSHIP_V1_EXECUTION_2026-09-28.md`;
 - siguiente acción permitida: ejecutar **sin modificar** la implementación sellada en un runtime donde funcione el proveedor Yahoo primario; si falta reconciliación/cobertura/accounting, conservar INCONCLUSIVE. No cambiar signal/window/top3/votes/costs para rescatar;
 - Quality/Profitability y sus snapshots/sellos permanecen intactos; producción continúa **LEGACY**, `productionAuthority=false`, sin integración productiva.
+
+
+---
+
+Actualización 2026-09-28 — SECTOR_52W_HIGH_LEADERSHIP_V1 integrada en ResearchValidationCenter:
+
+- aclaración del bloqueo anterior: `INCONCLUSIVE_DATA_RECONCILIATION` describía exclusivamente el runtime de ChatGPT, donde Yahoo primario no era accesible y Wolfram fue rechazado como fallback económico. **No es el runtime previsto de ejecución final**;
+- la candidata está ahora integrada como job local de la propia app: `sector-52w-high-leadership-v1` en `ResearchValidationCenter`, botón **Ejecutar diagnóstico 52W**;
+- backend: `server/researchValidationRoutes.ts`; UI: `src/components/ResearchValidationCenter.tsx`; ejecución marcada `LOCAL_APP_BACKEND`, sin IA ni GitHub Actions;
+- cadena del job: guard protocolo -> guard causal/prefix -> guard parser/identidad Yahoo -> guard runtime -> guard `CORE_ARCHITECTURE_V1` -> `npm run lint` -> descarga/caché Yahoo REAL -> runner económico;
+- Yahoo REAL local: `scripts/sector52WeekHighLeadershipV1YahooInput.mjs`; descarga 2011-07-01 -> 2026-01-07, exige ETF/USD/identidad, adjusted open = raw open × adjClose/rawClose, cobertura completa y cachea raw bajo `.runtime/sector-52w-high-leadership-v1/yahoo`;
+- el primer input válido se congela en `validation-runs/diagnostics/sector-52w-high-leadership-v1-input.json`; ejecuciones posteriores lo reutilizan y no refrescan la muestra histórica;
+- runner `scripts/sector52WeekHighLeadershipV1Live.mjs` completado: calendario de ejecución sectorial conserva señal de diciembre para frontera enero; common calendar incluye la sesión sucesora real; calcula 10 y 20 pb/lado, pero gate de continuidad sólo usa **20 pb/lado**;
+- diagnóstico 2013-2018 siempre se ejecuta primero; replicación 2019-2025 sólo se calcula si el gate diagnóstico 20 pb pasa. Resultado previo, si existe, se reutiliza sin recomputar;
+- estadística corregida al plan: bootstrap pareado circular 12 meses, 2.000 réplicas, seed 20260928, sobre el mínimo del exceso CAGR vs SPY/URTH; límite inferior unilateral 95% >0 requerido en ambos bloques tras gates;
+- slopes20/60/120, aceleración, breakout20 y breakout252 se guardan sólo como descriptivos; no afectan selección/pesos. Fórmula de slopes replica la de `strategyConsensusEngine`; breakout252 excluye t;
+- exact protocol vuelto a ejecutar en el runtime JS de este chat tras las correcciones: **15 checks PASS**; esto no sustituye los guards Node/npm del job local;
+- sello de ejecución regenerado después de integrar Yahoo, runner, tests, route y UI: `validation-runs/preregistration/sector-52w-high-leadership-v1-execution-seal.json`;
+- evidencia de integración: `validation-runs/preregistration/sector-52w-high-leadership-v1-local-job.json`;
+- estado económico en main: **READY_LOCAL_APP_EXECUTION / NOT_RUN**; diagnóstico y replicación siguen **UNOPENED** en el repositorio;
+- siguiente acción normal: sincronizar/usar este HEAD en la app local, abrir **Validación de investigación** y pulsar una sola vez **Ejecutar diagnóstico 52W**. No ejecutar scripts manualmente;
+- Quality/Profitability se conservan; producción productiva sigue **LEGACY**, sin cambio en `CORE_ARCHITECTURE_V1` ni autoridad productiva.
