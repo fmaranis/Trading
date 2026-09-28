@@ -1219,3 +1219,26 @@ Actualización 2026-09-28 — SECTOR_52W_HIGH_LEADERSHIP_V1 diagnóstico económ
 - resultado canónico: `validation-runs/diagnostics/sector-52w-high-leadership-v1-result.json`;
 - producción continúa **LEGACY**; Quality/Profitability se conservan sin cambios;
 - siguiente línea permitida: hipótesis **materialmente distinta**, con preregistro propio. Prioridad de estudio: PEAD / reacción tardía a sorpresa de resultados, empezando por demostrar disponibilidad causal de evento + consenso previo + before/after-market antes de cualquier outcome.
+
+
+---
+
+Actualización 2026-09-28 — transición a PEAD source audit V1:
+
+- `SECTOR_52W_HIGH_LEADERSHIP_V1` permanece **CLOSED / FAIL_DIAGNOSTIC / NO RETUNE**; job 52W archivado en `ResearchValidationCenter` para impedir relanzamientos accidentales;
+- siguiente familia materialmente distinta: PEAD / reacción tardía a sorpresa de resultados; no hereda parámetros ni muestras de 52W;
+- antes de cualquier backtest se ha congelado `PEAD_EARNINGS_SOURCE_AUDIT_V1`: sólo audita si existe materia prima causal suficiente, **sin descargar precios ni outcomes**;
+- plan: `docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_PLAN_2026-09-28.md`;
+- fuente prevista: EODHD Calendar Earnings + S&P500 HistoricalTickerComponents `GSPC.INDX`, reutilizando infraestructura PIT ya existente;
+- contrato documental EODHD revisado: `report_date`, `before_after_market`, EPS `actual`, consenso `estimate`, `difference`, `percent`; EODHD describe el estimate como previo al release, pero no se asume un archivo de vintages de consenso con autoridad prospectiva;
+- ventana source-audit congelada: **2024-01-15 -> 2024-03-15**; no se examinan retornos;
+- gates congelados antes del feed: >=200 eventos S&P500 PIT, >=70% timing conocido, >=70% actual+consenso, >=150 causalmente utilizables, 0 duplicados, 0 inconsistencias materiales de `actual-estimate`;
+- tolerancia de diferencia EPS congelada: `max(0,005; 0,01% relativo)`;
+- parser/audit: `scripts/peadEarningsSourceAuditV1.mjs`; unit: `tests/peadEarningsSourceAuditV1.unit.mjs`;
+- fixture exacto de parser ejecutado en runtime JS: **PASS**, 220/220 eventos PIT/causales; discrepancia deliberada rechazada;
+- job integrado: `pead-earnings-source-audit-v1` / **PEAD · auditoría causal de datos · V1**; ejecuta unit -> runtime guard -> core architecture -> TypeScript -> audit EODHD REAL;
+- 52W se movió a histórico del Centro de validación con estado `FAIL_DIAGNOSTIC · cerrado`;
+- sello pre-live: `validation-runs/preregistration/pead-earnings-source-audit-v1-seal.json`; `economicOutcomesOpened=false`, `priceOutcomesFetched=false`, señal/política económica todavía NO congeladas;
+- limitación operativa real: `EODHD_API_KEY` está sólo en el backend local y no es accesible desde este chat. No pedir/pegar secretos; el audit live debe correr dentro del backend local cuando corresponda;
+- si el audit live devuelve `INCONCLUSIVE_SOURCE_CAUSALITY`, PEAD se bloquea sin abrir precios. Sólo un `PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION` permite diseñar/congelar la prueba predictiva;
+- producción continúa **LEGACY**, sin cambios en la cadena productiva.
