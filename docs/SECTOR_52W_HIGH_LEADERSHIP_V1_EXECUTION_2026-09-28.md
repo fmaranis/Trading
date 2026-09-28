@@ -132,3 +132,39 @@ The execution seal was regenerated after this integration and fingerprints the p
 Machine-readable integration evidence:
 
 `validation-runs/preregistration/sector-52w-high-leadership-v1-local-job.json`.
+
+
+## First local run — technical invalidation
+
+The first local run completed on 2026-09-28, but its reported `FAIL_DIAGNOSTIC` is **not an economic verdict**.
+
+Observed pattern:
+
+- 52W candidate metrics: null;
+- 12-2 control metrics: null;
+- candidate cost/turnover/HAC: null;
+- SPY, URTH and equal-weight-nine metrics: finite;
+- replication: not opened.
+
+Root cause:
+
+At a monthly rotation the runner requested opening prices only for the **new target set**. Any currently-held sector removed from the new target set therefore had no opening price when `rebalanceAtOpen` tried to value/sell it. JavaScript propagated `NaN`; JSON serialization converted those values to `null`. The equal-weight-nine control did not trigger the defect because it always retained all nine sectors.
+
+Repair:
+
+- opening-price request is now `union(current holdings, new targets)`;
+- missing/non-finite opening prices hard-fail;
+- non-finite costs/equity/metrics hard-fail before economic gates;
+- an existing technically-invalid result is archived to `*-invalid-technical-v1.json` and recomputed from the **same frozen Yahoo input**;
+- no signal, threshold, date, weight, cost assumption or gate was changed.
+
+Methodological status:
+
+- first run = `TECHNICAL_INVALID_NO_ECONOMIC_VERDICT`;
+- diagnostic data are now opened/consumed for diagnostic purposes;
+- replication remains unopened;
+- production remains `LEGACY`.
+
+Evidence:
+
+`validation-runs/diagnostics/sector-52w-high-leadership-v1-first-run-technical-invalid-2026-09-28.json`.
