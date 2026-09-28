@@ -77,19 +77,49 @@ export function voteWeights(selections,voteMonths=6){
   return out;
 }
 
+export function regressionSlopeAnnualizedPct(values,lookback){
+  if(values.length<lookback||lookback<2) return null;
+  const slice=values.slice(-lookback);
+  if(slice.some(v=>!Number.isFinite(Number(v))||Number(v)<=0)) return null;
+  const logs=slice.map(v=>Math.log(Number(v))),n=logs.length,meanX=(n-1)/2,meanY=logs.reduce((a,b)=>a+b,0)/n;
+  let num=0,den=0;
+  for(let i=0;i<n;i++){const dx=i-meanX;num+=dx*(logs[i]-meanY);den+=dx*dx;}
+  if(!(den>0)) return null;
+  return (Math.exp((num/den)*252)-1)*100;
+}
+
+export function descriptiveTechnicals(bars,index){
+  const xs=sortBars(bars), closes=xs.slice(0,index+1).map(r=>Number(r.close));
+  const current=closes.at(-1)??null;
+  const prior20=closes.length>=21?closes.slice(-21,-1):[];
+  const prior252=closes.length>=253?closes.slice(-253,-1):[];
+  const slope20=regressionSlopeAnnualizedPct(closes,20);
+  const slope60=regressionSlopeAnnualizedPct(closes,60);
+  const slope120=regressionSlopeAnnualizedPct(closes,120);
+  return {
+    slope20AnnualizedPct:slope20,
+    slope60AnnualizedPct:slope60,
+    slope120AnnualizedPct:slope120,
+    slopeAcceleration20vs60PctPoints:slope20!=null&&slope60!=null?slope20-slope60:null,
+    breakout20:current!=null&&prior20.length===20?current>Math.max(...prior20):null,
+    breakout252:current!=null&&prior252.length===252?current>Math.max(...prior252):null
+  };
+}
+
 export function buildPrimaryMonthlySignals(seriesBySymbol,sectors){
   const ref=sortBars(seriesBySymbol[sectors[0]]);
   const monthIdx=monthEndIndices(ref), history=[], out=[];
   for(const idx of monthIdx){
-    const date=toDate(ref[idx]), scores={};
+    const date=toDate(ref[idx]), scores={}, descriptive={};
     for(const s of sectors){
       const bars=sortBars(seriesBySymbol[s]);
       if(toDate(bars[idx])!==date) throw new Error('SECTOR_CALENDAR_MISMATCH:'+s+':'+date);
       scores[s]=score52w(bars,idx,252);
+      descriptive[s]=descriptiveTechnicals(bars,idx);
     }
     if(Object.values(scores).every(Number.isFinite)){
       const selected=selectTop(scores,3); history.push(selected);
-      if(history.length>=6) out.push({signalDate:date,index:idx,scores,selected,weights:voteWeights(history,6)});
+      if(history.length>=6) out.push({signalDate:date,index:idx,scores,selected,weights:voteWeights(history,6),descriptive});
     }
   }
   return out;
@@ -151,14 +181,18 @@ export function markAtClose(state,closes){
   let v=Number(state.cash??0); for(const [s,shares] of Object.entries(state.shares??{})) v+=Number(shares)*Number(closes[s]); return v;
 }
 
-export function metrics(values){
+export function metrics(values,dates=null){
   if(!Array.isArray(values)||values.length<2) throw new Error('METRICS_TOO_SHORT');
   const vals=values.map(Number), rets=[]; let peak=vals[0],dd=0;
   for(let i=1;i<vals.length;i++){rets.push(vals[i]/vals[i-1]-1);peak=Math.max(peak,vals[i]);dd=Math.min(dd,vals[i]/peak-1);}
   const mean=rets.reduce((a,b)=>a+b,0)/rets.length;
   const sd=rets.length>1?Math.sqrt(rets.reduce((s,x)=>s+(x-mean)**2,0)/(rets.length-1)):0;
-  const years=(vals.length-1)/252;
-  return {totalReturnPct:(vals.at(-1)/vals[0]-1)*100,cagrPct:(Math.pow(vals.at(-1)/vals[0],1/years)-1)*100,annualizedVolPct:sd*Math.sqrt(252)*100,maxDrawdownPct:dd*100,sharpe:sd>0?mean/sd*Math.sqrt(252):null};
+  let years=(vals.length-1)/252;
+  if(Array.isArray(dates)&&dates.length===vals.length){
+    const ms=Date.parse(String(dates.at(-1)).slice(0,10)+'T00:00:00Z')-Date.parse(String(dates[0]).slice(0,10)+'T00:00:00Z');
+    if(ms>0) years=ms/(365.2425*86400000);
+  }
+  return {totalReturnPct:(vals.at(-1)/vals[0]-1)*100,cagrPct:(Math.pow(vals.at(-1)/vals[0],1/years)-1)*100,annualizedVolPct:sd*Math.sqrt(252)*100,maxDrawdownPct:dd*100,sharpe:sd>0?mean/sd*Math.sqrt(252):null,years};
 }
 
 export function bootstrapMean(values,{block=12,reps=2000,seed=20260928}={}){
@@ -167,4 +201,37 @@ export function bootstrapMean(values,{block=12,reps=2000,seed=20260928}={}){
   const samples=[];
   for(let r=0;r<reps;r++){const out=[];while(out.length<n){const start=Math.floor(rnd()*n);for(let k=0;k<block&&out.length<n;k++)out.push(xs[(start+k)%n]);}samples.push(out.reduce((a,b)=>a+b,0)/out.length);}
   samples.sort((a,b)=>a-b); return {lower95:samples[Math.floor(0.05*reps)],median:samples[Math.floor(0.5*reps)],upper95:samples[Math.floor(0.95*reps)]};
+}
+
+export function cagrFromPeriodicReturns(values,periodsPerYear=12){
+  if(!Array.isArray(values)||!values.length) throw new Error('CAGR_RETURNS_EMPTY');
+  const wealth=values.reduce((w,r)=>w*(1+Number(r)),1);
+  return Math.pow(wealth,periodsPerYear/values.length)-1;
+}
+
+export function bootstrapJointExcess(candidate,spy,urth,{block=12,reps=2000,seed=20260928}={}){
+  const n=Math.min(candidate.length,spy.length,urth.length);
+  if(n<block+1) throw new Error('BOOTSTRAP_TOO_SHORT');
+  const c=candidate.slice(0,n).map(Number),s=spy.slice(0,n).map(Number),u=urth.slice(0,n).map(Number);
+  let state=seed>>>0;
+  const rnd=()=>{state=(1664525*state+1013904223)>>>0;return state/4294967296;};
+  const samples=[];
+  for(let r=0;r<reps;r++){
+    const idx=[];
+    while(idx.length<n){
+      const start=Math.floor(rnd()*n);
+      for(let k=0;k<block&&idx.length<n;k++) idx.push((start+k)%n);
+    }
+    const cr=cagrFromPeriodicReturns(idx.map(i=>c[i]));
+    const sr=cagrFromPeriodicReturns(idx.map(i=>s[i]));
+    const ur=cagrFromPeriodicReturns(idx.map(i=>u[i]));
+    samples.push(Math.min(cr-sr,cr-ur));
+  }
+  samples.sort((a,b)=>a-b);
+  return {
+    replicates:reps,blockMonths:block,seed,
+    lowerOneSided95PctPoints:samples[Math.floor(0.05*reps)]*100,
+    medianPctPoints:samples[Math.floor(0.5*reps)]*100,
+    upper95PctPoints:samples[Math.floor(0.95*reps)]*100
+  };
 }
