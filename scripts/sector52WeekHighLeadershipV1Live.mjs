@@ -83,8 +83,12 @@ function benchmarkCurve(bars,start,end,costBps){
 function monthlyPortfolioReturns(sim){
   const events=sim.eventEquity;
   if(events.length<2) throw new Error('MONTHLY_EVENTS_TOO_SHORT:'+sim.label);
-  const returns=[],labels=[];let prev=Number(events[0].equity);
-  if(!(prev>0)||!Number.isFinite(prev)) throw new Error('MONTHLY_FIRST_EVENT_EQUITY_INVALID:'+sim.label);
+  const firstEvent=Number(events[0].equity);
+  if(!(firstEvent>0)||!Number.isFinite(firstEvent)) throw new Error('MONTHLY_FIRST_EVENT_EQUITY_INVALID:'+sim.label);
+  // The block starts with 1 unit immediately before the first entry trade.
+  // The first full monthly interval ends at the second rebalance, therefore
+  // e1 / 1 includes the initial entry cost plus the first holding interval.
+  const returns=[],labels=[];let prev=1;
   for(let i=1;i<events.length;i++){
     const current=Number(events[i].equity);
     if(!(current>0)||!Number.isFinite(current)) throw new Error('MONTHLY_EVENT_EQUITY_INVALID:'+sim.label+':'+events[i].date);
@@ -99,8 +103,10 @@ function monthlyBenchmarkReturns(bench,eventDates,endDate){
   if(eventDates.length<2) throw new Error('BENCHMARK_EVENTS_TOO_SHORT');
   const firstRow=bench.map.get(eventDates[0]);
   if(!firstRow) throw new Error('BENCHMARK_FIRST_EVENT_OPEN_MISSING:'+eventDates[0]);
-  let prev=bench.shares*Number(firstRow.open);
-  if(!(prev>0)||!Number.isFinite(prev)) throw new Error('BENCHMARK_FIRST_EVENT_EQUITY_INVALID');
+  const firstPostEntry=bench.shares*Number(firstRow.open);
+  if(!(firstPostEntry>0)||!Number.isFinite(firstPostEntry)) throw new Error('BENCHMARK_FIRST_EVENT_EQUITY_INVALID');
+  // Same convention as the candidate: begin at 1 immediately before entry.
+  let prev=1;
   const returns=[],labels=[];
   for(let i=1;i<eventDates.length;i++){
     const row=bench.map.get(eventDates[i]);if(!row)throw new Error('BENCHMARK_EVENT_OPEN_MISSING:'+eventDates[i]);
