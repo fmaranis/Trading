@@ -1151,3 +1151,24 @@ Actualización 2026-09-28 — primer run 52W inválido técnicamente; fix de rot
 - metodología: diagnóstico histórico ya **OPENED/CONSUMED como diagnóstico técnico**, sin autoridad de promoción; replicación 2019-2025 sigue **UNOPENED** porque nunca fue calculada. La reparación no cambia señal, top3, seis votos, fechas, costes ni gates;
 - execution seal actualizado tras el fix; producción sigue **LEGACY**;
 - siguiente acción: sincronizar al HEAD corregido y volver a pulsar **Ejecutar diagnóstico 52W** una sola vez. El job reutilizará el mismo input Yahoo y sólo abrirá replicación si el diagnóstico válido pasa.
+
+
+---
+
+Actualización 2026-09-28 — SECTOR_52W_HIGH_LEADERSHIP_V1 R3 técnica validada; dos exports anulados:
+
+- **No considerar válidos** ninguno de los dos exports locales de las 19:25 y 19:33: ambos reportaron `FAIL_DIAGNOSTIC` con candidata 52W y control 12-2 completamente `null` en economics; ambos usan el mismo input Yahoo hash `35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f` y ninguno reporta `implementationRevision`;
+- clasificación canónica: **BOTH_RUNS_TECHNICAL_INVALID_NO_ECONOMIC_VERDICT**. Diagnóstico histórico quedó abierto/consumido sólo como diagnóstico técnico; **replicación 2019-2025 continúa UNOPENED**;
+- root cause primario: durante una rotación mensual se pedían opens sólo para nuevos targets; un holding saliente quedaba sin precio de apertura, propagando `NaN -> null`. Equal9 no lo mostraba porque conserva siempre los nueve sectores;
+- la segunda ejecución devolvió el mismo resultado lógico inválido, por lo que no constituye evidencia de que el runner reparado hubiera sido ejecutado;
+- revisión técnica vigente: **`SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28`**. Todo resultado futuro debe incluir exactamente ese fingerprint; un resultado sin revisión o con otra revisión se archiva/recalcula y no se acepta;
+- reparación R3 sin retuning: union(current holdings,new targets) para opens; hard-fail en precios/equity/costes no finitos; hard-fail de bloques económicos no finitos antes de gates; convención mensual que incluye coste inicial; clasificación separada de bootstrap y objetivo observado 80%;
+- reporting completado según plan: worst12m, tamaño medio de victoria/pérdida relativa, pérdida relativa máxima, concentración/HHI, meses/años y turnover;
+- E2E automático **antes de Yahoo** integrado en ResearchValidationCenter: ejecuta el runner real con (a) fixture de rotación + resultado inválido preexistente que debe archivarse y (b) fixture fuerte que debe pasar diagnóstico, abrir replicación, pasar gates, bootstrap y objetivo 80%;
+- el job también exige antes del runner real: revision guard, unit/causal/Yahoo parser, corporate-actions unit, NAV unit, runtime integration, core architecture y TypeScript;
+- corporate actions REAL: raw cache Yahoo hash-check + eventos; se exige el set oficial de splits 2:1 del 05-12-2025 en XLB/XLE/XLK/XLU/XLY y continuidad compatible con la convención Yahoo de OHLC ya split-adjusted;
+- reconciliación Yahoo/NAV REAL: antes del backtest, CAGR AdjustedClose 2016-08-31 -> 2026-08-31 de cada uno de los 9 sectores debe estar dentro de **±0,20 pp/año** de NAV **y** Market Value oficiales State Street al 31-08-2026; un fallo bloquea el estudio antes de economía;
+- pruebas propias en Node v22.16.0/mirror del runner: rotación 72 eventos/33 cambios de composición, control 12-2 con 36 rotaciones, todas las métricas finitas; escenario fuerte abre replicación y pasa gates/bootstrap/80%; convención mensual con coste inicial PASS; corporate-actions unit PASS; NAV unit PASS;
+- limitación honesta: el contenedor de ChatGPT no puede clonar GitHub por DNS ni ejecutar el backend local del usuario/Yahoo cache; por eso el **E2E exacto del repo** es ahora un paso obligatorio dentro del job local **antes de descargar/abrir economía REAL**, no una prueba manual delegada al usuario;
+- sello R3: `validation-runs/preregistration/sector-52w-high-leadership-v1-execution-seal.json`; local job R3: `validation-runs/preregistration/sector-52w-high-leadership-v1-local-job.json`; evidencia de invalidación: `validation-runs/diagnostics/sector-52w-high-leadership-v1-first-run-technical-invalid-2026-09-28.json`;
+- **no pedir al usuario otra ejecución como mecanismo de testing**. Estado: `NO_VALID_ECONOMIC_VERDICT`; producción continúa **LEGACY**, sin autoridad productiva ni cambios en la cadena de decisión.
