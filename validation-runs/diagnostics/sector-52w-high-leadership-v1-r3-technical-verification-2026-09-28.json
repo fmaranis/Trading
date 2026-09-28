@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "study": "SECTOR_52W_HIGH_LEADERSHIP_V1",
+  "implementationRevision": "SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28",
+  "verifiedAt": "2026-09-28",
+  "head": "bc4ec71f581cd76e9e4a5af432e1ef849decaaee",
+  "status": "PASS_R3_TECHNICAL_VERIFICATION_READY_FOR_SINGLE_REAL_ECONOMIC_RUN",
+  "economicOutcomeOpenedByThisVerification": false,
+  "validEconomicVerdictAvailable": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "retuneAllowed": false,
+  "exactBlobVerification": {
+    "protocol": {
+      "sha": "82fb4d2cc989d211242b8215c3ae729c8cd22465",
+      "status": "PASS",
+      "checks": 16,
+      "covered": [
+        "implementation revision",
+        "LEGACY/no authority",
+        "rotation with outgoing holding",
+        "missing outgoing open hard-fail",
+        "finite metrics",
+        "joint bootstrap",
+        "breakout20/breakout252",
+        "slopes20/60/120",
+        "non-trading boundary",
+        "primary signal generation",
+        "prefix invariance",
+        "NEXT_OPEN",
+        "12-2 control"
+      ]
+    },
+    "runner": {
+      "sha": "217b29a00a4ebff8aa381cd5bf7c12224d14a086",
+      "status": "PASS",
+      "executionMode": "exact committed runner functions evaluated in-memory against synthetic controlled series",
+      "rotationFixture": {
+        "events": 72,
+        "distinctSelections": 22,
+        "allEconomicsFinite": true,
+        "candidateCagrPct": -25.010735934523677,
+        "momentum12_2CagrPct": -28.98450879679112,
+        "turnoverOnInitialCapital": 10.998509429743978
+      },
+      "forcedPassFixture": {
+        "diagnosticGatePassed": true,
+        "replicationGatePassed": true,
+        "diagnosticBootstrapLowerOneSided95PctPoints": 15.078421467017456,
+        "replicationBootstrapLowerOneSided95PctPoints": 15.20018095526654,
+        "diagnosticObservedBothWinPct": 100,
+        "replicationObservedBothWinPct": 100
+      }
+    },
+    "corporateActions": {
+      "sha": "20771d99c3a89f62f7cb3145face932a01b88306",
+      "status": "PASS",
+      "syntheticSplitContinuityPass": true,
+      "deliberatelyBrokenSplitRejected": true
+    },
+    "navReconciliation": {
+      "sha": "715af75361eacc9a42e4de03104610e6373ceb9a",
+      "status": "PASS",
+      "exactOfficialReferencePass": true,
+      "plus25BasisPointsFails": true,
+      "tolerancePctPoints": 0.2
+    },
+    "integration": {
+      "routesSha": "c1c2c319c482f46cf7b1592d25fc74d670fa4992",
+      "uiSha": "ea814573679d678dccbf5f4e92df8f58a96f2844",
+      "runtimeGuardSha": "cd7b2807f57766425f1fb5b7ede9b67254a85d6f",
+      "status": "PASS",
+      "allRequiredStepsPresent": true,
+      "stepsOrdered": true,
+      "e2eBeforeYahoo": true,
+      "uiShowsTechnicalRevision3": true,
+      "uiShowsImplementationRevision": true,
+      "runtimeGuardAssertionsPresent": [
+        "revision guard",
+        "E2E runner",
+        "corporate actions unit",
+        "NAV unit",
+        "corporate actions runtime",
+        "NAV runtime"
+      ]
+    }
+  },
+  "limitations": {
+    "chatCanExecuteUserLocalBackend": false,
+    "chatCanAccessUserLocalYahooCache": false,
+    "exactLocalJobNodeNpmTscRunFromUserMachine": false,
+    "note": "The local job itself runs the exact Node/unit/E2E/runtime/architecture/TypeScript chain before Yahoo REAL. This verification does not substitute the user's local backend for the final REAL execution."
+  },
+  "priorInvalidExports": {
+    "count": 2,
+    "economicVerdict": "NONE",
+    "replicationOpened": false
+  },
+  "nextAction": "ONE_REAL_LOCAL_JOB_RUN_ONLY: ResearchValidationCenter -> Ejecutar diagnóstico 52W · rev. técnica 3"
+}
