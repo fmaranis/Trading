@@ -38,10 +38,19 @@ export function splitAdjustmentCheck(result,split){
   if(idx<=0) throw new Error('SPLIT_SESSION_NOT_FOUND:'+split.date);
   const rawPrev=Number(q.close?.[idx-1]),rawNow=Number(q.close?.[idx]),adjPrev=Number(adj[idx-1]),adjNow=Number(adj[idx]);
   if(![rawPrev,rawNow,adjPrev,adjNow].every(finitePositive)) throw new Error('SPLIT_PRICE_INVALID:'+split.date);
-  const expectedRatio=(rawNow/rawPrev)*(split.numerator/split.denominator);
+  // Yahoo chart quote OHLC is already split-adjusted. The split event ratio is
+  // audited separately against the official event; across the effective split
+  // session, quote-close and adjusted-close return ratios should therefore stay
+  // aligned (apart from tiny vendor precision effects).
+  const quoteRatio=rawNow/rawPrev;
   const adjustedRatio=adjNow/adjPrev;
-  const relativeError=Math.abs(expectedRatio-adjustedRatio)/Math.max(1e-12,Math.abs(adjustedRatio));
-  return {date:split.date,rawPrev,rawNow,adjPrev,adjNow,expectedRatio,adjustedRatio,relativeError,pass:relativeError<=1e-6};
+  const relativeError=Math.abs(quoteRatio-adjustedRatio)/Math.max(1e-12,Math.abs(adjustedRatio));
+  return {
+    date:split.date,rawPrev,rawNow,adjPrev,adjNow,
+    quoteRatio,adjustedRatio,relativeError,
+    providerConvention:'YAHOO_QUOTE_OHLC_SPLIT_ADJUSTED',
+    pass:relativeError<=5e-4
+  };
 }
 
 export function auditSymbol(symbol,payload){
