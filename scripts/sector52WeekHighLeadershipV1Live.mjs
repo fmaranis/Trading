@@ -83,22 +83,33 @@ function benchmarkCurve(bars,start,end,costBps){
 function monthlyPortfolioReturns(sim){
   const events=sim.eventEquity;
   if(events.length<2) throw new Error('MONTHLY_EVENTS_TOO_SHORT:'+sim.label);
-  const returns=[],labels=[];let prev=1;
+  const returns=[],labels=[];let prev=Number(events[0].equity);
+  if(!(prev>0)||!Number.isFinite(prev)) throw new Error('MONTHLY_FIRST_EVENT_EQUITY_INVALID:'+sim.label);
   for(let i=1;i<events.length;i++){
-    returns.push(events[i].equity/prev-1);labels.push(events[i].date);prev=events[i].equity;
+    const current=Number(events[i].equity);
+    if(!(current>0)||!Number.isFinite(current)) throw new Error('MONTHLY_EVENT_EQUITY_INVALID:'+sim.label+':'+events[i].date);
+    returns.push(current/prev-1);labels.push(events[i].date);prev=current;
   }
-  returns.push(sim.finalEquity/prev-1);labels.push(sim.end);
+  if(!(sim.finalEquity>0)||!Number.isFinite(Number(sim.finalEquity))) throw new Error('MONTHLY_FINAL_EQUITY_INVALID:'+sim.label);
+  returns.push(Number(sim.finalEquity)/prev-1);labels.push(sim.end);
   return {returns,labels};
 }
 
 function monthlyBenchmarkReturns(bench,eventDates,endDate){
   if(eventDates.length<2) throw new Error('BENCHMARK_EVENTS_TOO_SHORT');
-  const returns=[],labels=[];let prev=1;
+  const firstRow=bench.map.get(eventDates[0]);
+  if(!firstRow) throw new Error('BENCHMARK_FIRST_EVENT_OPEN_MISSING:'+eventDates[0]);
+  let prev=bench.shares*Number(firstRow.open);
+  if(!(prev>0)||!Number.isFinite(prev)) throw new Error('BENCHMARK_FIRST_EVENT_EQUITY_INVALID');
+  const returns=[],labels=[];
   for(let i=1;i<eventDates.length;i++){
     const row=bench.map.get(eventDates[i]);if(!row)throw new Error('BENCHMARK_EVENT_OPEN_MISSING:'+eventDates[i]);
-    const eq=bench.shares*Number(row.open);returns.push(eq/prev-1);labels.push(eventDates[i]);prev=eq;
+    const eq=bench.shares*Number(row.open);
+    if(!(eq>0)||!Number.isFinite(eq)) throw new Error('BENCHMARK_EVENT_EQUITY_INVALID:'+eventDates[i]);
+    returns.push(eq/prev-1);labels.push(eventDates[i]);prev=eq;
   }
-  returns.push(bench.finalEquity/prev-1);labels.push(endDate);
+  if(!(bench.finalEquity>0)||!Number.isFinite(Number(bench.finalEquity))) throw new Error('BENCHMARK_FINAL_EQUITY_INVALID');
+  returns.push(Number(bench.finalEquity)/prev-1);labels.push(endDate);
   return {returns,labels};
 }
 
