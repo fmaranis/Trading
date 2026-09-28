@@ -1172,3 +1172,23 @@ Actualización 2026-09-28 — SECTOR_52W_HIGH_LEADERSHIP_V1 R3 técnica validada
 - limitación honesta: el contenedor de ChatGPT no puede clonar GitHub por DNS ni ejecutar el backend local del usuario/Yahoo cache; por eso el **E2E exacto del repo** es ahora un paso obligatorio dentro del job local **antes de descargar/abrir economía REAL**, no una prueba manual delegada al usuario;
 - sello R3: `validation-runs/preregistration/sector-52w-high-leadership-v1-execution-seal.json`; local job R3: `validation-runs/preregistration/sector-52w-high-leadership-v1-local-job.json`; evidencia de invalidación: `validation-runs/diagnostics/sector-52w-high-leadership-v1-first-run-technical-invalid-2026-09-28.json`;
 - **no pedir al usuario otra ejecución como mecanismo de testing**. Estado: `NO_VALID_ECONOMIC_VERDICT`; producción continúa **LEGACY**, sin autoridad productiva ni cambios en la cadena de decisión.
+
+
+---
+
+Actualización 2026-09-28 — SECTOR_52W_HIGH_LEADERSHIP_V1 R3 cierre técnico PASS:
+
+- revisión vigente: `SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28`;
+- los dos exports anteriores continúan **ANULADOS / NO ECONOMIC VERDICT**; replicación 2019-2025 permanece **UNOPENED**;
+- verificación técnica adicional ejecutada sobre los blobs exactos actuales de `main`:
+  - protocolo exacto: **PASS 16 checks**;
+  - runner exacto evaluado con fixture de rotación: **72 eventos / 22 composiciones distintas / economics finitos**;
+  - fixture fuerte: diagnóstico **PASS**, replicación **PASS**, bootstrap lower bound > 0 en ambos bloques, hit-rate observado conjunto **100%/100%**;
+  - corporate-actions guard exacto: **PASS**, caso deliberadamente roto rechazado;
+  - NAV guard exacto: **PASS**, referencia oficial exacta pasa y +25 pb falla con tolerancia ±0,20 pp/año;
+  - integración del job: todos los pasos presentes y ordenados; **E2E antes de Yahoo**; UI muestra rev. técnica 3 + implementationRevision;
+- evidencia machine-readable: `validation-runs/diagnostics/sector-52w-high-leadership-v1-r3-technical-verification-2026-09-28.json`;
+- estado técnico: **PASS_R3_TECHNICAL_VERIFICATION_READY_FOR_SINGLE_REAL_ECONOMIC_RUN**;
+- limitación restante: ChatGPT no puede ejecutar el backend local/Yahoo cache del usuario; por ello el único paso externo pendiente es **una ejecución REAL** del job local, no otra prueba manual;
+- siguiente acción permitida: sincronizar al HEAD vigente y ejecutar **una sola vez** `Precio · liderazgo sectorial 52W · V1 · rev. técnica 3`. El job ejecuta revisión/unit/causal/E2E/runtime/arquitectura/TypeScript/corporate-actions/NAV antes de economía;
+- producción continúa **LEGACY** y no se autoriza retuning.
