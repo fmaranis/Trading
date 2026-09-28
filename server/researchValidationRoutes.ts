@@ -230,6 +230,23 @@ const JOBS: JobDefinition[] = [
       { label: 'Collector prospectivo REAL R2', command: 'npx', args: ['tsx', 'scripts/phase6ForwardRiskContextStageAR2CollectorLive.ts'] }
     ]
   },
+  {
+    id: 'sector-52w-high-leadership-v1',
+    name: 'Precio · liderazgo sectorial 52W · V1',
+    description: 'Ejecuta la candidata congelada SECTOR_52W_HIGH_LEADERSHIP_V1 en el backend local: guards y TypeScript primero, después descarga/cache Yahoo REAL, diagnóstico 2013–2018 con 10/20 pb por lado y sólo si el gate 20 pb pasa abre la replicación 2019–2025. No retunea parámetros ni modifica producción LEGACY.',
+    marker: 'SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard protocolo sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.unit.mjs'] },
+      { label: 'Guard causalidad sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.causal.unit.mjs'] },
+      { label: 'Guard Yahoo REAL sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1YahooInput.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Yahoo REAL · descargar/cachear input congelado', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1YahooInput.mjs'] },
+      { label: 'Diagnóstico / replicación sector 52W', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1Live.mjs'] }
+    ]
+  },
   archivedJob(
     'phase8-historical-instrument-master-v1',
     'Fase 8 · universo histórico PIT · cierre estructural',
