@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { SECTOR_52W_HIGH_LEADERSHIP_V1 as P } from './sector52WeekHighLeadershipV1Protocol.mjs';
 import { OUTPUT_PATH, sha256 } from './sector52WeekHighLeadershipV1YahooInput.mjs';
 
@@ -94,7 +95,7 @@ export function main(){
   }));
 }
 
-if(import.meta.url===new URL('file://'+path.resolve(process.argv[1])).href){
+if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href){
   try{main();}catch(error){
     console.error('SECTOR_52W_HIGH_LEADERSHIP_V1_CORPORATE_ACTIONS_BLOCKED',error?.message??String(error));
     process.exitCode=1;
