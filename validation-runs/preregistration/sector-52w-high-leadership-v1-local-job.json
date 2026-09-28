@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "study": "SECTOR_52W_HIGH_LEADERSHIP_V1",
+  "recordedAt": "2026-09-28",
+  "status": "READY_LOCAL_APP_EXECUTION",
+  "economicResult": "NOT_RUN",
+  "outcomesOpened": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "job": {
+    "id": "sector-52w-high-leadership-v1",
+    "location": "ResearchValidationCenter",
+    "execution": "LOCAL_APP_BACKEND",
+    "button": "Ejecutar diagnóstico 52W",
+    "steps": [
+      "node tests/sector52WeekHighLeadershipV1.unit.mjs",
+      "node tests/sector52WeekHighLeadershipV1.causal.unit.mjs",
+      "node tests/sector52WeekHighLeadershipV1YahooInput.unit.mjs",
+      "npx tsx tests/researchValidationRuntime.unit.ts",
+      "npx tsx tests/coreArchitectureV1.unit.ts",
+      "npm run lint",
+      "node scripts/sector52WeekHighLeadershipV1YahooInput.mjs",
+      "node scripts/sector52WeekHighLeadershipV1Live.mjs"
+    ]
+  },
+  "yahooInput": {
+    "provider": "YAHOO_FINANCE",
+    "provenance": "REAL",
+    "cacheDir": ".runtime/sector-52w-high-leadership-v1/yahoo",
+    "frozenInput": "validation-runs/diagnostics/sector-52w-high-leadership-v1-input.json",
+    "reusePolicy": "If the frozen input already exists, reuse it and do not refetch/rewrite the historical sample."
+  },
+  "runner": {
+    "output": "validation-runs/diagnostics/sector-52w-high-leadership-v1-result.json",
+    "diagnosticCostsBpsPerSide": [
+      10,
+      20
+    ],
+    "continuationGateCostBpsPerSide": 20,
+    "diagnostic": "2013-01 boundary -> 2019-01 boundary",
+    "replication": "2019-01 boundary -> 2026-01 boundary; only opened if diagnostic 20 bps gate passes",
+    "resultMarker": "SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT"
+  },
+  "preOutcomeSeal": "validation-runs/preregistration/sector-52w-high-leadership-v1-execution-seal.json",
+  "currentHead": "5919a224fcd490aba9c5cf9b9203a2d2c815203d",
+  "chatLimitation": "The ChatGPT runtime still cannot execute the local Node/npm job. This does not block the application's local backend.",
+  "nextAction": "Run the integrated ResearchValidationCenter job once from the local app."
+}
