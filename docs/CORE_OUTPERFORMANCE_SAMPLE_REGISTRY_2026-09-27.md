@@ -156,3 +156,11 @@ This window had remained unopened by the failed momentum study and was subsequen
 - status: **FAIL_DIRECT_STOCK_IMPLEMENTATION_FOR_NORMAL_SLEEVE**;
 - this does not consume future price outcomes and does not alter signal status;
 - next implementation hypothesis must be separately defined rather than changing the frozen basket.
+
+## CORE_OUTPERFORMANCE_HIT_RATE_AUDIT_2026_09_28
+
+New frequency statistic on existing consumed evidence only: academic OP 2009–2014 and 2016–2021, packaged selected Quality 2017–2025, retained SimFin raw/cap5 2020–2024. No selection or old economic study rerun. No alpha promotion and no strategy tuning. Annual primary descriptive frequency plus ALL rolling 12-month windows within existing OP blocks; no gap bridging.
+
+Additional benchmark-only reads: Wolfram SPY/URTH adjusted close requested 2008-12..2025-12. Full response was truncated and rejected; retained compact cache covers SPY 2008-12..2014-12, SPY/URTH 2015-12..2021-12 plus December 2022..2025. No additional stock candidate outcomes opened. Official URTH annual NAV cross-check read. Benchmark price/NAV conventions differ and remain documented, never swapped for a favourable verdict.
+
+Exact Fundamental Quality historical reconstruction remains BLOCKED_MISSING_HISTORICAL_PIT_DESCRIPTOR_PANEL. No new historical holdout declared, no current selection backcast. Its future snapshot/start/outcomes remain unchanged and UNOPENED. No momentum confirmation returns or new ex-US variant opened.

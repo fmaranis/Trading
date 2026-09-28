@@ -1209,3 +1209,23 @@ Evidence:
 - `docs/CORE_OUTPERFORMANCE_PROFITABILITY_EXUS_GENERALIZATION_V1_EXECUTION_2026-09-27.md`.
 
 Next research focus is a packaged UCITS/fund implementation selected by ex-ante methodology and execution economics, not by retrospective winner selection. Production stays `LEGACY`.
+
+## Auditoría de frecuencia de superioridad — 2026-09-28
+
+Solicitud: medir si se bate al core en el 80% de periodos de 12 meses. Nueva métrica sobre evidencia consumida; sin cambiar reglas, repetir selecciones ni abrir rescates. Informe completo: `CORE_OUTPERFORMANCE_HIT_RATE_AUDIT_2026-09-28.md`.
+
+| Evidencia congelada | Periodos | Bate SPY | Bate URTH | Bate ambos |
+|---|---:|---:|---:|---:|
+| OP académico 2009–2014 | 6 años | 2/6 | N/D | N/D |
+| OP académico 2016–2021 | 6 años | 4/6 | 6/6 | 4/6 |
+| Quality UCITS 2017–2025 | 9 años | 3/9 | 6/9 | 2/9 |
+| SimFin raw consumido, accounting post-hoc | 4 intervalos | 1/4 | 1/4 | 1/4 |
+| SimFin cap5 consumido, mismo caveat | 4 intervalos | 2/4 | 2/4 | 2/4 |
+
+OP académico 2016–2021: 52/61 ventanas móviles de 12 meses (85,25%) superan URTH, 42/61 SPY (68,85%) y 41/61 ambos (67,21%). En 2009–2014 sólo 17/61 superan SPY. Las ventanas móviles se solapan: no son réplicas independientes. Anualmente, OP dio retornos positivos en 11/12 años pero batió SPY en 6/12. No confundir ambos conceptos.
+
+Retiene señal prometedora frente al core global, **no un 80% estable ni una implementación autorizada**. Se preserva el PASS académico de CAGR y el FAIL de implementación por separado. Ningún ETF, score, peso, ventana ni cap se cambió. No nuevas variantes regionales.
+
+La auditoría también corrige la alineación de la comparación nueva: el retorno de enero completo debe partir de cierre diciembre anterior, no de cierre 4 enero. Los artifacts anteriores permanecen inmutables. Parent UCITS no se renombra SPY. Ajustados de mercado y NAV oficial se muestran separados; discrepancias no totalmente reconciliadas impiden afirmar equivalencia/promoción, aunque los conteos anuales URTH coinciden.
+
+Exact Fundamental Quality histórico: **BLOCKED_MISSING_HISTORICAL_PIT_DESCRIPTOR_PANEL**. Snapshot 2026 intacto, inicio no capturado, outcomes prospectivos UNOPENED. No se ha fingido un backtest histórico sobre los ganadores actuales. Ver input, resultados exactos, controles y tests en `validation-runs/diagnostics/core-outperformance-hit-rate-*2026-09-28.json`.

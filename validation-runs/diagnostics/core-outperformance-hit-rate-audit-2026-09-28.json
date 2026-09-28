@@ -1,0 +1,2104 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_HIT_RATE_AUDIT_2026_09_28",
+  "role": "NEW_FREQUENCY_DIAGNOSTIC_ON_CONSUMED_EVIDENCE_NOT_FRESH_BACKTEST",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "thresholdFromUserPct": 80,
+  "benchmarks": {
+    "priceRows": 227,
+    "source": "Wolfram FinancialData",
+    "currency": "USD",
+    "provenance": "REAL",
+    "SPYRows": 150,
+    "URTHRows": 77,
+    "officialUrthNavSource": "https://www.ishares.com/ch/professionals/en/products/239696/ishares-msci-world-etf?switchLocale=Y",
+    "officialUrthNav2016ReturnPct": 7.8,
+    "urthPriceVsNavReconciliation": [
+      {
+        "year": "2017",
+        "adjustedCloseReturnPct": 22.959655831665792,
+        "officialNavReturnPct": 22.5,
+        "differencePp": 0.45965583166579194
+      },
+      {
+        "year": "2018",
+        "adjustedCloseReturnPct": -8.55742306496612,
+        "officialNavReturnPct": -8.4,
+        "differencePp": -0.15742306496611924
+      },
+      {
+        "year": "2019",
+        "adjustedCloseReturnPct": 28.13695159821257,
+        "officialNavReturnPct": 28.1,
+        "differencePp": 0.03695159821256766
+      },
+      {
+        "year": "2020",
+        "adjustedCloseReturnPct": 15.77527576032769,
+        "officialNavReturnPct": 16.1,
+        "differencePp": -0.324724239672312
+      },
+      {
+        "year": "2021",
+        "adjustedCloseReturnPct": 22.275887930633644,
+        "officialNavReturnPct": 22,
+        "differencePp": 0.2758879306336439
+      },
+      {
+        "year": "2022",
+        "adjustedCloseReturnPct": -17.957606221927037,
+        "officialNavReturnPct": -18,
+        "differencePp": 0.04239377807296307
+      },
+      {
+        "year": "2023",
+        "adjustedCloseReturnPct": 23.967954835512195,
+        "officialNavReturnPct": 23.9,
+        "differencePp": 0.06795483551219661
+      },
+      {
+        "year": "2024",
+        "adjustedCloseReturnPct": 18.664227565641035,
+        "officialNavReturnPct": 18.7,
+        "differencePp": -0.03577243435896449
+      },
+      {
+        "year": "2025",
+        "adjustedCloseReturnPct": 20.37863551093435,
+        "officialNavReturnPct": 21.3,
+        "differencePp": -0.9213644890656489
+      }
+    ],
+    "qualityWarning": "Adjusted-close and official NAV total returns differ; cause not fully reconciled. No equivalence claim or promotion. Annual URTH win counts cross-checked against official NAV; rolling counts remain vendor-dependent."
+  },
+  "academicOperatingProfitability": {
+    "role": "GROSS_ACADEMIC_SIGNAL_NOT_INVESTABLE_IMPLEMENTATION",
+    "blocks": [
+      {
+        "id": "confirmation",
+        "coverage": {
+          "expectedMonths": 72,
+          "candidateMonths": 72,
+          "SPYMonths": 72,
+          "URTHMonths": 0,
+          "URTHComplete": false
+        },
+        "missingReason": "URTH did not exist for full 2009-2014 block; no stitching or shorter success sample",
+        "annualRows": [
+          {
+            "period": "200901-200912",
+            "block": "confirmation",
+            "candidate": 35.65107854791951,
+            "French_US_Market": 28.346192320348873,
+            "SPY": 26.366068801223584,
+            "French_Developed_Market": 31.68384679882785
+          },
+          {
+            "period": "201001-201012",
+            "block": "confirmation",
+            "candidate": 12.172538812198951,
+            "French_US_Market": 17.469509487438174,
+            "SPY": 15.057659353961949,
+            "French_Developed_Market": 14.095273447114852
+          },
+          {
+            "period": "201101-201112",
+            "block": "confirmation",
+            "candidate": 9.316212804632196,
+            "French_US_Market": 0.47543545630208683,
+            "SPY": 1.8878711943339566,
+            "French_Developed_Market": -6.895487843962367
+          },
+          {
+            "period": "201201-201212",
+            "block": "confirmation",
+            "candidate": 13.49426172254522,
+            "French_US_Market": 16.322852845064205,
+            "SPY": 15.991671653264273,
+            "French_Developed_Market": 16.941446545144846
+          },
+          {
+            "period": "201301-201312",
+            "block": "confirmation",
+            "candidate": 31.647043099452453,
+            "French_US_Market": 35.17921797371748,
+            "SPY": 32.3067022454268,
+            "French_Developed_Market": 28.685992730449783
+          },
+          {
+            "period": "201401-201412",
+            "block": "confirmation",
+            "candidate": 9.933446006433776,
+            "French_US_Market": 11.708040399666753,
+            "SPY": 13.46212373172544,
+            "French_Developed_Market": 3.2839697783191957
+          }
+        ],
+        "annual": {
+          "French_US_Market": {
+            "n": 6,
+            "wins": 2,
+            "ties": 0,
+            "losses": 4,
+            "hitRatePct": 33.333333333333336,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": 0.45222208510742296,
+            "medianExcessPp": -2.301592757875981,
+            "meanWinExcessPp": 8.072831787950374,
+            "meanLossExcessPp": -3.3580827663140522,
+            "worstExcessPp": -5.296970675239223,
+            "worstPeriod": "201001-201012",
+            "longestNonWinningRunWithinBlock": 3,
+            "wilson95IidReference": {
+              "lowerPct": 9.677141110578042,
+              "upperPct": 70.0006684861608,
+              "meaning": "IID reference only; serial dependence and selection not corrected"
+            },
+            "overlapping": false
+          },
+          "SPY": {
+            "n": 6,
+            "wins": 2,
+            "ties": 0,
+            "losses": 4,
+            "hitRatePct": 33.333333333333336,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": 1.1904140022076846,
+            "medianExcessPp": -1.578534538346699,
+            "meanWinExcessPp": 8.356675678497083,
+            "meanLossExcessPp": -2.392716835937015,
+            "worstExcessPp": -3.5286777252916632,
+            "worstPeriod": "201401-201412",
+            "longestNonWinningRunWithinBlock": 3,
+            "wilson95IidReference": {
+              "lowerPct": 9.677141110578042,
+              "upperPct": 70.0006684861608,
+              "meaning": "IID reference only; serial dependence and selection not corrected"
+            },
+            "overlapping": false
+          },
+          "French_Developed_Market": {
+            "n": 6,
+            "wins": 4,
+            "ties": 0,
+            "losses": 2,
+            "hitRatePct": 66.66666666666667,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": 4.069923256214658,
+            "medianExcessPp": 3.464141059047165,
+            "meanWinExcessPp": 7.447364748700868,
+            "meanLossExcessPp": -2.6849597287577636,
+            "worstExcessPp": -3.4471848225996258,
+            "worstPeriod": "201201-201212",
+            "longestNonWinningRunWithinBlock": 1,
+            "wilson95IidReference": {
+              "lowerPct": 29.999331513839202,
+              "upperPct": 90.32285888942195,
+              "meaning": "IID reference only; serial dependence and selection not corrected"
+            },
+            "overlapping": false
+          },
+          "positiveAbsoluteReturnCount": 6
+        },
+        "rolling12mRows": [
+          {
+            "period": "200901-200912",
+            "block": "confirmation",
+            "candidate": 35.65107854791951,
+            "French_US_Market": 28.346192320348873,
+            "SPY": 26.366068801223584,
+            "French_Developed_Market": 31.68384679882785
+          },
+          {
+            "period": "200902-201001",
+            "block": "confirmation",
+            "candidate": 37.135572926418824,
+            "French_US_Market": 34.99538556637478,
+            "SPY": 32.6675189464382,
+            "French_Developed_Market": 38.62442789855833
+          },
+          {
+            "period": "200903-201002",
+            "block": "confirmation",
+            "candidate": 52.367962507041874,
+            "French_US_Market": 55.24994847695643,
+            "SPY": 53.27532342644905,
+            "French_Developed_Market": 55.87553621053474
+          },
+          {
+            "period": "200904-201003",
+            "block": "confirmation",
+            "candidate": 46.69780734866799,
+            "French_US_Market": 51.47448400541441,
+            "SPY": 50.081179159492905,
+            "French_Developed_Market": 54.36457938642296
+          },
+          {
+            "period": "200905-201004",
+            "block": "confirmation",
+            "candidate": 34.93230401362306,
+            "French_US_Market": 40.22971334415393,
+            "SPY": 38.63287348708653,
+            "French_Developed_Market": 39.221832548390246
+          },
+          {
+            "period": "200906-201005",
+            "block": "confirmation",
+            "candidate": 18.8433759782596,
+            "French_US_Market": 22.78263656746946,
+            "SPY": 20.566991020737646,
+            "French_Developed_Market": 14.555699778561749
+          },
+          {
+            "period": "200907-201006",
+            "block": "confirmation",
+            "candidate": 8.779514859666548,
+            "French_US_Market": 15.447950989962344,
+            "SPY": 14.406534725458853,
+            "French_Developed_Market": 11.236742662170363
+          },
+          {
+            "period": "200908-201007",
+            "block": "confirmation",
+            "candidate": 11.153261388862322,
+            "French_US_Market": 14.601354115534848,
+            "SPY": 13.735270141381806,
+            "French_Developed_Market": 10.837310476936546
+          },
+          {
+            "period": "200909-201008",
+            "block": "confirmation",
+            "candidate": 3.888699342317503,
+            "French_US_Market": 5.618666208278822,
+            "SPY": 4.749979279004024,
+            "French_Developed_Market": 2.537047934722958
+          },
+          {
+            "period": "200910-201009",
+            "block": "confirmation",
+            "candidate": 9.235100496073922,
+            "French_US_Market": 11.158851792842261,
+            "SPY": 10.222552496917793,
+            "French_Developed_Market": 7.827319671759003
+          },
+          {
+            "period": "200911-201010",
+            "block": "confirmation",
+            "candidate": 13.819903763776843,
+            "French_US_Market": 18.553465894244738,
+            "SPY": 16.67641920592178,
+            "French_Developed_Market": 14.49080571889021
+          },
+          {
+            "period": "200912-201011",
+            "block": "confirmation",
+            "candidate": 6.936113963673596,
+            "French_US_Market": 12.994166385183448,
+            "SPY": 9.908269751972654,
+            "French_Developed_Market": 8.083562635432461
+          },
+          {
+            "period": "201001-201012",
+            "block": "confirmation",
+            "candidate": 12.172538812198951,
+            "French_US_Market": 17.469509487438174,
+            "SPY": 15.057659353961949,
+            "French_Developed_Market": 14.095273447114852
+          },
+          {
+            "period": "201002-201101",
+            "block": "confirmation",
+            "candidate": 19.5053101354977,
+            "French_US_Market": 23.98478857324806,
+            "SPY": 22.178796147096524,
+            "French_Developed_Market": 21.052157784235035
+          },
+          {
+            "period": "201003-201102",
+            "block": "confirmation",
+            "candidate": 18.341708831758673,
+            "French_US_Market": 24.104696492564525,
+            "SPY": 22.598538814301648,
+            "French_Developed_Market": 23.693339230608412
+          },
+          {
+            "period": "201004-201103",
+            "block": "confirmation",
+            "candidate": 13.925300809857522,
+            "French_US_Market": 17.276136725056034,
+            "SPY": 15.572667436184373,
+            "French_Developed_Market": 15.637264807306671
+          },
+          {
+            "period": "201005-201104",
+            "block": "confirmation",
+            "candidate": 16.207386568421043,
+            "French_US_Market": 18.299328193395414,
+            "SPY": 17.10617670338599,
+            "French_Developed_Market": 20.217186331170556
+          },
+          {
+            "period": "201006-201105",
+            "block": "confirmation",
+            "candidate": 27.56381633645264,
+            "French_US_Market": 26.78780582429363,
+            "SPY": 25.790520980690836,
+            "French_Developed_Market": 30.090223740705223
+          },
+          {
+            "period": "201007-201106",
+            "block": "confirmation",
+            "candidate": 34.27485864821478,
+            "French_US_Market": 31.902815779721006,
+            "SPY": 30.413184723830966,
+            "French_Developed_Market": 32.26600489350244
+          },
+          {
+            "period": "201008-201107",
+            "block": "confirmation",
+            "candidate": 25.18605902383697,
+            "French_US_Market": 20.444267448005917,
+            "SPY": 19.63329436479311,
+            "French_Developed_Market": 20.1418248108602
+          },
+          {
+            "period": "201009-201108",
+            "block": "confirmation",
+            "candidate": 26.199658029603114,
+            "French_US_Market": 18.901407239201173,
+            "SPY": 18.38122257307855,
+            "French_Developed_Market": 15.616661916100938
+          },
+          {
+            "period": "201010-201109",
+            "block": "confirmation",
+            "candidate": 6.985789066051007,
+            "French_US_Market": 0.29830253742197943,
+            "SPY": 1.1053569925793205,
+            "French_Developed_Market": -4.44208172235604
+          },
+          {
+            "period": "201011-201110",
+            "block": "confirmation",
+            "candidate": 11.468093168096338,
+            "French_US_Market": 7.500394528269716,
+            "SPY": 8.01434683838782,
+            "French_Developed_Market": 1.1286829218240424
+          },
+          {
+            "period": "201012-201111",
+            "block": "confirmation",
+            "candidate": 14.043634822368723,
+            "French_US_Market": 6.549441828437086,
+            "SPY": 7.5726801429826684,
+            "French_Developed_Market": 0.6325487455926648
+          },
+          {
+            "period": "201101-201112",
+            "block": "confirmation",
+            "candidate": 9.316212804632196,
+            "French_US_Market": 0.47543545630208683,
+            "SPY": 1.8878711943339566,
+            "French_Developed_Market": -6.895487843962367
+          },
+          {
+            "period": "201102-201201",
+            "block": "confirmation",
+            "candidate": 14.416989035922633,
+            "French_US_Market": 3.4798479871032573,
+            "SPY": 4.185343283119325,
+            "French_Developed_Market": -3.73245027610013
+          },
+          {
+            "period": "201103-201202",
+            "block": "confirmation",
+            "candidate": 15.842745908644385,
+            "French_US_Market": 4.39966885809977,
+            "SPY": 5.058109652463805,
+            "French_Developed_Market": -2.4023768837796
+          },
+          {
+            "period": "201104-201203",
+            "block": "confirmation",
+            "candidate": 17.274741877649568,
+            "French_US_Market": 7.142926803609706,
+            "SPY": 8.42483815754469,
+            "French_Developed_Market": -0.5256884698866982
+          },
+          {
+            "period": "201105-201204",
+            "block": "confirmation",
+            "candidate": 13.323436558321777,
+            "French_US_Market": 3.2383011912332504,
+            "SPY": 4.66964570245656,
+            "French_Developed_Market": -5.838856444788876
+          },
+          {
+            "period": "201106-201205",
+            "block": "confirmation",
+            "candidate": 4.380692878295589,
+            "French_US_Market": -1.8959038006532647,
+            "SPY": -0.5005254751346389,
+            "French_Developed_Market": -12.350306310659976
+          },
+          {
+            "period": "201107-201206",
+            "block": "confirmation",
+            "candidate": 8.317012249711642,
+            "French_US_Market": 3.7357206529275544,
+            "SPY": 5.31431675213847,
+            "French_Developed_Market": -6.680845010892533
+          },
+          {
+            "period": "201108-201207",
+            "block": "confirmation",
+            "candidate": 8.565124119220968,
+            "French_US_Market": 7.0714110046960155,
+            "SPY": 8.731351125286423,
+            "French_Developed_Market": -4.2600530961191545
+          },
+          {
+            "period": "201109-201208",
+            "block": "confirmation",
+            "candidate": 14.238549297454961,
+            "French_US_Market": 16.796893348666565,
+            "SPY": 17.93913717463189,
+            "French_Developed_Market": 6.401872010486698
+          },
+          {
+            "period": "201110-201209",
+            "block": "confirmation",
+            "candidate": 26.724109982153,
+            "French_US_Market": 29.85296853849149,
+            "SPY": 29.95492171497931,
+            "French_Developed_Market": 20.79190492115599
+          },
+          {
+            "period": "201111-201210",
+            "block": "confirmation",
+            "candidate": 13.95579216230447,
+            "French_US_Market": 14.576148710433667,
+            "SPY": 15.034310447080102,
+            "French_Developed_Market": 9.339677229785615
+          },
+          {
+            "period": "201112-201211",
+            "block": "confirmation",
+            "candidate": 13.708550798638708,
+            "French_US_Market": 15.805555841602615,
+            "SPY": 16.161487060424818,
+            "French_Developed_Market": 13.798166533424139
+          },
+          {
+            "period": "201201-201212",
+            "block": "confirmation",
+            "candidate": 13.49426172254522,
+            "French_US_Market": 16.322852845064205,
+            "SPY": 15.991671653264273,
+            "French_Developed_Market": 16.941446545144846
+          },
+          {
+            "period": "201202-201301",
+            "block": "confirmation",
+            "candidate": 12.9594160028349,
+            "French_US_Market": 16.89865373492079,
+            "SPY": 16.525487592348,
+            "French_Developed_Market": 16.775352264472843
+          },
+          {
+            "period": "201203-201302",
+            "block": "confirmation",
+            "candidate": 9.69010982813745,
+            "French_US_Market": 13.394604834419876,
+            "SPY": 13.10294372625167,
+            "French_Developed_Market": 11.388973679129766
+          },
+          {
+            "period": "201204-201303",
+            "block": "confirmation",
+            "candidate": 12.047423900833598,
+            "French_US_Market": 14.406369323292644,
+            "SPY": 13.740554301265618,
+            "French_Developed_Market": 12.555235157793065
+          },
+          {
+            "period": "201205-201304",
+            "block": "confirmation",
+            "candidate": 13.185981107237744,
+            "French_US_Market": 17.175661167729352,
+            "SPY": 16.704858750105522,
+            "French_Developed_Market": 17.25594424062946
+          },
+          {
+            "period": "201206-201305",
+            "block": "confirmation",
+            "candidate": 23.674962888890107,
+            "French_US_Market": 28.391152931598572,
+            "SPY": 27.089006589383537,
+            "French_Developed_Market": 29.38941899306151
+          },
+          {
+            "period": "201207-201306",
+            "block": "confirmation",
+            "candidate": 17.63443751860221,
+            "French_US_Market": 22.100740298796207,
+            "SPY": 20.506301638751133,
+            "French_Developed_Market": 20.294521349009422
+          },
+          {
+            "period": "201208-201307",
+            "block": "confirmation",
+            "candidate": 22.263137564047963,
+            "French_US_Market": 27.988324363208903,
+            "SPY": 25.25661200128324,
+            "French_Developed_Market": 25.936495429136496
+          },
+          {
+            "period": "201209-201308",
+            "block": "confirmation",
+            "candidate": 17.621307499909356,
+            "French_US_Market": 21.41170122169058,
+            "SPY": 18.530372645880156,
+            "French_Developed_Market": 20.276152896958145
+          },
+          {
+            "period": "201210-201309",
+            "block": "confirmation",
+            "candidate": 19.700152989361897,
+            "French_US_Market": 22.628890751166388,
+            "SPY": 19.26154107108271,
+            "French_Developed_Market": 23.12320191780197
+          },
+          {
+            "period": "201211-201310",
+            "block": "confirmation",
+            "candidate": 26.81273559448927,
+            "French_US_Market": 30.03030878836146,
+            "SPY": 27.09709540814391,
+            "French_Developed_Market": 28.229637185129963
+          },
+          {
+            "period": "201212-201311",
+            "block": "confirmation",
+            "candidate": 28.742876065091338,
+            "French_US_Market": 33.04916901819346,
+            "SPY": 30.122903853382766,
+            "French_Developed_Market": 28.849715367511397
+          },
+          {
+            "period": "201301-201312",
+            "block": "confirmation",
+            "candidate": 31.647043099452453,
+            "French_US_Market": 35.17921797371748,
+            "SPY": 32.3067022454268,
+            "French_Developed_Market": 28.685992730449783
+          },
+          {
+            "period": "201302-201401",
+            "block": "confirmation",
+            "candidate": 18.407539333200695,
+            "French_US_Market": 23.795839667509732,
+            "SPY": 21.42723351736393,
+            "French_Developed_Market": 18.00893568141284
+          },
+          {
+            "period": "201303-201402",
+            "block": "confirmation",
+            "candidate": 23.09741117529198,
+            "French_US_Market": 27.902405185160383,
+            "SPY": 25.35470317851347,
+            "French_Developed_Market": 23.868705991500015
+          },
+          {
+            "period": "201304-201403",
+            "block": "confirmation",
+            "candidate": 18.718312298251828,
+            "French_US_Market": 23.476291000150518,
+            "SPY": 21.772136363919614,
+            "French_Developed_Market": 21.265404741434256
+          },
+          {
+            "period": "201305-201404",
+            "block": "confirmation",
+            "candidate": 18.390490528592007,
+            "French_US_Market": 21.360596796898257,
+            "SPY": 20.307255596969398,
+            "French_Developed_Market": 18.357954249186715
+          },
+          {
+            "period": "201306-201405",
+            "block": "confirmation",
+            "candidate": 18.22722547073148,
+            "French_US_Market": 20.486989388048983,
+            "SPY": 20.263519264370842,
+            "French_Developed_Market": 19.758570454005064
+          },
+          {
+            "period": "201307-201406",
+            "block": "confirmation",
+            "candidate": 21.431345896122657,
+            "French_US_Market": 25.133299403924212,
+            "SPY": 24.403297534980428,
+            "French_Developed_Market": 25.32387948310484
+          },
+          {
+            "period": "201308-201407",
+            "block": "confirmation",
+            "candidate": 12.817382353586982,
+            "French_US_Market": 16.02515863330254,
+            "SPY": 16.70087736782573,
+            "French_Developed_Market": 16.267039168120068
+          },
+          {
+            "period": "201309-201408",
+            "block": "confirmation",
+            "candidate": 20.943023802856132,
+            "French_US_Market": 24.313521800138325,
+            "SPY": 25.057062020968534,
+            "French_Developed_Market": 20.72017217486486
+          },
+          {
+            "period": "201310-201409",
+            "block": "confirmation",
+            "candidate": 14.688150474345374,
+            "French_US_Market": 17.437164325600428,
+            "SPY": 19.54502902275481,
+            "French_Developed_Market": 10.869900355062057
+          },
+          {
+            "period": "201311-201410",
+            "block": "confirmation",
+            "candidate": 12.130499339149893,
+            "French_US_Market": 15.565925193516538,
+            "SPY": 16.945074919360504,
+            "French_Developed_Market": 7.256552913155723
+          },
+          {
+            "period": "201312-201411",
+            "block": "confirmation",
+            "candidate": 13.724254489414257,
+            "French_US_Market": 14.915985926453267,
+            "SPY": 16.699094181968665,
+            "French_Developed_Market": 7.077475973504965
+          },
+          {
+            "period": "201401-201412",
+            "block": "confirmation",
+            "candidate": 9.933446006433776,
+            "French_US_Market": 11.708040399666753,
+            "SPY": 13.46212373172544,
+            "French_Developed_Market": 3.2839697783191957
+          }
+        ],
+        "rolling12m": {
+          "French_US_Market": {
+            "n": 61,
+            "wins": 17,
+            "ties": 0,
+            "losses": 44,
+            "hitRatePct": 27.868852459016395,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": -0.8752100963580344,
+            "medianExcessPp": -2.9287377618044914,
+            "meanWinExcessPp": 6.268946751527537,
+            "meanLossExcessPp": -3.635452514859278,
+            "worstExcessPp": -6.668436130295795,
+            "worstPeriod": "200907-201006",
+            "longestNonWinningRunWithinBlock": 29,
+            "wilson95IidReference": null,
+            "overlapping": true
+          },
+          "SPY": {
+            "n": 61,
+            "wins": 17,
+            "ties": 0,
+            "losses": 44,
+            "hitRatePct": 27.868852459016395,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": -0.20304846670417157,
+            "medianExcessPp": -1.9167650683773907,
+            "meanWinExcessPp": 6.0491300099700975,
+            "meanLossExcessPp": -2.618662878146503,
+            "worstExcessPp": -5.627019865792304,
+            "worstPeriod": "200907-201006",
+            "longestNonWinningRunWithinBlock": 15,
+            "wilson95IidReference": null,
+            "overlapping": true
+          },
+          "French_Developed_Market": {
+            "n": 61,
+            "wins": 30,
+            "ties": 0,
+            "losses": 31,
+            "hitRatePct": 49.18032786885246,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": 2.5981595131899136,
+            "medianExcessPp": -0.08961573478543094,
+            "meanWinExcessPp": 8.075208418394404,
+            "meanLossExcessPp": -2.702210395072496,
+            "worstExcessPp": -7.666772037754967,
+            "worstPeriod": "200904-201003",
+            "longestNonWinningRunWithinBlock": 13,
+            "wilson95IidReference": null,
+            "overlapping": true
+          },
+          "positiveAbsoluteReturnCount": 61
+        },
+        "terminal": {
+          "candidate": {
+            "n": 72,
+            "totalReturnPct": 173.21795271191047,
+            "cagrPct": 18.23649275776218
+          },
+          "French_US_Market": {
+            "n": 72,
+            "totalReturnPct": 166.0893233615439,
+            "cagrPct": 17.71665374419049
+          },
+          "SPY": {
+            "n": 72,
+            "totalReturnPct": 157.94556106552963,
+            "cagrPct": 17.10838983935732
+          },
+          "French_Developed_Market": {
+            "n": 72,
+            "totalReturnPct": 117.42203087791978,
+            "cagrPct": 13.81965319911249
+          }
+        }
+      },
+      {
+        "id": "diagnostic",
+        "coverage": {
+          "expectedMonths": 72,
+          "candidateMonths": 72,
+          "SPYMonths": 72,
+          "URTHMonths": 72,
+          "URTHComplete": true
+        },
+        "missingReason": null,
+        "annualRows": [
+          {
+            "period": "201601-201612",
+            "block": "diagnostic",
+            "candidate": 13.639742795884002,
+            "French_US_Market": 13.500968930166724,
+            "SPY": 12.001307112442937,
+            "URTH": 7.311456910986758
+          },
+          {
+            "period": "201701-201712",
+            "block": "diagnostic",
+            "candidate": 24.947641800110777,
+            "French_US_Market": 22.30511447558836,
+            "SPY": 21.700330754657294,
+            "URTH": 22.959655831665813
+          },
+          {
+            "period": "201801-201812",
+            "block": "diagnostic",
+            "candidate": -5.403741288216812,
+            "French_US_Market": -5.109749115576356,
+            "SPY": -4.557060590588458,
+            "URTH": -8.55742306496612
+          },
+          {
+            "period": "201901-201912",
+            "block": "diagnostic",
+            "candidate": 40.03706459717491,
+            "French_US_Market": 30.39442789781983,
+            "SPY": 31.221746445348984,
+            "URTH": 28.136951598212477
+          },
+          {
+            "period": "202001-202012",
+            "block": "diagnostic",
+            "candidate": 31.422262424131997,
+            "French_US_Market": 24.108096868557105,
+            "SPY": 18.373212902660274,
+            "URTH": 15.77527576032769
+          },
+          {
+            "period": "202101-202112",
+            "block": "diagnostic",
+            "candidate": 25.703269017301356,
+            "French_US_Market": 23.554781693493343,
+            "SPY": 28.7450515722689,
+            "URTH": 22.27588793063362
+          }
+        ],
+        "annual": {
+          "French_US_Market": {
+            "n": 6,
+            "wins": 5,
+            "ties": 0,
+            "losses": 1,
+            "hitRatePct": 83.33333333333333,
+            "meetsObserved80Pct": true,
+            "meanExcessPp": 3.5987664327228703,
+            "medianExcessPp": 2.395507324165214,
+            "meanWinExcessPp": 4.377318153795535,
+            "meanLossExcessPp": -0.29399217264045596,
+            "worstExcessPp": -0.29399217264045596,
+            "worstPeriod": "201801-201812",
+            "longestNonWinningRunWithinBlock": 1,
+            "wilson95IidReference": {
+              "lowerPct": 43.64971778135299,
+              "upperPct": 96.99466302516934,
+              "meaning": "IID reference only; serial dependence and selection not corrected"
+            },
+            "overlapping": false
+          },
+          "SPY": {
+            "n": 6,
+            "wins": 4,
+            "ties": 0,
+            "losses": 2,
+            "hitRatePct": 66.66666666666667,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": 3.8102751915993833,
+            "medianExcessPp": 2.4428733644472738,
+            "meanWinExcessPp": 6.687528600548049,
+            "meanLossExcessPp": -1.9442316262979489,
+            "worstExcessPp": -3.0417825549675435,
+            "worstPeriod": "202101-202112",
+            "longestNonWinningRunWithinBlock": 1,
+            "wilson95IidReference": {
+              "lowerPct": 29.999331513839202,
+              "upperPct": 90.32285888942195,
+              "meaning": "IID reference only; serial dependence and selection not corrected"
+            },
+            "overlapping": false
+          },
+          "URTH": {
+            "n": 6,
+            "wins": 6,
+            "ties": 0,
+            "losses": 0,
+            "hitRatePct": 100.0,
+            "meetsObserved80Pct": true,
+            "meanExcessPp": 7.074072396587666,
+            "medianExcessPp": 4.8778334857824905,
+            "meanWinExcessPp": 7.074072396587666,
+            "meanLossExcessPp": null,
+            "worstExcessPp": 1.9879859684449634,
+            "worstPeriod": "201701-201712",
+            "longestNonWinningRunWithinBlock": 0,
+            "wilson95IidReference": {
+              "lowerPct": 60.96657120978346,
+              "upperPct": 100,
+              "meaning": "IID reference only; serial dependence and selection not corrected"
+            },
+            "overlapping": false
+          },
+          "BOTH_SPY_URTH": {
+            "n": 6,
+            "wins": 4,
+            "ties": 0,
+            "losses": 2,
+            "hitRatePct": 66.66666666666667,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": 3.6003876787646303,
+            "medianExcessPp": 1.8132108259430142,
+            "meanWinExcessPp": 6.372697331295919,
+            "meanLossExcessPp": -1.9442316262979489,
+            "worstExcessPp": -3.0417825549675435,
+            "worstPeriod": "202101-202112",
+            "longestNonWinningRunWithinBlock": 1,
+            "wilson95IidReference": {
+              "lowerPct": 29.999331513839202,
+              "upperPct": 90.32285888942195,
+              "meaning": "IID reference only; serial dependence and selection not corrected"
+            },
+            "overlapping": false,
+            "excessMeaning": "Candidate minus better benchmark in each period; not a tradable hindsight portfolio"
+          },
+          "positiveAbsoluteReturnCount": 5
+        },
+        "rolling12mRows": [
+          {
+            "period": "201601-201612",
+            "block": "diagnostic",
+            "candidate": 13.639742795884002,
+            "French_US_Market": 13.500968930166724,
+            "SPY": 12.001307112442937,
+            "URTH": 7.311456910986758
+          },
+          {
+            "period": "201602-201701",
+            "block": "diagnostic",
+            "candidate": 20.426149530854442,
+            "French_US_Market": 22.822886369889652,
+            "SPY": 19.978261802933627,
+            "URTH": 17.465127753455146
+          },
+          {
+            "period": "201603-201702",
+            "block": "diagnostic",
+            "candidate": 24.996739788088163,
+            "French_US_Market": 27.33319248333268,
+            "SPY": 24.796105784835266,
+            "URTH": 21.251079270134234
+          },
+          {
+            "period": "201604-201703",
+            "block": "diagnostic",
+            "candidate": 17.641238868759167,
+            "French_US_Market": 19.263281798746856,
+            "SPY": 17.080331585706787,
+            "URTH": 14.724091976943576
+          },
+          {
+            "period": "201605-201704",
+            "block": "diagnostic",
+            "candidate": 19.331962201244867,
+            "French_US_Market": 19.511426940704002,
+            "SPY": 17.77773612907112,
+            "URTH": 15.422984531962026
+          },
+          {
+            "period": "201606-201705",
+            "block": "diagnostic",
+            "candidate": 22.200404540213526,
+            "French_US_Market": 18.724781336516273,
+            "SPY": 17.44261466599437,
+            "URTH": 16.87801241896465
+          },
+          {
+            "period": "201607-201706",
+            "block": "diagnostic",
+            "candidate": 19.11417183907014,
+            "French_US_Market": 19.757996898812614,
+            "SPY": 17.78211187984009,
+            "URTH": 18.240446956635804
+          },
+          {
+            "period": "201608-201707",
+            "block": "diagnostic",
+            "candidate": 15.136078576114675,
+            "French_US_Market": 17.419738423246688,
+            "SPY": 15.970570850024934,
+            "URTH": 16.2803779259034
+          },
+          {
+            "period": "201609-201708",
+            "block": "diagnostic",
+            "candidate": 16.574554520037886,
+            "French_US_Market": 17.104345174397917,
+            "SPY": 16.169820416712177,
+            "URTH": 15.99378535064715
+          },
+          {
+            "period": "201610-201709",
+            "block": "diagnostic",
+            "candidate": 20.18557906742151,
+            "French_US_Market": 19.825529220038153,
+            "SPY": 18.500358549215058,
+            "URTH": 18.102316383645743
+          },
+          {
+            "period": "201611-201710",
+            "block": "diagnostic",
+            "candidate": 22.43867601580718,
+            "French_US_Market": 25.132088371211324,
+            "SPY": 23.432663861539616,
+            "URTH": 23.228100659812135
+          },
+          {
+            "period": "201612-201711",
+            "block": "diagnostic",
+            "candidate": 24.593786173919096,
+            "French_US_Market": 23.139425192228536,
+            "SPY": 22.685938306315624,
+            "URTH": 23.571093956443477
+          },
+          {
+            "period": "201701-201712",
+            "block": "diagnostic",
+            "candidate": 24.947641800110777,
+            "French_US_Market": 22.30511447558836,
+            "SPY": 21.700330754657294,
+            "URTH": 22.959655831665813
+          },
+          {
+            "period": "201702-201801",
+            "block": "diagnostic",
+            "candidate": 30.084159726197246,
+            "French_US_Market": 26.754535682731273,
+            "SPY": 26.29917637198902,
+            "URTH": 25.841603997321826
+          },
+          {
+            "period": "201703-201802",
+            "block": "diagnostic",
+            "candidate": 18.025831310130314,
+            "French_US_Market": 18.00735944364691,
+            "SPY": 17.105626661214714,
+            "URTH": 17.28001485147339
+          },
+          {
+            "period": "201704-201803",
+            "block": "diagnostic",
+            "candidate": 14.447513362855036,
+            "French_US_Market": 15.145504319414771,
+            "SPY": 13.75200591595178,
+            "URTH": 14.112572110912257
+          },
+          {
+            "period": "201705-201804",
+            "block": "diagnostic",
+            "candidate": 11.748760942329906,
+            "French_US_Market": 14.33718606682639,
+            "SPY": 13.216098091490224,
+            "URTH": 13.055916170518888
+          },
+          {
+            "period": "201706-201805",
+            "block": "diagnostic",
+            "candidate": 10.322922071827811,
+            "French_US_Market": 16.22546831298539,
+            "SPY": 14.35440337844469,
+            "URTH": 11.4856847783535
+          },
+          {
+            "period": "201707-201806",
+            "block": "diagnostic",
+            "candidate": 12.146992968065362,
+            "French_US_Market": 15.971902237728974,
+            "SPY": 14.284036291119406,
+            "URTH": 11.2073951821559
+          },
+          {
+            "period": "201708-201807",
+            "block": "diagnostic",
+            "candidate": 15.420544986791596,
+            "French_US_Market": 17.57598681841568,
+            "SPY": 16.130890026630283,
+            "URTH": 11.836680871187589
+          },
+          {
+            "period": "201709-201808",
+            "block": "diagnostic",
+            "candidate": 18.200102344419623,
+            "French_US_Market": 21.504959944018577,
+            "SPY": 19.489136983997568,
+            "URTH": 13.019167892203608
+          },
+          {
+            "period": "201710-201809",
+            "block": "diagnostic",
+            "candidate": 15.436656806080308,
+            "French_US_Market": 18.674581247466882,
+            "SPY": 17.826761939546575,
+            "URTH": 11.506539686826468
+          },
+          {
+            "period": "201711-201810",
+            "block": "diagnostic",
+            "candidate": 5.7851871501264585,
+            "French_US_Market": 7.275605933194829,
+            "SPY": 7.159319980363232,
+            "URTH": 1.3921523982169504
+          },
+          {
+            "period": "201712-201811",
+            "block": "diagnostic",
+            "candidate": 4.799923099497994,
+            "French_US_Market": 5.893081166807779,
+            "SPY": 5.909820270123078,
+            "URTH": 0.5666252169305164
+          },
+          {
+            "period": "201801-201812",
+            "block": "diagnostic",
+            "candidate": -5.403741288216812,
+            "French_US_Market": -5.109749115576356,
+            "SPY": -4.557060590588458,
+            "URTH": -8.55742306496612
+          },
+          {
+            "period": "201802-201901",
+            "block": "diagnostic",
+            "candidate": -3.6433537040281294,
+            "French_US_Market": -2.479146077527672,
+            "SPY": -2.4151651762295057,
+            "URTH": -6.353774549366131
+          },
+          {
+            "period": "201803-201902",
+            "block": "diagnostic",
+            "candidate": 5.797640845645224,
+            "French_US_Market": 4.719158711276039,
+            "SPY": 4.54959281986973,
+            "URTH": 0.8301622908920336
+          },
+          {
+            "period": "201804-201903",
+            "block": "diagnostic",
+            "candidate": 10.005686427204452,
+            "French_US_Market": 8.489348326328571,
+            "SPY": 9.440105519500076,
+            "URTH": 4.101782246760388
+          },
+          {
+            "period": "201805-201904",
+            "block": "diagnostic",
+            "candidate": 14.593442603924988,
+            "French_US_Market": 12.529477398721944,
+            "SPY": 13.325303654738052,
+            "URTH": 7.176964276905218
+          },
+          {
+            "period": "201806-201905",
+            "block": "diagnostic",
+            "candidate": 6.23861287974381,
+            "French_US_Market": 2.1074458311002964,
+            "SPY": 3.5804709020123893,
+            "URTH": 0.3057081871806533
+          },
+          {
+            "period": "201807-201906",
+            "block": "diagnostic",
+            "candidate": 12.53938551706273,
+            "French_US_Market": 8.693386235034284,
+            "SPY": 10.154968855863089,
+            "URTH": 6.493023735258552
+          },
+          {
+            "period": "201808-201907",
+            "block": "diagnostic",
+            "candidate": 12.018269319414765,
+            "French_US_Market": 6.621533589818829,
+            "SPY": 7.825872595787442,
+            "URTH": 4.341370535100708
+          },
+          {
+            "period": "201809-201908",
+            "block": "diagnostic",
+            "candidate": 10.211347474402332,
+            "French_US_Market": 0.4259579893293619,
+            "SPY": 2.7410259538243276,
+            "URTH": 0.8933781791915507
+          },
+          {
+            "period": "201810-201909",
+            "block": "diagnostic",
+            "candidate": 11.138042947280425,
+            "French_US_Market": 1.8289750653203818,
+            "SPY": 4.122945006153356,
+            "URTH": 2.3085699377210167
+          },
+          {
+            "period": "201811-201910",
+            "block": "diagnostic",
+            "candidate": 24.637621884345062,
+            "French_US_Market": 12.506102490826908,
+            "SPY": 14.324885433438329,
+            "URTH": 12.978084128501921
+          },
+          {
+            "period": "201812-201911",
+            "block": "diagnostic",
+            "candidate": 24.613708296109337,
+            "French_US_Market": 14.84744868971324,
+            "SPY": 16.30585610288231,
+            "URTH": 14.8536736901276
+          },
+          {
+            "period": "201901-201912",
+            "block": "diagnostic",
+            "candidate": 40.03706459717491,
+            "French_US_Market": 30.39442789781983,
+            "SPY": 31.221746445348984,
+            "URTH": 28.136951598212477
+          },
+          {
+            "period": "201902-202001",
+            "block": "diagnostic",
+            "candidate": 30.894331269120467,
+            "French_US_Market": 20.07043526367096,
+            "SPY": 21.445175343559608,
+            "URTH": 17.687582540509773
+          },
+          {
+            "period": "201903-202002",
+            "block": "diagnostic",
+            "candidate": 13.772868546150363,
+            "French_US_Market": 6.635251398967856,
+            "SPY": 8.319607518320637,
+            "URTH": 4.859065333143842
+          },
+          {
+            "period": "201904-202003",
+            "block": "diagnostic",
+            "candidate": -0.921251319319083,
+            "French_US_Market": -8.682577684406468,
+            "SPY": -6.865409333363659,
+            "URTH": -10.203823522122878
+          },
+          {
+            "period": "201905-202004",
+            "block": "diagnostic",
+            "candidate": 9.40548363960636,
+            "French_US_Market": -0.3722276455101148,
+            "SPY": 0.8415361855144354,
+            "URTH": -4.056091088587344
+          },
+          {
+            "period": "201906-202005",
+            "block": "diagnostic",
+            "candidate": 23.65602231949122,
+            "French_US_Market": 12.787568166726548,
+            "SPY": 12.842239789970922,
+            "URTH": 6.95594906168544
+          },
+          {
+            "period": "201907-202006",
+            "block": "diagnostic",
+            "candidate": 21.664744738838415,
+            "French_US_Market": 7.90161618937979,
+            "SPY": 7.373969008249115,
+            "URTH": 3.2066263340611245
+          },
+          {
+            "period": "201908-202007",
+            "block": "diagnostic",
+            "candidate": 27.11241987639832,
+            "French_US_Market": 12.584661279469266,
+            "SPY": 12.004023390828888,
+            "URTH": 7.26517923195058
+          },
+          {
+            "period": "201909-202008",
+            "block": "diagnostic",
+            "candidate": 39.792276081352654,
+            "French_US_Market": 24.191565281021465,
+            "SPY": 21.86191054246831,
+            "URTH": 16.837470488398097
+          },
+          {
+            "period": "201910-202009",
+            "block": "diagnostic",
+            "candidate": 31.413515959152647,
+            "French_US_Market": 17.799262491731625,
+            "SPY": 15.063188128029047,
+            "URTH": 10.546665363000706
+          },
+          {
+            "period": "201911-202010",
+            "block": "diagnostic",
+            "candidate": 21.425781824849622,
+            "French_US_Market": 12.843418359900593,
+            "SPY": 9.767870556446944,
+            "URTH": 4.559551339398205
+          },
+          {
+            "period": "201912-202011",
+            "block": "diagnostic",
+            "candidate": 28.684298623629246,
+            "French_US_Market": 22.056233263983273,
+            "SPY": 17.456359014191847,
+            "URTH": 14.782281511642093
+          },
+          {
+            "period": "202001-202012",
+            "block": "diagnostic",
+            "candidate": 31.422262424131997,
+            "French_US_Market": 24.108096868557105,
+            "SPY": 18.373212902660274,
+            "URTH": 15.77527576032769
+          },
+          {
+            "period": "202002-202101",
+            "block": "diagnostic",
+            "candidate": 27.26275238213396,
+            "French_US_Market": 24.046055228450804,
+            "SPY": 17.214272891240668,
+            "URTH": 16.061417923835286
+          },
+          {
+            "period": "202003-202102",
+            "block": "diagnostic",
+            "candidate": 38.59733118374553,
+            "French_US_Market": 38.596081708665864,
+            "SPY": 30.83079250523648,
+            "URTH": 29.64773453951237
+          },
+          {
+            "period": "202004-202103",
+            "block": "diagnostic",
+            "candidate": 63.21628427185797,
+            "French_US_Market": 64.70468183686056,
+            "SPY": 56.24608207609785,
+            "URTH": 54.68809542370978
+          },
+          {
+            "period": "202005-202104",
+            "block": "diagnostic",
+            "candidate": 50.96354451221157,
+            "French_US_Market": 52.06741984286647,
+            "SPY": 45.97651698828178,
+            "URTH": 45.61994089107208
+          },
+          {
+            "period": "202006-202105",
+            "block": "diagnostic",
+            "candidate": 40.843401051831705,
+            "French_US_Market": 44.43452539105102,
+            "SPY": 40.25263534492795,
+            "URTH": 40.884183797188875
+          },
+          {
+            "period": "202007-202106",
+            "block": "diagnostic",
+            "candidate": 39.50318408492879,
+            "French_US_Market": 44.82919375359125,
+            "SPY": 40.90195403637817,
+            "URTH": 39.45494627652846
+          },
+          {
+            "period": "202008-202107",
+            "block": "diagnostic",
+            "candidate": 34.32681361795553,
+            "French_US_Market": 38.65430564781796,
+            "SPY": 36.31389449994473,
+            "URTH": 35.321404424462344
+          },
+          {
+            "period": "202009-202108",
+            "block": "diagnostic",
+            "candidate": 22.842383751382233,
+            "French_US_Market": 32.54856978038334,
+            "SPY": 31.212386330789066,
+            "URTH": 30.17349375451046
+          },
+          {
+            "period": "202010-202109",
+            "block": "diagnostic",
+            "candidate": 21.34258630810646,
+            "French_US_Market": 31.51711691323986,
+            "SPY": 29.961465542770792,
+            "URTH": 29.001324784811388
+          },
+          {
+            "period": "202011-202110",
+            "block": "diagnostic",
+            "candidate": 34.710079228409676,
+            "French_US_Market": 43.25707812069282,
+            "SPY": 42.63646008596302,
+            "URTH": 40.75860823901809
+          },
+          {
+            "period": "202012-202111",
+            "block": "diagnostic",
+            "candidate": 24.86752296427874,
+            "French_US_Market": 25.388152035759305,
+            "SPY": 27.609446428247587,
+            "URTH": 22.170592449120385
+          },
+          {
+            "period": "202101-202112",
+            "block": "diagnostic",
+            "candidate": 25.703269017301356,
+            "French_US_Market": 23.554781693493343,
+            "SPY": 28.7450515722689,
+            "URTH": 22.27588793063362
+          }
+        ],
+        "rolling12m": {
+          "French_US_Market": {
+            "n": 61,
+            "wins": 33,
+            "ties": 0,
+            "losses": 28,
+            "hitRatePct": 54.09836065573771,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": 2.1086618956850582,
+            "medianExcessPp": 0.1387738657172779,
+            "meanWinExcessPp": 6.419784133407871,
+            "meanLossExcessPp": -2.972303598773972,
+            "worstExcessPp": -10.174530605133402,
+            "worstPeriod": "202010-202109",
+            "longestNonWinningRunWithinBlock": 11,
+            "wilson95IidReference": null,
+            "overlapping": true
+          },
+          "SPY": {
+            "n": 61,
+            "wins": 42,
+            "ties": 0,
+            "losses": 19,
+            "hitRatePct": 68.85245901639344,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": 3.198038330519229,
+            "medianExcessPp": 1.5542260721737478,
+            "meanWinExcessPp": 5.894711514840908,
+            "meanLossExcessPp": -2.76302870850764,
+            "worstExcessPp": -8.618879234664334,
+            "worstPeriod": "202010-202109",
+            "longestNonWinningRunWithinBlock": 10,
+            "wilson95IidReference": null,
+            "overlapping": true
+          },
+          "URTH": {
+            "n": 61,
+            "wins": 52,
+            "ties": 0,
+            "losses": 9,
+            "hitRatePct": 85.24590163934427,
+            "meetsObserved80Pct": true,
+            "meanExcessPp": 5.87567602591516,
+            "medianExcessPp": 4.393034751909508,
+            "meanWinExcessPp": 7.401800587531513,
+            "meanLossExcessPp": -2.941932552312656,
+            "worstExcessPp": -7.658738476704929,
+            "worstPeriod": "202010-202109",
+            "longestNonWinningRunWithinBlock": 4,
+            "wilson95IidReference": null,
+            "overlapping": true
+          },
+          "BOTH_SPY_URTH": {
+            "n": 61,
+            "wins": 41,
+            "ties": 0,
+            "losses": 20,
+            "hitRatePct": 67.21311475409836,
+            "meetsObserved80Pct": false,
+            "meanExcessPp": 3.131167417121022,
+            "medianExcessPp": 1.2681389491869357,
+            "meanWinExcessPp": 5.947545066518614,
+            "meanLossExcessPp": -2.64240676414404,
+            "worstExcessPp": -8.618879234664334,
+            "worstPeriod": "202010-202109",
+            "longestNonWinningRunWithinBlock": 10,
+            "wilson95IidReference": null,
+            "overlapping": true,
+            "excessMeaning": "Candidate minus better benchmark in each period; not a tradable hindsight portfolio"
+          },
+          "positiveAbsoluteReturnCount": 58
+        },
+        "terminal": {
+          "candidate": {
+            "n": 72,
+            "totalReturnPct": 210.73543146510664,
+            "cagrPct": 20.799497963853277
+          },
+          "French_US_Market": {
+            "n": 72,
+            "totalReturnPct": 163.38102851412177,
+            "cagrPct": 17.51611211252586
+          },
+          "SPY": {
+            "n": 72,
+            "totalReturnPct": 160.16474827151907,
+            "cagrPct": 17.275711122522374
+          },
+          "URTH": {
+            "n": 72,
+            "totalReturnPct": 118.87100067315552,
+            "cagrPct": 13.945725322536596
+          }
+        },
+        "officialUrthNavAnnualCrossCheck": {
+          "URTH_NAV": {
+            "n": 6,
+            "wins": 6,
+            "ties": 0,
+            "losses": 0,
+            "hitRatePct": 100.0,
+            "meetsObserved80Pct": true,
+            "meanExcessPp": 7.041039891064371,
+            "medianExcessPp": 4.7715059065926795,
+            "meanWinExcessPp": 7.041039891064371,
+            "meanLossExcessPp": null,
+            "worstExcessPp": 2.4476418001107767,
+            "worstPeriod": "201701-201712",
+            "longestNonWinningRunWithinBlock": 0,
+            "wilson95IidReference": {
+              "lowerPct": 60.96657120978346,
+              "upperPct": 100,
+              "meaning": "IID reference only; serial dependence and selection not corrected"
+            },
+            "overlapping": false
+          },
+          "positiveAbsoluteReturnCount": 5
+        }
+      }
+    ],
+    "pooledAnnual": {
+      "SPY": {
+        "n": 12,
+        "wins": 6,
+        "ties": 0,
+        "losses": 6,
+        "hitRatePct": 50.0,
+        "meetsObserved80Pct": false,
+        "meanExcessPp": 2.500344596903534,
+        "medianExcessPp": 0.48938826873335994,
+        "meanWinExcessPp": 7.243910959864394,
+        "meanLossExcessPp": -2.243221766057326,
+        "worstExcessPp": -3.5286777252916632,
+        "worstPeriod": "201401-201412",
+        "longestNonWinningRunWithinBlock": 3,
+        "wilson95IidReference": {
+          "lowerPct": 25.37815976337061,
+          "upperPct": 74.6218402366294,
+          "meaning": "IID reference only; serial dependence and selection not corrected"
+        },
+        "overlapping": false
+      },
+      "French_US_Market": {
+        "n": 12,
+        "wins": 7,
+        "ties": 0,
+        "losses": 5,
+        "hitRatePct": 58.333333333333336,
+        "meetsObserved80Pct": false,
+        "meanExcessPp": 2.025494258915147,
+        "medianExcessPp": 1.1436305947626453,
+        "meanWinExcessPp": 5.433179192125489,
+        "meanLossExcessPp": -2.745264647579333,
+        "worstExcessPp": -5.296970675239223,
+        "worstPeriod": "201001-201012",
+        "longestNonWinningRunWithinBlock": 3,
+        "wilson95IidReference": {
+          "lowerPct": 31.951131254954973,
+          "upperPct": 80.67396863412435,
+          "meaning": "IID reference only; serial dependence and selection not corrected"
+        },
+        "overlapping": false
+      },
+      "positiveAbsoluteReturnCount": 11
+    },
+    "pooledRolling12m": {
+      "SPY": {
+        "n": 122,
+        "wins": 59,
+        "ties": 0,
+        "losses": 63,
+        "hitRatePct": 48.36065573770492,
+        "meetsObserved80Pct": false,
+        "meanExcessPp": 1.4974949319075288,
+        "medianExcessPp": -0.4720094798144938,
+        "meanWinExcessPp": 5.9392049795391495,
+        "meanLossExcessPp": -2.6622017793665282,
+        "worstExcessPp": -8.618879234664334,
+        "worstPeriod": "202010-202109",
+        "longestNonWinningRunWithinBlock": 15,
+        "wilson95IidReference": null,
+        "overlapping": true
+      },
+      "French_US_Market": {
+        "n": 122,
+        "wins": 50,
+        "ties": 0,
+        "losses": 72,
+        "hitRatePct": 40.98360655737705,
+        "meetsObserved80Pct": false,
+        "meanExcessPp": 0.616725899663512,
+        "medianExcessPp": -1.340064501020798,
+        "meanWinExcessPp": 6.368499423568558,
+        "meanLossExcessPp": -3.377561269714992,
+        "worstExcessPp": -10.174530605133402,
+        "worstPeriod": "202010-202109",
+        "longestNonWinningRunWithinBlock": 29,
+        "wilson95IidReference": null,
+        "overlapping": true
+      },
+      "positiveAbsoluteReturnCount": 119
+    }
+  },
+  "packagedQuality": {
+    "coverage": {
+      "yearsExpected": 9,
+      "yearsAvailable": 9
+    },
+    "annualRows": [
+      {
+        "period": "2017",
+        "candidate": 21.8,
+        "SP500_UCITS_NAV": 21.35,
+        "URTH_NAV": 22.5,
+        "SPY": 21.700330754657294,
+        "URTH": 22.959655831665792
+      },
+      {
+        "period": "2018",
+        "candidate": -6.1,
+        "SP500_UCITS_NAV": -4.72,
+        "URTH_NAV": -8.4,
+        "SPY": -4.557060590588424,
+        "URTH": -8.55742306496612
+      },
+      {
+        "period": "2019",
+        "candidate": 33.7,
+        "SP500_UCITS_NAV": 30.93,
+        "URTH_NAV": 28.1,
+        "SPY": 31.22174644534901,
+        "URTH": 28.13695159821257
+      },
+      {
+        "period": "2020",
+        "candidate": 16.6,
+        "SP500_UCITS_NAV": 17.97,
+        "URTH_NAV": 16.1,
+        "SPY": 18.373212902660295,
+        "URTH": 15.77527576032769
+      },
+      {
+        "period": "2021",
+        "candidate": 26.6,
+        "SP500_UCITS_NAV": 28.32,
+        "URTH_NAV": 22,
+        "SPY": 28.745051572268878,
+        "URTH": 22.275887930633644
+      },
+      {
+        "period": "2022",
+        "candidate": -20.6,
+        "SP500_UCITS_NAV": -18.36,
+        "URTH_NAV": -18,
+        "SPY": -18.171982201200233,
+        "URTH": -17.957606221927037
+      },
+      {
+        "period": "2023",
+        "candidate": 30.5,
+        "SP500_UCITS_NAV": 25.86,
+        "URTH_NAV": 23.9,
+        "SPY": 26.189551493296005,
+        "URTH": 23.967954835512195
+      },
+      {
+        "period": "2024",
+        "candidate": 22,
+        "SP500_UCITS_NAV": 24.72,
+        "URTH_NAV": 18.7,
+        "SPY": 24.885154012223133,
+        "URTH": 18.664227565641035
+      },
+      {
+        "period": "2025",
+        "candidate": 12.5,
+        "SP500_UCITS_NAV": 17.59,
+        "URTH_NAV": 21.3,
+        "SPY": 17.048351042501796,
+        "URTH": 20.37863551093435
+      }
+    ],
+    "annual": {
+      "SPY": {
+        "n": 9,
+        "wins": 3,
+        "ties": 0,
+        "losses": 6,
+        "hitRatePct": 33.333333333333336,
+        "meetsObserved80Pct": false,
+        "meanExcessPp": -0.937150603463083,
+        "medianExcessPp": -1.773212902660294,
+        "meanWinExcessPp": 2.296123768899232,
+        "meanLossExcessPp": -2.5537877896442405,
+        "worstExcessPp": -4.548351042501796,
+        "worstPeriod": "2025",
+        "longestNonWinningRunWithinBlock": 3,
+        "wilson95IidReference": {
+          "lowerPct": 12.05838183869109,
+          "upperPct": 64.57978644196037,
+          "meaning": "IID reference only; serial dependence and selection not corrected"
+        },
+        "overlapping": false
+      },
+      "URTH": {
+        "n": 9,
+        "wins": 6,
+        "ties": 0,
+        "losses": 3,
+        "hitRatePct": 66.66666666666667,
+        "meetsObserved80Pct": false,
+        "meanExcessPp": 1.2618266948850985,
+        "medianExcessPp": 2.45742306496612,
+        "meanWinExcessPp": 3.8395208957731657,
+        "meanLossExcessPp": -3.893561706891036,
+        "worstExcessPp": -7.878635510934352,
+        "worstPeriod": "2025",
+        "longestNonWinningRunWithinBlock": 1,
+        "wilson95IidReference": {
+          "lowerPct": 35.420213558039634,
+          "upperPct": 87.9416181613089,
+          "meaning": "IID reference only; serial dependence and selection not corrected"
+        },
+        "overlapping": false
+      },
+      "SP500_UCITS_NAV": {
+        "n": 9,
+        "wins": 3,
+        "ties": 0,
+        "losses": 6,
+        "hitRatePct": 33.333333333333336,
+        "meetsObserved80Pct": false,
+        "meanExcessPp": -0.7399999999999993,
+        "medianExcessPp": -1.38,
+        "meanWinExcessPp": 2.620000000000001,
+        "meanLossExcessPp": -2.4199999999999995,
+        "worstExcessPp": -5.09,
+        "worstPeriod": "2025",
+        "longestNonWinningRunWithinBlock": 3,
+        "wilson95IidReference": {
+          "lowerPct": 12.05838183869109,
+          "upperPct": 64.57978644196037,
+          "meaning": "IID reference only; serial dependence and selection not corrected"
+        },
+        "overlapping": false
+      },
+      "URTH_NAV": {
+        "n": 9,
+        "wins": 6,
+        "ties": 0,
+        "losses": 3,
+        "hitRatePct": 66.66666666666667,
+        "meetsObserved80Pct": false,
+        "meanExcessPp": 1.2000000000000004,
+        "medianExcessPp": 2.3000000000000007,
+        "meanWinExcessPp": 3.8166666666666678,
+        "meanLossExcessPp": -4.033333333333334,
+        "worstExcessPp": -8.8,
+        "worstPeriod": "2025",
+        "longestNonWinningRunWithinBlock": 1,
+        "wilson95IidReference": {
+          "lowerPct": 35.420213558039634,
+          "upperPct": 87.9416181613089,
+          "meaning": "IID reference only; serial dependence and selection not corrected"
+        },
+        "overlapping": false
+      },
+      "BOTH_SPY_URTH": {
+        "n": 9,
+        "wins": 2,
+        "ties": 0,
+        "losses": 7,
+        "hitRatePct": 22.22222222222222,
+        "meetsObserved80Pct": false,
+        "meanExcessPp": -1.4709267728757773,
+        "medianExcessPp": -1.773212902660294,
+        "meanWinExcessPp": 3.3943510306774947,
+        "meanLossExcessPp": -2.8610061453195694,
+        "worstExcessPp": -7.878635510934352,
+        "worstPeriod": "2025",
+        "longestNonWinningRunWithinBlock": 3,
+        "wilson95IidReference": {
+          "lowerPct": 6.322510711784671,
+          "upperPct": 54.74110308930111,
+          "meaning": "IID reference only; serial dependence and selection not corrected"
+        },
+        "overlapping": false,
+        "excessMeaning": "Candidate minus better benchmark in each period; not a tradable hindsight portfolio"
+      },
+      "positiveAbsoluteReturnCount": 7
+    },
+    "terminal": {
+      "candidate": {
+        "n": 9,
+        "totalReturnPct": 221.0109975145918,
+        "cagrPct": 13.836095185268004
+      },
+      "SPY": {
+        "n": 9,
+        "totalReturnPct": 250.61210038930523,
+        "cagrPct": 14.957238403178486
+      },
+      "URTH": {
+        "n": 9,
+        "totalReturnPct": 196.3187447013421,
+        "cagrPct": 12.828205424366445
+      },
+      "SP500_UCITS_NAV": {
+        "n": 9,
+        "totalReturnPct": 245.33758165030383,
+        "cagrPct": 14.763787193979127
+      },
+      "URTH_NAV": {
+        "n": 9,
+        "totalReturnPct": 197.83067179741195,
+        "cagrPct": 12.892026494142339
+      }
+    },
+    "caveat": "Candidate official USD NAV rounded to 0.1pp; actual fund expenses embedded; SPY/URTH prices are traded adjusted close. No broker costs/Spanish taxes. Never relabel old UCITS parent as SPY."
+  },
+  "consumedSimfinImplementation": [
+    {
+      "id": "raw",
+      "annualRows": [
+        {
+          "period": "2020-07-01/2021-07-01",
+          "candidate": 30.878086956423417,
+          "SPY": 40.61678789150447,
+          "URTH": 39.42628840805267,
+          "postHocTerminalValue": false
+        },
+        {
+          "period": "2021-07-01/2022-07-01",
+          "candidate": -20.039298253089207,
+          "SPY": -10.945801137063638,
+          "URTH": -14.565517615468215,
+          "postHocTerminalValue": false
+        },
+        {
+          "period": "2022-07-01/2023-07-03",
+          "candidate": 15.677773724654125,
+          "SPY": 19.560596621747848,
+          "URTH": 18.954796012477605,
+          "postHocTerminalValue": true
+        },
+        {
+          "period": "2023-07-03/2024-07-01",
+          "candidate": 39.21833812196996,
+          "SPY": 24.9218418174878,
+          "URTH": 20.808208070818466,
+          "postHocTerminalValue": false
+        }
+      ],
+      "annual": {
+        "SPY": {
+          "n": 4,
+          "wins": 1,
+          "ties": 0,
+          "losses": 3,
+          "hitRatePct": 25.0,
+          "meetsObserved80Pct": false,
+          "meanExcessPp": -2.1046311609295474,
+          "medianExcessPp": -6.488160006559646,
+          "meanWinExcessPp": 14.296496304482158,
+          "meanLossExcessPp": -7.571673649400116,
+          "worstExcessPp": -9.738700935081056,
+          "worstPeriod": "2020-07-01/2021-07-01",
+          "longestNonWinningRunWithinBlock": 3,
+          "wilson95IidReference": {
+            "lowerPct": 4.558726080970055,
+            "upperPct": 69.93581574175981,
+            "meaning": "IID reference only; serial dependence and selection not corrected"
+          },
+          "overlapping": false
+        },
+        "URTH": {
+          "n": 4,
+          "wins": 1,
+          "ties": 0,
+          "losses": 3,
+          "hitRatePct": 25.0,
+          "meetsObserved80Pct": false,
+          "meanExcessPp": 0.2777814185194414,
+          "medianExcessPp": -4.375401462722236,
+          "meanWinExcessPp": 18.41013005115149,
+          "meanLossExcessPp": -5.766334792357909,
+          "worstExcessPp": -8.548201451629254,
+          "worstPeriod": "2020-07-01/2021-07-01",
+          "longestNonWinningRunWithinBlock": 3,
+          "wilson95IidReference": {
+            "lowerPct": 4.558726080970055,
+            "upperPct": 69.93581574175981,
+            "meaning": "IID reference only; serial dependence and selection not corrected"
+          },
+          "overlapping": false
+        },
+        "BOTH_SPY_URTH": {
+          "n": 4,
+          "wins": 1,
+          "ties": 0,
+          "losses": 3,
+          "hitRatePct": 25.0,
+          "meetsObserved80Pct": false,
+          "meanExcessPp": -2.1046311609295474,
+          "medianExcessPp": -6.488160006559646,
+          "meanWinExcessPp": 14.296496304482158,
+          "meanLossExcessPp": -7.571673649400116,
+          "worstExcessPp": -9.738700935081056,
+          "worstPeriod": "2020-07-01/2021-07-01",
+          "longestNonWinningRunWithinBlock": 3,
+          "wilson95IidReference": {
+            "lowerPct": 4.558726080970055,
+            "upperPct": 69.93581574175981,
+            "meaning": "IID reference only; serial dependence and selection not corrected"
+          },
+          "overlapping": false,
+          "excessMeaning": "Candidate minus better benchmark in each period; not a tradable hindsight portfolio"
+        },
+        "positiveAbsoluteReturnCount": 3
+      },
+      "caveat": "CONSUMED/POSTHOC_CTXS_ACCOUNTING; direct-stock implementation remains closed",
+      "terminal": {
+        "candidate": {
+          "n": 4,
+          "totalReturnPct": 68.53492115626767,
+          "cagrPct": 13.939018903719624
+        },
+        "SPY": {
+          "n": 4,
+          "totalReturnPct": 87.03290805454631,
+          "cagrPct": 16.944420627437196
+        },
+        "URTH": {
+          "n": 4,
+          "totalReturnPct": 71.18127551465214,
+          "cagrPct": 14.383679942535199
+        }
+      }
+    },
+    {
+      "id": "cap5",
+      "annualRows": [
+        {
+          "period": "2020-07-01/2021-07-01",
+          "candidate": 37.150954219817514,
+          "SPY": 40.61678789150447,
+          "URTH": 39.42628840805267,
+          "postHocTerminalValue": false
+        },
+        {
+          "period": "2021-07-01/2022-07-01",
+          "candidate": -8.484940030969556,
+          "SPY": -10.945801137063638,
+          "URTH": -14.565517615468215,
+          "postHocTerminalValue": false
+        },
+        {
+          "period": "2022-07-01/2023-07-03",
+          "candidate": 16.111067905189948,
+          "SPY": 19.560596621747848,
+          "URTH": 18.954796012477605,
+          "postHocTerminalValue": true
+        },
+        {
+          "period": "2023-07-03/2024-07-01",
+          "candidate": 26.247666283339818,
+          "SPY": 24.9218418174878,
+          "URTH": 20.808208070818466,
+          "postHocTerminalValue": false
+        }
+      ],
+      "annual": {
+        "SPY": {
+          "n": 4,
+          "wins": 2,
+          "ties": 0,
+          "losses": 2,
+          "hitRatePct": 50.0,
+          "meetsObserved80Pct": false,
+          "meanExcessPp": -0.7821692040746893,
+          "medianExcessPp": -1.0618521253529405,
+          "meanWinExcessPp": 1.8933427859730507,
+          "meanLossExcessPp": -3.4576811941224292,
+          "worstExcessPp": -3.4658336716869584,
+          "worstPeriod": "2020-07-01/2021-07-01",
+          "longestNonWinningRunWithinBlock": 1,
+          "wilson95IidReference": {
+            "lowerPct": 15.003898915214947,
+            "upperPct": 84.99610108478505,
+            "meaning": "IID reference only; serial dependence and selection not corrected"
+          },
+          "overlapping": false
+        },
+        "URTH": {
+          "n": 4,
+          "wins": 2,
+          "ties": 0,
+          "losses": 2,
+          "hitRatePct": 50.0,
+          "meetsObserved80Pct": false,
+          "meanExcessPp": 1.6002433753742995,
+          "medianExcessPp": 1.5820620121430977,
+          "meanWinExcessPp": 5.7600178985100055,
+          "meanLossExcessPp": -2.5595311477614064,
+          "worstExcessPp": -2.8437281072876566,
+          "worstPeriod": "2022-07-01/2023-07-03",
+          "longestNonWinningRunWithinBlock": 1,
+          "wilson95IidReference": {
+            "lowerPct": 15.003898915214947,
+            "upperPct": 84.99610108478505,
+            "meaning": "IID reference only; serial dependence and selection not corrected"
+          },
+          "overlapping": false
+        },
+        "BOTH_SPY_URTH": {
+          "n": 4,
+          "wins": 2,
+          "ties": 0,
+          "losses": 2,
+          "hitRatePct": 50.0,
+          "meetsObserved80Pct": false,
+          "meanExcessPp": -0.7821692040746893,
+          "medianExcessPp": -1.0618521253529405,
+          "meanWinExcessPp": 1.8933427859730507,
+          "meanLossExcessPp": -3.4576811941224292,
+          "worstExcessPp": -3.4658336716869584,
+          "worstPeriod": "2020-07-01/2021-07-01",
+          "longestNonWinningRunWithinBlock": 1,
+          "wilson95IidReference": {
+            "lowerPct": 15.003898915214947,
+            "upperPct": 84.99610108478505,
+            "meaning": "IID reference only; serial dependence and selection not corrected"
+          },
+          "overlapping": false,
+          "excessMeaning": "Candidate minus better benchmark in each period; not a tradable hindsight portfolio"
+        },
+        "positiveAbsoluteReturnCount": 3
+      },
+      "caveat": "CONSUMED/POSTHOC_CTXS_ACCOUNTING; direct-stock implementation remains closed",
+      "terminal": {
+        "candidate": {
+          "n": 4,
+          "totalReturnPct": 83.98752630742099,
+          "cagrPct": 16.465446257889106
+        },
+        "SPY": {
+          "n": 4,
+          "totalReturnPct": 87.03290805454631,
+          "cagrPct": 16.944420627437196
+        },
+        "URTH": {
+          "n": 4,
+          "totalReturnPct": 71.18127551465214,
+          "cagrPct": 14.383679942535199
+        }
+      }
+    }
+  ],
+  "exactFundamentalQualityHistorical": {
+    "status": "BLOCKED_MISSING_HISTORICAL_PIT_DESCRIPTOR_PANEL",
+    "snapshotDate": "2026-09-27",
+    "prospectiveCounts": {
+      "members": 500,
+      "evaluable": 347,
+      "selected": 100,
+      "uniqueIssuers": 99
+    },
+    "snapshotSha256": "06ad777b20970fe8c957d9febe8ccadcbcc75ecbf08cc870cd600236488ab2f2",
+    "usableCompleteHistoricalFormationPanelsInReviewedEvidence": 0,
+    "reason": [
+      "Current frozen descriptor rows have no historical filing/publication vintages or six raw EPS anchors per historical formation.",
+      "SimFin bridge selected OP rows do not contain a full historical ROE/DE/EPS-variability cross-section.",
+      "Accessible secondary source documented report coverage 2019-06..2024-04 cannot supply six June trailing-EPS anchors for those consumed 2020..2024 formations.",
+      "Publish Date alone does not certify absence of later restatements; raw as-filed/vintage provenance must be audited.",
+      "Historical corporate-action accounting remains unresolved for exact strategy; no terminal value patch.",
+      "No valid historical replay by backcasting 2026 constituents, descriptors or weights."
+    ],
+    "futureOutcomes": "UNOPENED",
+    "startCaptured": false
+  },
+  "limitations": [
+    "All candidate outcomes used here were already consumed; no independent confirmation.",
+    "80% observed does not establish future probability or risk-adjusted alpha.",
+    "Overlapping 12-month windows are dependent; do not add to annual N.",
+    "Non-overlapping years can still be dependent; Wilson intervals are iid reference only.",
+    "No new variant, dates, weights, ETF or production integration selected."
+  ],
+  "inputHashes": {
+    "validation-runs/diagnostics/core-outperformance-hit-rate-benchmark-input-2026-09-28.json": "380a9a092844b792e58d53d97a51f7e231a88d5e5ad2bc74af4f46bab38d910f",
+    "validation-runs/diagnostics/core-outperformance-profitability-v1-input.json": "727357897beacb8b0e5aa853436ef1164fb4a91d611ece724a971181cba7f8da",
+    "validation-runs/diagnostics/core-outperformance-packaged-quality-ucits-v1-input.json": "8c4019be9ef46bd114dd7dc8ecf1a0d87bdd75e08a33ff9c4c9d81161bd64c71",
+    "validation-runs/diagnostics/core-outperformance-profitability-capped-policy-historical-cross-diagnostic-2026-09-27.json": "cb451899e899c3f6618e8a4e5f0fa59f125ee715bc95e2ec4151044c7c28d6f4",
+    "validation-runs/diagnostics/core-outperformance-profitability-simfin-bridge-v1-posthoc-result.json": "771b103d96a1058ae228ed2e94a0e36f8cff9eef46c18cba76e04e6379a649cc",
+    "validation-runs/preregistration/fundamental-quality-future-forward-v1-snapshot.json": "06ad777b20970fe8c957d9febe8ccadcbcc75ecbf08cc870cd600236488ab2f2"
+  }
+}

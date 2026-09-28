@@ -1,0 +1,59 @@
+{
+  "study": "CORE_OUTPERFORMANCE_HIT_RATE_AUDIT_2026_09_28",
+  "baseHead": "0015935ddedbc9c4822a652f8f8a18287659a7a9",
+  "verifiedAt": "2026-09-28",
+  "status": "PASS_CALCULATION_AND_PROTECTION_CHECKS_NOT_ECONOMIC_PROMOTION",
+  "commands": [
+    {
+      "command": "python tests/coreOutperformanceHitRateAudit.unit.py",
+      "exitCode": 0,
+      "result": "PASS: 10 tests"
+    },
+    {
+      "command": "node tests/fundamentalQualityFutureForwardV1.unit.mjs",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "node tests/fundamentalQualityFutureForwardV1Infrastructure.unit.mjs",
+      "exitCode": 0,
+      "result": "PASS: 22 groups; marketRequests=0"
+    },
+    {
+      "command": "node --import tsx tests/coreArchitectureV1.unit.ts",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "npm run lint",
+      "exitCode": 0,
+      "result": "PASS: tsc --noEmit"
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0,
+      "result": "PASS"
+    }
+  ],
+  "independentChecks": [
+    "confirmation: independent logarithmic compounding 6/6",
+    "confirmation: independent per-period win counts agree",
+    "diagnostic: independent logarithmic compounding 6/6",
+    "diagnostic: independent per-period win counts agree",
+    "ETF and SimFin terminal totals independently reconcile",
+    "URTH official NAV confirms academic annual 6/6"
+  ],
+  "sha256": {
+    "scripts/coreOutperformanceHitRateAudit.py": "02818a83706e48ff0c171abfb14638afebce9c3bb567e019efef0c2daad51b97",
+    "tests/coreOutperformanceHitRateAudit.unit.py": "8dbb72dfe9d3eb251b1eec25c1679acc3a9e13c8c730d3a55cb530d7aa294a03",
+    "docs/CORE_OUTPERFORMANCE_HIT_RATE_AUDIT_2026-09-28.md": "bdd62e5ce01e11928d53c232636d1867e237063b71ec6f88b61d50d2eec017f4",
+    "validation-runs/diagnostics/core-outperformance-hit-rate-benchmark-input-2026-09-28.json": "380a9a092844b792e58d53d97a51f7e231a88d5e5ad2bc74af4f46bab38d910f",
+    "validation-runs/diagnostics/core-outperformance-hit-rate-audit-2026-09-28.json": "56098e8ce675a5ef76b7fc00780100ed5df6a42028ef136c247bdac071be0879"
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "futureOutcomes": "UNOPENED",
+  "startCaptured": false,
+  "economicConclusion": "NO_80PCT_STABLE_IMPLEMENTABLE_EDGE_DEMONSTRATED",
+  "exactQualityHistoricalStatus": "BLOCKED_MISSING_HISTORICAL_PIT_DESCRIPTOR_PANEL"
+}
