@@ -16,6 +16,21 @@ const entry=rebalanceAtOpen({shares:{},cash:1},{A:.6,B:.4},{A:10,B:20},20);
 assert.ok(entry.equity<1 && entry.equity>0.99);
 const exit=liquidateAtOpen(entry,{A:11,B:18},20); assert.ok(exit.equity>0);
 
+const rotated=rebalanceAtOpen(
+  {shares:{A:0.05,B:0.025},cash:0},
+  {B:.5,C:.5},
+  {A:11,B:18,C:25},
+  20
+);
+assert.ok(Number.isFinite(rotated.equity) && rotated.equity>0);
+assert.ok(Number.isFinite(rotated.cost) && rotated.cost>0);
+assert.equal(rotated.shares.A,undefined);
+assert.ok((rotated.shares.B??0)>0 && (rotated.shares.C??0)>0);
+assert.throws(
+  ()=>rebalanceAtOpen({shares:{A:0.05},cash:0},{B:1},{B:18},20),
+  /REBALANCE_OPEN_MISSING_OR_INVALID:A/
+);
+
 const m=metrics([1,1.01,1.02,1.00,1.05],['2020-01-02','2020-04-02','2020-07-02','2020-10-02','2021-01-04']);
 assert.ok(m.maxDrawdownPct<0);
 assert.ok(m.years>.99 && m.years<1.01);
