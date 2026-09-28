@@ -7,6 +7,10 @@ const mount = fs.readFileSync(path.resolve(process.cwd(), 'server/alertAutomatio
 const ui = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ResearchValidationCenter.tsx'), 'utf8');
 const main = fs.readFileSync(path.resolve(process.cwd(), 'src/decisionMain.tsx'), 'utf8');
 
+assert.match(routes, /id: 'sector-52w-high-leadership-v1'/);
+assert.match(routes, /scripts\/sector52WeekHighLeadershipV1YahooInput\.mjs/);
+assert.match(routes, /scripts\/sector52WeekHighLeadershipV1Live\.mjs/);
+assert.match(routes, /SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT/);
 assert.match(routes, /id: 'fundamental-quality-valuation-broad-pit-v1'/);
 assert.match(routes, /scripts\/fundamentalQualityValuationBroadPitV1Live\.ts/);
 assert.match(routes, /SEC_EDGAR_USER_AGENT_REQUIRED/);
@@ -23,6 +27,8 @@ assert.doesNotMatch(routes, /GEMINI|@google\/genai|github actions/i);
 
 assert.match(mount, /research-validation/);
 assert.match(ui, /Validación de investigación/);
+assert.match(ui, /Ejecutar diagnóstico 52W/);
+assert.match(ui, /SECTOR_52W_HIGH_LEADERSHIP_V1/);
 assert.match(ui, /Todo se ejecuta en el backend local, sin IA ni GitHub Actions/);
 assert.match(ui, /\/api\/eodhd\/status/);
 assert.match(ui, /\/api\/alpha-vantage\/status/);
