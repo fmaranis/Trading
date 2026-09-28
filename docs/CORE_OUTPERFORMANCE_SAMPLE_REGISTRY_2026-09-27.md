@@ -164,3 +164,22 @@ New frequency statistic on existing consumed evidence only: academic OP 2009–2
 Additional benchmark-only reads: Wolfram SPY/URTH adjusted close requested 2008-12..2025-12. Full response was truncated and rejected; retained compact cache covers SPY 2008-12..2014-12, SPY/URTH 2015-12..2021-12 plus December 2022..2025. No additional stock candidate outcomes opened. Official URTH annual NAV cross-check read. Benchmark price/NAV conventions differ and remain documented, never swapped for a favourable verdict.
 
 Exact Fundamental Quality historical reconstruction remains BLOCKED_MISSING_HISTORICAL_PIT_DESCRIPTOR_PANEL. No new historical holdout declared, no current selection backcast. Its future snapshot/start/outcomes remain unchanged and UNOPENED. No momentum confirmation returns or new ex-US variant opened.
+
+
+## SECTOR_52W_HIGH_LEADERSHIP_V1
+
+- design frozen before implementation/economic outcomes on 2026-09-28;
+- universe: XLB/XLE/XLF/XLI/XLK/XLP/XLU/XLV/XLY;
+- intended diagnostic: 2013-01 -> 2019-01 boundary; intended replication: 2019-01 -> 2026-01 boundary;
+- implementation code/tests and execution seal committed before economic outcome access;
+- exact protocol JS-isolate verification: **PASS / 13 checks**;
+- Node/npm/tsc: **NOT EXECUTED IN THIS CHAT — NO SHELL/CODESPACE TOOL**;
+- primary Yahoo provider: **BLOCKED_CURRENT_CHAT_RUNTIME**;
+- secondary Wolfram source: small preflight PASS, but mandatory issuer-official 10y reconciliation **FAIL 5/9**;
+- failed reconciliation symbols: XLB, XLE, XLK, XLU, XLY; these exactly match State Street's documented 2025 2:1 split set;
+- current status: **INCONCLUSIVE_DATA_RECONCILIATION**;
+- candidate diagnostic returns: **UNOPENED / NOT CALCULATED**;
+- temporal replication returns: **UNOPENED / NOT CALCULATED**;
+- no sample is claimed consumed by an economic candidate test; source-QA data and public sector performance were accessed only for preflight/reconciliation;
+- no parameter/source repair after the failed frozen reconciliation is allowed within this execution attempt;
+- next valid action is the unchanged sealed runner using the primary Yahoo provider in a runtime where it is operational.
