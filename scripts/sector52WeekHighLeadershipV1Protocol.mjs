@@ -42,6 +42,12 @@ export function assertFullCoverage(seriesBySymbol,symbols,startDate,endDate){
   return ref;
 }
 
+export function firstDateOnOrAfter(calendar,date){
+  const found=calendar.find(value=>value>=date);
+  if(!found) throw new Error('BOUNDARY_MISSING:'+date);
+  return found;
+}
+
 export function monthEndIndices(bars){
   const xs=sortBars(bars); const out=[];
   for(let i=0;i<xs.length;i++){
