@@ -79,3 +79,56 @@ The five failures are exactly `XLB, XLE, XLK, XLU, XLY`, the five funds State St
 The correct next step is to run the already-sealed implementation unchanged in a runtime where the primary Yahoo provider is operational. No signal parameter, date, benchmark, cost or fallback definition may be changed to obtain a result.
 
 Quality/Profitability evidence remains preserved. Production remains `LEGACY`.
+
+
+## Local ResearchValidationCenter integration
+
+The earlier `INCONCLUSIVE_DATA_RECONCILIATION` refers specifically to the inability of the **chat runtime** to use the primary Yahoo provider and the rejection of Wolfram as an economic fallback. It is not a permanent application blocker.
+
+The frozen candidate is now integrated into the application's local validation backend.
+
+Job:
+
+- id: `sector-52w-high-leadership-v1`;
+- surface: `ResearchValidationCenter`;
+- button: **Ejecutar diagnóstico 52W**;
+- execution: `LOCAL_APP_BACKEND`;
+- AI tokens: none;
+- GitHub Actions: none.
+
+Ordered execution:
+
+1. protocol unit guard;
+2. causal/prefix guard;
+3. Yahoo input parser/identity guard;
+4. research-validation runtime guard;
+5. `CORE_ARCHITECTURE_V1` guard;
+6. `npm run lint` / TypeScript;
+7. Yahoo REAL download/cache/freeze;
+8. economic runner.
+
+The Yahoo step freezes the first successful dataset in:
+
+`validation-runs/diagnostics/sector-52w-high-leadership-v1-input.json`
+
+and caches raw provider responses under:
+
+`.runtime/sector-52w-high-leadership-v1/yahoo`
+
+Subsequent executions reuse the frozen input rather than refreshing the historical sample.
+
+The economic runner computes both 10 and 20 bps/side results. The **continuation gate uses 20 bps/side only**. Replication 2019–2025 is computed only if the 2013–2018 diagnostic passes that gate. A pre-existing result is reused rather than recomputed.
+
+The execution seal was regenerated after this integration and fingerprints the protocol, runner, Yahoo adapter, tests, backend route and validation UI.
+
+### Current state
+
+- implementation: **READY_LOCAL_APP_EXECUTION**;
+- local job economic result: **NOT_RUN**;
+- diagnostic outcome: **UNOPENED in this repository state**;
+- replication outcome: **UNOPENED**;
+- production: **LEGACY**.
+
+Machine-readable integration evidence:
+
+`validation-runs/preregistration/sector-52w-high-leadership-v1-local-job.json`.
