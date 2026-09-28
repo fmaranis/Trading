@@ -1,23 +1,17 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "study": "SECTOR_52W_HIGH_LEADERSHIP_V1",
   "recordedAt": "2026-09-28",
-  "firstRun": {
-    "startedAt": "2026-09-28T19:25:13.026Z",
-    "finishedAt": "2026-09-28T19:25:43.136Z",
-    "jobExecutionStatus": "PASSED",
-    "reportedStudyStatus": "FAIL_DIAGNOSTIC",
-    "provider": "YAHOO_FINANCE",
-    "inputSha256": "35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f"
-  },
-  "validity": "TECHNICAL_INVALID_NO_ECONOMIC_VERDICT",
+  "validity": "BOTH_RUNS_TECHNICAL_INVALID_NO_ECONOMIC_VERDICT",
   "evidence": {
     "diagnostic10CandidateAllEconomicMetricsNull": true,
     "diagnostic20CandidateAllEconomicMetricsNull": true,
     "diagnostic10MomentumControlAllEconomicMetricsNull": true,
     "diagnostic20MomentumControlAllEconomicMetricsNull": true,
     "benchmarksAndEqual9Finite": true,
-    "replicationOpened": false
+    "replicationOpened": false,
+    "twoExportsSameLogicalInvalidResult": true,
+    "noImplementationRevisionInEitherExport": true
   },
   "rootCause": {
     "id": "ROTATION_EXIT_OPEN_NOT_REQUESTED",
@@ -30,15 +24,20 @@
     "costsChanged": false,
     "dataInputChanged": false,
     "changes": [
-      "Rebalance opening-price request now uses union(current holdings, new targets).",
-      "rebalanceAtOpen and liquidateAtOpen now fail on missing/non-finite prices or values.",
-      "runner rejects non-finite economic blocks before evaluating gates.",
-      "pre-existing invalid result is archived as -invalid-technical-v1.json and recomputed from the same frozen Yahoo input."
-    ]
+      "Rebalance opening-price request uses union(current holdings, new targets).",
+      "rebalanceAtOpen/liquidateAtOpen hard-fail on missing/non-finite prices and values.",
+      "runner hard-fails non-finite candidate/control/benchmark economic blocks before any gate.",
+      "result validity requires exact implementationRevision; old/no-revision result files are archived and recomputed.",
+      "monthly inference includes initial entry cost consistently for candidate and benchmarks.",
+      "automatic E2E runs the real runner on a rotation-heavy fixture and a forced-pass fixture that must open replication, bootstrap continuity and 80% classification.",
+      "Yahoo raw corporate-actions audit checks hashes, official 2025 split set and split-adjusted-OHLC continuity.",
+      "Yahoo 10-year adjusted-close CAGR must reconcile to State Street official NAV and market-value returns within ±0.20 pp/year for all nine sectors before the economic runner."
+    ],
+    "validationRevision": "SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28"
   },
   "methodology": {
     "diagnosticDataOpened": true,
-    "diagnosticRole": "CONSUMED_DIAGNOSTIC_ONLY",
+    "diagnosticRole": "CONSUMED_DIAGNOSTIC_TECHNICAL_ONLY_NO_VALID_ECONOMIC_VERDICT",
     "replicationDataOpened": false,
     "replicationRole": "UNOPENED_UNTIL_VALID_DIAGNOSTIC_GATE",
     "retuningAllowed": false,
@@ -46,5 +45,26 @@
     "productionAuthority": false
   },
   "headAfterRepair": "35fa8f5238a8519c24222349520516c8b867e816",
-  "nextAction": "RE-RUN_SAME_LOCAL_JOB_AFTER_SYNC; SAME_FROZEN_INPUT_AND_POLICY"
+  "nextAction": "NO_USER_ACTION_REQUIRED_DURING_R3_TECHNICAL_CLOSURE; exact local job is self-tested before any future real-data rerun.",
+  "invalidRuns": [
+    {
+      "startedAt": "2026-09-28T19:25:13.026Z",
+      "finishedAt": "2026-09-28T19:25:43.136Z",
+      "exportedFile": "sector-52w-high-leadership-v1-2026-09-28T19-25-43-136Z.json",
+      "jobExecutionStatus": "PASSED",
+      "reportedStudyStatus": "FAIL_DIAGNOSTIC",
+      "inputSha256": "35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f",
+      "implementationRevisionReported": null
+    },
+    {
+      "startedAt": "2026-09-28T19:33:27.475Z",
+      "finishedAt": "2026-09-28T19:33:54.628Z",
+      "exportedFile": "sector-52w-high-leadership-v1-2026-09-28T19-33-54-628Z.json",
+      "jobExecutionStatus": "PASSED",
+      "reportedStudyStatus": "FAIL_DIAGNOSTIC",
+      "inputSha256": "35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f",
+      "implementationRevisionReported": null,
+      "logicalEconomicResultIdenticalToFirst": true
+    }
+  ]
 }
