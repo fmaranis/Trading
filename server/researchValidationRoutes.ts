@@ -241,6 +241,7 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard protocolo sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.unit.mjs'] },
       { label: 'Guard causalidad sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.causal.unit.mjs'] },
       { label: 'Guard Yahoo REAL sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1YahooInput.unit.mjs'] },
+      { label: 'E2E runner sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.e2e.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
