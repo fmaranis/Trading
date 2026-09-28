@@ -235,3 +235,16 @@ Exact Fundamental Quality historical reconstruction remains BLOCKED_MISSING_HIST
 - replication 2019-2025: **UNOPENED**;
 - policy status: **CLOSED / NO RETUNE / NO PARAMETRIC V2 ON THIS SAMPLE**;
 - production remains `LEGACY`.
+
+
+### PEAD_EARNINGS_SOURCE_AUDIT_V1
+
+- purpose: source/causality audit only; no price outcomes;
+- source window: 2024-01-15 -> 2024-03-15;
+- universe: S&P500 PIT via EODHD `GSPC.INDX` HistoricalTickerComponents;
+- earnings source: EODHD Calendar Earnings;
+- frozen gates: >=200 PIT events, >=70% known timing, >=70% actual+estimate, >=150 causal eligible, zero duplicates and material EPS-difference inconsistencies;
+- source-audit seal committed before live feed access;
+- economic sample state: **UNOPENED / NO PRICE OUTCOMES**;
+- next state allowed only after source audit: `PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION` or `INCONCLUSIVE_SOURCE_CAUSALITY`;
+- production remains `LEGACY`.
