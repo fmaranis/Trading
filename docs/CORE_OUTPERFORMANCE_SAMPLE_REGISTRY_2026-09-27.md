@@ -183,3 +183,17 @@ Exact Fundamental Quality historical reconstruction remains BLOCKED_MISSING_HIST
 - no sample is claimed consumed by an economic candidate test; source-QA data and public sector performance were accessed only for preflight/reconciliation;
 - no parameter/source repair after the failed frozen reconciliation is allowed within this execution attempt;
 - next valid action is the unchanged sealed runner using the primary Yahoo provider in a runtime where it is operational.
+
+
+### Local-app execution integration — SECTOR_52W_HIGH_LEADERSHIP_V1
+
+- job id: `sector-52w-high-leadership-v1`;
+- surface: `ResearchValidationCenter`;
+- execution runtime: **LOCAL_APP_BACKEND**;
+- primary data path: Yahoo REAL, cached/frozen before economic calculation;
+- pre-data guards include protocol, causality, Yahoo identity/parser, research-validation runtime, core architecture and TypeScript;
+- economic runner calculates 10/20 bps per side; diagnostic continuation gate uses 20 bps;
+- replication remains unopened unless diagnostic passes;
+- current sample state in repository: **ECONOMIC_NOT_RUN / DIAGNOSTIC_UNOPENED / REPLICATION_UNOPENED**;
+- the prior Wolfram reconciliation failure remains source-QA evidence only and is not the candidate economic result;
+- machine-readable job evidence: `validation-runs/preregistration/sector-52w-high-leadership-v1-local-job.json`.
