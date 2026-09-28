@@ -187,7 +187,7 @@ function assertFiniteEconomicBlock(block,label){
   if(!finiteMetricBlock(block)) throw new Error('NON_FINITE_ECONOMIC_BLOCK:'+label);
 }
 function existingResultIsValid(existing){
-  if(!existing||existing.study!==P.version) return false;
+  if(!existing||existing.study!==P.version||existing.implementationRevision!==P.implementationRevision) return false;
   if(!existing.diagnostic?.cost10||!existing.diagnostic?.cost20) return false;
   if(!finiteMetricBlock(existing.diagnostic.cost10)||!finiteMetricBlock(existing.diagnostic.cost20)) return false;
   if(existing.replication){
@@ -198,7 +198,7 @@ function existingResultIsValid(existing){
 
 function publicSummary(result){
   return {
-    schemaVersion:1,study:result.study,status:result.status,provider:result.provider,inputSha256:result.inputSha256,
+    schemaVersion:1,study:result.study,implementationRevision:result.implementationRevision,status:result.status,provider:result.provider,inputSha256:result.inputSha256,
     diagnostic10:publicBlock(result.diagnostic?.cost10),diagnostic20:publicBlock(result.diagnostic?.cost20),
     replication10:publicBlock(result.replication?.cost10),replication20:publicBlock(result.replication?.cost20),
     statistics:result.statistics??null,userFrequencyTarget:result.userFrequencyTarget??null,
@@ -257,7 +257,7 @@ if(diagnostic.cost20.gatePassed){
 }
 
 const result={
-  schemaVersion:1,study:P.version,status,provider:input.provider,inputSha256:sha256(inputText),
+  schemaVersion:1,study:P.version,implementationRevision:P.implementationRevision,status,provider:input.provider,inputSha256:sha256(inputText),
   diagnostic,replication,statistics:null,userFrequencyTarget:null,
   productionDefault:'LEGACY',productionAuthority:false,promotionAllowed:false
 };
