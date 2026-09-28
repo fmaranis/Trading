@@ -42,7 +42,7 @@ Un evento es causalmente utilizable si:
 - `report_date` y fiscal `date` son fechas válidas;
 - `before_after_market` es `BeforeMarket` o `AfterMarket`;
 - `actual` y `estimate` son numéricos finitos;
-- `difference` es consistente con `actual-estimate` dentro de tolerancia numérica;
+- `difference` es consistente con `actual-estimate` con tolerancia congelada de `max(0,005 EPS; 0,01% relativo)`, para admitir redondeo del proveedor sin aceptar discrepancias materiales;
 - no existe duplicado del mismo ticker + fiscal period + report date.
 
 Semántica futura de ejecución, aún sin backtest:
