@@ -161,7 +161,7 @@ export function rebalanceAtOpen(state,target,opens,costBps){
   const required=new Set([...Object.keys(state.shares??{}),...Object.keys(target??{})]);
   for(const s of required){
     const px=Number(opens?.[s]);
-    if(!(px>0)&&px!==0) throw new Error('REBALANCE_OPEN_MISSING_OR_INVALID:'+s);
+    if(!Number.isFinite(px)) throw new Error('REBALANCE_OPEN_MISSING_OR_INVALID:'+s);
     if(!(px>0)) throw new Error('REBALANCE_OPEN_NONPOSITIVE:'+s);
   }
   for(const [s,shares] of Object.entries(state.shares??{})){
