@@ -1192,3 +1192,30 @@ Actualización 2026-09-28 — SECTOR_52W_HIGH_LEADERSHIP_V1 R3 cierre técnico P
 - limitación restante: ChatGPT no puede ejecutar el backend local/Yahoo cache del usuario; por ello el único paso externo pendiente es **una ejecución REAL** del job local, no otra prueba manual;
 - siguiente acción permitida: sincronizar al HEAD vigente y ejecutar **una sola vez** `Precio · liderazgo sectorial 52W · V1 · rev. técnica 3`. El job ejecuta revisión/unit/causal/E2E/runtime/arquitectura/TypeScript/corporate-actions/NAV antes de economía;
 - producción continúa **LEGACY** y no se autoriza retuning.
+
+
+---
+
+Actualización 2026-09-28 — SECTOR_52W_HIGH_LEADERSHIP_V1 diagnóstico económico válido FAIL:
+
+- ejecución válida recibida con `implementationRevision=SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28`, provider `YAHOO_FINANCE` e input hash congelado `35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f`;
+- estado canónico: **FAIL_DIAGNOSTIC**. Éste sí sustituye a los dos exports técnicos inválidos anteriores;
+- diagnóstico 20 pb/lado, 2013-01-02 -> 2019-01-02:
+  - candidata CAGR **10,1157%**;
+  - SPY **11,3116%** => exceso **-1,1959 pp/año**;
+  - URTH **7,1922%** => exceso **+2,9235 pp/año**;
+  - basket9 equiponderado **10,2581%** => exceso **-0,1424 pp/año**;
+  - control sector 12-2 **9,4761%** => V1 52W mejora **+0,6396 pp/año** frente al control, pero no supera los hurdles primarios;
+  - max drawdown candidata **-20,5044%** vs URTH **-18,8925%** => gate de drawdown FAIL;
+  - Sharpe candidata **0,8181** vs URTH **0,5329** => gate Sharpe PASS;
+  - hit-rate anual conjunto SPY+URTH: **2/6 = 33,33%**;
+  - selector incremental vs basket9 HAC12: alpha mensual **-0,0476%**, t-stat **-0,609**, sin evidencia de valor incremental;
+  - turnover sobre capital inicial **24,2626x**; coste a 20 pb/lado **0,0485253**, reconciliación aritmética exacta;
+- gates 20 pb: FAIL vs SPY, PASS vs URTH, FAIL vs basket9, FAIL drawdown, PASS Sharpe => gate conjunto FAIL;
+- incluso a 10 pb/lado sigue FAIL vs SPY y drawdown; no existe rescate por coste bajo;
+- conforme al preregistro: **replicación 2019-2025 NO SE ABRE**; `statistics=null`; `userFrequencyTarget=null`;
+- interpretación metodológica: no declarar inútil toda la información de máximos/sector; esta política long-only concreta no demuestra ventaja suficiente frente al core/controles. El ligero diferencial frente a 12-2 no autoriza retuning;
+- `SECTOR_52W_HIGH_LEADERSHIP_V1` queda **CERRADA / NO RETUNE / NO V2 PARAMÉTRICA** sobre estas muestras;
+- resultado canónico: `validation-runs/diagnostics/sector-52w-high-leadership-v1-result.json`;
+- producción continúa **LEGACY**; Quality/Profitability se conservan sin cambios;
+- siguiente línea permitida: hipótesis **materialmente distinta**, con preregistro propio. Prioridad de estudio: PEAD / reacción tardía a sorpresa de resultados, empezando por demostrar disponibilidad causal de evento + consenso previo + before/after-market antes de cualquier outcome.
