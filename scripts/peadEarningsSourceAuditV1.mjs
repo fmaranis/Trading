@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 
 export const PEAD_SOURCE_AUDIT_V1=Object.freeze({
   study:'PEAD_EARNINGS_SOURCE_AUDIT_V1',
@@ -147,6 +148,6 @@ export async function main(){
   if(!audit.passed)process.exitCode=2;
 }
 
-if(import.meta.url===new URL('file://'+path.resolve(process.argv[1])).href){
+if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href){
   main().catch(error=>{console.error(MARKER,JSON.stringify({status:'BLOCKED',reason:error?.message??String(error),economicOutcomesOpened:false,productionDefault:'LEGACY'}));process.exitCode=1;});
 }
