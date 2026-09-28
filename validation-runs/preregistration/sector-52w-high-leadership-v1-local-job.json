@@ -1,27 +1,34 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "study": "SECTOR_52W_HIGH_LEADERSHIP_V1",
   "recordedAt": "2026-09-28",
-  "status": "READY_LOCAL_APP_EXECUTION",
-  "economicResult": "NOT_RUN",
-  "outcomesOpened": false,
+  "status": "R3_TECHNICALLY_HARDENED_NO_VALID_ECONOMIC_VERDICT",
+  "economicResult": "NO_VALID_ECONOMIC_VERDICT",
+  "outcomesOpened": true,
   "productionDefault": "LEGACY",
   "productionAuthority": false,
   "job": {
     "id": "sector-52w-high-leadership-v1",
     "location": "ResearchValidationCenter",
     "execution": "LOCAL_APP_BACKEND",
-    "button": "Ejecutar diagnóstico 52W",
+    "button": "Ejecutar diagnóstico 52W · rev. técnica 3",
     "steps": [
+      "node scripts/sector52WeekHighLeadershipV1RevisionGuard.mjs",
       "node tests/sector52WeekHighLeadershipV1.unit.mjs",
       "node tests/sector52WeekHighLeadershipV1.causal.unit.mjs",
       "node tests/sector52WeekHighLeadershipV1YahooInput.unit.mjs",
+      "node tests/sector52WeekHighLeadershipV1YahooCorporateActions.unit.mjs",
+      "node tests/sector52WeekHighLeadershipV1YahooNavAudit.unit.mjs",
+      "node tests/sector52WeekHighLeadershipV1.e2e.unit.mjs",
       "npx tsx tests/researchValidationRuntime.unit.ts",
       "npx tsx tests/coreArchitectureV1.unit.ts",
       "npm run lint",
       "node scripts/sector52WeekHighLeadershipV1YahooInput.mjs",
+      "node scripts/sector52WeekHighLeadershipV1YahooCorporateActions.mjs",
+      "node scripts/sector52WeekHighLeadershipV1YahooNavAudit.mjs",
       "node scripts/sector52WeekHighLeadershipV1Live.mjs"
-    ]
+    ],
+    "name": "Precio · liderazgo sectorial 52W · V1 · rev. técnica 3"
   },
   "yahooInput": {
     "provider": "YAHOO_FINANCE",
@@ -39,10 +46,31 @@
     "continuationGateCostBpsPerSide": 20,
     "diagnostic": "2013-01 boundary -> 2019-01 boundary",
     "replication": "2019-01 boundary -> 2026-01 boundary; only opened if diagnostic 20 bps gate passes",
-    "resultMarker": "SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT"
+    "resultMarker": "SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT",
+    "resultRequiresImplementationRevision": "SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28",
+    "invalidResultPolicy": "Archive any missing/wrong-revision or non-finite result and recompute from the same frozen Yahoo input."
   },
   "preOutcomeSeal": "validation-runs/preregistration/sector-52w-high-leadership-v1-execution-seal.json",
   "currentHead": "5919a224fcd490aba9c5cf9b9203a2d2c815203d",
-  "chatLimitation": "The ChatGPT runtime still cannot execute the local Node/npm job. This does not block the application's local backend.",
-  "nextAction": "Run the integrated ResearchValidationCenter job once from the local app."
+  "chatLimitation": "ChatGPT cannot execute the user's local backend or access its Yahoo cache. R3 logic has independent Node/pure-function tests here and exact E2E is mandatory inside the local job before Yahoo/economic execution.",
+  "nextAction": "NO USER TEST ACTION REQUESTED UNTIL R3 TECHNICAL CLOSURE IS RECORDED; both prior exports are invalid.",
+  "implementationRevision": "SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28",
+  "invalidLocalRuns": 2,
+  "preRealDataSelfTests": {
+    "revisionGuard": true,
+    "protocolUnit": true,
+    "causalPrefix": true,
+    "yahooParserIdentity": true,
+    "corporateActionsUnit": true,
+    "navReconciliationUnit": true,
+    "fullEconomicRunnerE2E": true,
+    "runtimeIntegrationGuard": true,
+    "coreArchitectureGuard": true,
+    "typescriptLint": true
+  },
+  "dataGuards": {
+    "corporateActions": "PASS required from raw Yahoo cache before economic runner",
+    "navReconciliation": "All 9 sectors must be within ±0.20 pp/year versus both State Street official NAV and market-value 10y returns as of 2026-08-31",
+    "failClosed": true
+  }
 }
