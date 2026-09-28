@@ -197,3 +197,16 @@ Exact Fundamental Quality historical reconstruction remains BLOCKED_MISSING_HIST
 - current sample state in repository: **ECONOMIC_NOT_RUN / DIAGNOSTIC_UNOPENED / REPLICATION_UNOPENED**;
 - the prior Wolfram reconciliation failure remains source-QA evidence only and is not the candidate economic result;
 - machine-readable job evidence: `validation-runs/preregistration/sector-52w-high-leadership-v1-local-job.json`.
+
+
+### First run technical invalidation — SECTOR_52W_HIGH_LEADERSHIP_V1
+
+- first local run accessed diagnostic Yahoo data but candidate/12-2 economics became non-finite due rotation accounting;
+- displayed `FAIL_DIAGNOSTIC` is **INVALID** and carries no economic meaning;
+- status: **TECHNICAL_INVALID_NO_ECONOMIC_VERDICT**;
+- root cause: sold holdings absent from the open-price request during monthly rotation;
+- repair changes accounting/guards only; no research parameter changed;
+- diagnostic is now **OPENED/CONSUMED DIAGNOSTIC**, suitable for repaired diagnostic understanding but not a fresh/blind promotion claim;
+- temporal replication 2019-2025 remains **UNOPENED**;
+- repaired rerun must reuse the same frozen Yahoo input hash `35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f`;
+- evidence: `validation-runs/diagnostics/sector-52w-high-leadership-v1-first-run-technical-invalid-2026-09-28.json`.
