@@ -276,7 +276,8 @@ if(fs.existsSync(outputPath)){
 const inputText=fs.readFileSync(inputPath,'utf8'),input=JSON.parse(inputText);
 if(input.study!==P.version)throw new Error('INPUT_STUDY_MISMATCH');
 if(input.productionDefault!=='LEGACY'||input.productionAuthority!==false)throw new Error('INPUT_PRODUCTION_INVALID');
-if(input.provenance!=='REAL')throw new Error('NON_REAL_INPUT');
+const e2eTestMode=process.env.SECTOR52W_E2E_TEST==='1';
+if(input.provenance!=='REAL'&&!(e2eTestMode&&input.provenance==='SYNTHETIC_TEST'))throw new Error('NON_REAL_INPUT');
 if(input.provider==='WOLFRAM_FINANCIALDATA'&&input.reconciliation?.status!=='PASS')throw new Error('INCONCLUSIVE_DATA_RECONCILIATION');
 for(const s of [...P.sectors,...P.benchmarks]){
   if(!input.series?.[s])throw new Error('MISSING_SERIES:'+s);
