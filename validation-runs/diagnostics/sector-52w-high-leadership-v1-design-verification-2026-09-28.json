@@ -1,0 +1,17 @@
+{
+  "status": "PASS_DESIGN_CONSISTENCY_ONLY",
+  "economicTestsRun": false,
+  "checks": [
+    "9 unique symbols",
+    "3 selections x6 cohorts/18 sum1",
+    "maximum weight1/3",
+    "dates contiguous boundary but returns disjoint",
+    "LEGACY/no authority",
+    "NOT_RUN truthful status",
+    "no automatic secondary strategy",
+    "no retuning",
+    "all3 document/spec hashes match"
+  ],
+  "noProductionCodeChanged": true,
+  "noFrozenQualityFilesChanged": true
+}

@@ -1229,3 +1229,11 @@ Retiene señal prometedora frente al core global, **no un 80% estable ni una imp
 La auditoría también corrige la alineación de la comparación nueva: el retorno de enero completo debe partir de cierre diciembre anterior, no de cierre 4 enero. Los artifacts anteriores permanecen inmutables. Parent UCITS no se renombra SPY. Ajustados de mercado y NAV oficial se muestran separados; discrepancias no totalmente reconciliadas impiden afirmar equivalencia/promoción, aunque los conteos anuales URTH coinciden.
 
 Exact Fundamental Quality histórico: **BLOCKED_MISSING_HISTORICAL_PIT_DESCRIPTOR_PANEL**. Snapshot 2026 intacto, inicio no capturado, outcomes prospectivos UNOPENED. No se ha fingido un backtest histórico sobre los ganadores actuales. Ver input, resultados exactos, controles y tests en `validation-runs/diagnostics/core-outperformance-hit-rate-*2026-09-28.json`.
+
+## Nueva hipótesis técnica autorizada — 2026-09-28
+
+`SECTOR_52W_HIGH_LEADERSHIP_V1`: estudio bibliográfico y plan congelado en `CORE_OUTPERFORMANCE_PRICE_DISCOVERY_PLAN_2026-09-28.md`. Estado **DESIGN_FROZEN / ECONOMIC_NOT_RUN**. Aprovecha la evidencia sobre máximos52w e información industrial con una adaptación explícita a nueve ETF originales1998; no equivale a una réplica académica ni garantiza rentabilidad long-only.
+
+No se descarta Quality. El FAIL de slopes20/60 sobre15 episodios permanece local a aquella política, no prueba universal contra análisis gráfico. Se conservarán cálculos de pendiente/ruptura como diagnósticos sin optimizarlos. Una sola candidata primaria, controles no promocionables y paradas explícitas. Fuentes primarias, límites de transferencia, fórmula, seis votos mensuales, NEXT_OPEN, ventanas no-blind, cobertura, costes, fiscalidad posterior y objetivo80% detallados en el plan y su JSON sellado. PEAD queda sólo como segunda idea/inventario causal; no se ejecuta como rescate.
+
+Prompt listo para otro chat: `CORE_OUTPERFORMANCE_PRICE_DISCOVERY_HANDOFF_2026-09-28.md`. El siguiente trabajo es implementación y prueba económica, no otra ronda de planificación. Sin cambios productivos ni outcomes prospectivos abiertos.

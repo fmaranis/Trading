@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "study": "SECTOR_52W_HIGH_LEADERSHIP_V1",
+  "baseHead": "c282d73ec920d3bde55466c36284ad8e41195956",
+  "frozenAt": "2026-09-28",
+  "scope": "DESIGN_ONLY_NOT_EXECUTION_CODE_SEAL",
+  "economicResult": "NOT_RUN",
+  "marketWindowsGloballyFresh": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "sha256": {
+    "docs/CORE_OUTPERFORMANCE_PRICE_DISCOVERY_PLAN_2026-09-28.md": "a0b4954e289d1a41f2711979a67c7c2766916ff8b47168959a91a8339615443e",
+    "docs/CORE_OUTPERFORMANCE_PRICE_DISCOVERY_HANDOFF_2026-09-28.md": "ed35e760894080e782cb32a3917510f6cad0961e9e9c53157f03946cb87af681",
+    "validation-runs/preregistration/sector-52w-high-leadership-v1-design.json": "dbabbe64012ee18b75f037ac32b346ed10cd61abfc4a9bad128fe6b9ca3649a0"
+  }
+}

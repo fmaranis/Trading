@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "study": "SECTOR_52W_HIGH_LEADERSHIP_V1",
+  "baseHead": "c282d73ec920d3bde55466c36284ad8e41195956",
+  "status": "DESIGN_FROZEN_IMPLEMENTATION_PENDING",
+  "economicResult": "NOT_RUN",
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "universe": [
+    "XLB",
+    "XLE",
+    "XLF",
+    "XLI",
+    "XLK",
+    "XLP",
+    "XLU",
+    "XLV",
+    "XLY"
+  ],
+  "universeBasis": "All nine original 1998 Select Sector ETFs; official identity/continuity audit required pre-outcome",
+  "currency": "USD",
+  "signal": {
+    "field": "adjustedClose",
+    "windowSessions": 252,
+    "includeInformationSessionInMaximum": true,
+    "formula": "close[t] / max(close[t-251:t])",
+    "frequency": "MONTH_END",
+    "selectedFraction": 0.3,
+    "selectedCount": 3,
+    "tieBreak": "TICKER_ASCII_ASC",
+    "skipMonth": false
+  },
+  "weights": {
+    "activeMonthlySelections": 6,
+    "formula": "count(ticker in top3 of last6 month-end selections)/18",
+    "rebalance": "MONTHLY_NEXT_OPEN",
+    "maxWeight": 0.3333333333333333,
+    "shorts": false,
+    "leverage": false
+  },
+  "sample": {
+    "downloadFrom": "2011-07-01",
+    "downloadThrough": "2026-01-07",
+    "diagnosticStartOnOrAfter": "2013-01-01",
+    "diagnosticEndOnOrAfter": "2019-01-01",
+    "replicationStartOnOrAfter": "2019-01-01",
+    "replicationEndOnOrAfter": "2026-01-01",
+    "boundaryPrice": "FIRST_VALID_COMMON_ADJUSTED_OPEN_WITH_FULL_CALENDAR_COVERAGE",
+    "role": "HISTORICAL_DIAGNOSTIC_CONSUMED_MARKETS_NOT_BLIND",
+    "replicationRequiresDiagnosticGate": true
+  },
+  "benchmarks": [
+    "SPY",
+    "URTH"
+  ],
+  "controls": [
+    "NINE_SECTOR_EQUAL_WEIGHT",
+    "SAME_UNIVERSE_12_2_MOMENTUM_ABLATION_ONLY"
+  ],
+  "controlCannotReplacePrimary": true,
+  "descriptiveOnly": [
+    "slope20",
+    "slope60",
+    "slope120",
+    "slopeAcceleration20vs60",
+    "breakout20",
+    "breakout252"
+  ],
+  "data": {
+    "provenanceRequired": "REAL",
+    "coverageRequired": 1.0,
+    "primary": "YAHOO_CHART_EXISTING_PROVIDER",
+    "snapshotSelectionFallback": false,
+    "syntheticFallback": false,
+    "survivorRenormalization": false,
+    "unresolvedCorporateAction": "INCONCLUSIVE_CORPORATE_ACTIONS",
+    "priceNavDiscrepancy": "RECONCILE_BEFORE_ECONOMIC_CLAIM",
+    "rawResponseAndShaRequired": true
+  },
+  "costResearchStress": {
+    "bpsPerSide": 10,
+    "doubleCostBpsPerSide": 20,
+    "entryExitCharged": true,
+    "basis": "ACTUAL_TRADED_NOTIONAL_AFTER_DRIFT",
+    "notRetailNetClaim": true
+  },
+  "risk": {
+    "volatility": "SAMPLE_DAILY_STD_SQRT_252",
+    "drawdown": "DAILY_INCLUDING_INITIAL_CAPITAL",
+    "sharpeRiskFreeDaily": 0
+  },
+  "continuationGate": [
+    "COMPLETE_DATA_AND_ACCOUNTING",
+    "CAGR_GT_SPY_AND_URTH_AT_20BPS_PER_SIDE",
+    "CAGR_GT_NINE_SECTOR_CONTROL_AT_SAME_COST",
+    "MAX_DAILY_DRAWDOWN_LOSS_LE_URTH",
+    "SHARPE_GE_URTH"
+  ],
+  "userFrequencyTarget": {
+    "pct": 80,
+    "unit": "NONOVERLAPPING_12_MONTH_EXECUTION_INTERVAL",
+    "benchmarks": "BOTH_JOINTLY",
+    "eachBlockRequired": true,
+    "belowTargetCanStillBePromising": true,
+    "futureProbabilityClaim": false
+  },
+  "statistics": {
+    "method": "PAIRED_CIRCULAR_MONTHLY_BLOCK_BOOTSTRAP",
+    "blockMonths": 12,
+    "replicates": 2000,
+    "seed": 20260928,
+    "jointExcess": "MIN_OF_EXCESS_CAGR_VS_SPY_AND_URTH",
+    "oneSidedConfidence": 0.95,
+    "blocksAnalyzedSeparately": true
+  },
+  "stopOnDiagnosticFail": true,
+  "retuneAllowed": false,
+  "productionIntegrationRequiresSeparateReview": true,
+  "secondaryIdea": {
+    "id": "POST_EARNINGS_ANNOUNCEMENT_DRIFT",
+    "status": "LITERATURE_ONLY_DATA_INVENTORY_ALLOWED_NO_OUTCOMES",
+    "automaticFallback": false
+  },
+  "planPath": "docs/CORE_OUTPERFORMANCE_PRICE_DISCOVERY_PLAN_2026-09-28.md"
+}
