@@ -232,7 +232,7 @@ const JOBS: JobDefinition[] = [
   },
   {
     id: 'sector-52w-high-leadership-v1',
-    name: 'Precio · liderazgo sectorial 52W · V1',
+    name: 'Precio · liderazgo sectorial 52W · V1 · rev. técnica 2',
     description: 'Ejecuta la candidata congelada SECTOR_52W_HIGH_LEADERSHIP_V1 en el backend local: guards y TypeScript primero, después descarga/cache Yahoo REAL, diagnóstico 2013–2018 con 10/20 pb por lado y sólo si el gate 20 pb pasa abre la replicación 2019–2025. No retunea parámetros ni modifica producción LEGACY.',
     marker: 'SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT',
     visibility: 'CURRENT',
