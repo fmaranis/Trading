@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "study": "SECTOR_52W_HIGH_LEADERSHIP_V1",
+  "implementationRevision": "SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28",
+  "status": "FAIL_DIAGNOSTIC",
+  "provider": "YAHOO_FINANCE",
+  "inputSha256": "35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f",
+  "diagnostic10": {
+    "costBpsPerSide": 10,
+    "gatePassed": false,
+    "gates": {
+      "excessVsSpy": false,
+      "excessVsUrth": true,
+      "excessVsEqual9": true,
+      "drawdownNoWorseUrth": false,
+      "sharpeAtLeastUrth": true
+    },
+    "candidate": {
+      "totalReturnPct": 81.06563598192511,
+      "cagrPct": 10.403183471874966,
+      "annualizedVolPct": 12.78703139423605,
+      "maxDrawdownPct": -20.4535051536049,
+      "sharpe": 0.8385173326160698
+    },
+    "spy": {
+      "totalReturnPct": 90.56929676385136,
+      "cagrPct": 11.348707833916194,
+      "annualizedVolPct": 12.839497953971172,
+      "maxDrawdownPct": -19.348913905110066,
+      "sharpe": 0.9020915876983928
+    },
+    "urth": {
+      "totalReturnPct": 51.98813571356429,
+      "cagrPct": 7.227926339245427,
+      "annualizedVolPct": 15.212663894044825,
+      "maxDrawdownPct": -18.892493440006753,
+      "sharpe": 0.5351706646934246
+    },
+    "equal9": {
+      "totalReturnPct": 80.25309137728493,
+      "cagrPct": 10.320437817896977,
+      "annualizedVolPct": 12.25705161819005,
+      "maxDrawdownPct": -18.463080883226056,
+      "sharpe": 0.8632197051940138
+    },
+    "momentum12_2": {
+      "totalReturnPct": 74.53609348838661,
+      "cagrPct": 9.729292875794759,
+      "annualizedVolPct": 13.513968382889704,
+      "maxDrawdownPct": -23.17622930872809,
+      "sharpe": 0.7551365004327442
+    },
+    "hitRates": {
+      "n": 6,
+      "spyWins": 2,
+      "urthWins": 5,
+      "bothWins": 2,
+      "bothPct": 33.333333333333336
+    },
+    "rolling12Diagnostics": {
+      "windows": 61,
+      "worst12mPct": -9.017537805725418,
+      "averageJointRelativeWinPctPoints": 1.5861771761820507,
+      "averageJointRelativeLossPctPoints": -2.1920582724246063,
+      "maxJointRelativeLossPctPoints": -5.706151088888367
+    },
+    "concentration": {
+      "events": 72,
+      "averageActivePositions": 6.847222222222222,
+      "averageHhi": 0.18552812071330593,
+      "maxHhi": 0.30246913580246915,
+      "averageMaxWeight": 0.2530864197530863,
+      "maxWeight": 0.3333333333333333
+    },
+    "monthlyObservations": 72,
+    "years": 5.99875425231182,
+    "selectorIncrementalHac12": {
+      "alphaMonthly": -0.00031061580554688536,
+      "betaSpy": 0.04702623021148679,
+      "hac12SeAlpha": 0.0007771171219171362,
+      "tStat": -0.3997026918935988
+    },
+    "start": "2013-01-02",
+    "end": "2019-01-02",
+    "totalCost": 0.024474051815926327,
+    "turnoverOnInitialCapital": 24.474051815926327
+  },
+  "diagnostic20": {
+    "costBpsPerSide": 20,
+    "gatePassed": false,
+    "gates": {
+      "excessVsSpy": false,
+      "excessVsUrth": true,
+      "excessVsEqual9": false,
+      "drawdownNoWorseUrth": false,
+      "sharpeAtLeastUrth": true
+    },
+    "candidate": {
+      "totalReturnPct": 78.25557127993525,
+      "cagrPct": 10.115690803705801,
+      "annualizedVolPct": 12.786684305287691,
+      "maxDrawdownPct": -20.504413920236665,
+      "sharpe": 0.8181286388875607
+    },
+    "spy": {
+      "totalReturnPct": 90.18853816740288,
+      "cagrPct": 11.311589991454296,
+      "annualizedVolPct": 12.84116476672274,
+      "maxDrawdownPct": -19.348913905110066,
+      "sharpe": 0.8993928425418929
+    },
+    "urth": {
+      "totalReturnPct": 51.6844625079963,
+      "cagrPct": 7.192182150068915,
+      "annualizedVolPct": 15.217000318695042,
+      "maxDrawdownPct": -18.892493440006763,
+      "sharpe": 0.5328697469299234
+    },
+    "equal9": {
+      "totalReturnPct": 79.64323953086014,
+      "cagrPct": 10.258128991987903,
+      "annualizedVolPct": 12.258888119303107,
+      "maxDrawdownPct": -18.469208320980158,
+      "sharpe": 0.858496626989866
+    },
+    "momentum12_2": {
+      "totalReturnPct": 72.1340050250213,
+      "cagrPct": 9.47608948707841,
+      "annualizedVolPct": 13.51471467628396,
+      "maxDrawdownPct": -23.22089087975028,
+      "sharpe": 0.737995156973038
+    },
+    "hitRates": {
+      "n": 6,
+      "spyWins": 2,
+      "urthWins": 5,
+      "bothWins": 2,
+      "bothPct": 33.333333333333336
+    },
+    "rolling12Diagnostics": {
+      "windows": 61,
+      "worst12mPct": -9.32540049655347,
+      "averageJointRelativeWinPctPoints": 1.7980467202444266,
+      "averageJointRelativeLossPctPoints": -2.266730485171427,
+      "maxJointRelativeLossPctPoints": -5.983229144731594
+    },
+    "concentration": {
+      "events": 72,
+      "averageActivePositions": 6.847222222222222,
+      "averageHhi": 0.18552812071330593,
+      "maxHhi": 0.30246913580246915,
+      "averageMaxWeight": 0.2530864197530863,
+      "maxWeight": 0.3333333333333333
+    },
+    "monthlyObservations": 72,
+    "years": 5.99875425231182,
+    "selectorIncrementalHac12": {
+      "alphaMonthly": -0.00047602524090141403,
+      "betaSpy": 0.046475466399564715,
+      "hac12SeAlpha": 0.0007821849140325771,
+      "tStat": -0.6085840219638756
+    },
+    "start": "2013-01-02",
+    "end": "2019-01-02",
+    "totalCost": 0.0485252836110118,
+    "turnoverOnInitialCapital": 24.2626418055059
+  },
+  "replication10": null,
+  "replication20": null,
+  "statistics": null,
+  "userFrequencyTarget": null,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "promotionAllowed": false
+}
