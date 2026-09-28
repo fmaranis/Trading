@@ -65,5 +65,10 @@
   "resealReason": "R3 technical hardening after two invalid local exports. No signal/date/top3/six-vote/cost/gate retuning. Repair covers rotation exit pricing, hard non-finite guards, implementation fingerprint, monthly entry-cost convention, end-to-end runner test including forced replication/statistics, raw Yahoo corporate-actions audit, official State Street NAV reconciliation, runtime integration guards and visible R3 UI fingerprint.",
   "implementationRevision": "SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28",
   "headBeforeNextValidEconomicRerun": "87713c08a963d24f8d9d853145c64365fab23f07",
-  "invalidEconomicExports": 2
+  "invalidEconomicExports": 2,
+  "technicalStatus": "PASS_R3_TECHNICAL_VERIFICATION_READY_FOR_SINGLE_REAL_ECONOMIC_RUN",
+  "validEconomicVerdictAvailable": false,
+  "technicalVerificationEvidence": "validation-runs/diagnostics/sector-52w-high-leadership-v1-r3-technical-verification-2026-09-28.json",
+  "headAfterTechnicalVerification": "6e17cf2fb3a4ae8c16ebe284ca637f7735cb9b1c",
+  "nextAction": "ONE_REAL_LOCAL_JOB_RUN_ONLY"
 }
