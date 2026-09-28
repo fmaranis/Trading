@@ -157,9 +157,21 @@ export function addExecutionDates(signals,calendar){
 export function rebalanceAtOpen(state,target,opens,costBps){
   const c=costBps/10000;
   const current={}; let pre=Number(state.cash??0);
-  for(const [s,shares] of Object.entries(state.shares??{})){
-    const v=Number(shares)*Number(opens[s]); current[s]=v; pre+=v;
+  if(!Number.isFinite(pre)) throw new Error('REBALANCE_CASH_INVALID');
+  const required=new Set([...Object.keys(state.shares??{}),...Object.keys(target??{})]);
+  for(const s of required){
+    const px=Number(opens?.[s]);
+    if(!(px>0)&&px!==0) throw new Error('REBALANCE_OPEN_MISSING_OR_INVALID:'+s);
+    if(!(px>0)) throw new Error('REBALANCE_OPEN_NONPOSITIVE:'+s);
   }
+  for(const [s,shares] of Object.entries(state.shares??{})){
+    const qty=Number(shares),px=Number(opens[s]);
+    if(!Number.isFinite(qty)) throw new Error('REBALANCE_SHARES_INVALID:'+s);
+    const v=qty*px;
+    if(!Number.isFinite(v)) throw new Error('REBALANCE_CURRENT_VALUE_INVALID:'+s);
+    current[s]=v; pre+=v;
+  }
+  if(!Number.isFinite(pre)||!(pre>0)) throw new Error('REBALANCE_PRE_EQUITY_INVALID');
   let post=pre;
   for(let k=0;k<100;k++){
     let traded=0;
@@ -173,14 +185,24 @@ export function rebalanceAtOpen(state,target,opens,costBps){
   for(const s of Object.keys(target)) shares[s]=(post*Number(target[s]))/Number(opens[s]);
   for(const s of names) traded+=Math.abs(Number(shares[s]??0)*Number(opens[s])-Number(current[s]??0));
   const cost=c*traded;
-  return {shares,cash:0,equity:pre-cost,tradedNotional:traded,cost};
+  const equity=pre-cost;
+  if(![cost,traded,equity].every(Number.isFinite)||!(equity>0)) throw new Error('REBALANCE_RESULT_NONFINITE');
+  return {shares,cash:0,equity,tradedNotional:traded,cost};
 }
 
 export function liquidateAtOpen(state,opens,costBps){
   let gross=Number(state.cash??0), sold=0;
-  for(const [s,shares] of Object.entries(state.shares??{})){const v=Number(shares)*Number(opens[s]);gross+=v;sold+=v;}
-  const cost=sold*(costBps/10000);
-  return {equity:gross-cost,tradedNotional:sold,cost};
+  if(!Number.isFinite(gross)) throw new Error('LIQUIDATION_CASH_INVALID');
+  for(const [s,shares] of Object.entries(state.shares??{})){
+    const px=Number(opens?.[s]),qty=Number(shares);
+    if(!(px>0)||!Number.isFinite(qty)) throw new Error('LIQUIDATION_OPEN_OR_SHARES_INVALID:'+s);
+    const v=qty*px;
+    if(!Number.isFinite(v)) throw new Error('LIQUIDATION_VALUE_INVALID:'+s);
+    gross+=v;sold+=v;
+  }
+  const cost=sold*(costBps/10000),equity=gross-cost;
+  if(![cost,sold,equity].every(Number.isFinite)||!(equity>0)) throw new Error('LIQUIDATION_RESULT_NONFINITE');
+  return {equity,tradedNotional:sold,cost};
 }
 
 export function markAtClose(state,closes){
