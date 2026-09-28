@@ -42,7 +42,8 @@ function makeInput(mode){
   const benchRate={SPY:0.00024,URTH:0.00018};
   for(const [j,symbol] of P.benchmarks.entries()){
     series[symbol]=dates.map((date,i)=>{
-      const close=Math.exp(Math.log(100+j*5)+benchRate[symbol]*i+0.003*Math.sin(i/31+j));
+      const amplitude=symbol==='URTH'?0.02:0.01;
+      const close=Math.exp(Math.log(100+j*5)+benchRate[symbol]*i+amplitude*Math.sin(i/31+j));
       return row(date,close,i,20+j);
     });
   }
