@@ -222,3 +222,16 @@ Exact Fundamental Quality historical reconstruction remains BLOCKED_MISSING_HIST
 - current implementation fingerprint: `SECTOR_52W_HIGH_LEADERSHIP_V1_VALIDATED_R3_2026_09_28`;
 - exact local job must pass revision/unit/causal/E2E/runtime/architecture/TypeScript/corporate-action/NAV guards before any future economic runner;
 - no retuning allowed; production remains `LEGACY`.
+
+
+### Valid diagnostic closure — SECTOR_52W_HIGH_LEADERSHIP_V1
+
+- valid R3 diagnostic: **FAIL_DIAGNOSTIC**;
+- input hash: `35d30e16609099e0d852e744753fd74edd0989126931174608113f6b242b825f`;
+- 2013-01-02 -> 2019-01-02 diagnostic is now economically consumed;
+- at 20 bps/side: candidate CAGR 10.1157%, SPY 11.3116%, URTH 7.1922%, equal9 10.2581%;
+- gates failed vs SPY, equal9 and URTH drawdown; passed vs URTH CAGR and URTH Sharpe;
+- observed joint 12m hit rate 33.33%;
+- replication 2019-2025: **UNOPENED**;
+- policy status: **CLOSED / NO RETUNE / NO PARAMETRIC V2 ON THIS SAMPLE**;
+- production remains `LEGACY`.
