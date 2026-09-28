@@ -231,28 +231,26 @@ const JOBS: JobDefinition[] = [
     ]
   },
   {
-    id: 'sector-52w-high-leadership-v1',
-    name: 'Precio · liderazgo sectorial 52W · V1 · rev. técnica 3',
-    description: 'Ejecuta la candidata congelada SECTOR_52W_HIGH_LEADERSHIP_V1 en el backend local: guards y TypeScript primero, después descarga/cache Yahoo REAL, diagnóstico 2013–2018 con 10/20 pb por lado y sólo si el gate 20 pb pasa abre la replicación 2019–2025. No retunea parámetros ni modifica producción LEGACY.',
-    marker: 'SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT',
+    id: 'pead-earnings-source-audit-v1',
+    name: 'PEAD · auditoría causal de datos · V1',
+    description: 'Comprueba únicamente si EODHD permite construir una señal PEAD causal: universo S&P 500 point-in-time, fecha/timing del anuncio y EPS actual + consenso previo. No descarga outcomes de precio, no hace backtest y no modifica producción.',
+    marker: 'PEAD_EARNINGS_SOURCE_AUDIT_V1_RESULT',
     visibility: 'CURRENT',
     steps: [
-      { label: 'Guard revisión sector 52W', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1RevisionGuard.mjs'] },
-      { label: 'Guard protocolo sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.unit.mjs'] },
-      { label: 'Guard causalidad sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.causal.unit.mjs'] },
-      { label: 'Guard Yahoo REAL sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1YahooInput.unit.mjs'] },
-      { label: 'Guard corporate actions sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1YahooCorporateActions.unit.mjs'] },
-      { label: 'Guard NAV Yahoo sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1YahooNavAudit.unit.mjs'] },
-      { label: 'E2E runner sector 52W', command: 'node', args: ['tests/sector52WeekHighLeadershipV1.e2e.unit.mjs'] },
+      { label: 'Guard PEAD source audit', command: 'node', args: ['tests/peadEarningsSourceAuditV1.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Yahoo REAL · descargar/cachear input congelado', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1YahooInput.mjs'] },
-      { label: 'Yahoo REAL · auditar corporate actions', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1YahooCorporateActions.mjs'] },
-      { label: 'Yahoo REAL · reconciliar NAV oficial', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1YahooNavAudit.mjs'] },
-      { label: 'Diagnóstico / replicación sector 52W', command: 'node', args: ['scripts/sector52WeekHighLeadershipV1Live.mjs'] }
+      { label: 'EODHD REAL · auditar causalidad PEAD', command: 'node', args: ['scripts/peadEarningsSourceAuditV1.mjs'] }
     ]
   },
+  archivedJob(
+    'sector-52w-high-leadership-v1',
+    'Precio · liderazgo sectorial 52W · V1',
+    'Cerrado el 2026-09-28 con FAIL_DIAGNOSTIC válido en R3. A 20 pb/lado no superó SPY ni el basket9 y tuvo peor drawdown que URTH. Replicación 2019-2025 permaneció sin abrir. No relanzar ni retunear esta política sobre la muestra consumida.',
+    '52W V1 · FAIL_DIAGNOSTIC · cerrado',
+    'SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT'
+  ),
   archivedJob(
     'phase8-historical-instrument-master-v1',
     'Fase 8 · universo histórico PIT · cierre estructural',
