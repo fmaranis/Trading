@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "study": "PEAD_EARNINGS_SOURCE_AUDIT_V1",
+  "sourceRevision": "YAHOO_STATIC_DUAL_PIT_R1",
+  "status": "PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION",
+  "window": {
+    "from": "2024-01-15",
+    "to": "2024-03-15"
+  },
+  "provider": "YAHOO_FINANCE_VIA_PINNED_STATIC_REFERENCE",
+  "provenance": "STATIC_REFERENCE",
+  "executionMode": "SOURCE_BLOB_AUDIT_VIA_GITHUB_CONNECTOR",
+  "sourcePins": {
+    "earnings": {
+      "repository": "vivek-v-rao/Earnings-Dates",
+      "commit": "7ed98a0e2497b0a83bcbc290db41705089768c16",
+      "path": "earnings_dates_all.csv",
+      "blobSha": "abde11f719e93dc427a1040ffed3f0b8590b8508"
+    },
+    "pitFja": {
+      "repository": "fja05680/sp500",
+      "commit": "a2430f2af0c79ddf0748e91de11bdeb1616ab5a7",
+      "path": "sp500_ticker_start_end.csv",
+      "blobSha": "3ed3b0e8d9e6e63730c153ee1f13ddaf6ed281bb"
+    },
+    "pitLawcal": {
+      "repository": "lawcal/sp500-components-history",
+      "commit": "2e59b86998a119d68e377f9f98aa7a816cfc7d5b",
+      "path": "data/components_history.csv",
+      "blobSha": "6a865618173f322ecda9a569bc6bd48edcfaf996"
+    }
+  },
+  "audit": {
+    "counts": {
+      "rawEarningsEvents": 150983,
+      "earningsWindow": 2141,
+      "fjaPitWindow": 463,
+      "lawcalPitWindow": 464,
+      "pitEvents": 463,
+      "knownTiming": 462,
+      "actualEstimate": 462,
+      "causalEligible": 461
+    },
+    "coverage": {
+      "knownTimingPct": 99.78401727861771,
+      "actualEstimatePct": 99.78401727861771
+    },
+    "quality": {
+      "duplicateCount": 0,
+      "directionalContradictionCount": 0,
+      "roundedEqualButProviderSurpriseCount": 23,
+      "pitSourceDisagreements": {
+        "fjaOnly": [],
+        "lawcalOnly": [
+          {
+            "ticker": "FISV",
+            "reportDate": "2024-02-06"
+          }
+        ]
+      }
+    },
+    "timingBreakdown": {
+      "beforeMarket": 259,
+      "afterMarket": 203,
+      "duringMarket": 1,
+      "unknown": 0
+    },
+    "exclusions": {
+      "missingActual": [
+        {
+          "ticker": "PNW",
+          "reportDate": "2024-02-27",
+          "rawDate": "2024-02-27 08:00:00-05:00"
+        }
+      ],
+      "duringMarket": [
+        {
+          "ticker": "APA",
+          "reportDate": "2024-02-21",
+          "rawDate": "2024-02-21 12:00:00-05:00"
+        }
+      ]
+    },
+    "gates": {
+      "pitEvents": true,
+      "timingCoverage": true,
+      "actualEstimateCoverage": true,
+      "causalEligible": true,
+      "noDuplicates": true,
+      "noDirectionalContradictions": true,
+      "dualPitAgreementForIncludedEvents": true,
+      "noSynthetic": true
+    },
+    "passed": true
+  },
+  "providerContract": {
+    "earningsOrigin": "Yahoo Finance historical earnings calendar captured by pinned repository snapshot",
+    "announcementTime": "local announcement timestamp; before 09:30 ET BeforeMarket, 09:30-15:59 ET excluded, from 16:00 ET AfterMarket",
+    "estimate": "Yahoo EPS Estimate; no independent consensus-vintage archive guarantee",
+    "pitMembership": "intersection of two commit-pinned S&P 500 historical reconstructions",
+    "tickerAliasPolicy": "exact historical ticker agreement; one-source aliases cannot expand PIT membership",
+    "surpriseIntegrity": "no directional contradiction allowed between rounded EPS difference and provider Surprise(%) when rounded EPS differ",
+    "vintageArchiveGuaranteed": false,
+    "interpretation": "diagnostic source audit only; STATIC_REFERENCE cannot authorize production promotion"
+  },
+  "economicOutcomesOpened": false,
+  "priceOutcomesFetched": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "promotionAllowed": false
+}
