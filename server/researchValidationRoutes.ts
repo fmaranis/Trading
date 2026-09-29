@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 export const researchValidationRouter = express.Router();
 
 type JobStatus = 'IDLE' | 'RUNNING' | 'PASSED' | 'FAILED';
-type JobVisibility = 'CURRENT' | 'ARCHIVED';
+type JobVisibility = 'CURRENT' | 'PARKED' | 'ARCHIVED';
 interface Step { label: string; command: string; args: string[]; }
 interface JobDefinition {
   id: string;
@@ -199,7 +199,7 @@ const JOBS: JobDefinition[] = [
     name: 'Fundamental Quality × valoración · validación PIT amplia',
     description: 'Diagnóstico research-only sobre miembros históricos del S&P 500 a 2021-05-03: EODHD fija la membresía PIT, SEC EDGAR aporta fundamentales con filed <= informationDate y Yahoo REAL mide outcomes. Quality y valoración están congelados antes de abrir outcomes; no puede promocionar producción.',
     marker: 'FUNDAMENTAL_QUALITY_VALUATION_BROAD_PIT_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'PARKED',
     requiresGithubReplayToken: true,
     requiresEodhdApiKey: true,
     requiresSecEdgarUserAgent: true,
@@ -217,7 +217,7 @@ const JOBS: JobDefinition[] = [
     name: 'Fase 6 · Forward Risk V8 como contexto · R2 collector',
     description: 'Stage A R2 fresh desde 2026-09-21. Ejecuta seal/readiness, arquitectura, PortfolioCandidateGate, paridad, superficie y TypeScript; sólo si todo pasa abre/continúa la muestra R2, persiste OPENED_COLLECTING antes del primer acceso a mercado y registra señal/contexto REAL causal. La sesión sucesora sólo materializa executionDate; no lee outcomes de 63 sesiones, no ejecuta órdenes y producción permanece LEGACY.',
     marker: 'PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_R2_COLLECTOR_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'PARKED',
     requiresGithubReplayToken: true,
     steps: [
       { label: 'Guard seal R2 Fase 6', command: 'npx', args: ['tsx', 'tests/phase6ForwardRiskContextStageAR2Seal.unit.ts'] },
@@ -270,7 +270,7 @@ const JOBS: JobDefinition[] = [
     name: 'QUALITY allocation · future-forward dinámico',
     description: 'Phase A prospectiva sobre Top64 current/live dinámico. Una única foto mensual consecutiva en la ventana congelada del día 9, 22:30-24:00 Europe/Madrid; mismo snapshot y 13.000 EUR de notional research para LEGACY y QUALITY_ALLOCATION_BRIDGE_V1. Reglas e implementación crítica quedan fingerprintadas, el estado autoritativo se encadena en replay-results y producción continúa LEGACY.',
     marker: 'QUALITY_ALLOCATION_DYNAMIC_FUTURE_FORWARD_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'PARKED',
     requiresGithubReplayToken: true,
     steps: [
       { label: 'Guard future-forward dinámico', command: 'npx', args: ['tsx', 'tests/qualityAllocationDynamicFutureForwardV1.unit.ts'] },
