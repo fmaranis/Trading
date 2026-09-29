@@ -1,91 +1,44 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { main } from '../scripts/peadEarningsSourceAuditV1.mjs';
+import { auditStaticSources, SOURCE_PINS } from '../scripts/peadEarningsSourceAuditV1.mjs';
 
-const originalCwd=process.cwd();
-const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'pead-source-audit-v1-'));
-process.chdir(tmp);
-process.env.EODHD_API_KEY='integration-test-key';
-
-function componentsPayload(){
-  const rows={};
-  for(let i=0;i<250;i++)rows[String(i)]={Code:'T'+i,StartDate:'2020-01-01',EndDate:null};
-  return rows;
+function fjaCsv(count){
+  return ['ticker,start_date,end_date',...Array.from({length:count},(_,i)=>'T'+i+',2020-01-01,')].join('\n')+'\n';
 }
-
-function earningsPayload(count){
-  const earnings=[];
-  for(let i=0;i<count;i++)earnings.push({
-    code:'T'+i+'.US',
-    report_date:'2024-02-01',
-    date:'2023-12-31',
-    before_after_market:i%2?'AfterMarket':'BeforeMarket',
-    actual:1.2,
-    estimate:1.0,
-    difference:.2,
-    percent:20,
-    currency:'USD'
-  });
-  return {earnings};
+function lawcalCsv(count){
+  return ['symbol,cik,name,sector,date_added,date_removed,created_at',...Array.from({length:count},(_,i)=>'T'+i+',0000000000,T'+i+',industrials,2020-01-01,,2020-01-01')].join('\n')+'\n';
 }
-
-function resetRuntime(){
-  fs.rmSync(path.resolve(tmp,'.runtime/pead-earnings-source-audit-v1'),{recursive:true,force:true});
-  fs.rmSync(path.resolve(tmp,'validation-runs'),{recursive:true,force:true});
-  process.exitCode=0;
-}
-
-async function runCase(earnings){
-  const calls=[];
-  const logs=[];
-  globalThis.fetch=async url=>{
-    calls.push(String(url));
-    const payload=String(url).includes('/fundamentals/')?componentsPayload():earnings;
-    return new Response(JSON.stringify(payload),{status:200,headers:{'content-type':'application/json'}});
-  };
-  const originalLog=console.log;
-  console.log=(...args)=>logs.push(args.map(String).join(' '));
-  try {
-    await main();
-  } finally {
-    console.log=originalLog;
+function earningsCsv(count){
+  const rows=['Earnings Date,earnings_datetime_utc,earnings_date,ticker,EPS Estimate,Reported EPS,Surprise(%),days_since'];
+  for(let i=0;i<count;i++){
+    const after=i%2===1;
+    rows.push([
+      after?'2024-02-01 16:00:00-05:00':'2024-02-01 08:00:00-05:00',
+      after?'2024-02-01 21:00:00+00:00':'2024-02-01 13:00:00+00:00',
+      '2024-02-01','T'+i,'1.00','1.20','20.0','90'
+    ].join(','));
   }
-  const out=JSON.parse(fs.readFileSync(path.resolve(tmp,'validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json'),'utf8'));
-  return {calls,out,logs};
+  return rows.join('\n')+'\n';
 }
 
-try{
-  resetRuntime();
-  const pass=await runCase(earningsPayload(220));
-  assert.equal(pass.calls.length,2);
-  assert.equal(pass.logs.some(line=>line.includes('PEAD_EARNINGS_SOURCE_AUDIT_V1_RESULT')),true);
-  assert.match(pass.calls[0],/\/api\/fundamentals\/GSPC\.INDX/);
-  assert.match(pass.calls[0],/filter=HistoricalTickerComponents/);
-  assert.match(pass.calls[1],/\/api\/calendar\/earnings/);
-  assert.equal(pass.out.status,'PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION');
-  assert.equal(pass.out.audit.counts.pitEvents,220);
-  assert.equal(pass.out.audit.counts.causalEligible,220);
-  assert.equal(pass.out.economicOutcomesOpened,false);
-  assert.equal(pass.out.priceOutcomesFetched,false);
-  assert.equal(pass.out.productionDefault,'LEGACY');
-  assert.equal(pass.out.productionAuthority,false);
-  assert.equal(process.exitCode,0);
+const pass=auditStaticSources(fjaCsv(250),lawcalCsv(250),earningsCsv(220));
+assert.equal(pass.passed,true);
+assert.equal(pass.counts.pitEvents,220);
+assert.equal(pass.counts.knownTiming,220);
+assert.equal(pass.counts.actualEstimate,220);
+assert.equal(pass.counts.causalEligible,220);
+assert.equal(pass.quality.duplicateCount,0);
+assert.equal(pass.quality.directionalContradictionCount,0);
 
-  resetRuntime();
-  const fail=await runCase(earningsPayload(100));
-  assert.equal(fail.logs.some(line=>line.includes('PEAD_EARNINGS_SOURCE_AUDIT_V1_RESULT')),true);
-  assert.equal(fail.out.status,'INCONCLUSIVE_SOURCE_CAUSALITY');
-  assert.equal(fail.out.audit.gates.pitEvents,false);
-  assert.equal(fail.out.audit.gates.causalEligible,false);
-  assert.equal(fail.out.economicOutcomesOpened,false);
-  assert.equal(fail.out.priceOutcomesFetched,false);
-  assert.equal(process.exitCode,2);
+const fail=auditStaticSources(fjaCsv(250),lawcalCsv(250),earningsCsv(100));
+assert.equal(fail.passed,false);
+assert.equal(fail.gates.pitEvents,false);
+assert.equal(fail.gates.causalEligible,false);
 
-  console.log('PEAD_EARNINGS_SOURCE_AUDIT_V1_INTEGRATION_PASS');
-} finally {
-  process.exitCode=0;
-  process.chdir(originalCwd);
-  fs.rmSync(tmp,{recursive:true,force:true});
-}
+assert.ok(SOURCE_PINS.earnings.commit.length===40);
+assert.ok(SOURCE_PINS.pitFja.commit.length===40);
+assert.ok(SOURCE_PINS.pitLawcal.commit.length===40);
+assert.ok(SOURCE_PINS.earnings.blobSha.length===40);
+assert.ok(SOURCE_PINS.pitFja.blobSha.length===40);
+assert.ok(SOURCE_PINS.pitLawcal.blobSha.length===40);
+
+console.log('PEAD_EARNINGS_SOURCE_AUDIT_V1_INTEGRATION_PASS');
