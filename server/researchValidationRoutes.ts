@@ -246,6 +246,22 @@ const JOBS: JobDefinition[] = [
       { label: 'Fuente estática pinneada · auditar causalidad PEAD', command: 'node', args: ['scripts/peadEarningsSourceAuditV1.mjs'] }
     ]
   },
+  {
+    id: 'pead-analyst-surprise-v1',
+    name: 'PEAD · calidad predictiva de sorpresa · V1',
+    description: 'Diagnóstico preregistrado de señal: Surprise(%) del anuncio frente a exceso de retorno a 60 sesiones sobre SPY. Sin sizing, costes ni política económica. La muestra queda consumida tras abrir outcomes y producción continúa LEGACY.',
+    marker: 'PEAD_ANALYST_SURPRISE_V1_RESULT',
+    visibility: 'PARKED',
+    steps: [
+      { label: 'Guard seal PEAD señal', command: 'node', args: ['tests/peadSignalDiagnosticV1Seal.unit.mjs'] },
+      { label: 'Guard PEAD señal causal', command: 'node', args: ['tests/peadSignalDiagnosticV1.unit.mjs'] },
+      { label: 'Guard PEAD fuente cerrada', command: 'node', args: ['tests/peadEarningsSourceAuditV1Seal.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Yahoo REAL · diagnóstico PEAD 60 sesiones', command: 'node', args: ['scripts/peadSignalDiagnosticV1.mjs'] }
+    ]
+  },
   archivedJob(
     'sector-52w-high-leadership-v1',
     'Precio · liderazgo sectorial 52W · V1',
