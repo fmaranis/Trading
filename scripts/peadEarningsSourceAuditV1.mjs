@@ -25,7 +25,8 @@ export function tickerKey(v){
 function valuesOfObject(v){return v&&typeof v==='object'?Object.values(v):[];}
 
 export function normalizeComponentRows(payload){
-  return valuesOfObject(payload?.HistoricalTickerComponents).map(row=>({
+  const rows=payload?.HistoricalTickerComponents??payload;
+  return valuesOfObject(rows).map(row=>({
     code:tickerKey(row?.Code),
     start:iso(row?.StartDate),
     end:iso(row?.EndDate)
@@ -119,9 +120,9 @@ export async function main(){
   const key=process.env.EODHD_API_KEY?.trim();
   if(!key)throw new Error('PEAD_SOURCE_EODHD_API_KEY_NOT_CONFIGURED');
   const p=PEAD_SOURCE_AUDIT_V1;
-  const compUrl='https://eodhd.com/api/mp/unicornbay/spglobal/comp/'+encodeURIComponent(p.indexSymbol)+'?api_token='+encodeURIComponent(key)+'&fmt=json';
+  const compUrl='https://eodhd.com/api/fundamentals/'+encodeURIComponent(p.indexSymbol)+'?api_token='+encodeURIComponent(key)+'&fmt=json&filter=HistoricalTickerComponents';
   const earnUrl='https://eodhd.com/api/calendar/earnings?from='+p.window.from+'&to='+p.window.to+'&api_token='+encodeURIComponent(key)+'&fmt=json';
-  const components=await fetchJsonCached('sp500-components',compUrl);
+  const components=await fetchJsonCached('sp500-historical-components-fundamentals-v1',compUrl);
   const earnings=await fetchJsonCached('earnings-window',earnUrl);
   const audit=auditPayloads(components.payload,earnings.payload);
   const result={
@@ -134,6 +135,7 @@ export async function main(){
     sourceHashes:{historicalComponents:components.sha256,earningsCalendar:earnings.sha256},
     audit,
     providerContract:{
+      historicalMembership:'EODHD Fundamentals HistoricalTickerComponents for GSPC.INDX; filtered section or wrapped response accepted',
       reportDate:'announcement date',
       timing:'BeforeMarket/AfterMarket when available',
       estimate:'consensus EPS; provider documentation/glossary describes estimate as prior to earnings release',
