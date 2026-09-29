@@ -35,7 +35,7 @@
     "tests/peadEarningsSourceAuditV1.integration.mjs": "fa1bbb54b1ad00cf613d61a724b7408763ee2692",
     "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "0a53ccbb9c106661496501f879a63730ad0b6905",
     "server/researchValidationRoutes.ts": "959e91e4783a834c0b7e835ded4e964da0475d24",
-    "tests/researchValidationRuntime.unit.ts": "df93d96ec272115a361e559f9b6b2b72ec78e0af"
+    "tests/researchValidationRuntime.unit.ts": "a5780a8193b3784d361c59e87c89ba14a191df5b"
   },
   "runtimeVerification": {
     "pureParserFixture": "PASS_EXECUTED_BY_CHATGPT",
@@ -60,7 +60,8 @@
     "stale52wRuntimeGuardFixed": true,
     "failingStepEvidenceIsolation": "PASS_LOGIC_VERIFIED",
     "integrationFixtureMarkerSuppressed": true,
-    "exportedFailureMetadata": true
+    "exportedFailureMetadata": true,
+    "archived52wRuntimeDeclarationFixed": true
   },
   "technicalResealAt": "2026-09-29",
   "technicalResealReason": "Source transport hardened to documented EODHD Fundamentals HistoricalTickerComponents endpoint; parser accepts filtered/wrapped response; exact EODHD preflight and seal guard added. No sample, gates, signal, policy or outcomes changed.",
