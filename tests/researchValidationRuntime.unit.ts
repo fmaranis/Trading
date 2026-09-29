@@ -30,6 +30,7 @@ assert.ok(parkedVisibilityCount >= 3, 'Parallel research lines should remain par
 assert.match(routes, /tests\/peadEarningsSourceAuditV1\.unit\.mjs/);
 assert.match(routes, /tests\/peadEarningsSourceAuditV1\.integration\.mjs/);
 assert.match(routes, /scripts\/peadEarningsSourceAuditV1\.mjs/);
+assert.match(routes, /state\.result = extractJsonAfterMarker\(state\.output, job\.marker\)/);
 assert.match(routes, /52W V1 · FAIL_DIAGNOSTIC · cerrado/);
 assert.match(routes, /id: 'fundamental-quality-valuation-broad-pit-v1'/);
 assert.match(routes, /scripts\/fundamentalQualityValuationBroadPitV1Live\.ts/);
