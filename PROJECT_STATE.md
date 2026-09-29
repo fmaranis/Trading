@@ -1329,3 +1329,28 @@ Actualización 2026-09-29 — PEAD self-tests agotados; única ejecución REAL e
 - no repetir la ejecución salvo que ChatGPT identifique una causa técnica nueva;
 - no avanzar a señal ni precios PEAD hasta obtener el veredicto de fuente REAL;
 - producción continúa `LEGACY`.
+
+
+---
+
+Actualización 2026-09-29 — primera ejecución PEAD invalidada por contaminación de fixture; runner corregido:
+
+- evidencia recibida del job `pead-earnings-source-audit-v1` iniciado `2026-09-29T15:47:51.244Z` y terminado `2026-09-29T15:47:53.323Z`;
+- el JSON exportado mostraba `FAILED` + `INCONCLUSIVE_SOURCE_CAUSALITY` con exactamente 250 component intervals, 100 earnings, 50 BeforeMarket y 50 AfterMarket;
+- análisis forense: los dos `sourceHashes` exportados coinciden **exactamente byte a byte** con los fixtures de `tests/peadEarningsSourceAuditV1.integration.mjs`:
+  - historical components: `be2bdaf5a358a270e43c2fe3b89ffed25904f0c1bbc7407639cadda45307c381`;
+  - earnings calendar: `0fe5b66494b644cf2d41384c7d31bc251cdb109d15bfa08c3cd658c877225d87`;
+- SHA-256 del artefacto recibido: `b7859d8ca2bf64cb82cf83b2e2cb7bf73f6e66a0e862193bf153233725b15374`;
+- conclusión: la corrida se clasifica **INVALID_TEST_ARTIFACT**; no fue evidencia REAL de EODHD, no consume muestra PEAD y no autoriza ninguna interpretación de señal;
+- causa del corte: `tests/researchValidationRuntime.unit.ts` todavía exigía rutas ejecutables del estudio sectorial 52W después de haber sido movido a `ARCHIVED`; el guard fallaba después de la integración offline;
+- bug adicional del runner: ante ese fallo, extraía el último marcador desde stdout acumulado y heredaba el resultado del fixture anterior;
+- correcciones:
+  - runtime guard alineado con 52W archivado; ya no exige sus runners retirados;
+  - un fallo sólo puede extraer evidencia del stdout del **mismo step** que falla;
+  - la integración PEAD captura internamente los logs de `main()` y no emite el marcador oficial del fixture al stream del job;
+  - el JSON de evidencia exporta ahora también `exitCode` y `error`;
+  - evidencia de invalidación persistida en `validation-runs/diagnostics/pead-earnings-source-audit-v1-invalid-run-2026-09-29.json`;
+- verificación independiente sobre `main`: runtime guard equivalente **PASS**, cero referencias ejecutables antiguas de 52W, aislamiento de evidencia **PASS**, fingerprints del seal **todos MATCH**;
+- `liveEodhdAudit` continúa **NOT_RUN**;
+- siguiente acción permitida: una única repetición del audit REAL con el HEAD corregido; no abrir precios ni señal antes;
+- producción continúa `LEGACY`.
