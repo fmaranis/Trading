@@ -32,10 +32,10 @@
     "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_PLAN_2026-09-28.md": "85578b7d8018d50248ceb9f0ab42c4180098ab1f",
     "scripts/peadEarningsSourceAuditV1.mjs": "ecb1de1bf8b29d67c3c0946cde3d38caf238ff58",
     "tests/peadEarningsSourceAuditV1.unit.mjs": "6667d397c649d542390564648c4c3b91c4550178",
-    "tests/peadEarningsSourceAuditV1.integration.mjs": "42c64c0b9ddfcb5f9c23190c11708f4977f2bc2b",
+    "tests/peadEarningsSourceAuditV1.integration.mjs": "fa1bbb54b1ad00cf613d61a724b7408763ee2692",
     "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "0a53ccbb9c106661496501f879a63730ad0b6905",
-    "server/researchValidationRoutes.ts": "efbc190b8971aadec656df0e92ddb0f6a7400eb8",
-    "tests/researchValidationRuntime.unit.ts": "e7c6cdd5b143bb05b34f1abf8f21df6df55f33e4"
+    "server/researchValidationRoutes.ts": "959e91e4783a834c0b7e835ded4e964da0475d24",
+    "tests/researchValidationRuntime.unit.ts": "df93d96ec272115a361e559f9b6b2b72ec78e0af"
   },
   "runtimeVerification": {
     "pureParserFixture": "PASS_EXECUTED_BY_CHATGPT",
@@ -54,7 +54,13 @@
     "sealFingerprintsVerifiedAgainstMain": true,
     "mockedMainPassPath": "PASS_EXECUTED_BY_CHATGPT",
     "mockedMainInconclusivePath": "PASS_EXECUTED_BY_CHATGPT",
-    "nonzeroSemanticResultEvidencePreserved": true
+    "nonzeroSemanticResultEvidencePreserved": true,
+    "contaminatedRun20260929": "INVALID_TEST_ARTIFACT_FIXTURE_HASH_MATCH",
+    "contaminatedRunConsumesSample": false,
+    "stale52wRuntimeGuardFixed": true,
+    "failingStepEvidenceIsolation": "PASS_LOGIC_VERIFIED",
+    "integrationFixtureMarkerSuppressed": true,
+    "exportedFailureMetadata": true
   },
   "technicalResealAt": "2026-09-29",
   "technicalResealReason": "Source transport hardened to documented EODHD Fundamentals HistoricalTickerComponents endpoint; parser accepts filtered/wrapped response; exact EODHD preflight and seal guard added. No sample, gates, signal, policy or outcomes changed.",
