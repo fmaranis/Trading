@@ -238,6 +238,7 @@ const JOBS: JobDefinition[] = [
     visibility: 'CURRENT',
     requiresEodhdApiKey: true,
     steps: [
+      { label: 'Guard seal PEAD source audit', command: 'node', args: ['tests/peadEarningsSourceAuditV1Seal.unit.mjs'] },
       { label: 'Guard PEAD source audit', command: 'node', args: ['tests/peadEarningsSourceAuditV1.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
