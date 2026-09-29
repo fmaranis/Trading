@@ -11,7 +11,7 @@ Esta línea es materialmente distinta de `SECTOR_52W_HIGH_LEADERSHIP_V1`, que qu
 
 ## Fuentes congeladas
 
-1. Universo point-in-time: EODHD S&P 500 HistoricalTickerComponents, índice `GSPC.INDX`, reutilizando la infraestructura PIT existente.
+1. Universo point-in-time: EODHD S&P 500 `HistoricalTickerComponents`, índice `GSPC.INDX`, mediante el Fundamentals API documentado (`/api/fundamentals/GSPC.INDX?filter=HistoricalTickerComponents`).
 2. Eventos: EODHD Calendar Earnings.
 3. Contrato documental del proveedor:
    - `report_date`: fecha de anuncio;
@@ -70,3 +70,10 @@ Si pasa: `PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION`. El siguiente 
 - `productionAuthority=false`;
 - `economicOutcomesOpened=false`;
 - `promotionAllowed=false`.
+
+
+## Endurecimiento técnico de fuente — 2026-09-29
+
+Antes de abrir ningún outcome se sustituyó únicamente el transporte heredado del endpoint de componentes por el Fundamentals API documentado de EODHD para `HistoricalTickerComponents`. El parser acepta tanto la sección filtrada directa como una respuesta envuelta bajo `HistoricalTickerComponents`, y la caché de componentes cambia de identidad para impedir reutilizar accidentalmente una respuesta del endpoint anterior.
+
+Este cambio **no modifica** la ventana, universo, definición PIT, eventos, thresholds, gates, sorpresa, timing, outcome futuro ni autoridad de producción. Sigue siendo la misma auditoría congelada y continúa sin precios/outcomes abiertos.
