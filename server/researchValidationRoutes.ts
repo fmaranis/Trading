@@ -233,10 +233,9 @@ const JOBS: JobDefinition[] = [
   {
     id: 'pead-earnings-source-audit-v1',
     name: 'PEAD · auditoría causal de datos · V1',
-    description: 'Comprueba únicamente si EODHD permite construir una señal PEAD causal: universo S&P 500 point-in-time, fecha/timing del anuncio y EPS actual + consenso previo. No descarga outcomes de precio, no hace backtest y no modifica producción.',
+    description: 'Auditoría causal cerrada con earnings Yahoo en snapshot pinneado y membresía S&P 500 PIT por intersección de dos reconstrucciones históricas pinneadas. Sin precios, sin backtest y sin autoridad productiva.',
     marker: 'PEAD_EARNINGS_SOURCE_AUDIT_V1_RESULT',
-    visibility: 'CURRENT',
-    requiresEodhdApiKey: true,
+    visibility: 'ARCHIVED',
     steps: [
       { label: 'Guard seal PEAD source audit', command: 'node', args: ['tests/peadEarningsSourceAuditV1Seal.unit.mjs'] },
       { label: 'Guard PEAD source audit', command: 'node', args: ['tests/peadEarningsSourceAuditV1.unit.mjs'] },
@@ -244,7 +243,7 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'EODHD REAL · auditar causalidad PEAD', command: 'node', args: ['scripts/peadEarningsSourceAuditV1.mjs'] }
+      { label: 'Fuente estática pinneada · auditar causalidad PEAD', command: 'node', args: ['scripts/peadEarningsSourceAuditV1.mjs'] }
     ]
   },
   archivedJob(
