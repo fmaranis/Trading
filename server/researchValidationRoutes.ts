@@ -236,6 +236,7 @@ const JOBS: JobDefinition[] = [
     description: 'Comprueba únicamente si EODHD permite construir una señal PEAD causal: universo S&P 500 point-in-time, fecha/timing del anuncio y EPS actual + consenso previo. No descarga outcomes de precio, no hace backtest y no modifica producción.',
     marker: 'PEAD_EARNINGS_SOURCE_AUDIT_V1_RESULT',
     visibility: 'CURRENT',
+    requiresEodhdApiKey: true,
     steps: [
       { label: 'Guard PEAD source audit', command: 'node', args: ['tests/peadEarningsSourceAuditV1.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
@@ -357,6 +358,16 @@ function prerequisiteError(job: JobDefinition): string | null {
   return null;
 }
 
+function prerequisiteDetail(reason: string): string {
+  if (reason === 'EODHD_API_KEY_REQUIRED') {
+    return 'Falta EODHD_API_KEY en el backend local. No se han lanzado guards, descargas ni cálculos.';
+  }
+  if (reason === 'SEC_EDGAR_USER_AGENT_REQUIRED') {
+    return 'Falta SEC_EDGAR_USER_AGENT en el backend local. No se han lanzado guards, descargas ni cálculos.';
+  }
+  return 'Falta GITHUB_REPLAY_SYNC_TOKEN en el backend local. No se han lanzado guards ni cálculos.';
+}
+
 async function runJob(job: JobDefinition): Promise<void> {
   const state = stateFor(job.id);
   state.status = 'RUNNING';
@@ -461,7 +472,7 @@ researchValidationRouter.post('/jobs/:id/run', (req: Request, res: Response) => 
   if (missing) {
     res.status(412).json({
       error: missing,
-      detail: 'Configura GITHUB_REPLAY_SYNC_TOKEN en el backend local/AI Studio antes de ejecutar esta validación durable. No se han lanzado guards ni cálculos.',
+      detail: prerequisiteDetail(missing),
       job: publicJob(job)
     });
     return;
