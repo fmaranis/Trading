@@ -31,7 +31,7 @@
   "gitBlobSha": {
     "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_PLAN_2026-09-28.md": "85578b7d8018d50248ceb9f0ab42c4180098ab1f",
     "scripts/peadEarningsSourceAuditV1.mjs": "ecb1de1bf8b29d67c3c0946cde3d38caf238ff58",
-    "tests/peadEarningsSourceAuditV1.unit.mjs": "b43f36a3766f41c3df5c27e3a1af28be671fc89a",
+    "tests/peadEarningsSourceAuditV1.unit.mjs": "6667d397c649d542390564648c4c3b91c4550178",
     "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "c414636f445a854f728e028c5ed993d004ef107e",
     "server/researchValidationRoutes.ts": "86d3211e53f9385a45985565d8df650c8dc5ef20",
     "tests/researchValidationRuntime.unit.ts": "a5ee9934a29ff93172839033ebf7d3ccddcf58c9"
@@ -43,7 +43,12 @@
     "badDifferenceRejected": true,
     "liveEodhdAudit": "NOT_RUN",
     "filteredAndWrappedComponentPayloadsAccepted": true,
-    "sealGuard": "ADDED_NOT_LIVE_RUN"
+    "sealGuard": "ADDED_NOT_LIVE_RUN",
+    "unknownTimingRejected": true,
+    "missingEstimateRejected": true,
+    "duplicateRejected": true,
+    "outOfIntervalPitRejected": true,
+    "noKeyFailClosed": "PASS"
   },
   "technicalResealAt": "2026-09-29",
   "technicalResealReason": "Source transport hardened to documented EODHD Fundamentals HistoricalTickerComponents endpoint; parser accepts filtered/wrapped response; exact EODHD preflight and seal guard added. No sample, gates, signal, policy or outcomes changed."
