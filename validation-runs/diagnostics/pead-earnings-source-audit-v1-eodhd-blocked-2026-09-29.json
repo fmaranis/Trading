@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "study": "PEAD_EARNINGS_SOURCE_AUDIT_V1",
+  "observedRun": {
+    "startedAt": "2026-09-29T16:12:00.574Z",
+    "finishedAt": "2026-09-29T16:12:30.893Z",
+    "jobStatus": "FAILED",
+    "exitCode": 1,
+    "failedStep": "EODHD REAL · auditar causalidad PEAD"
+  },
+  "status": "BLOCKED_PROVIDER_ENTITLEMENT",
+  "provider": "EODHD",
+  "reason": "PEAD_SOURCE_HTTP_403:sp500-historical-components-fundamentals-v1:Only EOD data allowed for free users. Please, contact our support team: support@eodhistoricaldata.com",
+  "interpretation": "Application runner reached the final live-source step correctly. EODHD rejected Fundamentals HistoricalTickerComponents for the configured free/EOD-only entitlement.",
+  "consumesSample": false,
+  "sourceAuditPassed": false,
+  "economicOutcomesOpened": false,
+  "priceOutcomesFetched": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "promotionAllowed": false
+}
