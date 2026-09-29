@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "study": "PEAD_EARNINGS_SOURCE_AUDIT_V1",
+  "observedRun": {
+    "startedAt": "2026-09-29T15:47:51.244Z",
+    "finishedAt": "2026-09-29T15:47:53.323Z",
+    "exportedStatus": "FAILED",
+    "exportedResultStatus": "INCONCLUSIVE_SOURCE_CAUSALITY",
+    "uploadedArtifactSha256": "b7859d8ca2bf64cb82cf83b2e2cb7bf73f6e66a0e862193bf153233725b15374"
+  },
+  "diagnosis": {
+    "status": "INVALID_TEST_ARTIFACT",
+    "consumesPeadSample": false,
+    "liveEodhdAuditExecuted": false,
+    "reason": "The exported source hashes are exactly the hashes of the offline integration fixtures. The subsequent stale runtime guard failed and the old runner inherited the prior fixture marker from cumulative stdout.",
+    "exactFixtureHashMatch": {
+      "historicalComponents": {
+        "exported": "be2bdaf5a358a270e43c2fe3b89ffed25904f0c1bbc7407639cadda45307c381",
+        "offlineFixture": "be2bdaf5a358a270e43c2fe3b89ffed25904f0c1bbc7407639cadda45307c381",
+        "match": true
+      },
+      "earningsCalendar": {
+        "exported": "0fe5b66494b644cf2d41384c7d31bc251cdb109d15bfa08c3cd658c877225d87",
+        "offlineFixture": "0fe5b66494b644cf2d41384c7d31bc251cdb109d15bfa08c3cd658c877225d87",
+        "match": true
+      }
+    },
+    "fixtureShapeMatch": {
+      "componentIntervals": 250,
+      "rawEarningsEvents": 100,
+      "beforeMarket": 50,
+      "afterMarket": 50
+    },
+    "staleGuardCause": "researchValidationRuntime.unit.ts still required executable 52W runner paths after sector-52w-high-leadership-v1 had been archived and its steps removed."
+  },
+  "fixes": {
+    "stale52wRuntimeAssertionsRemoved": true,
+    "failingStepEvidenceIsolated": true,
+    "offlineFixtureMarkersSuppressedFromParentStdout": true,
+    "exportedEvidenceIncludesExitCodeAndError": true
+  },
+  "authority": {
+    "economicOutcomesOpened": false,
+    "priceOutcomesFetched": false,
+    "productionDefault": "LEGACY",
+    "productionAuthority": false,
+    "promotionAllowed": false
+  }
+}
