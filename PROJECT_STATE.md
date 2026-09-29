@@ -1256,3 +1256,20 @@ Actualización 2026-09-29 — ResearchValidationCenter simplificado a una única
 - los jobs cerrados continúan `ARCHIVED` dentro del histórico colapsado; no se duplican pantallas ni motores;
 - guard añadido en `tests/researchValidationRuntime.unit.ts`: exige exactamente **1** `visibility: 'CURRENT'` y mantiene líneas paralelas como `PARKED`;
 - esta simplificación es de superficie/UI y priorización; no cambia resultados, muestras, políticas, producción `LEGACY` ni `CORE_ARCHITECTURE_V1`.
+
+
+---
+
+Actualización 2026-09-29 — PEAD source audit endurecido sin abrir outcomes:
+
+- `pead-earnings-source-audit-v1` continúa como **única línea CURRENT visible**; no se añade ninguna tarjeta/job visible nuevo;
+- el transporte de membresía PIT se cambia técnicamente al Fundamentals API documentado de EODHD para `GSPC.INDX` + `filter=HistoricalTickerComponents`; la semántica del universo no cambia;
+- el parser acepta tanto la sección filtrada directa como una respuesta envuelta en `HistoricalTickerComponents`;
+- la caché de componentes usa una identidad nueva para impedir reutilizar accidentalmente una respuesta del endpoint heredado;
+- el unit cubre ambas formas de payload;
+- el job PEAD declara ahora `requiresEodhdApiKey=true`, por lo que el preflight bloquea antes de guards/descargas si falta la clave;
+- el mensaje de prerequisite del Centro queda específico para EODHD / SEC / GitHub token y deja de mostrar instrucciones erróneas de otro requisito;
+- EODHD documenta que `HistoricalTickerComponents` del S&P 500 contiene StartDate/EndDate y que el Calendar Earnings expone `report_date`, `before_after_market`, `actual`, `estimate`, `difference` y `percent`;
+- **no se han descargado precios, no se han abierto outcomes y no se ha cambiado ningún gate** de PEAD;
+- siguiente transición metodológica sigue siendo condicional: sólo un `PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION` permite congelar la prueba predictiva;
+- producción permanece `LEGACY`.
