@@ -29,17 +29,22 @@
     "promotionAllowed": false
   },
   "gitBlobSha": {
-    "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_PLAN_2026-09-28.md": "88b1a64154c78e530cc627f480c2972687ac9828",
-    "scripts/peadEarningsSourceAuditV1.mjs": "cfa49c62d751e07f63844346373da86209760334",
-    "tests/peadEarningsSourceAuditV1.unit.mjs": "3786471df6be2ccf38e61c200fee04c9ba019ea9",
-    "server/researchValidationRoutes.ts": "342db40d2b191f31c32583c8eeb473f77ba7d2de",
-    "tests/researchValidationRuntime.unit.ts": "cb0fc0b3941c86b7f1890716c1ec639d8e7b8b24"
+    "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_PLAN_2026-09-28.md": "85578b7d8018d50248ceb9f0ab42c4180098ab1f",
+    "scripts/peadEarningsSourceAuditV1.mjs": "ecb1de1bf8b29d67c3c0946cde3d38caf238ff58",
+    "tests/peadEarningsSourceAuditV1.unit.mjs": "b43f36a3766f41c3df5c27e3a1af28be671fc89a",
+    "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "c414636f445a854f728e028c5ed993d004ef107e",
+    "server/researchValidationRoutes.ts": "86d3211e53f9385a45985565d8df650c8dc5ef20",
+    "tests/researchValidationRuntime.unit.ts": "a5ee9934a29ff93172839033ebf7d3ccddcf58c9"
   },
   "runtimeVerification": {
     "pureParserFixture": "PASS",
     "fixturePitEvents": 220,
     "fixtureCausalEligible": 220,
     "badDifferenceRejected": true,
-    "liveEodhdAudit": "NOT_RUN"
-  }
+    "liveEodhdAudit": "NOT_RUN",
+    "filteredAndWrappedComponentPayloadsAccepted": true,
+    "sealGuard": "ADDED_NOT_LIVE_RUN"
+  },
+  "technicalResealAt": "2026-09-29",
+  "technicalResealReason": "Source transport hardened to documented EODHD Fundamentals HistoricalTickerComponents endpoint; parser accepts filtered/wrapped response; exact EODHD preflight and seal guard added. No sample, gates, signal, policy or outcomes changed."
 }
