@@ -36,8 +36,8 @@
     "tests/peadEarningsSourceAuditV1.unit.mjs": "650f000c1a72cb3767ed36fc0953a6152cecf3da",
     "tests/peadEarningsSourceAuditV1.integration.mjs": "73301acdc57ba02870b0928aa72987fd630694b8",
     "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "1e409c0428acb9909fdf2d3fe2ad77c0de60a310",
-    "server/researchValidationRoutes.ts": "50c5f0c4ea71ba202bb7eac20f781c220369689c",
-    "tests/researchValidationRuntime.unit.ts": "7c17738030b9faec64361e7988bd108ac00a439c",
+    "server/researchValidationRoutes.ts": "08021cca6cd0cc530f1925ce2f53b00db2285044",
+    "tests/researchValidationRuntime.unit.ts": "e761171a03bb3f6ccd1eebdb2463fb1ba9d29cbb",
     "validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json": "067813b55d5c1c0e07d0edd8ec29c1861ba6193d"
   },
   "runtimeVerification": {
@@ -85,7 +85,7 @@
     "economicOutcomesOpened": false
   },
   "technicalResealAt": "2026-09-29",
-  "technicalResealReason": "EODHD Fundamentals was blocked by provider entitlement before outcomes. Source-only transport was replaced pre-outcome by commit/blob-pinned Yahoo-derived earnings plus conservative dual-PIT static references. Quantitative coverage gates and frozen window were not loosened; no prices or economic outcomes were opened.",
+  "technicalResealReason": "Registered the next PEAD signal diagnostic as PARKED and updated the runtime guard. Source inputs, source logic, frozen window, source gates and archived PASS evidence are unchanged; no price outcomes opened by this reseal.",
   "preLiveVisibility": "ARCHIVED_SOURCE_AUDIT_PASS_NO_USER_ACTION",
   "sourceRevision": "YAHOO_STATIC_DUAL_PIT_R1"
 }
