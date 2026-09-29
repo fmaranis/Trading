@@ -1392,3 +1392,38 @@ Actualización 2026-09-29 — PEAD source audit cerrado sin EODHD de pago:
 - `pead-earnings-source-audit-v1` queda **ARCHIVED**; ResearchValidationCenter vuelve a **0 líneas CURRENT** y no existe acción manual PEAD source;
 - `priceOutcomesFetched=false`, `economicOutcomesOpened=false`, `productionDefault=LEGACY`, `productionAuthority=false`;
 - siguiente paso autorizado: preregistrar **una sola** prueba de calidad predictiva PEAD antes de abrir precios.
+
+
+---
+
+Actualización 2026-09-29 — segunda ejecución PEAD: bloqueo de proveedor confirmado, fallback estático verificado independientemente:
+
+- evidencia recibida del job iniciado `2026-09-29T16:12:00.574Z` y terminado `2026-09-29T16:12:30.893Z`;
+- esta vez el runner llegó correctamente al último step `EODHD REAL · auditar causalidad PEAD`;
+- EODHD respondió HTTP 403: `Only EOD data allowed for free users`; causa = entitlement de la cuenta configurada, no fallo del runner ni de la aplicación;
+- la documentación actual de EODHD confirma que el plan Free sólo incluye EOD limitado y que Fundamentals/índices históricos requieren acceso de pago;
+- no se abrió ningún precio/outcome y la corrida no consume muestra;
+- antes de abrir precios se sustituyó EODHD por `YAHOO_STATIC_DUAL_PIT_R1`: earnings Yahoo pinneados + intersección de dos reconstrucciones PIT S&P 500 pinneadas;
+- ChatGPT reprodujo de forma independiente el audit leyendo directamente los tres blobs GitHub por SHA, sin reutilizar el JSON de resultado ni llamar al runner PEAD;
+- reproducción independiente exacta:
+  - raw earnings = 150983;
+  - ventana = 2141;
+  - PIT fja = 463;
+  - PIT lawcal = 464;
+  - intersección PIT = 463;
+  - timing conocido = 462;
+  - actual+estimate = 462;
+  - causal eligible = 461;
+  - BeforeMarket = 259;
+  - AfterMarket = 203;
+  - DuringMarket = 1 (APA 2024-02-21);
+  - missing actual = 1 (PNW 2024-02-27);
+  - duplicados = 0;
+  - contradicciones direccionales = 0;
+  - rounded-equal/provider-surprise = 23;
+  - único desacuerdo PIT = FISV 2024-02-06 lawcal-only, excluido por intersección;
+- los tres blob SHA obtenidos directamente coinciden con los pins congelados;
+- por tanto `PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION` queda independientemente reproducido;
+- el siguiente `PEAD_ANALYST_SURPRISE_V1` está preregistrado y sellado pero permanece **PARKED**;
+- los 9 fingerprints del seal de señal coinciden con `main`; `priceOutcomesOpened=false`, `economicPolicyOpened=false`, producción `LEGACY`;
+- no se pide ninguna acción manual al usuario en este estado; el live de señal sólo debe abrirse tras completar la verificación previa de su runner.
