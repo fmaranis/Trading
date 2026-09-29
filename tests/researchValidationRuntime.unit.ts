@@ -24,6 +24,8 @@ assert.match(routes, /tests\/peadEarningsSourceAuditV1\.unit\.mjs/);
 assert.match(routes, /tests\/peadEarningsSourceAuditV1\.integration\.mjs/);
 assert.match(routes, /scripts\/peadEarningsSourceAuditV1\.mjs/);
 assert.match(routes, /state\.result = extractJsonAfterMarker\(stepRun\.output, job\.marker\)/);
+assert.match(routes, /exitCode: state\.exitCode/);
+assert.match(routes, /error: state\.error/);
 assert.doesNotMatch(routes, /state\.result = extractJsonAfterMarker\(state\.output, job\.marker\);\s*state\.status = 'FAILED'/);
 assert.match(routes, /id: 'fundamental-quality-valuation-broad-pit-v1'/);
 assert.match(routes, /scripts\/fundamentalQualityValuationBroadPitV1Live\.ts/);
