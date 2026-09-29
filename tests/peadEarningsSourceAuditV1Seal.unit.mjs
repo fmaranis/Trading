@@ -13,6 +13,8 @@ function gitBlobSha(text){
 
 const seal=JSON.parse(fs.readFileSync(SEAL_PATH,'utf8'));
 assert.equal(seal.study,'PEAD_EARNINGS_SOURCE_AUDIT_V1');
+assert.equal(seal.sourceRevision,'YAHOO_STATIC_DUAL_PIT_R1');
+assert.equal(seal.sourceProvider,'YAHOO_FINANCE_VIA_PINNED_STATIC_REFERENCE');
 assert.equal(seal.sourceWindow?.from,'2024-01-15');
 assert.equal(seal.sourceWindow?.to,'2024-03-15');
 assert.equal(seal.outcomes?.priceOutcomesFetched,false);
@@ -22,6 +24,19 @@ assert.equal(seal.outcomes?.economicPolicyFrozen,false);
 assert.equal(seal.authority?.productionDefault,'LEGACY');
 assert.equal(seal.authority?.productionAuthority,false);
 assert.equal(seal.authority?.promotionAllowed,false);
+
+const result=JSON.parse(fs.readFileSync('validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json','utf8'));
+assert.equal(result.status,'PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION');
+assert.equal(result.provenance,'STATIC_REFERENCE');
+assert.equal(result.audit?.passed,true);
+assert.equal(result.audit?.counts?.pitEvents,463);
+assert.equal(result.audit?.counts?.causalEligible,461);
+assert.equal(result.audit?.quality?.duplicateCount,0);
+assert.equal(result.audit?.quality?.directionalContradictionCount,0);
+assert.equal(result.economicOutcomesOpened,false);
+assert.equal(result.priceOutcomesFetched,false);
+assert.equal(result.productionDefault,'LEGACY');
+assert.equal(result.productionAuthority,false);
 
 for(const [file,expected] of Object.entries(seal.gitBlobSha??{})){
   const full=path.resolve(process.cwd(),file);
