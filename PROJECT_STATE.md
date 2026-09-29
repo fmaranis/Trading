@@ -1307,3 +1307,25 @@ Actualización 2026-09-29 — regla operativa de testing antes de pedir ejecuci�
 - el usuario devuelve la salida/result JSON y ChatGPT continúa el diagnóstico, reparación y nueva verificación;
 - no pedir ejecuciones repetidas sin una causa técnica nueva y explícita;
 - no presentar como “probado/listo” algo que no haya pasado la prueba REAL necesaria.
+
+
+---
+
+Actualización 2026-09-29 — PEAD self-tests agotados; única ejecución REAL externa autorizada:
+
+- HEAD de trabajo previo a esta entrada incluye integración/test endurecido de `PEAD_EARNINGS_SOURCE_AUDIT_V1`;
+- ChatGPT ejecutó el **código exacto** del parser/unit en Node: `PEAD_EARNINGS_SOURCE_AUDIT_V1_UNIT_PASS`;
+- ejecución exacta sin `EODHD_API_KEY`: fail-closed correcto, `BLOCKED / PEAD_SOURCE_EODHD_API_KEY_NOT_CONFIGURED`, `economicOutcomesOpened=false`, producción `LEGACY`;
+- integración end-to-end sin red ejecutada por ChatGPT con `fetch` EODHD simulado:
+  - 220 eventos PIT/causales => `PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION`;
+  - 100 eventos => `INCONCLUSIVE_SOURCE_CAUSALITY`, gates de cobertura FAIL y ningún outcome abierto;
+- el test de integración queda incorporado al repo como `tests/peadEarningsSourceAuditV1.integration.mjs` y se ejecuta antes de cualquier llamada REAL;
+- orden live vigente: seal -> unit -> integración sin red -> runtime guard -> core architecture -> TypeScript -> EODHD REAL;
+- se detectó y corrigió antes del live otro fallo real del runner: un exit code no cero (por ejemplo INCONCLUSIVE válido) descartaba `job.result`; ahora el JSON marcado se extrae y conserva también en esa ruta;
+- fingerprints del seal fueron reseñados tras cada cambio metodológicamente neutro y contrastados contra los blobs actuales de `main`;
+- se intentó alcanzar directamente el host desplegado de AI Studio/Cloud Run desde el runtime de ChatGPT, pero este entorno no puede resolver/acceder ese host privado; por tanto no puede utilizar la `EODHD_API_KEY` configurada allí;
+- agotadas las pruebas accesibles a ChatGPT, queda autorizada **una única ejecución manual mínima** como transporte de evidencia: sincronizar el HEAD vigente y pulsar `Ejecutar audit REAL PEAD`;
+- el usuario no debe interpretar ni depurar el resultado: debe devolver a ChatGPT la salida/result JSON y ChatGPT continuará el análisis/corrección;
+- no repetir la ejecución salvo que ChatGPT identifique una causa técnica nueva;
+- no avanzar a señal ni precios PEAD hasta obtener el veredicto de fuente REAL;
+- producción continúa `LEGACY`.
