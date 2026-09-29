@@ -1354,3 +1354,41 @@ Actualización 2026-09-29 — primera ejecución PEAD invalidada por contaminaci
 - `liveEodhdAudit` continúa **NOT_RUN**;
 - siguiente acción permitida: una única repetición del audit REAL con el HEAD corregido; no abrir precios ni señal antes;
 - producción continúa `LEGACY`.
+
+
+---
+
+Actualización 2026-09-29 — PEAD source audit cerrado sin EODHD de pago:
+
+- la segunda ejecución manual del job llegó correctamente al último step y devolvió `HTTP 403` de EODHD Fundamentals: la cuenta configurada sólo permite EOD gratuito;
+- clasificación: **`BLOCKED_PROVIDER_ENTITLEMENT`**, no fallo de arquitectura/app; aun así era evitable y desde ahora la compatibilidad del plan/proveedor debe verificarse antes de pedir una ejecución privada;
+- evidencia del bloqueo: `validation-runs/diagnostics/pead-earnings-source-audit-v1-eodhd-blocked-2026-09-29.json`;
+- el bloqueo no abrió precios/outcomes, no consume muestra y no cambia producción;
+- EODHD se elimina por completo del camino PEAD; no se pide otra ejecución al usuario;
+- sustitución pre-outcome congelada: **`YAHOO_STATIC_DUAL_PIT_R1`** con procedencia explícita `STATIC_REFERENCE`;
+- earnings: `vivek-v-rao/Earnings-Dates` commit `7ed98a0e2497b0a83bcbc290db41705089768c16`, blob `abde11f719e93dc427a1040ffed3f0b8590b8508`;
+- PIT A: `fja05680/sp500` commit `a2430f2af0c79ddf0748e91de11bdeb1616ab5a7`, blob `3ed3b0e8d9e6e63730c153ee1f13ddaf6ed281bb`;
+- PIT B: `lawcal/sp500-components-history` commit `2e59b86998a119d68e377f9f98aa7a816cfc7d5b`, blob `6a865618173f322ecda9a569bc6bd48edcfaf996`;
+- un evento sólo entra si el ticker histórico está activo simultáneamente en ambas reconstrucciones PIT; una sola fuente nunca puede ampliar el universo;
+- única discrepancia detectada en la ventana: `FISV` 2024-02-06, lawcal-only por tratamiento de alias; excluida. La reconstrucción fja registra `FISV -> FI` en 2023;
+- timing Yahoo causal: <09:30 ET `BeforeMarket`; 09:30-15:59 `DuringMarket` excluido; >=16:00 ET `AfterMarket`;
+- integridad de sorpresa: no se fuerza igualdad porcentual entre EPS redondeados a 0,01 y `Surprise(%)`; se exige cero contradicciones direccionales cuando los EPS redondeados difieren;
+- resultado exacto del audit estático:
+  - 150.983 earnings en snapshot;
+  - 2.141 en ventana 2024-01-15 -> 2024-03-15;
+  - 463 eventos por intersección PIT;
+  - 462/463 timing conocido = 99,784%;
+  - 462/463 actual + estimate = 99,784%;
+  - 461 causalmente utilizables;
+  - 259 BeforeMarket, 203 AfterMarket, 1 DuringMarket excluido;
+  - 1 actual ausente;
+  - 0 duplicados;
+  - 0 contradicciones direccionales;
+- todos los gates cuantitativos congelados previamente pasan sin relajación: **`PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION`**;
+- evidencia persistida en `validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json`;
+- el runner verifica los tres blobs por commit + Git blob SHA y falla cerrado ante cualquier cambio;
+- durante la revisión previa ChatGPT detectó y corrigió escapes dobles generados en regex/byte NUL del runner antes de entregar el cambio al usuario;
+- seal reseñado con fingerprints de metodología + evidencia; contraste final: todos MATCH;
+- `pead-earnings-source-audit-v1` queda **ARCHIVED**; ResearchValidationCenter vuelve a **0 líneas CURRENT** y no existe acción manual PEAD source;
+- `priceOutcomesFetched=false`, `economicOutcomesOpened=false`, `productionDefault=LEGACY`, `productionAuthority=false`;
+- siguiente paso autorizado: preregistrar **una sola** prueba de calidad predictiva PEAD antes de abrir precios.
