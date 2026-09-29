@@ -1273,3 +1273,23 @@ Actualización 2026-09-29 — PEAD source audit endurecido sin abrir outcomes:
 - **no se han descargado precios, no se han abierto outcomes y no se ha cambiado ningún gate** de PEAD;
 - siguiente transición metodológica sigue siendo condicional: sólo un `PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION` permite congelar la prueba predictiva;
 - producción permanece `LEGACY`.
+
+
+---
+
+Actualización 2026-09-29 — PEAD no se entrega hasta prueba REAL propia:
+
+- criterio de trabajo reafirmado: una investigación nueva **no se muestra al usuario para que la pruebe**; primero debe pasar los tests que ChatGPT pueda ejecutar y, cuando requiera datos privados del backend, sólo se entrega tras una ejecución REAL válida;
+- `pead-earnings-source-audit-v1` pasa de `CURRENT` a **`PARKED`** mientras `liveEodhdAudit = NOT_RUN`; por tanto el Centro puede mostrar **cero** líneas activas;
+- el guard general cambia de “exactamente una” a **máximo una** línea `CURRENT`;
+- unit exacto del parser ejecutado por ChatGPT: **PASS**;
+- casos adversos añadidos y ejecutados: timing desconocido, consenso ausente, duplicado, inconsistencia de difference y evento fuera del intervalo PIT => todos bloquean/excluyen según contrato;
+- ejecución sin `EODHD_API_KEY`: **PASS fail-closed**, devuelve `BLOCKED`, `economicOutcomesOpened=false` y producción `LEGACY`;
+- se detectó y corrigió antes de live una debilidad real: el sello pre-live había quedado desactualizado tras el endurecimiento técnico de fuente;
+- nuevo guard `tests/peadEarningsSourceAuditV1Seal.unit.mjs`: verifica fingerprints, ausencia de outcomes, autoridad LEGACY, endpoint Fundamentals documentado y estado PARKED pre-live;
+- fingerprints del sello contrastados directamente contra los blobs actuales de `main`: **todos MATCH**;
+- EODHD confirma documentalmente que `HistoricalTickerComponents` de `GSPC.INDX` reconstruye membresía desde abril de 2012 y que Calendar Earnings expone report date, before/after market, actual y estimate;
+- pendiente único para poder decir “funciona”: **ejecución REAL del source audit con la `EODHD_API_KEY` privada del backend**;
+- esa clave no está disponible en el runtime de este chat y no se pedirá ni se expondrá;
+- hasta que el live audit no exista y pase, PEAD **no se considera entregado/probado** y permanece oculto;
+- producción continúa `LEGACY`.
