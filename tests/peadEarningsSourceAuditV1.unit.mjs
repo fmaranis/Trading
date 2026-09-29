@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
-import { PEAD_SOURCE_AUDIT_V1,tickerKey,normalizeEarningsRows,activeMember,auditPayloads } from '../scripts/peadEarningsSourceAuditV1.mjs';
+import { PEAD_SOURCE_AUDIT_V1,tickerKey,normalizeComponentRows,normalizeEarningsRows,activeMember,auditPayloads } from '../scripts/peadEarningsSourceAuditV1.mjs';
 
 assert.equal(tickerKey('BRK-B.US'),'BRK-B');
 assert.equal(tickerKey('BRK.B'),'BRK-B');
 
 const components={HistoricalTickerComponents:{}};
 for(let i=0;i<250;i++)components.HistoricalTickerComponents[String(i)]={Code:'T'+i,StartDate:'2020-01-01',EndDate:null};
+const directFilteredComponents={};
+for(let i=0;i<250;i++)directFilteredComponents[String(i)]={Code:'T'+i,StartDate:'2020-01-01',EndDate:null};
+assert.equal(normalizeComponentRows(directFilteredComponents).length,250);
+assert.equal(normalizeComponentRows(components).length,250);
+
 const earnings={earnings:[]};
 for(let i=0;i<220;i++)earnings.earnings.push({
   code:'T'+i+'.US',report_date:'2024-02-01',date:'2023-12-31',
