@@ -1293,3 +1293,17 @@ Actualización 2026-09-29 — PEAD no se entrega hasta prueba REAL propia:
 - esa clave no está disponible en el runtime de este chat y no se pedirá ni se expondrá;
 - hasta que el live audit no exista y pase, PEAD **no se considera entregado/probado** y permanece oculto;
 - producción continúa `LEGACY`.
+
+
+---
+
+Actualización 2026-09-29 — regla operativa de testing antes de pedir ejecución al usuario:
+
+- ChatGPT debe **probar primero por sí mismo** toda modificación o investigación con todas las herramientas y runtimes accesibles;
+- esto incluye, según aplique: unit tests, guards, seal/fingerprints, TypeScript, fixtures adversos, validación causal, parsers y cualquier fuente/live runtime accesible;
+- objetivo: ver el fallo real, reproducirlo y corregirlo antes de pedir intervención externa;
+- sólo si queda un bloqueo que dependa exclusivamente del runtime privado del usuario (por ejemplo API key no accesible desde este chat, backend local privado o proveedor sólo disponible allí) se puede pedir una ejecución manual;
+- en ese caso la ejecución del usuario es **un mecanismo de transporte de evidencia**, no una delegación del testing: debe ser una única acción concreta y mínima;
+- el usuario devuelve la salida/result JSON y ChatGPT continúa el diagnóstico, reparación y nueva verificación;
+- no pedir ejecuciones repetidas sin una causa técnica nueva y explícita;
+- no presentar como “probado/listo” algo que no haya pasado la prueba REAL necesaria.
