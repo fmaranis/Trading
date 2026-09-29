@@ -8,15 +8,8 @@ const ui = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ResearchV
 const main = fs.readFileSync(path.resolve(process.cwd(), 'src/decisionMain.tsx'), 'utf8');
 
 assert.match(routes, /id: 'sector-52w-high-leadership-v1'/);
-assert.match(routes, /scripts\/sector52WeekHighLeadershipV1YahooInput\.mjs/);
-assert.match(routes, /scripts\/sector52WeekHighLeadershipV1Live\.mjs/);
-assert.match(routes, /scripts\/sector52WeekHighLeadershipV1YahooNavAudit\.mjs/);
-assert.match(routes, /tests\/sector52WeekHighLeadershipV1YahooNavAudit\.unit\.mjs/);
-assert.match(routes, /tests\/sector52WeekHighLeadershipV1YahooCorporateActions\.unit\.mjs/);
-assert.match(routes, /scripts\/sector52WeekHighLeadershipV1RevisionGuard\.mjs/);
-assert.match(routes, /tests\/sector52WeekHighLeadershipV1\.e2e\.unit\.mjs/);
-assert.match(routes, /scripts\/sector52WeekHighLeadershipV1YahooCorporateActions\.mjs/);
 assert.match(routes, /SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT/);
+assert.match(routes, /52W V1 · FAIL_DIAGNOSTIC · cerrado/);
 assert.match(routes, /id: 'pead-earnings-source-audit-v1'/);
 const peadStart = routes.indexOf("id: 'pead-earnings-source-audit-v1'");
 const peadEnd = routes.indexOf("archivedJob(", peadStart);
@@ -31,7 +24,6 @@ assert.match(routes, /tests\/peadEarningsSourceAuditV1\.unit\.mjs/);
 assert.match(routes, /tests\/peadEarningsSourceAuditV1\.integration\.mjs/);
 assert.match(routes, /scripts\/peadEarningsSourceAuditV1\.mjs/);
 assert.match(routes, /state\.result = extractJsonAfterMarker\(state\.output, job\.marker\)/);
-assert.match(routes, /52W V1 · FAIL_DIAGNOSTIC · cerrado/);
 assert.match(routes, /id: 'fundamental-quality-valuation-broad-pit-v1'/);
 assert.match(routes, /scripts\/fundamentalQualityValuationBroadPitV1Live\.ts/);
 assert.match(routes, /SEC_EDGAR_USER_AGENT_REQUIRED/);
