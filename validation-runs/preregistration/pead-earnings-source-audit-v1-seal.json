@@ -32,12 +32,13 @@
     "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_PLAN_2026-09-28.md": "85578b7d8018d50248ceb9f0ab42c4180098ab1f",
     "scripts/peadEarningsSourceAuditV1.mjs": "ecb1de1bf8b29d67c3c0946cde3d38caf238ff58",
     "tests/peadEarningsSourceAuditV1.unit.mjs": "6667d397c649d542390564648c4c3b91c4550178",
-    "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "7d57ac125dd058e870131f36a068d70270e82266",
-    "server/researchValidationRoutes.ts": "d69ce5d0f87f7e1c560f0763b63481696c15dc0b",
-    "tests/researchValidationRuntime.unit.ts": "35e462732cea21d99c04c41267c3b3a26cf0094b"
+    "tests/peadEarningsSourceAuditV1.integration.mjs": "42c64c0b9ddfcb5f9c23190c11708f4977f2bc2b",
+    "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "0a53ccbb9c106661496501f879a63730ad0b6905",
+    "server/researchValidationRoutes.ts": "bf9a99e55bab29da982120bc9eb13bf20c04963c",
+    "tests/researchValidationRuntime.unit.ts": "20a4330f5557eedfa19fcdd1daf4cc7cfd1078e3"
   },
   "runtimeVerification": {
-    "pureParserFixture": "PASS",
+    "pureParserFixture": "PASS_EXECUTED_BY_CHATGPT",
     "fixturePitEvents": 220,
     "fixtureCausalEligible": 220,
     "badDifferenceRejected": true,
@@ -48,11 +49,13 @@
     "missingEstimateRejected": true,
     "duplicateRejected": true,
     "outOfIntervalPitRejected": true,
-    "noKeyFailClosed": "PASS",
-    "failureCaseSuite": "PASS",
-    "sealFingerprintsVerifiedAgainstMain": true
+    "noKeyFailClosed": "PASS_EXECUTED_BY_CHATGPT",
+    "failureCaseSuite": "PASS_EXECUTED_BY_CHATGPT",
+    "sealFingerprintsVerifiedAgainstMain": true,
+    "mockedMainPassPath": "PASS_EXECUTED_BY_CHATGPT",
+    "mockedMainInconclusivePath": "PASS_EXECUTED_BY_CHATGPT"
   },
   "technicalResealAt": "2026-09-29",
   "technicalResealReason": "Source transport hardened to documented EODHD Fundamentals HistoricalTickerComponents endpoint; parser accepts filtered/wrapped response; exact EODHD preflight and seal guard added. No sample, gates, signal, policy or outcomes changed.",
-  "preLiveVisibility": "PARKED_UNTIL_CHATGPT_VERIFIED_LIVE_AUDIT"
+  "preLiveVisibility": "CURRENT_SINGLE_USER_ACTION_AFTER_CHATGPT_SELF_TESTS"
 }
