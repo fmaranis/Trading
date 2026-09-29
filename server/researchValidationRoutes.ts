@@ -334,19 +334,28 @@ function extractJsonAfterMarker(output: string, marker?: string): unknown | null
   return null;
 }
 
-function runStep(step: Step, state: JobState): Promise<number> {
+function runStep(step: Step, state: JobState): Promise<{ code: number; output: string }> {
   return new Promise(resolve => {
     state.currentStep = step.label;
     appendOutput(state, `\n\n=== ${step.label} ===\n`);
+    let stepOutput = '';
+    const capture = (value: unknown) => {
+      const text = String(value);
+      stepOutput += text;
+      appendOutput(state, text);
+    };
     const child = spawn(step.command, step.args, {
       cwd: process.cwd(),
       env: { ...process.env, DISABLE_HMR: 'true' },
       shell: process.platform === 'win32'
     });
-    child.stdout.on('data', data => appendOutput(state, String(data)));
-    child.stderr.on('data', data => appendOutput(state, String(data)));
-    child.on('error', error => { appendOutput(state, `\nPROCESS_ERROR: ${error.message}\n`); resolve(1); });
-    child.on('close', code => resolve(code ?? 1));
+    child.stdout.on('data', capture);
+    child.stderr.on('data', capture);
+    child.on('error', error => {
+      capture(`\nPROCESS_ERROR: ${error.message}\n`);
+      resolve({ code: 1, output: stepOutput });
+    });
+    child.on('close', code => resolve({ code: code ?? 1, output: stepOutput }));
   });
 }
 
@@ -384,10 +393,10 @@ async function runJob(job: JobDefinition): Promise<void> {
     const missing = prerequisiteError(job);
     if (missing) throw new Error(missing);
     for (const step of job.steps) {
-      const code = await runStep(step, state);
-      if (code !== 0) {
-        state.exitCode = code;
-        state.result = extractJsonAfterMarker(state.output, job.marker);
+      const stepRun = await runStep(step, state);
+      if (stepRun.code !== 0) {
+        state.exitCode = stepRun.code;
+        state.result = extractJsonAfterMarker(stepRun.output, job.marker);
         state.status = 'FAILED';
         state.error = `Falló: ${step.label}`;
         return;
