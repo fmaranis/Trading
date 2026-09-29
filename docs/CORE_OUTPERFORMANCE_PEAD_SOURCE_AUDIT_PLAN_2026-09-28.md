@@ -1,7 +1,7 @@
 # PEAD Earnings Surprise V1 — auditoría causal de fuente
 
 Fecha: 2026-09-28  
-Estado: **SOURCE_AUDIT_DESIGN_FROZEN / NO_PRICE_OUTCOMES / RESEARCH ONLY**
+Estado: **SOURCE_AUDIT_PASS_STATIC_REFERENCE / NO_PRICE_OUTCOMES / RESEARCH ONLY**
 
 ## Objetivo
 
@@ -77,3 +77,90 @@ Si pasa: `PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION`. El siguiente 
 Antes de abrir ningún outcome se sustituyó únicamente el transporte heredado del endpoint de componentes por el Fundamentals API documentado de EODHD para `HistoricalTickerComponents`. El parser acepta tanto la sección filtrada directa como una respuesta envuelta bajo `HistoricalTickerComponents`, y la caché de componentes cambia de identidad para impedir reutilizar accidentalmente una respuesta del endpoint anterior.
 
 Este cambio **no modifica** la ventana, universo, definición PIT, eventos, thresholds, gates, sorpresa, timing, outcome futuro ni autoridad de producción. Sigue siendo la misma auditoría congelada y continúa sin precios/outcomes abiertos.
+
+
+## Sustitución de fuente pre-outcome — 2026-09-29
+
+La ejecución REAL del contrato EODHD alcanzó correctamente el último step del job, pero el proveedor respondió HTTP 403 porque la cuenta configurada sólo permite EOD gratuito y no autoriza Fundamentals `HistoricalTickerComponents`. La ejecución quedó `BLOCKED_PROVIDER_ENTITLEMENT`; no descargó precios, no abrió outcomes económicos y no consume muestra PEAD.
+
+Antes de abrir ningún precio se sustituye la fuente por una ruta gratuita, pinneada y reproducible:
+
+1. **Eventos de resultados** — snapshot histórico derivado de Yahoo Finance:
+   - repositorio: `vivek-v-rao/Earnings-Dates`;
+   - commit: `7ed98a0e2497b0a83bcbc290db41705089768c16`;
+   - fichero: `earnings_dates_all.csv`;
+   - blob: `abde11f719e93dc427a1040ffed3f0b8590b8508`;
+   - campos utilizados: timestamp local/UTC del anuncio, ticker, `EPS Estimate`, `Reported EPS` y `Surprise(%)`.
+2. **PIT S&P 500 — reconstrucción A**:
+   - repositorio: `fja05680/sp500`;
+   - commit: `a2430f2af0c79ddf0748e91de11bdeb1616ab5a7`;
+   - `sp500_ticker_start_end.csv`;
+   - blob: `3ed3b0e8d9e6e63730c153ee1f13ddaf6ed281bb`.
+3. **PIT S&P 500 — reconstrucción B**:
+   - repositorio: `lawcal/sp500-components-history`;
+   - commit: `2e59b86998a119d68e377f9f98aa7a816cfc7d5b`;
+   - `data/components_history.csv`;
+   - blob: `6a865618173f322ecda9a569bc6bd48edcfaf996`;
+   - se aplica el contrato del propio repositorio: `date_added <= date < date_removed` y `created_at <= date`.
+
+La procedencia de esta revisión es **`STATIC_REFERENCE`**, no `REAL`. Los tres blobs se fijan por commit + Git blob SHA y el runner falla cerrado si cambia el contenido.
+
+### Regla PIT conservadora
+
+Un anuncio entra en el audit sólo si el **mismo ticker histórico** está activo en ambas reconstrucciones PIT en la fecha del anuncio. Una fuente nunca puede ampliar por sí sola el universo.
+
+La auditoría detectó una única discrepancia en la ventana: `FISV` el 2024-02-06 aparece activo en la reconstrucción lawcal, mientras la reconstrucción fja registra el cambio `FISV -> FI` en 2023. El evento queda excluido por la regla de intersección. Esta política evita que aliases/tickers actuales reescriban retrospectivamente la identidad histórica.
+
+### Timing causal Yahoo
+
+Se utiliza el timestamp local publicado en `Earnings Date`:
+
+- antes de 09:30 ET: `BeforeMarket`;
+- desde 09:30 ET hasta antes de 16:00 ET: `DuringMarket` y se excluye;
+- desde 16:00 ET: `AfterMarket`;
+- timestamp no parseable: `UNKNOWN` y se excluye.
+
+La semántica futura de ejecución no cambia:
+
+- `BeforeMarket` -> primera apertura regular del mismo `reportDate`;
+- `AfterMarket` -> primera apertura regular posterior;
+- nunca se infiere un timing desconocido.
+
+### Integridad de sorpresa
+
+Yahoo redondea `EPS Estimate` y `Reported EPS` a 0,01, mientras `Surprise(%)` puede proceder de valores internos de mayor precisión. Por ello no se fuerza una igualdad porcentual artificial. El control estable es fail-closed ante una **contradicción direccional**: cuando los EPS redondeados difieren y `Surprise(%)` es distinto de cero, ambos deben tener el mismo signo.
+
+La auditoría observó 23 casos donde los dos EPS redondean al mismo valor pero Yahoo conserva una sorpresa no nula; se documentan como efecto de redondeo y no se utilizan para inventar precisión adicional.
+
+### Gates preservados y resultado
+
+Se mantienen sin modificación los gates cuantitativos congelados antes de abrir el feed:
+
+- PIT events >= 200;
+- timing conocido >= 70%;
+- actual + estimate >= 70%;
+- causalmente utilizables >= 150;
+- duplicados = 0;
+- no sintético.
+
+Resultado de la auditoría estática pinneada:
+
+- earnings totales del snapshot: **150.983**;
+- earnings en la ventana congelada: **2.141**;
+- eventos por PIT fja: **463**;
+- eventos por PIT lawcal: **464**;
+- eventos por **intersección PIT**: **463**;
+- timing conocido: **462 / 463 = 99,784%**;
+- actual + estimate: **462 / 463 = 99,784%**;
+- causalmente utilizables: **461**;
+- BeforeMarket: **259**;
+- AfterMarket: **203**;
+- DuringMarket excluidos: **1** (`APA`, 2024-02-21 12:00 ET);
+- actual ausente: **1** (`PNW`, 2024-02-27);
+- duplicados: **0**;
+- contradicciones direccionales: **0**;
+- desacuerdos PIT: **1**, `FISV`, excluido por intersección.
+
+Veredicto: **`PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION`**.
+
+Este PASS sólo autoriza a preregistrar una prueba de calidad predictiva. La fuente sigue sin disponer de una garantía independiente de vintage del consenso y, además, su procedencia es `STATIC_REFERENCE`; por tanto ningún resultado histórico derivado de ella puede promover producción por sí solo. `productionDefault=LEGACY`, `productionAuthority=false`, `priceOutcomesFetched=false`, `economicOutcomesOpened=false`.
