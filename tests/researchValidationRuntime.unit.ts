@@ -14,8 +14,7 @@ assert.match(routes, /id: 'pead-earnings-source-audit-v1'/);
 const peadStart = routes.indexOf("id: 'pead-earnings-source-audit-v1'");
 const peadEnd = routes.indexOf("archivedJob(", peadStart);
 const peadBlock = routes.slice(peadStart, peadEnd > peadStart ? peadEnd : undefined);
-assert.match(peadBlock, /visibility: 'CURRENT'/);
-assert.match(peadBlock, /requiresEodhdApiKey: true/);
+assert.match(peadBlock, /visibility: 'ARCHIVED'/);
 const currentVisibilityCount = (routes.match(/visibility: 'CURRENT'/g) ?? []).length;
 assert.ok(currentVisibilityCount <= 1, 'At most one research line may be visible as CURRENT');
 const parkedVisibilityCount = (routes.match(/visibility: 'PARKED'/g) ?? []).length;
@@ -23,6 +22,8 @@ assert.ok(parkedVisibilityCount >= 3, 'Parallel research lines should remain par
 assert.match(routes, /tests\/peadEarningsSourceAuditV1\.unit\.mjs/);
 assert.match(routes, /tests\/peadEarningsSourceAuditV1\.integration\.mjs/);
 assert.match(routes, /scripts\/peadEarningsSourceAuditV1\.mjs/);
+assert.match(peadBlock, /Fuente estática pinneada · auditar causalidad PEAD/);
+assert.doesNotMatch(peadBlock, /requiresEodhdApiKey: true/);
 assert.match(routes, /state\.result = extractJsonAfterMarker\(stepRun\.output, job\.marker\)/);
 assert.match(routes, /exitCode: state\.exitCode/);
 assert.match(routes, /error: state\.error/);
