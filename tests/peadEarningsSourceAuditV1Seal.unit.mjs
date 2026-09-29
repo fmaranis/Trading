@@ -44,7 +44,7 @@ const peadStart=routes.indexOf("id: 'pead-earnings-source-audit-v1'");
 assert.ok(peadStart>=0);
 const peadEnd=routes.indexOf("archivedJob(",peadStart);
 const peadBlock=routes.slice(peadStart,peadEnd>peadStart?peadEnd:undefined);
-assert.match(peadBlock,/visibility: 'PARKED'/);
+assert.match(peadBlock,/visibility: 'CURRENT'/);
 assert.match(peadBlock,/requiresEodhdApiKey: true/);
 
 console.log('PEAD_EARNINGS_SOURCE_AUDIT_V1_SEAL_PASS');
