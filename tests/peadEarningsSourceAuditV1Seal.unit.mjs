@@ -31,8 +31,11 @@ for(const [file,expected] of Object.entries(seal.gitBlobSha??{})){
 }
 
 const script=fs.readFileSync(path.resolve(process.cwd(),'scripts/peadEarningsSourceAuditV1.mjs'),'utf8');
-assert.match(script,/\/api\/fundamentals\//);
-assert.match(script,/filter=HistoricalTickerComponents/);
+assert.match(script,/raw\.githubusercontent\.com/);
+assert.match(script,/YAHOO_STATIC_DUAL_PIT_R1/);
+assert.match(script,/STATIC_REFERENCE/);
+assert.match(script,/dualPitAgreementForIncludedEvents/);
+assert.doesNotMatch(script,/eodhd\.com\/api\/fundamentals/);
 assert.match(script,/economicOutcomesOpened:false/);
 assert.match(script,/priceOutcomesFetched:false/);
 assert.match(script,/productionDefault:'LEGACY'/);
@@ -44,7 +47,7 @@ const peadStart=routes.indexOf("id: 'pead-earnings-source-audit-v1'");
 assert.ok(peadStart>=0);
 const peadEnd=routes.indexOf("archivedJob(",peadStart);
 const peadBlock=routes.slice(peadStart,peadEnd>peadStart?peadEnd:undefined);
-assert.match(peadBlock,/visibility: 'CURRENT'/);
-assert.match(peadBlock,/requiresEodhdApiKey: true/);
+assert.match(peadBlock,/visibility: 'ARCHIVED'/);
+assert.doesNotMatch(peadBlock,/requiresEodhdApiKey: true/);
 
 console.log('PEAD_EARNINGS_SOURCE_AUDIT_V1_SEAL_PASS');
