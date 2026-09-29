@@ -1,60 +1,105 @@
 import assert from 'node:assert/strict';
-import { PEAD_SOURCE_AUDIT_V1,tickerKey,normalizeComponentRows,normalizeEarningsRows,activeMember,auditPayloads } from '../scripts/peadEarningsSourceAuditV1.mjs';
+import {
+  PEAD_SOURCE_AUDIT_V1,
+  SOURCE_PINS,
+  tickerKey,
+  parseCsvLine,
+  normalizeFjaPit,
+  normalizeLawcalPit,
+  normalizeYahooEarnings,
+  activeFja,
+  activeLawcal,
+  classifyYahooTiming,
+  auditStaticSources
+} from '../scripts/peadEarningsSourceAuditV1.mjs';
 
-assert.equal(tickerKey('BRK-B.US'),'BRK-B');
 assert.equal(tickerKey('BRK.B'),'BRK-B');
+assert.equal(tickerKey('BRK/B'),'BRK-B');
+assert.deepEqual(parseCsvLine('A,"B,C","D""E"'),['A','B,C','D"E']);
 
-const components={HistoricalTickerComponents:{}};
-for(let i=0;i<250;i++)components.HistoricalTickerComponents[String(i)]={Code:'T'+i,StartDate:'2020-01-01',EndDate:null};
-const directFilteredComponents={};
-for(let i=0;i<250;i++)directFilteredComponents[String(i)]={Code:'T'+i,StartDate:'2020-01-01',EndDate:null};
-assert.equal(normalizeComponentRows(directFilteredComponents).length,250);
-assert.equal(normalizeComponentRows(components).length,250);
+assert.equal(classifyYahooTiming('2024-02-01 09:29:59-05:00'),'BeforeMarket');
+assert.equal(classifyYahooTiming('2024-02-01 09:30:00-05:00'),'DuringMarket');
+assert.equal(classifyYahooTiming('2024-02-01 15:59:59-05:00'),'DuringMarket');
+assert.equal(classifyYahooTiming('2024-02-01 16:00:00-05:00'),'AfterMarket');
+assert.equal(classifyYahooTiming('bad'),'UNKNOWN');
 
-const earnings={earnings:[]};
-for(let i=0;i<220;i++)earnings.earnings.push({
-  code:'T'+i+'.US',report_date:'2024-02-01',date:'2023-12-31',
-  before_after_market:i%2?'AfterMarket':'BeforeMarket',
-  actual:1.2,estimate:1.0,difference:.2,percent:20,currency:'USD'
-});
-const audit=auditPayloads(components,earnings);
-assert.equal(audit.passed,true);
-assert.equal(audit.counts.pitEvents,220);
-assert.equal(audit.counts.causalEligible,220);
-assert.equal(audit.quality.duplicateCount,0);
-assert.equal(audit.quality.inconsistentDifferenceCount,0);
-assert.equal(activeMember([{code:'ABC',start:'2020-01-01',end:'2024-12-31'}],'ABC.US','2024-02-01'),true);
+function fjaCsv(count=250){
+  const rows=['ticker,start_date,end_date'];
+  for(let i=0;i<count;i++)rows.push('T'+i+',2020-01-01,');
+  return rows.join('\n')+'\n';
+}
+function lawcalCsv(count=250){
+  const rows=['symbol,cik,name,sector,date_added,date_removed,created_at'];
+  for(let i=0;i<count;i++)rows.push('T'+i+',0000000000,T'+i+',industrials,2020-01-01,,2020-01-01');
+  return rows.join('\n')+'\n';
+}
+function earningsCsv(count=220){
+  const rows=['Earnings Date,earnings_datetime_utc,earnings_date,ticker,EPS Estimate,Reported EPS,Surprise(%),days_since'];
+  for(let i=0;i<count;i++){
+    const local=i%2?'2024-02-01 16:00:00-05:00':'2024-02-01 08:00:00-05:00';
+    const utc=i%2?'2024-02-01 21:00:00+00:00':'2024-02-01 13:00:00+00:00';
+    rows.push([local,utc,'2024-02-01','T'+i,'1.00','1.20','20.0','90'].join(','));
+  }
+  return rows.join('\n')+'\n';
+}
 
-const rows=normalizeEarningsRows({earnings:[{code:'ABC.US',report_date:'2024-02-01',date:'2023-12-31',before_after_market:'AfterMarket',actual:2,estimate:1.5,difference:.5,percent:33.3}]});
-assert.equal(rows[0].ticker,'ABC');
-assert.equal(rows[0].actual,2);
+const fja=normalizeFjaPit(fjaCsv());
+const lawcal=normalizeLawcalPit(lawcalCsv());
+const earnings=normalizeYahooEarnings(earningsCsv());
+assert.equal(fja.length,250);
+assert.equal(lawcal.length,250);
+assert.equal(earnings.length,220);
+assert.equal(activeFja(fja,'T0','2024-02-01'),true);
+assert.equal(activeLawcal(lawcal,'T0','2024-02-01'),true);
 
-const bad=structuredClone(earnings);
-bad.earnings[0].difference=99;
-assert.equal(auditPayloads(components,bad).passed,false);
+const pass=auditStaticSources(fjaCsv(),lawcalCsv(),earningsCsv());
+assert.equal(pass.passed,true);
+assert.equal(pass.counts.pitEvents,220);
+assert.equal(pass.counts.causalEligible,220);
+assert.equal(pass.quality.duplicateCount,0);
+assert.equal(pass.quality.directionalContradictionCount,0);
 
-const unknownTiming=structuredClone(earnings);
-for(let i=0;i<80;i++)unknownTiming.earnings[i].before_after_market=null;
-const unknownTimingAudit=auditPayloads(components,unknownTiming);
-assert.equal(unknownTimingAudit.gates.timingCoverage,false);
-assert.equal(unknownTimingAudit.passed,false);
+const futureCreated=lawcalCsv().replace(
+  'T0,0000000000,T0,industrials,2020-01-01,,2020-01-01',
+  'T0,0000000000,T0,industrials,2020-01-01,,2025-01-01'
+);
+assert.equal(auditStaticSources(fjaCsv(),futureCreated,earningsCsv()).counts.pitEvents,219);
 
-const missingEstimate=structuredClone(earnings);
-for(let i=0;i<80;i++){missingEstimate.earnings[i].estimate=null;missingEstimate.earnings[i].difference=0;}
-const missingEstimateAudit=auditPayloads(components,missingEstimate);
-assert.equal(missingEstimateAudit.gates.actualEstimateCoverage,false);
-assert.equal(missingEstimateAudit.passed,false);
+const removedFja=fjaCsv().replace('T0,2020-01-01,','T0,2020-01-01,2024-02-01');
+assert.equal(auditStaticSources(removedFja,lawcalCsv(),earningsCsv()).counts.pitEvents,219);
 
-const duplicate=structuredClone(earnings);
-duplicate.earnings.push(structuredClone(duplicate.earnings[0]));
-const duplicateAudit=auditPayloads(components,duplicate);
+const lawcalAlias=lawcalCsv().replace(
+  'T0,0000000000,T0,industrials,2020-01-01,,2020-01-01',
+  'FISV,0000798354,Fiserv,financials,2001-04-02,,2007-03-05'
+);
+const aliasAudit=auditStaticSources(fjaCsv(),lawcalAlias,earningsCsv());
+assert.equal(aliasAudit.counts.pitEvents,219);
+assert.equal(aliasAudit.quality.pitSourceDisagreements.fjaOnly.length,1);
+
+const during=earningsCsv().replace('2024-02-01 08:00:00-05:00','2024-02-01 12:00:00-05:00');
+assert.equal(auditStaticSources(fjaCsv(),lawcalCsv(),during).counts.causalEligible,219);
+
+let missing=earningsCsv();
+for(let i=0;i<80;i++)missing=missing.replace('1.00,1.20,20.0','1.00,,20.0');
+const missingAudit=auditStaticSources(fjaCsv(),lawcalCsv(),missing);
+assert.equal(missingAudit.gates.actualEstimateCoverage,false);
+assert.equal(missingAudit.passed,false);
+
+const duplicate=earningsCsv()+earningsCsv().trim().split('\n')[1]+'\n';
+const duplicateAudit=auditStaticSources(fjaCsv(),lawcalCsv(),duplicate);
 assert.equal(duplicateAudit.quality.duplicateCount,1);
 assert.equal(duplicateAudit.gates.noDuplicates,false);
 assert.equal(duplicateAudit.passed,false);
 
-const outsidePit=structuredClone(components);
-outsidePit.HistoricalTickerComponents['0'].EndDate='2024-01-31';
-const outsidePitEarnings={earnings:[{code:'T0.US',report_date:'2024-02-01',date:'2023-12-31',before_after_market:'AfterMarket',actual:1,estimate:.9,difference:.1,percent:11.11}]};
-assert.equal(auditPayloads(outsidePit,outsidePitEarnings).counts.pitEvents,0);
+const contradiction=earningsCsv().replace('1.00,1.20,20.0','1.00,1.20,-20.0');
+const contradictionAudit=auditStaticSources(fjaCsv(),lawcalCsv(),contradiction);
+assert.equal(contradictionAudit.quality.directionalContradictionCount,1);
+assert.equal(contradictionAudit.gates.noDirectionalContradictions,false);
+assert.equal(contradictionAudit.passed,false);
 
-console.log('PEAD_EARNINGS_SOURCE_AUDIT_V1_UNIT_PASS',PEAD_SOURCE_AUDIT_V1.study);
+assert.equal(SOURCE_PINS.earnings.commit,'7ed98a0e2497b0a83bcbc290db41705089768c16');
+assert.equal(SOURCE_PINS.earnings.blobSha,'abde11f719e93dc427a1040ffed3f0b8590b8508');
+assert.equal(SOURCE_PINS.pitFja.blobSha,'3ed3b0e8d9e6e63730c153ee1f13ddaf6ed281bb');
+assert.equal(SOURCE_PINS.pitLawcal.blobSha,'6a865618173f322ecda9a569bc6bd48edcfaf996');
+
+console.log('PEAD_EARNINGS_SOURCE_AUDIT_V1_UNIT_PASS',PEAD_SOURCE_AUDIT_V1.sourceRevision);
