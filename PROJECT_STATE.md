@@ -1242,3 +1242,17 @@ Actualización 2026-09-28 — transición a PEAD source audit V1:
 - limitación operativa real: `EODHD_API_KEY` está sólo en el backend local y no es accesible desde este chat. No pedir/pegar secretos; el audit live debe correr dentro del backend local cuando corresponda;
 - si el audit live devuelve `INCONCLUSIVE_SOURCE_CAUSALITY`, PEAD se bloquea sin abrir precios. Sólo un `PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION` permite diseñar/congelar la prueba predictiva;
 - producción continúa **LEGACY**, sin cambios en la cadena productiva.
+
+
+---
+
+Actualización 2026-09-29 — ResearchValidationCenter simplificado a una única línea activa visible:
+
+- problema corregido: el Centro había acumulado demasiadas tarjetas simultáneas aunque varias investigaciones sólo estuvieran bloqueadas, esperando ventana o recopilando evidencia en paralelo;
+- inventario técnico en `server/researchValidationRoutes.ts`: 27 definiciones históricas/operativas acumuladas; la evidencia y runners se conservan, pero **no deben equivaler a 27 elementos visibles**;
+- regla de producto desde ahora: **máximo una investigación `CURRENT` visible en ResearchValidationCenter**;
+- línea activa visible actual: `pead-earnings-source-audit-v1` / PEAD · auditoría causal de datos · V1;
+- `fundamental-quality-valuation-broad-pit-v1`, `phase6-forward-risk-context-stage-a-r2-readiness` y `quality-allocation-dynamic-future-forward-v1` pasan a `PARKED`: conservan implementación, estado y posibilidad de retomarse, pero no aparecen como tarjetas ni botones en la pantalla principal;
+- los jobs cerrados continúan `ARCHIVED` dentro del histórico colapsado; no se duplican pantallas ni motores;
+- guard añadido en `tests/researchValidationRuntime.unit.ts`: exige exactamente **1** `visibility: 'CURRENT'` y mantiene líneas paralelas como `PARKED`;
+- esta simplificación es de superficie/UI y priorización; no cambia resultados, muestras, políticas, producción `LEGACY` ni `CORE_ARCHITECTURE_V1`.
