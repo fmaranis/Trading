@@ -7,15 +7,17 @@
     "from": "2024-01-15",
     "to": "2024-03-15"
   },
-  "sourceProvider": "EODHD",
-  "universe": "S&P500 PIT via GSPC.INDX HistoricalTickerComponents",
+  "sourceProvider": "YAHOO_FINANCE_VIA_PINNED_STATIC_REFERENCE",
+  "universe": "S&P500 PIT exact-ticker intersection of pinned fja05680/sp500 and lawcal/sp500-components-history histories",
   "gates": {
     "minimumPitEvents": 200,
     "minimumKnownTimingPct": 70,
     "minimumActualEstimatePct": 70,
     "minimumCausalEligible": 150,
     "duplicates": 0,
-    "inconsistentDifference": 0
+    "directionalContradictions": 0,
+    "dualPitAgreementForIncludedEvents": true,
+    "syntheticAllowed": false
   },
   "outcomes": {
     "priceOutcomesFetched": false,
@@ -29,20 +31,21 @@
     "promotionAllowed": false
   },
   "gitBlobSha": {
-    "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_PLAN_2026-09-28.md": "85578b7d8018d50248ceb9f0ab42c4180098ab1f",
-    "scripts/peadEarningsSourceAuditV1.mjs": "ecb1de1bf8b29d67c3c0946cde3d38caf238ff58",
-    "tests/peadEarningsSourceAuditV1.unit.mjs": "6667d397c649d542390564648c4c3b91c4550178",
-    "tests/peadEarningsSourceAuditV1.integration.mjs": "fa1bbb54b1ad00cf613d61a724b7408763ee2692",
-    "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "0a53ccbb9c106661496501f879a63730ad0b6905",
-    "server/researchValidationRoutes.ts": "959e91e4783a834c0b7e835ded4e964da0475d24",
-    "tests/researchValidationRuntime.unit.ts": "a5780a8193b3784d361c59e87c89ba14a191df5b"
+    "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_PLAN_2026-09-28.md": "5698269d15cb5932a3264c8a6707a58a026ee4ff",
+    "scripts/peadEarningsSourceAuditV1.mjs": "93f1d4fc4030fa757f3f9224caa986edc8b2fdf3",
+    "tests/peadEarningsSourceAuditV1.unit.mjs": "650f000c1a72cb3767ed36fc0953a6152cecf3da",
+    "tests/peadEarningsSourceAuditV1.integration.mjs": "73301acdc57ba02870b0928aa72987fd630694b8",
+    "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "1e409c0428acb9909fdf2d3fe2ad77c0de60a310",
+    "server/researchValidationRoutes.ts": "50c5f0c4ea71ba202bb7eac20f781c220369689c",
+    "tests/researchValidationRuntime.unit.ts": "7c17738030b9faec64361e7988bd108ac00a439c",
+    "validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json": "067813b55d5c1c0e07d0edd8ec29c1861ba6193d"
   },
   "runtimeVerification": {
     "pureParserFixture": "PASS_EXECUTED_BY_CHATGPT",
     "fixturePitEvents": 220,
     "fixtureCausalEligible": 220,
     "badDifferenceRejected": true,
-    "liveEodhdAudit": "NOT_RUN",
+    "liveEodhdAudit": "BLOCKED_PROVIDER_ENTITLEMENT_NO_OUTCOMES",
     "filteredAndWrappedComponentPayloadsAccepted": true,
     "sealGuard": "ADDED_NOT_LIVE_RUN",
     "unknownTimingRejected": true,
@@ -61,9 +64,28 @@
     "failingStepEvidenceIsolation": "PASS_LOGIC_VERIFIED",
     "integrationFixtureMarkerSuppressed": true,
     "exportedFailureMetadata": true,
-    "archived52wRuntimeDeclarationFixed": true
+    "archived52wRuntimeDeclarationFixed": true,
+    "eodhdBlockedRunConsumesSample": false,
+    "staticReferenceAudit": "PASS_EXECUTED_BY_CHATGPT_GITHUB_CONNECTOR",
+    "staticReferenceAuditCounts": {
+      "pitEvents": 463,
+      "knownTiming": 462,
+      "actualEstimate": 462,
+      "causalEligible": 461
+    },
+    "staticReferenceAuditCoverage": {
+      "knownTimingPct": 99.78401727861771,
+      "actualEstimatePct": 99.78401727861771
+    },
+    "staticReferenceDuplicates": 0,
+    "staticReferenceDirectionalContradictions": 0,
+    "pitCrossSourceDisagreements": 1,
+    "pitCrossSourceDisagreementExample": "FISV|2024-02-06|lawcal-only|excluded",
+    "priceOutcomesFetched": false,
+    "economicOutcomesOpened": false
   },
   "technicalResealAt": "2026-09-29",
-  "technicalResealReason": "Source transport hardened to documented EODHD Fundamentals HistoricalTickerComponents endpoint; parser accepts filtered/wrapped response; exact EODHD preflight and seal guard added. No sample, gates, signal, policy or outcomes changed.",
-  "preLiveVisibility": "CURRENT_SINGLE_USER_ACTION_AFTER_CHATGPT_SELF_TESTS"
+  "technicalResealReason": "EODHD Fundamentals was blocked by provider entitlement before outcomes. Source-only transport was replaced pre-outcome by commit/blob-pinned Yahoo-derived earnings plus conservative dual-PIT static references. Quantitative coverage gates and frozen window were not loosened; no prices or economic outcomes were opened.",
+  "preLiveVisibility": "ARCHIVED_SOURCE_AUDIT_PASS_NO_USER_ACTION",
+  "sourceRevision": "YAHOO_STATIC_DUAL_PIT_R1"
 }
