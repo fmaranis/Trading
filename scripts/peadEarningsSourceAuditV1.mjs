@@ -42,15 +42,15 @@ function rawUrl(source){
 }
 function gitBlobSha(text){
   const bytes=Buffer.from(text,'utf8');
-  return crypto.createHash('sha1').update('blob '+bytes.length+'\\0').update(bytes).digest('hex');
+  return crypto.createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
 }
 function finite(v){return v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));}
 function cleanDate(v){
-  const s=String(v??'').replace(/\\*/g,'').slice(0,10);
-  return /^\\d{4}-\\d{2}-\\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+'T00:00:00Z'))?s:null;
+  const s=String(v??'').replace(/\*/g,'').slice(0,10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+'T00:00:00Z'))?s:null;
 }
 export function tickerKey(v){
-  return String(v??'').trim().toUpperCase().replace(/\\.US$/,'').replace(/[./]/g,'-');
+  return String(v??'').trim().toUpperCase().replace(/\.US$/,'').replace(/[./]/g,'-');
 }
 
 export function parseCsvLine(line){
@@ -67,7 +67,7 @@ export function parseCsvLine(line){
 }
 
 export function parseCsv(text){
-  const lines=String(text??'').replace(/^\\uFEFF/,'').trim().split(/\\r?\\n/);
+  const lines=String(text??'').replace(/^\uFEFF/,'').trim().split(/\r?\n/);
   if(lines.length<2)throw new Error('PEAD_SOURCE_CSV_EMPTY');
   const header=parseCsvLine(lines[0]);
   const index=Object.fromEntries(header.map((name,i)=>[name,i]));
@@ -125,7 +125,7 @@ export function activeLawcal(intervals,ticker,date){
 }
 
 export function classifyYahooTiming(rawDate){
-  const match=String(rawDate??'').match(/^\\d{4}-\\d{2}-\\d{2}\\s+(\\d{2}):(\\d{2}):/);
+  const match=String(rawDate??'').match(/^\d{4}-\d{2}-\d{2}\s+(\d{2}):(\d{2}):/);
   if(!match)return 'UNKNOWN';
   const minute=Number(match[1])*60+Number(match[2]);
   if(minute<9*60+30)return 'BeforeMarket';
@@ -281,7 +281,7 @@ export async function main(){
     promotionAllowed:false
   };
   fs.mkdirSync(path.dirname(OUT),{recursive:true});
-  fs.writeFileSync(OUT,JSON.stringify(result,null,2)+'\\n');
+  fs.writeFileSync(OUT,JSON.stringify(result,null,2)+'\n');
   console.log(MARKER,JSON.stringify(result));
   if(!audit.passed)process.exitCode=2;
 }
