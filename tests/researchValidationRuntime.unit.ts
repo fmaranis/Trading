@@ -24,6 +24,7 @@ assert.match(routes, /tests\/peadEarningsSourceAuditV1\.integration\.mjs/);
 assert.match(routes, /scripts\/peadEarningsSourceAuditV1\.mjs/);
 assert.match(peadBlock, /Fuente estática pinneada · auditar causalidad PEAD/);
 assert.doesNotMatch(peadBlock, /requiresEodhdApiKey: true/);
+assert.doesNotMatch(peadBlock, /EODHD REAL/);
 assert.match(routes, /state\.result = extractJsonAfterMarker\(stepRun\.output, job\.marker\)/);
 assert.match(routes, /exitCode: state\.exitCode/);
 assert.match(routes, /error: state\.error/);
