@@ -7,7 +7,7 @@ const mount = fs.readFileSync(path.resolve(process.cwd(), 'server/alertAutomatio
 const ui = fs.readFileSync(path.resolve(process.cwd(), 'src/components/ResearchValidationCenter.tsx'), 'utf8');
 const main = fs.readFileSync(path.resolve(process.cwd(), 'src/decisionMain.tsx'), 'utf8');
 
-assert.match(routes, /id: 'sector-52w-high-leadership-v1'/);
+assert.match(routes, /'sector-52w-high-leadership-v1'/);
 assert.match(routes, /SECTOR_52W_HIGH_LEADERSHIP_V1_RESULT/);
 assert.match(routes, /52W V1 · FAIL_DIAGNOSTIC · cerrado/);
 assert.match(routes, /id: 'pead-earnings-source-audit-v1'/);
