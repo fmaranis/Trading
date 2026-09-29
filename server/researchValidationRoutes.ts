@@ -387,6 +387,7 @@ async function runJob(job: JobDefinition): Promise<void> {
       const code = await runStep(step, state);
       if (code !== 0) {
         state.exitCode = code;
+        state.result = extractJsonAfterMarker(state.output, job.marker);
         state.status = 'FAILED';
         state.error = `Falló: ${step.label}`;
         return;
