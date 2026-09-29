@@ -462,6 +462,8 @@ researchValidationRouter.get('/jobs/:id/result.json', (req: Request, res: Respon
     status: state.status,
     startedAt: state.startedAt,
     finishedAt: state.finishedAt,
+    exitCode: state.exitCode,
+    error: state.error,
     result: state.result
   });
 });
