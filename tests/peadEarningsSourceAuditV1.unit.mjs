@@ -32,4 +32,29 @@ assert.equal(rows[0].actual,2);
 const bad=structuredClone(earnings);
 bad.earnings[0].difference=99;
 assert.equal(auditPayloads(components,bad).passed,false);
+
+const unknownTiming=structuredClone(earnings);
+for(let i=0;i<80;i++)unknownTiming.earnings[i].before_after_market=null;
+const unknownTimingAudit=auditPayloads(components,unknownTiming);
+assert.equal(unknownTimingAudit.gates.timingCoverage,false);
+assert.equal(unknownTimingAudit.passed,false);
+
+const missingEstimate=structuredClone(earnings);
+for(let i=0;i<80;i++){missingEstimate.earnings[i].estimate=null;missingEstimate.earnings[i].difference=0;}
+const missingEstimateAudit=auditPayloads(components,missingEstimate);
+assert.equal(missingEstimateAudit.gates.actualEstimateCoverage,false);
+assert.equal(missingEstimateAudit.passed,false);
+
+const duplicate=structuredClone(earnings);
+duplicate.earnings.push(structuredClone(duplicate.earnings[0]));
+const duplicateAudit=auditPayloads(components,duplicate);
+assert.equal(duplicateAudit.quality.duplicateCount,1);
+assert.equal(duplicateAudit.gates.noDuplicates,false);
+assert.equal(duplicateAudit.passed,false);
+
+const outsidePit=structuredClone(components);
+outsidePit.HistoricalTickerComponents['0'].EndDate='2024-01-31';
+const outsidePitEarnings={earnings:[{code:'T0.US',report_date:'2024-02-01',date:'2023-12-31',before_after_market:'AfterMarket',actual:1,estimate:.9,difference:.1,percent:11.11}]};
+assert.equal(auditPayloads(outsidePit,outsidePitEarnings).counts.pitEvents,0);
+
 console.log('PEAD_EARNINGS_SOURCE_AUDIT_V1_UNIT_PASS',PEAD_SOURCE_AUDIT_V1.study);
