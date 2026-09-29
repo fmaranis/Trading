@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "study": "PEAD_ANALYST_SURPRISE_V1",
+  "sourceStudy": "PEAD_EARNINGS_SOURCE_AUDIT_V1",
+  "sourceRevision": "YAHOO_STATIC_DUAL_PIT_R1",
+  "frozenAt": "2026-09-29",
+  "sampleWindow": {
+    "from": "2024-01-15",
+    "to": "2024-03-15"
+  },
+  "signal": {
+    "predictor": "Yahoo Surprise(%)",
+    "horizonSessions": 60,
+    "benchmark": "SPY",
+    "expectedSourceEvents": 461,
+    "minimumPriceCoverage": 415,
+    "gates": {
+      "positiveSpearman": true,
+      "positiveExtremeSpread": true,
+      "positiveLongSide": true,
+      "longSideHitRateAbovePct": 50
+    }
+  },
+  "execution": {
+    "BeforeMarket": "SAME_DATE_OR_NEXT_REGULAR_OPEN",
+    "AfterMarket": "NEXT_REGULAR_OPEN_STRICTLY_AFTER_REPORT_DATE",
+    "exit": "ADJUSTED_CLOSE_EXACTLY_60_SESSIONS_AFTER_ENTRY"
+  },
+  "priceData": {
+    "provider": "Yahoo Finance",
+    "provenance": "REAL",
+    "adjustedOpen": "rawOpen * adjustedClose / rawClose",
+    "adjustedClose": "provider adjustedClose",
+    "syntheticFallback": false
+  },
+  "outcomes": {
+    "priceOutcomesOpened": false,
+    "economicPolicyOpened": false
+  },
+  "authority": {
+    "productionDefault": "LEGACY",
+    "productionAuthority": false,
+    "promotionAllowed": false
+  },
+  "gitBlobSha": {
+    "docs/CORE_OUTPERFORMANCE_PEAD_SIGNAL_PREREGISTRATION_2026-09-29.md": "3be9f5567cd89580c38d0c1a844e83f882219ebc",
+    "scripts/peadSignalDiagnosticV1.mjs": "e476460484da0e207179c76df45baa56018a0faa",
+    "tests/peadSignalDiagnosticV1.unit.mjs": "e75d40bae01e25f2fe578aedc27b834a24c2b212",
+    "tests/peadSignalDiagnosticV1Seal.unit.mjs": "1287b5b4440a021b3691b2be9789c9f6182d405e",
+    "server/researchValidationRoutes.ts": "08021cca6cd0cc530f1925ce2f53b00db2285044",
+    "tests/researchValidationRuntime.unit.ts": "e761171a03bb3f6ccd1eebdb2463fb1ba9d29cbb",
+    "validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json": "067813b55d5c1c0e07d0edd8ec29c1861ba6193d",
+    "validation-runs/preregistration/pead-earnings-source-audit-v1-seal.json": "33a2ead5c4e41a00e5602716537b53faa3f3dc25",
+    "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "1e409c0428acb9909fdf2d3fe2ad77c0de60a310"
+  },
+  "runtimeVerification": {
+    "fixturePositivePass": true,
+    "fixtureNegativeFail": true,
+    "fixtureCoverageFail": true,
+    "tieRankingChecked": true,
+    "afterMarketNoSameDate": true,
+    "exactSession60ExitChecked": true,
+    "noAlternativeHorizons": true,
+    "signalJobVisibility": "PARKED",
+    "currentVisibleResearchLines": 0,
+    "livePriceDiagnostic": "NOT_RUN"
+  }
+}
