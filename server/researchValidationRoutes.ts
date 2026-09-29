@@ -235,11 +235,12 @@ const JOBS: JobDefinition[] = [
     name: 'PEAD · auditoría causal de datos · V1',
     description: 'Comprueba únicamente si EODHD permite construir una señal PEAD causal: universo S&P 500 point-in-time, fecha/timing del anuncio y EPS actual + consenso previo. No descarga outcomes de precio, no hace backtest y no modifica producción.',
     marker: 'PEAD_EARNINGS_SOURCE_AUDIT_V1_RESULT',
-    visibility: 'PARKED',
+    visibility: 'CURRENT',
     requiresEodhdApiKey: true,
     steps: [
       { label: 'Guard seal PEAD source audit', command: 'node', args: ['tests/peadEarningsSourceAuditV1Seal.unit.mjs'] },
       { label: 'Guard PEAD source audit', command: 'node', args: ['tests/peadEarningsSourceAuditV1.unit.mjs'] },
+      { label: 'Integración PEAD sin red', command: 'node', args: ['tests/peadEarningsSourceAuditV1.integration.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
