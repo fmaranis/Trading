@@ -18,7 +18,7 @@ function response(status,body,setCookies=[]){
     text:async()=>body
   };
 }
-function pagePayload(offset,count){
+function pagePayload(offset,count,makeLastInvalid=false){
   const rows=[];
   for(let i=0;i<count;i++){
     const n=offset+i;
@@ -31,6 +31,7 @@ function pagePayload(offset,count){
       20
     ]);
   }
+  if(makeLastInvalid&&rows.length)rows[rows.length-1][0]='';
   return JSON.stringify({
     finance:{result:[{documents:[{
       columns:[
@@ -69,15 +70,17 @@ const pageFetch=async (url,options={})=>{
   assert.equal(body.sortField,'startdatetime');
   assert.equal(body.sortType,'ASC');
   assert.equal(/ITOT|MOST_ACTIVE|symbols|tickers/i.test(JSON.stringify(body)),false);
-  if(body.offset===0)return response(200,pagePayload(0,100));
+  if(body.offset===0)return response(200,pagePayload(0,100,true));
   if(body.offset===100)return response(200,pagePayload(100,3));
   throw new Error('UNEXPECTED_OFFSET:'+body.offset);
 };
 const live=await fetchYahooCalendarRange(pageFetch,session);
-assert.equal(live.rows.length,103);
+assert.equal(live.rows.length,102);
 assert.equal(live.pages.length,2);
 assert.equal(live.pages[0].offset,0);
 assert.equal(live.pages[0].rowCount,100);
+assert.equal(live.pages[0].normalizedRowCount,99);
+assert.equal(live.pages[0].unparseableRowCount,1);
 assert.equal(live.pages[1].offset,100);
 assert.equal(live.pages[1].rowCount,3);
 assert.equal(live.terminalPageSeen,true);
