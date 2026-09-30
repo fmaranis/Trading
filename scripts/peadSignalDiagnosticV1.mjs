@@ -22,6 +22,9 @@ export const PEAD_SIGNAL_V1=Object.freeze({
   minimumPriceCoverage:415,
   horizonSessions:60,
   benchmark:'SPY',
+  permutationIterations:2000,
+  permutationSeed:20260929,
+  maximumOneSidedPValue:0.05,
   priceDownload:{from:'2024-01-02',through:'2024-07-31'},
   productionDefault:'LEGACY',
   productionAuthority:false
@@ -130,6 +133,60 @@ export function pearson(a,b){
 
 export function spearman(a,b){return pearson(averageRanks(a),averageRanks(b));}
 
+function reportWeekKey(date){
+  const ms=Date.parse(date+'T00:00:00Z');
+  return String(Math.floor(ms/(7*86400000)));
+}
+
+function seededRandom(seed){
+  let state=seed>>>0;
+  return ()=>{
+    state^=state<<13; state^=state>>>17; state^=state<<5;
+    return (state>>>0)/4294967296;
+  };
+}
+
+export function permuteSurprisesWithinReportWeek(outcomes,random){
+  const shuffled=outcomes.map(row=>({...row}));
+  const groups=new Map();
+  for(let i=0;i<shuffled.length;i++){
+    const key=reportWeekKey(shuffled[i].reportDate);
+    const indexes=groups.get(key)??[];
+    indexes.push(i);groups.set(key,indexes);
+  }
+  for(const indexes of groups.values()){
+    const values=indexes.map(index=>shuffled[index].surprise);
+    for(let i=values.length-1;i>0;i--){
+      const j=Math.floor(random()*(i+1));
+      [values[i],values[j]]=[values[j],values[i]];
+    }
+    indexes.forEach((index,i)=>{shuffled[index].surprise=values[i];});
+  }
+  return shuffled;
+}
+
+export function permutationPValues(outcomes,observedRho,observedSpread,iterations=PEAD_SIGNAL_V1.permutationIterations,seed=PEAD_SIGNAL_V1.permutationSeed){
+  const random=seededRandom(seed);
+  let rhoAtLeast=0,spreadAtLeast=0;
+  for(let i=0;i<iterations;i++){
+    const permuted=permuteSurprisesWithinReportWeek(outcomes,random);
+    const rho=spearman(permuted.map(row=>row.surprise),permuted.map(row=>row.excessReturn60));
+    const groups=quintileGroups(permuted);
+    const q1Mean=average(groups[0].map(row=>row.excessReturn60));
+    const q5Mean=average(groups[4].map(row=>row.excessReturn60));
+    const spread=q5Mean-q1Mean;
+    if(Number.isFinite(rho)&&rho>=observedRho)rhoAtLeast++;
+    if(Number.isFinite(spread)&&spread>=observedSpread)spreadAtLeast++;
+  }
+  return {
+    iterations,
+    seed,
+    method:'ONE_SIDED_WITHIN_REPORT_WEEK_PERMUTATION',
+    spearmanP:(rhoAtLeast+1)/(iterations+1),
+    extremeSpreadP:(spreadAtLeast+1)/(iterations+1)
+  };
+}
+
 export function quintileGroups(outcomes){
   const sorted=[...outcomes].sort((a,b)=>a.surprise-b.surprise||a.reportDate.localeCompare(b.reportDate)||a.ticker.localeCompare(b.ticker));
   const groups=Array.from({length:5},()=>[]);
@@ -154,10 +211,13 @@ export function evaluateDiagnostic(outcomes,sourceEvents=PEAD_SIGNAL_V1.expected
   const q5Mean=average(q5.map(row=>row.excessReturn60));
   const q5HitRate=100*q5.filter(row=>row.excessReturn60>0).length/q5.length;
   const spread=q5Mean-q1Mean;
+  const permutation=permutationPValues(outcomes,rho,spread);
   const gates={
     priceCoverage:true,
     positiveSpearman:Number.isFinite(rho)&&rho>0,
+    significantSpearman:Number.isFinite(permutation.spearmanP)&&permutation.spearmanP<PEAD_SIGNAL_V1.maximumOneSidedPValue,
     positiveExtremeSpread:Number.isFinite(spread)&&spread>0,
+    significantExtremeSpread:Number.isFinite(permutation.extremeSpreadP)&&permutation.extremeSpreadP<PEAD_SIGNAL_V1.maximumOneSidedPValue,
     positiveLongSide:Number.isFinite(q5Mean)&&q5Mean>0,
     longSideHitRate:q5HitRate>50
   };
@@ -171,7 +231,8 @@ export function evaluateDiagnostic(outcomes,sourceEvents=PEAD_SIGNAL_V1.expected
       q5MeanExcessReturn60:q5Mean,
       q5MinusQ1MeanExcessReturn60:spread,
       q5ExcessHitRatePct:q5HitRate,
-      quintileCounts:groups.map(group=>group.length)
+      quintileCounts:groups.map(group=>group.length),
+      permutation
     },
     gates,
     passed
