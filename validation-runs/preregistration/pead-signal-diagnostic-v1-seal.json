@@ -54,9 +54,9 @@
     "tests/peadSignalDiagnosticV1.unit.mjs": "83aa6a1ef0648014c75c30ab993504f7eb6cc42d",
     "tests/peadSignalDiagnosticV1Seal.unit.mjs": "fe92e5db6ced410c651be73e807004bf3c42e032",
     "tests/peadSignalSourceR2Readiness.unit.mjs": "0c7484fc2fb21046d54c5467f04cacf5e89b68ff",
-    "server/researchValidationRoutes.ts": "25aae613ee2e1f2a6714b31e410fe2a7451d879c",
-    "tests/researchValidationRuntime.unit.ts": "2f6b1923d27e69a53554fadc0e6131c961363092",
-    "validation-runs/preregistration/pead-yahoo-calendar-source-audit-r2-seal.json": "abc401adc1f2318b8854c062a9abfffdbc736ff2",
+    "server/researchValidationRoutes.ts": "efe3eae0c8973cc2f68a54f776e0edcd3c5adc8a",
+    "tests/researchValidationRuntime.unit.ts": "49b367ef32e85349ada34f50c70ef6a34062a7b8",
+    "validation-runs/preregistration/pead-yahoo-calendar-source-audit-r2-seal.json": "f5ce818d3d0e98cddc42cb2d70f6d27f5a49c5da",
     "validation-runs/diagnostics/pead-source-r1-superseded-pre-outcome-2026-09-30.json": "48c22405c9a9516ce3febdd3ed24d65077a81795"
   },
   "runtimeVerification": {
@@ -68,7 +68,7 @@
     "exactSession60ExitChecked": true,
     "noAlternativeHorizons": true,
     "signalJobVisibility": "PARKED",
-    "currentVisibleResearchLines": 0,
+    "currentVisibleResearchLines": 1,
     "livePriceDiagnostic": "NOT_RUN",
     "directRunnerPositiveFixture": "PASS_EXECUTED_BY_CHATGPT",
     "directRunnerReversedFixture": "FAIL_AS_EXPECTED_EXECUTED_BY_CHATGPT",
@@ -81,7 +81,8 @@
     "exactSignalBlobSurprisePropagation": "PASS_EXECUTED_BY_CHATGPT",
     "exactSignalPositiveFixture": "PASS_EXECUTED_BY_CHATGPT",
     "exactSignalReversedFixture": "FAIL_AS_EXPECTED_EXECUTED_BY_CHATGPT",
-    "exactSignalNullFixture": "FAIL_AS_EXPECTED_EXECUTED_BY_CHATGPT"
+    "exactSignalNullFixture": "FAIL_AS_EXPECTED_EXECUTED_BY_CHATGPT",
+    "sourceR2Visibility": "CURRENT_SINGLE_SOURCE_AUDIT_ONLY"
   },
   "inference": {
     "method": "ONE_SIDED_WITHIN_REPORT_WEEK_PERMUTATION",
