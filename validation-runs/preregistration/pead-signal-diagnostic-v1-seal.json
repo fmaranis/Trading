@@ -18,8 +18,13 @@
       "positiveSpearman": true,
       "positiveExtremeSpread": true,
       "positiveLongSide": true,
-      "longSideHitRateAbovePct": 50
-    }
+      "longSideHitRateAbovePct": 50,
+      "significantSpearmanOneSidedPBelow": 0.05,
+      "significantExtremeSpreadOneSidedPBelow": 0.05
+    },
+    "permutationIterations": 2000,
+    "permutationSeed": 20260929,
+    "maximumOneSidedPValue": 0.05
   },
   "execution": {
     "BeforeMarket": "SAME_DATE_OR_NEXT_REGULAR_OPEN",
@@ -43,10 +48,10 @@
     "promotionAllowed": false
   },
   "gitBlobSha": {
-    "docs/CORE_OUTPERFORMANCE_PEAD_SIGNAL_PREREGISTRATION_2026-09-29.md": "3be9f5567cd89580c38d0c1a844e83f882219ebc",
-    "scripts/peadSignalDiagnosticV1.mjs": "e476460484da0e207179c76df45baa56018a0faa",
-    "tests/peadSignalDiagnosticV1.unit.mjs": "e75d40bae01e25f2fe578aedc27b834a24c2b212",
-    "tests/peadSignalDiagnosticV1Seal.unit.mjs": "1287b5b4440a021b3691b2be9789c9f6182d405e",
+    "docs/CORE_OUTPERFORMANCE_PEAD_SIGNAL_PREREGISTRATION_2026-09-29.md": "2166da331a9a50e056baa9ea74ecc338383baf1e",
+    "scripts/peadSignalDiagnosticV1.mjs": "6568d6a9aa57dd635f0ad8ad1dec5e64e64b947d",
+    "tests/peadSignalDiagnosticV1.unit.mjs": "051f284078093343646663606a111e4cbe2418b7",
+    "tests/peadSignalDiagnosticV1Seal.unit.mjs": "df9d50c9b1fa6b3d549149cdc14cca9ee82117cf",
     "server/researchValidationRoutes.ts": "08021cca6cd0cc530f1925ce2f53b00db2285044",
     "tests/researchValidationRuntime.unit.ts": "e761171a03bb3f6ccd1eebdb2463fb1ba9d29cbb",
     "validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json": "067813b55d5c1c0e07d0edd8ec29c1861ba6193d",
@@ -63,6 +68,17 @@
     "noAlternativeHorizons": true,
     "signalJobVisibility": "PARKED",
     "currentVisibleResearchLines": 0,
-    "livePriceDiagnostic": "NOT_RUN"
+    "livePriceDiagnostic": "NOT_RUN",
+    "directRunnerPositiveFixture": "PASS_EXECUTED_BY_CHATGPT",
+    "directRunnerReversedFixture": "FAIL_AS_EXPECTED_EXECUTED_BY_CHATGPT",
+    "directRunnerNullFixture": "FAIL_AS_EXPECTED_EXECUTED_BY_CHATGPT",
+    "positiveFixtureSpearmanP": 0.0004997501249375312,
+    "positiveFixtureExtremeSpreadP": 0.0004997501249375312
+  },
+  "inference": {
+    "method": "ONE_SIDED_WITHIN_REPORT_WEEK_PERMUTATION",
+    "iterations": 2000,
+    "seed": 20260929,
+    "rationale": "Shuffle surprise only within announcement week so temporal market regimes cannot alone create PASS."
   }
 }
