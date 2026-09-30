@@ -1427,3 +1427,34 @@ Actualización 2026-09-29 — segunda ejecución PEAD: bloqueo de proveedor conf
 - el siguiente `PEAD_ANALYST_SURPRISE_V1` está preregistrado y sellado pero permanece **PARKED**;
 - los 9 fingerprints del seal de señal coinciden con `main`; `priceOutcomesOpened=false`, `economicPolicyOpened=false`, producción `LEGACY`;
 - no se pide ninguna acción manual al usuario en este estado; el live de señal sólo debe abrirse tras completar la verificación previa de su runner.
+
+
+---
+
+Actualización 2026-09-30 — bloqueo EODHD confirmado; PEAD signal preregistration endurecido antes de outcomes:
+
+- artefacto REAL recibido del usuario para `pead-earnings-source-audit-v1`: el runner alcanzó el último step `EODHD REAL · auditar causalidad PEAD` y EODHD devolvió HTTP 403 `Only EOD data allowed for free users`;
+- conclusión: **no es un fallo de la app ni del runner**; es un bloqueo de entitlement del proveedor para `HistoricalTickerComponents`;
+- el runner exportó correctamente `exitCode=1`, `error=Falló: EODHD REAL · auditar causalidad PEAD` y `result.status=BLOCKED`; no se abrieron outcomes y producción siguió `LEGACY`;
+- EODHD no se volverá a usar como dependencia de este audit mientras el plan actual no autorice ese endpoint;
+- la alternativa ya integrada `YAHOO_STATIC_DUAL_PIT_R1` permanece como fuente cerrada/reproducible y ya había sido reproducida independientemente antes de abrir precios;
+- revisión preventiva del siguiente runner `PEAD_ANALYST_SURPRISE_V1` detectó gates demasiado permisivos (signo positivo sin control de significancia);
+- **antes de abrir cualquier precio**, el preregistro fue endurecido:
+  - horizonte único permanece 60 sesiones;
+  - benchmark permanece SPY;
+  - cobertura mínima permanece 415/461;
+  - se añaden 2.000 permutaciones deterministas intra-semana de anuncio;
+  - semilla congelada = 20260929;
+  - PASS exige además p-value unilateral < 0,05 para Spearman y para el spread Q5-Q1;
+  - no se abre ningún horizonte alternativo ni se retunea tras outcomes;
+- ChatGPT ejecutó directamente el bloque estadístico real del runner actual:
+  - fixture positivo fuerte => PASS; p Spearman = 0,00049975; p spread = 0,00049975;
+  - fixture invertido => FAIL;
+  - fixture nulo => FAIL;
+- seal de señal reseñado; todos sus fingerprints coinciden con los blobs actuales de `main`;
+- la fuente cerrada sigue `priceOutcomesFetched=false` y `economicOutcomesOpened=false`;
+- `pead-analyst-surprise-v1` continúa **PARKED**;
+- líneas `CURRENT` visibles = 0;
+- `livePriceDiagnostic = NOT_RUN`;
+- no se pide acción manual al usuario en este estado;
+- producción continúa `LEGACY`.
