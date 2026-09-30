@@ -47,9 +47,10 @@
     "scripts/peadYahooCalendarSourceAuditR2.mjs": "75eb52bb5e0000e30a940667cf3f9e8abdb1a91a",
     "tests/peadYahooCalendarSourceAuditR2.unit.mjs": "e78d099e00b68b9ce9e7fc3130a66ade83c2e869",
     "tests/peadYahooCalendarSourceAuditR2.integration.mjs": "6941383eb2faefd87c547a8a0aff330316c308c5",
-    "tests/peadYahooCalendarSourceAuditR2Seal.unit.mjs": "60cbe44f4900567b21d1748a0152385acef16747",
-    "server/researchValidationRoutes.ts": "25aae613ee2e1f2a6714b31e410fe2a7451d879c",
-    "tests/researchValidationRuntime.unit.ts": "2f6b1923d27e69a53554fadc0e6131c961363092",
+    "tests/peadYahooCalendarSourceAuditR2Seal.unit.mjs": "edf9cb6ab3e7f9429d798ce145073ed33577e396",
+    "server/researchValidationRoutes.ts": "efe3eae0c8973cc2f68a54f776e0edcd3c5adc8a",
+    "tests/researchValidationRuntime.unit.ts": "49b367ef32e85349ada34f50c70ef6a34062a7b8",
+    "src/components/ResearchValidationCenter.tsx": "b6ef74a95694d2f5c095c1965514e84635989a42",
     "scripts/peadSignalDiagnosticV1.mjs": "2ff4f6524c84b002d674baed25450c622e66e80c",
     "tests/peadSignalSourceR2Readiness.unit.mjs": "0c7484fc2fb21046d54c5467f04cacf5e89b68ff",
     "validation-runs/diagnostics/pead-source-r1-superseded-pre-outcome-2026-09-30.json": "48c22405c9a9516ce3febdd3ed24d65077a81795"
@@ -62,6 +63,8 @@
     "exactSignalBlobConsumesR2Only": "PASS_EXECUTED_BY_CHATGPT",
     "exactSignalBlobSurprisePropagation": "PASS_EXECUTED_BY_CHATGPT",
     "liveYahooCalendarAudit": "NOT_RUN",
-    "priceOutcomesOpened": false
+    "priceOutcomesOpened": false,
+    "currentVisibility": "CURRENT_SINGLE_USER_ACTION",
+    "explicitUiLabel": "Ejecutar audit Yahoo REAL PEAD R2"
   }
 }
