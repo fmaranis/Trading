@@ -124,6 +124,19 @@ Se calculan:
 - `Q5_Q1_spread = mean(Q5) - mean(Q1)`;
 - hit-rate long-side Q5 = porcentaje de eventos Q5 con `excessReturn60 > 0`.
 
+### 3. Significancia temporalmente condicionada
+
+Antes de abrir outcomes se congelan **2.000 permutaciones deterministas** con semilla `20260929`.
+
+En cada permutación:
+
+- los valores de `surprise` se barajan **sólo dentro de la misma semana de anuncio**;
+- los outcomes permanecen fijos;
+- se recalculan Spearman y `Q5_Q1_spread`;
+- se obtiene un p-value unilateral con corrección `(extremos + 1) / (iteraciones + 1)`.
+
+Esto controla que un aparente PEAD no provenga únicamente de que determinadas semanas de mercado hayan tenido mejores retornos.
+
 Los quintiles son diagnóstico estadístico, **no una regla de ejecución productiva**.
 
 ## Gates congelados
@@ -145,9 +158,16 @@ No se reduce el mínimo después.
 Si pasa cobertura, la señal sólo se retiene para confirmación fresh si se cumplen simultáneamente:
 
 1. `Spearman rho > 0`;
-2. `Q5_Q1_spread > 0`;
-3. `mean(Q5 excessReturn60) > 0`;
-4. `Q5 excess hit-rate > 50%`.
+2. p-value unilateral de Spearman por permutación intra-semana **< 0,05**;
+3. `Q5_Q1_spread > 0`;
+4. p-value unilateral del spread Q5−Q1 por permutación intra-semana **< 0,05**;
+5. `mean(Q5 excessReturn60) > 0`;
+6. `Q5 excess hit-rate > 50%`.
+
+Los parámetros de inferencia quedan congelados en:
+- `permutationIterations = 2000`;
+- `permutationSeed = 20260929`;
+- `maximumOneSidedPValue = 0.05`.
 
 PASS:
 
