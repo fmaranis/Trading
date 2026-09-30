@@ -60,7 +60,7 @@ const r2Start=routes.indexOf("id: 'pead-yahoo-calendar-source-audit-r2'");
 assert.ok(r2Start>=0);
 const signalStart=routes.indexOf("id: 'pead-analyst-surprise-v1'",r2Start);
 const r2Block=routes.slice(r2Start,signalStart);
-assert.match(r2Block,/visibility: 'PARKED'/);
+assert.match(r2Block,/visibility: 'CURRENT'/);
 assert.match(r2Block,/Guard seal PEAD R2/);
 const signalBlock=routes.slice(signalStart,routes.indexOf("archivedJob(",signalStart));
 assert.match(signalBlock,/visibility: 'PARKED'/);
