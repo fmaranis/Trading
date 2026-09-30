@@ -1458,3 +1458,74 @@ Actualización 2026-09-30 — bloqueo EODHD confirmado; PEAD signal preregistrat
 - `livePriceDiagnostic = NOT_RUN`;
 - no se pide acción manual al usuario en este estado;
 - producción continúa `LEGACY`.
+
+
+---
+
+Actualización 2026-09-30 — PEAD R1 supersedida pre-outcome; Source Audit R2 listo para única ejecución REAL:
+
+- durante la auditoría preventiva del preregistro de señal se detectó una limitación metodológica en `YAHOO_STATIC_DUAL_PIT_R1`: el repositorio de earnings Yahoo usado en R1 genera su histórico a partir de los 2.483 tickers presentes en ITOT a 2026-01-15;
+- consecuencia: R1 puede omitir compañías que sí eran miembros del S&P 500 en la ventana 2024 pero ya no pertenecían a ese universo actual en 2026; esto introduce posible survivorship;
+- el hallazgo ocurre **antes de abrir precios/outcomes PEAD**; R1 no consume muestra predictiva;
+- R1 se conserva como evidencia técnica pero queda formalmente `SUPERSEDED_PRE_OUTCOME_SURVIVORSHIP_BIAS` y no puede autorizar el diagnóstico de señal;
+- evidencia persistida: `validation-runs/diagnostics/pead-source-r1-superseded-pre-outcome-2026-09-30.json`;
+- se verificó la semántica de lawcal: su propio contrato indica que `created_at` participa en el filtrado histórico junto con `date_added/date_removed`; ese uso se conserva;
+- se verificó además que Yahoo `startdatetimetype=TAS` significa Time Not Supplied; R2 lo excluye como timing desconocido y nunca lo infiere;
+
+### Source Audit R2 congelado
+
+- nuevo estudio: `PEAD_EARNINGS_SOURCE_AUDIT_R2`;
+- revisión: `YAHOO_CALENDAR_RANGE_DUAL_PIT_R2`;
+- plan: `docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_R2_2026-09-30.md`;
+- runner: `scripts/peadYahooCalendarSourceAuditR2.mjs`;
+- earnings se consultan directamente en Yahoo `/v1/finance/visualization` por rango histórico `2024-01-15 -> 2024-03-15`, sin seed de tickers actuales y sin `MOST_ACTIVES`;
+- universo PIT: misma intersección exacta de las dos reconstrucciones históricas pinneadas de fja + lawcal;
+- paginación = 100 filas, orden estable `startdatetime ASC`, offsets deterministas;
+- la condición terminal usa **filas crudas** Yahoo, no filas normalizadas;
+- gate adicional: filas crudas no parseables = 0;
+- gates pre-outcome: PIT >=450, timing >=95%, actual+estimate >=95%, causal >=440, overlap R1 >=95%, duplicados=0, contradicciones=0, página terminal, no seed actual, no sintético;
+- un PASS R2 persistirá los eventos causales exactos utilizados por la futura señal;
+
+### Pruebas ejecutadas por ChatGPT sobre blobs exactos de main
+
+- R2 pure contract: PASS;
+- query sin ITOT/MOST_ACTIVE/symbol seed: PASS;
+- clasificación BMO/AMC/TAS: PASS;
+- parser Yahoo calendar: PASS;
+- audit fixture positivo: PASS;
+- página terminal ausente: FAIL como corresponde;
+- duplicados: FAIL como corresponde;
+- timing <95%: FAIL como corresponde;
+- flujo cookie -> crumb: PASS;
+- paginación simulada 100 + 3: PASS;
+- HTTP 401: fail-closed PASS;
+- caso crítico 100 filas crudas / 99 normalizadas: continúa a página siguiente PASS;
+- ese mismo caso activa `noUnparseableCalendarRows=false`: FAIL de calidad como corresponde;
+
+### Señal PEAD bloqueada hasta R2
+
+- `PEAD_ANALYST_SURPRISE_V1` ya no puede leer el snapshot R1;
+- el runner sólo acepta `PEAD_EARNINGS_SOURCE_AUDIT_R2 / YAHOO_CALENDAR_RANGE_DUAL_PIT_R2` con PASS;
+- guard previo: `tests/peadSignalSourceR2Readiness.unit.mjs`;
+- si R2 falta/falla, la señal se bloquea antes de descargar precios;
+- se corrigió preventivamente un bug encontrado durante esta migración: `signalEventsFromR2` devolvía `surprise` mientras el outcome leía `surprisePct`; ya queda mapeado y cubierto por test;
+- runner exacto de señal probado: contrato R2 PASS, propagación de surprise PASS, BeforeMarket same/next open PASS, AfterMarket next open PASS, horizonte 60 exacto PASS;
+- fixture positivo fuerte: PASS con p unilateral por permutación ~0,00049975;
+- fixture invertido: FAIL;
+- fixture nulo: FAIL;
+- cobertura 414/461: INCONCLUSIVE;
+- cobertura futura = `max(415, ceil(90% * sourceEventsR2))`;
+
+### Seals / UI / autoridad
+
+- seal R2: `validation-runs/preregistration/pead-yahoo-calendar-source-audit-r2-seal.json`;
+- seal señal reseñado a R2;
+- fingerprints R2: todos MATCH con `main`;
+- fingerprints señal: todos MATCH con `main`;
+- ResearchValidationCenter: exactamente **1** línea `CURRENT`: `pead-yahoo-calendar-source-audit-r2`;
+- botón único: `Ejecutar audit Yahoo REAL PEAD R2`;
+- `pead-analyst-surprise-v1` permanece **PARKED**;
+- ninguna otra investigación se hace visible;
+- único paso externo pendiente: ejecutar el source audit R2 REAL desde el backend para comprobar el endpoint Yahoo actual/cookie/crumb y la población histórica;
+- hasta PASS R2 no se abre ningún precio PEAD;
+- producción continúa `LEGACY`.
