@@ -2,24 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import {
-  PEAD_SOURCE_AUDIT_V1,
-  SOURCE_PINS,
-  normalizeFjaPit,
-  normalizeLawcalPit,
-  normalizeYahooEarnings,
-  activeFja,
-  activeLawcal,
-  classifyYahooTiming
-} from './peadEarningsSourceAuditV1.mjs';
-
 export const PEAD_SIGNAL_V1=Object.freeze({
   study:'PEAD_ANALYST_SURPRISE_V1',
-  sourceStudy:'PEAD_EARNINGS_SOURCE_AUDIT_V1',
-  sourceRevision:'YAHOO_STATIC_DUAL_PIT_R1',
+  sourceStudy:'PEAD_EARNINGS_SOURCE_AUDIT_R2',
+  sourceRevision:'YAHOO_CALENDAR_RANGE_DUAL_PIT_R2',
   window:{from:'2024-01-15',to:'2024-03-15'},
-  expectedSourceEvents:461,
-  minimumPriceCoverage:415,
+  minimumSourceEvents:440,
+  minimumAbsolutePriceCoverage:415,
+  minimumPriceCoveragePct:90,
   horizonSessions:60,
   benchmark:'SPY',
   permutationIterations:2000,
@@ -44,16 +34,33 @@ function rawUrl(source){
 function nextDay(date){return new Date(Date.parse(date+'T00:00:00Z')+86400000).toISOString().slice(0,10);}
 function finitePositive(v){return Number.isFinite(Number(v))&&Number(v)>0;}
 
-export function buildSignalEvents(fjaText,lawcalText,earningsText){
-  const fja=normalizeFjaPit(fjaText);
-  const lawcal=normalizeLawcalPit(lawcalText);
-  return normalizeYahooEarnings(earningsText)
-    .filter(e=>e.reportDate>=PEAD_SIGNAL_V1.window.from&&e.reportDate<=PEAD_SIGNAL_V1.window.to)
-    .filter(e=>activeFja(fja,e.ticker,e.reportDate)&&activeLawcal(lawcal,e.ticker,e.reportDate))
-    .map(e=>({...e,timing:classifyYahooTiming(e.rawDate)}))
-    .filter(e=>(e.timing==='BeforeMarket'||e.timing==='AfterMarket')
-      &&e.actual!=null&&e.estimate!=null&&e.surprisePct!=null)
-    .sort((a,b)=>a.reportDate.localeCompare(b.reportDate)||a.ticker.localeCompare(b.ticker));
+export function signalEventsFromR2(sourceResult){
+  if(sourceResult?.study!=='PEAD_EARNINGS_SOURCE_AUDIT_R2'
+    ||sourceResult?.sourceRevision!==PEAD_SIGNAL_V1.sourceRevision
+    ||sourceResult?.status!=='PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION_R2'
+    ||sourceResult?.audit?.passed!==true
+    ||sourceResult?.priceOutcomesFetched!==false
+    ||sourceResult?.economicOutcomesOpened!==false){
+    throw new Error('PEAD_SIGNAL_R2_SOURCE_NOT_READY');
+  }
+  const events=Array.isArray(sourceResult.causalEvents)?sourceResult.causalEvents:[];
+  if(events.length<PEAD_SIGNAL_V1.minimumSourceEvents)throw new Error('PEAD_SIGNAL_R2_SOURCE_EVENT_COUNT:'+events.length);
+  const seen=new Set();
+  return events.map(row=>{
+    const ticker=String(row?.ticker??'').trim().toUpperCase();
+    const reportDate=String(row?.reportDate??'').slice(0,10);
+    const timing=String(row?.timing??'');
+    const surprise=Number(row?.surprisePct);
+    if(!ticker||!/^\d{4}-\d{2}-\d{2}$/.test(reportDate)
+      ||(timing!=='BeforeMarket'&&timing!=='AfterMarket')
+      ||!Number.isFinite(surprise)){
+      throw new Error('PEAD_SIGNAL_R2_SOURCE_EVENT_INVALID');
+    }
+    const key=ticker+'|'+reportDate;
+    if(seen.has(key))throw new Error('PEAD_SIGNAL_R2_SOURCE_EVENT_DUPLICATE:'+key);
+    seen.add(key);
+    return {ticker,reportDate,timing,surprise};
+  }).sort((a,b)=>a.reportDate.localeCompare(b.reportDate)||a.ticker.localeCompare(b.ticker));
 }
 
 export function parseYahooPricePayload(symbol,text){
@@ -194,12 +201,16 @@ export function quintileGroups(outcomes){
   return groups;
 }
 
-export function evaluateDiagnostic(outcomes,sourceEvents=PEAD_SIGNAL_V1.expectedSourceEvents){
+export function evaluateDiagnostic(outcomes,sourceEvents){
   const coveragePct=sourceEvents?100*outcomes.length/sourceEvents:0;
-  if(outcomes.length<PEAD_SIGNAL_V1.minimumPriceCoverage){
+  const minimumUsable=Math.max(
+    PEAD_SIGNAL_V1.minimumAbsolutePriceCoverage,
+    Math.ceil(sourceEvents*PEAD_SIGNAL_V1.minimumPriceCoveragePct/100)
+  );
+  if(sourceEvents<PEAD_SIGNAL_V1.minimumSourceEvents||outcomes.length<minimumUsable){
     return {
       status:'INCONCLUSIVE_SIGNAL_DATA_COVERAGE',
-      coverage:{sourceEvents,usableOutcomes:outcomes.length,coveragePct,minimumUsable:PEAD_SIGNAL_V1.minimumPriceCoverage},
+      coverage:{sourceEvents,usableOutcomes:outcomes.length,coveragePct,minimumUsable},
       gates:{priceCoverage:false},
       passed:false
     };
@@ -224,7 +235,7 @@ export function evaluateDiagnostic(outcomes,sourceEvents=PEAD_SIGNAL_V1.expected
   const passed=Object.values(gates).every(Boolean);
   return {
     status:passed?'PASS_SIGNAL_DIAGNOSTIC_CANDIDATE_FOR_FRESH_CONFIRMATION':'FAIL_SIGNAL_DIAGNOSTIC_NO_POLICY',
-    coverage:{sourceEvents,usableOutcomes:outcomes.length,coveragePct,minimumUsable:PEAD_SIGNAL_V1.minimumPriceCoverage},
+    coverage:{sourceEvents,usableOutcomes:outcomes.length,coveragePct,minimumUsable},
     metrics:{
       spearmanRho:rho,
       q1MeanExcessReturn60:q1Mean,
@@ -237,26 +248,6 @@ export function evaluateDiagnostic(outcomes,sourceEvents=PEAD_SIGNAL_V1.expected
     gates,
     passed
   };
-}
-
-async function fetchPinnedText(name,source){
-  const dir=path.join(CACHE,'static');
-  fs.mkdirSync(dir,{recursive:true});
-  const file=path.join(dir,name+'.csv');
-  let text;
-  if(fs.existsSync(file))text=fs.readFileSync(file,'utf8');
-  else{
-    const response=await fetch(rawUrl(source),{
-      headers:{Accept:'text/plain','User-Agent':'Mozilla/5.0 Custodia/1.0'},
-      signal:AbortSignal.timeout(Number(process.env.MARKET_DATA_TIMEOUT_MS)||60000)
-    });
-    text=await response.text();
-    if(!response.ok)throw new Error('PEAD_STATIC_SOURCE_HTTP_'+response.status+':'+name+':'+text.slice(0,160));
-    fs.writeFileSync(file,text,'utf8');
-  }
-  const blob=gitBlobSha(text);
-  if(blob!==source.blobSha)throw new Error('PEAD_STATIC_SOURCE_BLOB_MISMATCH:'+name+':'+blob+':'+source.blobSha);
-  return text;
 }
 
 async function fetchYahoo(symbol){
@@ -304,20 +295,10 @@ async function mapLimit(items,limit,fn){
 }
 
 export async function main(){
-  const sourceResult=JSON.parse(fs.readFileSync('validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json','utf8'));
-  if(sourceResult.status!=='PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION'
-    ||sourceResult.provenance!=='STATIC_REFERENCE'
-    ||sourceResult.priceOutcomesFetched!==false){
-    throw new Error('PEAD_SOURCE_AUDIT_NOT_READY');
-  }
-
-  const [earningsText,fjaText,lawcalText]=await Promise.all([
-    fetchPinnedText('earnings',SOURCE_PINS.earnings),
-    fetchPinnedText('pit-fja',SOURCE_PINS.pitFja),
-    fetchPinnedText('pit-lawcal',SOURCE_PINS.pitLawcal)
-  ]);
-  const events=buildSignalEvents(fjaText,lawcalText,earningsText);
-  if(events.length!==PEAD_SIGNAL_V1.expectedSourceEvents)throw new Error('PEAD_SIGNAL_SOURCE_EVENT_COUNT:'+events.length+':'+PEAD_SIGNAL_V1.expectedSourceEvents);
+  const sourcePath='validation-runs/diagnostics/pead-yahoo-calendar-source-audit-r2-result.json';
+  if(!fs.existsSync(sourcePath))throw new Error('PEAD_SIGNAL_R2_SOURCE_RESULT_MISSING');
+  const sourceResult=JSON.parse(fs.readFileSync(sourcePath,'utf8'));
+  const events=signalEventsFromR2(sourceResult);
 
   const symbols=[PEAD_SIGNAL_V1.benchmark,...new Set(events.map(event=>event.ticker))];
   const failures=[];
@@ -350,7 +331,7 @@ export async function main(){
     window:PEAD_SIGNAL_V1.window,
     horizonSessions:PEAD_SIGNAL_V1.horizonSessions,
     predictor:'Yahoo Surprise(%)',
-    eventProvenance:'STATIC_REFERENCE',
+    eventProvenance:'REAL_YAHOO_CALENDAR_WITH_STATIC_REFERENCE_PIT',
     priceProvider:'Yahoo Finance',
     priceProvenance:'REAL',
     benchmark:PEAD_SIGNAL_V1.benchmark,
