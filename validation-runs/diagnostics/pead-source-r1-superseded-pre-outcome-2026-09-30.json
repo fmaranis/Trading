@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "study": "PEAD_EARNINGS_SOURCE_AUDIT_V1",
+  "sourceRevision": "YAHOO_STATIC_DUAL_PIT_R1",
+  "status": "SUPERSEDED_PRE_OUTCOME_SURVIVORSHIP_BIAS",
+  "supersededAt": "2026-09-30",
+  "reason": "The pinned Yahoo earnings snapshot was generated from tickers held by ITOT on 2026-01-15. It can omit companies that were S&P 500 members in the 2024 diagnostic window but were no longer in that 2026 current-universe seed.",
+  "sourceEvidence": {
+    "repository": "vivek-v-rao/Earnings-Dates",
+    "commit": "7ed98a0e2497b0a83bcbc290db41705089768c16",
+    "readmeStatement": "itot_tickers_20260115.txt contains 2483 stocks owned by ITOT as of 2026-01-15 and is used by the bulk earnings downloader"
+  },
+  "implications": {
+    "r1TechnicalChecksRemainValid": true,
+    "r1CanClaimCompleteSp500PitPopulation": false,
+    "r1CanAuthorizeSignalOutcomes": false,
+    "predictiveSampleConsumed": false,
+    "priceOutcomesFetched": false,
+    "economicOutcomesOpened": false
+  },
+  "replacement": {
+    "study": "PEAD_EARNINGS_SOURCE_AUDIT_R2",
+    "sourceRevision": "YAHOO_CALENDAR_RANGE_DUAL_PIT_R2",
+    "method": "Yahoo calendar queried by historical date range with no current ticker seed, intersected with the same dual PIT histories"
+  },
+  "authority": {
+    "productionDefault": "LEGACY",
+    "productionAuthority": false,
+    "promotionAllowed": false
+  }
+}
