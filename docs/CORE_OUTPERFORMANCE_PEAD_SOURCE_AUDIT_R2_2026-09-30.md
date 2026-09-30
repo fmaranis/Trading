@@ -63,10 +63,11 @@ R2 no se considera lista si no cumple simultáneamente:
 4. causal eligible >= 440;
 5. duplicados = 0;
 6. contradicciones direccionales = 0;
-7. la descarga termina mediante una página final con menos de 100 filas;
-8. al menos 95% de los 461 eventos causalmente utilizables de R1 aparecen también en R2 por ticker + reportDate;
-9. ninguna lista de tickers actual interviene en la query Yahoo;
-10. no sintético.
+7. la descarga termina mediante una página final con menos de 100 **filas crudas**;
+8. filas crudas de Yahoo no parseables = 0;
+9. al menos 95% de los 461 eventos causalmente utilizables de R1 aparecen también en R2 por ticker + reportDate;
+10. ninguna lista de tickers actual interviene en la query Yahoo;
+11. no sintético.
 
 Los umbrales 450/440 no son gates de rentabilidad: son controles de completitud fijados antes de abrir outcomes y exigen que R2 no pierda materialmente la cobertura ya observada en R1.
 
