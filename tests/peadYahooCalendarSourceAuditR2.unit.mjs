@@ -88,9 +88,17 @@ assert.equal(pass.gates.r1Overlap,true);
 assert.equal(pass.counts.pitEvents,460);
 assert.equal(pass.counts.causalEligible,460);
 
-const noTerminal=auditR2(rows,fja.join('\n')+'\n',law.join('\n')+'\n',r1Keys,[{offset:0,rowCount:100}]);
+const noTerminal=auditR2(rows,fja.join('\n')+'\n',law.join('\n')+'\n',r1Keys,[{offset:0,rowCount:100,normalizedRowCount:100,unparseableRowCount:0}]);
 assert.equal(noTerminal.gates.paginationComplete,false);
 assert.equal(noTerminal.passed,false);
+
+const unparseable=auditR2(rows,fja.join('\n')+'\n',law.join('\n')+'\n',r1Keys,[
+  {offset:0,rowCount:100,normalizedRowCount:99,unparseableRowCount:1},
+  {offset:100,rowCount:60,normalizedRowCount:60,unparseableRowCount:0}
+]);
+assert.equal(unparseable.gates.paginationComplete,true);
+assert.equal(unparseable.gates.noUnparseableCalendarRows,false);
+assert.equal(unparseable.passed,false);
 
 const duplicateRows=[...rows,{...rows[0]}];
 const duplicate=auditR2(duplicateRows,fja.join('\n')+'\n',law.join('\n')+'\n',r1Keys,pages);
