@@ -233,7 +233,7 @@ const JOBS: JobDefinition[] = [
   {
     id: 'pead-earnings-source-audit-v1',
     name: 'PEAD · auditoría causal de datos · V1',
-    description: 'Auditoría causal cerrada con earnings Yahoo en snapshot pinneado y membresía S&P 500 PIT por intersección de dos reconstrucciones históricas pinneadas. Sin precios, sin backtest y sin autoridad productiva.',
+    description: 'Auditoría estática R1 cerrada y supersedida pre-outcome: el snapshot Yahoo fue generado sobre tickers ITOT 2026 y puede introducir survivorship para 2024. Se conserva como evidencia técnica, pero ya no autoriza el diagnóstico de señal. Sin precios ni autoridad productiva.',
     marker: 'PEAD_EARNINGS_SOURCE_AUDIT_V1_RESULT',
     visibility: 'ARCHIVED',
     steps: [
@@ -265,7 +265,7 @@ const JOBS: JobDefinition[] = [
   {
     id: 'pead-analyst-surprise-v1',
     name: 'PEAD · calidad predictiva de sorpresa · V1',
-    description: 'Diagnóstico preregistrado de señal: Surprise(%) del anuncio frente a exceso de retorno a 60 sesiones sobre SPY. Sin sizing, costes ni política económica. La muestra queda consumida tras abrir outcomes y producción continúa LEGACY.',
+    description: 'Diagnóstico preregistrado de señal bloqueado hasta PASS de PEAD Source Audit R2. Mantiene Surprise(%), horizonte 60 sesiones, SPY y gates congelados; no puede abrir precios desde la fuente R1 supersedida. Sin sizing, costes ni política económica.',
     marker: 'PEAD_ANALYST_SURPRISE_V1_RESULT',
     visibility: 'PARKED',
     steps: [
