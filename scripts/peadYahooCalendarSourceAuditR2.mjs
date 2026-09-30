@@ -95,9 +95,9 @@ export async function createYahooSession(fetchImpl=fetch){
 export function yahooCalendarQueryBody(offset=0){
   const p=PEAD_SOURCE_AUDIT_R2;
   return {
-    sortType:'DESC',
+    sortType:'ASC',
     entityIdType:'sp_earnings',
-    sortField:'intradaymarketcap',
+    sortField:'startdatetime',
     includeFields:[
       'ticker','companyshortname','intradaymarketcap','eventname',
       'startdatetime','startdatetimetype','epsestimate','epsactual','epssurprisepct'
