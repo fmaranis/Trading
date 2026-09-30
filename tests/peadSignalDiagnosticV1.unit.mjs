@@ -6,6 +6,8 @@ import {
   resolveEventOutcome,
   averageRanks,
   spearman,
+  permuteSurprisesWithinReportWeek,
+  permutationPValues,
   quintileGroups,
   evaluateDiagnostic
 } from '../scripts/peadSignalDiagnosticV1.mjs';
@@ -52,6 +54,14 @@ assert.equal(parsed[0].adjustedOpen,100);
 
 assert.deepEqual(averageRanks([10,20,20,40]),[1,2.5,2.5,4]);
 assert.ok(spearman([1,2,3,4],[10,20,30,40])>0.999999);
+const permuted=permuteSurprisesWithinReportWeek([
+  {ticker:'A',reportDate:'2024-02-01',surprise:1,excessReturn60:1},
+  {ticker:'B',reportDate:'2024-02-01',surprise:2,excessReturn60:2},
+  {ticker:'C',reportDate:'2024-02-20',surprise:3,excessReturn60:3},
+  {ticker:'D',reportDate:'2024-02-20',surprise:4,excessReturn60:4}
+],()=>0);
+assert.deepEqual(permuted.slice(0,2).map(row=>row.surprise).sort((a,b)=>a-b),[1,2]);
+assert.deepEqual(permuted.slice(2,4).map(row=>row.surprise).sort((a,b)=>a-b),[3,4]);
 
 function outcome(i,reverse=false){
   const surprise=i-210;
@@ -64,7 +74,11 @@ const pass=evaluateDiagnostic(positive,461);
 assert.equal(pass.status,'PASS_SIGNAL_DIAGNOSTIC_CANDIDATE_FOR_FRESH_CONFIRMATION');
 assert.equal(pass.passed,true);
 assert.equal(pass.gates.positiveSpearman,true);
+assert.equal(pass.gates.significantSpearman,true);
 assert.equal(pass.gates.positiveExtremeSpread,true);
+assert.equal(pass.gates.significantExtremeSpread,true);
+assert.ok(pass.metrics.permutation.spearmanP<0.05);
+assert.ok(pass.metrics.permutation.extremeSpreadP<0.05);
 assert.equal(pass.gates.positiveLongSide,true);
 assert.equal(pass.gates.longSideHitRate,true);
 assert.deepEqual(pass.metrics.quintileCounts,[84,84,84,84,84]);
@@ -74,6 +88,7 @@ const fail=evaluateDiagnostic(reversed,461);
 assert.equal(fail.status,'FAIL_SIGNAL_DIAGNOSTIC_NO_POLICY');
 assert.equal(fail.passed,false);
 assert.equal(fail.gates.positiveSpearman,false);
+assert.equal(fail.gates.significantSpearman,false);
 
 const insufficient=evaluateDiagnostic(positive.slice(0,414),461);
 assert.equal(insufficient.status,'INCONCLUSIVE_SIGNAL_DATA_COVERAGE');
@@ -99,6 +114,9 @@ assert.equal(events[1].timing,'AfterMarket');
 
 assert.equal(PEAD_SIGNAL_V1.horizonSessions,60);
 assert.equal(PEAD_SIGNAL_V1.minimumPriceCoverage,415);
+assert.equal(PEAD_SIGNAL_V1.permutationIterations,2000);
+assert.equal(PEAD_SIGNAL_V1.permutationSeed,20260929);
+assert.equal(PEAD_SIGNAL_V1.maximumOneSidedPValue,0.05);
 assert.equal(PEAD_SIGNAL_V1.productionDefault,'LEGACY');
 assert.equal(PEAD_SIGNAL_V1.productionAuthority,false);
 
