@@ -12,12 +12,14 @@ function gitBlobSha(text){
 
 const seal=JSON.parse(fs.readFileSync(SEAL_PATH,'utf8'));
 assert.equal(seal.study,'PEAD_ANALYST_SURPRISE_V1');
-assert.equal(seal.sourceStudy,'PEAD_EARNINGS_SOURCE_AUDIT_V1');
-assert.equal(seal.sourceRevision,'YAHOO_STATIC_DUAL_PIT_R1');
+assert.equal(seal.sourceStudy,'PEAD_EARNINGS_SOURCE_AUDIT_R2');
+assert.equal(seal.sourceRevision,'YAHOO_CALENDAR_RANGE_DUAL_PIT_R2');
 assert.equal(seal.signal?.predictor,'Yahoo Surprise(%)');
 assert.equal(seal.signal?.horizonSessions,60);
 assert.equal(seal.signal?.benchmark,'SPY');
-assert.equal(seal.signal?.minimumPriceCoverage,415);
+assert.equal(seal.signal?.minimumSourceEvents,440);
+assert.equal(seal.signal?.minimumAbsolutePriceCoverage,415);
+assert.equal(seal.signal?.minimumPriceCoveragePct,90);
 assert.equal(seal.signal?.permutationIterations,2000);
 assert.equal(seal.signal?.permutationSeed,20260929);
 assert.equal(seal.signal?.maximumOneSidedPValue,0.05);
@@ -34,14 +36,20 @@ for(const [file,expected] of Object.entries(seal.gitBlobSha??{})){
   assert.equal(actual,expected,`PEAD_SIGNAL_SEAL_MISMATCH:${file}:${expected}:${actual}`);
 }
 
-const source=JSON.parse(fs.readFileSync('validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json','utf8'));
-assert.equal(source.status,'PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION');
-assert.equal(source.provenance,'STATIC_REFERENCE');
-assert.equal(source.priceOutcomesFetched,false);
+const supersession=JSON.parse(fs.readFileSync('validation-runs/diagnostics/pead-source-r1-superseded-pre-outcome-2026-09-30.json','utf8'));
+assert.equal(supersession.status,'SUPERSEDED_PRE_OUTCOME_SURVIVORSHIP_BIAS');
+assert.equal(supersession.implications?.r1CanAuthorizeSignalOutcomes,false);
+assert.equal(supersession.implications?.priceOutcomesFetched,false);
 
 const runner=fs.readFileSync('scripts/peadSignalDiagnosticV1.mjs','utf8');
 assert.match(runner,/horizonSessions:60/);
-assert.match(runner,/minimumPriceCoverage:415/);
+assert.match(runner,/minimumSourceEvents:440/);
+assert.match(runner,/minimumAbsolutePriceCoverage:415/);
+assert.match(runner,/minimumPriceCoveragePct:90/);
+assert.match(runner,/PEAD_EARNINGS_SOURCE_AUDIT_R2/);
+assert.match(runner,/YAHOO_CALENDAR_RANGE_DUAL_PIT_R2/);
+assert.match(runner,/PEAD_SIGNAL_R2_SOURCE_RESULT_MISSING/);
+assert.doesNotMatch(runner,/pead-earnings-source-audit-v1-result\.json/);
 assert.match(runner,/permutationIterations:2000/);
 assert.match(runner,/permutationSeed:20260929/);
 assert.match(runner,/maximumOneSidedPValue:0\.05/);
@@ -58,6 +66,7 @@ assert.ok(start>=0);
 const end=routes.indexOf("archivedJob(",start);
 const block=routes.slice(start,end>start?end:undefined);
 assert.match(block,/visibility: 'PARKED'/);
+assert.match(block,/Guard fuente PEAD R2/);
 assert.match(block,/Yahoo REAL · diagnóstico PEAD 60 sesiones/);
 
 console.log('PEAD_ANALYST_SURPRISE_V1_SEAL_PASS');
