@@ -16,6 +16,8 @@ const body=yahooCalendarQueryBody(0);
 assert.equal(body.offset,0);
 assert.equal(body.size,100);
 assert.equal(body.entityIdType,'sp_earnings');
+assert.equal(body.sortField,'startdatetime');
+assert.equal(body.sortType,'ASC');
 const bodyText=JSON.stringify(body);
 assert.equal(/MOST_ACTIVE|MOSTACTIVES|symbols|tickers|ITOT/i.test(bodyText),false);
 assert.match(bodyText,/startdatetime/);
