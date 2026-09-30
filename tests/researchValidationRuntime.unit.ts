@@ -66,6 +66,7 @@ assert.doesNotMatch(routes, /GEMINI|@google\/genai|github actions/i);
 
 assert.match(mount, /research-validation/);
 assert.match(ui, /Validación de investigación/);
+assert.match(ui, /Ejecutar audit Yahoo REAL PEAD R2/);
 assert.match(ui, /Ejecutar diagnóstico 52W · rev\. técnica 3/);
 assert.match(ui, /SECTOR_52W_HIGH_LEADERSHIP_V1/);
 assert.match(ui, /Todo se ejecuta en el backend local, sin IA ni GitHub Actions/);
