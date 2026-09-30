@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 export const PEAD_SIGNAL_V1=Object.freeze({
   study:'PEAD_ANALYST_SURPRISE_V1',
@@ -24,13 +23,6 @@ const OUT='validation-runs/diagnostics/pead-signal-diagnostic-v1-result.json';
 const CACHE='.runtime/pead-signal-diagnostic-v1';
 const MARKER='PEAD_ANALYST_SURPRISE_V1_RESULT';
 
-function gitBlobSha(text){
-  const bytes=Buffer.from(text,'utf8');
-  return crypto.createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
-}
-function rawUrl(source){
-  return 'https://raw.githubusercontent.com/'+source.repository+'/'+source.commit+'/'+source.path;
-}
 function nextDay(date){return new Date(Date.parse(date+'T00:00:00Z')+86400000).toISOString().slice(0,10);}
 function finitePositive(v){return Number.isFinite(Number(v))&&Number(v)>0;}
 
@@ -102,7 +94,7 @@ export function resolveEventOutcome(event,bars,spyBars){
     ticker:event.ticker,
     reportDate:event.reportDate,
     timing:event.timing,
-    surprise:event.surprisePct,
+    surprise:Number.isFinite(Number(event.surprise))?Number(event.surprise):Number(event.surprisePct),
     entryDate:entry.date,
     exitDate:exit.date,
     stockReturn60,
