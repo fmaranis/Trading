@@ -38,7 +38,7 @@ assert.match(routes, /id: 'pead-yahoo-calendar-source-audit-r2'/);
 const peadR2Start = routes.indexOf("id: 'pead-yahoo-calendar-source-audit-r2'");
 const peadR2End = routes.indexOf("id: 'pead-analyst-surprise-v1'", peadR2Start);
 const peadR2Block = routes.slice(peadR2Start, peadR2End > peadR2Start ? peadR2End : undefined);
-assert.match(peadR2Block, /visibility: 'PARKED'/);
+assert.match(peadR2Block, /visibility: 'CURRENT'/);
 assert.match(peadR2Block, /tests\/peadYahooCalendarSourceAuditR2Seal\.unit\.mjs/);
 assert.match(peadR2Block, /tests\/peadYahooCalendarSourceAuditR2\.unit\.mjs/);
 assert.match(peadR2Block, /tests\/peadYahooCalendarSourceAuditR2\.integration\.mjs/);
