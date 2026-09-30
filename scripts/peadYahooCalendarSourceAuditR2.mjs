@@ -215,10 +215,17 @@ export async function fetchYahooCalendarRange(fetchImpl=fetch,session=null){
     const text=await response.text();
     if(!response.ok)throw new Error('PEAD_R2_YAHOO_HTTP_'+response.status+':offset='+offset+':'+text.slice(0,180));
     const payload=JSON.parse(text);
+    const rawRowCount=documentFromPayload(payload).rows.length;
     const rows=normalizeYahooCalendarPayload(payload);
-    pages.push({offset,rowCount:rows.length,sha256:crypto.createHash('sha256').update(text).digest('hex')});
+    pages.push({
+      offset,
+      rowCount:rawRowCount,
+      normalizedRowCount:rows.length,
+      unparseableRowCount:rawRowCount-rows.length,
+      sha256:crypto.createHash('sha256').update(text).digest('hex')
+    });
     all.push(...rows);
-    if(rows.length<PEAD_SOURCE_AUDIT_R2.pageSize){terminalPageSeen=true;break;}
+    if(rawRowCount<PEAD_SOURCE_AUDIT_R2.pageSize){terminalPageSeen=true;break;}
     await sleep(150);
   }
   if(!terminalPageSeen)throw new Error('PEAD_R2_YAHOO_PAGINATION_NO_TERMINAL_PAGE');
@@ -284,6 +291,7 @@ export function auditR2(calendarRows,fjaText,lawcalText,r1CausalKeys,pages=[]){
   const actualEstimatePct=pit.length?100*actualEstimate.length/pit.length:0;
   const g=PEAD_SOURCE_AUDIT_R2.gates;
   const terminalPageSeen=pages.length>0&&pages[pages.length-1].rowCount<PEAD_SOURCE_AUDIT_R2.pageSize;
+  const unparseableCalendarRows=pages.reduce((sum,page)=>sum+Number(page.unparseableRowCount??0),0);
   const gates={
     pitEvents:pit.length>=g.minimumPitEvents,
     timingCoverage:timingPct>=g.minimumKnownTimingPct,
@@ -292,6 +300,7 @@ export function auditR2(calendarRows,fjaText,lawcalText,r1CausalKeys,pages=[]){
     noDuplicates:duplicates.length===0,
     noDirectionalContradictions:directionalContradictions.length===0,
     paginationComplete:terminalPageSeen,
+    noUnparseableCalendarRows:unparseableCalendarRows===0,
     r1Overlap:overlapPct>=g.minimumR1OverlapPct,
     noCurrentTickerSeed:true,
     noSynthetic:true
@@ -324,7 +333,8 @@ export function auditR2(calendarRows,fjaText,lawcalText,r1CausalKeys,pages=[]){
     quality:{
       duplicateCount:duplicates.length,
       directionalContradictionCount:directionalContradictions.length,
-      terminalPageSeen
+      terminalPageSeen,
+      unparseableCalendarRows
     },
     timingBreakdown:{
       beforeMarket:pit.filter(e=>e.timing==='BeforeMarket').length,
