@@ -66,6 +66,8 @@ const pageFetch=async (url,options={})=>{
   const body=JSON.parse(String(options.body));
   assert.equal(body.size,100);
   assert.equal(body.entityIdType,'sp_earnings');
+  assert.equal(body.sortField,'startdatetime');
+  assert.equal(body.sortType,'ASC');
   assert.equal(/ITOT|MOST_ACTIVE|symbols|tickers/i.test(JSON.stringify(body)),false);
   if(body.offset===0)return response(200,pagePayload(0,100));
   if(body.offset===100)return response(200,pagePayload(100,3));
