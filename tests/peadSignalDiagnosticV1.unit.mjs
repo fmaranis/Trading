@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   PEAD_SIGNAL_V1,
-  buildSignalEvents,
+  signalEventsFromR2,
   parseYahooPricePayload,
   resolveEventOutcome,
   averageRanks,
@@ -94,26 +94,45 @@ const insufficient=evaluateDiagnostic(positive.slice(0,414),461);
 assert.equal(insufficient.status,'INCONCLUSIVE_SIGNAL_DATA_COVERAGE');
 assert.equal(insufficient.gates.priceCoverage,false);
 
-const fja=['ticker,start_date,end_date','AAA,2020-01-01,','BBB,2020-01-01,','CCC,2020-01-01,'].join('\n')+'\n';
-const law=['symbol,cik,name,sector,date_added,date_removed,created_at',
-  'AAA,1,AAA,industrials,2020-01-01,,2020-01-01',
-  'BBB,2,BBB,industrials,2020-01-01,,2020-01-01',
-  'CCC,3,CCC,industrials,2020-01-01,,2020-01-01'
-].join('\n')+'\n';
-const earn=['Earnings Date,earnings_datetime_utc,earnings_date,ticker,EPS Estimate,Reported EPS,Surprise(%),days_since',
-  '2024-02-01 08:00:00-05:00,2024-02-01 13:00:00+00:00,2024-02-01,AAA,1.00,1.20,20,90',
-  '2024-02-01 16:00:00-05:00,2024-02-01 21:00:00+00:00,2024-02-01,BBB,1.00,0.80,-20,90',
-  '2024-02-01 12:00:00-05:00,2024-02-01 17:00:00+00:00,2024-02-01,CCC,1.00,1.10,10,90'
-].join('\n')+'\n';
-const events=buildSignalEvents(fja,law,earn);
-assert.equal(events.length,2);
-assert.equal(events[0].ticker,'AAA');
+const r2Events=Array.from({length:440},(_,i)=>({
+  ticker:'R'+String(i).padStart(3,'0'),
+  reportDate:'2024-02-'+String(1+(i%20)).padStart(2,'0'),
+  timing:i%2?'AfterMarket':'BeforeMarket',
+  surprisePct:i-220
+}));
+const r2Source={
+  study:'PEAD_EARNINGS_SOURCE_AUDIT_R2',
+  sourceRevision:'YAHOO_CALENDAR_RANGE_DUAL_PIT_R2',
+  status:'PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION_R2',
+  audit:{passed:true},
+  priceOutcomesFetched:false,
+  economicOutcomesOpened:false,
+  causalEvents:r2Events
+};
+const events=signalEventsFromR2(r2Source);
+assert.equal(events.length,440);
+assert.equal(events[0].ticker,'R000');
 assert.equal(events[0].timing,'BeforeMarket');
-assert.equal(events[1].ticker,'BBB');
-assert.equal(events[1].timing,'AfterMarket');
+assert.equal(events[0].surprise,-220);
+await assert.rejects(
+  async()=>signalEventsFromR2({...r2Source,status:'INCONCLUSIVE_SOURCE_CAUSALITY_R2'}),
+  /PEAD_SIGNAL_R2_SOURCE_NOT_READY/
+);
+await assert.rejects(
+  async()=>signalEventsFromR2({...r2Source,causalEvents:r2Events.slice(0,439)}),
+  /PEAD_SIGNAL_R2_SOURCE_EVENT_COUNT/
+);
+
+const mapped=resolveEventOutcome(
+  {ticker:'AAA',reportDate:'2024-02-01',timing:'BeforeMarket',surprise:12.5},
+  stock,spy
+);
+assert.equal(mapped.surprise,12.5);
 
 assert.equal(PEAD_SIGNAL_V1.horizonSessions,60);
-assert.equal(PEAD_SIGNAL_V1.minimumPriceCoverage,415);
+assert.equal(PEAD_SIGNAL_V1.minimumSourceEvents,440);
+assert.equal(PEAD_SIGNAL_V1.minimumAbsolutePriceCoverage,415);
+assert.equal(PEAD_SIGNAL_V1.minimumPriceCoveragePct,90);
 assert.equal(PEAD_SIGNAL_V1.permutationIterations,2000);
 assert.equal(PEAD_SIGNAL_V1.permutationSeed,20260929);
 assert.equal(PEAD_SIGNAL_V1.maximumOneSidedPValue,0.05);
