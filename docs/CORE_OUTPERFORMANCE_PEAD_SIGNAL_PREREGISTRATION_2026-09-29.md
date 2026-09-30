@@ -5,20 +5,26 @@ Estado: **FROZEN_BEFORE_PRICE_OUTCOMES / SIGNAL QUALITY ONLY / RESEARCH ONLY**
 
 ## Precondición
 
-La auditoría de fuente `PEAD_EARNINGS_SOURCE_AUDIT_V1` cerró con:
+La revisión de fuente R1 (`YAHOO_STATIC_DUAL_PIT_R1`) fue supersedida **antes de abrir precios** al comprobarse que su snapshot de earnings se generó sobre tickers ITOT vigentes a 2026-01-15, con posible survivorship para 2024.
 
-`PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION`
+La precondición autoritativa pasa a ser:
 
-Fuente autoritativa del preregistro:
+`PEAD_EARNINGS_SOURCE_AUDIT_R2` / `YAHOO_CALENDAR_RANGE_DUAL_PIT_R2`
 
-- `validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json`;
-- revisión de fuente: `YAHOO_STATIC_DUAL_PIT_R1`;
-- 463 eventos PIT por intersección;
-- 461 eventos causalmente utilizables;
+y exige:
+
+`PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION_R2`.
+
+Fuente requerida:
+
+- `validation-runs/diagnostics/pead-yahoo-calendar-source-audit-r2-result.json`;
+- calendario Yahoo consultado por rango histórico, sin seed de tickers actuales;
+- misma intersección de dos reconstrucciones S&P 500 PIT;
+- al menos 440 eventos causalmente utilizables;
 - `priceOutcomesFetched=false`;
 - `economicOutcomesOpened=false`.
 
-Este preregistro se congela **antes de abrir precios posteriores al anuncio**.
+Mientras R2 no pase, este runner está bloqueado antes de cualquier precio. Este preregistro continúa congelado **antes de abrir precios posteriores al anuncio**.
 
 ## Hipótesis única
 
@@ -38,7 +44,7 @@ No se retunea, winsoriza, transforma por precio ni combina con momentum, valorac
 
 Motivo metodológico:
 
-- el snapshot Yahoo aporta `EPS Estimate`, `Reported EPS` y `Surprise(%)`;
+- el calendario Yahoo R2 aporta `EPS Estimate`, `Reported EPS` y `Surprise(%)` directamente por rango histórico;
 - el source audit exige que el signo de `Surprise(%)` no contradiga `Reported EPS - EPS Estimate` cuando los EPS redondeados difieren;
 - el porcentaje del proveedor conserva precisión que se pierde cuando los EPS visibles están redondeados a 0,01;
 - la literatura de PEAD documenta una relación entre sorpresas basadas en consenso de analistas y drift posterior, con evidencia históricamente más fuerte que la obtenida con simples modelos time-series.
@@ -64,7 +70,7 @@ Sólo entran eventos:
 - con precio Yahoo REAL suficiente para ejecutar la semántica de outcome;
 - sin fallback sintético.
 
-Población pre-precio esperada: **461 eventos**.
+Población pre-precio: la cantidad exacta queda determinada por el PASS R2 y debe ser **>= 440 eventos**. No se permite completar la población con tickers actuales ni con el snapshot R1 supersedido.
 
 ## Semántica causal de entrada
 
@@ -143,11 +149,11 @@ Los quintiles son diagnóstico estadístico, **no una regla de ejecución produc
 
 ### Gate de cobertura
 
-Debe existir outcome REAL válido para al menos **90%** de los 461 eventos pre-precio:
+Debe existir outcome REAL válido para al menos **90%** de la población R2, manteniendo además el suelo absoluto original de **415 eventos**:
 
-`minimumPriceCoverage = 415 eventos`.
+`minimumPriceCoverage = max(415, ceil(0,90 * sourceEventsR2))`.
 
-Si falla, resultado:
+Si la propia R2 contiene menos de 440 eventos o si falla esa cobertura de precios, resultado:
 
 `INCONCLUSIVE_SIGNAL_DATA_COVERAGE`.
 
