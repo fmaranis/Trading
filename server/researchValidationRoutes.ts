@@ -251,7 +251,7 @@ const JOBS: JobDefinition[] = [
     name: 'PEAD · auditoría Yahoo por rango + doble PIT · R2',
     description: 'Reaudita la fuente PEAD sin seed de tickers actuales: calendario Yahoo por rango histórico + intersección de dos reconstrucciones S&P 500 PIT. No descarga precios de outcome ni abre política económica.',
     marker: 'PEAD_EARNINGS_SOURCE_AUDIT_R2_RESULT',
-    visibility: 'PARKED',
+    visibility: 'CURRENT',
     steps: [
       { label: 'Guard seal PEAD R2', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR2Seal.unit.mjs'] },
       { label: 'Guard PEAD R2', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR2.unit.mjs'] },
