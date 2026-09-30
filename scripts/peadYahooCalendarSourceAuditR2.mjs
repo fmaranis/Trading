@@ -296,7 +296,19 @@ export function auditR2(calendarRows,fjaText,lawcalText,r1CausalKeys,pages=[]){
     noCurrentTickerSeed:true,
     noSynthetic:true
   };
+  const causalEvents=[...causal]
+    .sort((a,b)=>a.reportDate.localeCompare(b.reportDate)||a.ticker.localeCompare(b.ticker)||a.startDateTime.localeCompare(b.startDateTime))
+    .map(e=>({
+      ticker:e.ticker,
+      reportDate:e.reportDate,
+      startDateTime:e.startDateTime,
+      timing:e.timing,
+      estimate:e.estimate,
+      actual:e.actual,
+      surprisePct:e.surprisePct
+    }));
   return {
+    causalEvents,
     counts:{
       rawCalendarRows:calendarRows.length,
       windowRows:windowRows.length,
@@ -353,7 +365,8 @@ export async function main(){
       currentTickerSeed:false,
       pagination:{size:PEAD_SOURCE_AUDIT_R2.pageSize,pages:live.pages}
     },
-    audit,
+    audit:{...audit,causalEvents:undefined},
+    causalEvents:audit.causalEvents,
     providerContract:{
       earnings:'Yahoo Finance calendar queried by historical date range, not by a current ticker universe',
       pitMembership:'exact-ticker intersection of two commit-pinned S&P 500 historical reconstructions',
