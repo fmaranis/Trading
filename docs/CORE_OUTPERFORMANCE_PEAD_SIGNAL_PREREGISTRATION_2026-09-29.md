@@ -7,24 +7,26 @@ Estado: **FROZEN_BEFORE_PRICE_OUTCOMES / SIGNAL QUALITY ONLY / RESEARCH ONLY**
 
 La revisión de fuente R1 (`YAHOO_STATIC_DUAL_PIT_R1`) fue supersedida **antes de abrir precios** al comprobarse que su snapshot de earnings se generó sobre tickers ITOT vigentes a 2026-01-15, con posible survivorship para 2024.
 
+R2 (`YAHOO_CALENDAR_RANGE_DUAL_PIT_R2`) eliminó ese sesgo de universo y descargó correctamente el calendario histórico, pero Yahoo devolvió timing histórico no utilizable (`TAS/UNKNOWN`) para los eventos PIT. R2 terminó `INCONCLUSIVE_SOURCE_CAUSALITY_R2` y no se retunea.
+
 La precondición autoritativa pasa a ser:
 
-`PEAD_EARNINGS_SOURCE_AUDIT_R2` / `YAHOO_CALENDAR_RANGE_DUAL_PIT_R2`
+`PEAD_EARNINGS_SOURCE_AUDIT_R3` / `YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION`
 
 y exige:
 
-`PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION_R2`.
+`PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION_R3`.
 
 Fuente requerida:
 
-- `validation-runs/diagnostics/pead-yahoo-calendar-source-audit-r2-result.json`;
+- `validation-runs/diagnostics/pead-yahoo-calendar-source-audit-r3-result.json`;
 - calendario Yahoo consultado por rango histórico, sin seed de tickers actuales;
 - misma intersección de dos reconstrucciones S&P 500 PIT;
 - al menos 440 eventos causalmente utilizables;
 - `priceOutcomesFetched=false`;
 - `economicOutcomesOpened=false`.
 
-Mientras R2 no pase, este runner está bloqueado antes de cualquier precio. Este preregistro continúa congelado **antes de abrir precios posteriores al anuncio**.
+Mientras R3 no pase, este runner está bloqueado antes de cualquier precio. Este preregistro continúa congelado **antes de abrir precios posteriores al anuncio**.
 
 ## Hipótesis única
 
@@ -44,7 +46,7 @@ No se retunea, winsoriza, transforma por precio ni combina con momentum, valorac
 
 Motivo metodológico:
 
-- el calendario Yahoo R2 aporta `EPS Estimate`, `Reported EPS` y `Surprise(%)` directamente por rango histórico;
+- el calendario Yahoo R3 aporta `EPS Estimate`, `Reported EPS` y `Surprise(%)` directamente por rango histórico;
 - el source audit exige que el signo de `Surprise(%)` no contradiga `Reported EPS - EPS Estimate` cuando los EPS redondeados difieren;
 - el porcentaje del proveedor conserva precisión que se pierde cuando los EPS visibles están redondeados a 0,01;
 - la literatura de PEAD documenta una relación entre sorpresas basadas en consenso de analistas y drift posterior, con evidencia históricamente más fuerte que la obtenida con simples modelos time-series.
@@ -65,18 +67,22 @@ Esto convierte esa ventana en **muestra consumida para promoción** cuando se ab
 Sólo entran eventos:
 
 - incluidos por la intersección PIT dual congelada;
-- con timing `BeforeMarket` o `AfterMarket`;
 - con `EPS Estimate`, `Reported EPS` y `Surprise(%)` finitos;
+- el timing histórico Yahoo es diagnóstico y no filtra la población;
 - con precio Yahoo REAL suficiente para ejecutar la semántica de outcome;
 - sin fallback sintético.
 
-Población pre-precio: la cantidad exacta queda determinada por el PASS R2 y debe ser **>= 440 eventos**. No se permite completar la población con tickers actuales ni con el snapshot R1 supersedido.
+Población pre-precio: la cantidad exacta queda determinada por el PASS R3 y debe ser **>= 440 eventos**. No se permite completar la población con tickers actuales ni con el snapshot R1 supersedido.
 
 ## Semántica causal de entrada
 
-- `BeforeMarket`: primera apertura regular del `reportDate`; si no existe sesión ese día, primera apertura regular posterior.
-- `AfterMarket`: primera apertura regular **posterior** al `reportDate`.
-- nunca se utiliza el close de la sesión que sigue a la señal para construir el predictor;
+Para **todos** los eventos R3:
+
+- primera apertura regular con `sessionDate > reportDate`;
+- nunca se utiliza apertura o cierre del mismo `reportDate`;
+- el timing Yahoo histórico (`BMO/AMC/TAS`) es diagnóstico y no altera la ejecución;
+- `TAS/UNKNOWN` nunca se infiere;
+- se excluye deliberadamente el retorno del día del anuncio para medir sólo drift posterior;
 - el predictor es exclusivamente el `Surprise(%)` ya disponible en el anuncio.
 
 ## Outcome único
@@ -149,11 +155,11 @@ Los quintiles son diagnóstico estadístico, **no una regla de ejecución produc
 
 ### Gate de cobertura
 
-Debe existir outcome REAL válido para al menos **90%** de la población R2, manteniendo además el suelo absoluto original de **415 eventos**:
+Debe existir outcome REAL válido para al menos **90%** de la población R3, manteniendo además el suelo absoluto original de **415 eventos**:
 
-`minimumPriceCoverage = max(415, ceil(0,90 * sourceEventsR2))`.
+`minimumPriceCoverage = max(415, ceil(0,90 * sourceEventsR3))`.
 
-Si la propia R2 contiene menos de 440 eventos o si falla esa cobertura de precios, resultado:
+Si la propia R3 contiene menos de 440 eventos o si falla esa cobertura de precios, resultado:
 
 `INCONCLUSIVE_SIGNAL_DATA_COVERAGE`.
 
