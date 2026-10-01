@@ -57,7 +57,7 @@
     "tests/peadSignalSourceR3Readiness.unit.mjs": "2cbd44a5d09914c7d84575e86e1ef7b5c5c2b08e",
     "server/researchValidationRoutes.ts": "4bf7332c28aa438aee8ed35fdc5d7f78c3bf8075",
     "tests/researchValidationRuntime.unit.ts": "ae3efcfd0bda04ea648069952febda457e582238",
-    "validation-runs/preregistration/pead-yahoo-calendar-source-audit-r3-seal.json": "fa5024ac1dd93e72f7b216a14aaa0c2f83d253c8",
+    "validation-runs/preregistration/pead-yahoo-calendar-source-audit-r3-seal.json": "6b7c670af5cf730df4aee9ee1171af6e416d4dff",
     "validation-runs/diagnostics/pead-source-r2-inconclusive-timing-unavailable-2026-09-30.json": "e410e5b9801a81fa9311d7026f5348ed2521103c"
   },
   "runtimeVerification": {
@@ -87,7 +87,10 @@
     "r2Status": "INCONCLUSIVE_SOURCE_TIMING_UNAVAILABLE",
     "r2Retuned": false,
     "exactSignalBlobConsumesR3Only": "PASS_EXECUTED_BY_CHATGPT",
-    "exactSignalNextSessionOnly": "PASS_EXECUTED_BY_CHATGPT"
+    "exactSignalNextSessionOnly": "PASS_EXECUTED_BY_CHATGPT",
+    "r3ExactSourceFixture": "PASS_EXECUTED_BY_CHATGPT",
+    "r3ExactNextSessionEntry": "PASS_EXECUTED_BY_CHATGPT",
+    "sourceReadiness": "PENDING_R3_LIVE_PASS"
   },
   "inference": {
     "method": "ONE_SIDED_WITHIN_REPORT_WEEK_PERMUTATION",
