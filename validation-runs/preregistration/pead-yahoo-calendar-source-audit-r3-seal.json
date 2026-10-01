@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "study": "PEAD_EARNINGS_SOURCE_AUDIT_R3",
+  "sourceRevision": "YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION",
+  "frozenAt": "2026-10-01",
+  "status": "FROZEN_PRE_LIVE_NO_PRICE_OUTCOMES",
+  "window": {
+    "from": "2024-01-15",
+    "to": "2024-03-15"
+  },
+  "source": {
+    "earnings": "Yahoo Finance historical calendar by date range",
+    "transport": "R2 validated cookie/crumb + raw-row pagination",
+    "currentTickerSeed": false,
+    "pit": "exact-ticker intersection of pinned fja05680/sp500 + lawcal/sp500-components-history"
+  },
+  "gates": {
+    "minimumPitEvents": 450,
+    "minimumActualEstimatePct": 95,
+    "minimumSurprisePct": 95,
+    "minimumCausalEligible": 440,
+    "minimumR1OverlapPct": 95,
+    "duplicates": 0,
+    "directionalContradictions": 0,
+    "unparseableCalendarRows": 0,
+    "paginationTerminalPageRequired": true,
+    "syntheticAllowed": false
+  },
+  "execution": {
+    "entry": "FIRST_REGULAR_OPEN_STRICTLY_AFTER_REPORT_DATE",
+    "announcementDayReturnIncluded": false,
+    "timingInferenceAllowed": false,
+    "timingAuthority": "DIAGNOSTIC_ONLY"
+  },
+  "predecessor": {
+    "study": "PEAD_EARNINGS_SOURCE_AUDIT_R2",
+    "status": "INCONCLUSIVE_SOURCE_TIMING_UNAVAILABLE",
+    "retuned": false,
+    "priceOutcomesOpened": false
+  },
+  "outcomes": {
+    "priceOutcomesFetched": false,
+    "economicOutcomesOpened": false
+  },
+  "authority": {
+    "productionDefault": "LEGACY",
+    "productionAuthority": false,
+    "promotionAllowed": false
+  },
+  "gitBlobSha": {
+    "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_R3_2026-10-01.md": "8b2089fc7780d6e226d2eb2f5588738d8b884f4c",
+    "scripts/peadYahooCalendarSourceAuditR3.mjs": "46fe07ceb9a097bb3b5da6a6aff007c7dfa3ea7f",
+    "tests/peadYahooCalendarSourceAuditR3.unit.mjs": "1474392bfc15000241901cebc6c88d7c561fea01",
+    "tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs": "6544052aebf6102a15b77a51b802f5ba4d91fe8f",
+    "scripts/peadYahooCalendarSourceAuditR2.mjs": "75eb52bb5e0000e30a940667cf3f9e8abdb1a91a",
+    "tests/peadYahooCalendarSourceAuditR2.integration.mjs": "6941383eb2faefd87c547a8a0aff330316c308c5",
+    "server/researchValidationRoutes.ts": "4bf7332c28aa438aee8ed35fdc5d7f78c3bf8075",
+    "tests/researchValidationRuntime.unit.ts": "ae3efcfd0bda04ea648069952febda457e582238",
+    "src/components/ResearchValidationCenter.tsx": "566e0b548468c94a5f08b1bf439c8a294ff69287",
+    "scripts/peadSignalDiagnosticV1.mjs": "06027574074648d7cfdf54ae4f02d77784ef3970",
+    "tests/peadSignalSourceR3Readiness.unit.mjs": "2cbd44a5d09914c7d84575e86e1ef7b5c5c2b08e",
+    "validation-runs/diagnostics/pead-source-r2-inconclusive-timing-unavailable-2026-09-30.json": "e410e5b9801a81fa9311d7026f5348ed2521103c"
+  },
+  "runtimeVerification": {
+    "unknownTiming468Fixture": "PASS_EXPECTED",
+    "duplicateFailClosed": true,
+    "contradictionFailClosed": true,
+    "paginationFailClosed": true,
+    "unparseableRowFailClosed": true,
+    "exactSignalUsesNextSessionOnly": true,
+    "liveYahooCalendarAudit": "NOT_RUN",
+    "priceOutcomesOpened": false
+  }
+}
