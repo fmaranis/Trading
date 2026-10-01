@@ -69,6 +69,17 @@
     "unparseableRowFailClosed": true,
     "exactSignalUsesNextSessionOnly": true,
     "liveYahooCalendarAudit": "NOT_RUN",
-    "priceOutcomesOpened": false
+    "priceOutcomesOpened": false,
+    "exactR3BlobUnknownTiming468": "PASS_EXECUTED_BY_CHATGPT",
+    "exactR3BlobCounts": {
+      "pitEvents": 468,
+      "causalEligible": 468,
+      "r1Overlap": 461,
+      "newVsR1": 7
+    },
+    "exactR3BlobDuplicateFail": "PASS_EXECUTED_BY_CHATGPT",
+    "exactR3BlobContradictionFail": "PASS_EXECUTED_BY_CHATGPT",
+    "exactSignalBlobNextSession": "PASS_EXECUTED_BY_CHATGPT",
+    "exactSignalEntryExample": "2024-02-02 after reportDate 2024-02-01"
   }
 }
