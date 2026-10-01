@@ -1529,3 +1529,85 @@ Actualización 2026-09-30 — PEAD R1 supersedida pre-outcome; Source Audit R2 l
 - único paso externo pendiente: ejecutar el source audit R2 REAL desde el backend para comprobar el endpoint Yahoo actual/cookie/crumb y la población histórica;
 - hasta PASS R2 no se abre ningún precio PEAD;
 - producción continúa `LEGACY`.
+
+
+---
+
+Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session congelado y auto-probado:
+
+- artefacto REAL recibido de `pead-yahoo-calendar-source-audit-r2`:
+  - inicio `2026-09-30T19:15:58.084Z`;
+  - fin `2026-09-30T19:16:35.989Z`;
+  - SHA-256 artefacto: `7b648c413319d26bed2beda79b9f698fd7353b70d9216cf92f2a551074a41cc3`;
+  - 3.590 filas Yahoo;
+  - 468 eventos PIT;
+  - 468 con actual+estimate;
+  - 0 timing conocido;
+  - 468 `UNKNOWN`;
+  - paginación completa;
+  - 0 filas no parseables;
+  - 0 duplicados;
+  - 0 contradicciones direccionales;
+- R2 terminó `INCONCLUSIVE_SOURCE_CAUSALITY_R2` únicamente porque exigía BMO/AMC y Yahoo histórico no aportó timing causal utilizable;
+- evidencia persistida en `validation-runs/diagnostics/pead-source-r2-inconclusive-timing-unavailable-2026-09-30.json`;
+- R2 **no se retunea** y pasa a `ARCHIVED / READ_ONLY`;
+- no se abrió ningún precio PEAD, por lo que la muestra predictiva sigue sin consumir;
+
+### R3
+
+- nuevo estudio preregistrado antes de precios:
+  - `PEAD_EARNINGS_SOURCE_AUDIT_R3`;
+  - revisión `YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION`;
+  - plan `docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_R3_2026-10-01.md`;
+- R3 reutiliza exactamente el transporte Yahoo validado por R2:
+  - rango histórico;
+  - sin seed actual;
+  - cookie/crumb;
+  - paginación cruda;
+  - orden `startdatetime ASC`;
+  - doble PIT;
+- cambio causal congelado:
+  - timing Yahoo = diagnóstico, no gate;
+  - `TAS/UNKNOWN` nunca se infiere;
+  - entrada futura = `FIRST_REGULAR_OPEN_STRICTLY_AFTER_REPORT_DATE`;
+  - retorno del día del anuncio queda excluido;
+- gates R3:
+  - PIT >=450;
+  - actual+estimate >=95%;
+  - surprise finita >=95%;
+  - causal eligible >=440;
+  - duplicados ticker+reportDate = 0;
+  - contradicciones = 0;
+  - filas no parseables = 0;
+  - página terminal;
+  - overlap R1 >=95%;
+  - no seed actual;
+  - no sintético;
+
+### Pruebas exactas ejecutadas por ChatGPT sobre los blobs actuales
+
+- fixture R3 con 468 eventos PIT y 468 timing `UNKNOWN/TAS` => **PASS**;
+- causalEligible = 468;
+- overlap R1 = 461;
+- newVsR1 = 7;
+- duplicado => FAIL como corresponde;
+- contradicción direccional => FAIL como corresponde;
+- señal acepta exclusivamente R3 PASS;
+- señal ignora timing para ejecución;
+- ejemplo reportDate `2024-02-01` => entry `2024-02-02`;
+- salida exactamente 60 sesiones después de entry;
+- predictor `Surprise(%)` se propaga correctamente;
+- los gates estadísticos previos de señal permanecen sin cambios;
+- R3 seal fingerprints = MATCH;
+- signal seal fingerprints = MATCH tras reseal;
+- producción continúa `LEGACY`;
+
+### UI / ejecución
+
+- R2 archivado;
+- única línea `CURRENT`: `pead-yahoo-calendar-source-audit-r3`;
+- botón único: `Ejecutar audit Yahoo REAL PEAD R3`;
+- `pead-analyst-surprise-v1` permanece `PARKED`;
+- guard de señal exige `PEAD_SIGNAL_R3_SOURCE_READINESS_PASS`;
+- `livePriceDiagnostic = NOT_RUN`;
+- hasta PASS R3 no se abre ningún precio PEAD.
