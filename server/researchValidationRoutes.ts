@@ -246,30 +246,37 @@ const JOBS: JobDefinition[] = [
       { label: 'Fuente estática pinneada · auditar causalidad PEAD', command: 'node', args: ['scripts/peadEarningsSourceAuditV1.mjs'] }
     ]
   },
+  archivedJob(
+    'pead-yahoo-calendar-source-audit-r2',
+    'PEAD · auditoría Yahoo por rango + doble PIT · R2',
+    'R2 consumida como auditoría de fuente. Yahoo devolvió 3.590 filas, 468 eventos PIT y EPS completo, pero timing histórico no utilizable (468 UNKNOWN/TAS). Terminó INCONCLUSIVE_SOURCE_TIMING_UNAVAILABLE. No abrió precios y no debe relanzarse.',
+    'PEAD source R2 · INCONCLUSIVE timing unavailable · cerrado',
+    'PEAD_EARNINGS_SOURCE_AUDIT_R2_RESULT'
+  ),
   {
-    id: 'pead-yahoo-calendar-source-audit-r2',
-    name: 'PEAD · auditoría Yahoo por rango + doble PIT · R2',
-    description: 'Reaudita la fuente PEAD sin seed de tickers actuales: calendario Yahoo por rango histórico + intersección de dos reconstrucciones S&P 500 PIT. No descarga precios de outcome ni abre política económica.',
-    marker: 'PEAD_EARNINGS_SOURCE_AUDIT_R2_RESULT',
+    id: 'pead-yahoo-calendar-source-audit-r3',
+    name: 'PEAD · Yahoo histórico + doble PIT · R3 next-session',
+    description: 'Auditoría causal R3 pre-precio. Reutiliza el transporte Yahoo por rango validado en R2, mantiene doble PIT y congela entrada en la primera apertura regular estrictamente posterior al reportDate. El timing Yahoo queda sólo como diagnóstico.',
+    marker: 'PEAD_EARNINGS_SOURCE_AUDIT_R3_RESULT',
     visibility: 'CURRENT',
     steps: [
-      { label: 'Guard seal PEAD R2', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR2Seal.unit.mjs'] },
-      { label: 'Guard PEAD R2', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR2.unit.mjs'] },
-      { label: 'Integración Yahoo cookie/crumb/paginación', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR2.integration.mjs'] },
+      { label: 'Guard seal PEAD R3', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs'] },
+      { label: 'Guard PEAD R3 next-session', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR3.unit.mjs'] },
+      { label: 'Guard transporte Yahoo R2', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR2.integration.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'Yahoo REAL · auditar calendario histórico PEAD R2', command: 'node', args: ['scripts/peadYahooCalendarSourceAuditR2.mjs'] }
+      { label: 'Yahoo REAL · auditar PEAD R3 next-session', command: 'node', args: ['scripts/peadYahooCalendarSourceAuditR3.mjs'] }
     ]
   },
   {
     id: 'pead-analyst-surprise-v1',
     name: 'PEAD · calidad predictiva de sorpresa · V1',
-    description: 'Diagnóstico preregistrado de señal bloqueado hasta PASS de PEAD Source Audit R2. Mantiene Surprise(%), horizonte 60 sesiones, SPY y gates congelados; no puede abrir precios desde la fuente R1 supersedida. Sin sizing, costes ni política económica.',
+    description: 'Diagnóstico preregistrado de señal bloqueado hasta PASS de PEAD Source Audit R3. Mantiene Surprise(%), horizonte 60 sesiones, SPY y gates estadísticos congelados; la entrada queda fijada en la primera apertura estrictamente posterior al reportDate. Sin sizing, costes ni política económica.',
     marker: 'PEAD_ANALYST_SURPRISE_V1_RESULT',
     visibility: 'PARKED',
     steps: [
-      { label: 'Guard fuente PEAD R2', command: 'node', args: ['tests/peadSignalSourceR2Readiness.unit.mjs'] },
+      { label: 'Guard fuente PEAD R3', command: 'node', args: ['tests/peadSignalSourceR3Readiness.unit.mjs'] },
       { label: 'Guard seal PEAD señal', command: 'node', args: ['tests/peadSignalDiagnosticV1Seal.unit.mjs'] },
       { label: 'Guard PEAD señal causal', command: 'node', args: ['tests/peadSignalDiagnosticV1.unit.mjs'] },
       { label: 'Guard PEAD fuente cerrada', command: 'node', args: ['tests/peadEarningsSourceAuditV1Seal.unit.mjs'] },
