@@ -3,8 +3,8 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 export const PEAD_SIGNAL_V1=Object.freeze({
   study:'PEAD_ANALYST_SURPRISE_V1',
-  sourceStudy:'PEAD_EARNINGS_SOURCE_AUDIT_R2',
-  sourceRevision:'YAHOO_CALENDAR_RANGE_DUAL_PIT_R2',
+  sourceStudy:'PEAD_EARNINGS_SOURCE_AUDIT_R3',
+  sourceRevision:'YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION',
   window:{from:'2024-01-15',to:'2024-03-15'},
   minimumSourceEvents:440,
   minimumAbsolutePriceCoverage:415,
@@ -26,32 +26,29 @@ const MARKER='PEAD_ANALYST_SURPRISE_V1_RESULT';
 function nextDay(date){return new Date(Date.parse(date+'T00:00:00Z')+86400000).toISOString().slice(0,10);}
 function finitePositive(v){return Number.isFinite(Number(v))&&Number(v)>0;}
 
-export function signalEventsFromR2(sourceResult){
-  if(sourceResult?.study!=='PEAD_EARNINGS_SOURCE_AUDIT_R2'
+export function signalEventsFromR3(sourceResult){
+  if(sourceResult?.study!=='PEAD_EARNINGS_SOURCE_AUDIT_R3'
     ||sourceResult?.sourceRevision!==PEAD_SIGNAL_V1.sourceRevision
-    ||sourceResult?.status!=='PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION_R2'
+    ||sourceResult?.status!=='PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION_R3'
     ||sourceResult?.audit?.passed!==true
     ||sourceResult?.priceOutcomesFetched!==false
     ||sourceResult?.economicOutcomesOpened!==false){
-    throw new Error('PEAD_SIGNAL_R2_SOURCE_NOT_READY');
+    throw new Error('PEAD_SIGNAL_R3_SOURCE_NOT_READY');
   }
   const events=Array.isArray(sourceResult.causalEvents)?sourceResult.causalEvents:[];
-  if(events.length<PEAD_SIGNAL_V1.minimumSourceEvents)throw new Error('PEAD_SIGNAL_R2_SOURCE_EVENT_COUNT:'+events.length);
+  if(events.length<PEAD_SIGNAL_V1.minimumSourceEvents)throw new Error('PEAD_SIGNAL_R3_SOURCE_EVENT_COUNT:'+events.length);
   const seen=new Set();
   return events.map(row=>{
     const ticker=String(row?.ticker??'').trim().toUpperCase();
     const reportDate=String(row?.reportDate??'').slice(0,10);
-    const timing=String(row?.timing??'');
     const surprise=Number(row?.surprisePct);
-    if(!ticker||!/^\d{4}-\d{2}-\d{2}$/.test(reportDate)
-      ||(timing!=='BeforeMarket'&&timing!=='AfterMarket')
-      ||!Number.isFinite(surprise)){
-      throw new Error('PEAD_SIGNAL_R2_SOURCE_EVENT_INVALID');
+    if(!ticker||!/^\d{4}-\d{2}-\d{2}$/.test(reportDate)||!Number.isFinite(surprise)){
+      throw new Error('PEAD_SIGNAL_R3_SOURCE_EVENT_INVALID');
     }
     const key=ticker+'|'+reportDate;
-    if(seen.has(key))throw new Error('PEAD_SIGNAL_R2_SOURCE_EVENT_DUPLICATE:'+key);
+    if(seen.has(key))throw new Error('PEAD_SIGNAL_R3_SOURCE_EVENT_DUPLICATE:'+key);
     seen.add(key);
-    return {ticker,reportDate,timing,surprise};
+    return {ticker,reportDate,surprise};
   }).sort((a,b)=>a.reportDate.localeCompare(b.reportDate)||a.ticker.localeCompare(b.ticker));
 }
 
@@ -78,8 +75,7 @@ export function parseYahooPricePayload(symbol,text){
 }
 
 export function resolveEventOutcome(event,bars,spyBars){
-  const after=event.timing==='AfterMarket';
-  const entryIndex=bars.findIndex(bar=>after?bar.date>event.reportDate:bar.date>=event.reportDate);
+  const entryIndex=bars.findIndex(bar=>bar.date>event.reportDate);
   if(entryIndex<0)return null;
   const exitIndex=entryIndex+PEAD_SIGNAL_V1.horizonSessions;
   if(exitIndex>=bars.length)return null;
@@ -93,7 +89,6 @@ export function resolveEventOutcome(event,bars,spyBars){
   return {
     ticker:event.ticker,
     reportDate:event.reportDate,
-    timing:event.timing,
     surprise:Number.isFinite(Number(event.surprise))?Number(event.surprise):Number(event.surprisePct),
     entryDate:entry.date,
     exitDate:exit.date,
@@ -287,10 +282,10 @@ async function mapLimit(items,limit,fn){
 }
 
 export async function main(){
-  const sourcePath='validation-runs/diagnostics/pead-yahoo-calendar-source-audit-r2-result.json';
-  if(!fs.existsSync(sourcePath))throw new Error('PEAD_SIGNAL_R2_SOURCE_RESULT_MISSING');
+  const sourcePath='validation-runs/diagnostics/pead-yahoo-calendar-source-audit-r3-result.json';
+  if(!fs.existsSync(sourcePath))throw new Error('PEAD_SIGNAL_R3_SOURCE_RESULT_MISSING');
   const sourceResult=JSON.parse(fs.readFileSync(sourcePath,'utf8'));
-  const events=signalEventsFromR2(sourceResult);
+  const events=signalEventsFromR3(sourceResult);
 
   const symbols=[PEAD_SIGNAL_V1.benchmark,...new Set(events.map(event=>event.ticker))];
   const failures=[];
@@ -323,11 +318,11 @@ export async function main(){
     window:PEAD_SIGNAL_V1.window,
     horizonSessions:PEAD_SIGNAL_V1.horizonSessions,
     predictor:'Yahoo Surprise(%)',
-    eventProvenance:'REAL_YAHOO_CALENDAR_WITH_STATIC_REFERENCE_PIT',
+    eventProvenance:'REAL_YAHOO_CALENDAR_R3_WITH_STATIC_REFERENCE_PIT',
     priceProvider:'Yahoo Finance',
     priceProvenance:'REAL',
     benchmark:PEAD_SIGNAL_V1.benchmark,
-    executionSemantics:{BeforeMarket:'SAME_DATE_OR_NEXT_REGULAR_OPEN',AfterMarket:'NEXT_REGULAR_OPEN_STRICTLY_AFTER_REPORT_DATE'},
+    executionSemantics:{allEvents:'FIRST_REGULAR_OPEN_STRICTLY_AFTER_REPORT_DATE',announcementDayReturnIncluded:false,timingInferenceAllowed:false},
     evaluation,
     fetch:{uniqueSymbols:symbols.length,failures,missingOutcomeCount:missingOutcome.length,missingOutcome:missingOutcome.slice(0,100)},
     sampleAuthority:'DIAGNOSTIC_CONSUMED_AFTER_THIS_RUN',
