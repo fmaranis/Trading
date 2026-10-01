@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "study": "PEAD_EARNINGS_SOURCE_AUDIT_R2",
+  "sourceRevision": "YAHOO_CALENDAR_RANGE_DUAL_PIT_R2",
+  "status": "INCONCLUSIVE_SOURCE_TIMING_UNAVAILABLE",
+  "observedRun": {
+    "startedAt": "2026-09-30T19:15:58.084Z",
+    "finishedAt": "2026-09-30T19:16:35.989Z",
+    "exitCode": 2,
+    "uploadedArtifactSha256": "7b648c413319d26bed2beda79b9f698fd7353b70d9216cf92f2a551074a41cc3"
+  },
+  "counts": {
+    "rawCalendarRows": 3590,
+    "windowRows": 3590,
+    "pitEvents": 468,
+    "actualEstimate": 468,
+    "knownTiming": 0,
+    "causalEligibleUnderR2": 0,
+    "r1CausalEvents": 461,
+    "r1OverlapUnderR2": 0
+  },
+  "timingBreakdown": {
+    "beforeMarket": 0,
+    "afterMarket": 0,
+    "duringMarket": 0,
+    "unknown": 468
+  },
+  "gates": {
+    "pitEvents": true,
+    "timingCoverage": false,
+    "actualEstimateCoverage": true,
+    "causalEligible": false,
+    "noDuplicates": true,
+    "noDirectionalContradictions": true,
+    "paginationComplete": true,
+    "noUnparseableCalendarRows": true,
+    "noCurrentTickerSeed": true,
+    "noSynthetic": true
+  },
+  "diagnosis": {
+    "providerTransportWorked": true,
+    "paginationWorked": true,
+    "pitWorked": true,
+    "epsCoverageWorked": true,
+    "failureCause": "Yahoo historical calendar timing unavailable/TAS for PIT events; R2 required BMO/AMC and therefore could not establish causal execution.",
+    "retuneR2": false,
+    "predictivePriceOutcomesOpened": false,
+    "economicOutcomesOpened": false
+  },
+  "successor": {
+    "study": "PEAD_EARNINGS_SOURCE_AUDIT_R3",
+    "sourceRevision": "YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION",
+    "change": "Freeze entry at first regular open strictly after reportDate for every event; timing becomes diagnostic only.",
+    "rationale": "Preserve causality without inferring unavailable historical announcement time and exclude the announcement-day return."
+  },
+  "authority": {
+    "productionDefault": "LEGACY",
+    "productionAuthority": false,
+    "promotionAllowed": false
+  }
+}
