@@ -1643,3 +1643,5 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El runner verifica inferencia multivariante, P10–P90, outputs finitos, coherencia mediana, repetibilidad y que un future-tail deliberadamente contaminado quede excluido por el corte `informationDate`.
 - Primer arranque local puede descargar ~1,32 GB de pesos oficiales; el cálculo se realiza en el backend/local, nunca GitHub Actions.
 - Producción continúa `LEGACY` y TimesFM 3.0 sigue research-only por licencia.
+
+- Endurecimiento Stage A: antes de cargar el modelo, el runner verifica byte a byte el `model.safetensors` de la revisión congelada contra SHA-256 `a7592b0a8432baee54483254e5647856911ce69e09d09a9bb65904b2d98f17da`; una discrepancia falla cerrado.

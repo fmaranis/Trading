@@ -34,6 +34,14 @@ def _hash_array(value: np.ndarray) -> str:
     return hashlib.sha256(arr.tobytes()).hexdigest()
 
 
+def _sha256_file(file_path: str) -> str:
+    digest = hashlib.sha256()
+    with open(file_path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _fixture() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Three target variates + one past-only covariate + forbidden future tail."""
     t = np.arange(CONTEXT_LENGTH, dtype=np.float32)
@@ -111,7 +119,19 @@ def main() -> int:
             raise RuntimeError(f"TIMESFM_VERSION_MISMATCH:{installed}!={PACKAGE_VERSION}")
 
         import torch
+        from huggingface_hub import hf_hub_download
         from timesfm3 import ModelConfig, TimesFM3Evaluator
+
+        weight_path = hf_hub_download(
+            repo_id=CHECKPOINT,
+            filename="model.safetensors",
+            revision=CHECKPOINT_REVISION,
+        )
+        actual_weight_sha256 = _sha256_file(weight_path)
+        if actual_weight_sha256 != EXPECTED_WEIGHT_SHA256:
+            raise RuntimeError(
+                f"TIMESFM_WEIGHT_SHA256_MISMATCH:{actual_weight_sha256}!={EXPECTED_WEIGHT_SHA256}"
+            )
 
         requested_device = os.getenv("TIMESFM_STAGE_A_DEVICE", "cpu").strip() or "cpu"
         if requested_device.startswith("cuda") and not torch.cuda.is_available():
@@ -155,6 +175,7 @@ def main() -> int:
         repeatability_ok = repeat_forecast_delta <= TOL and repeat_quantile_delta <= TOL
 
         checks = {
+            "checkpointWeightSha256Matches": actual_weight_sha256 == EXPECTED_WEIGHT_SHA256,
             "causalPrefixExcludesForbiddenFuture": bool(causal_hash_matches),
             "forecastShape": bool(shape_ok),
             "finiteOutputs": finite_ok,
@@ -175,6 +196,7 @@ def main() -> int:
             },
             checks=checks,
             evidence={
+                "actualWeightSha256": actual_weight_sha256,
                 "inputFingerprint": _hash_array(targets),
                 "pastOnlyCovariateFingerprint": _hash_array(past_only),
                 "forecastFingerprint": _hash_array(forecast_a),

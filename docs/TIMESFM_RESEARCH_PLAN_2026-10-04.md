@@ -100,3 +100,5 @@ Implementar Stage A y congelar antes de abrir outcomes el universo/muestra, inpu
 - Gate técnico simultáneo: shape correcto, outputs finitos, cuantiles monótonos, mediana coherente, repetibilidad <=1e-5 y prueba de future-tail excluido del prefix causal.
 - Stage A no descarga mercado, no abre outcomes, no genera señal económica y no tiene autoridad productiva.
 - Para no multiplicar acciones visibles, PEAD R3 queda `PARKED` durante este smoke; su protocolo no cambia ni se consume.
+
+- Integridad adicional: el runner descarga/resuelve `model.safetensors` en la revisión congelada y verifica su SHA-256 byte a byte antes de instanciar TimesFM; cualquier discrepancia bloquea Stage A.
