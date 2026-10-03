@@ -102,3 +102,8 @@ Implementar Stage A y congelar antes de abrir outcomes el universo/muestra, inpu
 - Para no multiplicar acciones visibles, PEAD R3 queda `PARKED` durante este smoke; su protocolo no cambia ni se consume.
 
 - Integridad adicional: el runner descarga/resuelve `model.safetensors` en la revisión congelada y verifica su SHA-256 byte a byte antes de instanciar TimesFM; cualquier discrepancia bloquea Stage A.
+
+## Estado de implementación
+`READY_FOR_LOCAL_MODEL_SMOKE`.
+
+Guards/wiring/sintaxis verificados. La inferencia real del checkpoint permanece `NOT_RUN` hasta que el job pueda descargar/cargar el peso oficial en el backend local; no se abre Stage B ni ningún outcome antes de un PASS técnico real.

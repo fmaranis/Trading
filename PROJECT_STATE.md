@@ -1645,3 +1645,6 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Producción continúa `LEGACY` y TimesFM 3.0 sigue research-only por licencia.
 
 - Endurecimiento Stage A: antes de cargar el modelo, el runner verifica byte a byte el `model.safetensors` de la revisión congelada contra SHA-256 `a7592b0a8432baee54483254e5647856911ce69e09d09a9bb65904b2d98f17da`; una discrepancia falla cerrado.
+
+- Verificación de cierre en ChatGPT sobre HEAD: sintaxis Python PASS, sintaxis bootstrap Node PASS, wiring estático PASS, exactamente 1 línea CURRENT, TimesFM CURRENT, PEAD R3 PARKED, orden guards -> TypeScript -> bootstrap correcto, cero referencias del runner a proveedores de mercado o motores productivos, verificación SHA del checkpoint presente.
+- El smoke de inferencia del modelo queda `NOT_RUN` en este entorno de ChatGPT porque no tiene resolución de red hacia GitHub/Hugging Face para descargar el checkpoint de ~1,32 GB. No se simula ni se declara PASS sin haberlo ejecutado. El job queda listo para ejecución en el backend local de la app.
