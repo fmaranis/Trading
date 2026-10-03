@@ -7,8 +7,9 @@ PRIORITY / READY TO EXECUTE / RESEARCH-ONLY
 Determinar si Google TimesFM aporta capacidad predictiva incremental, causal y económicamente útil a la arquitectura de trading existente sin contaminar producción ni retunear retrospectivamente.
 
 ## Licencias
-- TimesFM 3.0: benchmark/research únicamente. Código Apache-2.0; pesos preentrenados bajo licencia no comercial/no producción.
-- TimesFM 2.5: pesos Apache-2.0; candidato para reproducir cualquier hallazgo que eventualmente necesite una vía compatible con producción.
+- Contexto: la aplicación es privada/personal, no se vende ni se presta como servicio a terceros.
+- TimesFM 3.0: benchmark/research únicamente mientras la licencia de los pesos mantenga la restricción explícita de `non-production use`. La ausencia de comercialización no elimina por sí sola esa restricción; no se conectarán sus outputs a decisiones reales de inversión sin una licencia compatible o una aclaración oficial que lo permita.
+- TimesFM 2.5: pesos Apache-2.0; candidato para reproducir cualquier hallazgo y, si supera validación independiente, para una integración de uso real.
 
 ## Reglas no negociables
 1. Producción sigue LEGACY.
