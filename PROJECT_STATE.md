@@ -1611,3 +1611,20 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - guard de señal exige `PEAD_SIGNAL_R3_SOURCE_READINESS_PASS`;
 - `livePriceDiagnostic = NOT_RUN`;
 - hasta PASS R3 no se abre ningún precio PEAD.
+
+
+---
+
+## Actualización 2026-10-04 — TimesFM · nuevo carril de research prioritario
+
+- Se incorpora **Google TimesFM** a la cola canónica de investigación de la app.
+- Prioridad: ejecutar **ahora**, sin esperar al cierre de Fase 6/PEAD, siempre como carril aislado `research-only` y sin autoridad productiva.
+- Objetivo: comprobar si un foundation model temporal aporta señal incremental y generalizable frente a LEGACY y benchmarks simples, no sustituir producción por anticipado.
+- **TimesFM 3.0**: usar únicamente para research/benchmark. El código es Apache-2.0, pero los pesos preentrenados 3.0 están bajo licencia no comercial/no producción.
+- **TimesFM 2.5**: mantener como ruta de reproducibilidad/producción potencial porque sus pesos permanecen Apache-2.0.
+- Protocolo inicial: cero retuning tras outcomes; causalidad estricta; información sólo <= `informationDate`; ejecución `NEXT_OPEN`; datos REAL/STATIC_REFERENCE explícitos; cero fallback sintético silencioso.
+- Forecasts iniciales: 1/5/20/60 sesiones; evaluar retorno, retorno relativo al benchmark, riesgo/downside y cuantiles/incertidumbre.
+- Comparativas mínimas: Buy & Hold, momentum simple, LEGACY, TimesFM puro y LEGACY + TimesFM como señal contextual.
+- TimesFM no podrá cambiar eligibility, sizing, órdenes ni producción hasta evidencia fresh independiente y promoción explícita.
+- Producción continúa `LEGACY`.
+- Plan ejecutable: `docs/TIMESFM_RESEARCH_PLAN_2026-10-04.md`.
