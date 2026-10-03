@@ -1620,8 +1620,9 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Se incorpora **Google TimesFM** a la cola canónica de investigación de la app.
 - Prioridad: ejecutar **ahora**, sin esperar al cierre de Fase 6/PEAD, siempre como carril aislado `research-only` y sin autoridad productiva.
 - Objetivo: comprobar si un foundation model temporal aporta señal incremental y generalizable frente a LEGACY y benchmarks simples, no sustituir producción por anticipado.
-- **TimesFM 3.0**: usar únicamente para research/benchmark. El código es Apache-2.0, pero los pesos preentrenados 3.0 están bajo licencia no comercial/no producción.
-- **TimesFM 2.5**: mantener como ruta de reproducibilidad/producción potencial porque sus pesos permanecen Apache-2.0.
+- Contexto de uso aclarado por el usuario: la app es **privada/personal, no se comercializa ni se ofrece a terceros**.
+- **TimesFM 3.0**: aun con ese contexto, usar únicamente para research/benchmark mientras su licencia siga restringiendo también el `production use`; no asumir que soporte a decisiones reales de inversión queda autorizado sólo por ser una app personal.
+- **TimesFM 2.5**: mantener como ruta de reproducibilidad y eventual uso real porque sus pesos permanecen Apache-2.0.
 - Protocolo inicial: cero retuning tras outcomes; causalidad estricta; información sólo <= `informationDate`; ejecución `NEXT_OPEN`; datos REAL/STATIC_REFERENCE explícitos; cero fallback sintético silencioso.
 - Forecasts iniciales: 1/5/20/60 sesiones; evaluar retorno, retorno relativo al benchmark, riesgo/downside y cuantiles/incertidumbre.
 - Comparativas mínimas: Buy & Hold, momentum simple, LEGACY, TimesFM puro y LEGACY + TimesFM como señal contextual.
