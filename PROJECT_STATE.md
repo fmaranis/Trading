@@ -1629,3 +1629,17 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - TimesFM no podrá cambiar eligibility, sizing, órdenes ni producción hasta evidencia fresh independiente y promoción explícita.
 - Producción continúa `LEGACY`.
 - Plan ejecutable: `docs/TIMESFM_RESEARCH_PLAN_2026-10-04.md`.
+
+
+### TimesFM Stage A — implementación
+
+- Implementado `timesfm-stage-a-smoke-v1` como única línea `CURRENT` temporal del ResearchValidationCenter.
+- PEAD R3 pasa sólo a `PARKED` mientras se ejecuta este Stage A; no se modifica su muestra, fuente, gates ni causalidad.
+- Entorno TimesFM separado de producción: `.research-venv/timesfm3` + `backend/requirements-timesfm.txt`.
+- Pin de paquete: `timesfm[torch]==3.0.2`.
+- Checkpoint oficial: `google/timesfm-3.0-pytorch`, revisión `24701cec1b1ea47232c0766e888855c9976ef62b`; peso esperado SHA-256 `a7592b0a8432baee54483254e5647856911ce69e09d09a9bb65904b2d98f17da`.
+- Stage A usa exclusivamente fixture `SYNTHETIC` determinista; no descarga Yahoo/EODHD/SEC, no abre outcomes y no toca PortfolioCandidateGate, InvestmentDecisionEngine, PortfolioDecisionEngine ni ejecución.
+- Guards/TypeScript corren antes de crear/instalar el entorno pesado o descargar el checkpoint.
+- El runner verifica inferencia multivariante, P10–P90, outputs finitos, coherencia mediana, repetibilidad y que un future-tail deliberadamente contaminado quede excluido por el corte `informationDate`.
+- Primer arranque local puede descargar ~1,32 GB de pesos oficiales; el cálculo se realiza en el backend/local, nunca GitHub Actions.
+- Producción continúa `LEGACY` y TimesFM 3.0 sigue research-only por licencia.

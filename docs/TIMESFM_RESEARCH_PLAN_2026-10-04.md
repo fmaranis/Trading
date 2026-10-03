@@ -86,3 +86,17 @@ Uno de:
 
 ## Siguiente paso exacto
 Implementar Stage A y congelar antes de abrir outcomes el universo/muestra, inputs, horizons, targets, baselines y criterios PASS/FAIL.
+
+
+## Stage A — implementación congelada
+- Job canónico: `timesfm-stage-a-smoke-v1` en `ResearchValidationCenter`.
+- TimesFM package pin: `timesfm[torch]==3.0.2`.
+- Checkpoint: `google/timesfm-3.0-pytorch`.
+- Revisión HF: `24701cec1b1ea47232c0766e888855c9976ef62b`.
+- SHA-256 conocido de `model.safetensors`: `a7592b0a8432baee54483254e5647856911ce69e09d09a9bb65904b2d98f17da`.
+- Entorno aislado: `.research-venv/timesfm3`; no modifica `backend/requirements.txt`.
+- Primer arranque puede descargar aproximadamente 1,32 GB del checkpoint oficial a la caché de Hugging Face.
+- Fixture Stage A: `SYNTHETIC`, determinista, 3 variates + 1 past-only covariate, contexto 128, horizonte 16, cuantiles P10–P90.
+- Gate técnico simultáneo: shape correcto, outputs finitos, cuantiles monótonos, mediana coherente, repetibilidad <=1e-5 y prueba de future-tail excluido del prefix causal.
+- Stage A no descarga mercado, no abre outcomes, no genera señal económica y no tiene autoridad productiva.
+- Para no multiplicar acciones visibles, PEAD R3 queda `PARKED` durante este smoke; su protocolo no cambia ni se consume.

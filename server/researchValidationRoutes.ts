@@ -254,11 +254,25 @@ const JOBS: JobDefinition[] = [
     'PEAD_EARNINGS_SOURCE_AUDIT_R2_RESULT'
   ),
   {
+    id: 'timesfm-stage-a-smoke-v1',
+    name: 'TimesFM 3.0 · Stage A · smoke causal',
+    description: 'Smoke técnico research-only del checkpoint oficial TimesFM 3.0. Usa únicamente un fixture SYNTHETIC determinista para verificar instalación aislada, inferencia multivariante, cuantiles, repetibilidad y corte causal en informationDate. No descarga precios, no abre outcomes económicos, no emite recomendaciones y producción permanece LEGACY.',
+    marker: 'TIMESFM_STAGE_A_SMOKE_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard contrato TimesFM Stage A', command: 'node', args: ['tests/timesfmStageAContract.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'TimesFM 3.0 · bootstrap aislado + smoke', command: 'node', args: ['scripts/timesfmStageABootstrap.mjs'] }
+    ]
+  },
+  {
     id: 'pead-yahoo-calendar-source-audit-r3',
     name: 'PEAD · Yahoo histórico + doble PIT · R3 next-session',
     description: 'Auditoría causal R3 pre-precio. Reutiliza el transporte Yahoo por rango validado en R2, mantiene doble PIT y congela entrada en la primera apertura regular estrictamente posterior al reportDate. El timing Yahoo queda sólo como diagnóstico.',
     marker: 'PEAD_EARNINGS_SOURCE_AUDIT_R3_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'PARKED',
     steps: [
       { label: 'Guard seal PEAD R3', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs'] },
       { label: 'Guard PEAD R3 next-session', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR3.unit.mjs'] },
