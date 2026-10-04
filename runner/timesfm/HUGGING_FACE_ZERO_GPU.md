@@ -25,11 +25,11 @@ Expected URL:
 
 `https://fmaranis-timesfm-stage-a.hf.space`
 
-Space source is under `runner/timesfm/hf-space/`:
+The manual deployment artifact is a single file:
 
-- `README.md`
-- `app.py`
-- `requirements.txt`
+- `runner/timesfm/hf-space/app.py`
+
+The file self-bootstraps only `timesfm==3.0.2` (and its NumPy bound) when the managed ZeroGPU runtime does not already contain it. Gradio, `spaces`, `huggingface_hub`, and PyTorch remain platform-managed.
 
 The Hugging Face ChatGPT connector currently exposes repository read access only, so creating/updating the Space itself cannot be performed through the connector.
 
