@@ -260,6 +260,7 @@ const JOBS: JobDefinition[] = [
     marker: 'TIMESFM_STAGE_A_SMOKE_RESULT',
     visibility: 'CURRENT',
     steps: [
+      { label: 'Guard bootstrap pip local TimesFM', command: 'node', args: ['tests/timesfmPipBootstrap.unit.mjs'] },
       { label: 'Guard contrato TimesFM Stage A', command: 'node', args: ['tests/timesfmStageAContract.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },

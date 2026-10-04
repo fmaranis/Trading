@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { ensureRepoLocalPip, prependPythonPath } from './timesfmPipSupport.mjs';
 
 const ROOT = process.cwd();
 const VENV = path.resolve(ROOT, '.research-venv', 'timesfm3');
@@ -125,14 +126,11 @@ function findPython() {
 }
 
 
-function localTargetEnv() {
-  const separator = process.platform === 'win32' ? ';' : ':';
-  const existing = process.env.PYTHONPATH?.trim();
-  return {
-    ...process.env,
-    PYTHONNOUSERSITE: '1',
-    PYTHONPATH: existing ? `${TARGET}${separator}${existing}` : TARGET
-  };
+function localTargetEnv(baseEnv = process.env) {
+  return prependPythonPath(TARGET, {
+    ...baseEnv,
+    PYTHONNOUSERSITE: '1'
+  });
 }
 
 function packageVersion(command, prefix = [], env = process.env) {
@@ -214,18 +212,38 @@ function installTimesFmRequirements(command, prefix = [], env = process.env, tar
 
 function ensureTargetInstall(systemPython, venvFailure) {
   const systemPip = pipProbe(systemPython.command, systemPython.prefix);
+  let pipRuntime = {
+    ok: true,
+    source: 'system',
+    target: null,
+    env: process.env,
+    probe: systemPip
+  };
+
   if (systemPip.status !== 0) {
-    emitBlocked('TIMESFM_INSTALLER_UNAVAILABLE', {
-      selectedPython: systemPython,
-      venvFailure,
-      pip: systemPip
+    console.log('[TimesFM] System pip unavailable; bootstrapping repo-local pip without sudo/apt.');
+    pipRuntime = ensureRepoLocalPip({
+      root: ROOT,
+      python: systemPython,
+      run,
+      pipProbe,
+      tail
     });
-    process.exit(1);
+    if (!pipRuntime.ok) {
+      emitBlocked('TIMESFM_INSTALLER_UNAVAILABLE', {
+        selectedPython: systemPython,
+        venvFailure,
+        pip: systemPip,
+        pipBootstrap: pipRuntime
+      });
+      process.exit(1);
+    }
+    console.log(`[TimesFM] Repo-local pip ready (${pipRuntime.source}).`);
   }
 
   fs.mkdirSync(path.dirname(TARGET), { recursive: true });
 
-  const targetEnv = localTargetEnv();
+  const targetEnv = localTargetEnv(pipRuntime.env);
   let installed = packageVersion(systemPython.command, systemPython.prefix, targetEnv);
   let torch = torchProbe(systemPython.command, systemPython.prefix, targetEnv);
   if (installed.version !== EXPECTED_VERSION || torch.status !== 0) {
@@ -234,22 +252,24 @@ function ensureTargetInstall(systemPython, venvFailure) {
     fs.mkdirSync(TARGET, { recursive: true });
 
     console.log(`[TimesFM] stdlib venv unavailable; installing isolated CPU research packages into ${path.relative(ROOT, TARGET)} ...`);
-    const torchInstall = installCpuTorch(systemPython.command, systemPython.prefix, process.env, TARGET);
+    const torchInstall = installCpuTorch(systemPython.command, systemPython.prefix, pipRuntime.env, TARGET);
     if (torchInstall.status !== 0) {
       emitBlocked('TIMESFM_TARGET_TORCH_CPU_INSTALL_FAILED', installDetail(torchInstall, {
         selectedPython: systemPython,
         target: path.relative(ROOT, TARGET),
         pytorchIndex: PYTORCH_CPU_INDEX,
+        pipSource: pipRuntime.source,
         venvFailure
       }));
       process.exit(1);
     }
 
-    const install = installTimesFmRequirements(systemPython.command, systemPython.prefix, process.env, TARGET);
+    const install = installTimesFmRequirements(systemPython.command, systemPython.prefix, targetEnv, TARGET);
     if (install.status !== 0) {
       emitBlocked('TIMESFM_TARGET_DEPENDENCY_INSTALL_FAILED', installDetail(install, {
         selectedPython: systemPython,
         target: path.relative(ROOT, TARGET),
+        pipSource: pipRuntime.source,
         venvFailure
       }));
       process.exit(1);
@@ -262,6 +282,7 @@ function ensureTargetInstall(systemPython, venvFailure) {
     emitBlocked('TIMESFM_VERSION_NOT_PINNED_AFTER_TARGET_INSTALL', {
       selectedPython: systemPython,
       target: path.relative(ROOT, TARGET),
+      pipSource: pipRuntime.source,
       detectedVersion: installed.version,
       timesfmStderr: installed.stderr,
       torchVersion: torch.version,

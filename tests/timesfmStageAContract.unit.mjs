@@ -8,6 +8,7 @@ const read = p => fs.readFileSync(path.resolve(root, p), 'utf8');
 const requirements = read('backend/requirements-timesfm.txt');
 const runner = read('backend/scripts/timesfm_stage_a_smoke.py');
 const bootstrap = read('scripts/timesfmStageABootstrap.mjs');
+const pipSupport = read('scripts/timesfmPipSupport.mjs');
 const routes = read('server/researchValidationRoutes.ts');
 const ui = read('src/components/ResearchValidationCenter.tsx');
 
@@ -59,6 +60,11 @@ assert.ok(
   'TimesFM installer must order pip before install'
 );
 assert.match(bootstrap, /download\.pytorch\.org\/whl\/cpu/);
+assert.match(bootstrap, /ensureRepoLocalPip/);
+assert.match(bootstrap, /pipRuntime\.env/);
+assert.match(pipSupport, /bootstrap\.pypa\.io\/get-pip\.py/);
+assert.match(pipSupport, /repo-local-bootstrap/);
+assert.match(pipSupport, /--target/);
 assert.match(bootstrap, /EXISTING_VENV_PIP_UNAVAILABLE/);
 assert.match(bootstrap, /VENV_CREATED_WITHOUT_WORKING_PIP/);
 assert.match(bootstrap, /TIMESFM_TORCH_CPU_INSTALL_FAILED/);
@@ -87,6 +93,7 @@ assert.ok(start >= 0, 'TimesFM Stage A job must exist');
 const end = routes.indexOf("id: 'pead-yahoo-calendar-source-audit-r3'", start);
 const block = routes.slice(start, end > start ? end : undefined);
 assert.match(block, /visibility: 'CURRENT'/);
+assert.match(block, /tests\/timesfmPipBootstrap\.unit\.mjs/);
 assert.match(block, /tests\/timesfmStageAContract\.unit\.mjs/);
 assert.match(block, /tests\/researchValidationRuntime\.unit\.ts/);
 assert.match(block, /tests\/coreArchitectureV1\.unit\.ts/);
@@ -94,6 +101,7 @@ assert.match(block, /npm', args: \['run', 'lint'\]/);
 assert.match(block, /scripts\/timesfmStageABootstrap\.mjs/);
 
 const order = [
+  'tests/timesfmPipBootstrap.unit.mjs',
   'tests/timesfmStageAContract.unit.mjs',
   'tests/researchValidationRuntime.unit.ts',
   'tests/coreArchitectureV1.unit.ts',
