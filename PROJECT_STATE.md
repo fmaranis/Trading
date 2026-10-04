@@ -1704,3 +1704,16 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Segundo fallo: la regex sustitutiva quedó doblemente escapada y buscaba barras invertidas literales.
 - Corrección definitiva: se elimina la regex para este contrato. El test extrae los cuerpos de `installCpuTorch()` e `installTimesFmRequirements()` y comprueba directamente existencia y orden de los tokens `'pip'` -> `'install'`.
 - Verificación posterior: se ejecutó la fuente real de `tests/timesfmStageAContract.unit.mjs` contra los contenidos actuales de los seis archivos que lee; resultado `timesfmStageAContract.unit: PASS`.
+
+
+### TimesFM Stage A — runner sin ensurepip/pip y fallback repo-local 2026-10-04
+
+- Evidencia recibida del job `timesfm-stage-a-smoke-v1`: `BLOCKED_ENVIRONMENT / TIMESFM_INSTALLER_UNAVAILABLE` antes de ejecutar TimesFM.
+- Python seleccionado: `/usr/bin/python3.10` (`3.10.12`), compatible con TimesFM 3.0.2.
+- Causa real: el runner Debian/Ubuntu no dispone de `ensurepip/python3.10-venv`; el intento de venv falla y, además, el Python del sistema tampoco expone `python -m pip`.
+- El fallback anterior a `.research-python/timesfm3` era incompleto porque todavía dependía de un `pip` del sistema.
+- Fix en `main`: cuando venv y pip del sistema no están disponibles, se descarga `get-pip.py` desde PyPA y se instala `pip` en `.research-python/pip-bootstrap`, sin `sudo`, `apt` ni cambios globales. Ese pip repo-local instala después PyTorch CPU y TimesFM en el target aislado existente.
+- Se añade `scripts/timesfmPipSupport.mjs` y el guard comportamental `tests/timesfmPipBootstrap.unit.mjs` antes del contrato TimesFM.
+- El guard reproduce explícitamente un intérprete sin site-packages/pip mediante `python -S`, ejecuta un bootstrap local controlado, verifica `python -m pip --version` a través de `PYTHONPATH` y comprueba reutilización del bootstrap. Resultado de verificación: `timesfmPipBootstrap.unit: PASS`.
+- Verificación adicional sobre los contenidos ya publicados en `main`: sintaxis JS de bootstrap/support/guards PASS; wiring y orden `pip bootstrap guard -> contract -> runtime -> core -> TypeScript -> smoke` PASS.
+- No cambia el checkpoint, fixture SYNTHETIC, cutoff causal, hashes, acceso a mercado/outcomes, gates ni autoridad productiva. Producción continúa `LEGACY`; Stage B permanece cerrado hasta PASS técnico real de Stage A.
