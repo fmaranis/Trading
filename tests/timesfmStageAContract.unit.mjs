@@ -93,6 +93,7 @@ assert.ok(start >= 0, 'TimesFM Stage A job must exist');
 const end = routes.indexOf("id: 'pead-yahoo-calendar-source-audit-r3'", start);
 const block = routes.slice(start, end > start ? end : undefined);
 assert.match(block, /visibility: 'CURRENT'/);
+assert.match(block, /tests\/researchValidationStatePersistence\.unit\.mjs/);
 assert.match(block, /tests\/timesfmPipBootstrap\.unit\.mjs/);
 assert.match(block, /tests\/timesfmStageAContract\.unit\.mjs/);
 assert.match(block, /tests\/researchValidationRuntime\.unit\.ts/);
@@ -101,6 +102,7 @@ assert.match(block, /npm', args: \['run', 'lint'\]/);
 assert.match(block, /scripts\/timesfmStageABootstrap\.mjs/);
 
 const order = [
+  'tests/researchValidationStatePersistence.unit.mjs',
   'tests/timesfmPipBootstrap.unit.mjs',
   'tests/timesfmStageAContract.unit.mjs',
   'tests/researchValidationRuntime.unit.ts',

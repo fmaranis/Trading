@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { spawn } from 'node:child_process';
+import { loadDurableJobState, reconcileLoadedJobState, saveDurableJobState } from './researchValidationStateStore.mjs';
 
 export const researchValidationRouter = express.Router();
 
@@ -23,6 +24,7 @@ interface JobState {
   startedAt: string | null;
   finishedAt: string | null;
   currentStep: string | null;
+  processId: number | null;
   exitCode: number | null;
   output: string;
   result: unknown | null;
@@ -260,6 +262,7 @@ const JOBS: JobDefinition[] = [
     marker: 'TIMESFM_STAGE_A_SMOKE_RESULT',
     visibility: 'CURRENT',
     steps: [
+      { label: 'Guard estado durable validación', command: 'node', args: ['tests/researchValidationStatePersistence.unit.mjs'] },
       { label: 'Guard bootstrap pip local TimesFM', command: 'node', args: ['tests/timesfmPipBootstrap.unit.mjs'] },
       { label: 'Guard contrato TimesFM Stage A', command: 'node', args: ['tests/timesfmStageAContract.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
@@ -344,13 +347,28 @@ const JOBS: JobDefinition[] = [
 const states = new Map<string, JobState>();
 
 function initialState(): JobState {
-  return { status: 'IDLE', startedAt: null, finishedAt: null, currentStep: null, exitCode: null, output: '', result: null, error: null };
+  return { status: 'IDLE', startedAt: null, finishedAt: null, currentStep: null, processId: null, exitCode: null, output: '', result: null, error: null };
+}
+
+function persistState(id: string, state: JobState): void {
+  try { saveDurableJobState(id, state); } catch { /* runtime state remains available in memory */ }
 }
 
 function stateFor(id: string): JobState {
-  const current = states.get(id) ?? initialState();
-  if (!states.has(id)) states.set(id, current);
-  return current;
+  const existing = states.get(id);
+  if (existing) return existing;
+
+  const durable = loadDurableJobState(id) as JobState | null;
+  if (!durable) {
+    const fresh = initialState();
+    states.set(id, fresh);
+    return fresh;
+  }
+
+  const reconciled = reconcileLoadedJobState(durable) as { state: JobState; changed: boolean };
+  states.set(id, reconciled.state);
+  if (reconciled.changed) persistState(id, reconciled.state);
+  return reconciled.state;
 }
 
 function appendOutput(state: JobState, text: string): void {
@@ -388,10 +406,12 @@ function extractJsonAfterMarker(output: string, marker?: string): unknown | null
   return null;
 }
 
-function runStep(step: Step, state: JobState): Promise<{ code: number; output: string }> {
+function runStep(jobId: string, step: Step, state: JobState): Promise<{ code: number; output: string }> {
   return new Promise(resolve => {
     state.currentStep = step.label;
+    state.processId = null;
     appendOutput(state, `\n\n=== ${step.label} ===\n`);
+    persistState(jobId, state);
     let stepOutput = '';
     const capture = (value: unknown) => {
       const text = String(value);
@@ -403,13 +423,21 @@ function runStep(step: Step, state: JobState): Promise<{ code: number; output: s
       env: { ...process.env, DISABLE_HMR: 'true' },
       shell: process.platform === 'win32'
     });
+    state.processId = child.pid ?? null;
+    persistState(jobId, state);
     child.stdout.on('data', capture);
     child.stderr.on('data', capture);
     child.on('error', error => {
       capture(`\nPROCESS_ERROR: ${error.message}\n`);
+      state.processId = null;
+      persistState(jobId, state);
       resolve({ code: 1, output: stepOutput });
     });
-    child.on('close', code => resolve({ code: code ?? 1, output: stepOutput }));
+    child.on('close', code => {
+      state.processId = null;
+      persistState(jobId, state);
+      resolve({ code: code ?? 1, output: stepOutput });
+    });
   });
 }
 
@@ -439,33 +467,40 @@ async function runJob(job: JobDefinition): Promise<void> {
   state.startedAt = new Date().toISOString();
   state.finishedAt = null;
   state.currentStep = null;
+  state.processId = null;
   state.exitCode = null;
   state.output = '';
   state.result = null;
   state.error = null;
+  persistState(job.id, state);
   try {
     const missing = prerequisiteError(job);
     if (missing) throw new Error(missing);
     for (const step of job.steps) {
-      const stepRun = await runStep(step, state);
+      const stepRun = await runStep(job.id, step, state);
       if (stepRun.code !== 0) {
         state.exitCode = stepRun.code;
         state.result = extractJsonAfterMarker(stepRun.output, job.marker);
         state.status = 'FAILED';
         state.error = `Falló: ${step.label}`;
+        persistState(job.id, state);
         return;
       }
     }
     state.exitCode = 0;
     state.result = extractJsonAfterMarker(state.output, job.marker);
     state.status = 'PASSED';
+    persistState(job.id, state);
   } catch (error: any) {
     state.status = 'FAILED';
     state.exitCode = 1;
     state.error = error?.message || String(error);
+    persistState(job.id, state);
   } finally {
     state.currentStep = null;
+    state.processId = null;
     state.finishedAt = new Date().toISOString();
+    persistState(job.id, state);
   }
 }
 
