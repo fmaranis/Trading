@@ -37,26 +37,91 @@ function run(command, args, options = {}) {
   });
 }
 
+function isSupportedPythonVersion(major, minor) {
+  return major === 3 && minor >= 10;
+}
+
 function pythonCandidates() {
   if (process.env.TIMESFM_PYTHON?.trim()) return [[process.env.TIMESFM_PYTHON.trim(), []]];
+
+  // TimesFM 3.0.2 declares Python >=3.10. Prefer 3.12 (Google's recommended
+  // baseline), then other known compatible CPython 3.x runtimes before falling
+  // back to the host's generic python/python3 launcher.
+  const preferred = ['3.12', '3.11', '3.10', '3.13', '3.14'];
   return process.platform === 'win32'
-    ? [['py', ['-3']], ['python', []], ['python3', []]]
-    : [['python3', []], ['python', []]];
+    ? [
+        ...preferred.map(version => ['py', [`-${version}`]]),
+        ['py', ['-3']],
+        ['python', []],
+        ['python3', []]
+      ]
+    : [
+        ...preferred.map(version => [`python${version}`, []]),
+        ['python3', []],
+        ['python', []]
+      ];
+}
+
+function probePython(command, prefix = []) {
+  const code = [
+    'import json, sys',
+    'print(json.dumps({',
+    '  "executable": sys.executable,',
+    '  "major": sys.version_info[0],',
+    '  "minor": sys.version_info[1],',
+    '  "version": sys.version.split()[0]',
+    '}))'
+  ].join('\\n');
+  const probe = run(command, [...prefix, '-c', code]);
+  const stdout = String(probe.stdout || '').trim();
+  let info = null;
+  if (probe.status === 0 && stdout) {
+    try {
+      info = JSON.parse(stdout.split(/\\r?\\n/).at(-1));
+    } catch {
+      info = null;
+    }
+  }
+  const supported = Boolean(info && isSupportedPythonVersion(info.major, info.minor));
+  return {
+    status: probe.status,
+    errorCode: probe.error?.code ?? null,
+    stderr: String(probe.stderr || '').trim().slice(0, 500) || null,
+    executable: info?.executable ?? null,
+    version: info?.version ?? null,
+    supported
+  };
 }
 
 function findPython() {
+  const attempts = [];
   for (const [command, prefix] of pythonCandidates()) {
-    const probe = run(command, [...prefix, '-c', 'import sys; print(sys.executable); print(sys.version_info[:2])']);
-    if (probe.status !== 0) continue;
-    const versionProbe = run(command, [...prefix, '-c', 'import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,15) else 2)']);
-    if (versionProbe.status === 0) return { command, prefix };
+    const probe = probePython(command, prefix);
+    attempts.push({
+      command: [command, ...prefix].join(' '),
+      status: probe.status,
+      errorCode: probe.errorCode,
+      executable: probe.executable,
+      version: probe.version,
+      supported: probe.supported
+    });
+    if (probe.supported) {
+      return {
+        python: { command, prefix, executable: probe.executable, version: probe.version },
+        attempts
+      };
+    }
   }
-  return null;
+  return { python: null, attempts };
 }
 
-const systemPython = findPython();
+const discovery = findPython();
+const systemPython = discovery.python;
 if (!systemPython) {
-  emitBlocked('TIMESFM_PYTHON_3_11_TO_3_14_REQUIRED');
+  emitBlocked('TIMESFM_PYTHON_3_10_PLUS_REQUIRED', {
+    platform: process.platform,
+    attemptedCandidates: discovery.attempts
+  });
   process.exit(1);
 }
 
@@ -64,13 +129,30 @@ const venvPython = process.platform === 'win32'
   ? path.join(VENV, 'Scripts', 'python.exe')
   : path.join(VENV, 'bin', 'python');
 
+if (fs.existsSync(venvPython)) {
+  const existingVenv = probePython(venvPython);
+  if (!existingVenv.supported) {
+    console.log(`[TimesFM] Rebuilding stale isolated environment (Python ${existingVenv.version ?? 'unreadable'}).`);
+    fs.rmSync(VENV, { recursive: true, force: true });
+  }
+}
+
 if (!fs.existsSync(venvPython)) {
   fs.mkdirSync(path.dirname(VENV), { recursive: true });
   const created = run(systemPython.command, [...systemPython.prefix, '-m', 'venv', VENV], { stdio: 'inherit' });
   if (created.status !== 0 || !fs.existsSync(venvPython)) {
-    emitBlocked('TIMESFM_VENV_CREATE_FAILED', `exit=${created.status}`);
+    emitBlocked('TIMESFM_VENV_CREATE_FAILED', {
+      exit: created.status,
+      selectedPython: systemPython
+    });
     process.exit(1);
   }
+}
+
+const venvProbe = probePython(venvPython);
+if (!venvProbe.supported) {
+  emitBlocked('TIMESFM_VENV_PYTHON_UNSUPPORTED', venvProbe);
+  process.exit(1);
 }
 
 const versionCheck = run(venvPython, ['-c', "import importlib.metadata; print(importlib.metadata.version('timesfm'))"]);

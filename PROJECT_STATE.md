@@ -1659,3 +1659,14 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Guard de regresión añadido a `tests/timesfmStageAContract.unit.mjs`: exige el downloader local y prohíbe volver al `href` directo de `result.json`.
 - El HTML recibido no se interpreta como FAIL de TimesFM y no abre outcomes. Stage A sigue research-only; producción continúa `LEGACY`.
 - La inferencia real debe considerarse no verificada por ese artefacto HTML; el siguiente resultado válido debe ser el objeto `TIMESFM_STAGE_A_SMOKE_V1` mostrado por la propia app y su evidencia JSON generada desde memoria.
+
+
+### TimesFM Stage A — corrección del gate Python 2026-10-04
+
+- Evidencia válida del job `timesfm-stage-a-smoke-v1`: `BLOCKED_ENVIRONMENT / TIMESFM_PYTHON_3_11_TO_3_14_REQUIRED`. El bloqueo ocurre antes de mercado/outcomes; producción continúa `LEGACY`.
+- Causa confirmada: el guard implementado por la app era más restrictivo que TimesFM 3.0.2. El paquete oficial declara `Python >=3.10`; Google recomienda 3.12+ como runtime preferido.
+- Corrección: bootstrap y runner aceptan ahora CPython 3.10+; el bootstrap intenta explícitamente 3.12, 3.11, 3.10, 3.13 y 3.14 antes de los launchers genéricos.
+- En Windows se prueban versiones concretas mediante `py -3.x`; en POSIX se prueban `python3.x`. Esto evita falsos negativos cuando el launcher por defecto apunta a otra versión.
+- Si existe `.research-venv/timesfm3` con un Python antiguo/roto, se reconstruye de forma aislada. Si aun no hay runtime válido, la evidencia incluye `attemptedCandidates`, versión y ejecutable detectados para que el siguiente bloqueo sea diagnosticable.
+- Guard de regresión actualizado en `tests/timesfmStageAContract.unit.mjs`.
+- Siguiente acción exacta: volver a ejecutar `TimesFM 3.0 · Stage A · smoke causal`. No abrir Stage B hasta obtener PASS técnico real.

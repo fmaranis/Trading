@@ -111,7 +111,7 @@ def _result(status: str, **extra: Any) -> dict[str, Any]:
 
 def main() -> int:
     try:
-        if not ((3, 11) <= sys.version_info[:2] < (3, 15)):
+        if sys.version_info[:2] < (3, 10):
             raise RuntimeError(f"UNSUPPORTED_PYTHON:{sys.version.split()[0]}")
 
         installed = importlib.metadata.version("timesfm")

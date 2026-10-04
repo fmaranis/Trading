@@ -36,6 +36,13 @@ assert.match(bootstrap, /\.research-venv/);
 assert.match(bootstrap, /backend.*requirements-timesfm\.txt/s);
 assert.match(bootstrap, /pip', 'install'/);
 assert.match(bootstrap, /backend.*timesfm_stage_a_smoke\.py/s);
+assert.match(bootstrap, /TIMESFM_PYTHON_3_10_PLUS_REQUIRED/);
+assert.match(bootstrap, /'3\\.10'/);
+assert.match(bootstrap, /python\\$\\{version\\}/);
+assert.match(bootstrap, /attemptedCandidates/);
+assert.match(bootstrap, /fs\\.rmSync\\(VENV, \\{ recursive: true, force: true \\}\\)/);
+assert.match(runner, /sys\\.version_info\\[:2\\] < \\(3, 10\\)/);
+assert.doesNotMatch(runner, /\\(3, 11\\) <= sys\\.version_info/);
 assert.doesNotMatch(bootstrap, /GitHub Actions|github actions/i);
 
 assert.match(ui, /function downloadJobEvidence\(job: ValidationJob\)/);
