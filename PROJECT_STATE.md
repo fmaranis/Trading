@@ -1669,4 +1669,19 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - En Windows se prueban versiones concretas mediante `py -3.x`; en POSIX se prueban `python3.x`. Esto evita falsos negativos cuando el launcher por defecto apunta a otra versión.
 - Si existe `.research-venv/timesfm3` con un Python antiguo/roto, se reconstruye de forma aislada. Si aun no hay runtime válido, la evidencia incluye `attemptedCandidates`, versión y ejecutable detectados para que el siguiente bloqueo sea diagnosticable.
 - Guard de regresión actualizado en `tests/timesfmStageAContract.unit.mjs`.
-- Siguiente acción exacta: volver a ejecutar `TimesFM 3.0 · Stage A · smoke causal`. No abrir Stage B hasta obtener PASS técnico real.
+- No se pide al usuario que vuelva a ejecutar el smoke. Stage B permanece bloqueado hasta disponer de PASS técnico del checkpoint real.
+
+
+### TimesFM Stage A — auto-verificación ChatGPT 2026-10-04
+
+- A petición explícita del usuario, no se delega otra prueba manual mientras ChatGPT no haya agotado la verificación disponible.
+- HEAD verificado: `fd2ed446d646ff95b15005ac9f8b0c83f811fb8f`.
+- El bootstrap Python actual fue ejecutado en un runtime real con CPython 3.13.5: detecta correctamente el intérprete compatible tras descartar launchers inexistentes. La corrección de escapes de `.join('\\n')` / `.split(/\\r?\\n/)` funciona.
+- Se ejecutó el **runner exacto** `backend/scripts/timesfm_stage_a_smoke.py` con un doble API-compatible de `TimesFM3Evaluator`, manteniendo intacta toda nuestra lógica de Stage A. Resultado: `PASS_STAGE_A_TECHNICAL_SMOKE`.
+- Checks positivos verificados: corte causal del future-tail, SHA del peso, shapes `(3,16)` y `(3,16,9)`, outputs finitos, cuantiles monótonos, point forecast = P50 y repetibilidad con delta 0 dentro de tolerancia `1e-5`.
+- Se probaron dos fallos deliberados sobre el mismo runner: SHA incorrecto => bloqueo previo a carga; cuantiles cruzados/P50 incoherente => `FAIL_STAGE_A_TECHNICAL_SMOKE`. Ambos fail-closed funcionaron.
+- La API usada por el runner fue contrastada contra el código oficial TimesFM 3.0.2: exporta `ModelConfig`/`TimesFM3Evaluator`; la salida multivariante 2D tiene forecast `[variates,horizon]` y quantiles `[variates,horizon,quantiles]`; la mediana está en índice 4.
+- PyPI confirma `timesfm==3.0.2`, Python >=3.10 y extra `torch`. El checkpoint oficial confirma 0.3B parámetros, P10–P90, causal attention/deterministic config y SHA-256 congelado `a7592b0a8432baee54483254e5647856911ce69e09d09a9bb65904b2d98f17da`.
+- Limitación restante: este runtime de ChatGPT no tiene egress binario utilizable hacia PyPI/Hugging Face y no puede descargar/cargar aquí el `model.safetensors` de 1,32 GB. Hugging Face tampoco ofrece el modelo mediante Inference Providers; por tanto no se declara falsamente PASS del peso real.
+- Estado correcto: **RUNNER/INTEGRATION LOGIC PASS; REAL CHECKPOINT LOAD NOT YET EXECUTED BY CHATGPT; USER ACTION NOT REQUESTED; STAGE B BLOCKED.**
+- Producción continúa `LEGACY` y no se ha abierto ningún outcome de mercado.

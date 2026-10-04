@@ -104,6 +104,6 @@ Implementar Stage A y congelar antes de abrir outcomes el universo/muestra, inpu
 - Integridad adicional: el runner descarga/resuelve `model.safetensors` en la revisión congelada y verifica su SHA-256 byte a byte antes de instanciar TimesFM; cualquier discrepancia bloquea Stage A.
 
 ## Estado de implementación
-`READY_FOR_LOCAL_MODEL_SMOKE`.
+`RUNNER_INTEGRATION_PASS_REAL_CHECKPOINT_PENDING`.
 
-Guards/wiring/sintaxis verificados. La inferencia real del checkpoint permanece `NOT_RUN` hasta que el job pueda descargar/cargar el peso oficial en el backend local; no se abre Stage B ni ningún outcome antes de un PASS técnico real.
+Guards/wiring/sintaxis y el runner exacto han sido auto-verificados, incluidos casos positivos y fail-closed negativos. La única comprobación pendiente es cargar el peso oficial de 1,32 GB en un runtime con egress binario; no se pide al usuario que la ejecute. No se abre Stage B ni ningún outcome antes de un PASS técnico real del checkpoint.
