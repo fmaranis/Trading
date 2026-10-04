@@ -1717,3 +1717,14 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El guard reproduce explícitamente un intérprete sin site-packages/pip mediante `python -S`, ejecuta un bootstrap local controlado, verifica `python -m pip --version` a través de `PYTHONPATH` y comprueba reutilización del bootstrap. Resultado de verificación: `timesfmPipBootstrap.unit: PASS`.
 - Verificación adicional sobre los contenidos ya publicados en `main`: sintaxis JS de bootstrap/support/guards PASS; wiring y orden `pip bootstrap guard -> contract -> runtime -> core -> TypeScript -> smoke` PASS.
 - No cambia el checkpoint, fixture SYNTHETIC, cutoff causal, hashes, acceso a mercado/outcomes, gates ni autoridad productiva. Producción continúa `LEGACY`; Stage B permanece cerrado hasta PASS técnico real de Stage A.
+
+
+### TimesFM Stage A — estado durable del job tras suspensión/reinicio 2026-10-04
+
+- Se observó que, tras apagar la pantalla/cerrar el cliente móvil durante la descarga del checkpoint, el centro de validación volvió a mostrar `IDLE` porque `server/researchValidationRoutes.ts` guardaba el estado únicamente en un `Map` en memoria.
+- Esto impedía distinguir entre un proceso aún vivo y una ejecución interrumpida tras reinicio/pérdida del backend.
+- Fix en `main`: el estado de los jobs se persiste en `.runtime/research-validation-state/<job>.json` y cada step registra además el PID del proceso hijo.
+- Al reconstruir el backend, un estado `RUNNING` se reconcilia: si el PID sigue vivo permanece `RUNNING`; si ya no existe se convierte de forma explícita en `FAILED / VALIDATION_INTERRUPTED_BACKEND_RESTART_OR_PARENT_LOSS`, nunca vuelve silenciosamente a `IDLE`.
+- Se añade `tests/researchValidationStatePersistence.unit.mjs` al inicio del job TimesFM. Prueba real ejecutada: `researchValidationStatePersistence.unit: PASS`.
+- La ejecución que ya había quedado en `IDLE` antes de este fix no puede reconstruirse retrospectivamente porque no existía todavía archivo durable; debe relanzarse una vez con el código nuevo.
+- El cache de Hugging Face continúa siendo reutilizable por `hf_hub_download`; archivos ya presentes en cache no se vuelven a descargar. Producción continúa `LEGACY` y Stage B sigue cerrado.
