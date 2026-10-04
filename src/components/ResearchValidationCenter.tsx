@@ -204,7 +204,7 @@ function blockedMessage(reason: string | null | undefined): string | null {
   }
   if (reason === 'EODHD_API_KEY_REQUIRED') return 'Falta EODHD_API_KEY. La validación PIT amplia necesita la membresía histórica del S&P 500 y no arrancará sin ella.';
   if (reason === 'SEC_EDGAR_USER_AGENT_REQUIRED') return 'Falta SEC_EDGAR_USER_AGENT. Debe identificar el acceso automatizado a SEC EDGAR; sin ese dato el job queda bloqueado antes de abrir la muestra.';
-  if (reason === 'TIMESFM_REMOTE_RUNNER_REQUIRED') return 'Falta el runner separado de TimesFM. Configura TIMESFM_RUNNER_URL y TIMESFM_RUNNER_TOKEN; AI Studio ya no descarga ni ejecuta el modelo.';
+  if (reason === 'TIMESFM_REMOTE_RUNNER_REQUIRED') return 'Falta el Space gratuito Hugging Face ZeroGPU de TimesFM. AI Studio ya no descarga ni ejecuta el modelo.';
   return reason || null;
 }
 
@@ -344,7 +344,7 @@ export const ResearchValidationCenter: React.FC = () => {
       <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">SEC EDGAR PIT</div><b className={`mt-1 block ${providerClass(prerequisites?.secEdgarUserAgentConfigured ?? null)}`}>{prerequisites == null ? 'COMPROBANDO…' : prerequisites.secEdgarUserAgentConfigured ? 'USER-AGENT LISTO' : 'FALTA USER-AGENT'}</b><div className="mt-1 text-slate-600">Fundamentales causales por fecha de filing.</div></div>
       <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Alpha Vantage</div><b className={`mt-1 block ${providerClass(alpha?.configured ?? null)}`}>{alpha == null ? 'COMPROBANDO…' : alpha.configured ? 'CONFIGURADO' : 'SIN API KEY'}</b><div className="mt-1 text-slate-600">Contraste secundario; no bloquea Yahoo.</div></div>
       <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">Persistencia research</div><b className={`mt-1 block ${providerClass(prerequisites?.githubReplaySyncConfigured ?? null)}`}>{prerequisites == null ? 'COMPROBANDO…' : prerequisites.githubReplaySyncConfigured ? 'GITHUB LISTO' : 'FALTA TOKEN'}</b><div className="mt-1 text-slate-600">Future-forward y evidencia de validación se anclan en replay-results.</div></div>
-      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">TimesFM runner</div><b className={`mt-1 block ${providerClass(prerequisites?.timesFmRemoteRunnerConfigured ?? null)}`}>{prerequisites == null ? 'COMPROBANDO…' : prerequisites.timesFmRemoteRunnerConfigured ? 'REMOTO · LISTO' : 'NO CONFIGURADO'}</b><div className="mt-1 text-slate-600">Checkpoint e inferencia fuera del contenedor efímero de AI Studio.</div></div>
+      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div className="uppercase text-slate-500">TimesFM runner</div><b className={`mt-1 block ${providerClass(prerequisites?.timesFmRemoteRunnerConfigured ?? null)}`}>{prerequisites == null ? 'COMPROBANDO…' : prerequisites.timesFmRemoteRunnerConfigured ? 'REMOTO · LISTO' : 'NO CONFIGURADO'}</b><div className="mt-1 text-slate-600">Checkpoint e inferencia en Hugging Face ZeroGPU gratuito; sin billing.</div></div>
     </div>
 
     {error && <div className="mt-3 rounded-lg border border-rose-500/25 bg-rose-500/10 p-3 text-[11px] text-rose-100">{error}</div>}
