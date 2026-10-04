@@ -9,6 +9,7 @@ const requirements = read('backend/requirements-timesfm.txt');
 const runner = read('backend/scripts/timesfm_stage_a_smoke.py');
 const bootstrap = read('scripts/timesfmStageABootstrap.mjs');
 const routes = read('server/researchValidationRoutes.ts');
+const ui = read('src/components/ResearchValidationCenter.tsx');
 
 assert.match(requirements, /timesfm\[torch\]==3\.0\.2/);
 assert.match(runner, /TIMESFM_STAGE_A_SMOKE_V1/);
@@ -36,6 +37,11 @@ assert.match(bootstrap, /backend.*requirements-timesfm\.txt/s);
 assert.match(bootstrap, /pip', 'install'/);
 assert.match(bootstrap, /backend.*timesfm_stage_a_smoke\.py/s);
 assert.doesNotMatch(bootstrap, /GitHub Actions|github actions/i);
+
+assert.match(ui, /function downloadJobEvidence\(job: ValidationJob\)/);
+assert.match(ui, /new Blob\(\[\`\$\{JSON\.stringify\(payload, null, 2\)\}\\n\`\]/);
+assert.match(ui, /link\.download = filename/);
+assert.doesNotMatch(ui, /href=\{\`\$\{BASE\}\/jobs\/\$\{encodeURIComponent\(job\.id\)\}\/result\.json\`\}/);
 
 const start = routes.indexOf("id: 'timesfm-stage-a-smoke-v1'");
 assert.ok(start >= 0, 'TimesFM Stage A job must exist');
