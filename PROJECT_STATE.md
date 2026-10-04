@@ -1774,3 +1774,13 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El protocolo técnico conserva checkpoint/revisión/SHA256, fixture SYNTHETIC, corte causal, dos inferencias, cuantiles, repetibilidad y producción `LEGACY`.
 - La integración sigue dentro del mismo `ResearchValidationCenter`; no se crea motor paralelo. El backend habla con los endpoints Gradio `status` y `run_stage_a`.
 - Requisito externo pendiente: crear el Space Gradio gratuito y seleccionar hardware ZeroGPU. No aceptar CPU/GPU de pago, PRO ni créditos.
+
+
+#### ZeroGPU single-file handoff
+
+- User-facing deployment reduced to one manual artifact: `runner/timesfm/hf-space/app.py`.
+- `requirements.txt` removed from the deployment contract.
+- `app.py` checks for `timesfm3` and, only if absent, installs `timesfm==3.0.2` plus the existing NumPy bound at Space startup.
+- PyTorch is intentionally not installed/pinned by the app: ZeroGPU manages the supported PyTorch/CUDA runtime. This avoids replacing the platform runtime.
+- Gradio, `spaces` and `huggingface_hub` remain platform-managed.
+- Manual action is therefore limited to uploading/replacing `app.py` in the existing `fmaranis/timesfm-stage-a` Space; hardware must remain ZeroGPU and no paid option may be selected.
