@@ -11,7 +11,8 @@ const bootstrap = read('scripts/timesfmStageABootstrap.mjs');
 const routes = read('server/researchValidationRoutes.ts');
 const ui = read('src/components/ResearchValidationCenter.tsx');
 
-assert.match(requirements, /timesfm\[torch\]==3\.0\.2/);
+assert.match(requirements, /timesfm==3\.0\.2/);
+assert.doesNotMatch(requirements, /timesfm\[torch\]/);
 assert.match(runner, /TIMESFM_STAGE_A_SMOKE_V1/);
 assert.match(runner, /google\/timesfm-3\.0-pytorch/);
 assert.match(runner, /24701cec1b1ea47232c0766e888855c9976ef62b/);
@@ -35,6 +36,13 @@ assert.doesNotMatch(runner, /Yahoo|EODHD|SEC_EDGAR|PortfolioDecisionEngine|Portf
 assert.match(bootstrap, /\.research-venv/);
 assert.match(bootstrap, /backend.*requirements-timesfm\.txt/s);
 assert.match(bootstrap, /pip', 'install'/);
+assert.match(bootstrap, /download\.pytorch\.org\/whl\/cpu/);
+assert.match(bootstrap, /EXISTING_VENV_PIP_UNAVAILABLE/);
+assert.match(bootstrap, /VENV_CREATED_WITHOUT_WORKING_PIP/);
+assert.match(bootstrap, /TIMESFM_TORCH_CPU_INSTALL_FAILED/);
+assert.match(bootstrap, /TIMESFM_TARGET_TORCH_CPU_INSTALL_FAILED/);
+assert.match(bootstrap, /stdout: tail\(install\.stdout/);
+assert.match(bootstrap, /stderr: tail\(install\.stderr/);
 assert.match(bootstrap, /backend.*timesfm_stage_a_smoke\.py/s);
 assert.match(bootstrap, /TIMESFM_PYTHON_3_10_PLUS_REQUIRED/);
 assert.match(bootstrap, /'3\.10'/);

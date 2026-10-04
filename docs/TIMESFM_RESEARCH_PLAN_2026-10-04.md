@@ -90,7 +90,7 @@ Implementar Stage A y congelar antes de abrir outcomes el universo/muestra, inpu
 
 ## Stage A — implementación congelada
 - Job canónico: `timesfm-stage-a-smoke-v1` en `ResearchValidationCenter`.
-- TimesFM package pin: `timesfm[torch]==3.0.2`.
+- TimesFM package pin: `timesfm==3.0.2`; PyTorch se instala por separado desde el índice oficial CPU para evitar descargar dependencias CUDA innecesarias en este smoke CPU-only.
 - Checkpoint: `google/timesfm-3.0-pytorch`.
 - Revisión HF: `24701cec1b1ea47232c0766e888855c9976ef62b`.
 - SHA-256 conocido de `model.safetensors`: `a7592b0a8432baee54483254e5647856911ce69e09d09a9bb65904b2d98f17da`.
@@ -107,3 +107,12 @@ Implementar Stage A y congelar antes de abrir outcomes el universo/muestra, inpu
 `RUNNER_INTEGRATION_PASS_REAL_CHECKPOINT_PENDING`.
 
 Guards/wiring/sintaxis y el runner exacto han sido auto-verificados, incluidos casos positivos y fail-closed negativos. La única comprobación pendiente es cargar el peso oficial de 1,32 GB en un runtime con egress binario; no se pide al usuario que la ejecute. No se abre Stage B ni ningún outcome antes de un PASS técnico real del checkpoint.
+
+
+## Corrección de bootstrap — 2026-10-04 12:33 CEST
+- La evidencia válida más reciente quedó en `BLOCKED_ENVIRONMENT / TIMESFM_DEPENDENCY_INSTALL_FAILED` antes de importar TimesFM o abrir mercado/outcomes.
+- Se cerró una regresión del bootstrap: un `venv` incompleto podía conservar `bin/python` pero carecer de un `pip` funcional; la existencia del ejecutable ya no se considera suficiente.
+- El bootstrap valida ahora Python **y** `python -m pip --version`; un entorno parcial se elimina y cae al target local `.research-python/timesfm3`.
+- El smoke es CPU-only: instala PyTorch desde `https://download.pytorch.org/whl/cpu` y TimesFM base `3.0.2` por separado.
+- Todo fallo de instalación conserva ahora `stdout`, `stderr`, código de salida, modo y Python seleccionado en la evidencia JSON.
+- No se modifica el protocolo de investigación ni producción; Stage B continúa bloqueado hasta un PASS técnico real.

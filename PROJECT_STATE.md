@@ -1685,3 +1685,13 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Limitación restante: este runtime de ChatGPT no tiene egress binario utilizable hacia PyPI/Hugging Face y no puede descargar/cargar aquí el `model.safetensors` de 1,32 GB. Hugging Face tampoco ofrece el modelo mediante Inference Providers; por tanto no se declara falsamente PASS del peso real.
 - Estado correcto: **RUNNER/INTEGRATION LOGIC PASS; REAL CHECKPOINT LOAD NOT YET EXECUTED BY CHATGPT; USER ACTION NOT REQUESTED; STAGE B BLOCKED.**
 - Producción continúa `LEGACY` y no se ha abierto ningún outcome de mercado.
+
+
+### TimesFM Stage A — reparación de entorno incompleto / Torch CPU 2026-10-04
+
+- Nueva evidencia válida: `BLOCKED_ENVIRONMENT / TIMESFM_DEPENDENCY_INSTALL_FAILED` en el paso `TimesFM 3.0 · bootstrap aislado + smoke`; ocurrió antes de precios, outcomes o política económica y producción siguió `LEGACY`.
+- El código anterior sólo comprobaba que existiera `.research-venv/timesfm3/.../python`. Tras un fallo de creación de `venv`, podía sobrevivir un entorno parcial con Python pero sin `pip`; esa ruta evitaba el fallback y terminaba después como un genérico `exit=1`.
+- Corrección: un `venv` sólo se reutiliza si Python es compatible **y** `python -m pip --version` funciona. Si está incompleto, se borra y se usa el fallback repo-local `.research-python/timesfm3`.
+- Para el smoke CPU-only, TimesFM queda pinneado como `timesfm==3.0.2` y PyTorch se instala por separado desde el índice oficial CPU; se evita arrastrar dependencias CUDA innecesarias.
+- Los errores de instalación ya no pierden el diagnóstico: la evidencia conserva `stdout/stderr`, exit code, modo de instalación y Python seleccionado.
+- No cambia ningún input, cutoff, checkpoint, hash, gate causal ni criterio económico de TimesFM; Stage B sigue cerrado hasta PASS técnico real.

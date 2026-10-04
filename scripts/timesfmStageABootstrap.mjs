@@ -8,6 +8,7 @@ const TARGET = path.resolve(ROOT, '.research-python', 'timesfm3');
 const REQUIREMENTS = path.resolve(ROOT, 'backend', 'requirements-timesfm.txt');
 const RUNNER = path.resolve(ROOT, 'backend', 'scripts', 'timesfm_stage_a_smoke.py');
 const EXPECTED_VERSION = '3.0.2';
+const PYTORCH_CPU_INDEX = 'https://download.pytorch.org/whl/cpu';
 const MARKER = 'TIMESFM_STAGE_A_SMOKE_RESULT';
 
 function emitBlocked(error, detail = null) {
@@ -147,18 +148,77 @@ function packageVersion(command, prefix = [], env = process.env) {
   };
 }
 
-function ensureTargetInstall(systemPython, venvFailure) {
-  const pipProbe = run(
-    systemPython.command,
-    [...systemPython.prefix, '-m', 'pip', '--version']
+function pipProbe(command, prefix = [], env = process.env) {
+  const probe = run(command, [...prefix, '-m', 'pip', '--version'], { env });
+  return {
+    status: probe.status,
+    errorCode: probe.error?.code ?? null,
+    stdout: tail(probe.stdout, 1500),
+    stderr: tail(probe.stderr, 2500)
+  };
+}
+
+function torchProbe(command, prefix = [], env = process.env) {
+  const probe = run(
+    command,
+    [...prefix, '-c', "import torch; print(getattr(torch, '__version__', 'unknown'))"],
+    { env }
   );
-  if (pipProbe.status !== 0) {
+  return {
+    status: probe.status,
+    version: probe.status === 0 ? String(probe.stdout || '').trim() : null,
+    errorCode: probe.error?.code ?? null,
+    stderr: tail(probe.stderr, 2500)
+  };
+}
+
+function installDetail(install, extra = {}) {
+  return {
+    ...extra,
+    exit: install.status,
+    errorCode: install.error?.code ?? null,
+    stdout: tail(install.stdout, 4000),
+    stderr: tail(install.stderr, 6000)
+  };
+}
+
+function installCpuTorch(command, prefix = [], env = process.env, target = null) {
+  const args = [
+    ...prefix,
+    '-m',
+    'pip',
+    'install',
+    '--disable-pip-version-check',
+    '--prefer-binary',
+    '--index-url',
+    PYTORCH_CPU_INDEX
+  ];
+  if (target) args.push('--upgrade', '--target', target);
+  args.push('torch>=2.0.0');
+  return run(command, args, { env });
+}
+
+function installTimesFmRequirements(command, prefix = [], env = process.env, target = null) {
+  const args = [
+    ...prefix,
+    '-m',
+    'pip',
+    'install',
+    '--disable-pip-version-check',
+    '--prefer-binary'
+  ];
+  if (target) args.push('--upgrade', '--target', target);
+  args.push('-r', REQUIREMENTS);
+  return run(command, args, { env });
+}
+
+function ensureTargetInstall(systemPython, venvFailure) {
+  const systemPip = pipProbe(systemPython.command, systemPython.prefix);
+  if (systemPip.status !== 0) {
     emitBlocked('TIMESFM_INSTALLER_UNAVAILABLE', {
       selectedPython: systemPython,
       venvFailure,
-      pipExit: pipProbe.status,
-      pipErrorCode: pipProbe.error?.code ?? null,
-      pipStderr: tail(pipProbe.stderr, 2500)
+      pip: systemPip
     });
     process.exit(1);
   }
@@ -167,46 +227,45 @@ function ensureTargetInstall(systemPython, venvFailure) {
 
   const targetEnv = localTargetEnv();
   let installed = packageVersion(systemPython.command, systemPython.prefix, targetEnv);
-  if (installed.version !== EXPECTED_VERSION) {
+  let torch = torchProbe(systemPython.command, systemPython.prefix, targetEnv);
+  if (installed.version !== EXPECTED_VERSION || torch.status !== 0) {
     // Never reuse a partially populated target after a failed dependency install.
     fs.rmSync(TARGET, { recursive: true, force: true });
     fs.mkdirSync(TARGET, { recursive: true });
 
-    console.log(`[TimesFM] stdlib venv unavailable; installing isolated research packages into ${path.relative(ROOT, TARGET)} ...`);
-    const install = run(
-      systemPython.command,
-      [
-        ...systemPython.prefix,
-        '-m',
-        'pip',
-        'install',
-        '--disable-pip-version-check',
-        '--upgrade',
-        '--target',
-        TARGET,
-        '-r',
-        REQUIREMENTS
-      ],
-      { stdio: 'inherit' }
-    );
+    console.log(`[TimesFM] stdlib venv unavailable; installing isolated CPU research packages into ${path.relative(ROOT, TARGET)} ...`);
+    const torchInstall = installCpuTorch(systemPython.command, systemPython.prefix, process.env, TARGET);
+    if (torchInstall.status !== 0) {
+      emitBlocked('TIMESFM_TARGET_TORCH_CPU_INSTALL_FAILED', installDetail(torchInstall, {
+        selectedPython: systemPython,
+        target: path.relative(ROOT, TARGET),
+        pytorchIndex: PYTORCH_CPU_INDEX,
+        venvFailure
+      }));
+      process.exit(1);
+    }
+
+    const install = installTimesFmRequirements(systemPython.command, systemPython.prefix, process.env, TARGET);
     if (install.status !== 0) {
-      emitBlocked('TIMESFM_TARGET_INSTALL_FAILED', {
-        exit: install.status,
+      emitBlocked('TIMESFM_TARGET_DEPENDENCY_INSTALL_FAILED', installDetail(install, {
         selectedPython: systemPython,
         target: path.relative(ROOT, TARGET),
         venvFailure
-      });
+      }));
       process.exit(1);
     }
     installed = packageVersion(systemPython.command, systemPython.prefix, targetEnv);
+    torch = torchProbe(systemPython.command, systemPython.prefix, targetEnv);
   }
 
-  if (installed.status !== 0 || installed.version !== EXPECTED_VERSION) {
+  if (installed.status !== 0 || installed.version !== EXPECTED_VERSION || torch.status !== 0) {
     emitBlocked('TIMESFM_VERSION_NOT_PINNED_AFTER_TARGET_INSTALL', {
       selectedPython: systemPython,
       target: path.relative(ROOT, TARGET),
       detectedVersion: installed.version,
-      stderr: installed.stderr,
+      timesfmStderr: installed.stderr,
+      torchVersion: torch.version,
+      torchStderr: torch.stderr,
       venvFailure
     });
     process.exit(1);
@@ -234,11 +293,27 @@ const venvPython = process.platform === 'win32'
   ? path.join(VENV, 'Scripts', 'python.exe')
   : path.join(VENV, 'bin', 'python');
 
+let staleVenvFailure = null;
 if (fs.existsSync(venvPython)) {
   const existingVenv = probePython(venvPython);
   if (!existingVenv.supported) {
+    staleVenvFailure = {
+      kind: 'EXISTING_VENV_PYTHON_UNSUPPORTED',
+      python: existingVenv
+    };
     console.log(`[TimesFM] Rebuilding stale isolated environment (Python ${existingVenv.version ?? 'unreadable'}).`);
     fs.rmSync(VENV, { recursive: true, force: true });
+  } else {
+    const existingPip = pipProbe(venvPython);
+    if (existingPip.status !== 0) {
+      staleVenvFailure = {
+        kind: 'EXISTING_VENV_PIP_UNAVAILABLE',
+        python: existingVenv,
+        pip: existingPip
+      };
+      console.log('[TimesFM] Removing incomplete isolated environment: Python exists but pip is unavailable.');
+      fs.rmSync(VENV, { recursive: true, force: true });
+    }
   }
 }
 
@@ -250,15 +325,26 @@ let runtime = null;
 
 if (!fs.existsSync(venvPython)) {
   const created = run(systemPython.command, [...systemPython.prefix, '-m', 'venv', VENV]);
-  if (created.status !== 0 || !fs.existsSync(venvPython)) {
+  const createdPip = created.status === 0 && fs.existsSync(venvPython)
+    ? pipProbe(venvPython)
+    : null;
+  if (
+    created.status !== 0 ||
+    !fs.existsSync(venvPython) ||
+    !createdPip ||
+    createdPip.status !== 0
+  ) {
     const venvFailure = {
+      kind: created.status !== 0 ? 'VENV_CREATE_FAILED' : 'VENV_CREATED_WITHOUT_WORKING_PIP',
       exit: created.status,
       errorCode: created.error?.code ?? null,
       stdout: tail(created.stdout, 2500),
-      stderr: tail(created.stderr, 4000)
+      stderr: tail(created.stderr, 4000),
+      pip: createdPip,
+      previousPartialVenv: staleVenvFailure
     };
     fs.rmSync(VENV, { recursive: true, force: true });
-    console.log('[TimesFM] stdlib venv creation failed; trying repo-local pip target fallback.');
+    console.log('[TimesFM] stdlib venv is unavailable/incomplete; trying repo-local pip target fallback.');
     runtime = ensureTargetInstall(systemPython, venvFailure);
   }
 }
@@ -271,22 +357,38 @@ if (!runtime) {
   }
 
   const installed = packageVersion(venvPython);
-  if (installed.version !== EXPECTED_VERSION) {
-    console.log(`[TimesFM] Installing isolated research environment from ${path.relative(ROOT, REQUIREMENTS)} ...`);
-    const install = run(
-      venvPython,
-      ['-m', 'pip', 'install', '--disable-pip-version-check', '-r', REQUIREMENTS],
-      { stdio: 'inherit' }
-    );
+  const installedTorch = torchProbe(venvPython);
+  if (installed.version !== EXPECTED_VERSION || installedTorch.status !== 0) {
+    console.log(`[TimesFM] Installing isolated CPU research environment from ${path.relative(ROOT, REQUIREMENTS)} ...`);
+    const torchInstall = installCpuTorch(venvPython);
+    if (torchInstall.status !== 0) {
+      emitBlocked('TIMESFM_TORCH_CPU_INSTALL_FAILED', installDetail(torchInstall, {
+        selectedPython: systemPython,
+        installMode: 'venv',
+        pytorchIndex: PYTORCH_CPU_INDEX
+      }));
+      process.exit(1);
+    }
+
+    const install = installTimesFmRequirements(venvPython);
     if (install.status !== 0) {
-      emitBlocked('TIMESFM_DEPENDENCY_INSTALL_FAILED', `exit=${install.status}`);
+      emitBlocked('TIMESFM_DEPENDENCY_INSTALL_FAILED', installDetail(install, {
+        selectedPython: systemPython,
+        installMode: 'venv'
+      }));
       process.exit(1);
     }
   }
 
   const finalVersion = packageVersion(venvPython);
-  if (finalVersion.status !== 0 || finalVersion.version !== EXPECTED_VERSION) {
-    emitBlocked('TIMESFM_VERSION_NOT_PINNED_AFTER_INSTALL', finalVersion.stderr);
+  const finalTorch = torchProbe(venvPython);
+  if (finalVersion.status !== 0 || finalVersion.version !== EXPECTED_VERSION || finalTorch.status !== 0) {
+    emitBlocked('TIMESFM_VERSION_NOT_PINNED_AFTER_INSTALL', {
+      detectedVersion: finalVersion.version,
+      timesfmStderr: finalVersion.stderr,
+      torchVersion: finalTorch.version,
+      torchStderr: finalTorch.stderr
+    });
     process.exit(1);
   }
 

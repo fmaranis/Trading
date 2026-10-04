@@ -1,5 +1,5 @@
 # TimesFM 3.0 research-only environment.
-# Isolated from backend/requirements.txt so the production/vectorbt backend is not burdened
-# with a 1.32 GB model dependency unless this research job is explicitly executed.
-timesfm[torch]==3.0.2
+# Isolated from backend/requirements.txt so production/vectorbt is not burdened by this research job.
+# PyTorch is installed separately by scripts/timesfmStageABootstrap.mjs from the official CPU wheel index.
+timesfm==3.0.2
 numpy>=1.26.4,<3.0.0
