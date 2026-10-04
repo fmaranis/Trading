@@ -1648,3 +1648,14 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 
 - Verificación de cierre en ChatGPT sobre HEAD: sintaxis Python PASS, sintaxis bootstrap Node PASS, wiring estático PASS, exactamente 1 línea CURRENT, TimesFM CURRENT, PEAD R3 PARKED, orden guards -> TypeScript -> bootstrap correcto, cero referencias del runner a proveedores de mercado o motores productivos, verificación SHA del checkpoint presente.
 - El smoke de inferencia del modelo queda `NOT_RUN` en este entorno de ChatGPT porque no tiene resolución de red hacia GitHub/Hugging Face para descargar el checkpoint de ~1,32 GB. No se simula ni se declara PASS sin haberlo ejecutado. El job queda listo para ejecución en el backend local de la app.
+
+
+### TimesFM Stage A — corrección de descarga de evidencia 2026-10-04
+
+- El artefacto descargado por el usuario con nombre `timesfm-stage-a-smoke-*.json` no era evidencia del runner: contenía HTML de la pasarela de autenticación/cookies de Google AI Studio.
+- El runner TimesFM no usa AI Studio: continúa ejecutándose en el backend local con `timesfm[torch]==3.0.2` y el checkpoint oficial Hugging Face pinneado.
+- Causa aislada: el botón `Evidencia JSON` navegaba directamente a `/api/alerts/research-validation/jobs/:id/result.json`; una capa de autenticación del host podía sustituir esa navegación por HTML y el navegador conservar el nombre `.json`.
+- Corrección: la evidencia se descarga ahora como `Blob(application/json)` construido exclusivamente desde `job.result`, que ya fue recibido y parseado por la API de estado. Se elimina la navegación HTTP adicional para este botón.
+- Guard de regresión añadido a `tests/timesfmStageAContract.unit.mjs`: exige el downloader local y prohíbe volver al `href` directo de `result.json`.
+- El HTML recibido no se interpreta como FAIL de TimesFM y no abre outcomes. Stage A sigue research-only; producción continúa `LEGACY`.
+- La inferencia real debe considerarse no verificada por ese artefacto HTML; el siguiente resultado válido debe ser el objeto `TIMESFM_STAGE_A_SMOKE_V1` mostrado por la propia app y su evidencia JSON generada desde memoria.
