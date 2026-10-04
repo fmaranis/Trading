@@ -2,10 +2,32 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import importlib.util
 import platform
+import subprocess
+import sys
 import threading
 from datetime import datetime, timezone
 from typing import Any
+
+def _ensure_timesfm_runtime() -> None:
+    if importlib.util.find_spec("timesfm3") is not None:
+        return
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--disable-pip-version-check",
+            "--no-cache-dir",
+            "timesfm==3.0.2",
+            "numpy>=1.26.4,<3.0.0",
+        ]
+    )
+
+
+_ensure_timesfm_runtime()
 
 import gradio as gr
 import numpy as np
