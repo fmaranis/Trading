@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 
 const token = 'test-token';
@@ -47,12 +47,11 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const address = server.address();
 assert.ok(address && typeof address === 'object');
 
-const run = spawnSync(
+const child = spawn(
   process.execPath,
   [path.resolve(process.cwd(), 'scripts/timesfmStageARemoteClient.mjs')],
   {
     cwd: process.cwd(),
-    encoding: 'utf8',
     env: {
       ...process.env,
       TIMESFM_RUNNER_URL: `http://127.0.0.1:${address.port}`,
@@ -62,12 +61,17 @@ const run = spawnSync(
     }
   }
 );
-server.close();
+let stdout = '';
+let stderr = '';
+child.stdout.on('data', chunk => { stdout += String(chunk); });
+child.stderr.on('data', chunk => { stderr += String(chunk); });
+const exitCode = await new Promise(resolve => child.on('close', code => resolve(code)));
+await new Promise(resolve => server.close(resolve));
 
-assert.equal(run.status, 0, run.stderr || run.stdout);
-assert.match(run.stdout, /runner accepted job: RUNNING/);
-assert.match(run.stdout, /downloading checkpoint/);
-assert.match(run.stdout, /inference complete/);
-assert.match(run.stdout, /TIMESFM_STAGE_A_SMOKE_RESULT/);
-assert.match(run.stdout, /PASS_STAGE_A_TECHNICAL_SMOKE/);
+assert.equal(exitCode, 0, stderr || stdout);
+assert.match(stdout, /runner accepted job: RUNNING/);
+assert.match(stdout, /downloading checkpoint/);
+assert.match(stdout, /inference complete/);
+assert.match(stdout, /TIMESFM_STAGE_A_SMOKE_RESULT/);
+assert.match(stdout, /PASS_STAGE_A_TECHNICAL_SMOKE/);
 console.log('timesfmRemoteClient.unit: PASS');
