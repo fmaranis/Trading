@@ -1752,3 +1752,12 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Para habilitar el job faltan únicamente el despliegue externo de `runner/timesfm/Dockerfile` y configurar `TIMESFM_RUNNER_URL` + `TIMESFM_RUNNER_TOKEN`.
 
 - Deployment Railway documentado en `runner/timesfm/RAILWAY.md`; requiere servicio persistente, dominio HTTPS, volumen `/data` y token server-side compartido con la app.
+
+
+### Regla permanente de infraestructura · 0 EUR
+
+- El proyecto no debe contratar, activar ni recomendar como requisito operativo ninguna infraestructura que pueda generar coste al usuario.
+- Prohibidos sin excepción: upgrades de plan, hardware de pago, créditos de pago, billing por uso y servicios que puedan facturar automáticamente.
+- Antes de crear recursos externos debe comprobarse que la opción es realmente gratuita y que no puede escalar a coste por exceder cuota.
+- Railway quedó descartado para TimesFM: el workspace gratuito limita el servicio a 1 GB RAM, insuficiente para TimesFM 3.0. El servicio creado durante la prueba fue eliminado inmediatamente; el proyecto Railway queda vacío, sin servicios ni volúmenes.
+- Candidato gratuito preferente para TimesFM: Hugging Face ZeroGPU, siempre que la cuenta personal cumpla los requisitos gratuitos vigentes (email verificado, antigüedad >30 días y máximo 2 ZeroGPU Spaces). No se usará hardware de pago.
