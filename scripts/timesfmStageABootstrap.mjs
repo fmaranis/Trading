@@ -71,13 +71,13 @@ function probePython(command, prefix = []) {
     '  "minor": sys.version_info[1],',
     '  "version": sys.version.split()[0]',
     '}))'
-  ].join('\\n');
+  ].join('\n');
   const probe = run(command, [...prefix, '-c', code]);
   const stdout = String(probe.stdout || '').trim();
   let info = null;
   if (probe.status === 0 && stdout) {
     try {
-      info = JSON.parse(stdout.split(/\\r?\\n/).at(-1));
+      info = JSON.parse(stdout.split(/\r?\n/).at(-1));
     } catch {
       info = null;
     }
