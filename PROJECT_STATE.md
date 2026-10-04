@@ -1695,3 +1695,12 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Para el smoke CPU-only, TimesFM queda pinneado como `timesfm==3.0.2` y PyTorch se instala por separado desde el índice oficial CPU; se evita arrastrar dependencias CUDA innecesarias.
 - Los errores de instalación ya no pierden el diagnóstico: la evidencia conserva `stdout/stderr`, exit code, modo de instalación y Python seleccionado.
 - No cambia ningún input, cutoff, checkpoint, hash, gate causal ni criterio económico de TimesFM; Stage B sigue cerrado hasta PASS técnico real.
+
+
+### TimesFM Stage A — corrección definitiva del guard de instaladores 2026-10-04
+
+- Dos ejecuciones consecutivas del job fallaron en `Guard contrato TimesFM Stage A` por aserciones estáticas mal escritas por ChatGPT, no por TimesFM ni por el bootstrap.
+- Primer fallo: el guard exigía literalmente `pip', 'install'` aunque el refactor separó ambos tokens en líneas distintas.
+- Segundo fallo: la regex sustitutiva quedó doblemente escapada y buscaba barras invertidas literales.
+- Corrección definitiva: se elimina la regex para este contrato. El test extrae los cuerpos de `installCpuTorch()` e `installTimesFmRequirements()` y comprueba directamente existencia y orden de los tokens `'pip'` -> `'install'`.
+- Verificación posterior: se ejecutó la fuente real de `tests/timesfmStageAContract.unit.mjs` contra los contenidos actuales de los seis archivos que lee; resultado `timesfmStageAContract.unit: PASS`.
