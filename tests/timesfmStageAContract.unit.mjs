@@ -35,15 +35,28 @@ assert.doesNotMatch(runner, /Yahoo|EODHD|SEC_EDGAR|PortfolioDecisionEngine|Portf
 
 assert.match(bootstrap, /\.research-venv/);
 assert.match(bootstrap, /backend.*requirements-timesfm\.txt/s);
-assert.match(
-  bootstrap,
-  /function installCpuTorch[\\s\\S]*?'pip',\\s*'install'/,
-  'CPU Torch installer must execute pip install'
+function functionBlock(source, name, nextName) {
+  const blockStart = source.indexOf(`function ${name}(`);
+  assert.ok(blockStart >= 0, `${name} must exist`);
+  const blockEnd = source.indexOf(`function ${nextName}(`, blockStart);
+  assert.ok(blockEnd > blockStart, `${name} block must end before ${nextName}`);
+  return source.slice(blockStart, blockEnd);
+}
+
+const cpuInstallerBlock = functionBlock(bootstrap, 'installCpuTorch', 'installTimesFmRequirements');
+assert.ok(cpuInstallerBlock.includes("'pip'"), 'CPU Torch installer must invoke pip');
+assert.ok(cpuInstallerBlock.includes("'install'"), 'CPU Torch installer must invoke install');
+assert.ok(
+  cpuInstallerBlock.indexOf("'pip'") < cpuInstallerBlock.indexOf("'install'"),
+  'CPU Torch installer must order pip before install'
 );
-assert.match(
-  bootstrap,
-  /function installTimesFmRequirements[\\s\\S]*?'pip',\\s*'install'/,
-  'TimesFM installer must execute pip install'
+
+const timesFmInstallerBlock = functionBlock(bootstrap, 'installTimesFmRequirements', 'ensureTargetInstall');
+assert.ok(timesFmInstallerBlock.includes("'pip'"), 'TimesFM installer must invoke pip');
+assert.ok(timesFmInstallerBlock.includes("'install'"), 'TimesFM installer must invoke install');
+assert.ok(
+  timesFmInstallerBlock.indexOf("'pip'") < timesFmInstallerBlock.indexOf("'install'"),
+  'TimesFM installer must order pip before install'
 );
 assert.match(bootstrap, /download\.pytorch\.org\/whl\/cpu/);
 assert.match(bootstrap, /EXISTING_VENV_PIP_UNAVAILABLE/);
