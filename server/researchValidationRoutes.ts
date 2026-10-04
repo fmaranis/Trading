@@ -563,7 +563,7 @@ researchValidationRouter.get('/jobs', async (_req: Request, res: Response): Prom
   const history = JOBS.filter(job => job.visibility === 'ARCHIVED').map(job => ({ id: job.id, label: job.historyLabel ?? job.name }));
   res.json({
     aiTokensUsed: false,
-    execution: 'LOCAL_APP_BACKEND',
+    execution: 'MIXED_LOCAL_AND_REMOTE',
     prerequisites: {
       githubReplaySyncConfigured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()),
       eodhdConfigured: Boolean(process.env.EODHD_API_KEY?.trim()),
