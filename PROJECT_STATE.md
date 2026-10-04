@@ -1761,3 +1761,16 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Antes de crear recursos externos debe comprobarse que la opción es realmente gratuita y que no puede escalar a coste por exceder cuota.
 - Railway quedó descartado para TimesFM: el workspace gratuito limita el servicio a 1 GB RAM, insuficiente para TimesFM 3.0. El servicio creado durante la prueba fue eliminado inmediatamente; el proyecto Railway queda vacío, sin servicios ni volúmenes.
 - Candidato gratuito preferente para TimesFM: Hugging Face ZeroGPU, siempre que la cuenta personal cumpla los requisitos gratuitos vigentes (email verificado, antigüedad >30 días y máximo 2 ZeroGPU Spaces). No se usará hardware de pago.
+
+
+### TimesFM Stage A — Hugging Face ZeroGPU · 0 EUR
+
+- Railway descartado y su servicio eliminado; no quedan servicios/volúmenes activos.
+- Cuenta Hugging Face conectada: `fmaranis`, personal free/no PRO. El conector OAuth disponible en ChatGPT expone `read-repos` pero no write-repos; puede inspeccionar el Space pero no crearlo/subir archivos directamente.
+- Runner canónico migrado a Gradio ZeroGPU bajo `runner/timesfm/hf-space/`; se retira el Docker runner/Railway anterior.
+- Target canónico: `fmaranis/timesfm-stage-a` -> `https://fmaranis-timesfm-stage-a.hf.space`.
+- ZeroGPU usa `torch==2.8.0`, Python 3.12.12, `@spaces.GPU(duration=110)` y `device="cuda"`.
+- La app no envía token HF: usa la cuota anónima gratuita y no puede consumir créditos pagados. La función GPU está limitada a 110 s.
+- El protocolo técnico conserva checkpoint/revisión/SHA256, fixture SYNTHETIC, corte causal, dos inferencias, cuantiles, repetibilidad y producción `LEGACY`.
+- La integración sigue dentro del mismo `ResearchValidationCenter`; no se crea motor paralelo. El backend habla con los endpoints Gradio `status` y `run_stage_a`.
+- Requisito externo pendiente: crear el Space Gradio gratuito y seleccionar hardware ZeroGPU. No aceptar CPU/GPU de pago, PRO ni créditos.
