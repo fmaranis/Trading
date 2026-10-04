@@ -258,7 +258,6 @@ const JOBS: JobDefinition[] = [
     'PEAD_EARNINGS_SOURCE_AUDIT_R2_RESULT'
   ),
   {
-  {
     id: 'timesfm-stage-a-smoke-v1',
     name: 'TimesFM 3.0 · Stage A · smoke causal',
     description: 'Smoke técnico research-only delegado a un runner TimesFM separado y persistente. La app sólo ejecuta guards rápidos y consulta el estado remoto; fixture SYNTHETIC, sin precios/outcomes/recomendaciones y producción LEGACY.',
