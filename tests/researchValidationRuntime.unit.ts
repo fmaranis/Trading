@@ -62,6 +62,8 @@ assert.match(timesfmBlock, /tests\/timesfmStageAContract\.unit\.mjs/);
 assert.match(timesfmBlock, /scripts\/timesfmStageARemoteClient\.mjs/);
 assert.doesNotMatch(timesfmBlock, /timesfmStageABootstrap\.mjs/);
 assert.match(timesfmRemote, /fetchTimesFmRemoteState/);
+assert.match(timesfmRemote, /DEFAULT_TIMESFM_ZERO_GPU_URL/);
+assert.doesNotMatch(timesfmRemote, /TIMESFM_RUNNER_TOKEN/);
 assert.match(timesfmBlock, /TIMESFM_STAGE_A_SMOKE_RESULT/);
 assert.match(routes, /state\.result = extractJsonAfterMarker\(stepRun\.output, job\.marker\)/);
 assert.match(routes, /saveDurableJobState/);
