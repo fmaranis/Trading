@@ -9,6 +9,7 @@ const requirements = read('backend/requirements-timesfm.txt');
 const runner = read('backend/scripts/timesfm_stage_a_smoke.py');
 const routes = read('server/researchValidationRoutes.ts');
 const ui = read('src/components/ResearchValidationCenter.tsx');
+const zeroGpu = read('runner/timesfm/hf-space/app.py');
 
 assert.match(requirements, /timesfm==3\.0\.2/);
 assert.match(runner, /TIMESFM_STAGE_A_SMOKE_V1/);
@@ -30,6 +31,10 @@ assert.match(runner, /full_with_future\[:, :information_cutoff\]/);
 assert.match(runner, /use_symmetric_averaging=False/);
 assert.match(runner, /sort_quantiles=True/);
 assert.doesNotMatch(runner, /Yahoo|EODHD|SEC_EDGAR|PortfolioDecisionEngine|PortfolioCandidateGate/);
+assert.match(zeroGpu, /TIMESFM_STAGE_A_SMOKE_V1/);
+assert.match(zeroGpu, /full_with_future\\\[:, :information_cutoff\\\]/);
+assert.match(zeroGpu, /productionDefault\": \"LEGACY\"/);
+assert.match(zeroGpu, /@spaces\\.GPU/);
 
 assert.match(ui, /function downloadJobEvidence\(job: ValidationJob\)/);
 assert.match(ui, /result\.json/);
