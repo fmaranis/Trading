@@ -204,6 +204,39 @@ function blockedMessage(reason: string | null | undefined): string | null {
   return reason || null;
 }
 
+function evidenceFilePart(value: string): string {
+  return value.replace(/[:.]/g, '-').replace(/[^0-9A-Za-zTZ_-]/g, '_').slice(0, 120) || 'result';
+}
+
+function downloadJobEvidence(job: ValidationJob): void {
+  if (job.result == null) throw new Error('VALIDATION_RESULT_NOT_AVAILABLE');
+  const stamp = evidenceFilePart(job.finishedAt || new Date().toISOString());
+  const filename = `${evidenceFilePart(job.id)}-${stamp}.json`;
+  const payload = {
+    jobId: job.id,
+    jobName: job.name,
+    status: job.status,
+    startedAt: job.startedAt,
+    finishedAt: job.finishedAt,
+    exitCode: job.exitCode,
+    error: job.error,
+    result: job.result
+  };
+  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export const ResearchValidationCenter: React.FC = () => {
   const [jobs, setJobs] = useState<ValidationJob[]>([]);
   const [history, setHistory] = useState<ValidationHistoryItem[]>([]);
@@ -317,7 +350,7 @@ export const ResearchValidationCenter: React.FC = () => {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Activity className="h-4 w-4 text-violet-300"/><b className="text-sm text-white">{job.name}</b><span className={`rounded-full border px-2 py-0.5 text-[8px] font-black ${badge(job.status)}`}>{job.status}</span></div><p className="mt-1 text-[10px] text-slate-500">{job.description}</p>{job.currentStep && <div className="mt-2 text-[10px] text-cyan-200">Ejecutando: {job.currentStep}</div>}{blocked && <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2 text-[10px] text-amber-200">{blocked}</div>}</div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-              {job.result != null && <a href={`${BASE}/jobs/${encodeURIComponent(job.id)}/result.json`} className="touch-target flex w-full items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-[11px] font-black text-cyan-100 sm:w-auto"><Download className="mr-1 h-3.5 w-3.5"/>Evidencia JSON</a>}
+              {job.result != null && <button type="button" onClick={() => downloadJobEvidence(job)} className="touch-target flex w-full items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-[11px] font-black text-cyan-100 sm:w-auto"><Download className="mr-1 h-3.5 w-3.5"/>Evidencia JSON</button>}
               <button type="button" disabled={loading || job.status === 'RUNNING' || job.readyToRun === false} onClick={() => void run(job.id)} className="touch-target w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[11px] font-black text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"><Play className="mr-1 inline h-3.5 w-3.5"/>{job.status === 'RUNNING' ? 'En ejecución' : job.readyToRun === false ? 'Bloqueado por preflight' : job.id === 'fundamental-quality-valuation-broad-pit-v1' ? 'Ejecutar validación PIT' : job.id === 'sector-52w-high-leadership-v1' ? 'Ejecutar diagnóstico 52W · rev. técnica 3' : job.id === 'timesfm-stage-a-smoke-v1' ? 'Ejecutar smoke TimesFM 3.0' : job.id === 'pead-yahoo-calendar-source-audit-r3' ? 'Ejecutar audit Yahoo REAL PEAD R3' : 'Comprobar / ejecutar checkpoint'}</button>
             </div>
           </div>
