@@ -35,7 +35,16 @@ assert.doesNotMatch(runner, /Yahoo|EODHD|SEC_EDGAR|PortfolioDecisionEngine|Portf
 
 assert.match(bootstrap, /\.research-venv/);
 assert.match(bootstrap, /backend.*requirements-timesfm\.txt/s);
-assert.match(bootstrap, /pip', 'install'/);
+assert.match(
+  bootstrap,
+  /function installCpuTorch[\\s\\S]*?'pip',\\s*'install'/,
+  'CPU Torch installer must execute pip install'
+);
+assert.match(
+  bootstrap,
+  /function installTimesFmRequirements[\\s\\S]*?'pip',\\s*'install'/,
+  'TimesFM installer must execute pip install'
+);
 assert.match(bootstrap, /download\.pytorch\.org\/whl\/cpu/);
 assert.match(bootstrap, /EXISTING_VENV_PIP_UNAVAILABLE/);
 assert.match(bootstrap, /VENV_CREATED_WITHOUT_WORKING_PIP/);
