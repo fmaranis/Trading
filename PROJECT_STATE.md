@@ -1750,3 +1750,5 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Contratos publicados comprobados directamente sobre `main`: checkpoint/revisión/hash congelados, ejecución offline, token obligatorio, sin shell/comandos arbitrarios, job del Centro de validación delegado y bootstrap local retirado: PASS.
 - La UI ya distingue ejecución mixta y muestra estado de `TimesFM runner`; no afirma que TimesFM se ejecute en el backend local.
 - Para habilitar el job faltan únicamente el despliegue externo de `runner/timesfm/Dockerfile` y configurar `TIMESFM_RUNNER_URL` + `TIMESFM_RUNNER_TOKEN`.
+
+- Deployment Railway documentado en `runner/timesfm/RAILWAY.md`; requiere servicio persistente, dominio HTTPS, volumen `/data` y token server-side compartido con la app.
