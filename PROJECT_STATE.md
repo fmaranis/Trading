@@ -1728,3 +1728,15 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Se añade `tests/researchValidationStatePersistence.unit.mjs` al inicio del job TimesFM. Prueba real ejecutada: `researchValidationStatePersistence.unit: PASS`.
 - La ejecución que ya había quedado en `IDLE` antes de este fix no puede reconstruirse retrospectivamente porque no existía todavía archivo durable; debe relanzarse una vez con el código nuevo.
 - El cache de Hugging Face continúa siendo reutilizable por `hf_hub_download`; archivos ya presentes en cache no se vuelven a descargar. Producción continúa `LEGACY` y Stage B sigue cerrado.
+
+
+### TimesFM Stage A — runner separado obligatorio 2026-10-04
+
+- Evidencia operativa repetida: AI Studio reinicia el contenedor mientras TimesFM descarga/carga el checkpoint; la UI muestra `Reload app` y el job reaparece `IDLE`. El proceso local, PID, `.runtime` y cache local no sobreviven a ese ciclo.
+- Decisión arquitectónica: **TimesFM deja de ejecutarse dentro del backend efímero de AI Studio**.
+- Se integra un único runner remoto dedicado, manteniendo el mismo `ResearchValidationCenter`: guards rápidos siguen en la app; el checkpoint/inferencia se delega; la UI consulta el estado remoto y puede recuperar `RUNNING/PASSED/FAILED` después de reinicios del frontend/backend.
+- Nuevo runner provider-neutral en `runner/timesfm/Dockerfile` + `runner/timesfm/server.py`. La imagen instala PyTorch CPU/TimesFM 3.0.2 y hornea el checkpoint congelado `google/timesfm-3.0-pytorch@24701cec...`, verificando SHA-256 antes de construir la imagen final. Runtime opera con Hugging Face offline.
+- Contrato HTTP fijo: `POST/GET /v1/jobs/timesfm-stage-a-smoke-v1`, autenticado por `TIMESFM_RUNNER_TOKEN`; no acepta comandos arbitrarios.
+- La app requiere `TIMESFM_RUNNER_URL` + `TIMESFM_RUNNER_TOKEN`. Sin ambos, el job falla cerrado antes de descargar o calcular.
+- Se añade cliente remoto con polling recuperable y guards `timesfmRemoteClient.unit.mjs` + `timesfmRemoteRunnerContract.unit.mjs`.
+- Producción permanece `LEGACY`; Stage A sigue siendo SYNTHETIC técnico y Stage B continúa cerrado hasta PASS.

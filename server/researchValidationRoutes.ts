@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { spawn } from 'node:child_process';
 import { loadDurableJobState, reconcileLoadedJobState, saveDurableJobState } from './researchValidationStateStore.mjs';
+import { fetchTimesFmRemoteState, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
 
 export const researchValidationRouter = express.Router();
 
@@ -18,6 +19,7 @@ interface JobDefinition {
   requiresGithubReplayToken?: boolean;
   requiresEodhdApiKey?: boolean;
   requiresSecEdgarUserAgent?: boolean;
+  requiresTimesFmRunner?: boolean;
 }
 interface JobState {
   status: JobStatus;
@@ -256,19 +258,21 @@ const JOBS: JobDefinition[] = [
     'PEAD_EARNINGS_SOURCE_AUDIT_R2_RESULT'
   ),
   {
+  {
     id: 'timesfm-stage-a-smoke-v1',
     name: 'TimesFM 3.0 · Stage A · smoke causal',
-    description: 'Smoke técnico research-only del checkpoint oficial TimesFM 3.0. Usa únicamente un fixture SYNTHETIC determinista para verificar instalación aislada, inferencia multivariante, cuantiles, repetibilidad y corte causal en informationDate. No descarga precios, no abre outcomes económicos, no emite recomendaciones y producción permanece LEGACY.',
+    description: 'Smoke técnico research-only delegado a un runner TimesFM separado y persistente. La app sólo ejecuta guards rápidos y consulta el estado remoto; fixture SYNTHETIC, sin precios/outcomes/recomendaciones y producción LEGACY.',
     marker: 'TIMESFM_STAGE_A_SMOKE_RESULT',
     visibility: 'CURRENT',
+    requiresTimesFmRunner: true,
     steps: [
-      { label: 'Guard estado durable validación', command: 'node', args: ['tests/researchValidationStatePersistence.unit.mjs'] },
-      { label: 'Guard bootstrap pip local TimesFM', command: 'node', args: ['tests/timesfmPipBootstrap.unit.mjs'] },
+      { label: 'Guard cliente runner remoto TimesFM', command: 'node', args: ['tests/timesfmRemoteClient.unit.mjs'] },
+      { label: 'Guard contrato runner remoto TimesFM', command: 'node', args: ['tests/timesfmRemoteRunnerContract.unit.mjs'] },
       { label: 'Guard contrato TimesFM Stage A', command: 'node', args: ['tests/timesfmStageAContract.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
-      { label: 'TimesFM 3.0 · bootstrap aislado + smoke', command: 'node', args: ['scripts/timesfmStageABootstrap.mjs'] }
+      { label: 'Runner remoto TimesFM 3.0 · checkpoint + smoke', command: 'node', args: ['scripts/timesfmStageARemoteClient.mjs'] }
     ]
   },
   {
@@ -448,6 +452,7 @@ function prerequisiteError(job: JobDefinition): string | null {
   }
   if (job.requiresEodhdApiKey && !process.env.EODHD_API_KEY?.trim()) return 'EODHD_API_KEY_REQUIRED';
   if (job.requiresSecEdgarUserAgent && !process.env.SEC_EDGAR_USER_AGENT?.trim()) return 'SEC_EDGAR_USER_AGENT_REQUIRED';
+  if (job.requiresTimesFmRunner && !timesFmRemoteRunnerConfigured()) return 'TIMESFM_REMOTE_RUNNER_REQUIRED';
   return null;
 }
 
@@ -457,6 +462,9 @@ function prerequisiteDetail(reason: string): string {
   }
   if (reason === 'SEC_EDGAR_USER_AGENT_REQUIRED') {
     return 'Falta SEC_EDGAR_USER_AGENT en el backend local. No se han lanzado guards, descargas ni cálculos.';
+  }
+  if (reason === 'TIMESFM_REMOTE_RUNNER_REQUIRED') {
+    return 'TimesFM requiere el runner separado. Configura TIMESFM_RUNNER_URL y TIMESFM_RUNNER_TOKEN; AI Studio ya no ejecuta ni descarga el modelo localmente.';
   }
   return 'Falta GITHUB_REPLAY_SYNC_TOKEN en el backend local. No se han lanzado guards ni cálculos.';
 }
@@ -504,15 +512,46 @@ async function runJob(job: JobDefinition): Promise<void> {
   }
 }
 
-function publicJob(job: JobDefinition) {
+async function publicJob(job: JobDefinition) {
   const blockedReason = prerequisiteError(job);
+  const local = stateFor(job.id);
+  let resolved: JobState = local;
+  let runnerReachable: boolean | null = null;
+  let runnerError: string | null = null;
+
+  if (job.id === TIMESFM_REMOTE_JOB_ID && timesFmRemoteRunnerConfigured()) {
+    try {
+      const remote = await fetchTimesFmRemoteState();
+      runnerReachable = true;
+      if (remote && !(remote.status === 'IDLE' && local.status === 'RUNNING')) {
+        resolved = {
+          status: remote.status,
+          startedAt: remote.startedAt,
+          finishedAt: remote.finishedAt,
+          currentStep: remote.currentStep,
+          processId: null,
+          exitCode: remote.exitCode,
+          output: remote.output,
+          result: remote.result,
+          error: remote.error
+        };
+      }
+    } catch (error: any) {
+      runnerReachable = false;
+      runnerError = error?.message || String(error);
+    }
+  }
+
   return {
     id: job.id,
     name: job.name,
     description: job.description,
     readyToRun: blockedReason == null,
     blockedReason,
-    ...stateFor(job.id)
+    execution: job.id === TIMESFM_REMOTE_JOB_ID ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND',
+    runnerReachable,
+    runnerError,
+    ...resolved
   };
 }
 
@@ -520,8 +559,8 @@ function safeFilePart(value: string): string {
   return value.replace(/[:.]/g, '-').replace(/[^0-9A-Za-zTZ_-]/g, '_').slice(0, 120) || 'result';
 }
 
-researchValidationRouter.get('/jobs', (_req: Request, res: Response) => {
-  const currentJobs = JOBS.filter(job => job.visibility === 'CURRENT').map(publicJob);
+researchValidationRouter.get('/jobs', async (_req: Request, res: Response): Promise<void> => {
+  const currentJobs = await Promise.all(JOBS.filter(job => job.visibility === 'CURRENT').map(publicJob));
   const history = JOBS.filter(job => job.visibility === 'ARCHIVED').map(job => ({ id: job.id, label: job.historyLabel ?? job.name }));
   res.json({
     aiTokensUsed: false,
@@ -529,17 +568,18 @@ researchValidationRouter.get('/jobs', (_req: Request, res: Response) => {
     prerequisites: {
       githubReplaySyncConfigured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()),
       eodhdConfigured: Boolean(process.env.EODHD_API_KEY?.trim()),
-      secEdgarUserAgentConfigured: Boolean(process.env.SEC_EDGAR_USER_AGENT?.trim())
+      secEdgarUserAgentConfigured: Boolean(process.env.SEC_EDGAR_USER_AGENT?.trim()),
+      timesFmRemoteRunnerConfigured: timesFmRemoteRunnerConfigured()
     },
     jobs: currentJobs,
     history
   });
 });
 
-researchValidationRouter.get('/jobs/:id/result.json', (req: Request, res: Response) => {
+researchValidationRouter.get('/jobs/:id/result.json', async (req: Request, res: Response): Promise<void> => {
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
-  const state = stateFor(job.id);
+  const state = job.id === TIMESFM_REMOTE_JOB_ID ? await publicJob(job) : stateFor(job.id);
   if (state.result == null) { res.status(404).json({ error: 'VALIDATION_RESULT_NOT_AVAILABLE' }); return; }
   const stamp = safeFilePart(state.finishedAt || new Date().toISOString());
   const filename = `${safeFilePart(job.id)}-${stamp}.json`;
@@ -557,31 +597,32 @@ researchValidationRouter.get('/jobs/:id/result.json', (req: Request, res: Respon
   });
 });
 
-researchValidationRouter.get('/jobs/:id', (req: Request, res: Response) => {
+researchValidationRouter.get('/jobs/:id', async (req: Request, res: Response): Promise<void> => {
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
-  res.json({ aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', archived: job.visibility === 'ARCHIVED', job: publicJob(job) });
+  const publicState = await publicJob(job);
+  res.json({ aiTokensUsed: false, execution: publicState.execution, archived: job.visibility === 'ARCHIVED', job: publicState });
 });
 
-researchValidationRouter.post('/jobs/:id/run', (req: Request, res: Response) => {
+researchValidationRouter.post('/jobs/:id/run', async (req: Request, res: Response): Promise<void> => {
   if (process.env.NODE_ENV === 'production') {
     res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY', execution: 'LOCAL_APP_BACKEND' });
     return;
   }
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
-  if (job.visibility === 'ARCHIVED') { res.status(409).json({ error: 'VALIDATION_ARCHIVED_READ_ONLY', job: publicJob(job) }); return; }
+  if (job.visibility === 'ARCHIVED') { res.status(409).json({ error: 'VALIDATION_ARCHIVED_READ_ONLY', job: await publicJob(job) }); return; }
   const missing = prerequisiteError(job);
   if (missing) {
     res.status(412).json({
       error: missing,
       detail: prerequisiteDetail(missing),
-      job: publicJob(job)
+      job: await publicJob(job)
     });
     return;
   }
   const state = stateFor(job.id);
-  if (state.status === 'RUNNING') { res.status(409).json({ error: 'VALIDATION_ALREADY_RUNNING', job: publicJob(job) }); return; }
+  if (state.status === 'RUNNING') { res.status(409).json({ error: 'VALIDATION_ALREADY_RUNNING', job: await publicJob(job) }); return; }
   void runJob(job);
-  res.status(202).json({ ok: true, aiTokensUsed: false, execution: 'LOCAL_APP_BACKEND', job: publicJob(job) });
+  res.status(202).json({ ok: true, aiTokensUsed: false, execution: job.id === TIMESFM_REMOTE_JOB_ID ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND', job: await publicJob(job) });
 });
