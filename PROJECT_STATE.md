@@ -1740,3 +1740,13 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - La app requiere `TIMESFM_RUNNER_URL` + `TIMESFM_RUNNER_TOKEN`. Sin ambos, el job falla cerrado antes de descargar o calcular.
 - Se añade cliente remoto con polling recuperable y guards `timesfmRemoteClient.unit.mjs` + `timesfmRemoteRunnerContract.unit.mjs`.
 - Producción permanece `LEGACY`; Stage A sigue siendo SYNTHETIC técnico y Stage B continúa cerrado hasta PASS.
+
+
+#### Verificación del runner separado
+
+- Cliente remoto probado contra servidor HTTP mock real: `timesfmRemoteClient.unit: PASS`; cubre POST -> RUNNING, polling GET, streaming incremental y PASS final.
+- Servidor Python del runner: `python -m py_compile runner/timesfm/server.py` PASS.
+- Protocolo del runner probado con smoke Python controlado: `/healthz` 200, acceso sin token 401, POST autenticado 202/RUNNING y GET final PASSED con resultado `PASS_STAGE_A_TECHNICAL_SMOKE`.
+- Contratos publicados comprobados directamente sobre `main`: checkpoint/revisión/hash congelados, ejecución offline, token obligatorio, sin shell/comandos arbitrarios, job del Centro de validación delegado y bootstrap local retirado: PASS.
+- La UI ya distingue ejecución mixta y muestra estado de `TimesFM runner`; no afirma que TimesFM se ejecute en el backend local.
+- Para habilitar el job faltan únicamente el despliegue externo de `runner/timesfm/Dockerfile` y configurar `TIMESFM_RUNNER_URL` + `TIMESFM_RUNNER_TOKEN`.
