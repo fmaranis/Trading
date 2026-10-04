@@ -260,7 +260,7 @@ const JOBS: JobDefinition[] = [
   {
     id: 'timesfm-stage-a-smoke-v1',
     name: 'TimesFM 3.0 · Stage A · smoke causal',
-    description: 'Smoke técnico research-only delegado a un runner TimesFM separado y persistente. La app sólo ejecuta guards rápidos y consulta el estado remoto; fixture SYNTHETIC, sin precios/outcomes/recomendaciones y producción LEGACY.',
+    description: 'Smoke técnico research-only delegado a Hugging Face ZeroGPU gratuito. La app sólo ejecuta guards rápidos y consulta el estado remoto; fixture SYNTHETIC, sin precios/outcomes/recomendaciones, sin billing y producción LEGACY.',
     marker: 'TIMESFM_STAGE_A_SMOKE_RESULT',
     visibility: 'CURRENT',
     requiresTimesFmRunner: true,
@@ -463,7 +463,7 @@ function prerequisiteDetail(reason: string): string {
     return 'Falta SEC_EDGAR_USER_AGENT en el backend local. No se han lanzado guards, descargas ni cálculos.';
   }
   if (reason === 'TIMESFM_REMOTE_RUNNER_REQUIRED') {
-    return 'TimesFM requiere el runner separado. Configura TIMESFM_RUNNER_URL y TIMESFM_RUNNER_TOKEN; AI Studio ya no ejecuta ni descarga el modelo localmente.';
+    return 'TimesFM requiere el Space gratuito Hugging Face ZeroGPU. AI Studio ya no ejecuta ni descarga el modelo localmente.';
   }
   return 'Falta GITHUB_REPLAY_SYNC_TOKEN en el backend local. No se han lanzado guards ni cálculos.';
 }
