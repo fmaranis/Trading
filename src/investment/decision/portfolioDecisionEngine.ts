@@ -20,7 +20,7 @@ export type PortfolioPositionAction =
   | 'REVIEW_TRANSFER'
   | 'DATA_MISSING';
 
-export type OpportunityAllocationPolicy = 'LEGACY' | 'QUALITY_ALLOCATION_BRIDGE_V1';
+export type OpportunityAllocationPolicy = 'LEGACY' | 'QUALITY_ALLOCATION_BRIDGE_V1' | 'TIMESFM_ALLOCATION_BRIDGE_V1';
 
 export interface PortfolioExposureLine {
   category: AssetUniverseCategory;
@@ -557,7 +557,13 @@ export class PortfolioDecisionEngine {
         .filter((alert, index, all) => all.findIndex(other => other.assetId === alert.assetId) === index)
         .sort((a, b) => {
           const rotationDelta = Number(rotationChallengerIds.has(b.assetId)) - Number(rotationChallengerIds.has(a.assetId));
-          return rotationDelta || b.rankingScore - a.rankingScore;
+          if (rotationDelta) return rotationDelta;
+          if (opportunityAllocationPolicy === 'TIMESFM_ALLOCATION_BRIDGE_V1') {
+            const aRank = a.timesFmRelativeRankPosition ?? Number.POSITIVE_INFINITY;
+            const bRank = b.timesFmRelativeRankPosition ?? Number.POSITIVE_INFINITY;
+            return aRank - bRank || b.rankingScore - a.rankingScore || a.assetId.localeCompare(b.assetId);
+          }
+          return b.rankingScore - a.rankingScore;
         })
         .slice(0, Math.max(shortlistLimit, existingOpportunities.length));
       const priorities = shortlist.map(alert => ({
@@ -648,7 +654,7 @@ export class PortfolioDecisionEngine {
           suggestedInitialFraction,
           positionStage,
           portfolioShareCapPct: portfolioShareCap * 100,
-          reason: `${positionStage === 'ROTATION_ENTRY' ? 'Entrada por rotación persistente' : positionStage === 'BUILD' ? 'Construcción confirmada' : 'Starter'}: ${alert.level === 'HIGH_CONVICTION' ? 'ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'buena oportunidad' : 'entrada válida'}, consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Prioridad de asignación ${opportunityAllocationPolicy === 'QUALITY_ALLOCATION_BRIDGE_V1' ? `QUALITY ×${qualityMultiplier.toFixed(3)}` : 'LEGACY'}. Objetivo estratégico ${targetAssetValueEur.toFixed(2)} €; timing ${alert.timingState} autoriza hasta ${(suggestedInitialFraction * 100).toFixed(0)}%, pero la etapa ${positionStage} limita la posición al ${portfolioShareCap * 100}% del patrimonio (${portfolioCapValueEur.toFixed(2)} €). Ya hay ${currentAssetValueEur.toFixed(2)} €; orden pendiente ${amountEur.toFixed(2)} €.`
+          reason: `${positionStage === 'ROTATION_ENTRY' ? 'Entrada por rotación persistente' : positionStage === 'BUILD' ? 'Construcción confirmada' : 'Starter'}: ${alert.level === 'HIGH_CONVICTION' ? 'ALTA CONVICCIÓN' : alert.level === 'GOOD_ENTRY' ? 'buena oportunidad' : 'entrada válida'}, consenso ${alert.consensusScore >= 0 ? '+' : ''}${alert.consensusScore}, ${alert.favorableVotes}/5 favorables y ${alert.excessVsCashPctPoints?.toFixed(1) ?? 'N/D'} pp frente a cash. Prioridad de asignación ${opportunityAllocationPolicy === 'QUALITY_ALLOCATION_BRIDGE_V1' ? `QUALITY ×${qualityMultiplier.toFixed(3)}` : opportunityAllocationPolicy === 'TIMESFM_ALLOCATION_BRIDGE_V1' ? `TIMESFM rank #${alert.timesFmRelativeRankPosition ?? 'N/D'} · sizing LEGACY` : 'LEGACY'}. Objetivo estratégico ${targetAssetValueEur.toFixed(2)} €; timing ${alert.timingState} autoriza hasta ${(suggestedInitialFraction * 100).toFixed(0)}%, pero la etapa ${positionStage} limita la posición al ${portfolioShareCap * 100}% del patrimonio (${portfolioCapValueEur.toFixed(2)} €). Ya hay ${currentAssetValueEur.toFixed(2)} €; orden pendiente ${amountEur.toFixed(2)} €.`
         };
       });
       contributions = allocated.filter((row): row is ContributionRecommendation => row != null);
@@ -693,6 +699,7 @@ export class PortfolioDecisionEngine {
     else warnings.push('No hay oportunidades actuales que pasen el gate: no se genera ninguna compra fallback. Los pesos teóricos quedan sólo como diagnóstico.');
     if (candidateSelectionPolicy === 'TIMESFM_RELATIVE_RANK_V1') warnings.push('TIMESFM_RELATIVE_RANK_V1 research-only: TimesFM sólo reordena oportunidades que ya pasaron REAL + cash + consenso BUY + timing. El allocator, sizing, cash, caps, costes, fiscalidad y reglas de rotación permanecen sin cambios. La producción sigue LEGACY.');
     if (opportunityAllocationPolicy === 'QUALITY_ALLOCATION_BRIDGE_V1') warnings.push('QUALITY_ALLOCATION_BRIDGE_V1 research-only: la corrección QUALITY_V1 congelada modula ±15% como máximo la prioridad relativa entre oportunidades ya elegibles. No altera cash, consenso, timing, slots, starter/build, caps, rotaciones ni hard gates; producción sigue LEGACY.');
+    if (opportunityAllocationPolicy === 'TIMESFM_ALLOCATION_BRIDGE_V1') warnings.push('TIMESFM_ALLOCATION_BRIDGE_V1 post-hoc research-only: TimesFM decide sólo el orden en que oportunidades ya elegibles consumen slots/capital escaso. La fórmula LEGACY de prioridad económica sigue calculando target/sizing; no cambian cash, gates, starter/build, caps, costes, fiscalidad ni producción.');
 
     return {
       currentInvestedValueEur,
