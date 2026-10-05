@@ -1856,3 +1856,22 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Zero-cost confirmado por protocolo del job; producción continúa `LEGACY`.
 - Stage A queda CERRADO. No volver a gastar tiempo en este smoke salvo regresión técnica.
 - Stage B queda metodológicamente habilitado a partir de este PASS, pero debe diseñarse/prerregistrarse antes de abrir datos/outcomes reales y sin alterar producción.
+
+
+### TimesFM Stage B V1 — preregistered before outcomes 2026-10-05
+
+- Stage A is CLOSED/PASS and archived from the current validation surface.
+- Stage B version: `TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1`.
+- Frozen protocol/docs: `scripts/timesfmStageBProtocol.mjs` + `docs/TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1_2026-10-05.md`.
+- Structural core reference: `EUNL.DE`.
+- Fixed panel: `SXR8.DE`, `EQQQ.DE`, `EXSA.DE`, `IS3N.DE`, `ZPRV.DE`, `EXH1.DE`, `IBCI.DE`, `4GLD.DE`.
+- Historical diagnostic: 31 quarter-end anchors, 2018Q1–2025Q3, 512-session causal context, one 60-session forecast evaluated at 1/5/20/60, maximum 248 cases.
+- Primary arm: TimesFM3 multivariate asset+core; univariate arm is secondary diagnostic and cannot rescue a primary FAIL.
+- Frozen baselines: zero return, buy-and-hold direction, trailing-60 log drift, exact `MARKET_SHORTLIST_LEGACY_SCORE_V1` ranking family.
+- Gates frozen pre-outcome: coverage >=85%; mean 20/60 rank IC >=0.05; lift vs LEGACY >=0.02; pooled relative direction >=52%; >=5/8 assets positive temporal IC; P10-P90 coverage 60–95%.
+- Historical Stage B sample is diagnostic/consumed only because project history already touched overlapping periods. It has no promotion authority.
+- Prospective confirmation was frozen before diagnostic outcomes: weekly first common session after 2026-10-05, same model/panel/core/context/horizons, minimum 26 matured anchors, 60-session primary maturity, no retuning.
+- ZeroGPU Stage B endpoint batches the entire diagnostic in one free GPU allocation and receives only causal contexts; no future/outcome fields or market-data fetch are allowed in the Space.
+- Stage B job is integrated into the existing `ResearchValidationCenter`; production gate permits only jobs explicitly marked `requiresTimesFmRunner`.
+- Semantic `FAIL_SIGNAL_DIAGNOSTIC` / `INCONCLUSIVE_COVERAGE` exit nonzero so the validation surface does not mislabel a valid negative research conclusion as PASSED.
+- Production remains `LEGACY`; Stage C stays closed until a fresh prospective confirmation passes.
