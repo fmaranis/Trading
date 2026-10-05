@@ -34,6 +34,8 @@ assert.match(endpoint,/"targetContext"/);
 assert.match(endpoint,/"pastOnlyCovariates"/);
 assert.match(endpoint,/MV_TARGET_COUNT = 9/);
 assert.match(endpoint,/MV_PAST_ONLY_COVARIATE_COUNT = 23/);
+assert.match(endpoint,/MV_GPU_DURATION_SECONDS = 120/);
+assert.doesNotMatch(endpoint,/MV_GPU_DURATION_SECONDS = (?:1[3-9][0-9]|[2-9][0-9]{2,})/);
 assert.match(endpoint,/api_name="multivariate_context_predict"/);
 assert.match(endpoint,/@spaces\.GPU/);
 assert.match(endpoint,/stage_b_predict/);
