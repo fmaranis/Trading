@@ -32,9 +32,9 @@ assert.match(runner, /use_symmetric_averaging=False/);
 assert.match(runner, /sort_quantiles=True/);
 assert.doesNotMatch(runner, /Yahoo|EODHD|SEC_EDGAR|PortfolioDecisionEngine|PortfolioCandidateGate/);
 assert.match(zeroGpu, /TIMESFM_STAGE_A_SMOKE_V1/);
-assert.match(zeroGpu, /full_with_future\\\[:, :information_cutoff\\\]/);
-assert.match(zeroGpu, /productionDefault\": \"LEGACY\"/);
-assert.match(zeroGpu, /@spaces\\.GPU/);
+assert.match(zeroGpu, /full_with_future\[:, :information_cutoff\]/);
+assert.match(zeroGpu, /productionDefault": "LEGACY"/);
+assert.match(zeroGpu, /@spaces\.GPU/);
 
 assert.match(ui, /function downloadJobEvidence\(job: ValidationJob\)/);
 assert.match(ui, /result\.json/);
