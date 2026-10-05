@@ -6,7 +6,7 @@
   "study": {
     "version": "TIMESFM_MULTIVARIATE_CONTEXT_V1",
     "historicalSample": "CONSUMED_2018Q1_2025Q3_DIAGNOSTIC_ONLY",
-    "diagnosticRunOpened": false,
+    "diagnosticRunOpened": true,
     "promotionAuthority": false,
     "economicPolicy": false
   },
@@ -44,20 +44,20 @@
   "productionDefault": "LEGACY",
   "productionAuthority": false,
   "manifestGitBlobSha1": {
-    "scripts/timesfmMultivariateContextV1Protocol.mjs": "920c8c1accc6ae0ac1a7a75f9b6ebc4499a39798",
-    "scripts/timesfmMultivariateContextV1RemoteClient.mjs": "f711e4cf3dd18923b6aa07635da3ad5b6aaa5958",
+    "scripts/timesfmMultivariateContextV1Protocol.mjs": "6051a730c1ec2361cef2c4f1b4aea6d1bf2fc7d0",
+    "scripts/timesfmMultivariateContextV1RemoteClient.mjs": "ca7f18f9592a1dc7747c99f85571bd31b7d481f2",
     "scripts/timesfmMultivariateContextV1RunnerReadiness.mjs": "8875b5caade0729f44b403651a5ce9585249b7f5",
     "scripts/timesfmMultivariateContextV1DiagnosticLive.mjs": "329f3e351d4ed27fe55514ae02fadad65f077b6f",
-    "runner/timesfm/hf-space/app.py": "9a6ebc9db8f1e4168da7a72cc6d6a14d1935b133",
+    "runner/timesfm/hf-space/app.py": "5f49d30473b7b5fa3377726afad0679c8c83b83e",
     "server/timesfmRemoteRunner.ts": "93feef6922ce5fff6cd42c18d93b78535996a651",
     "server/researchValidationRoutes.ts": "f3d8a0d8c215fc8415a87a6608ca3faa97e7a632",
-    "tests/timesfmMultivariateContextV1.unit.mjs": "db297b52fa98aad34d04aae9b4a1f600b7a33d0c",
-    "tests/timesfmMultivariateContextV1Contract.unit.mjs": "17e01b5206ac06fb5ac783a75b687187a1aeb726",
+    "tests/timesfmMultivariateContextV1.unit.mjs": "54f8f96fbb8432252a281720b27341885b6a0686",
+    "tests/timesfmMultivariateContextV1Contract.unit.mjs": "11ed5faad263c96683f49877d7c71c2610fa897e",
     "tests/researchValidationRuntime.unit.ts": "e8e4d094fc44455e08fefee883ed74acce181be5",
-    "docs/TIMESFM_MULTIVARIATE_CONTEXT_V1_2026-10-05.md": "0134162d704e125a84fedc140ad57ff9412f77a7"
+    "docs/TIMESFM_MULTIVARIATE_CONTEXT_V1_2026-10-05.md": "b39024f58bde52bf424ce9b61169f715412fd9b5"
   },
-  "sealRevision": 6,
-  "previousSealCommit": "e5c7494fb2aee8035374cd616873d520781e0476",
+  "sealRevision": 7,
+  "previousSealCommit": "b51df55c0a503a6589a74df2854ca0de85825a40",
   "preInferenceRepairs": [
     {
       "date": "2026-10-05",
@@ -104,6 +104,35 @@
       "marketDataAccessedByV1": false,
       "marketOutcomesOpened": false,
       "freshOutcomesOpened": false
+    },
+    {
+      "date": "2026-10-05",
+      "scope": "ZEROGPU_TRANSPORT_ONLY",
+      "reason": "Observed ZeroGPU illegal duration: configured 180s produced a rejected effective 270s request. Cap multivariate calls at 120s and split the 31 historical anchors into ordered batches of at most 8.",
+      "modelInputsChanged": false,
+      "timesFmRuleChanged": false,
+      "evaluationRuleChanged": false,
+      "historicalYahooDataAccessed": true,
+      "historicalForecastsReturned": false,
+      "historicalMetricsEvaluated": false,
+      "freshSampleOpened": false,
+      "freshOutcomesOpened": false
     }
-  ]
+  ],
+  "historicalExecution": {
+    "lastAttemptAt": "2026-10-05T20:54:15.293Z",
+    "lastAttemptStatus": "REMOTE_GPU_DURATION_REJECTED_BEFORE_FORECAST_RESULT",
+    "historicalYahooDataAccessed": true,
+    "historicalForecastsReturned": false,
+    "historicalMetricsEvaluated": false,
+    "freshSampleOpened": false,
+    "freshOutcomesOpened": false
+  },
+  "runtimeTransport": {
+    "maxAnchorsPerRemoteCall": 8,
+    "zeroGpuDurationSecondsPerBatch": 120,
+    "changesModelInputs": false,
+    "changesForecastRule": false,
+    "changesEvaluationRule": false
+  }
 }
