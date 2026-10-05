@@ -17,6 +17,13 @@ assert.equal(M.collection.noRetroactiveForecastAfterFirstCommonSessionPassed,tru
 assert.equal(M.collection.futureOutcomeAccess,false);
 assert.equal(M.productionDefault,'LEGACY');
 assert.equal(M.productionAuthority,false);
+assert.equal(M.economicShadow.version,'TIMESFM_RELATIVE_RANK_V1');
+assert.equal(M.economicShadow.status,'FROZEN_BEFORE_FIRST_PROSPECTIVE_ANCHOR');
+assert.equal(M.economicShadow.allEligibleForecastCoverageRequired,true);
+assert.equal(M.economicShadow.gateAuthority,false);
+assert.equal(M.economicShadow.sizingAuthority,false);
+assert.equal(M.economicShadow.cashAuthority,false);
+assert.equal(M.economicShadow.timingAuthority,false);
 assert.equal(isoWeekKey('2026-10-12'),'2026-W42');
 
 assert.deepEqual(selectProspectiveAnchor(['2026-10-05'],'2026-10-05',20),{status:'WAITING_START',informationDate:null,isoWeek:null});
