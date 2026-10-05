@@ -45,7 +45,21 @@ assert.match(portfolio, /candidateSelectionPolicy\?: CandidateSelectionPolicy/);
 assert.match(portfolio, /candidateSelectionContext\?: CandidateSelectionContext/);
 assert.match(portfolio, /CurrentOpportunityAlertEngine\.evaluate\(scan, cashBenchmarkAnnualPct, candidateSelectionPolicy, candidateSelectionContext\)/);
 assert.match(portfolio, /allocator, sizing, cash, caps, costes, fiscalidad y reglas de rotación permanecen sin cambios/);
-assert.doesNotMatch(portfolio, /OpportunityAllocationPolicy = 'LEGACY' \| 'QUALITY_ALLOCATION_BRIDGE_V1' \| 'TIMESFM/);
+assert.match(portfolio, /OpportunityAllocationPolicy = 'LEGACY' \| 'QUALITY_ALLOCATION_BRIDGE_V1' \| 'TIMESFM_ALLOCATION_BRIDGE_V1'/);
+assert.doesNotMatch(portfolio, /OpportunityAllocationPolicy = [^\n]*TIMESFM_RELATIVE_RANK_V1/);
+
+const relativeReplayStart = replay.indexOf('export function runDynamicReplayWithTimesFmRelativeRankV1');
+const allocationBridgeStart = replay.indexOf('export function runDynamicReplayWithTimesFmAllocationBridgeV1');
+assert.ok(relativeReplayStart >= 0, 'TIMESFM_RELATIVE_RANK_V1 replay wrapper missing');
+const relativeReplay = replay.slice(
+  relativeReplayStart,
+  allocationBridgeStart > relativeReplayStart ? allocationBridgeStart : undefined
+);
+assert.doesNotMatch(
+  relativeReplay,
+  /opportunityAllocationPolicy:/,
+  'TIMESFM_RELATIVE_RANK_V1 must not gain allocation authority; allocation bridge is a separate post-hoc policy.'
+);
 
 assert.match(replay, /runDynamicReplayWithRotationExperiment\(input, 'CORE_ARCHITECTURE_V1'\)/);
 assert.match(replay, /candidateSelectionPolicy: 'TIMESFM_RELATIVE_RANK_V1'/);
