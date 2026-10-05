@@ -77,3 +77,17 @@ export async function runTimesFmRemoteStageA(): Promise<TimesFmRemoteState> {
   const timeoutMs = Math.max(30_000, Number(process.env.TIMESFM_RUNNER_TIMEOUT_MS || 180_000));
   return validateRemoteState(await callGradio('run_stage_a', timeoutMs));
 }
+
+
+export function reconcileTimesFmState(local: TimesFmRemoteState, remote: TimesFmRemoteState): TimesFmRemoteState {
+  // Local terminal state belongs to the run just executed by this backend and must
+  // never be erased by a remote IDLE/stale state. This preserves guard/client errors.
+  if (local.status === 'PASSED' || local.status === 'FAILED') return local;
+
+  // While local guards are running, ZeroGPU can legitimately still be IDLE.
+  if (local.status === 'RUNNING' && remote.status === 'IDLE') return local;
+
+  // An IDLE local backend normally means a fresh/restarted AI Studio container:
+  // in that case the remote Space is the durable authority.
+  return remote;
+}
