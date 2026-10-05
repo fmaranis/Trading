@@ -349,7 +349,8 @@ const JOBS: JobDefinition[] = [
     name: 'TimesFM · bridge económico post-hoc',
     description: 'Diagnóstico arquitectónico post-hoc sobre la muestra Stage B ya consumida. TimesFM no cambia gates ni sizing: sólo decide qué oportunidad ya elegible consume primero slots/capital escaso; LEGACY sigue calculando magnitudes. Sin autoridad de promoción.',
     marker: 'TIMESFM_ALLOCATION_BRIDGE_POSTHOC_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'TimesFM allocation bridge V1 · POSTHOC_NO_REACH · cerrado',
     requiresTimesFmRunner: true,
     steps: [
       { label: 'Guard sello bridge TimesFM', command: 'node', args: ['tests/timesfmAllocationBridgePosthocV1Seal.unit.mjs'] },
@@ -363,6 +364,26 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Replay post-hoc LEGACY vs TimesFM bridge', command: 'npx', args: ['tsx', 'scripts/timesfmAllocationBridgePosthocV1.ts'] }
+    ]
+  },
+  {
+    id: 'timesfm-direct-selector-historical-diagnostic-v1',
+    name: 'TimesFM · selector directo vs app vs core',
+    description: 'Diagnóstico post-hoc donde TimesFM elige realmente el activo entre los 8 candidatos Stage B + EUNL. El replay canónico ejecuta 100% del shadow equity al ganador con NEXT_OPEN, costes, impuestos y cash causal. Compara TimesFM directo vs LEGACY app vs EUNL core; sin autoridad de promoción.',
+    marker: 'TIMESFM_DIRECT_SELECTOR_HISTORICAL_DIAGNOSTIC_V1_RESULT',
+    visibility: 'CURRENT',
+    requiresTimesFmRunner: true,
+    steps: [
+      { label: 'Guard sello selector directo TimesFM', command: 'node', args: ['tests/timesfmDirectSelectorHistoricalDiagnosticV1Seal.unit.mjs'] },
+      { label: 'Guard selector directo TimesFM', command: 'npx', args: ['tsx', 'tests/timesFmDirectSelectorV1.unit.ts'] },
+      { label: 'Guard contrato selector directo TimesFM', command: 'node', args: ['tests/timesFmDirectSelectorV1Contract.unit.mjs'] },
+      { label: 'Guard protocolo diagnóstico directo TimesFM', command: 'node', args: ['tests/timesfmDirectSelectorHistoricalDiagnosticV1.unit.mjs'] },
+      { label: 'Guard contrato diagnóstico directo TimesFM', command: 'node', args: ['tests/timesfmDirectSelectorHistoricalDiagnosticV1Contract.unit.mjs'] },
+      { label: 'Guard replay directo + fechas explícitas', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Replay TimesFM directo vs LEGACY vs core', command: 'npx', args: ['tsx', 'scripts/timesfmDirectSelectorHistoricalDiagnosticV1.ts'] }
     ]
   },
   {
