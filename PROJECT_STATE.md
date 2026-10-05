@@ -2127,3 +2127,36 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El backend ya rechazaba correctamente el POST con `VALIDATION_ARCHIVED_READ_ONLY`; ahora el frontend intercepta ese 409, refresca `/jobs` y elimina automáticamente la tarjeta obsoleta.
 - No cambia ningún protocolo, muestra, política ni resultado de TimesFM.
 - El único job TimesFM CURRENT sigue siendo `timesfm-direct-selector-historical-diagnostic-v1` / `TimesFM · selector directo vs app vs core`.
+
+
+### TimesFM direct selector V1 — historical outcome consumed 2026-10-05
+
+- Job real: `TimesFM · selector directo vs app vs core`.
+- Resultado: `POSTHOC_TIMESFM_DIRECT_BEATS_NEITHER`.
+- TimesFM sí tuvo autoridad económica real: cambió la firma de operaciones en 15/15 escenarios y el ganador cambió 21 veces en 31 fechas.
+- Bate LEGACY: 0/15 escenarios.
+- Bate EUNL core: 0/15 escenarios.
+- Mediana de exceso frente a LEGACY: aprox. -1.768,70 EUR / -70,7482 pp.
+- Mediana de exceso frente a EUNL: aprox. -2.413,29 EUR / -96,5317 pp.
+- El test extremo 100% al ganador generó fuerte rotación, fees e impuestos; esto no rescata el resultado, pero demuestra que el fallo ya no es de reach.
+- Interpretación retenida: `TIMESFM_DIRECT_SELECTOR_V1` no justifica otra policy paramétrica sobre la misma muestra. La señal Stage B no se declara inútil por este FAIL económico.
+- El job directo queda ARCHIVED.
+
+### TIMESFM_MULTIVARIATE_CONTEXT_V1 — frozen pre-inference 2026-10-05
+
+- Nueva pregunta de modelo, separada de la policy económica: comprobar TimesFM 3 usando de verdad la atención multivariante full-panel y covariables causales.
+- Targets simultáneos: EUNL + los 8 activos Stage B, en un único contexto multivariante.
+- Arm A: `FULL_PANEL_TARGETS_ONLY` = 9 targets.
+- Arm B: `FULL_PANEL_PLUS_CAUSAL_COVARIATES` = 9 targets + 23 covariables past-only = límite congelado de 32 variates.
+- Covariables por activo: log1p(volume) normalizado e intraday range (high-low)/close.
+- Covariables compartidas: realized vol 20 de EUNL, drawdown 60 de EUNL, dispersión cross-sectional diaria, gap overnight medio del panel y dispersión de gaps.
+- No se usan future covariates en V1.
+- Yahoo Finance REAL OHLCV; sin fallback sintético.
+- Muestra histórica: mismas 31 fechas Stage B 2018Q1-2025Q3, ya consumidas; diagnóstico descriptivo sin autoridad de promoción.
+- Métricas primarias: rank IC relativo a EUNL, directional accuracy, MAE relativo, P10-P90 terminal coverage y temporal IC por activo a 20/60 sesiones.
+- Los dos brazos quedan frozen antes de la primera semana fresh ISO 2026-W42; no se elegirá retrospectivamente un ganador para fresh.
+- Sello: `validation-runs/preregistration/timesfm-multivariate-context-v1-seal.json`, revisión 3; manifest crítico verificado 8/8 blobs PASS desde ChatGPT.
+- Job CURRENT: `timesfm-multivariate-context-v1` / `TimesFM · multivariante nativo + contexto`.
+- Producción sigue `LEGACY`; no cambia gates, sizing, órdenes ni arquitectura productiva.
+- Runner ZeroGPU: cliente y endpoint canónico preparados. El endpoint requerido es `multivariate_context_predict`.
+- Limitación operativa externa: el conector Hugging Face disponible en este chat tiene OAuth de lectura de repositorios, no escritura; por tanto no puede publicar directamente el nuevo endpoint en el Space `fmaranis/timesfm-stage-a`. El código canónico a desplegar está en `scripts/hfTimesFmMultivariateContextV1Endpoint.py`.
