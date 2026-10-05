@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { spawn } from 'node:child_process';
 import { loadDurableJobState, reconcileLoadedJobState, saveDurableJobState } from './researchValidationStateStore.mjs';
-import { fetchTimesFmRemoteState, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
+import { fetchTimesFmRemoteState, reconcileTimesFmState, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
 
 export const researchValidationRouter = express.Router();
 
@@ -267,6 +267,7 @@ const JOBS: JobDefinition[] = [
     steps: [
       { label: 'Guard cliente runner remoto TimesFM', command: 'node', args: ['tests/timesfmRemoteClient.unit.mjs'] },
       { label: 'Guard contrato runner remoto TimesFM', command: 'node', args: ['tests/timesfmRemoteRunnerContract.unit.mjs'] },
+      { label: 'Guard reconciliación estado TimesFM', command: 'npx', args: ['tsx', 'tests/timesfmStateReconciliation.unit.ts'] },
       { label: 'Guard contrato TimesFM Stage A', command: 'node', args: ['tests/timesfmStageAContract.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
@@ -522,17 +523,29 @@ async function publicJob(job: JobDefinition) {
     try {
       const remote = await fetchTimesFmRemoteState();
       runnerReachable = true;
-      if (remote && !(remote.status === 'IDLE' && local.status === 'RUNNING')) {
+      if (remote) {
+        const localComparable = {
+          jobId: TIMESFM_REMOTE_JOB_ID,
+          status: local.status,
+          startedAt: local.startedAt,
+          finishedAt: local.finishedAt,
+          currentStep: local.currentStep,
+          exitCode: local.exitCode,
+          output: local.output,
+          result: local.result,
+          error: local.error
+        };
+        const chosen = reconcileTimesFmState(localComparable, remote);
         resolved = {
-          status: remote.status,
-          startedAt: remote.startedAt,
-          finishedAt: remote.finishedAt,
-          currentStep: remote.currentStep,
+          status: chosen.status,
+          startedAt: chosen.startedAt,
+          finishedAt: chosen.finishedAt,
+          currentStep: chosen.currentStep,
           processId: null,
-          exitCode: remote.exitCode,
-          output: remote.output,
-          result: remote.result,
-          error: remote.error
+          exitCode: chosen.exitCode,
+          output: chosen.output,
+          result: chosen.result,
+          error: chosen.error
         };
       }
     } catch (error: any) {
