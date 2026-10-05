@@ -52,8 +52,8 @@ Shared, 5 total:
 - EUNL realized volatility over 20 sessions;
 - EUNL drawdown from rolling 60-session peak;
 - cross-sectional one-day return dispersion across the nine targets;
-- EUNL 20-session return;
-- EUNL 60-session return.
+- cross-sectional mean overnight gap (open versus previous close);
+- cross-sectional overnight-gap dispersion.
 
 Every covariate at every point is derived only from information at or before that point. No future covariates are used in V1.
 
