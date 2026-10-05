@@ -80,8 +80,8 @@ export const TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1 = Object.freeze({
   productionAuthority: false
 });
 
-export function quarterEndCalendarDates(firstYear = 2018, lastYear = 2025): string[] {
-  const result: string[] = [];
+export function quarterEndCalendarDates(firstYear = 2018, lastYear = 2025) {
+  const result = [];
   for (let year = firstYear; year <= lastYear; year++) {
     for (const month of [3, 6, 9, 12]) {
       if (year === 2025 && month > 9) continue;
@@ -92,7 +92,7 @@ export function quarterEndCalendarDates(firstYear = 2018, lastYear = 2025): stri
   return result;
 }
 
-export function rebase100(values: number[]): number[] {
+export function rebase100(values) {
   if (values.length === 0 || !(values[0] > 0) || values.some(value => !Number.isFinite(value) || value <= 0)) {
     throw new Error('TIMESFM_STAGE_B_INVALID_REBASE_INPUT');
   }
@@ -100,24 +100,24 @@ export function rebase100(values: number[]): number[] {
   return values.map(value => value / base * 100);
 }
 
-function pctReturn(prices: number[], lookback: number): number | null {
+function pctReturn(prices, lookback) {
   if (prices.length <= lookback) return null;
   const start = prices[prices.length - 1 - lookback];
   const end = prices[prices.length - 1];
   return start > 0 && end > 0 ? (end / start - 1) * 100 : null;
 }
 
-function annualizedVolatility(prices: number[], lookback = 60): number | null {
+function annualizedVolatility(prices, lookback = 60) {
   const slice = prices.slice(-Math.min(prices.length, lookback + 1));
   if (slice.length < 3) return null;
-  const returns: number[] = [];
+  const returns = [];
   for (let i = 1; i < slice.length; i++) returns.push(Math.log(slice[i] / slice[i - 1]));
   const mean = returns.reduce((sum, value) => sum + value, 0) / returns.length;
   const variance = returns.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, returns.length - 1);
   return Math.sqrt(variance) * Math.sqrt(252) * 100;
 }
 
-function maxDrawdown(prices: number[], lookback = 252): number | null {
+function maxDrawdown(prices, lookback = 252) {
   const slice = prices.slice(-Math.min(prices.length, lookback));
   if (slice.length === 0) return null;
   let peak = slice[0];
@@ -129,7 +129,7 @@ function maxDrawdown(prices: number[], lookback = 252): number | null {
   return maximum;
 }
 
-export function legacyScannerScore(prices: number[], defensive: boolean): number | null {
+export function legacyScannerScore(prices, defensive) {
   if (prices.length < 121) return null;
   const m20 = pctReturn(prices, 20);
   const m60 = pctReturn(prices, 60);
@@ -141,7 +141,7 @@ export function legacyScannerScore(prices: number[], defensive: boolean): number
   return momentum - riskPenalty + (defensive ? 2.5 : 0);
 }
 
-export function trailing60LogDriftForecast(prices: number[], horizon: number): number | null {
+export function trailing60LogDriftForecast(prices, horizon) {
   if (prices.length <= 60 || !(horizon > 0)) return null;
   const start = prices[prices.length - 61];
   const end = prices[prices.length - 1];
