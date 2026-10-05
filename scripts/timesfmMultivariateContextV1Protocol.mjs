@@ -20,15 +20,15 @@ export const TIMESFM_MULTIVARIATE_CONTEXT_V1 = Object.freeze({
     syntheticFallback: false
   }),
   targets: Object.freeze([
-    Object.freeze({assetId:'EUNL',ticker:'EUNL.DE',role:'STRUCTURAL_CORE'}),
-    Object.freeze({assetId:'SXR8',ticker:'SXR8.DE',role:'US_EQUITY'}),
-    Object.freeze({assetId:'EQQQ',ticker:'EQQQ.DE',role:'TECHNOLOGY'}),
-    Object.freeze({assetId:'EXSA',ticker:'EXSA.DE',role:'EUROPE_EQUITY'}),
-    Object.freeze({assetId:'IS3N',ticker:'IS3N.DE',role:'EMERGING_EQUITY'}),
-    Object.freeze({assetId:'ZPRV',ticker:'ZPRV.DE',role:'SMALL_CAP'}),
-    Object.freeze({assetId:'EXH1',ticker:'EXH1.DE',role:'ENERGY'}),
-    Object.freeze({assetId:'IBCI',ticker:'IBCI.DE',role:'GOV_BONDS'}),
-    Object.freeze({assetId:'4GLD',ticker:'4GLD.DE',role:'GOLD'})
+    Object.freeze({assetId:'EUNL',ticker:'EUNL.DE',role:'STRUCTURAL_CORE',defensive:false}),
+    Object.freeze({assetId:'SXR8',ticker:'SXR8.DE',role:'US_EQUITY',defensive:false}),
+    Object.freeze({assetId:'EQQQ',ticker:'EQQQ.DE',role:'TECHNOLOGY',defensive:false}),
+    Object.freeze({assetId:'EXSA',ticker:'EXSA.DE',role:'EUROPE_EQUITY',defensive:false}),
+    Object.freeze({assetId:'IS3N',ticker:'IS3N.DE',role:'EMERGING_EQUITY',defensive:false}),
+    Object.freeze({assetId:'ZPRV',ticker:'ZPRV.DE',role:'SMALL_CAP',defensive:false}),
+    Object.freeze({assetId:'EXH1',ticker:'EXH1.DE',role:'ENERGY',defensive:false}),
+    Object.freeze({assetId:'IBCI',ticker:'IBCI.DE',role:'GOV_BONDS',defensive:true}),
+    Object.freeze({assetId:'4GLD',ticker:'4GLD.DE',role:'GOLD',defensive:true})
   ]),
   contextLength: 512,
   forecastHorizon: 60,
