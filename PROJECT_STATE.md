@@ -1793,3 +1793,13 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Fix: el gate de producción se aplica después de resolver el job y mantiene el bloqueo para todos los jobs salvo el único `TIMESFM_REMOTE_JOB_ID`.
 - TimesFM conserva su cadena de guards rápidos + TypeScript antes del cliente remoto; no se abre ninguna otra validación local en producción.
 - Producción de inversión continúa `LEGACY`; el cambio sólo afecta a la capacidad de lanzar el smoke técnico remoto.
+
+
+### TimesFM Stage A — fix respuesta inmediata del botón 2026-10-05
+
+- Segundo fallo aislado del botón: tras aceptar el POST, el endpoint respondía con `job: await publicJob(job)`; para TimesFM eso obligaba a consultar el Space Gradio antes de devolver el `202`.
+- Si ZeroGPU/Gradio tardaba, la UI mantenía el botón aparentemente inerte: no recibía aún `RUNNING` ni `currentStep`.
+- Fix backend: tras `void runJob(job)`, la respuesta usa inmediatamente el estado local ya mutado por `runJob`/primer `runStep`, sin consultar el runner remoto.
+- Fix frontend: aplica de inmediato `payload.job` sobre la tarjeta y lanza `refresh()` en segundo plano; el usuario vuelve a ver `RUNNING` y el paso actual al pulsar.
+- La consulta de estado ZeroGPU usada por refrescos se limita a 4 s para que un Space lento no congele el Centro de validación.
+- No cambia el protocolo de investigación ni producción; sólo la capacidad de observar/arrancar el job remoto.
