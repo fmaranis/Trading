@@ -46,15 +46,16 @@
   "manifestGitBlobSha1": {
     "scripts/timesfmMultivariateContextV1Protocol.mjs": "920c8c1accc6ae0ac1a7a75f9b6ebc4499a39798",
     "scripts/timesfmMultivariateContextV1RemoteClient.mjs": "f711e4cf3dd18923b6aa07635da3ad5b6aaa5958",
+    "scripts/timesfmMultivariateContextV1RunnerReadiness.mjs": "8875b5caade0729f44b403651a5ce9585249b7f5",
     "scripts/timesfmMultivariateContextV1DiagnosticLive.mjs": "329f3e351d4ed27fe55514ae02fadad65f077b6f",
     "runner/timesfm/hf-space/app.py": "9a6ebc9db8f1e4168da7a72cc6d6a14d1935b133",
     "tests/timesfmMultivariateContextV1.unit.mjs": "db297b52fa98aad34d04aae9b4a1f600b7a33d0c",
     "tests/timesfmMultivariateContextV1Contract.unit.mjs": "17e01b5206ac06fb5ac783a75b687187a1aeb726",
     "docs/TIMESFM_MULTIVARIATE_CONTEXT_V1_2026-10-05.md": "0134162d704e125a84fedc140ad57ff9412f77a7",
-    "server/researchValidationRoutes.ts": "39c91d7318b716d6ddbea131196ae80bb446e986"
+    "server/researchValidationRoutes.ts": "e5a7bd99f52e3a605abe2543a587f26c7a5391e7"
   },
-  "sealRevision": 4,
-  "previousSealCommit": "89b433ebe7d7000663f689cf0d45a2c48a1c9ce7",
+  "sealRevision": 5,
+  "previousSealCommit": "2954e89ba8135fda3e8e664383f66a2e95a9cf77",
   "preInferenceRepairs": [
     {
       "date": "2026-10-05",
@@ -78,6 +79,15 @@
       "date": "2026-10-05",
       "scope": "RUNNER_CANONICALIZATION_AND_API_ALIGNMENT",
       "reason": "Integrate multivariate endpoint into existing runner/timesfm/hf-space/app.py and reuse the already validated TimesFM3Evaluator predict_batch API; remove duplicate add-on Python source",
+      "modelInputsChanged": false,
+      "sampleOpened": false,
+      "marketOutcomesOpened": false,
+      "freshOutcomesOpened": false
+    },
+    {
+      "date": "2026-10-05",
+      "scope": "PREFLIGHT_ONLY",
+      "reason": "Compile canonical Space app and require multivariate_context_predict to be visible in Gradio API info before any Yahoo download or diagnostic inference",
       "modelInputsChanged": false,
       "sampleOpened": false,
       "marketOutcomesOpened": false,
