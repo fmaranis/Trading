@@ -113,21 +113,24 @@ export function buildAnchors(series){
       covariates.push(contextDates.map(d=>{const r=byTicker[target.ticker].get(d);return (r.high-r.low)/r.close*100;}));
     }
     const coreAll=closeHistory[CORE_ID];const offset=warmDates.length-contextDates.length;
-    const coreVol=[],coreDd=[],disp=[],core20=[],core60=[];
+    const coreVol=[],coreDd=[],disp=[],gapMean=[],gapDisp=[];
     for(let j=0;j<contextDates.length;j++){
       const wi=offset+j;
       coreVol.push(realizedVol20(coreAll,wi));
       coreDd.push(drawdown60(coreAll,wi));
-      core20.push(pctReturn(coreAll,20,wi));
-      core60.push(pctReturn(coreAll,60,wi));
-      const dailyReturns=[];
+      const dailyReturns=[],overnightGaps=[];
       for(const target of P.targets){
         const a=closeHistory[target.assetId];
         if(wi>0&&a[wi-1]>0&&a[wi]>0)dailyReturns.push(Math.log(a[wi]/a[wi-1])*100);
+        const current=byTicker[target.ticker].get(warmDates[wi]);
+        const previous=byTicker[target.ticker].get(warmDates[wi-1]);
+        if(current?.open>0&&previous?.close>0)overnightGaps.push((current.open/previous.close-1)*100);
       }
       disp.push(stdev(dailyReturns)??0);
+      gapMean.push(mean(overnightGaps)??0);
+      gapDisp.push(stdev(overnightGaps)??0);
     }
-    covariates.push(coreVol,coreDd,disp,core20,core60);
+    covariates.push(coreVol,coreDd,disp,gapMean,gapDisp);
     if(covariates.length!==P.covariates.totalPastOnly)throw new Error('TIMESFM_MV_V1_COVARIATE_BUILD_COUNT:'+covariates.length);
     const anchorId=anchorKey(calendarDate);
     anchors.push({anchorId,calendarDate,informationDate,contextDates,futureDates,targetContext,pastOnlyCovariates:covariates});
