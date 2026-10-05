@@ -40,15 +40,15 @@ export const TIMESFM_STAGE_B_PROSPECTIVE_METHODOLOGY = Object.freeze({
   gates: STAGE_B.gates,
   normalization: STAGE_B.normalization,
   economicShadow: Object.freeze({
-    version: 'TIMESFM_RELATIVE_RANK_V1',
+    version: 'TIMESFM_DIRECT_SELECTOR_V1',
     status: 'FROZEN_BEFORE_FIRST_PROSPECTIVE_ANCHOR',
-    rule: 'MEAN_ORDINAL_RANK_ACROSS_20_60_AMONG_ALREADY_ELIGIBLE_CANDIDATES',
-    tieBreak: 'LEGACY_RANKING_SCORE_THEN_ASSET_ID',
-    allEligibleForecastCoverageRequired: true,
-    gateAuthority: false,
-    sizingAuthority: false,
-    cashAuthority: false,
-    timingAuthority: false,
+    role: 'DIRECT_ASSET_SELECTOR_SHADOW',
+    candidatePool: '8_STAGE_B_ASSETS_PLUS_EUNL_CORE',
+    rule: 'LOWEST_MEAN_ORDINAL_RANK_20_60',
+    tieBreak: 'HIGHER_MEAN_PREDICTED_RELATIVE_RETURN_THEN_ASSET_ID',
+    structuralCoreRelativeForecastPct: 0,
+    target: '100_PERCENT_EXECUTABLE_SHADOW_EQUITY_TO_SELECTED_ASSET',
+    comparisonArms: ['LEGACY_APP', 'EUNL_CORE_DIRECT'],
     productionAuthority: false
   }),
   collection: Object.freeze({
@@ -144,6 +144,10 @@ export function verifyTimesFmProspectiveState(state) {
     if (row.dataProvenance !== 'REAL') throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_NON_REAL:' + row.id);
     if (row.outcomesOpened !== false) throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_OUTCOME_OPENED:' + row.id);
     if (!Array.isArray(row.cases) || row.cases.length !== STAGE_B.assets.length) throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_CASE_COUNT:' + row.id);
+    if (row.directShadow?.policyVersion !== TIMESFM_STAGE_B_PROSPECTIVE_METHODOLOGY.economicShadow.version) {
+      throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_DIRECT_SHADOW_POLICY:' + row.id);
+    }
+    if (!row.directShadow?.selectedAssetId) throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_DIRECT_SHADOW_SELECTION:' + row.id);
   }
   const expectedLast = state.anchors.at(-1)?.informationDate ?? null;
   if (state.lastInformationDate !== expectedLast) throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_LAST_DATE');
