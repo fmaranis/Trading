@@ -5,7 +5,7 @@ import { CashBenchmarkService } from './cashBenchmark';
 import { brokerCommission } from './costAwareExecutionPolicy';
 import { CurrentOpportunityAlertEngine, type CurrentOpportunityAlert } from './currentOpportunityAlerts';
 import { EntryTimingEngine, type EntryTimingPersistenceAssessment } from './entryTiming';
-import { candidateQualityAdjustment } from './portfolioCandidateGate';
+import { candidateQualityAdjustment, type CandidateSelectionContext, type CandidateSelectionPolicy } from './portfolioCandidateGate';
 import type { InvestmentDecisionResult } from './types';
 import type { FundPosition } from './fundPortfolio';
 import type { PortfolioPositionHealthSnapshot } from './portfolioPositionHealth';
@@ -221,6 +221,8 @@ export class PortfolioDecisionEngine {
     materialDriftPctPoints?: number;
     cashBenchmarkAnnualPct?: number;
     opportunityAllocationPolicy?: OpportunityAllocationPolicy;
+    candidateSelectionPolicy?: CandidateSelectionPolicy;
+    candidateSelectionContext?: CandidateSelectionContext;
   }): PortfolioDecisionResult {
     const { portfolio, scan, decision } = input;
     const materialDrift = input.materialDriftPctPoints ?? 5;
@@ -228,6 +230,8 @@ export class PortfolioDecisionEngine {
     const healthMap = input.positionHealth ?? {};
     const cashBenchmarkAnnualPct = input.cashBenchmarkAnnualPct ?? CashBenchmarkService.load();
     const opportunityAllocationPolicy = input.opportunityAllocationPolicy ?? 'LEGACY';
+    const candidateSelectionPolicy = input.candidateSelectionPolicy ?? 'LEGACY';
+    const candidateSelectionContext = input.candidateSelectionContext ?? {};
     const assets = categoryMap(scan);
     const prices = new Map(
       scan.candidates
@@ -441,7 +445,7 @@ export class PortfolioDecisionEngine {
     const targetCashEur = totalPlannedCapitalEur * Math.max(0, Math.min(1, decision.cashWeight));
     const deployablePool = currentCashEur + pendingCapitalEur;
     const baseDeployableToAssetsEur = Math.max(0, deployablePool - targetCashEur);
-    const opportunities = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct);
+    const opportunities = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct, candidateSelectionPolicy, candidateSelectionContext);
     const executionPolicy = executionPolicyForCapital(totalPlannedCapitalEur);
     const heldAssetIds = new Set(currentByAsset.keys());
     const maxPortfolioPositions = maxPortfolioPositionsForRisk(decision.riskProfile);
@@ -687,6 +691,7 @@ export class PortfolioDecisionEngine {
     if (rotationActions > 0) warnings.push(`Rotación competitiva persistente 1:1 activa: ${rotationActions} incumbent(s) liberan realmente su plaza para challenger(s) con fuerza reciente repetida y ventaja material. Proceeds teóricos liberados: ${plannedRotationProceedsEur.toFixed(2)} €; la ejecución real sigue sujeta a comisión, fiscalidad y efectivo realmente obtenido.`);
     if (opportunities.length > 0) warnings.push(`La asignación efectiva usa oportunidades que pasan cash + consenso + timing. El 25%/50% sigue siendo techo por timing, pero ya no obliga a construir una posición grande: starter/build y plazas de cartera añaden límites más estrictos.`);
     else warnings.push('No hay oportunidades actuales que pasen el gate: no se genera ninguna compra fallback. Los pesos teóricos quedan sólo como diagnóstico.');
+    if (candidateSelectionPolicy === 'TIMESFM_RELATIVE_RANK_V1') warnings.push('TIMESFM_RELATIVE_RANK_V1 research-only: TimesFM sólo reordena oportunidades que ya pasaron REAL + cash + consenso BUY + timing. El allocator, sizing, cash, caps, costes, fiscalidad y reglas de rotación permanecen sin cambios. La producción sigue LEGACY.');
     if (opportunityAllocationPolicy === 'QUALITY_ALLOCATION_BRIDGE_V1') warnings.push('QUALITY_ALLOCATION_BRIDGE_V1 research-only: la corrección QUALITY_V1 congelada modula ±15% como máximo la prioridad relativa entre oportunidades ya elegibles. No altera cash, consenso, timing, slots, starter/build, caps, rotaciones ni hard gates; producción sigue LEGACY.');
 
     return {
