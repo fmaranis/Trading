@@ -103,6 +103,8 @@ assert.match(routes, /Yahoo REAL \+ TimesFM ZeroGPU · benchmark predictivo/);
 assert.match(routes, /tests\/timesfmStageBSeal\.unit\.mjs/);
 assert.match(routes, /id: 'timesfm-stage-b-prospective-confirmation-v1'/);
 assert.match(routes, /tests\/timesfmStageBProspectiveSeal\.unit\.mjs/);
+assert.match(routes, /tests\/timesFmRelativeRankV1\.unit\.ts/);
+assert.match(routes, /tests\/timesFmRelativeRankV1Contract\.unit\.mjs/);
 assert.match(routes, /scripts\/timesfmStageBProspectiveCollectorLive\.mjs/);
 assert.match(routes, /requiresGithubReplayToken: true/);
 assert.match(ui, /Ejecutar audit Yahoo REAL PEAD R3/);
