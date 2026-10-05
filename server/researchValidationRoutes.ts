@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { spawn } from 'node:child_process';
 import { loadDurableJobState, reconcileLoadedJobState, saveDurableJobState } from './researchValidationStateStore.mjs';
-import { checkTimesFmRemoteEndpoint, fetchTimesFmRemoteState, reconcileTimesFmState, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
+import { checkTimesFmRemoteEndpoint, fetchTimesFmMultivariateRunnerStatus, fetchTimesFmRemoteState, reconcileTimesFmState, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
 
 export const researchValidationRouter = express.Router();
 
@@ -597,7 +597,25 @@ async function asyncPrerequisiteError(job: JobDefinition): Promise<string | null
     try {
       const available = await checkTimesFmRemoteEndpoint(TIMESFM_MULTIVARIATE_CONTEXT_ENDPOINT);
       if (!available) return 'TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED';
-    } catch {
+      const remote = await fetchTimesFmMultivariateRunnerStatus();
+      if (
+        remote.apiVersion !== 2 ||
+        remote.maxAnchorsPerCall !== 8 ||
+        remote.gpuDurationSeconds !== 120 ||
+        remote.targetCount !== 9 ||
+        remote.pastOnlyCovariateCount !== 23 ||
+        remote.contextLength !== 512 ||
+        remote.forecastHorizon !== 60 ||
+        remote.productionAuthority !== false ||
+        remote.productionDefault !== 'LEGACY'
+      ) {
+        return 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED';
+      }
+    } catch (error: any) {
+      const message = error?.message || String(error);
+      if (/404|multivariate_context_status|TIMESFM_MULTIVARIATE_STATUS/i.test(message)) {
+        return 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED';
+      }
       return 'TIMESFM_REMOTE_RUNNER_UNREACHABLE';
     }
   }
@@ -616,6 +634,9 @@ function prerequisiteDetail(reason: string): string {
   }
   if (reason === 'TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED') {
     return 'El Space TimesFM remoto todavía no expone multivariate_context_predict. El job queda bloqueado antes de guards, Yahoo o inferencia.';
+  }
+  if (reason === 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED') {
+    return 'El Space TimesFM remoto no coincide con la versión requerida: API v2, lotes de 8 y 120 s por llamada. El job queda bloqueado antes de guards, Yahoo o inferencia.';
   }
   if (reason === 'TIMESFM_REMOTE_RUNNER_UNREACHABLE') {
     return 'No se ha podido verificar el Space TimesFM remoto. El job queda bloqueado antes de guards, Yahoo o inferencia.';
