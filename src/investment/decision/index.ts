@@ -59,3 +59,5 @@ export * from './portfolioStateExecution';
 export * from './portfolioExecutionHistory';
 export * from './spanishTaxModel';
 export * from './taxAwareExecutionOverlay';
+export * from './timesFmRelativeRankV1';
+export * from './replayTimesFmRelativeRankExperiment';
