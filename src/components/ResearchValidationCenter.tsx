@@ -290,7 +290,10 @@ export const ResearchValidationCenter: React.FC = () => {
         if (response.status === 409 && payload?.error === 'VALIDATION_ALREADY_RUNNING') { await refresh(); return; }
         throw new Error(payload?.detail || payload?.error || `HTTP_${response.status}`);
       }
-      await refresh();
+      if (payload?.job) {
+        setJobs(current => current.map(job => job.id === id ? { ...job, ...payload.job } : job));
+      }
+      void refresh();
     } catch (e: any) { setError(e?.message || String(e)); }
     finally { setLoading(false); }
   };
