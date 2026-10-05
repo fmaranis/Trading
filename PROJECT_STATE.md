@@ -2119,3 +2119,11 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Estado: sampleOpened=false, marketAccessed=false, outcomesOpened=false.
 - Primera ventana fresh permanece ISO 2026-W42 desde 2026-10-12.
 - Producción sigue LEGACY; el selector directo no tiene autoridad de órdenes reales.
+
+
+### ResearchValidationCenter — archived stale-card auto-refresh 2026-10-05
+
+- Se corrigió una incoherencia de UI detectada al intentar ejecutar un job que acababa de pasar a ARCHIVED mientras la pestaña conservaba la tarjeta antigua en memoria.
+- El backend ya rechazaba correctamente el POST con `VALIDATION_ARCHIVED_READ_ONLY`; ahora el frontend intercepta ese 409, refresca `/jobs` y elimina automáticamente la tarjeta obsoleta.
+- No cambia ningún protocolo, muestra, política ni resultado de TimesFM.
+- El único job TimesFM CURRENT sigue siendo `timesfm-direct-selector-historical-diagnostic-v1` / `TimesFM · selector directo vs app vs core`.
