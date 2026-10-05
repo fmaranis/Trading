@@ -14,6 +14,7 @@ assert.match(app, /STAGE_B_CONTEXT_LENGTH = 512/);
 assert.match(app, /STAGE_B_HORIZON = 60/);
 assert.match(app, /STAGE_B_MAX_CASES = 256/);
 assert.match(app, /STAGE_B_GPU_DURATION_SECONDS = 80/);
+assert.match(app, /per_core_batch_size=16/);
 assert.match(app, /@spaces\.GPU\(duration=STAGE_B_GPU_DURATION_SECONDS\)/);
 assert.match(app, /api_name="stage_b_predict"/);
 assert.match(app, /futureOutcomesReceived": False/);
