@@ -2003,3 +2003,13 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Integridad verificada: PASS; 15/15 escenarios congelados; 31 fechas exactas; replay contract PASS; guard order PASS.
 - En ResearchValidationCenter el collector prospectivo queda PARKED temporalmente y el único job TimesFM CURRENT es `TimesFM · dinero histórico · diagnóstico`.
 - Estado al cerrar preparación: `economicOutcomesOpened=false`; producción sigue LEGACY.
+
+
+#### TimesFM economic diagnostic — reparación TypeScript pre-outcome 2026-10-05
+
+- El job económico pasó sello, protocolo, contrato replay, policy TimesFM 13/13, contrato policy, replay fechas explícitas, CORE_ARCHITECTURE_V1, PortfolioCandidateGate 21/21 y runtime.
+- `tsc --noEmit` se detuvo antes del replay en `scripts/timesfmRelativeRankEconomicDiagnosticV1.ts:140`: TypeScript infería `date` como `unknown` al iterar un `Set` construido desde `stageBResult.events`.
+- Reparación TYPE_ONLY: `eventRows:any[]`, `Set<string>`, `dates:string[]` y comparación explícita `String(row.informationDate)===date`.
+- El patrón corregido fue compilado con `tsc --noEmit` de forma aislada: PASS.
+- No se ejecutó el replay económico, no se abrieron outcomes y la matriz 15/15 permanece congelada.
+- Sello económico actualizado manteniendo `economicOutcomesOpened=false`.
