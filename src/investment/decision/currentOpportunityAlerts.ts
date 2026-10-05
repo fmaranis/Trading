@@ -1,5 +1,5 @@
 import type { AssetUniverseScanResult } from './assetUniverseScanner';
-import { PortfolioCandidateGate, type CandidateSelectionPolicy } from './portfolioCandidateGate';
+import { PortfolioCandidateGate, type CandidateSelectionContext, type CandidateSelectionPolicy } from './portfolioCandidateGate';
 import { CashBenchmarkService } from './cashBenchmark';
 import { StrategyConsensusEngine } from './strategyConsensusEngine';
 import { EntryTimingEngine, type EntryTimingSetup, type EntryTimingState } from './entryTiming';
@@ -31,6 +31,10 @@ export interface CurrentOpportunityAlert {
   timingScore: number;
   suggestedInitialFraction: number;
   reasons: string[];
+  legacyRankingScore?: number | null;
+  timesFmRelativeRankPosition?: number | null;
+  timesFmPredictedRelativeReturn20Pct?: number | null;
+  timesFmPredictedRelativeReturn60Pct?: number | null;
 }
 
 function levelRank(level: CurrentOpportunityLevel): number {
@@ -49,9 +53,10 @@ export class CurrentOpportunityAlertEngine {
   static evaluate(
     scan: AssetUniverseScanResult,
     cashBenchmarkAnnualPct = CashBenchmarkService.load(),
-    selectionPolicy: CandidateSelectionPolicy = 'LEGACY'
+    selectionPolicy: CandidateSelectionPolicy = 'LEGACY',
+    selectionContext: CandidateSelectionContext = {}
   ): CurrentOpportunityAlert[] {
-    const gate = PortfolioCandidateGate.apply(scan, cashBenchmarkAnnualPct, 1000, selectionPolicy);
+    const gate = PortfolioCandidateGate.apply(scan, cashBenchmarkAnnualPct, 1000, selectionPolicy, selectionContext);
     const alerts: CurrentOpportunityAlert[] = [];
 
     for (const entry of gate.entries) {
@@ -103,6 +108,7 @@ export class CurrentOpportunityAlertEngine {
       ];
       if (longTrendHealthy) reasons.push('Tendencia larga positiva y precio por encima de SMA200');
       if (selectionPolicy === 'QUALITY_V1') reasons.push('Ranking QUALITY_V1: la persistencia histórica y la oportunidad actual modulan la prioridad sin saltarse cash, consenso ni timing.');
+      if (selectionPolicy === 'TIMESFM_RELATIVE_RANK_V1') reasons.push(`Ranking TIMESFM_RELATIVE_RANK_V1: posición ${entry.timesFmRelativeRankPosition ?? 'N/D'} entre candidatos ya elegibles; forecast relativo 20/60 ${entry.timesFmPredictedRelativeReturn20Pct?.toFixed(2) ?? 'N/D'}% / ${entry.timesFmPredictedRelativeReturn60Pct?.toFixed(2) ?? 'N/D'}%. No altera gates ni sizing.`);
 
       alerts.push({
         assetId: entry.assetId,
@@ -128,7 +134,11 @@ export class CurrentOpportunityAlertEngine {
         timingSetup: timing.setup,
         timingScore: timing.score,
         suggestedInitialFraction: timing.suggestedInitialFraction,
-        reasons
+        reasons,
+        legacyRankingScore: entry.legacyRankingScore ?? null,
+        timesFmRelativeRankPosition: entry.timesFmRelativeRankPosition ?? null,
+        timesFmPredictedRelativeReturn20Pct: entry.timesFmPredictedRelativeReturn20Pct ?? null,
+        timesFmPredictedRelativeReturn60Pct: entry.timesFmPredictedRelativeReturn60Pct ?? null
       });
     }
 
