@@ -22,6 +22,24 @@ export function timesFmRemoteRunnerConfigured(): boolean {
   return Boolean(runnerBase());
 }
 
+export async function checkTimesFmRemoteEndpoint(apiName: string, timeoutMs = 8_000): Promise<boolean> {
+  const name = String(apiName || '').trim();
+  if (!name) throw new Error('TIMESFM_REMOTE_ENDPOINT_NAME_REQUIRED');
+  const base = runnerBase();
+  const response = await fetch(`${base}/gradio_api/info`, {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`TIMESFM_ZEROGPU_INFO_FAILED:${response.status}:${text.slice(0, 500)}`);
+  }
+  let payload: unknown;
+  try { payload = JSON.parse(text); }
+  catch { throw new Error('TIMESFM_ZEROGPU_INFO_INVALID_JSON'); }
+  return JSON.stringify(payload).includes(name);
+}
+
 function parseSseComplete(payload: string): unknown {
   for (const block of payload.split(/\r?\n\r?\n/)) {
     const lines = block.split(/\r?\n/);
