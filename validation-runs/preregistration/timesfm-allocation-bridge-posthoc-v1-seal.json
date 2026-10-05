@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "version": "TIMESFM_ALLOCATION_BRIDGE_POSTHOC_V1_SEAL",
   "sealedAt": "2026-10-05",
-  "sourceHead": "10fc474dadf626ba5329478d7d0fe0cc33078789",
+  "sourceHead": "ffdedc68f67f78f4c77653d01ad3a04d416998df",
   "lineage": {
     "stageBSignal": "PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION",
     "relativeRankV1Economic": "NO_ECONOMIC_REACH",
@@ -53,7 +53,20 @@
     "tests/timesfmAllocationBridgePosthocV1.unit.mjs": "474d49534e625095cf544913a61efb6c718290c6",
     "tests/timesfmAllocationBridgePosthocV1Contract.unit.mjs": "8721aa90b933e064e114b9cd803a8e4fdeaa635e",
     "tests/timesFmRelativeRankV1.unit.ts": "7366ec1bca88d97177a1f38776ea6e00aacda8d3",
-    "tests/timesFmRelativeRankV1Contract.unit.mjs": "abfb99edfe3f5cde08a00c8130c85751bfcd8a0c",
+    "tests/timesFmRelativeRankV1Contract.unit.mjs": "3fbffdd3dabcc5aa0f56589ccb18dc1d38b283de",
     "tests/dynamicHistoricalReplay.unit.ts": "9567a558cdc3d3cd1810751398d65b17af84f28f"
-  }
+  },
+  "sealRevision": 2,
+  "previousSealCommit": "29c7bdc8b161f75abfd20e66ce545a21bc65e256",
+  "preOutcomeRepairs": [
+    {
+      "date": "2026-10-05",
+      "scope": "GUARD_ONLY",
+      "file": "tests/timesFmRelativeRankV1Contract.unit.mjs",
+      "reason": "legacy relative-rank contract rejected any TIMESFM allocation-policy literal, including the separately preregistered post-hoc bridge",
+      "change": "guard now forbids allocation authority only inside TIMESFM_RELATIVE_RANK_V1 wrapper and explicitly permits separate TIMESFM_ALLOCATION_BRIDGE_V1",
+      "policyChanged": false,
+      "bridgeOutcomesOpened": false
+    }
+  ]
 }
