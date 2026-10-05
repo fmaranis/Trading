@@ -49,13 +49,15 @@
     "scripts/timesfmMultivariateContextV1RunnerReadiness.mjs": "8875b5caade0729f44b403651a5ce9585249b7f5",
     "scripts/timesfmMultivariateContextV1DiagnosticLive.mjs": "329f3e351d4ed27fe55514ae02fadad65f077b6f",
     "runner/timesfm/hf-space/app.py": "9a6ebc9db8f1e4168da7a72cc6d6a14d1935b133",
+    "server/timesfmRemoteRunner.ts": "93feef6922ce5fff6cd42c18d93b78535996a651",
+    "server/researchValidationRoutes.ts": "f3d8a0d8c215fc8415a87a6608ca3faa97e7a632",
     "tests/timesfmMultivariateContextV1.unit.mjs": "db297b52fa98aad34d04aae9b4a1f600b7a33d0c",
     "tests/timesfmMultivariateContextV1Contract.unit.mjs": "17e01b5206ac06fb5ac783a75b687187a1aeb726",
-    "docs/TIMESFM_MULTIVARIATE_CONTEXT_V1_2026-10-05.md": "0134162d704e125a84fedc140ad57ff9412f77a7",
-    "server/researchValidationRoutes.ts": "e5a7bd99f52e3a605abe2543a587f26c7a5391e7"
+    "tests/researchValidationRuntime.unit.ts": "e8e4d094fc44455e08fefee883ed74acce181be5",
+    "docs/TIMESFM_MULTIVARIATE_CONTEXT_V1_2026-10-05.md": "0134162d704e125a84fedc140ad57ff9412f77a7"
   },
-  "sealRevision": 5,
-  "previousSealCommit": "2954e89ba8135fda3e8e664383f66a2e95a9cf77",
+  "sealRevision": 6,
+  "previousSealCommit": "e5c7494fb2aee8035374cd616873d520781e0476",
   "preInferenceRepairs": [
     {
       "date": "2026-10-05",
@@ -90,6 +92,16 @@
       "reason": "Compile canonical Space app and require multivariate_context_predict to be visible in Gradio API info before any Yahoo download or diagnostic inference",
       "modelInputsChanged": false,
       "sampleOpened": false,
+      "marketOutcomesOpened": false,
+      "freshOutcomesOpened": false
+    },
+    {
+      "date": "2026-10-05",
+      "scope": "REMOTE_PREFLIGHT_GATING_FIX",
+      "reason": "Observed TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED before Yahoo/outcomes. Move endpoint readiness to async backend prerequisite so an unready Space cannot be accepted as a run.",
+      "modelInputsChanged": false,
+      "diagnosticRunOpened": false,
+      "marketDataAccessedByV1": false,
       "marketOutcomesOpened": false,
       "freshOutcomesOpened": false
     }
