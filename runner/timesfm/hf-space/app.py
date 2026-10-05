@@ -62,6 +62,7 @@ MV_TARGET_COUNT = 9
 MV_PAST_ONLY_COVARIATE_COUNT = 23
 MV_MAX_ANCHORS = 8
 MV_GPU_DURATION_SECONDS = 120
+MV_RUNNER_API_VERSION = 2
 
 _LOCK = threading.Lock()
 
@@ -452,6 +453,22 @@ def stage_b_predict(payload: Any) -> dict[str, Any]:
     }
 
 
+def multivariate_context_status() -> dict[str, Any]:
+    return {
+        "study": MV_STUDY,
+        "status": "READY_TIMESFM_MULTIVARIATE_CONTEXT_V1",
+        "apiVersion": MV_RUNNER_API_VERSION,
+        "maxAnchorsPerCall": MV_MAX_ANCHORS,
+        "gpuDurationSeconds": MV_GPU_DURATION_SECONDS,
+        "targetCount": MV_TARGET_COUNT,
+        "pastOnlyCovariateCount": MV_PAST_ONLY_COVARIATE_COUNT,
+        "contextLength": MV_CONTEXT_LENGTH,
+        "forecastHorizon": MV_HORIZON,
+        "productionAuthority": False,
+        "productionDefault": "LEGACY",
+    }
+
+
 def _coerce_multivariate_payload(payload: Any) -> dict[str, Any]:
     if isinstance(payload, str):
         payload = json.loads(payload)
@@ -651,6 +668,8 @@ with gr.Blocks() as demo:
     stage_b_input = gr.JSON(visible=False)
     stage_b_button = gr.Button("Run Stage B batch", visible=False)
     stage_b_output = gr.JSON(visible=False)
+    mv_status_button = gr.Button("TimesFM multivariate context status", visible=False)
+    mv_status_output = gr.JSON(visible=False)
     mv_input = gr.JSON(visible=False)
     mv_button = gr.Button("Run TimesFM multivariate context V1", visible=False)
     mv_output = gr.JSON(visible=False)
@@ -663,6 +682,12 @@ with gr.Blocks() as demo:
         outputs=stage_b_output,
         api_name="stage_b_predict",
         concurrency_limit=1,
+    )
+    mv_status_button.click(
+        multivariate_context_status,
+        outputs=mv_status_output,
+        api_name="multivariate_context_status",
+        queue=False,
     )
     mv_button.click(
         multivariate_context_predict,
