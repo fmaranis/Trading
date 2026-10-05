@@ -2191,3 +2191,23 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El Centro sólo habilita el job si el Space desplegado responde exactamente: apiVersion=2, maxAnchorsPerCall=8, gpuDurationSeconds=120, targetCount=9, pastOnlyCovariateCount=23, contextLength=512, forecastHorizon=60, productionAuthority=false y productionDefault=LEGACY.
 - Si el Space conserva una versión vieja, el job queda bloqueado antes de Yahoo/inferencia con `TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED`.
 - Sello actualizado a revisión 8.
+
+#### TIMESFM_MULTIVARIATE_CONTEXT_V1 — anonymous ZeroGPU quota failure corrected 2026-10-05
+
+- Tercer intento falló después de desplegar runner v2: `ZeroGPU quota exceeded`.
+- Hugging Face reportó `180s requested vs. 176s left`; no se devolvió ningún forecast TimesFM ni se calcularon métricas.
+- La causa es de infraestructura/cuota: las llamadas API al Space no llevaban token y dependían de la cuota ZeroGPU anónima.
+- Hugging Face recomienda autenticar llamadas API a ZeroGPU con `Authorization: Bearer HF_TOKEN`; la cuota pasa a la cuenta autenticada.
+- Transporte V1 actualizado sin cambiar modelo, inputs ni reglas de evaluación:
+  - runner API v3;
+  - 8 anchors por lote;
+  - 45 s declarados por lote;
+  - `HF_TOKEN` obligatorio en backend (también se aceptan `HUGGINGFACE_TOKEN` y `HUGGING_FACE_HUB_TOKEN`);
+  - preflight de cuota en `https://huggingface.co/api/spaces/zero-gpu/quota`;
+  - mínimo conservador al arrancar: 270 GPU-s;
+  - mínimo antes de cada lote: 70 GPU-s;
+  - token nunca se persiste en evidencia/logs.
+- Un token fine-grained usado para consultar cuota necesita `Billing > Read billing usage and payment method status`.
+- El job queda bloqueado antes de Yahoo/inferencia si falta token, el token no puede consultar cuota, el runner desplegado no es v3 o la cuota restante es insuficiente.
+- Muestra fresh 2026-W42+ continúa unopened/outcomes unopened.
+- Sello actualizado a revisión 9.
