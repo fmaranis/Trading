@@ -33,7 +33,7 @@ TimesFM 3 variate attention can therefore see cross-series relationships in one 
 
 - 9 target close series;
 - 512 common sessions;
-- native TimesFM per-variate z-normalization;
+- TimesFM 3 evaluator default normalization semantics, identical across both arms;
 - 60-session horizon;
 - quantiles enabled;
 - no covariates.
@@ -114,10 +114,10 @@ The existing prospective sample remains unopened/outcomes unopened while this in
 
 ## Runner
 
-Canonical Space add-on source:
-- scripts/hfTimesFmMultivariateContextV1Endpoint.py
+Canonical Space source:
+- runner/timesfm/hf-space/app.py
 
-Remote API name:
+The existing Stage A and Stage B endpoints remain in that same file. V1 adds:
 - multivariate_context_predict
 
 The ChatGPT Hugging Face connector currently has read-only repository scope, so canonical code is committed in fmaranis/Trading/main; deployment to the existing Space must not change this repository's source-of-truth role.
