@@ -186,7 +186,7 @@ FORECASTER = TimesFM3Evaluator(
     ModelConfig(
         checkpoint_path=CHECKPOINT,
         revision=CHECKPOINT_REVISION,
-        per_core_batch_size=1,
+        per_core_batch_size=16,
         device="cuda",
     )
 )
