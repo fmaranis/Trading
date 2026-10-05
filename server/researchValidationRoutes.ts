@@ -623,5 +623,21 @@ researchValidationRouter.post('/jobs/:id/run', async (req: Request, res: Respons
   const state = stateFor(job.id);
   if (state.status === 'RUNNING') { res.status(409).json({ error: 'VALIDATION_ALREADY_RUNNING', job: await publicJob(job) }); return; }
   void runJob(job);
-  res.status(202).json({ ok: true, aiTokensUsed: false, execution: job.id === TIMESFM_REMOTE_JOB_ID ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND', job: await publicJob(job) });
+  const acceptedState = stateFor(job.id);
+  res.status(202).json({
+    ok: true,
+    aiTokensUsed: false,
+    execution: job.id === TIMESFM_REMOTE_JOB_ID ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND',
+    job: {
+      id: job.id,
+      name: job.name,
+      description: job.description,
+      readyToRun: true,
+      blockedReason: null,
+      execution: job.id === TIMESFM_REMOTE_JOB_ID ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND',
+      runnerReachable: null,
+      runnerError: null,
+      ...acceptedState
+    }
+  });
 });
