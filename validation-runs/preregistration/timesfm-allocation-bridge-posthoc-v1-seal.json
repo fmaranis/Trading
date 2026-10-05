@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "version": "TIMESFM_ALLOCATION_BRIDGE_POSTHOC_V1_SEAL",
   "sealedAt": "2026-10-05",
-  "sourceHead": "30cce9c8e5f6f2e1fe0d257ff480e846b30c8552",
+  "sourceHead": "7c87b82dd7645fc7b09d54d9272bc0d2c3d3dc3e",
   "lineage": {
     "stageBSignal": "PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION",
     "relativeRankV1Economic": "NO_ECONOMIC_REACH",
@@ -53,11 +53,11 @@
     "tests/timesfmAllocationBridgePosthocV1.unit.mjs": "474d49534e625095cf544913a61efb6c718290c6",
     "tests/timesfmAllocationBridgePosthocV1Contract.unit.mjs": "8721aa90b933e064e114b9cd803a8e4fdeaa635e",
     "tests/timesFmRelativeRankV1.unit.ts": "7366ec1bca88d97177a1f38776ea6e00aacda8d3",
-    "tests/timesFmRelativeRankV1Contract.unit.mjs": "82326dd6eeb39ca1d4b9c89c5b7d55120ecf0983",
+    "tests/timesFmRelativeRankV1Contract.unit.mjs": "27f04902ab060ce8ea57f735a5d4dedb29686ec8",
     "tests/dynamicHistoricalReplay.unit.ts": "9567a558cdc3d3cd1810751398d65b17af84f28f"
   },
-  "sealRevision": 3,
-  "previousSealCommit": "9f84f1511efdb9278d7814cc735602596501f777",
+  "sealRevision": 4,
+  "previousSealCommit": "5a8a6cd670b60df78af246ba3174b11c084fc821",
   "preOutcomeRepairs": [
     {
       "date": "2026-10-05",
@@ -77,6 +77,15 @@
       ],
       "reason": "global OpportunityAllocationPolicy widening broke frozen QUALITY collector type compatibility",
       "change": "restore OpportunityAllocationPolicy to LEGACY|QUALITY; introduce separate ResearchOpportunityAllocationPolicy for TIMESFM_ALLOCATION_BRIDGE_V1; runtime bridge logic unchanged",
+      "policyChanged": false,
+      "bridgeOutcomesOpened": false
+    },
+    {
+      "date": "2026-10-05",
+      "scope": "GUARD_ONLY",
+      "file": "tests/timesFmRelativeRankV1Contract.unit.mjs",
+      "reason": "regex matched OpportunityAllocationPolicy substring inside ResearchOpportunityAllocationPolicy",
+      "change": "compare exact exported type declaration lines instead of substring regex",
       "policyChanged": false,
       "bridgeOutcomesOpened": false
     }
