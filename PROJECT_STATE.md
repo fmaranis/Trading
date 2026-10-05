@@ -2071,3 +2071,14 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Verificación: QualityAllocationProspectivePolicy == OpportunityAllocationPolicy PASS; bridge research type isolation PASS; relative-rank contract PASS.
 - Sello bridge revisión 3, integridad 13/13 PASS, bridgeOutcomesOpened=false.
 - No se ejecutó todavía el replay post-hoc.
+
+
+#### TIMESFM_ALLOCATION_BRIDGE_V1 — guard exact-line repair 2026-10-05
+
+- Tercer intento se detuvo en `timesFmRelativeRankV1Contract.unit.mjs` antes del replay.
+- Causa: la regex `/OpportunityAllocationPolicy = ... TIMESFM_ALLOCATION_BRIDGE_V1/` hacía match dentro del identificador más largo `ResearchOpportunityAllocationPolicy`.
+- El código real estaba correcto: `OpportunityAllocationPolicy = LEGACY|QUALITY_ALLOCATION_BRIDGE_V1`; `ResearchOpportunityAllocationPolicy = OpportunityAllocationPolicy|TIMESFM_ALLOCATION_BRIDGE_V1`.
+- Reparación GUARD_ONLY: el contrato ahora extrae y compara las líneas exactas `export type OpportunityAllocationPolicy = ...` y `export type ResearchOpportunityAllocationPolicy = ...`.
+- No cambia política, datos, replay, matriz, sizing ni gates.
+- Sello bridge revisión 4, integridad 13/13 PASS, `bridgeOutcomesOpened=false`.
+- Replay post-hoc todavía no ejecutado.
