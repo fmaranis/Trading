@@ -116,3 +116,18 @@ Guards/wiring/sintaxis y el runner exacto han sido auto-verificados, incluidos c
 - El smoke es CPU-only: instala PyTorch desde `https://download.pytorch.org/whl/cpu` y TimesFM base `3.0.2` por separado.
 - Todo fallo de instalación conserva ahora `stdout`, `stderr`, código de salida, modo y Python seleccionado en la evidencia JSON.
 - No se modifica el protocolo de investigación ni producción; Stage B continúa bloqueado hasta un PASS técnico real.
+
+
+## Stage A closure and Stage B V1 preregistration — 2026-10-05
+
+Stage A is CLOSED with a real ZeroGPU `PASS_STAGE_A_TECHNICAL_SMOKE`, exact checkpoint SHA verification, CUDA inference, causal future-tail exclusion and exact repeatability.
+
+Stage B V1 is frozen before opening its historical outcomes in:
+- `docs/TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1_2026-10-05.md`
+- `scripts/timesfmStageBProtocol.mjs`
+
+Primary question: does TimesFM 3.0 improve the causal ranking of assets by **future return relative to the structural core**? The primary model is multivariate candidate + `EUNL.DE`; the univariate arm is secondary diagnostic only.
+
+Historical 2018Q1–2025Q3 evidence is explicitly consumed/diagnostic and cannot promote a policy. A prospective weekly confirmation beginning after 2026-10-05 was frozen before historical outcomes and is mandatory before Stage C. Production remains `LEGACY`.
+
+The diagnostic uses one batched ZeroGPU invocation and sends only 512-session causal contexts. Future prices remain in the local validation runner and are evaluated only after forecasts return. No paid infrastructure is permitted.
