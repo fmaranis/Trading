@@ -39,7 +39,7 @@
   "productionAuthority": false,
   "manifestGitBlobSha1": {
     "scripts/timesfmRelativeRankEconomicDiagnosticV1Protocol.mjs": "0c5c328c3629486dcb3a22d0e0264d0b7dcd568e",
-    "scripts/timesfmRelativeRankEconomicDiagnosticV1.ts": "b245d59a5c3a29eaa9223219e3bbb323fc4b4daa",
+    "scripts/timesfmRelativeRankEconomicDiagnosticV1.ts": "3b1430081720a49ef033e6e0be73e96fe3a51a02",
     "docs/TIMESFM_RELATIVE_RANK_V1_HISTORICAL_ECONOMIC_DIAGNOSTIC_2026-10-05.md": "454fc5bc6fc2e20762cbb7cf92d52f1a21509ccf",
     "src/investment/decision/dynamicHistoricalReplayCore.ts": "d45140ea89e8a58c1fcf112c8c618aa1be92b2c9",
     "src/investment/decision/replayTimesFmRelativeRankExperiment.ts": "f715b36b36a80febfde37e77a16af14547aa3bfa",
@@ -51,5 +51,17 @@
     "tests/timesFmRelativeRankV1Contract.unit.mjs": "abfb99edfe3f5cde08a00c8130c85751bfcd8a0c",
     "tests/timesfmRelativeRankEconomicDiagnosticV1.unit.mjs": "070569d63cd1319fa1d50223034ebbcba7891fe8",
     "tests/timesfmRelativeRankEconomicDiagnosticV1Contract.unit.mjs": "34a98998cdf4d3ad75aab8f35fb42fd352c5b79d"
-  }
+  },
+  "sealRevision": 2,
+  "previousSealCommit": "ad9e9d017daa28f8784c12cd8d54fc17634bf62d",
+  "preOutcomeRepairs": [
+    {
+      "date": "2026-10-05",
+      "scope": "TYPE_ONLY",
+      "file": "scripts/timesfmRelativeRankEconomicDiagnosticV1.ts",
+      "reason": "TypeScript inferred Stage B informationDate Set iteration key as unknown",
+      "change": "explicit any[] event rows + Set<string> + string[] dates; economic logic unchanged",
+      "economicOutcomesOpened": false
+    }
+  ]
 }
