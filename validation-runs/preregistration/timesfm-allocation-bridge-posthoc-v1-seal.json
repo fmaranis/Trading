@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "version": "TIMESFM_ALLOCATION_BRIDGE_POSTHOC_V1_SEAL",
+  "sealedAt": "2026-10-05",
+  "sourceHead": "10fc474dadf626ba5329478d7d0fe0cc33078789",
+  "lineage": {
+    "stageBSignal": "PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION",
+    "relativeRankV1Economic": "NO_ECONOMIC_REACH",
+    "sameHistoricalSampleConsumed": true
+  },
+  "role": "POSTHOC_ARCHITECTURE_DIAGNOSTIC_ONLY",
+  "bridgeOutcomesOpened": false,
+  "intervention": {
+    "policy": "TIMESFM_ALLOCATION_BRIDGE_V1",
+    "queueOrderOnly": true,
+    "sizingFormula": "LEGACY_UNCHANGED",
+    "gateAuthority": false,
+    "cashAuthority": false,
+    "sizingAuthority": false,
+    "capAuthority": false,
+    "timingAuthority": false
+  },
+  "matrix": {
+    "scenarios": 15,
+    "dates": "EXACT_STAGE_B_INFORMATION_DATES",
+    "capitals": [
+      250,
+      500,
+      2500,
+      10000,
+      30000
+    ],
+    "riskProfiles": [
+      "LOW",
+      "MEDIUM",
+      "HIGH"
+    ],
+    "architecture": "CORE_ARCHITECTURE_V1",
+    "execution": "NEXT_OPEN"
+  },
+  "promotionAuthority": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "manifestGitBlobSha1": {
+    "scripts/timesfmAllocationBridgePosthocV1Protocol.mjs": "94a654f5453015371bfe0332fd7e16917185b898",
+    "scripts/timesfmAllocationBridgePosthocV1.ts": "5dfdf3302c68778d93735af742eadf5821aac447",
+    "docs/TIMESFM_ALLOCATION_BRIDGE_V1_POSTHOC_2026-10-05.md": "d131ba808bc5e5fa01474d2e275a7b542bd57c19",
+    "src/investment/decision/portfolioDecisionEngine.ts": "902fc742ee57060cf0cd8036b1722fc39adf6720",
+    "src/investment/decision/replayTimesFmRelativeRankExperiment.ts": "92ec8fba87a1424e9dea0266a92dfbb7bf1b6703",
+    "src/investment/decision/timesFmRelativeRankV1.ts": "124129b858d2c39ef908d9122fefbc418e58802a",
+    "src/investment/decision/portfolioCandidateGate.ts": "18967db3be51ec4d5fcf0f1db296b2d13c3184d8",
+    "src/investment/decision/dynamicHistoricalReplayCore.ts": "d45140ea89e8a58c1fcf112c8c618aa1be92b2c9",
+    "tests/timesfmAllocationBridgePosthocV1.unit.mjs": "474d49534e625095cf544913a61efb6c718290c6",
+    "tests/timesfmAllocationBridgePosthocV1Contract.unit.mjs": "8721aa90b933e064e114b9cd803a8e4fdeaa635e",
+    "tests/timesFmRelativeRankV1.unit.ts": "7366ec1bca88d97177a1f38776ea6e00aacda8d3",
+    "tests/timesFmRelativeRankV1Contract.unit.mjs": "abfb99edfe3f5cde08a00c8130c85751bfcd8a0c",
+    "tests/dynamicHistoricalReplay.unit.ts": "9567a558cdc3d3cd1810751398d65b17af84f28f"
+  }
+}
