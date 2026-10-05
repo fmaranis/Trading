@@ -429,6 +429,11 @@ export const ResearchValidationCenter: React.FC = () => {
       const payload = await response.json();
       if (!response.ok) {
         if (response.status === 409 && payload?.error === 'VALIDATION_ALREADY_RUNNING') { await refresh(); return; }
+        if (response.status === 409 && payload?.error === 'VALIDATION_ARCHIVED_READ_ONLY') {
+          await refresh();
+          setError(null);
+          return;
+        }
         throw new Error(payload?.detail || payload?.error || `HTTP_${response.status}`);
       }
       if (payload?.job) {
