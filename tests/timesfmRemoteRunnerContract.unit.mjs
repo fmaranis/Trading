@@ -33,6 +33,7 @@ assert.match(client, /TIMESFM_ZEROGPU/);
 assert.doesNotMatch(client, /TIMESFM_RUNNER_TOKEN/);
 assert.match(remote, /DEFAULT_TIMESFM_ZERO_GPU_URL/);
 assert.match(remote, /fetchTimesFmRemoteState/);
+assert.match(remote, /reconcileTimesFmState/);
 assert.match(remote, /runTimesFmRemoteStageA/);
 assert.match(remote, /\/gradio_api\/call\//);
 assert.doesNotMatch(remote, /TIMESFM_RUNNER_TOKEN/);
