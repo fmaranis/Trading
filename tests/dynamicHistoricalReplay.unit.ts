@@ -205,17 +205,23 @@ console.log('Dynamic Historical Replay: causal boundary, timing audit, staged de
 
 
 {
-  const input = makeBaseReplayInput();
-  const dates = input.dataset.assets[0].bars.map(bar => bar.timestamp.slice(0,10));
-  const explicit = [dates[260], dates[300], dates[340]].filter(Boolean);
+  const explicitDataset = dataset(false, 560);
+  const dates = explicitDataset.assets[0].bars.map(bar => bar.timestamp.slice(0,10));
+  const explicit = [dates[400], dates[450], dates[500]].filter(Boolean);
   const result = DynamicHistoricalReplayEngine.run({
-    ...input,
+    dataset: explicitDataset,
+    catalog,
     startDate: explicit[0],
     explicitDecisionDates: explicit,
-    frequency: 'DAILY'
+    frequency: 'DAILY',
+    initialCapitalEur: 10_000,
+    riskProfile: 'MEDIUM',
+    horizonYears: 3,
+    cashBenchmarkAnnualPct: 2.5,
+    minimumBars: 252
   });
   const decisionDates = [...new Set(result.signals.filter(signal => !signal.isInitialAllocation).map(signal => signal.signalDate))];
-  assert.ok(result.decisions <= explicit.length, 'explicit decision dates cap decision count');
-  assert.ok(decisionDates.every(date => explicit.includes(date)), 'explicit decision dates prevent off-calendar decisions');
+  assert.equal(result.decisions, explicit.length, 'explicit decision dates must drive exactly the requested canonical decision count when all dates have enough history');
+  assert.ok(decisionDates.every(date => explicit.includes(date)), 'explicit decision dates prevent off-calendar signals');
   console.log('✓ explicit decision dates are research-only and constrain the canonical replay calendar');
 }
