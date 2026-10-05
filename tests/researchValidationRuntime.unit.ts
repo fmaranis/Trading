@@ -90,6 +90,9 @@ assert.doesNotMatch(routes, /GEMINI|@google\/genai|github actions/i);
 assert.match(mount, /research-validation/);
 assert.match(ui, /Validación de investigación/);
 assert.match(ui, /Ejecutar smoke TimesFM 3\.0/);
+assert.match(ui, /Ejecutar benchmark TimesFM Stage B/);
+assert.match(routes, /id: 'timesfm-stage-b-predictive-benchmark-v1'/);
+assert.match(routes, /Yahoo REAL \+ TimesFM ZeroGPU · benchmark predictivo/);
 assert.match(ui, /Ejecutar audit Yahoo REAL PEAD R3/);
 assert.match(ui, /Ejecutar diagnóstico 52W · rev\. técnica 3/);
 assert.match(ui, /SECTOR_52W_HIGH_LEADERSHIP_V1/);
@@ -108,12 +111,14 @@ assert.doesNotMatch(main, /ForwardRiskResearchPanel/);
 
 
 
-// production TimesFM exception: only the dedicated remote TimesFM job may pass the
-// production-local validation gate; every other research job remains local-only.
-assert.match(routes, /process\.env\.NODE_ENV === 'production' && job\.id !== TIMESFM_REMOTE_JOB_ID/);
+// production TimesFM exception: only jobs explicitly marked as using the remote
+// TimesFM runner may pass the production-local validation gate.
+assert.match(routes, /function isRemoteTimesFmValidationJob\(job: JobDefinition\)/);
+assert.match(routes, /return job\.requiresTimesFmRunner === true/);
+assert.match(routes, /process\.env\.NODE_ENV === 'production' && !isRemoteTimesFmValidationJob\(job\)/);
 assert.ok(
   routes.indexOf("const job = JOBS.find(item => item.id === req.params.id)") <
-  routes.indexOf("process.env.NODE_ENV === 'production' && job.id !== TIMESFM_REMOTE_JOB_ID"),
+  routes.indexOf("process.env.NODE_ENV === 'production' && !isRemoteTimesFmValidationJob(job)"),
   'TimesFM production exception must resolve the job before applying the local-only gate'
 );
 
