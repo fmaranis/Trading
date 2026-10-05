@@ -58,8 +58,8 @@ export const TIMESFM_MULTIVARIATE_CONTEXT_V1 = Object.freeze({
       'CORE_REALIZED_VOL20',
       'CORE_DRAWDOWN60_PCT',
       'XSEC_RETURN_DISPERSION20',
-      'CORE_RETURN20_PCT',
-      'CORE_RETURN60_PCT'
+      'XSEC_OVERNIGHT_GAP_MEAN_PCT',
+      'XSEC_OVERNIGHT_GAP_DISPERSION_PCT'
     ]),
     totalPastOnly: 23,
     futureKnownCovariates: Object.freeze([]),
