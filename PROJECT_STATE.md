@@ -1841,3 +1841,18 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Fix: el guard localiza `void runJob(job)`, recorta desde ahí el bloque de aceptación y aplica la aserción únicamente a ese tramo.
 - Se corrige además un defecto de señalización: `researchValidationRuntime.unit: PASS` estaba impreso antes de las aserciones añadidas. El log PASS pasa al final absoluto del test.
 - No hay cambio de runtime/producto en este commit: es corrección del guard para que valide exactamente el contrato pretendido y no produzca PASS prematuro.
+
+
+### TimesFM 3.0 · Stage A technical smoke — PASS real ZeroGPU 2026-10-05
+
+- Resultado final observado desde `ResearchValidationCenter`: `PASS_STAGE_A_TECHNICAL_SMOKE`.
+- Cadena previa completa PASS: cliente runner remoto, contrato runner remoto, reconciliación de estado, contrato Stage A, runtime validation, `CORE_ARCHITECTURE_V1` y `tsc --noEmit`.
+- Runner real: Hugging Face ZeroGPU, Python 3.12.12, CUDA, PyTorch `2.13.0+cu130`, TimesFM `3.0.2`.
+- Checkpoint congelado ejecutado: `google/timesfm-3.0-pytorch@24701cec1b1ea47232c0766e888855c9976ef62b`.
+- SHA-256 verificado: `a7592b0a8432baee54483254e5647856911ce69e09d09a9bb65904b2d98f17da`.
+- Fixture técnico: SYNTHETIC, contexto 128, horizonte 16, cuantiles 0.1..0.9, sin precios/outcomes/política económica.
+- Checks PASS: hash checkpoint, exclusión causal del future tail, shapes, finitud, monotonicidad cuantiles, point forecast = mediana y repetibilidad exacta.
+- Repetibilidad: `repeatForecastMaxAbsDelta=0`, `repeatQuantileMaxAbsDelta=0`.
+- Zero-cost confirmado por protocolo del job; producción continúa `LEGACY`.
+- Stage A queda CERRADO. No volver a gastar tiempo en este smoke salvo regresión técnica.
+- Stage B queda metodológicamente habilitado a partir de este PASS, pero debe diseñarse/prerregistrarse antes de abrir datos/outcomes reales y sin alterar producción.
