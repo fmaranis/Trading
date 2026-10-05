@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { spawn } from 'node:child_process';
 import { loadDurableJobState, reconcileLoadedJobState, saveDurableJobState } from './researchValidationStateStore.mjs';
-import { fetchTimesFmRemoteState, reconcileTimesFmState, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
+import { checkTimesFmRemoteEndpoint, fetchTimesFmRemoteState, reconcileTimesFmState, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
 
 export const researchValidationRouter = express.Router();
 
@@ -34,6 +34,8 @@ interface JobState {
 }
 
 const MAX_OUTPUT_CHARS = 1_500_000;
+const TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID = 'timesfm-multivariate-context-v1';
+const TIMESFM_MULTIVARIATE_CONTEXT_ENDPOINT = 'multivariate_context_predict';
 
 function archivedJob(id: string, name: string, description: string, historyLabel: string, marker?: string): JobDefinition {
   return { id, name, description, marker, visibility: 'ARCHIVED', historyLabel, steps: [] };
@@ -588,6 +590,20 @@ function prerequisiteError(job: JobDefinition): string | null {
   return null;
 }
 
+async function asyncPrerequisiteError(job: JobDefinition): Promise<string | null> {
+  const syncReason = prerequisiteError(job);
+  if (syncReason) return syncReason;
+  if (job.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID) {
+    try {
+      const available = await checkTimesFmRemoteEndpoint(TIMESFM_MULTIVARIATE_CONTEXT_ENDPOINT);
+      if (!available) return 'TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED';
+    } catch {
+      return 'TIMESFM_REMOTE_RUNNER_UNREACHABLE';
+    }
+  }
+  return null;
+}
+
 function prerequisiteDetail(reason: string): string {
   if (reason === 'EODHD_API_KEY_REQUIRED') {
     return 'Falta EODHD_API_KEY en el backend local. No se han lanzado guards, descargas ni cálculos.';
@@ -597,6 +613,12 @@ function prerequisiteDetail(reason: string): string {
   }
   if (reason === 'TIMESFM_REMOTE_RUNNER_REQUIRED') {
     return 'TimesFM requiere el Space gratuito Hugging Face ZeroGPU. AI Studio ya no ejecuta ni descarga el modelo localmente.';
+  }
+  if (reason === 'TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED') {
+    return 'El Space TimesFM remoto todavía no expone multivariate_context_predict. El job queda bloqueado antes de guards, Yahoo o inferencia.';
+  }
+  if (reason === 'TIMESFM_REMOTE_RUNNER_UNREACHABLE') {
+    return 'No se ha podido verificar el Space TimesFM remoto. El job queda bloqueado antes de guards, Yahoo o inferencia.';
   }
   return 'Falta GITHUB_REPLAY_SYNC_TOKEN en el backend local. No se han lanzado guards ni cálculos.';
 }
@@ -614,7 +636,7 @@ async function runJob(job: JobDefinition): Promise<void> {
   state.error = null;
   persistState(job.id, state);
   try {
-    const missing = prerequisiteError(job);
+    const missing = await asyncPrerequisiteError(job);
     if (missing) throw new Error(missing);
     for (const step of job.steps) {
       const stepRun = await runStep(job.id, step, state);
@@ -645,7 +667,7 @@ async function runJob(job: JobDefinition): Promise<void> {
 }
 
 async function publicJob(job: JobDefinition) {
-  const blockedReason = prerequisiteError(job);
+  const blockedReason = await asyncPrerequisiteError(job);
   const local = stateFor(job.id);
   let resolved: JobState = local;
   let runnerReachable: boolean | null = null;
@@ -756,7 +778,7 @@ researchValidationRouter.post('/jobs/:id/run', async (req: Request, res: Respons
     return;
   }
   if (job.visibility === 'ARCHIVED') { res.status(409).json({ error: 'VALIDATION_ARCHIVED_READ_ONLY', job: await publicJob(job) }); return; }
-  const missing = prerequisiteError(job);
+  const missing = await asyncPrerequisiteError(job);
   if (missing) {
     res.status(412).json({
       error: missing,
