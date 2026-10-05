@@ -22,7 +22,7 @@ interface ValidationJob {
 }
 interface ValidationHistoryItem { id: string; label: string; }
 interface ProviderStatus { provider: string; configured: boolean; role?: string; primaryProvider?: string; }
-interface ValidationPrerequisites { githubReplaySyncConfigured: boolean; eodhdConfigured?: boolean; secEdgarUserAgentConfigured?: boolean; timesFmRemoteRunnerConfigured?: boolean; }
+interface ValidationPrerequisites { githubReplaySyncConfigured: boolean; eodhdConfigured?: boolean; secEdgarUserAgentConfigured?: boolean; timesFmRemoteRunnerConfigured?: boolean; timesFmHfTokenConfigured?: boolean; }
 interface Phase4RecoveryStatus {
   jobId: string;
   evidenceAvailable: boolean;
@@ -376,7 +376,10 @@ function blockedMessage(reason: string | null | undefined): string | null {
   if (reason === 'SEC_EDGAR_USER_AGENT_REQUIRED') return 'Falta SEC_EDGAR_USER_AGENT. Debe identificar el acceso automatizado a SEC EDGAR; sin ese dato el job queda bloqueado antes de abrir la muestra.';
   if (reason === 'TIMESFM_REMOTE_RUNNER_REQUIRED') return 'Falta el Space gratuito Hugging Face ZeroGPU de TimesFM. AI Studio ya no descarga ni ejecuta el modelo.';
   if (reason === 'TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED') return 'El Space TimesFM todavía no expone multivariate_context_predict. Este job queda bloqueado antes de guards, Yahoo o inferencia.';
-  if (reason === 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED') return 'El Space TimesFM todavía no tiene la versión exacta requerida: API v2, lotes de 8 y 120 s por llamada. El job queda bloqueado antes de Yahoo o inferencia.';
+  if (reason === 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED') return 'El Space TimesFM todavía no tiene la versión exacta requerida: API v3, lotes de 8 y 45 s por llamada. El job queda bloqueado antes de Yahoo o inferencia.';
+  if (reason === 'TIMESFM_HF_TOKEN_REQUIRED') return 'Falta HF_TOKEN en el backend. TimesFM debe llamar a ZeroGPU autenticado para usar la cuota de tu cuenta y no la cuota anónima.';
+  if (reason === 'TIMESFM_HF_TOKEN_QUOTA_PERMISSION_REQUIRED') return 'HF_TOKEN existe, pero no puede consultar la cuota ZeroGPU. El token necesita permiso Billing > Read billing usage and payment method status.';
+  if (reason === 'TIMESFM_ZERO_GPU_QUOTA_INSUFFICIENT') return 'La cuota ZeroGPU autenticada restante no alcanza el mínimo reservado para los 4 lotes. El job queda bloqueado hasta recuperar cuota.';
   if (reason === 'TIMESFM_REMOTE_RUNNER_UNREACHABLE') return 'No se ha podido verificar el Space TimesFM. Este job queda bloqueado antes de guards, Yahoo o inferencia.';
   return reason || null;
 }
