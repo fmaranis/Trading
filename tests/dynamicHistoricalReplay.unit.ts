@@ -202,3 +202,20 @@ try {
 }
 
 console.log('Dynamic Historical Replay: causal boundary, timing audit, staged deployment horizons, market-data prefix invariance, costs/tax accounting and future isolation passed.');
+
+
+{
+  const input = makeBaseReplayInput();
+  const dates = input.dataset.assets[0].bars.map(bar => bar.timestamp.slice(0,10));
+  const explicit = [dates[260], dates[300], dates[340]].filter(Boolean);
+  const result = DynamicHistoricalReplayEngine.run({
+    ...input,
+    startDate: explicit[0],
+    explicitDecisionDates: explicit,
+    frequency: 'DAILY'
+  });
+  const decisionDates = [...new Set(result.signals.filter(signal => !signal.isInitialAllocation).map(signal => signal.signalDate))];
+  assert.ok(result.decisions <= explicit.length, 'explicit decision dates cap decision count');
+  assert.ok(decisionDates.every(date => explicit.includes(date)), 'explicit decision dates prevent off-calendar decisions');
+  console.log('✓ explicit decision dates are research-only and constrain the canonical replay calendar');
+}
