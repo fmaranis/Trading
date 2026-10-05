@@ -107,3 +107,13 @@ assert.match(main, /InteractiveInvestmentDecisionCenter/);
 assert.doesNotMatch(main, /ForwardRiskResearchPanel/);
 
 console.log('researchValidationRuntime.unit: PASS');
+
+
+// production TimesFM exception: only the dedicated remote TimesFM job may pass the
+// production-local validation gate; every other research job remains local-only.
+assert.match(routes, /process\.env\.NODE_ENV === 'production' && job\.id !== TIMESFM_REMOTE_JOB_ID/);
+assert.ok(
+  routes.indexOf("const job = JOBS.find(item => item.id === req.params.id)") <
+  routes.indexOf("process.env.NODE_ENV === 'production' && job.id !== TIMESFM_REMOTE_JOB_ID"),
+  'TimesFM production exception must resolve the job before applying the local-only gate'
+);
