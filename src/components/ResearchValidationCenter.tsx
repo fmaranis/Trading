@@ -125,6 +125,36 @@ function resultSummary(result: any): React.ReactNode {
       </div>
     </div>;
   }
+  if (result.study === 'TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1') {
+    const summary = result.primarySummary ?? {};
+    const checks = summary.gateChecks ?? {};
+    const status = String(result.status ?? 'RESULTADO');
+    const passed = status === 'PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION';
+    const inconclusive = status.startsWith('INCONCLUSIVE_');
+    const tone = passed
+      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+      : inconclusive
+        ? 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+        : 'border-rose-500/30 bg-rose-500/10 text-rose-100';
+    const metric = (value: unknown, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : 'N/D';
+    const gate = (value: unknown) => value === true ? 'PASS' : 'FAIL';
+    return <div className="mt-4 space-y-3">
+      <div className={`rounded-xl border p-4 ${tone}`}>
+        <div className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0"/><div><div className="text-sm font-black">{status}</div><div className="mt-1 text-[11px] opacity-80">{passed ? 'La señal histórica supera el gate congelado; sólo autoriza confirmación prospectiva.' : 'Diagnóstico de señal únicamente; no se retunea ni modifica producción.'}</div></div></div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Cobertura</div><b className="text-xs text-white">{metric(summary.coveragePct)}%</b><div className="mt-1 text-[9px] text-slate-600">{gate(checks.coverage)} · mínimo 85%</div></div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Rank IC 20/60</div><b className="text-xs text-white">{metric(summary.meanRankIc20_60, 3)}</b><div className="mt-1 text-[9px] text-slate-600">{gate(checks.meanRankIc)} · mínimo 0.05</div></div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Lift vs LEGACY</div><b className="text-xs text-white">{metric(summary.rankIcLiftVsLegacy20_60, 3)}</b><div className="mt-1 text-[9px] text-slate-600">{gate(checks.rankIcLiftVsLegacy)} · mínimo +0.02</div></div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Dirección vs core</div><b className="text-xs text-white">{metric(summary.pooledRelativeDirectionalAccuracyPct20_60)}%</b><div className="mt-1 text-[9px] text-slate-600">{gate(checks.relativeDirectionalAccuracy)} · mínimo 52%</div></div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">P10–P90</div><b className="text-xs text-white">{metric(summary.quantile80CoveragePct20_60)}%</b><div className="mt-1 text-[9px] text-slate-600">{gate(checks.quantile80Coverage)} · rango 60–95%</div></div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">IC temporal +</div><b className="text-xs text-white">{Number.isFinite(Number(summary.positiveTemporalIcAssets)) ? `${summary.positiveTemporalIcAssets}/8` : 'N/D'}</b><div className="mt-1 text-[9px] text-slate-600">{gate(checks.positiveTemporalIcAssets)} · mínimo 5/8</div></div>
+      </div>
+      <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-[10px] text-slate-400">
+        Core de referencia: <b className="text-slate-200">EUNL.DE</b> · horizontes primarios 20/60 sesiones · producción <b className="text-slate-200">LEGACY</b>.
+      </div>
+    </div>;
+  }
   if (result.study === 'SECTOR_52W_HIGH_LEADERSHIP_V1') {
     const diagnostic = result.diagnostic20 ?? {};
     const replication = result.replication20 ?? null;
