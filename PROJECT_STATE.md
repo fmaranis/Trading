@@ -2060,3 +2060,14 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Sello bridge actualizado a revisión 2; integridad 13/13 PASS; `bridgeOutcomesOpened=false`.
 - El replay económico bridge no se ejecutó en el intento fallido; muestra post-hoc todavía no abierta por este runner.
 - Los sellos prospectivo/economic-shadow previos presentan drift de blobs compartidos por la incorporación del bridge (PortfolioDecisionEngine, replay wrapper, contract guard y routes). No afecta al job bridge actual. Deben reseñarse explícitamente antes de reactivar el collector prospectivo; la muestra prospectiva permanece unopened.
+
+
+#### TIMESFM_ALLOCATION_BRIDGE_V1 — aislamiento de tipo research 2026-10-05
+
+- Segundo intento se detuvo en TypeScript antes del replay post-hoc.
+- Error: qualityAllocationDynamicFutureForwardV1CheckpointLive.ts esperaba QualityAllocationProspectivePolicy = LEGACY|QUALITY, pero OpportunityAllocationPolicy se había ampliado globalmente con TIMESFM_ALLOCATION_BRIDGE_V1.
+- Reparación TYPE_ONLY/ARCHITECTURE_ISOLATION: OpportunityAllocationPolicy vuelve a LEGACY|QUALITY_ALLOCATION_BRIDGE_V1. Se crea ResearchOpportunityAllocationPolicy = OpportunityAllocationPolicy|TIMESFM_ALLOCATION_BRIDGE_V1, usado sólo por PortfolioDecisionEngine para research.
+- El collector QUALITY no se modifica y conserva exactamente su contrato de policies.
+- Verificación: QualityAllocationProspectivePolicy == OpportunityAllocationPolicy PASS; bridge research type isolation PASS; relative-rank contract PASS.
+- Sello bridge revisión 3, integridad 13/13 PASS, bridgeOutcomesOpened=false.
+- No se ejecutó todavía el replay post-hoc.
