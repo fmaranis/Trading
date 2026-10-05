@@ -401,6 +401,7 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard sello TimesFM multivariante V1', command: 'node', args: ['tests/timesfmMultivariateContextV1Seal.unit.mjs'] },
       { label: 'Guard protocolo TimesFM multivariante V1', command: 'node', args: ['tests/timesfmMultivariateContextV1.unit.mjs'] },
       { label: 'Guard contrato TimesFM multivariante V1', command: 'node', args: ['tests/timesfmMultivariateContextV1Contract.unit.mjs'] },
+      { label: 'Guard contrato runner remoto TimesFM', command: 'node', args: ['tests/timesfmMultivariateContextV1RunnerReadiness.unit.mjs'] },
       { label: 'Guard sintaxis runner Space', command: 'python3', args: ['-m', 'py_compile', 'runner/timesfm/hf-space/app.py'] },
       { label: 'Guard endpoint runner TimesFM multivariante', command: 'node', args: ['scripts/timesfmMultivariateContextV1RunnerReadiness.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
