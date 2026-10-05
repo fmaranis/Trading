@@ -115,13 +115,16 @@ function buildDataset(stageBResult: any) {
 }
 
 function buildEvidence(stageBResult: any) {
-  const dates = [...new Set(stageBResult.events.map((row:any)=>String(row.informationDate)))].sort();
+  const eventRows: any[] = Array.isArray(stageBResult?.events) ? stageBResult.events : [];
+  const dates: string[] = [...new Set<string>(
+    eventRows.map((row: any): string => String(row.informationDate))
+  )].sort((a, b) => a.localeCompare(b));
   if (dates.length !== P.decisionCountExpected) {
     throw new Error('TIMESFM_ECONOMIC_INFORMATION_DATE_COUNT:' + dates.length);
   }
   const evidenceByDate: Record<string, Array<{assetId:string;predictedRelativeReturn20Pct:number;predictedRelativeReturn60Pct:number}>> = {};
   for (const date of dates) {
-    const rows = stageBResult.events.filter((row:any)=>row.informationDate === date);
+    const rows: any[] = eventRows.filter((row: any) => String(row.informationDate) === date);
     const evidence = STAGE_B.assets.map((asset:any) => {
       const r20 = rows.find((row:any)=>row.assetId === asset.assetId && row.horizon === 20);
       const r60 = rows.find((row:any)=>row.assetId === asset.assetId && row.horizon === 60);
