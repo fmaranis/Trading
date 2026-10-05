@@ -1803,3 +1803,6 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Fix frontend: aplica de inmediato `payload.job` sobre la tarjeta y lanza `refresh()` en segundo plano; el usuario vuelve a ver `RUNNING` y el paso actual al pulsar.
 - La consulta de estado ZeroGPU usada por refrescos se limita a 4 s para que un Space lento no congele el Centro de validación.
 - No cambia el protocolo de investigación ni producción; sólo la capacidad de observar/arrancar el job remoto.
+
+
+- UX adicional del mismo fix: el frontend muestra inmediatamente `Arrancando…` y `Solicitando ejecución al backend…` desde el propio handler de clic, antes de recibir el POST. Así cualquier bloqueo posterior queda visible y el botón nunca vuelve a parecer inerte.
