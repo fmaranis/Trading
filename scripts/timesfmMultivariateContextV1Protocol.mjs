@@ -10,7 +10,8 @@ export const TIMESFM_MULTIVARIATE_CONTEXT_V1 = Object.freeze({
     nativeApi: 'timesfm3.TimesFM3Evaluator',
     maxVariates: 32,
     remoteBatchMaxAnchors: 8,
-    zeroGpuDurationSecondsPerBatch: 120
+    runnerApiVersion: 3,
+    zeroGpuDurationSecondsPerBatch: 45
   }),
   data: Object.freeze({
     sourceType: 'REAL',
