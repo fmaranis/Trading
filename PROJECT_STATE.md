@@ -1976,3 +1976,12 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Se reprodujo localmente el mismo patrón `ranked -> Map -> metaByAsset -> entry` y `tsc --noEmit` pasó.
 - No se abrió estado prospectivo, Yahoo, ZeroGPU ni outcomes.
 - Sello prospectivo pasa a revisión 4; sello económico a revisión 3.
+
+
+### TimesFM prospective preflight real — PASS 2026-10-05
+- Job: TimesFM · confirmación prospectiva semanal.
+- Resultado real: PASSED / WAITING_START_AFTER_FROZEN_DATE.
+- Guards, core, candidate gate y tsc --noEmit: PASS.
+- El collector se detuvo por fecha antes de abrir estado prospectivo o consultar datos externos.
+- Estado confirmado: sampleOpened=false, marketAccessed=false, outcomesOpened=false.
+- Próxima ventana válida: semana ISO 2026-W42, desde 2026-10-12; no ejecutar antes de las 18:00 Europe/Berlin si la information date es ese mismo día.
