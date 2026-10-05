@@ -169,7 +169,7 @@ function evaluateArm(arm,anchors,series,remoteByAnchor){
         events.push({
           arm,anchorId:anchor.anchorId,informationDate:anchor.informationDate,assetId:asset.assetId,ticker:asset.ticker,horizon,
           actualReturn:actual,actualRelative:actual-actualCore,predReturn:pred,predRelative:pred-predCore,
-          legacyScore:legacyScannerScore(raw,false),momentumRelative:(trailing60LogDriftForecast(raw,horizon)??0)-(trailing60LogDriftForecast(coreRaw,horizon)??0),
+          legacyScore:legacyScannerScore(raw,asset.defensive===true),momentumRelative:(trailing60LogDriftForecast(raw,horizon)??0)-(trailing60LogDriftForecast(coreRaw,horizon)??0),
           quantile80Covered:quantileCovered(remote,arm,asset.assetId,horizon,anchor,series)
         });
       }
