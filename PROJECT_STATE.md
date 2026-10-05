@@ -2032,3 +2032,19 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Cambio único: entre oportunidades ya elegibles, el rango TimesFM 20/60 decide el orden de consumo de slots y capital base escaso.
 - La magnitud del target/sizing sigue usando la prioridad económica LEGACY.
 - Esta política sólo puede evaluarse sobre 2018-2025 como POSTHOC_ARCHITECTURE_DIAGNOSTIC_ONLY; no tiene autoridad de promoción.
+
+
+### TIMESFM_ALLOCATION_BRIDGE_V1 — post-hoc diagnostic ready 2026-10-05
+
+- Closed predecessor: TIMESFM_RELATIVE_RANK_V1 historical economic diagnostic = NO_ECONOMIC_REACH.
+- Interpretation retained: Stage B signal PASS remains predictive evidence; V1 failed translation because the rank had near-zero economic authority.
+- New post-hoc hypothesis: TIMESFM_ALLOCATION_BRIDGE_V1.
+- Change: among already-eligible opportunities, TimesFM relative rank controls queue order for scarce slots/base deployable capital.
+- Unchanged: hard gates, EntryTiming, cash target, sizing formula, starter/build fractions, caps, rotation health/persistence, fees, tax, NEXT_OPEN, external-flow accounting.
+- LEGACY opportunityPriority still determines target/sizing magnitudes; no TimesFM multiplier or fitted coefficient exists.
+- Same consumed Stage B sample only, exact 31 information dates, same 15 capital/risk scenarios.
+- Status is POSTHOC_ARCHITECTURE_DIAGNOSTIC_ONLY; even a positive result has no promotion authority.
+- Seal: validation-runs/preregistration/timesfm-allocation-bridge-posthoc-v1-seal.json.
+- Seal integrity 13/13 PASS; bridgeOutcomesOpened=false.
+- ResearchValidationCenter: old V1 archived; current TimesFM job = timesfm-allocation-bridge-posthoc-v1.
+- Production remains LEGACY.
