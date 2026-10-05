@@ -93,6 +93,7 @@ assert.match(ui, /Ejecutar smoke TimesFM 3\.0/);
 assert.match(ui, /Ejecutar benchmark TimesFM Stage B/);
 assert.match(routes, /id: 'timesfm-stage-b-predictive-benchmark-v1'/);
 assert.match(routes, /Yahoo REAL \+ TimesFM ZeroGPU · benchmark predictivo/);
+assert.match(routes, /tests\/timesfmStageBSeal\.unit\.mjs/);
 assert.match(ui, /Ejecutar audit Yahoo REAL PEAD R3/);
 assert.match(ui, /Ejecutar diagnóstico 52W · rev\. técnica 3/);
 assert.match(ui, /SECTOR_52W_HIGH_LEADERSHIP_V1/);
