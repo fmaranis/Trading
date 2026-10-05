@@ -95,6 +95,7 @@ assert.match(ui, /Registrar forecast semanal TimesFM/);
 assert.match(ui, /Ejecutar diagnóstico económico TimesFM/);
 assert.match(ui, /Ejecutar bridge económico TimesFM/);
 assert.match(ui, /Comparar TimesFM directo vs app vs core/);
+assert.match(ui, /VALIDATION_ARCHIVED_READ_ONLY/);
 assert.match(ui, /TIMESFM_DIRECT_SELECTOR_HISTORICAL_DIAGNOSTIC_V1/);
 assert.match(ui, /Elecciones TimesFM/);
 assert.match(ui, /TIMESFM_ALLOCATION_BRIDGE_POSTHOC_V1/);
