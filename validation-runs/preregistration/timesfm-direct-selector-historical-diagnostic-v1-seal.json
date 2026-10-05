@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "version": "TIMESFM_DIRECT_SELECTOR_HISTORICAL_DIAGNOSTIC_V1_SEAL",
+  "sealedAt": "2026-10-05",
+  "sourceHead": "4a6b445e6c7980a63ae87ad1cd6a086e78542af7",
+  "lineage": {
+    "stageBSignal": "PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION",
+    "relativeRankV1": "NO_ECONOMIC_REACH",
+    "allocationBridgeV1": "POSTHOC_NO_REACH",
+    "historicalSampleConsumed": true
+  },
+  "selector": {
+    "version": "TIMESFM_DIRECT_SELECTOR_V1",
+    "pool": "8_STAGE_B_ASSETS_PLUS_EUNL_CORE",
+    "horizons": [
+      20,
+      60
+    ],
+    "rule": "LOWEST_MEAN_ORDINAL_RANK_20_60",
+    "tieBreak": "HIGHER_MEAN_PREDICTED_RELATIVE_RETURN_THEN_ASSET_ID",
+    "coreRelativeForecastPct": 0,
+    "target": "100_PERCENT_EXECUTABLE_SHADOW_EQUITY_TO_SELECTED_ASSET",
+    "legacyScoreAuthority": false,
+    "consensusAuthority": false,
+    "timingAuthority": false
+  },
+  "replay": {
+    "engine": "DynamicHistoricalReplayEngine",
+    "mode": "RESEARCH_DIRECT_SELECTOR",
+    "execution": "NEXT_OPEN",
+    "fees": true,
+    "taxes": true,
+    "wholeShareFeasibility": true,
+    "cashRemuneration": true
+  },
+  "comparison": {
+    "arms": [
+      "LEGACY_APP",
+      "TIMESFM_DIRECT",
+      "EUNL_CORE_DIRECT"
+    ],
+    "informationDates": 31,
+    "scenarios": 15,
+    "capitals": [
+      250,
+      500,
+      2500,
+      10000,
+      30000
+    ],
+    "riskProfiles": [
+      "LOW",
+      "MEDIUM",
+      "HIGH"
+    ]
+  },
+  "outcomesOpened": false,
+  "promotionAuthority": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "manifestGitBlobSha1": {
+    "src/investment/decision/timesFmDirectSelectorV1.ts": "1ddc0da03cf8507ebcc57c2c9335d12f55351aa6",
+    "src/investment/decision/dynamicHistoricalReplayCore.ts": "bcdf1f0ed6367f69d55789a90bb136d545421a37",
+    "src/investment/decision/index.ts": "a200f4081855dfb9aff1e3b5a498a7ee4a61aa18",
+    "scripts/timesfmDirectSelectorHistoricalDiagnosticV1Protocol.mjs": "6ecace6bb8259a3d54ecd90e831dfae8fbb0d705",
+    "scripts/timesfmDirectSelectorHistoricalDiagnosticV1.ts": "0267a386dd642f0f668ca54090024565f41422a7",
+    "docs/TIMESFM_DIRECT_SELECTOR_V1_2026-10-05.md": "1a847c61c1f1504e6d80d4529a21ad996c8d2579",
+    "tests/timesFmDirectSelectorV1.unit.ts": "08ec612210c39455691c52316842b13329b582cb",
+    "tests/timesFmDirectSelectorV1Contract.unit.mjs": "f95b4c38943242a2e42c88a218b39182336a68ff",
+    "tests/timesfmDirectSelectorHistoricalDiagnosticV1.unit.mjs": "58cb20d87a0ad1fe02d8b5a4c81327390cf59b30",
+    "tests/timesfmDirectSelectorHistoricalDiagnosticV1Contract.unit.mjs": "bd408408b1d8f60947aff5e3c103a1b66be1fd6d",
+    "tests/dynamicHistoricalReplay.unit.ts": "5c6e2845cb617dadf4272153ccf40e9304e5504c"
+  }
+}
