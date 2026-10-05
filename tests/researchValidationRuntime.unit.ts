@@ -106,7 +106,6 @@ assert.match(main, /ResearchValidationCenter/);
 assert.match(main, /InteractiveInvestmentDecisionCenter/);
 assert.doesNotMatch(main, /ForwardRiskResearchPanel/);
 
-console.log('researchValidationRuntime.unit: PASS');
 
 
 // production TimesFM exception: only the dedicated remote TimesFM job may pass the
@@ -124,9 +123,12 @@ assert.ok(
 const runRouteStart = routes.indexOf("researchValidationRouter.post('/jobs/:id/run'");
 const runRouteEnd = routes.indexOf("\n});", runRouteStart);
 const runRouteBlock = routes.slice(runRouteStart, runRouteEnd);
-assert.match(runRouteBlock, /const acceptedState = stateFor\(job\.id\)/);
-assert.doesNotMatch(runRouteBlock, /job: await publicJob\(job\)/);
-assert.match(runRouteBlock, /\.\.\.acceptedState/);
+const acceptedRunStart = runRouteBlock.indexOf('void runJob(job);');
+assert.ok(acceptedRunStart >= 0, 'Accepted run path must dispatch runJob');
+const acceptedRunBlock = runRouteBlock.slice(acceptedRunStart);
+assert.match(acceptedRunBlock, /const acceptedState = stateFor\(job\.id\)/);
+assert.doesNotMatch(acceptedRunBlock, /await publicJob\(job\)/);
+assert.match(acceptedRunBlock, /\.\.\.acceptedState/);
 assert.match(ui, /setJobs\(current => current\.map\(job => job\.id === id \? \{ \.\.\.job, \.\.\.payload\.job \} : job\)\)/);
 assert.match(timesfmRemote, /callGradio\('status', 4_000\)/);
 
@@ -136,3 +138,5 @@ assert.match(ui, /const \[launchingJobId, setLaunchingJobId\] = useState<string 
 assert.match(ui, /setLaunchingJobId\(id\)/);
 assert.match(ui, /Solicitando ejecución al backend…/);
 assert.match(ui, /Arrancando…/);
+
+console.log('researchValidationRuntime.unit: PASS');
