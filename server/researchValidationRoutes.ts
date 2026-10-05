@@ -604,12 +604,12 @@ researchValidationRouter.get('/jobs/:id', async (req: Request, res: Response): P
 });
 
 researchValidationRouter.post('/jobs/:id/run', async (req: Request, res: Response): Promise<void> => {
-  if (process.env.NODE_ENV === 'production') {
+  const job = JOBS.find(item => item.id === req.params.id);
+  if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
+  if (process.env.NODE_ENV === 'production' && job.id !== TIMESFM_REMOTE_JOB_ID) {
     res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY', execution: 'LOCAL_APP_BACKEND' });
     return;
   }
-  const job = JOBS.find(item => item.id === req.params.id);
-  if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
   if (job.visibility === 'ARCHIVED') { res.status(409).json({ error: 'VALIDATION_ARCHIVED_READ_ONLY', job: await publicJob(job) }); return; }
   const missing = prerequisiteError(job);
   if (missing) {
