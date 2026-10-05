@@ -523,7 +523,9 @@ export async function main() {
 
 const invoked=process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href;
 if(invoked){
-  main().catch(error=>{
+  main().then(result=>{
+    if(result?.status!=='PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION') process.exitCode=2;
+  }).catch(error=>{
     console.error(MARKER);
     console.error(JSON.stringify({
       study:P.version,status:'BLOCKED_OR_TECHNICAL_FAILED',
