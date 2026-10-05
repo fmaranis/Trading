@@ -1815,3 +1815,11 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Nueva regla: `PASSED/FAILED` local siempre conserva autoridad para la ejecución lanzada por ese backend; `RUNNING + remote IDLE` conserva RUNNING; sólo un backend local `IDLE` (por ejemplo tras reinicio) adopta el estado durable del Space.
 - Se añade guard comportamental `tests/timesfmStateReconciliation.unit.ts` con casos explícitos RUNNING+IDLE, FAILED+IDLE, PASSED+IDLE, IDLE+RUNNING, IDLE+FAILED y RUNNING+FAILED.
 - El guard se ejecuta antes del contrato Stage A y antes de TypeScript/smoke remoto.
+
+
+### TimesFM Stage A — fix guard ZeroGPU mal escapado 2026-10-05
+
+- Tras preservar el FAILED local se aisló un segundo fallo real: tres aserciones añadidas a `tests/timesfmStageAContract.unit.mjs` estaban sobre-escapadas y buscaban barras invertidas literales en `app.py`.
+- El fallo ocurría en `Guard contrato TimesFM Stage A`, antes del cliente ZeroGPU; por tanto el Space no llegaba a ejecutarse.
+- Corregidas las aserciones para comprobar literalmente: corte causal `full_with_future[:, :information_cutoff]`, `productionDefault: LEGACY` y decorador `@spaces.GPU`.
+- Este fallo y el bug de reconciliación juntos explican exactamente el síntoma observado: RUNNING breve -> salida técnica -> vuelta silenciosa a IDLE.
