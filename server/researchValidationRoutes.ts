@@ -39,6 +39,10 @@ function archivedJob(id: string, name: string, description: string, historyLabel
   return { id, name, description, marker, visibility: 'ARCHIVED', historyLabel, steps: [] };
 }
 
+function isRemoteTimesFmValidationJob(job: JobDefinition): boolean {
+  return job.requiresTimesFmRunner === true;
+}
+
 const JOBS: JobDefinition[] = [
   archivedJob(
     'forward-risk-v8-fragmentation-diagnostic',
@@ -262,7 +266,8 @@ const JOBS: JobDefinition[] = [
     name: 'TimesFM 3.0 · Stage A · smoke causal',
     description: 'Smoke técnico research-only delegado a Hugging Face ZeroGPU gratuito. La app sólo ejecuta guards rápidos y consulta el estado remoto; fixture SYNTHETIC, sin precios/outcomes/recomendaciones, sin billing y producción LEGACY.',
     marker: 'TIMESFM_STAGE_A_SMOKE_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'TimesFM Stage A · PASS técnico real ZeroGPU · cerrado',
     requiresTimesFmRunner: true,
     steps: [
       { label: 'Guard cliente runner remoto TimesFM', command: 'node', args: ['tests/timesfmRemoteClient.unit.mjs'] },
@@ -273,6 +278,25 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Runner remoto TimesFM 3.0 · checkpoint + smoke', command: 'node', args: ['scripts/timesfmStageARemoteClient.mjs'] }
+    ]
+  },
+  {
+    id: 'timesfm-stage-b-predictive-benchmark-v1',
+    name: 'TimesFM 3.0 · Stage B · señal vs core',
+    description: 'Benchmark predictivo research-only preregistrado: Yahoo REAL, 31 cortes trimestrales, 8 activos frente a EUNL.DE, contexto causal de 512 sesiones y una sola inferencia batch en ZeroGPU gratuito. Mide señal relativa al core; no abre política económica ni modifica LEGACY.',
+    marker: 'TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1_RESULT',
+    visibility: 'CURRENT',
+    requiresTimesFmRunner: true,
+    steps: [
+      { label: 'Guard protocolo TimesFM Stage B', command: 'node', args: ['tests/timesfmStageBProtocol.unit.mjs'] },
+      { label: 'Guard cliente ZeroGPU Stage B', command: 'node', args: ['tests/timesfmStageBRemoteClient.unit.mjs'] },
+      { label: 'Guard contrato ZeroGPU Stage B', command: 'node', args: ['tests/timesfmStageBRemoteContract.unit.mjs'] },
+      { label: 'Guard harness predictivo Stage B', command: 'node', args: ['tests/timesfmStageBDiagnostic.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Yahoo REAL + TimesFM ZeroGPU · benchmark predictivo', command: 'node', args: ['scripts/timesfmStageBDiagnosticLive.mjs'] }
     ]
   },
   {
@@ -560,7 +584,7 @@ async function publicJob(job: JobDefinition) {
     description: job.description,
     readyToRun: blockedReason == null,
     blockedReason,
-    execution: job.id === TIMESFM_REMOTE_JOB_ID ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND',
+    execution: isRemoteTimesFmValidationJob(job) ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND',
     runnerReachable,
     runnerError,
     ...resolved
@@ -619,7 +643,7 @@ researchValidationRouter.get('/jobs/:id', async (req: Request, res: Response): P
 researchValidationRouter.post('/jobs/:id/run', async (req: Request, res: Response): Promise<void> => {
   const job = JOBS.find(item => item.id === req.params.id);
   if (!job) { res.status(404).json({ error: 'UNKNOWN_VALIDATION_JOB' }); return; }
-  if (process.env.NODE_ENV === 'production' && job.id !== TIMESFM_REMOTE_JOB_ID) {
+  if (process.env.NODE_ENV === 'production' && !isRemoteTimesFmValidationJob(job)) {
     res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY', execution: 'LOCAL_APP_BACKEND' });
     return;
   }
@@ -640,14 +664,14 @@ researchValidationRouter.post('/jobs/:id/run', async (req: Request, res: Respons
   res.status(202).json({
     ok: true,
     aiTokensUsed: false,
-    execution: job.id === TIMESFM_REMOTE_JOB_ID ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND',
+    execution: isRemoteTimesFmValidationJob(job) ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND',
     job: {
       id: job.id,
       name: job.name,
       description: job.description,
       readyToRun: true,
       blockedReason: null,
-      execution: job.id === TIMESFM_REMOTE_JOB_ID ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND',
+      execution: isRemoteTimesFmValidationJob(job) ? 'REMOTE_TIMESFM_RUNNER' : 'LOCAL_APP_BACKEND',
       runnerReachable: null,
       runnerError: null,
       ...acceptedState
