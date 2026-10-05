@@ -32,6 +32,12 @@ export type DynamicReplayEventType = 'BUY' | 'ADD' | 'REDUCE' | 'EXIT' | 'TRANSF
 export type DynamicReplayDeploymentSession = 1 | 5 | 20 | 60;
 export type DynamicReplaySimulationMode = 'CUSTODIA_ENGINE' | 'HOLD_ONLY';
 export type DynamicReplayInitialPortfolioSource = 'ZERO' | 'MANUAL' | 'CURRENT_PORTFOLIO';
+export type DynamicReplayResearchDirectSelectorPolicy = 'TIMESFM_DIRECT_SELECTOR_V1';
+
+export interface DynamicReplayResearchDirectSelector {
+  policy: DynamicReplayResearchDirectSelectorPolicy;
+  selectionsByDate: Record<string, string>;
+}
 
 export interface DynamicReplayInitialAllocation {
   assetId: string;
@@ -859,11 +865,16 @@ export class DynamicHistoricalReplayEngine {
     externalCashFlows?: DynamicReplayExternalCashFlow[];
     /** Research-only explicit decision calendar. Omitted in product/default replay. */
     explicitDecisionDates?: string[];
+    /** Research-only direct asset selector. Omitted in product/default replay. */
+    researchDirectSelector?: DynamicReplayResearchDirectSelector;
   }): DynamicHistoricalReplayResult {
     if (!(input.initialCapitalEur > 0)) throw new Error('El capital del replay dinámico debe ser > 0.');
     const frequency = input.frequency ?? 'MONTHLY';
     const minimumBars = input.minimumBars ?? 252;
     const simulationMode = input.simulationMode ?? 'CUSTODIA_ENGINE';
+    if (input.researchDirectSelector && simulationMode !== 'CUSTODIA_ENGINE') {
+      throw new Error('REPLAY_DIRECT_SELECTOR_REQUIRES_CUSTODIA_ENGINE');
+    }
     const initialPortfolioSource: DynamicReplayInitialPortfolioSource = input.initialPortfolio?.source ?? 'ZERO';
     const cashBenchmarkAnnualPct = Number.isFinite(input.cashBenchmarkAnnualPct) ? Math.max(0, Number(input.cashBenchmarkAnnualPct)) : DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
     const taxSettings = input.taxSettings ?? DEFAULT_TAX_SETTINGS;
@@ -1019,7 +1030,9 @@ export class DynamicHistoricalReplayEngine {
       const liveDecision = dateGate.scan.selected.length > 0
         ? InvestmentDecisionEngine.decide(dateGate.scan.dataset, { capitalEur: Math.max(1, current.equityEur), riskProfile: input.riskProfile, horizonYears: input.horizonYears }, new Date(`${decisionDate}T23:59:59Z`))
         : historicalCashOnlyDecision(dateScan, Math.max(1, current.equityEur), input.riskProfile, input.horizonYears);
-      decisionStates.push({ date: decisionDate, regime: liveDecision.marketRegime, method: liveDecision.recommendedMethod });
+      decisionStates.push(input.researchDirectSelector
+        ? { date: decisionDate, regime: 'TIMESFM_DIRECT_SHADOW', method: input.researchDirectSelector.policy }
+        : { date: decisionDate, regime: liveDecision.marketRegime, method: liveDecision.recommendedMethod });
 
       const simulated = buildSimulatedPortfolio({ holdings, cashEur, dataset: input.dataset, catalog: input.catalog, date: decisionDate });
       const healthMap = buildHistoricalHealthMap({ holdings, scan: dateGate.scan, dataset: input.dataset, catalog: input.catalog, date: decisionDate, cashBenchmarkAnnualPct, stateByAsset: positionHealthStateByAsset });
@@ -1107,7 +1120,109 @@ export class DynamicHistoricalReplayEngine {
         });
       }
 
-      const timingTraceIds = dateGate.entries.filter(entry => entry.timingState != null).map(entry => entry.assetId);
+      if (input.researchDirectSelector) {
+        const selectedAssetId = String(input.researchDirectSelector.selectionsByDate[decisionDate] ?? '').trim();
+        if (!selectedAssetId) throw new Error(`REPLAY_DIRECT_SELECTOR_MISSING_SELECTION:${decisionDate}`);
+        const selectedCandidate = dateScan.candidates.find(candidate => candidate.asset.assetId === selectedAssetId);
+        if (!selectedCandidate || selectedCandidate.status !== 'ACCEPTED') {
+          throw new Error(`REPLAY_DIRECT_SELECTOR_ASSET_NOT_ACCEPTED:${decisionDate}:${selectedAssetId}`);
+        }
+        const selectedItem = catalogItem(input.catalog, selectedAssetId);
+        if (!selectedItem) throw new Error(`REPLAY_DIRECT_SELECTOR_ASSET_NOT_IN_CATALOG:${selectedAssetId}`);
+
+        plannedByAsset.clear();
+
+        for (const holding of holdings.values()) {
+          if (holding.assetId === selectedAssetId) continue;
+          const item = catalogItem(input.catalog, holding.assetId);
+          if (!item) continue;
+          const heldValue = holdingValue(input.dataset, holding, decisionDate);
+          const assessment = StrategyConsensusEngine.assess(dateScan, holding.assetId, cashBenchmarkAnnualPct);
+          const currentWeight = current.equityEur > 0 ? heldValue / current.equityEur : 0;
+          plannedByAsset.set(holding.assetId, {
+            assessment,
+            rotationPairAssetId: null,
+            signal: {
+              id: `${decisionDate}_${holding.assetId}_EXIT_TIMESFM_DIRECT`,
+              signalDate: decisionDate,
+              executionDate: null,
+              assetId: holding.assetId,
+              ticker: item.ticker,
+              action: 'EXIT',
+              targetWeight: 0,
+              currentWeight,
+              recommendedAmountEur: heldValue,
+              consensusScore: assessment?.consensusScore ?? null,
+              favorableVotes: assessment?.favorableVotes ?? null,
+              unfavorableVotes: assessment?.unfavorableVotes ?? null,
+              structuralDowntrend: assessment?.structuralDowntrend ?? false,
+              buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
+              timingState: null,
+              timingSetup: null,
+              timingScore: null,
+              suggestedInitialFraction: null,
+              ...healthAuditFields(healthMap[holding.assetId]),
+              ...trendAuditFields(assessment),
+              executed: false,
+              unitsDelta: 0,
+              notionalEur: 0,
+              feeEur: 0,
+              realizedGainEur: 0,
+              estimatedTaxEur: 0,
+              taxDeferredTransferEur: 0,
+              executionPriceEur: null,
+              reason: `TIMESFM_DIRECT_SELECTOR_V1: ${selectedItem.ticker} sustituye a ${item.ticker} como ganador directo 20/60.`
+            }
+          });
+        }
+
+        const selectedHolding = holdings.get(selectedAssetId);
+        const selectedHeldValue = selectedHolding ? holdingValue(input.dataset, selectedHolding, decisionDate) : 0;
+        const selectedCurrentWeight = current.equityEur > 0 ? selectedHeldValue / current.equityEur : 0;
+        const desiredAdditionalEur = Math.max(0, current.equityEur - selectedHeldValue);
+        if (desiredAdditionalEur > 0.005) {
+          const assessment = StrategyConsensusEngine.assess(dateScan, selectedAssetId, cashBenchmarkAnnualPct);
+          plannedByAsset.set(selectedAssetId, {
+            assessment,
+            rotationPairAssetId: null,
+            signal: {
+              id: `${decisionDate}_${selectedAssetId}_${selectedHolding ? 'ADD' : 'BUY'}_TIMESFM_DIRECT`,
+              signalDate: decisionDate,
+              executionDate: null,
+              assetId: selectedAssetId,
+              ticker: selectedItem.ticker,
+              action: selectedHolding ? 'ADD' : 'BUY',
+              targetWeight: 1,
+              currentWeight: selectedCurrentWeight,
+              recommendedAmountEur: desiredAdditionalEur,
+              consensusScore: assessment?.consensusScore ?? null,
+              favorableVotes: assessment?.favorableVotes ?? null,
+              unfavorableVotes: assessment?.unfavorableVotes ?? null,
+              structuralDowntrend: assessment?.structuralDowntrend ?? false,
+              buyTheDipCandidate: assessment?.buyTheDipCandidate ?? false,
+              timingState: null,
+              timingSetup: null,
+              timingScore: null,
+              suggestedInitialFraction: null,
+              ...healthAuditFields(selectedHolding ? healthMap[selectedAssetId] : undefined),
+              ...trendAuditFields(assessment),
+              executed: false,
+              unitsDelta: 0,
+              notionalEur: 0,
+              feeEur: 0,
+              realizedGainEur: 0,
+              estimatedTaxEur: 0,
+              taxDeferredTransferEur: 0,
+              executionPriceEur: null,
+              reason: `TIMESFM_DIRECT_SELECTOR_V1: ganador directo ${selectedItem.ticker}; objetivo shadow 100% del equity ejecutable.`
+            }
+          });
+        }
+      }
+
+      const timingTraceIds = input.researchDirectSelector
+        ? []
+        : dateGate.entries.filter(entry => entry.timingState != null).map(entry => entry.assetId);
       const traceIds = new Set<string>([
         ...timingTraceIds,
         ...dateGate.scan.selected.slice(0, 5).map(candidate => candidate.asset.assetId),
@@ -1405,6 +1520,9 @@ export class DynamicHistoricalReplayEngine {
           ? 'Las retiradas externas sólo consumen cash disponible; este V1 no fuerza ventas ocultas para financiar una retirada. Si no hay cash suficiente, el replay falla explícitamente.'
           : 'No se ha activado lógica de flujos externos.',
         'La trayectoria se valora en cada sesión disponible y se compara con mantener todo el capital en la cuenta remunerada.',
+        input.researchDirectSelector
+          ? `Modo research directo ${input.researchDirectSelector.policy}: la elección de activo proviene exclusivamente del mapa causal de selección; la ejecución, costes, impuestos, cash y NEXT_OPEN permanecen en este replay canónico.`
+          : 'Selección y asignación siguen la cadena productiva CORE_ARCHITECTURE_V1.',
         'Permanece el sesgo de supervivencia del catálogo actual y no se reconstruyen cambios históricos de comercialización/disponibilidad del broker.'
       ]
     };
