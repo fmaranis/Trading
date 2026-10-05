@@ -129,3 +129,10 @@ assert.doesNotMatch(runRouteBlock, /job: await publicJob\(job\)/);
 assert.match(runRouteBlock, /\.\.\.acceptedState/);
 assert.match(ui, /setJobs\(current => current\.map\(job => job\.id === id \? \{ \.\.\.job, \.\.\.payload\.job \} : job\)\)/);
 assert.match(timesfmRemote, /callGradio\('status', 4_000\)/);
+
+
+// Immediate click feedback must be visible before the POST/remote runner responds.
+assert.match(ui, /const \[launchingJobId, setLaunchingJobId\] = useState<string \| null>\(null\)/);
+assert.match(ui, /setLaunchingJobId\(id\)/);
+assert.match(ui, /Solicitando ejecución al backend…/);
+assert.match(ui, /Arrancando…/);
