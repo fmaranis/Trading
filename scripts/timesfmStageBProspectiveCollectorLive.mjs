@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1 as P,
@@ -277,7 +278,7 @@ export async function main(now = new Date()) {
   console.log(MARKER); console.log(JSON.stringify(result,null,2)); return result;
 }
 
-const invoked=process.argv[1]&&import.meta.url===pathToFileURL(new URL(import.meta.url).pathname);
+const invoked=process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href;
 if(invoked){
   main().catch(error=>{
     console.error(MARKER);
