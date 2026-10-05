@@ -39,6 +39,18 @@ export const TIMESFM_STAGE_B_PROSPECTIVE_METHODOLOGY = Object.freeze({
   baselines: STAGE_B.baselines,
   gates: STAGE_B.gates,
   normalization: STAGE_B.normalization,
+  economicShadow: Object.freeze({
+    version: 'TIMESFM_RELATIVE_RANK_V1',
+    status: 'FROZEN_BEFORE_FIRST_PROSPECTIVE_ANCHOR',
+    rule: 'MEAN_ORDINAL_RANK_ACROSS_20_60_AMONG_ALREADY_ELIGIBLE_CANDIDATES',
+    tieBreak: 'LEGACY_RANKING_SCORE_THEN_ASSET_ID',
+    allEligibleForecastCoverageRequired: true,
+    gateAuthority: false,
+    sizingAuthority: false,
+    cashAuthority: false,
+    timingAuthority: false,
+    productionAuthority: false
+  }),
   collection: Object.freeze({
     provider: 'YAHOO_FINANCE',
     sourceType: 'REAL',
