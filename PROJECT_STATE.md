@@ -1985,3 +1985,21 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El collector se detuvo por fecha antes de abrir estado prospectivo o consultar datos externos.
 - Estado confirmado: sampleOpened=false, marketAccessed=false, outcomesOpened=false.
 - Próxima ventana válida: semana ISO 2026-W42, desde 2026-10-12; no ejecutar antes de las 18:00 Europe/Berlin si la information date es ese mismo día.
+
+
+### TimesFM · diagnóstico económico histórico V1 preparado 2026-10-05
+
+- Objetivo: responder ya si la señal Stage B tiene reach económico histórico, sin esperar al tramo prospectivo.
+- Estudio: `TIMESFM_RELATIVE_RANK_ECONOMIC_DIAGNOSTIC_V1`.
+- Muestra: Stage B histórico ya CONSUMIDO; resultado sin autoridad de promoción.
+- Dos brazos sobre el mismo `CORE_ARCHITECTURE_V1`: baseline selección `LEGACY`; candidato selección `TIMESFM_RELATIVE_RANK_V1`; allocation permanece `LEGACY`.
+- Calendario: exactamente las 31 `informationDate` de Stage B mediante `explicitDecisionDates` research-only añadido al replay canónico; default/producto no cambia.
+- Matriz congelada: 5 tramos de capital (250/500/2.500/10.000/30.000 EUR) x 3 perfiles LOW/MEDIUM/HIGH = 15 escenarios; horizonte 5 años; cartera inicial ZERO; sin externalCashFlows; cash histórico BCE; fiscalidad canónica conservadora; NEXT_OPEN.
+- Datos: reutiliza el resultado Stage B y sus Yahoo raw-cache con verificación SHA; sólo regenera Stage B si falta evidencia local.
+- Core EUNL recibe forecast relativo 0/0 por identidad matemática frente a sí mismo.
+- Métricas: valor final, retorno, exceso vs LEGACY, benchmark core, drawdown, fees, tax, operaciones, cash final y cambio de firma de trades.
+- Veredicto sólo descriptivo: NO_ECONOMIC_REACH / POSITIVE_HISTORICAL_ECONOMIC_DIAGNOSTIC / NEGATIVE_HISTORICAL_ECONOMIC_DIAGNOSTIC / MIXED_HISTORICAL_ECONOMIC_DIAGNOSTIC.
+- Sello pre-outcome: `validation-runs/preregistration/timesfm-relative-rank-economic-diagnostic-v1-seal.json`.
+- Integridad verificada: PASS; 15/15 escenarios congelados; 31 fechas exactas; replay contract PASS; guard order PASS.
+- En ResearchValidationCenter el collector prospectivo queda PARKED temporalmente y el único job TimesFM CURRENT es `TimesFM · dinero histórico · diagnóstico`.
+- Estado al cerrar preparación: `economicOutcomesOpened=false`; producción sigue LEGACY.
