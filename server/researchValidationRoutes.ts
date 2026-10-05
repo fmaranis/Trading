@@ -372,7 +372,8 @@ const JOBS: JobDefinition[] = [
     name: 'TimesFM · selector directo vs app vs core',
     description: 'Diagnóstico post-hoc donde TimesFM elige realmente el activo entre los 8 candidatos Stage B + EUNL. El replay canónico ejecuta 100% del shadow equity al ganador con NEXT_OPEN, costes, impuestos y cash causal. Compara TimesFM directo vs LEGACY app vs EUNL core; sin autoridad de promoción.',
     marker: 'TIMESFM_DIRECT_SELECTOR_HISTORICAL_DIAGNOSTIC_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'TimesFM direct selector V1 · BEATS_NEITHER · cerrado',
     requiresTimesFmRunner: true,
     steps: [
       { label: 'Guard sello selector directo TimesFM', command: 'node', args: ['tests/timesfmDirectSelectorHistoricalDiagnosticV1Seal.unit.mjs'] },
@@ -385,6 +386,23 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Replay TimesFM directo vs LEGACY vs core', command: 'npx', args: ['tsx', 'scripts/timesfmDirectSelectorHistoricalDiagnosticV1.ts'] }
+    ]
+  },
+  {
+    id: 'timesfm-multivariate-context-v1',
+    name: 'TimesFM · multivariante nativo + contexto',
+    description: 'Diagnóstico de señal sobre la muestra Stage B ya consumida: compara TimesFM 3 viendo los 9 activos simultáneamente frente al mismo panel + 23 covariables OHLCV causales. No ejecuta política económica ni puede promocionar producción; ambos brazos quedan congelados antes de la primera semana fresh.',
+    marker: 'TIMESFM_MULTIVARIATE_CONTEXT_V1_RESULT',
+    visibility: 'CURRENT',
+    requiresTimesFmRunner: true,
+    steps: [
+      { label: 'Guard sello TimesFM multivariante V1', command: 'node', args: ['tests/timesfmMultivariateContextV1Seal.unit.mjs'] },
+      { label: 'Guard protocolo TimesFM multivariante V1', command: 'node', args: ['tests/timesfmMultivariateContextV1.unit.mjs'] },
+      { label: 'Guard contrato TimesFM multivariante V1', command: 'node', args: ['tests/timesfmMultivariateContextV1Contract.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Yahoo REAL + TimesFM 3 · panel completo + covariables', command: 'node', args: ['scripts/timesfmMultivariateContextV1DiagnosticLive.mjs'] }
     ]
   },
   {
