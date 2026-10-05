@@ -285,7 +285,8 @@ const JOBS: JobDefinition[] = [
     name: 'TimesFM 3.0 · Stage B · señal vs core',
     description: 'Benchmark predictivo research-only preregistrado: Yahoo REAL, 31 cortes trimestrales, 8 activos frente a EUNL.DE, contexto causal de 512 sesiones y una sola inferencia batch en ZeroGPU gratuito. Mide señal relativa al core; no abre política económica ni modifica LEGACY.',
     marker: 'TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'TimesFM Stage B · PASS diagnóstico señal · confirmación prospectiva habilitada',
     requiresTimesFmRunner: true,
     steps: [
       { label: 'Guard sello TimesFM Stage B', command: 'node', args: ['tests/timesfmStageBSeal.unit.mjs'] },
@@ -298,6 +299,25 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Yahoo REAL + TimesFM ZeroGPU · benchmark predictivo', command: 'node', args: ['scripts/timesfmStageBDiagnosticLive.mjs'] }
+    ]
+  },
+  {
+    id: 'timesfm-stage-b-prospective-confirmation-v1',
+    name: 'TimesFM · confirmación prospectiva semanal',
+    description: 'Collector fresh/blind posterior al PASS histórico de Stage B. Registra como máximo un forecast por semana en la primera sesión común disponible, sin backfill retrospectivo, persiste evidencia con hash-chain en replay-results y no abre outcomes. Mismo core, panel, modelo, contexto, horizontes y gates; producción continúa LEGACY.',
+    marker: 'TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1_COLLECTOR_RESULT',
+    visibility: 'CURRENT',
+    requiresTimesFmRunner: true,
+    requiresGithubReplayToken: true,
+    steps: [
+      { label: 'Guard sello TimesFM prospectivo', command: 'node', args: ['tests/timesfmStageBProspectiveSeal.unit.mjs'] },
+      { label: 'Guard protocolo/collector TimesFM prospectivo', command: 'node', args: ['tests/timesfmStageBProspective.unit.mjs'] },
+      { label: 'Guard contrato no-outcome TimesFM prospectivo', command: 'node', args: ['tests/timesfmStageBProspectiveContract.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Collector semanal REAL + TimesFM ZeroGPU', command: 'node', args: ['scripts/timesfmStageBProspectiveCollectorLive.mjs'] }
     ]
   },
   {
