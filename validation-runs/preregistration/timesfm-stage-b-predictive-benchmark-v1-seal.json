@@ -3,7 +3,7 @@
   "study": "TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1",
   "sealedAt": "2026-10-05",
   "sealedBeforeEconomicOutcomes": true,
-  "baseHeadBeforeSealCommit": "44eb1e7ebc554f04c0af7a6fea4aea6522847972",
+  "baseHeadBeforeSealCommit": "1efa2fa1f93f99bf2e5c1372f4d60c4c36046e76",
   "role": "HISTORICAL_SIGNAL_DIAGNOSTIC_NO_PROMOTION",
   "stageAPrerequisite": "PASS_STAGE_A_TECHNICAL_SMOKE",
   "model": {
@@ -92,7 +92,7 @@
     "scripts/timesfmStageBDiagnosticLive.mjs": "e683e44fce947d1ed112d692b0cf821581b0d294",
     "runner/timesfm/hf-space/app.py": "d68c0b9cd651c28e4aefc7f2156e8706c62f10bf",
     "tests/timesfmStageBSeal.unit.mjs": "073a67462ad4c777a330ddf13f80755d26f08d84",
-    "tests/timesfmStageBProtocol.unit.mjs": "d673aacb63aa5fe1e9678ba0db1e5cddfe43b00c",
+    "tests/timesfmStageBProtocol.unit.mjs": "50f45391d416102d011d1df1f659f9fdb3364595",
     "tests/timesfmStageBRemoteClient.unit.mjs": "e64145ae2066a692493187d4415c072dc7815402",
     "tests/timesfmStageBRemoteContract.unit.mjs": "a151c6a3b6ed6bc80f81ab6dfe39dc5612209ec7",
     "tests/timesfmStageBDiagnostic.unit.mjs": "196f95b92d4658ee158e128f27dfe6dce49032c5",
@@ -102,8 +102,8 @@
   },
   "productionDefault": "LEGACY",
   "productionAuthority": false,
-  "sealRevision": 3,
-  "previousSealCommit": "924233833652fec0027e0a259e139c72a9d93f0d",
+  "sealRevision": 4,
+  "previousSealCommit": "9fc717bd8b8a33e43978ab989aac5b4d5947144b",
   "verificationBeforeOutcomes": {
     "exactMainStaticContract": "PASS",
     "exactBlobBehavioralHarness": "PASS",
@@ -115,5 +115,15 @@
     "syntheticEventsEvaluated": 992,
     "futureOutcomeLeakDetected": false,
     "economicOutcomesOpened": false
-  }
+  },
+  "preOutcomeGuardRepairs": [
+    {
+      "date": "2026-10-05",
+      "guard": "timesfmStageBProtocol.unit.mjs",
+      "reason": "IEEE-754 strict equality false negative: 11/10*100 => 110.00000000000001",
+      "change": "test-only tolerance assertion; protocol/model/sample/gates unchanged",
+      "outcomesOpened": false,
+      "zeroGpuInvoked": false
+    }
+  ]
 }
