@@ -151,6 +151,68 @@ export function buildProspectiveCases(series, informationDate) {
 
 function pct(level,last){ return (Number(level)/last-1)*100; }
 
+export function selectDirectTimesFmWinner(cases) {
+  const rows = [
+    ...cases.map(row => ({
+      assetId: row.assetId,
+      ticker: row.ticker,
+      predictedRelativeReturn20Pct: Number(row.mvPredRelativeReturnPct?.['20']),
+      predictedRelativeReturn60Pct: Number(row.mvPredRelativeReturnPct?.['60'])
+    })),
+    {
+      assetId: P.core.assetId,
+      ticker: P.core.ticker,
+      predictedRelativeReturn20Pct: 0,
+      predictedRelativeReturn60Pct: 0
+    }
+  ];
+  if (rows.length !== P.assets.length + 1) throw new Error('TIMESFM_DIRECT_PROSPECTIVE_POOL_SIZE');
+  for (const row of rows) {
+    if (!Number.isFinite(row.predictedRelativeReturn20Pct) || !Number.isFinite(row.predictedRelativeReturn60Pct)) {
+      throw new Error('TIMESFM_DIRECT_PROSPECTIVE_NON_FINITE:' + row.assetId);
+    }
+  }
+  const rankFor = key => {
+    const sorted = [...rows].sort((a,b) => b[key] - a[key] || a.assetId.localeCompare(b.assetId));
+    const out = new Map();
+    let index = 0;
+    while (index < sorted.length) {
+      let end = index + 1;
+      while (end < sorted.length && sorted[end][key] === sorted[index][key]) end++;
+      const rank = (index + 1 + end) / 2;
+      for (let i = index; i < end; i++) out.set(sorted[i].assetId, rank);
+      index = end;
+    }
+    return out;
+  };
+  const r20 = rankFor('predictedRelativeReturn20Pct');
+  const r60 = rankFor('predictedRelativeReturn60Pct');
+  const ranked = rows.map(row => ({
+    ...row,
+    rank20: r20.get(row.assetId),
+    rank60: r60.get(row.assetId),
+    meanOrdinalRank: (r20.get(row.assetId) + r60.get(row.assetId)) / 2,
+    meanPredictedRelativeReturnPct: (row.predictedRelativeReturn20Pct + row.predictedRelativeReturn60Pct) / 2
+  })).sort((a,b) =>
+    a.meanOrdinalRank - b.meanOrdinalRank
+    || b.meanPredictedRelativeReturnPct - a.meanPredictedRelativeReturnPct
+    || a.assetId.localeCompare(b.assetId)
+  );
+  const winner = ranked[0];
+  return {
+    policyVersion: M.economicShadow.version,
+    selectedAssetId: winner.assetId,
+    selectedTicker: winner.ticker,
+    selectedIsStructuralCore: winner.assetId === P.core.assetId,
+    rank20: winner.rank20,
+    rank60: winner.rank60,
+    meanOrdinalRank: winner.meanOrdinalRank,
+    meanPredictedRelativeReturnPct: round(winner.meanPredictedRelativeReturnPct),
+    predictedRelativeReturn20Pct: round(winner.predictedRelativeReturn20Pct),
+    predictedRelativeReturn60Pct: round(winner.predictedRelativeReturn60Pct)
+  };
+}
+
 export function materializeForecastCases(built, remote) {
   const remoteById=new Map(remote.cases.map(row=>[row.caseId,row]));
   return built.cases.map(row=>{
@@ -241,6 +303,7 @@ export async function main(now = new Date()) {
   const payloadFingerprintSha256=sha256Canonical(payload);
   const remote=await callTimesFmStageB(payload);
   const cases=materializeForecastCases(built,remote);
+  const directShadow=selectDirectTimesFmWinner(cases);
   const draft={
     id:informationDate,
     isoWeek:selected.isoWeek,
@@ -257,6 +320,7 @@ export async function main(now = new Date()) {
     remoteModel:remote.model,
     remoteRuntime:remote.runtime,
     cases,
+    directShadow,
     outcomesOpened:false,
     productionDefault:'LEGACY',
     productionAuthority:false,
@@ -271,6 +335,7 @@ export async function main(now = new Date()) {
     isoWeek:selected.isoWeek,
     anchorCount:state.anchorCount,
     cases:cases.length,
+    directShadow,
     persistence:saved.persistence,
     commitSha:saved.commitSha,
     outcomesOpened:false,
