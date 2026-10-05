@@ -115,8 +115,10 @@ The existing prospective sample remains unopened/outcomes unopened while this in
 ## Runner
 
 ZeroGPU execution is bounded independently from the frozen model design:
+- runner API version: 2;
 - maximum GPU reservation per multivariate call: 120 seconds;
 - maximum anchors per remote call: 8;
+- a non-GPU `multivariate_context_status` endpoint publishes the deployed transport contract; the app refuses to run unless that exact contract is present;
 - the Trading client splits the 31 historical anchors into ordered batches and reassembles them without changing inputs, model, horizons or evaluation;
 - anchor order/count are verified after reassembly.
 
