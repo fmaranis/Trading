@@ -23,6 +23,9 @@ assert.ok(
 assert.doesNotMatch(diagnostic,/DynamicHistoricalReplay|PortfolioDecisionEngine|OpportunityAllocationPolicy/);
 assert.match(client,/multivariate_context_predict/);
 assert.match(client,/TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED/);
+assert.match(client,/TIMESFM_MULTIVARIATE_MAX_ANCHORS_PER_REMOTE_CALL = 8/);
+assert.match(client,/anchors\.slice\(start,start\+TIMESFM_MULTIVARIATE_MAX_ANCHORS_PER_REMOTE_CALL\)/);
+assert.match(client,/TIMESFM_MV_V1_ZEROGPU_ANCHOR_ORDER_MISMATCH/);
 
 assert.match(endpoint,/TimesFM3Evaluator/);
 assert.match(endpoint,/def multivariate_context_predict/);
@@ -35,6 +38,7 @@ assert.match(endpoint,/"pastOnlyCovariates"/);
 assert.match(endpoint,/MV_TARGET_COUNT = 9/);
 assert.match(endpoint,/MV_PAST_ONLY_COVARIATE_COUNT = 23/);
 assert.match(endpoint,/MV_GPU_DURATION_SECONDS = 120/);
+assert.match(endpoint,/MV_MAX_ANCHORS = 8/);
 assert.doesNotMatch(endpoint,/MV_GPU_DURATION_SECONDS = (?:1[3-9][0-9]|[2-9][0-9]{2,})/);
 assert.match(endpoint,/api_name="multivariate_context_predict"/);
 assert.match(endpoint,/@spaces\.GPU/);
