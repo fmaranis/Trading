@@ -12,10 +12,10 @@ function gitBlobSha(content){
 }
 
 assert.equal(seal.version,'TIMESFM_MULTIVARIATE_CONTEXT_V1_SEAL');
-assert.equal(seal.sealRevision,6);
+assert.equal(seal.sealRevision,7);
 assert.equal(seal.study.version,'TIMESFM_MULTIVARIATE_CONTEXT_V1');
 assert.equal(seal.study.historicalSample,'CONSUMED_2018Q1_2025Q3_DIAGNOSTIC_ONLY');
-assert.equal(seal.study.diagnosticRunOpened,false);
+assert.equal(seal.study.diagnosticRunOpened,true);
 assert.equal(seal.study.promotionAuthority,false);
 assert.equal(seal.study.economicPolicy,false);
 assert.equal(seal.frozenDesign.targets,9);
@@ -33,6 +33,16 @@ assert.equal(seal.prospective.marketAccessed,false);
 assert.equal(seal.prospective.outcomesOpened,false);
 assert.equal(seal.productionDefault,'LEGACY');
 assert.equal(seal.productionAuthority,false);
+assert.equal(seal.runtimeTransport.maxAnchorsPerRemoteCall,8);
+assert.equal(seal.runtimeTransport.zeroGpuDurationSecondsPerBatch,120);
+assert.equal(seal.runtimeTransport.changesModelInputs,false);
+assert.equal(seal.runtimeTransport.changesForecastRule,false);
+assert.equal(seal.runtimeTransport.changesEvaluationRule,false);
+assert.equal(seal.historicalExecution.historicalYahooDataAccessed,true);
+assert.equal(seal.historicalExecution.historicalForecastsReturned,false);
+assert.equal(seal.historicalExecution.historicalMetricsEvaluated,false);
+assert.equal(seal.historicalExecution.freshSampleOpened,false);
+assert.equal(seal.historicalExecution.freshOutcomesOpened,false);
 
 for(const [relative,expected] of Object.entries(seal.manifestGitBlobSha1)){
   const absolute=path.resolve(root,relative);
