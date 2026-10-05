@@ -1832,3 +1832,12 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Aserciones equivalentes completas de `timesfmStageAContract.unit.mjs` ejecutadas contra los blobs actuales de `main`: PASS, incluido orden de guards y causalidad ZeroGPU.
 - Aserciones equivalentes completas de `timesfmRemoteRunnerContract.unit.mjs` ejecutadas contra los blobs actuales de `main`: PASS.
 - Limitación de verificación desde ChatGPT: el entorno web/container disponible no permite abrir directamente el subdominio `*.hf.space`; por tanto no se declara falsamente probado el HTTP end-to-end contra el Space público real. El siguiente fallo remoto, si existe, ya no puede quedar oculto como IDLE: debe quedar visible como FAILED con salida técnica.
+
+
+### TimesFM Stage A — fix falso negativo researchValidationRuntime 2026-10-05
+
+- Evidencia real del job: los guards remoto, contrato remoto, reconciliación y contrato Stage A pasaron; `Guard runtime validación` falló por una aserción nueva del propio test.
+- Causa: el test aplicaba `doesNotMatch(/job: await publicJob(job)/)` a todo el handler POST. Las ramas legítimas de error/409/412 sí deben poder construir `publicJob(job)`; sólo la ruta de aceptación `202` posterior a `void runJob(job)` debe evitar esperar al runner remoto.
+- Fix: el guard localiza `void runJob(job)`, recorta desde ahí el bloque de aceptación y aplica la aserción únicamente a ese tramo.
+- Se corrige además un defecto de señalización: `researchValidationRuntime.unit: PASS` estaba impreso antes de las aserciones añadidas. El log PASS pasa al final absoluto del test.
+- No hay cambio de runtime/producto en este commit: es corrección del guard para que valide exactamente el contrato pretendido y no produzca PASS prematuro.
