@@ -54,6 +54,14 @@ STAGE_B_HORIZON = 60
 STAGE_B_EVALUATION_HORIZONS = (1, 5, 20, 60)
 STAGE_B_MAX_CASES = 256
 STAGE_B_GPU_DURATION_SECONDS = 80
+MV_STUDY = "TIMESFM_MULTIVARIATE_CONTEXT_V1"
+MV_CONTEXT_LENGTH = 512
+MV_HORIZON = 60
+MV_EVALUATION_HORIZONS = (1, 5, 20, 60)
+MV_TARGET_COUNT = 9
+MV_PAST_ONLY_COVARIATE_COUNT = 23
+MV_MAX_ANCHORS = 31
+MV_GPU_DURATION_SECONDS = 180
 
 _LOCK = threading.Lock()
 
@@ -444,6 +452,193 @@ def stage_b_predict(payload: Any) -> dict[str, Any]:
     }
 
 
+def _coerce_multivariate_payload(payload: Any) -> dict[str, Any]:
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    if not isinstance(payload, dict):
+        raise ValueError("TIMESFM_MV_V1_PAYLOAD_NOT_OBJECT")
+    if payload.get("study") != MV_STUDY:
+        raise ValueError("TIMESFM_MV_V1_STUDY_INVALID")
+    protocol = payload.get("protocol")
+    anchors = payload.get("anchors")
+    if not isinstance(protocol, dict):
+        raise ValueError("TIMESFM_MV_V1_PROTOCOL_NOT_OBJECT")
+    if int(protocol.get("contextLength", 0)) != MV_CONTEXT_LENGTH:
+        raise ValueError("TIMESFM_MV_V1_CONTEXT_LENGTH")
+    if int(protocol.get("forecastHorizon", 0)) != MV_HORIZON:
+        raise ValueError("TIMESFM_MV_V1_HORIZON")
+    target_ids = protocol.get("targetIds")
+    if not isinstance(target_ids, list) or len(target_ids) != MV_TARGET_COUNT or len(set(map(str, target_ids))) != MV_TARGET_COUNT:
+        raise ValueError("TIMESFM_MV_V1_TARGET_IDS")
+    if int(protocol.get("pastOnlyCovariateCount", -1)) != MV_PAST_ONLY_COVARIATE_COUNT:
+        raise ValueError("TIMESFM_MV_V1_COVARIATE_COUNT")
+    if not isinstance(anchors, list) or not (1 <= len(anchors) <= MV_MAX_ANCHORS):
+        raise ValueError("TIMESFM_MV_V1_ANCHOR_COUNT")
+    forbidden_fragments = ("outcome", "actual", "realized", "realised", "futureprice", "futurereturn")
+    for anchor in anchors:
+        if not isinstance(anchor, dict):
+            raise ValueError("TIMESFM_MV_V1_ANCHOR_NOT_OBJECT")
+        for key in anchor.keys():
+            compact = str(key).replace("_", "").replace("-", "").lower()
+            if any(fragment in compact for fragment in forbidden_fragments):
+                raise ValueError(f"TIMESFM_MV_V1_FORBIDDEN_FIELD:{key}")
+    return payload
+
+
+def _mv_matrix(anchor: dict[str, Any], key: str, rows: int, cols: int, require_positive: bool) -> np.ndarray:
+    value = np.asarray(anchor.get(key), dtype=np.float32)
+    if value.shape != (rows, cols):
+        raise ValueError(f"TIMESFM_MV_V1_SHAPE:{key}:{value.shape}:expected:{rows}x{cols}")
+    if not np.isfinite(value).all():
+        raise ValueError(f"TIMESFM_MV_V1_NON_FINITE:{key}")
+    if require_positive and np.any(value <= 0):
+        raise ValueError(f"TIMESFM_MV_V1_NON_POSITIVE:{key}")
+    return value
+
+
+def _mv_points(path: np.ndarray) -> dict[str, float]:
+    return {str(h): float(path[h - 1]) for h in MV_EVALUATION_HORIZONS}
+
+
+def _mv_quantiles(values: np.ndarray) -> dict[str, list[float]]:
+    return {
+        str(h): [float(x) for x in values[h - 1].tolist()]
+        for h in MV_EVALUATION_HORIZONS
+    }
+
+
+def _mv_output_payload(output: Any, target_ids: list[str]) -> dict[str, Any]:
+    forecast = np.asarray(output.forecast, dtype=np.float32)
+    quantiles = np.asarray(output.quantiles, dtype=np.float32)
+    if forecast.shape != (MV_TARGET_COUNT, MV_HORIZON):
+        raise RuntimeError(f"TIMESFM_MV_V1_FORECAST_SHAPE:{forecast.shape}")
+    if quantiles.shape != (MV_TARGET_COUNT, MV_HORIZON, len(QUANTILES)):
+        raise RuntimeError(f"TIMESFM_MV_V1_QUANTILE_SHAPE:{quantiles.shape}")
+    if not (np.isfinite(forecast).all() and np.isfinite(quantiles).all()):
+        raise RuntimeError("TIMESFM_MV_V1_NON_FINITE_OUTPUT")
+    return {
+        "point": {
+            str(target_ids[i]): _mv_points(forecast[i])
+            for i in range(MV_TARGET_COUNT)
+        },
+        "quantiles": {
+            str(target_ids[i]): _mv_quantiles(quantiles[i])
+            for i in range(MV_TARGET_COUNT)
+        },
+    }
+
+
+@spaces.GPU(duration=MV_GPU_DURATION_SECONDS)
+def multivariate_context_predict(payload: Any) -> dict[str, Any]:
+    request = _coerce_multivariate_payload(payload)
+    protocol = request["protocol"]
+    target_ids = [str(value) for value in protocol["targetIds"]]
+    anchor_ids: list[str] = []
+    contexts: list[np.ndarray] = []
+    past_only_covariates: list[np.ndarray] = []
+
+    for anchor in request["anchors"]:
+        anchor_id = str(anchor.get("anchorId") or "").strip()
+        if not anchor_id:
+            raise ValueError("TIMESFM_MV_V1_ANCHOR_ID_MISSING")
+        anchor_ids.append(anchor_id)
+        contexts.append(
+            _mv_matrix(
+                anchor,
+                "targetContext",
+                MV_TARGET_COUNT,
+                MV_CONTEXT_LENGTH,
+                True,
+            )
+        )
+        past_only_covariates.append(
+            _mv_matrix(
+                anchor,
+                "pastOnlyCovariates",
+                MV_PAST_ONLY_COVARIATE_COUNT,
+                MV_CONTEXT_LENGTH,
+                False,
+            )
+        )
+
+    torch.set_grad_enabled(False)
+    targets_only_outputs = list(
+        FORECASTER.predict_batch(
+            contexts=contexts,
+            horizon=MV_HORIZON,
+            past_only_covariates=None,
+            past_future_covariates=None,
+            return_quantiles=True,
+            use_symmetric_averaging=False,
+            make_positive=False,
+            sort_quantiles=True,
+        )
+    )
+    causal_context_outputs = list(
+        FORECASTER.predict_batch(
+            contexts=contexts,
+            horizon=MV_HORIZON,
+            past_only_covariates=past_only_covariates,
+            past_future_covariates=None,
+            return_quantiles=True,
+            use_symmetric_averaging=False,
+            make_positive=False,
+            sort_quantiles=True,
+        )
+    )
+    if len(targets_only_outputs) != len(anchor_ids) or len(causal_context_outputs) != len(anchor_ids):
+        raise RuntimeError("TIMESFM_MV_V1_OUTPUT_COUNT_INVALID")
+
+    results: list[dict[str, Any]] = []
+    for index, anchor_id in enumerate(anchor_ids):
+        results.append(
+            {
+                "anchorId": anchor_id,
+                "targetsOnly": _mv_output_payload(targets_only_outputs[index], target_ids),
+                "withCausalCovariates": _mv_output_payload(causal_context_outputs[index], target_ids),
+            }
+        )
+
+    return {
+        "study": MV_STUDY,
+        "status": "PASS_TIMESFM_MULTIVARIATE_CONTEXT_V1_INFERENCE",
+        "anchorCount": len(results),
+        "contextLength": MV_CONTEXT_LENGTH,
+        "forecastHorizon": MV_HORIZON,
+        "evaluationHorizons": list(MV_EVALUATION_HORIZONS),
+        "model": {
+            "package": "timesfm",
+            "packageVersion": PACKAGE_VERSION,
+            "checkpoint": CHECKPOINT,
+            "checkpointRevision": CHECKPOINT_REVISION,
+            "expectedWeightSha256": EXPECTED_WEIGHT_SHA256,
+            "actualWeightSha256": ACTUAL_WEIGHT_SHA256,
+        },
+        "runtime": {
+            "python": platform.python_version(),
+            "device": "cuda",
+            "torchVersion": getattr(torch, "__version__", "unknown"),
+            "runner": "HUGGING_FACE_ZEROGPU",
+            "gpuDurationCapSeconds": MV_GPU_DURATION_SECONDS,
+            "nativeMultivariate": True,
+            "pastOnlyCovariates": True,
+        },
+        "protocol": {
+            "targetVariates": MV_TARGET_COUNT,
+            "pastOnlyCovariates": MV_PAST_ONLY_COVARIATE_COUNT,
+            "totalVariatesWithContext": MV_TARGET_COUNT + MV_PAST_ONLY_COVARIATE_COUNT,
+            "pastFutureCovariates": 0,
+            "dataReceived": "CAUSAL_CONTEXT_ONLY",
+            "futureOutcomesReceived": False,
+            "marketDataFetchedBySpace": False,
+            "productionAuthority": False,
+            "productionDefault": "LEGACY",
+            "zeroCostInfrastructure": True,
+        },
+        "anchors": results,
+    }
+
+
 with gr.Blocks() as demo:
     gr.Markdown(
         "### TimesFM 3.0 · Stage A runner\n"
@@ -456,6 +651,9 @@ with gr.Blocks() as demo:
     stage_b_input = gr.JSON(visible=False)
     stage_b_button = gr.Button("Run Stage B batch", visible=False)
     stage_b_output = gr.JSON(visible=False)
+    mv_input = gr.JSON(visible=False)
+    mv_button = gr.Button("Run TimesFM multivariate context V1", visible=False)
+    mv_output = gr.JSON(visible=False)
 
     status_button.click(status, outputs=status_output, api_name="status", queue=False)
     run_button.click(run_stage_a, outputs=run_output, api_name="run_stage_a", concurrency_limit=1)
@@ -464,6 +662,13 @@ with gr.Blocks() as demo:
         inputs=stage_b_input,
         outputs=stage_b_output,
         api_name="stage_b_predict",
+        concurrency_limit=1,
+    )
+    mv_button.click(
+        multivariate_context_predict,
+        inputs=mv_input,
+        outputs=mv_output,
+        api_name="multivariate_context_predict",
         concurrency_limit=1,
     )
 
