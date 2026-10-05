@@ -3,7 +3,7 @@
   "study": "TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1",
   "sealedAt": "2026-10-05",
   "sealedBeforeEconomicOutcomes": true,
-  "baseHeadBeforeSealCommit": "6181ce7182378b11a2dac267061020ed3e56c49e",
+  "baseHeadBeforeSealCommit": "44eb1e7ebc554f04c0af7a6fea4aea6522847972",
   "role": "HISTORICAL_SIGNAL_DIAGNOSTIC_NO_PROMOTION",
   "stageAPrerequisite": "PASS_STAGE_A_TECHNICAL_SMOKE",
   "model": {
@@ -75,7 +75,8 @@
     "oneBatchedGpuCall": true,
     "gpuDurationCapSeconds": 80,
     "paidInfrastructureAllowed": false,
-    "futureOutcomesSentToSpace": false
+    "futureOutcomesSentToSpace": false,
+    "perCoreBatchSize": 16
   },
   "verificationBeforeSeal": {
     "exactMainStaticContract": "PASS",
@@ -89,24 +90,27 @@
     "scripts/timesfmStageBProtocol.mjs": "fd6c532b6116819c4845515d5adcb7796e0641c6",
     "scripts/timesfmStageBRemoteClient.mjs": "a1b7da04d57780b12568c6ad09e650f5d59bc1a9",
     "scripts/timesfmStageBDiagnosticLive.mjs": "e683e44fce947d1ed112d692b0cf821581b0d294",
-    "runner/timesfm/hf-space/app.py": "c2e7c6f803346e7b05e130f49c3a2854eeaf0eb7",
+    "runner/timesfm/hf-space/app.py": "d68c0b9cd651c28e4aefc7f2156e8706c62f10bf",
     "tests/timesfmStageBSeal.unit.mjs": "073a67462ad4c777a330ddf13f80755d26f08d84",
     "tests/timesfmStageBProtocol.unit.mjs": "d673aacb63aa5fe1e9678ba0db1e5cddfe43b00c",
     "tests/timesfmStageBRemoteClient.unit.mjs": "e64145ae2066a692493187d4415c072dc7815402",
-    "tests/timesfmStageBRemoteContract.unit.mjs": "cd3c61db295dbe687f18ed17698f0b1746a25545",
+    "tests/timesfmStageBRemoteContract.unit.mjs": "a151c6a3b6ed6bc80f81ab6dfe39dc5612209ec7",
     "tests/timesfmStageBDiagnostic.unit.mjs": "196f95b92d4658ee158e128f27dfe6dce49032c5",
     "server/researchValidationRoutes.ts": "c7969013910d6a85afdc5b7a0bb6ddefee4aaab0",
-    "src/components/ResearchValidationCenter.tsx": "4ecf570335e45bb4c9aa48a257025d54959dab16",
-    "tests/researchValidationRuntime.unit.ts": "37838f1e8faeee08de4ea6079c31484164f3ba9f"
+    "src/components/ResearchValidationCenter.tsx": "886dda3977489292d5167b821a9755906af7a6d7",
+    "tests/researchValidationRuntime.unit.ts": "47ec4ad84c1bff7949818ee9038546435d1f6fc0"
   },
   "productionDefault": "LEGACY",
   "productionAuthority": false,
-  "sealRevision": 2,
-  "previousSealCommit": "61c9ad7d0728e03c828fb530eb9294e080eb424a",
+  "sealRevision": 3,
+  "previousSealCommit": "924233833652fec0027e0a259e139c72a9d93f0d",
   "verificationBeforeOutcomes": {
     "exactMainStaticContract": "PASS",
     "exactBlobBehavioralHarness": "PASS",
     "protocolValidEsmAfterSyntaxRepair": true,
+    "officialApiShapeVerified": true,
+    "officialApiUnivariateShape": "1D_CONTEXT",
+    "officialApiMultivariateShape": "NUM_VARIATES_X_CONTEXT",
     "syntheticCasesBuilt": 248,
     "syntheticEventsEvaluated": 992,
     "futureOutcomeLeakDetected": false,
