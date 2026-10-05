@@ -13,11 +13,15 @@ assert.match(protocol,/futureOutcomeAccess: false/);
 assert.match(protocol,/minimumMaturedAnchors: STAGE_B\.prospectiveConfirmation\.minimumMaturedAnchors/);
 assert.match(protocol,/productionDefault: 'LEGACY'/);
 assert.match(protocol,/productionAuthority: false/);
+assert.match(protocol,/version: 'TIMESFM_RELATIVE_RANK_V1'/);
+assert.match(protocol,/MEAN_ORDINAL_RANK_ACROSS_20_60_AMONG_ALREADY_ELIGIBLE_CANDIDATES/);
+assert.match(protocol,/allEligibleForecastCoverageRequired: true/);
 
 assert.match(collector,/MISSED_WEEK_NO_RETROACTIVE_FORECAST/);
 assert.match(collector,/berlin\.date <= M\.startAfter/);
 assert.match(collector,/payloadFingerprintSha256/);
 assert.match(collector,/outcomesOpened:false/);
+assert.match(collector,/economicShadowPolicyVersion:M\.economicShadow\.version/);
 assert.match(collector,/callTimesFmStageB\(payload\)/);
 assert.match(collector,/saveTimesFmProspectiveDurableState/);
 assert.ok(collector.indexOf('const remote=await callTimesFmStageB(payload);') < collector.indexOf('state=appendTimesFmProspectiveAnchor'));
