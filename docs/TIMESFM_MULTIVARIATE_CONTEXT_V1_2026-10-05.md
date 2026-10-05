@@ -115,10 +115,14 @@ The existing prospective sample remains unopened/outcomes unopened while this in
 ## Runner
 
 ZeroGPU execution is bounded independently from the frozen model design:
-- runner API version: 2;
-- maximum GPU reservation per multivariate call: 120 seconds;
+- runner API version: 3;
+- maximum GPU reservation per multivariate call: 45 seconds;
 - maximum anchors per remote call: 8;
 - a non-GPU `multivariate_context_status` endpoint publishes the deployed transport contract; the app refuses to run unless that exact contract is present;
+- remote Gradio calls are authenticated with `HF_TOKEN` (also accepts `HUGGINGFACE_TOKEN` / `HUGGING_FACE_HUB_TOKEN`);
+- before launch the backend queries Hugging Face `/api/spaces/zero-gpu/quota`; V1 requires at least 270 GPU-seconds remaining to cover the four frozen batches conservatively;
+- fine-grained tokens used for quota inspection need Billing > Read billing usage and payment method status;
+- the token is never written to result evidence or logs;
 - the Trading client splits the 31 historical anchors into ordered batches and reassembles them without changing inputs, model, horizons or evaluation;
 - anchor order/count are verified after reassembly.
 
