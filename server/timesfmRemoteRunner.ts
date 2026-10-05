@@ -54,7 +54,7 @@ function parseSseComplete(payload: string): unknown {
   throw new Error('TIMESFM_ZEROGPU_COMPLETE_EVENT_MISSING');
 }
 
-async function callGradio(endpoint: 'status' | 'run_stage_a', timeoutMs: number): Promise<unknown> {
+async function callGradio(endpoint: 'status' | 'run_stage_a' | 'multivariate_context_status', timeoutMs: number): Promise<unknown> {
   const base = runnerBase();
   const submit = await fetch(`${base}/gradio_api/call/${endpoint}`, {
     method: 'POST',
@@ -94,6 +94,36 @@ export async function fetchTimesFmRemoteState(): Promise<TimesFmRemoteState> {
 export async function runTimesFmRemoteStageA(): Promise<TimesFmRemoteState> {
   const timeoutMs = Math.max(30_000, Number(process.env.TIMESFM_RUNNER_TIMEOUT_MS || 180_000));
   return validateRemoteState(await callGradio('run_stage_a', timeoutMs));
+}
+
+
+export interface TimesFmMultivariateRunnerStatus {
+  study: 'TIMESFM_MULTIVARIATE_CONTEXT_V1';
+  status: 'READY_TIMESFM_MULTIVARIATE_CONTEXT_V1';
+  apiVersion: number;
+  maxAnchorsPerCall: number;
+  gpuDurationSeconds: number;
+  targetCount: number;
+  pastOnlyCovariateCount: number;
+  contextLength: number;
+  forecastHorizon: number;
+  productionAuthority: boolean;
+  productionDefault: 'LEGACY';
+}
+
+function validateTimesFmMultivariateRunnerStatus(value: unknown): TimesFmMultivariateRunnerStatus {
+  const payload = value as TimesFmMultivariateRunnerStatus;
+  if (!payload || payload.study !== 'TIMESFM_MULTIVARIATE_CONTEXT_V1') {
+    throw new Error('TIMESFM_MULTIVARIATE_STATUS_STUDY_INVALID');
+  }
+  if (payload.status !== 'READY_TIMESFM_MULTIVARIATE_CONTEXT_V1') {
+    throw new Error('TIMESFM_MULTIVARIATE_STATUS_INVALID');
+  }
+  return payload;
+}
+
+export async function fetchTimesFmMultivariateRunnerStatus(): Promise<TimesFmMultivariateRunnerStatus> {
+  return validateTimesFmMultivariateRunnerStatus(await callGradio('multivariate_context_status', 8_000));
 }
 
 
