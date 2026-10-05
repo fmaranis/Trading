@@ -288,6 +288,7 @@ const JOBS: JobDefinition[] = [
     visibility: 'CURRENT',
     requiresTimesFmRunner: true,
     steps: [
+      { label: 'Guard sello TimesFM Stage B', command: 'node', args: ['tests/timesfmStageBSeal.unit.mjs'] },
       { label: 'Guard protocolo TimesFM Stage B', command: 'node', args: ['tests/timesfmStageBProtocol.unit.mjs'] },
       { label: 'Guard cliente ZeroGPU Stage B', command: 'node', args: ['tests/timesfmStageBRemoteClient.unit.mjs'] },
       { label: 'Guard contrato ZeroGPU Stage B', command: 'node', args: ['tests/timesfmStageBRemoteContract.unit.mjs'] },
