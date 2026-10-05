@@ -327,7 +327,8 @@ const JOBS: JobDefinition[] = [
     name: 'TimesFM · dinero histórico · diagnóstico',
     description: 'Diagnóstico económico consumido/no promocional sobre las 31 fechas exactas de Stage B. Compara CORE_ARCHITECTURE_V1 + LEGACY frente a CORE_ARCHITECTURE_V1 + TIMESFM_RELATIVE_RANK_V1 en 15 escenarios de capital/riesgo, con mismo cash BCE, fiscalidad, costes y NEXT_OPEN. Producción continúa LEGACY.',
     marker: 'TIMESFM_RELATIVE_RANK_ECONOMIC_DIAGNOSTIC_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'TimesFM relative-rank V1 · NO_ECONOMIC_REACH · muestra consumida',
     requiresTimesFmRunner: true,
     steps: [
       { label: 'Guard sello diagnóstico económico TimesFM', command: 'node', args: ['tests/timesfmRelativeRankEconomicDiagnosticV1Seal.unit.mjs'] },
@@ -341,6 +342,27 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Replay económico histórico LEGACY vs TimesFM', command: 'npx', args: ['tsx', 'scripts/timesfmRelativeRankEconomicDiagnosticV1.ts'] }
+    ]
+  },
+  {
+    id: 'timesfm-allocation-bridge-posthoc-v1',
+    name: 'TimesFM · bridge económico post-hoc',
+    description: 'Diagnóstico arquitectónico post-hoc sobre la muestra Stage B ya consumida. TimesFM no cambia gates ni sizing: sólo decide qué oportunidad ya elegible consume primero slots/capital escaso; LEGACY sigue calculando magnitudes. Sin autoridad de promoción.',
+    marker: 'TIMESFM_ALLOCATION_BRIDGE_POSTHOC_V1_RESULT',
+    visibility: 'CURRENT',
+    requiresTimesFmRunner: true,
+    steps: [
+      { label: 'Guard sello bridge TimesFM', command: 'node', args: ['tests/timesfmAllocationBridgePosthocV1Seal.unit.mjs'] },
+      { label: 'Guard protocolo bridge TimesFM', command: 'node', args: ['tests/timesfmAllocationBridgePosthocV1.unit.mjs'] },
+      { label: 'Guard contrato bridge TimesFM', command: 'node', args: ['tests/timesfmAllocationBridgePosthocV1Contract.unit.mjs'] },
+      { label: 'Guard política TimesFM relative-rank', command: 'npx', args: ['tsx', 'tests/timesFmRelativeRankV1.unit.ts'] },
+      { label: 'Guard contrato TimesFM relative-rank', command: 'node', args: ['tests/timesFmRelativeRankV1Contract.unit.mjs'] },
+      { label: 'Guard replay fechas explícitas', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Replay post-hoc LEGACY vs TimesFM bridge', command: 'npx', args: ['tsx', 'scripts/timesfmAllocationBridgePosthocV1.ts'] }
     ]
   },
   {
