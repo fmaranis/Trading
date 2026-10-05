@@ -2163,3 +2163,16 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El job compila `app.py` y verifica `/gradio_api/info` antes de cualquier Yahoo/inferencia; si el Space aún no expone el endpoint, falla cerrado con `TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED` antes del diagnóstico.
 - Sello final revisión 5; diseño/model inputs siguen unopened para fresh y el diagnóstico histórico aún no se ha ejecutado con V1.
 - Limitación operativa externa: el conector Hugging Face disponible en este chat tiene OAuth `read-repos` pero no escritura; no puede publicar directamente el commit del Space `fmaranis/timesfm-stage-a`. Debe sincronizarse allí el `runner/timesfm/hf-space/app.py` canónico antes de ejecutar el job.
+
+
+#### TIMESFM_MULTIVARIATE_CONTEXT_V1 — remote endpoint preflight failure corrected 2026-10-05
+
+- Primer intento del job se detuvo en `Guard endpoint runner TimesFM multivariante` con `TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED`.
+- Guards previos PASS: sello, protocolo, contrato y sintaxis de `runner/timesfm/hf-space/app.py`.
+- El fallo demuestra que el Space desplegado todavía no exponía `multivariate_context_predict`; no fue un fallo del modelo ni del diagnóstico.
+- El intento se detuvo antes de Yahoo, payload, inferencia y outcomes: `diagnosticRunOpened=false`, `marketDataAccessedByV1=false`, `marketOutcomesOpened=false`.
+- Corrección de producto: el endpoint remoto se comprueba ahora mediante `/gradio_api/info` dentro de `asyncPrerequisiteError` al cargar el Centro y antes de aceptar el POST de ejecución.
+- Mientras el Space no exponga el endpoint, `readyToRun=false`, el botón queda `Bloqueado por preflight` y el job no pasa a RUNNING/FAILED.
+- La misma comprobación se repite dentro de `runJob` como defensa adicional.
+- Sello reseñado a revisión 6; ningún input/model rule del estudio cambió.
+- El conector Hugging Face disponible en ChatGPT sigue teniendo sólo `read-repos`; no permite publicar el commit del Space desde este chat.
