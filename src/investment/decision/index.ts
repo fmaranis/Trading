@@ -61,3 +61,5 @@ export * from './spanishTaxModel';
 export * from './taxAwareExecutionOverlay';
 export * from './timesFmRelativeRankV1';
 export * from './replayTimesFmRelativeRankExperiment';
+
+export * from './timesFmDirectSelectorV1';
