@@ -44,22 +44,22 @@
   "productionDefault": "LEGACY",
   "productionAuthority": false,
   "manifestGitBlobSha1": {
-    "scripts/timesfmMultivariateContextV1Protocol.mjs": "6051a730c1ec2361cef2c4f1b4aea6d1bf2fc7d0",
-    "scripts/timesfmMultivariateContextV1RemoteClient.mjs": "ca7f18f9592a1dc7747c99f85571bd31b7d481f2",
-    "scripts/timesfmMultivariateContextV1RunnerReadiness.mjs": "5a63f779c2b074f6aaae510ea4598523f171699f",
+    "scripts/timesfmMultivariateContextV1Protocol.mjs": "dacc4a2eee48cf83e339c3a21c4e4558c501b0e7",
+    "scripts/timesfmMultivariateContextV1RemoteClient.mjs": "9cb53f2c6e72c63854c89e3c0214400916e16175",
+    "scripts/timesfmMultivariateContextV1RunnerReadiness.mjs": "d1659de46609d21e949ce80df1e3bd93324fe543",
     "scripts/timesfmMultivariateContextV1DiagnosticLive.mjs": "329f3e351d4ed27fe55514ae02fadad65f077b6f",
-    "runner/timesfm/hf-space/app.py": "ed2b343d3da52d05f85335bbfdfb6a3403d9d56e",
-    "server/timesfmRemoteRunner.ts": "31664fde347ab7d8046f92c0b88553cea87e18eb",
-    "server/researchValidationRoutes.ts": "43317c6f21d9a758125f15acd611f3659e99ac06",
-    "src/components/ResearchValidationCenter.tsx": "fdd4ce450662f5c5ce434dd226897689cf92c8c9",
-    "tests/timesfmMultivariateContextV1.unit.mjs": "54f8f96fbb8432252a281720b27341885b6a0686",
-    "tests/timesfmMultivariateContextV1Contract.unit.mjs": "1b151e921822580437865d5e0e2149905a287022",
-    "tests/timesfmMultivariateContextV1RunnerReadiness.unit.mjs": "8a1c343877079d5068bb8b2efd583399901fd78e",
-    "tests/researchValidationRuntime.unit.ts": "ecb4a2f4069d53aad9eeb0b5be30a21b9bdd72b5",
-    "docs/TIMESFM_MULTIVARIATE_CONTEXT_V1_2026-10-05.md": "c412e7bc3a0e72eca023f57a896182dca9372ba2"
+    "runner/timesfm/hf-space/app.py": "a65c204d8fbf4ea67a11979d4a4c2663b62ab0bb",
+    "server/timesfmRemoteRunner.ts": "ae26bc94638c348f776319eecc581052d21cad08",
+    "server/researchValidationRoutes.ts": "8565fbf02d6173eb4e66e5defa5bf0ab44e813fa",
+    "src/components/ResearchValidationCenter.tsx": "3b30a78402348311633a0f46db440c4a2687f190",
+    "tests/timesfmMultivariateContextV1.unit.mjs": "70ff775f75a839ab7dec52b3f25b4255f40175b6",
+    "tests/timesfmMultivariateContextV1Contract.unit.mjs": "b2d25f8efbfeb6dd0c3eaf5c075dcb0639a4c029",
+    "tests/timesfmMultivariateContextV1RunnerReadiness.unit.mjs": "02bf17cb2d8622e7aad04d93ec5cbe069916cbee",
+    "tests/researchValidationRuntime.unit.ts": "bbe7287bb5e63100ade8ef942a644531d14150b1",
+    "docs/TIMESFM_MULTIVARIATE_CONTEXT_V1_2026-10-05.md": "763e495ad96b1c432324ffde3f44482d9f743f39"
   },
-  "sealRevision": 8,
-  "previousSealCommit": "a09c7eb4d3d6acfa8bef9af0fbc454ddf1af8daf",
+  "sealRevision": 9,
+  "previousSealCommit": "38ca7976551ac8288bc4b8b4e1a5b0a1584b06f1",
   "preInferenceRepairs": [
     {
       "date": "2026-10-05",
@@ -129,11 +129,24 @@
       "evaluationRuleChanged": false,
       "freshSampleOpened": false,
       "freshOutcomesOpened": false
+    },
+    {
+      "date": "2026-10-05",
+      "scope": "AUTHENTICATED_ZEROGPU_QUOTA_PREFLIGHT",
+      "reason": "Observed ZeroGPU quota exceeded on an unauthenticated API call (180s requested vs 176s left). Require HF_TOKEN, query authenticated quota before start, use 45s per 8-anchor batch, and recheck quota before every batch.",
+      "modelInputsChanged": false,
+      "timesFmRuleChanged": false,
+      "evaluationRuleChanged": false,
+      "historicalYahooDataAccessed": true,
+      "historicalForecastsReturned": false,
+      "historicalMetricsEvaluated": false,
+      "freshSampleOpened": false,
+      "freshOutcomesOpened": false
     }
   ],
   "historicalExecution": {
-    "lastAttemptAt": "2026-10-05T20:54:15.293Z",
-    "lastAttemptStatus": "REMOTE_GPU_DURATION_REJECTED_BEFORE_FORECAST_RESULT",
+    "lastAttemptAt": "2026-10-05T21:08:59.078Z",
+    "lastAttemptStatus": "REMOTE_ZERO_GPU_QUOTA_REJECTED_BEFORE_FORECAST_RESULT",
     "historicalYahooDataAccessed": true,
     "historicalForecastsReturned": false,
     "historicalMetricsEvaluated": false,
@@ -141,10 +154,13 @@
     "freshOutcomesOpened": false
   },
   "runtimeTransport": {
-    "apiVersion": 2,
+    "apiVersion": 3,
     "maxAnchorsPerRemoteCall": 8,
-    "zeroGpuDurationSecondsPerBatch": 120,
+    "zeroGpuDurationSecondsPerBatch": 45,
     "statusEndpoint": "multivariate_context_status",
+    "authenticatedWithHfToken": true,
+    "minimumAuthenticatedQuotaSecondsBeforeStart": 270,
+    "minimumQuotaSecondsBeforeBatch": 70,
     "changesModelInputs": false,
     "changesForecastRule": false,
     "changesEvaluationRule": false
