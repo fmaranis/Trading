@@ -12,7 +12,7 @@ function gitBlobSha(content){
 }
 
 assert.equal(seal.version,'TIMESFM_MULTIVARIATE_CONTEXT_V1_SEAL');
-assert.equal(seal.sealRevision,8);
+assert.equal(seal.sealRevision,9);
 assert.equal(seal.study.version,'TIMESFM_MULTIVARIATE_CONTEXT_V1');
 assert.equal(seal.study.historicalSample,'CONSUMED_2018Q1_2025Q3_DIAGNOSTIC_ONLY');
 assert.equal(seal.study.diagnosticRunOpened,true);
@@ -33,10 +33,13 @@ assert.equal(seal.prospective.marketAccessed,false);
 assert.equal(seal.prospective.outcomesOpened,false);
 assert.equal(seal.productionDefault,'LEGACY');
 assert.equal(seal.productionAuthority,false);
-assert.equal(seal.runtimeTransport.apiVersion,2);
+assert.equal(seal.runtimeTransport.apiVersion,3);
 assert.equal(seal.runtimeTransport.maxAnchorsPerRemoteCall,8);
-assert.equal(seal.runtimeTransport.zeroGpuDurationSecondsPerBatch,120);
+assert.equal(seal.runtimeTransport.zeroGpuDurationSecondsPerBatch,45);
 assert.equal(seal.runtimeTransport.statusEndpoint,'multivariate_context_status');
+assert.equal(seal.runtimeTransport.authenticatedWithHfToken,true);
+assert.equal(seal.runtimeTransport.minimumAuthenticatedQuotaSecondsBeforeStart,270);
+assert.equal(seal.runtimeTransport.minimumQuotaSecondsBeforeBatch,70);
 assert.equal(seal.runtimeTransport.changesModelInputs,false);
 assert.equal(seal.runtimeTransport.changesForecastRule,false);
 assert.equal(seal.runtimeTransport.changesEvaluationRule,false);
