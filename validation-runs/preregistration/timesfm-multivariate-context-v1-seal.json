@@ -44,23 +44,32 @@
   "productionDefault": "LEGACY",
   "productionAuthority": false,
   "manifestGitBlobSha1": {
-    "scripts/timesfmMultivariateContextV1Protocol.mjs": "dbe04c6d46e11fc8d76d603f1a21f9db47ae5bfe",
+    "scripts/timesfmMultivariateContextV1Protocol.mjs": "87bf306c8c967866c61afc272a14954195bcd889",
     "scripts/timesfmMultivariateContextV1RemoteClient.mjs": "f711e4cf3dd18923b6aa07635da3ad5b6aaa5958",
-    "scripts/timesfmMultivariateContextV1DiagnosticLive.mjs": "ebaafe8e78a9aa72495bae5ccbcfc39ecda65b7c",
+    "scripts/timesfmMultivariateContextV1DiagnosticLive.mjs": "329f3e351d4ed27fe55514ae02fadad65f077b6f",
     "scripts/hfTimesFmMultivariateContextV1Endpoint.py": "04992d8a79869eb8e9dfe6a3c667af5ecbda3a35",
     "tests/timesfmMultivariateContextV1.unit.mjs": "db297b52fa98aad34d04aae9b4a1f600b7a33d0c",
     "tests/timesfmMultivariateContextV1Contract.unit.mjs": "2f57c7a7fdf01d90055814942f4d6a4eeb9a7d94",
-    "docs/TIMESFM_MULTIVARIATE_CONTEXT_V1_2026-10-05.md": "5f53ad9036d650ea1cf1aff0888196232eb19ff0",
+    "docs/TIMESFM_MULTIVARIATE_CONTEXT_V1_2026-10-05.md": "5ff29d2358ffe8f77a4b10a2e12c67665496e837",
     "server/researchValidationRoutes.ts": "39c91d7318b716d6ddbea131196ae80bb446e986"
   },
-  "sealRevision": 2,
-  "previousSealCommit": "4d42135aa186fd417935fb8a2d38f14cd5e943fa",
+  "sealRevision": 3,
+  "previousSealCommit": "25982486c1c60de70ae83f7411f0b1540e022236",
   "preInferenceRepairs": [
     {
       "date": "2026-10-05",
       "scope": "BASELINE_SEMANTICS_ONLY",
       "reason": "Preserve Stage B LEGACY defensive metadata for IBCI and 4GLD",
       "modelInputsChanged": false,
+      "timesFmRuleChanged": false,
+      "sampleOpened": false,
+      "freshOutcomesOpened": false
+    },
+    {
+      "date": "2026-10-05",
+      "scope": "PRE_INFERENCE_COVARIATE_DESIGN_FINALIZATION",
+      "reason": "Replace redundant EUNL 20/60 return covariates with cross-sectional overnight-gap mean and dispersion so OPEN information is represented without exceeding the 32-variate limit",
+      "modelInputsChanged": true,
       "timesFmRuleChanged": false,
       "sampleOpened": false,
       "freshOutcomesOpened": false
