@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+const root=process.cwd();
+const read=p=>fs.readFileSync(path.resolve(root,p),'utf8');
+const script=read('scripts/timesfmRelativeRankEconomicDiagnosticV1.ts');
+const protocol=read('scripts/timesfmRelativeRankEconomicDiagnosticV1Protocol.mjs');
+const core=read('src/investment/decision/dynamicHistoricalReplayCore.ts');
+const wrapper=read('src/investment/decision/replayTimesFmRelativeRankExperiment.ts');
+
+assert.match(protocol,/totalScenarios: 15/);
+assert.match(protocol,/EXACT_STAGE_B_INFORMATION_DATES/);
+assert.match(protocol,/HISTORICAL_ECB_DFR_FLOOR_0/);
+assert.match(protocol,/productionAuthority: false/);
+assert.match(core,/explicitDecisionDates\?: string\[\]/);
+assert.match(core,/requestedDecisionDates\(input\.dataset, input\.startDate, endDate, frequency, input\.explicitDecisionDates\)/);
+assert.match(script,/runDynamicReplayWithRotationExperiment\(input, 'CORE_ARCHITECTURE_V1'\)/);
+assert.match(script,/runDynamicReplayWithTimesFmRelativeRankV1\(input, evidenceByDate\)/);
+assert.match(script,/explicitDecisionDates: dates/);
+assert.match(script,/externalCashFlows: \[\]/);
+assert.match(script,/stageBResult\.events/);
+assert.match(script,/predictedRelativeReturn20Pct: 0/);
+assert.match(script,/predictedRelativeReturn60Pct: 0/);
+assert.match(script,/rawSha256/);
+assert.match(script,/candidate\.finalValueEur - baseline\.finalValueEur/);
+assert.match(script,/Fresh prospective confirmation remains mandatory/);
+assert.doesNotMatch(script,/productionAuthority: true/);
+assert.match(wrapper,/runDynamicReplayWithRotationExperiment\(input, 'CORE_ARCHITECTURE_V1'\)/);
+
+console.log('timesfmRelativeRankEconomicDiagnosticV1Contract.unit: PASS');
