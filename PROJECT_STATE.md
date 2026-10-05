@@ -1784,3 +1784,12 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - PyTorch is intentionally not installed/pinned by the app: ZeroGPU manages the supported PyTorch/CUDA runtime. This avoids replacing the platform runtime.
 - Gradio, `spaces` and `huggingface_hub` remain platform-managed.
 - Manual action is therefore limited to uploading/replacing `app.py` in the existing `fmaranis/timesfm-stage-a` Space; hardware must remain ZeroGPU and no paid option may be selected.
+
+
+### TimesFM Stage A — fix botón AI Studio production gate 2026-10-05
+
+- Causa aislada del botón sin efecto aparente: `POST /jobs/:id/run` devolvía `403 RESEARCH_VALIDATION_LOCAL_ONLY` para cualquier job cuando `NODE_ENV=production`, antes incluso de resolver el job solicitado.
+- AI Studio ejecuta la app en ese modo, por lo que `timesfm-stage-a-smoke-v1` no podía arrancar aunque el Space ZeroGPU estuviera operativo.
+- Fix: el gate de producción se aplica después de resolver el job y mantiene el bloqueo para todos los jobs salvo el único `TIMESFM_REMOTE_JOB_ID`.
+- TimesFM conserva su cadena de guards rápidos + TypeScript antes del cliente remoto; no se abre ninguna otra validación local en producción.
+- Producción de inversión continúa `LEGACY`; el cambio sólo afecta a la capacidad de lanzar el smoke técnico remoto.
