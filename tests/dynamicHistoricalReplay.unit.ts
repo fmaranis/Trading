@@ -225,3 +225,38 @@ console.log('Dynamic Historical Replay: causal boundary, timing audit, staged de
   assert.ok(decisionDates.every(date => explicit.includes(date)), 'explicit decision dates prevent off-calendar signals');
   console.log('✓ explicit decision dates are research-only and constrain the canonical replay calendar');
 }
+
+
+{
+  const directDataset = dataset(false, 620);
+  const dates = directDataset.assets[0].bars.map(bar => bar.timestamp.slice(0,10));
+  const explicit = [dates[400], dates[450], dates[500], dates[550]].filter(Boolean);
+  const result = DynamicHistoricalReplayEngine.run({
+    dataset: directDataset,
+    catalog,
+    startDate: explicit[0],
+    explicitDecisionDates: explicit,
+    frequency: 'DAILY',
+    initialCapitalEur: 10_000,
+    riskProfile: 'MEDIUM',
+    horizonYears: 3,
+    cashBenchmarkAnnualPct: 2.5,
+    minimumBars: 252,
+    researchDirectSelector: {
+      policy: 'TIMESFM_DIRECT_SELECTOR_V1',
+      selectionsByDate: {
+        [explicit[0]]: 'RISK',
+        [explicit[1]]: 'DEF',
+        [explicit[2]]: 'RISK',
+        [explicit[3]]: 'DEF'
+      }
+    }
+  });
+  const executedDirect = result.signals.filter(signal => signal.executed && !signal.isInitialAllocation && ['BUY','ADD','EXIT'].includes(signal.action));
+  assert.ok(executedDirect.some(signal => signal.assetId === 'RISK' && signal.action === 'BUY'), 'direct selector must buy the chosen asset');
+  assert.ok(executedDirect.some(signal => signal.assetId === 'RISK' && signal.action === 'EXIT'), 'direct selector must exit the prior winner when the winner changes');
+  assert.ok(executedDirect.some(signal => signal.assetId === 'DEF' && (signal.action === 'BUY' || signal.action === 'ADD')), 'direct selector must rotate into the new winner');
+  assert.ok(executedDirect.every(signal => signal.executionDate != null && signal.executionDate > signal.signalDate), 'direct selector must retain NEXT_OPEN causality');
+  assert.ok(result.notes.some(note => note.includes('TIMESFM_DIRECT_SELECTOR_V1')), 'direct-selector replay must disclose its research-only mode');
+  console.log('✓ direct TimesFM selector controls asset choice while canonical replay retains execution/cost/tax semantics');
+}
