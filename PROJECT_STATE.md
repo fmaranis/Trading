@@ -2013,3 +2013,22 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El patrón corregido fue compilado con `tsc --noEmit` de forma aislada: PASS.
 - No se ejecutó el replay económico, no se abrieron outcomes y la matriz 15/15 permanece congelada.
 - Sello económico actualizado manteniendo `economicOutcomesOpened=false`.
+
+
+### TimesFM historical economic V1 — NO_ECONOMIC_REACH 2026-10-05
+
+- Resultado real del diagnóstico consumido: `NO_ECONOMIC_REACH`.
+- 15/15 escenarios planos; 0 positivos, 0 negativos; mediana exceso final vs LEGACY = 0 EUR; mediana exceso retorno = 0 pp.
+- Ningún escenario cambió la firma de operaciones ejecutadas.
+- TIMESFM_RELATIVE_RANK_V1 no se interpreta como señal negativa: la señal Stage B conserva su PASS predictivo; la política V1 falló por reach económico nulo.
+- Diagnóstico arquitectónico: CandidateGate admitía prácticamente todo el panel; CurrentOpportunityAlertEngine prioriza level/timing antes del rank; PortfolioDecisionEngine mantenía prioridad económica LEGACY, por lo que el ranking TimesFM apenas tenía autoridad para cambiar qué orden consumía el capital.
+- El resultado histórico también muestra que ambos brazos quedaron por debajo del structural core en 15/15 escenarios.
+- V1 queda CLOSED / NO RETUNE sobre 2018-2025.
+
+### TIMESFM_ALLOCATION_BRIDGE_V1 — hipótesis arquitectónica post-hoc
+
+- Nueva hipótesis materialmente distinta, motivada por el reach nulo, no por tuning de coeficientes.
+- TimesFM sigue sin abrir gates, cambiar cash, sizing, caps, starter/build, costes, impuestos o NEXT_OPEN.
+- Cambio único: entre oportunidades ya elegibles, el rango TimesFM 20/60 decide el orden de consumo de slots y capital base escaso.
+- La magnitud del target/sizing sigue usando la prioridad económica LEGACY.
+- Esta política sólo puede evaluarse sobre 2018-2025 como POSTHOC_ARCHITECTURE_DIAGNOSTIC_ONLY; no tiene autoridad de promoción.
