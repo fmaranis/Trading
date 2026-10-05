@@ -78,3 +78,56 @@ export function runDynamicReplayWithTimesFmRelativeRankV1(
     PortfolioDecisionEngine.evaluate = originalEvaluate;
   }
 }
+
+
+/**
+ * Post-hoc architecture diagnostic only.
+ * Materially different from TIMESFM_RELATIVE_RANK_V1: TimesFM receives ordering
+ * authority at the allocator queue, but not sizing authority. LEGACY still computes
+ * opportunity priority magnitudes/targets; TimesFM only decides which already-eligible
+ * rows consume scarce slots/base deployable cash first.
+ */
+export function runDynamicReplayWithTimesFmAllocationBridgeV1(
+  input: ReplayRunInput,
+  evidenceByDate: TimesFmRelativeRankEvidenceByDate
+): DynamicHistoricalReplayResult {
+  const originalApply = PortfolioCandidateGate.apply;
+  const originalEvaluate = PortfolioDecisionEngine.evaluate;
+
+  try {
+    PortfolioCandidateGate.apply = ((scan, cashBenchmarkAnnualPct, maxSelected = 12, policy = 'LEGACY', selectionContext = {}) => {
+      const informationDate = scanInformationDate(scan);
+      const context = policy === 'TIMESFM_RELATIVE_RANK_V1' && selectionContext.timesFmRelativeRankEvidence?.length
+        ? selectionContext
+        : contextForDate(evidenceByDate, informationDate);
+      return originalApply.call(
+        PortfolioCandidateGate,
+        scan,
+        cashBenchmarkAnnualPct,
+        maxSelected,
+        'TIMESFM_RELATIVE_RANK_V1',
+        context
+      );
+    }) as GateApply;
+
+    PortfolioDecisionEngine.evaluate = ((portfolioInput) => {
+      const informationDate = portfolioInput.decision.asOfDate || scanInformationDate(portfolioInput.scan);
+      return originalEvaluate.call(PortfolioDecisionEngine, {
+        ...portfolioInput,
+        candidateSelectionPolicy: 'TIMESFM_RELATIVE_RANK_V1',
+        candidateSelectionContext: contextForDate(evidenceByDate, informationDate),
+        opportunityAllocationPolicy: 'TIMESFM_ALLOCATION_BRIDGE_V1'
+      });
+    }) as PortfolioEvaluate;
+
+    const result = runDynamicReplayWithRotationExperiment(input, 'CORE_ARCHITECTURE_V1');
+    result.notes.push(
+      'TIMESFM_ALLOCATION_BRIDGE_V1 POST-HOC ARCHITECTURE DIAGNOSTIC: TimesFM ordena únicamente el consumo de slots/cash entre oportunidades ya elegibles.',
+      'Sizing/targets permanecen calculados por la prioridad económica LEGACY. Sin autoridad de producción ni promoción sobre esta muestra consumida.'
+    );
+    return result;
+  } finally {
+    PortfolioCandidateGate.apply = originalApply;
+    PortfolioDecisionEngine.evaluate = originalEvaluate;
+  }
+}
