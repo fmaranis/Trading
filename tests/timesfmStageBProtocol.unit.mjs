@@ -36,7 +36,11 @@ assert.equal(anchors[0], '2018-03-31');
 assert.equal(anchors.at(-1), '2025-09-30');
 assert.ok(anchors.every(date => date <= '2025-09-30'));
 
-assert.deepEqual(rebase100([10,11,12]), [100,110,120]);
+const rebased = rebase100([10,11,12]);
+assert.equal(rebased.length, 3);
+assert.ok(Math.abs(rebased[0] - 100) < 1e-12);
+assert.ok(Math.abs(rebased[1] - 110) < 1e-12);
+assert.ok(Math.abs(rebased[2] - 120) < 1e-12);
 assert.throws(() => rebase100([]), /TIMESFM_STAGE_B_INVALID_REBASE_INPUT/);
 
 const trending = Array.from({length: 300}, (_, i) => 100 + i * 0.2);
