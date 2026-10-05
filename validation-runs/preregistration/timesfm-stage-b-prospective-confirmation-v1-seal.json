@@ -43,7 +43,7 @@
     "scripts/timesfmStageBProspectiveProtocol.mjs": "a9453240cd1e2f4c9356531b7945cc28fc741f1d",
     "scripts/timesfmStageBProspectiveStateStore.mjs": "4f28678e345c7f8f7f0ba1e8d1af27383f7bf96b",
     "scripts/timesfmStageBProspectiveCollectorLive.mjs": "347cdcc24394a3f58fa7dfb33ef58b3f9c215f62",
-    "src/investment/decision/timesFmRelativeRankV1.ts": "9494746f00bfa2301c8f4560758fea7abc5360b8",
+    "src/investment/decision/timesFmRelativeRankV1.ts": "124129b858d2c39ef908d9122fefbc418e58802a",
     "src/investment/decision/portfolioCandidateGate.ts": "18967db3be51ec4d5fcf0f1db296b2d13c3184d8",
     "src/investment/decision/currentOpportunityAlerts.ts": "5d8d9149501f6bd79d053e746cf2e04b09ae665c",
     "src/investment/decision/portfolioDecisionEngine.ts": "65ac6d1dda28fd1c1ac72ed6918b8191b0b138e3",
@@ -53,8 +53,8 @@
     "server/researchValidationRoutes.ts": "2f2f868c70276d8f5c334eaae8fe9ba1fff0a406",
     "docs/TIMESFM_RELATIVE_RANK_V1_ECONOMIC_SHADOW_2026-10-05.md": "6d33cfa3f33a43f3ee78ab5b0b65653a189d30a4"
   },
-  "sealRevision": 3,
-  "previousSealCommit": "c6c2f65ea0cae9d6cf72660fea4fed71de77edc2",
+  "sealRevision": 4,
+  "previousSealCommit": "44d3bf114249c9c034d50d5272ca8cc6d19abd6d",
   "economicShadow": {
     "version": "TIMESFM_RELATIVE_RANK_V1",
     "frozenBeforeFirstProspectiveAnchor": true,
@@ -66,5 +66,17 @@
     "cashAuthority": false,
     "timingAuthority": false,
     "productionAuthority": false
-  }
+  },
+  "preMarketRepairs": [
+    {
+      "date": "2026-10-05",
+      "scope": "TYPE_ONLY",
+      "file": "src/investment/decision/timesFmRelativeRankV1.ts",
+      "reason": "TypeScript inferred ranked metadata Map values as unknown in PortfolioCandidateGate",
+      "change": "explicit generic/input/output interfaces only; ordinal 20/60 ranking mathematics unchanged",
+      "sampleOpened": false,
+      "marketAccessed": false,
+      "outcomesOpened": false
+    }
+  ]
 }
