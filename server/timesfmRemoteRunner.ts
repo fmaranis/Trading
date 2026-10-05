@@ -17,6 +17,58 @@ export interface TimesFmRemoteState {
 function runnerBase(): string {
   return String(process.env.TIMESFM_RUNNER_URL || DEFAULT_TIMESFM_ZERO_GPU_URL).trim().replace(/\/$/, '');
 }
+function hfToken(): string | null {
+  const value = String(
+    process.env.HF_TOKEN ||
+    process.env.HUGGINGFACE_TOKEN ||
+    process.env.HUGGING_FACE_HUB_TOKEN ||
+    ''
+  ).trim();
+  return value || null;
+}
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = hfToken();
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : extra;
+}
+
+export function timesFmHfTokenConfigured(): boolean {
+  return hfToken() != null;
+}
+
+export interface TimesFmZeroGpuQuota {
+  base: number;
+  remaining: number;
+  resetsAt: string | null;
+  overquotaUsed: number | null;
+}
+
+export async function fetchTimesFmZeroGpuQuota(timeoutMs = 8_000): Promise<TimesFmZeroGpuQuota> {
+  const token = hfToken();
+  if (!token) throw new Error('TIMESFM_HF_TOKEN_REQUIRED');
+  const response = await fetch('https://huggingface.co/api/spaces/zero-gpu/quota', {
+    headers: authHeaders({ Accept: 'application/json' }),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(`TIMESFM_HF_TOKEN_QUOTA_PERMISSION_REQUIRED:${response.status}`);
+    }
+    throw new Error(`TIMESFM_ZERO_GPU_QUOTA_FAILED:${response.status}:${text.slice(0, 300)}`);
+  }
+  const payload = JSON.parse(text) as { base?: number; current?: number; resetsAt?: string | null; overquotaUsed?: number | null };
+  if (!Number.isFinite(Number(payload.base)) || !Number.isFinite(Number(payload.current))) {
+    throw new Error('TIMESFM_ZERO_GPU_QUOTA_RESPONSE_INVALID');
+  }
+  return {
+    base: Number(payload.base),
+    remaining: Number(payload.current),
+    resetsAt: payload.resetsAt ? String(payload.resetsAt) : null,
+    overquotaUsed: payload.overquotaUsed == null ? null : Number(payload.overquotaUsed)
+  };
+}
+
 
 export function timesFmRemoteRunnerConfigured(): boolean {
   return Boolean(runnerBase());
@@ -27,7 +79,7 @@ export async function checkTimesFmRemoteEndpoint(apiName: string, timeoutMs = 8_
   if (!name) throw new Error('TIMESFM_REMOTE_ENDPOINT_NAME_REQUIRED');
   const base = runnerBase();
   const response = await fetch(`${base}/gradio_api/info`, {
-    headers: { Accept: 'application/json' },
+    headers: authHeaders({ Accept: 'application/json' }),
     signal: AbortSignal.timeout(timeoutMs)
   });
   const text = await response.text();
@@ -58,7 +110,7 @@ async function callGradio(endpoint: 'status' | 'run_stage_a' | 'multivariate_con
   const base = runnerBase();
   const submit = await fetch(`${base}/gradio_api/call/${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ data: [] }),
     signal: AbortSignal.timeout(Math.min(timeoutMs, 30_000))
   });
@@ -70,7 +122,7 @@ async function callGradio(endpoint: 'status' | 'run_stage_a' | 'multivariate_con
   if (!accepted.event_id) throw new Error('TIMESFM_ZEROGPU_EVENT_ID_MISSING');
 
   const result = await fetch(`${base}/gradio_api/call/${endpoint}/${encodeURIComponent(accepted.event_id)}`, {
-    headers: { Accept: 'text/event-stream' },
+    headers: authHeaders({ Accept: 'text/event-stream' }),
     signal: AbortSignal.timeout(timeoutMs)
   });
   if (!result.ok) {
