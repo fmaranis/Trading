@@ -185,9 +185,16 @@ assert.match(timesfmRemote, /\/gradio_api\/info/);
 assert.match(routes, /async function asyncPrerequisiteError\(job: JobDefinition\)/);
 assert.match(routes, /TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED/);
 assert.match(routes, /TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED/);
-assert.match(routes, /remote\.apiVersion !== 2/);
+assert.match(routes, /TIMESFM_HF_TOKEN_REQUIRED/);
+assert.match(routes, /TIMESFM_HF_TOKEN_QUOTA_PERMISSION_REQUIRED/);
+assert.match(routes, /TIMESFM_ZERO_GPU_QUOTA_INSUFFICIENT/);
+assert.match(routes, /fetchTimesFmZeroGpuQuota/);
+assert.match(timesfmRemote, /timesFmHfTokenConfigured/);
+assert.match(timesfmRemote, /\/api\/spaces\/zero-gpu\/quota/);
+assert.match(timesfmRemote, /Authorization/);
+assert.match(routes, /remote\.apiVersion !== 3/);
 assert.match(routes, /remote\.maxAnchorsPerCall !== 8/);
-assert.match(routes, /remote\.gpuDurationSeconds !== 120/);
+assert.match(routes, /remote\.gpuDurationSeconds !== 45/);
 assert.match(routes, /tests\/timesfmMultivariateContextV1RunnerReadiness\.unit\.mjs/);
 assert.match(routes, /await asyncPrerequisiteError\(job\)/);
 assert.ok(
