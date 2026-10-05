@@ -2048,3 +2048,15 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Seal integrity 13/13 PASS; bridgeOutcomesOpened=false.
 - ResearchValidationCenter: old V1 archived; current TimesFM job = timesfm-allocation-bridge-posthoc-v1.
 - Production remains LEGACY.
+
+
+#### TIMESFM_ALLOCATION_BRIDGE_V1 — falso guard corregido pre-outcome 2026-10-05
+
+- Primer intento del bridge post-hoc se detuvo antes del replay en `tests/timesFmRelativeRankV1Contract.unit.mjs`.
+- Causa: el contrato antiguo de `TIMESFM_RELATIVE_RANK_V1` prohibía mediante regex cualquier `OpportunityAllocationPolicy` cuyo tercer literal comenzase por `TIMESFM`; la nueva política separada `TIMESFM_ALLOCATION_BRIDGE_V1` disparaba un falso fallo.
+- Los guards anteriores del bridge pasaron: sello, protocolo, contrato específico y policy relative-rank 13/13.
+- Reparación GUARD_ONLY: el contrato ahora prohíbe específicamente que `TIMESFM_RELATIVE_RANK_V1` aparezca como allocation policy y verifica que su wrapper no contenga `opportunityAllocationPolicy`; permite el bridge post-hoc separado.
+- Verificación estática contra main: relative-rank wrapper sin allocation authority PASS; allocation bridge injection separada PASS.
+- Sello bridge actualizado a revisión 2; integridad 13/13 PASS; `bridgeOutcomesOpened=false`.
+- El replay económico bridge no se ejecutó en el intento fallido; muestra post-hoc todavía no abierta por este runner.
+- Los sellos prospectivo/economic-shadow previos presentan drift de blobs compartidos por la incorporación del bridge (PortfolioDecisionEngine, replay wrapper, contract guard y routes). No afecta al job bridge actual. Deben reseñarse explícitamente antes de reactivar el collector prospectivo; la muestra prospectiva permanece unopened.
