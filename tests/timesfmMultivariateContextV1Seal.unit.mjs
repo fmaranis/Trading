@@ -12,7 +12,7 @@ function gitBlobSha(content){
 }
 
 assert.equal(seal.version,'TIMESFM_MULTIVARIATE_CONTEXT_V1_SEAL');
-assert.equal(seal.sealRevision,4);
+assert.equal(seal.sealRevision,5);
 assert.equal(seal.study.version,'TIMESFM_MULTIVARIATE_CONTEXT_V1');
 assert.equal(seal.study.historicalSample,'CONSUMED_2018Q1_2025Q3_DIAGNOSTIC_ONLY');
 assert.equal(seal.study.diagnosticRunOpened,false);
