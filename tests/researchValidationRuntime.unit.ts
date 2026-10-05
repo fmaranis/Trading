@@ -117,3 +117,15 @@ assert.ok(
   routes.indexOf("process.env.NODE_ENV === 'production' && job.id !== TIMESFM_REMOTE_JOB_ID"),
   'TimesFM production exception must resolve the job before applying the local-only gate'
 );
+
+
+// optimistic TimesFM acceptance: the POST must return local RUNNING/currentStep state
+// without awaiting a remote status call, so the UI reacts immediately even if ZeroGPU is slow.
+const runRouteStart = routes.indexOf("researchValidationRouter.post('/jobs/:id/run'");
+const runRouteEnd = routes.indexOf("\n});", runRouteStart);
+const runRouteBlock = routes.slice(runRouteStart, runRouteEnd);
+assert.match(runRouteBlock, /const acceptedState = stateFor\(job\.id\)/);
+assert.doesNotMatch(runRouteBlock, /job: await publicJob\(job\)/);
+assert.match(runRouteBlock, /\.\.\.acceptedState/);
+assert.match(ui, /setJobs\(current => current\.map\(job => job\.id === id \? \{ \.\.\.job, \.\.\.payload\.job \} : job\)\)/);
+assert.match(timesfmRemote, /callGradio\('status', 4_000\)/);
