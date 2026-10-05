@@ -120,6 +120,8 @@ assert.match(routes, /id: 'timesfm-multivariate-context-v1'/);
 assert.match(routes, /tests\/timesfmMultivariateContextV1Seal\.unit\.mjs/);
 assert.match(routes, /tests\/timesfmMultivariateContextV1\.unit\.mjs/);
 assert.match(routes, /tests\/timesfmMultivariateContextV1Contract\.unit\.mjs/);
+assert.match(routes, /runner\/timesfm\/hf-space\/app\.py/);
+assert.match(routes, /scripts\/timesfmMultivariateContextV1RunnerReadiness\.mjs/);
 assert.match(routes, /scripts\/timesfmMultivariateContextV1DiagnosticLive\.mjs/);
 assert.match(routes, /tests\/timesfmDirectSelectorHistoricalDiagnosticV1Seal\.unit\.mjs/);
 assert.match(routes, /scripts\/timesfmDirectSelectorHistoricalDiagnosticV1\.ts/);
