@@ -306,7 +306,7 @@ const JOBS: JobDefinition[] = [
     name: 'TimesFM · confirmación prospectiva semanal',
     description: 'Collector fresh/blind posterior al PASS histórico de Stage B. Registra como máximo un forecast por semana en la primera sesión común disponible, sin backfill retrospectivo, persiste evidencia con hash-chain en replay-results y no abre outcomes. Mismo core, panel, modelo, contexto, horizontes y gates; producción continúa LEGACY.',
     marker: 'TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1_COLLECTOR_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'PARKED',
     requiresTimesFmRunner: true,
     requiresGithubReplayToken: true,
     steps: [
@@ -320,6 +320,27 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Collector semanal REAL + TimesFM ZeroGPU', command: 'node', args: ['scripts/timesfmStageBProspectiveCollectorLive.mjs'] }
+    ]
+  },
+  {
+    id: 'timesfm-relative-rank-economic-diagnostic-v1',
+    name: 'TimesFM · dinero histórico · diagnóstico',
+    description: 'Diagnóstico económico consumido/no promocional sobre las 31 fechas exactas de Stage B. Compara CORE_ARCHITECTURE_V1 + LEGACY frente a CORE_ARCHITECTURE_V1 + TIMESFM_RELATIVE_RANK_V1 en 15 escenarios de capital/riesgo, con mismo cash BCE, fiscalidad, costes y NEXT_OPEN. Producción continúa LEGACY.',
+    marker: 'TIMESFM_RELATIVE_RANK_ECONOMIC_DIAGNOSTIC_V1_RESULT',
+    visibility: 'CURRENT',
+    requiresTimesFmRunner: true,
+    steps: [
+      { label: 'Guard sello diagnóstico económico TimesFM', command: 'node', args: ['tests/timesfmRelativeRankEconomicDiagnosticV1Seal.unit.mjs'] },
+      { label: 'Guard protocolo diagnóstico económico TimesFM', command: 'node', args: ['tests/timesfmRelativeRankEconomicDiagnosticV1.unit.mjs'] },
+      { label: 'Guard contrato replay económico TimesFM', command: 'node', args: ['tests/timesfmRelativeRankEconomicDiagnosticV1Contract.unit.mjs'] },
+      { label: 'Guard política TimesFM relative-rank', command: 'npx', args: ['tsx', 'tests/timesFmRelativeRankV1.unit.ts'] },
+      { label: 'Guard contrato TimesFM relative-rank', command: 'node', args: ['tests/timesFmRelativeRankV1Contract.unit.mjs'] },
+      { label: 'Guard replay fechas explícitas', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard PortfolioCandidateGate', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Replay económico histórico LEGACY vs TimesFM', command: 'npx', args: ['tsx', 'scripts/timesfmRelativeRankEconomicDiagnosticV1.ts'] }
     ]
   },
   {
