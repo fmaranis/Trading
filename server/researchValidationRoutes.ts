@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { spawn } from 'node:child_process';
 import { loadDurableJobState, reconcileLoadedJobState, saveDurableJobState } from './researchValidationStateStore.mjs';
-import { checkTimesFmRemoteEndpoint, fetchTimesFmMultivariateRunnerStatus, fetchTimesFmRemoteState, reconcileTimesFmState, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
+import { checkTimesFmRemoteEndpoint, fetchTimesFmMultivariateRunnerStatus, fetchTimesFmRemoteState, fetchTimesFmZeroGpuQuota, reconcileTimesFmState, timesFmHfTokenConfigured, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
 
 export const researchValidationRouter = express.Router();
 
@@ -20,6 +20,7 @@ interface JobDefinition {
   requiresEodhdApiKey?: boolean;
   requiresSecEdgarUserAgent?: boolean;
   requiresTimesFmRunner?: boolean;
+  requiresTimesFmAuth?: boolean;
 }
 interface JobState {
   status: JobStatus;
@@ -397,6 +398,7 @@ const JOBS: JobDefinition[] = [
     marker: 'TIMESFM_MULTIVARIATE_CONTEXT_V1_RESULT',
     visibility: 'CURRENT',
     requiresTimesFmRunner: true,
+    requiresTimesFmAuth: true,
     steps: [
       { label: 'Guard sello TimesFM multivariante V1', command: 'node', args: ['tests/timesfmMultivariateContextV1Seal.unit.mjs'] },
       { label: 'Guard protocolo TimesFM multivariante V1', command: 'node', args: ['tests/timesfmMultivariateContextV1.unit.mjs'] },
@@ -588,6 +590,7 @@ function prerequisiteError(job: JobDefinition): string | null {
   if (job.requiresEodhdApiKey && !process.env.EODHD_API_KEY?.trim()) return 'EODHD_API_KEY_REQUIRED';
   if (job.requiresSecEdgarUserAgent && !process.env.SEC_EDGAR_USER_AGENT?.trim()) return 'SEC_EDGAR_USER_AGENT_REQUIRED';
   if (job.requiresTimesFmRunner && !timesFmRemoteRunnerConfigured()) return 'TIMESFM_REMOTE_RUNNER_REQUIRED';
+  if (job.requiresTimesFmAuth && !timesFmHfTokenConfigured()) return 'TIMESFM_HF_TOKEN_REQUIRED';
   return null;
 }
 
@@ -600,9 +603,9 @@ async function asyncPrerequisiteError(job: JobDefinition): Promise<string | null
       if (!available) return 'TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED';
       const remote = await fetchTimesFmMultivariateRunnerStatus();
       if (
-        remote.apiVersion !== 2 ||
+        remote.apiVersion !== 3 ||
         remote.maxAnchorsPerCall !== 8 ||
-        remote.gpuDurationSeconds !== 120 ||
+        remote.gpuDurationSeconds !== 45 ||
         remote.targetCount !== 9 ||
         remote.pastOnlyCovariateCount !== 23 ||
         remote.contextLength !== 512 ||
@@ -612,8 +615,12 @@ async function asyncPrerequisiteError(job: JobDefinition): Promise<string | null
       ) {
         return 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED';
       }
+      const quota = await fetchTimesFmZeroGpuQuota();
+      if (quota.remaining < 270) return 'TIMESFM_ZERO_GPU_QUOTA_INSUFFICIENT';
     } catch (error: any) {
       const message = error?.message || String(error);
+      if (/TIMESFM_HF_TOKEN_REQUIRED/i.test(message)) return 'TIMESFM_HF_TOKEN_REQUIRED';
+      if (/TIMESFM_HF_TOKEN_QUOTA_PERMISSION_REQUIRED/i.test(message)) return 'TIMESFM_HF_TOKEN_QUOTA_PERMISSION_REQUIRED';
       if (/404|multivariate_context_status|TIMESFM_MULTIVARIATE_STATUS/i.test(message)) {
         return 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED';
       }
@@ -637,7 +644,16 @@ function prerequisiteDetail(reason: string): string {
     return 'El Space TimesFM remoto todavía no expone multivariate_context_predict. El job queda bloqueado antes de guards, Yahoo o inferencia.';
   }
   if (reason === 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED') {
-    return 'El Space TimesFM remoto no coincide con la versión requerida: API v2, lotes de 8 y 120 s por llamada. El job queda bloqueado antes de guards, Yahoo o inferencia.';
+    return 'El Space TimesFM remoto no coincide con la versión requerida: API v3, lotes de 8 y 45 s por llamada. El job queda bloqueado antes de guards, Yahoo o inferencia.';
+  }
+  if (reason === 'TIMESFM_HF_TOKEN_REQUIRED') {
+    return 'Falta HF_TOKEN en el backend. TimesFM ZeroGPU debe ejecutarse autenticado para usar la cuota de tu cuenta y no la cuota anónima.';
+  }
+  if (reason === 'TIMESFM_HF_TOKEN_QUOTA_PERMISSION_REQUIRED') {
+    return 'HF_TOKEN existe, pero no permite consultar la cuota ZeroGPU. Un token fine-grained necesita Billing > Read billing usage and payment method status.';
+  }
+  if (reason === 'TIMESFM_ZERO_GPU_QUOTA_INSUFFICIENT') {
+    return 'La cuota ZeroGPU autenticada restante es insuficiente para garantizar los 4 lotes del diagnóstico. El job no arrancará hasta que la cuota se recupere.';
   }
   if (reason === 'TIMESFM_REMOTE_RUNNER_UNREACHABLE') {
     return 'No se ha podido verificar el Space TimesFM remoto. El job queda bloqueado antes de guards, Yahoo o inferencia.';
@@ -757,7 +773,8 @@ researchValidationRouter.get('/jobs', async (_req: Request, res: Response): Prom
       githubReplaySyncConfigured: Boolean(process.env.GITHUB_REPLAY_SYNC_TOKEN?.trim()),
       eodhdConfigured: Boolean(process.env.EODHD_API_KEY?.trim()),
       secEdgarUserAgentConfigured: Boolean(process.env.SEC_EDGAR_USER_AGENT?.trim()),
-      timesFmRemoteRunnerConfigured: timesFmRemoteRunnerConfigured()
+      timesFmRemoteRunnerConfigured: timesFmRemoteRunnerConfigured(),
+      timesFmHfTokenConfigured: timesFmHfTokenConfigured()
     },
     jobs: currentJobs,
     history
