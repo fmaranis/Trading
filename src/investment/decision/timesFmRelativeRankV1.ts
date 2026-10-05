@@ -13,8 +13,28 @@ export const TIMESFM_RELATIVE_RANK_V1 = Object.freeze({
   productionAuthority: false
 });
 
-export function timesFmRelativeRankEvidenceByAsset(rows) {
-  const map = new Map();
+export interface TimesFmRelativeRankEvidenceInput {
+  assetId: string;
+  predictedRelativeReturn20Pct: number;
+  predictedRelativeReturn60Pct: number;
+}
+
+export interface TimesFmRelativeRankableCandidate {
+  assetId: string;
+  legacyRankingScore: number;
+}
+
+export interface TimesFmRelativeRankMetadata {
+  timesFmRelativeRankMean: number;
+  timesFmRelativeRankPosition: number;
+  timesFmPredictedRelativeReturn20Pct: number;
+  timesFmPredictedRelativeReturn60Pct: number;
+}
+
+export function timesFmRelativeRankEvidenceByAsset(
+  rows: readonly TimesFmRelativeRankEvidenceInput[]
+): Map<string, TimesFmRelativeRankEvidenceInput> {
+  const map = new Map<string, TimesFmRelativeRankEvidenceInput>();
   for (const row of rows ?? []) {
     const assetId = String(row?.assetId ?? '').trim();
     if (!assetId) throw new Error('TIMESFM_RELATIVE_RANK_V1_ASSET_ID_MISSING');
@@ -33,11 +53,11 @@ export function timesFmRelativeRankEvidenceByAsset(rows) {
   return map;
 }
 
-function averageOrdinalRanks(valuesById) {
+function averageOrdinalRanks(valuesById: ReadonlyMap<string, number>): Map<string, number> {
   const rows = [...valuesById.entries()]
     .map(([assetId, value]) => ({ assetId, value }))
     .sort((a, b) => b.value - a.value || a.assetId.localeCompare(b.assetId));
-  const ranks = new Map();
+  const ranks = new Map<string, number>();
   let index = 0;
   while (index < rows.length) {
     let end = index + 1;
@@ -49,30 +69,39 @@ function averageOrdinalRanks(valuesById) {
   return ranks;
 }
 
-export function rankEligibleCandidatesWithTimesFmRelativeV1(eligibleRows, evidenceRows) {
+export function rankEligibleCandidatesWithTimesFmRelativeV1<T extends TimesFmRelativeRankableCandidate>(
+  eligibleRows: readonly T[],
+  evidenceRows: readonly TimesFmRelativeRankEvidenceInput[]
+): Array<T & TimesFmRelativeRankMetadata> {
   const evidence = timesFmRelativeRankEvidenceByAsset(evidenceRows);
   const ids = eligibleRows.map(row => String(row.assetId));
   for (const assetId of ids) {
     if (!evidence.has(assetId)) throw new Error('TIMESFM_RELATIVE_RANK_V1_ELIGIBLE_FORECAST_MISSING:' + assetId);
   }
-  const eligibleIdSet = new Set(ids);
-  const e20 = new Map();
-  const e60 = new Map();
+
+  const eligibleIdSet = new Set<string>(ids);
+  const e20 = new Map<string, number>();
+  const e60 = new Map<string, number>();
   for (const [assetId, row] of evidence.entries()) {
     if (!eligibleIdSet.has(assetId)) continue;
     e20.set(assetId, row.predictedRelativeReturn20Pct);
     e60.set(assetId, row.predictedRelativeReturn60Pct);
   }
+
   const rank20 = averageOrdinalRanks(e20);
   const rank60 = averageOrdinalRanks(e60);
 
   const ranked = eligibleRows.map(row => {
     const assetId = String(row.assetId);
-    const meanRank = ((rank20.get(assetId) ?? Number.POSITIVE_INFINITY) + (rank60.get(assetId) ?? Number.POSITIVE_INFINITY)) / 2;
+    const r20 = rank20.get(assetId);
+    const r60 = rank60.get(assetId);
     const evidenceRow = evidence.get(assetId);
+    if (r20 == null || r60 == null || !evidenceRow) {
+      throw new Error('TIMESFM_RELATIVE_RANK_V1_INTERNAL_RANK_MISSING:' + assetId);
+    }
     return {
       ...row,
-      timesFmRelativeRankMean: meanRank,
+      timesFmRelativeRankMean: (r20 + r60) / 2,
       timesFmPredictedRelativeReturn20Pct: evidenceRow.predictedRelativeReturn20Pct,
       timesFmPredictedRelativeReturn60Pct: evidenceRow.predictedRelativeReturn60Pct
     };
