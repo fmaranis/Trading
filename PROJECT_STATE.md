@@ -1955,3 +1955,14 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Limitación de entorno: checkout limpio + `tsc --noEmit` no pudo ejecutarse desde el contenedor ChatGPT porque DNS no resuelve github.com. El propio job del ResearchValidationCenter ejecuta esos guards y TypeScript antes de cualquier acceso a mercado.
 - Estado al sellar: `sampleOpened=false`, `marketAccessed=false`, `outcomesOpened=false`.
 - Primera semana eligible sigue siendo ISO 2026-W42, desde 2026-10-12.
+
+
+#### TIMESFM_RELATIVE_RANK_V1 — cierre técnico pre-anchor 2026-10-05
+
+- Sellos finales verificados contra `main`: prospectivo revisión 3 + económico revisión 2; 12/12 blobs críticos coinciden.
+- Orden de guards del job prospectivo PASS: sello -> policy unit -> policy contract -> prospective protocol/contract -> runtime/core/candidate gate -> TypeScript -> collector.
+- `timesFmRelativeRankV1` exacto ejecutado como JS válido: ranking ordinal 20/60 PASS; cobertura faltante de un candidato elegible => FAIL CLOSED PASS.
+- Contrato estático exacto de gate -> opportunity alerts -> PortfolioDecisionEngine -> replay CORE_ARCHITECTURE_V1 PASS.
+- El checkout limpio/tsc desde el contenedor ChatGPT sigue bloqueado únicamente porque el DNS del contenedor no resuelve github.com; por eso el preflight real en la app es necesario antes del 2026-10-12.
+- El job puede ejecutarse el 2026-10-05 sin contaminar la muestra: el collector comprueba `berlin.date <= startAfter` antes de cargar estado durable, Yahoo o ZeroGPU y debe devolver `WAITING_START_AFTER_FROZEN_DATE`.
+- Estado metodológico permanece `sampleOpened=false`, `marketAccessed=false`, `outcomesOpened=false`.
