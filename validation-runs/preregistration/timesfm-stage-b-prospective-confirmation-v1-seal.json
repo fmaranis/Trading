@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "version": "TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1_SEAL",
   "sealedAt": "2026-10-05",
-  "methodologySourceHead": "13a7ba368c292f746790f6b37d44152e0df475fd",
+  "methodologySourceHead": "f8a2c1b72f5408e939ae4731e747864b806e6ac7",
   "historicalDiagnostic": {
     "version": "TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1",
     "observedResult": "PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION",
@@ -48,13 +48,13 @@
     "src/investment/decision/currentOpportunityAlerts.ts": "5d8d9149501f6bd79d053e746cf2e04b09ae665c",
     "src/investment/decision/portfolioDecisionEngine.ts": "65ac6d1dda28fd1c1ac72ed6918b8191b0b138e3",
     "src/investment/decision/replayTimesFmRelativeRankExperiment.ts": "f715b36b36a80febfde37e77a16af14547aa3bfa",
-    "tests/timesFmRelativeRankV1.unit.ts": "14e737ace9c3728abf2c84942eaeddd8adf64dcf",
+    "tests/timesFmRelativeRankV1.unit.ts": "7366ec1bca88d97177a1f38776ea6e00aacda8d3",
     "tests/timesFmRelativeRankV1Contract.unit.mjs": "abfb99edfe3f5cde08a00c8130c85751bfcd8a0c",
     "server/researchValidationRoutes.ts": "2f2f868c70276d8f5c334eaae8fe9ba1fff0a406",
     "docs/TIMESFM_RELATIVE_RANK_V1_ECONOMIC_SHADOW_2026-10-05.md": "6d33cfa3f33a43f3ee78ab5b0b65653a189d30a4"
   },
-  "sealRevision": 2,
-  "previousSealCommit": "5038c326f566017a1c81317bef2b7e272d820eff",
+  "sealRevision": 3,
+  "previousSealCommit": "c6c2f65ea0cae9d6cf72660fea4fed71de77edc2",
   "economicShadow": {
     "version": "TIMESFM_RELATIVE_RANK_V1",
     "frozenBeforeFirstProspectiveAnchor": true,
