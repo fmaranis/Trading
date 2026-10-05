@@ -20,7 +20,8 @@ export type PortfolioPositionAction =
   | 'REVIEW_TRANSFER'
   | 'DATA_MISSING';
 
-export type OpportunityAllocationPolicy = 'LEGACY' | 'QUALITY_ALLOCATION_BRIDGE_V1' | 'TIMESFM_ALLOCATION_BRIDGE_V1';
+export type OpportunityAllocationPolicy = 'LEGACY' | 'QUALITY_ALLOCATION_BRIDGE_V1';
+export type ResearchOpportunityAllocationPolicy = OpportunityAllocationPolicy | 'TIMESFM_ALLOCATION_BRIDGE_V1';
 
 export interface PortfolioExposureLine {
   category: AssetUniverseCategory;
@@ -142,7 +143,7 @@ export function qualityAllocationMultiplierV1(
 
 function opportunityPriority(
   alert: CurrentOpportunityAlert,
-  allocationPolicy: OpportunityAllocationPolicy = 'LEGACY'
+  allocationPolicy: ResearchOpportunityAllocationPolicy = 'LEGACY'
 ): number {
   const excess = Math.max(0, Math.min(25, alert.excessVsCashPctPoints ?? 0));
   const consensus = Math.max(0, alert.consensusScore);
@@ -220,7 +221,7 @@ export class PortfolioDecisionEngine {
     positionHealth?: Record<string, PortfolioPositionHealthSnapshot | undefined>;
     materialDriftPctPoints?: number;
     cashBenchmarkAnnualPct?: number;
-    opportunityAllocationPolicy?: OpportunityAllocationPolicy;
+    opportunityAllocationPolicy?: ResearchOpportunityAllocationPolicy;
     candidateSelectionPolicy?: CandidateSelectionPolicy;
     candidateSelectionContext?: CandidateSelectionContext;
   }): PortfolioDecisionResult {
