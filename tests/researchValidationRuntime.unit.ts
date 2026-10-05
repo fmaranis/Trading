@@ -178,6 +178,16 @@ assert.doesNotMatch(acceptedRunBlock, /await publicJob\(job\)/);
 assert.match(acceptedRunBlock, /\.\.\.acceptedState/);
 assert.match(ui, /setJobs\(current => current\.map\(job => job\.id === id \? \{ \.\.\.job, \.\.\.payload\.job \} : job\)\)/);
 assert.match(timesfmRemote, /callGradio\('status', 4_000\)/);
+assert.match(timesfmRemote, /checkTimesFmRemoteEndpoint/);
+assert.match(timesfmRemote, /\/gradio_api\/info/);
+assert.match(routes, /async function asyncPrerequisiteError\(job: JobDefinition\)/);
+assert.match(routes, /TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED/);
+assert.match(routes, /await asyncPrerequisiteError\(job\)/);
+assert.ok(
+  routes.indexOf("const missing = await asyncPrerequisiteError(job);", routes.indexOf("researchValidationRouter.post('/jobs/:id/run'")) <
+  routes.indexOf('void runJob(job);', routes.indexOf("researchValidationRouter.post('/jobs/:id/run'")),
+  'Remote multivariate readiness must block before runJob dispatch'
+);
 
 
 // Immediate click feedback must be visible before the POST/remote runner responds.
