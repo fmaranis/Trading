@@ -2176,3 +2176,18 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - La misma comprobación se repite dentro de `runJob` como defensa adicional.
 - Sello reseñado a revisión 6; ningún input/model rule del estudio cambió.
 - El conector Hugging Face disponible en ChatGPT sigue teniendo sólo `read-repos`; no permite publicar el commit del Space desde este chat.
+
+#### TIMESFM_MULTIVARIATE_CONTEXT_V1 — ZeroGPU duration failure and transport fix 2026-10-05
+
+- Segundo intento del job llegó al paso `Yahoo REAL + TimesFM 3 · panel completo + covariables` y falló en el Space con `ZeroGPU illegal duration`.
+- Resultado observado: el Space reportó una petición efectiva de GPU de 270 s; Hugging Face la rechazó por superar el máximo permitido para la cuenta actual.
+- Este intento sí accedió a Yahoo histórico y preparó el payload, pero no recibió forecasts TimesFM y no llegó a calcular las métricas del diagnóstico.
+- La muestra 2018Q1-2025Q3 ya estaba consumida; por tanto este acceso no tiene autoridad de promoción. La muestra fresh 2026-W42+ sigue unopened/outcomes unopened.
+- Corrección de transporte, sin cambiar modelo/inputs/evaluación:
+  - `MV_GPU_DURATION_SECONDS = 120`.
+  - `MV_MAX_ANCHORS = 8`.
+  - el cliente divide los 31 anchors históricos en lotes ordenados de máximo 8 y vuelve a ensamblarlos verificando count + order.
+- Se añade runner API v2 con endpoint no-GPU `multivariate_context_status`.
+- El Centro sólo habilita el job si el Space desplegado responde exactamente: apiVersion=2, maxAnchorsPerCall=8, gpuDurationSeconds=120, targetCount=9, pastOnlyCovariateCount=23, contextLength=512, forecastHorizon=60, productionAuthority=false y productionDefault=LEGACY.
+- Si el Space conserva una versión vieja, el job queda bloqueado antes de Yahoo/inferencia con `TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED`.
+- Sello actualizado a revisión 8.
