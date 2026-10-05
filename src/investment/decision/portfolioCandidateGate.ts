@@ -8,9 +8,20 @@ import { assessAgainstCashBenchmark, resolveReplayAwareCashBenchmarkAnnualPct } 
 import { EntryTimingEngine, type EntryTimingSetup, type EntryTimingState } from './entryTiming';
 import { isCurrentListedEquityAsset } from './openMarketDiscoveryV1';
 import { StrategyConsensusEngine } from './strategyConsensusEngine';
+import { rankEligibleCandidatesWithTimesFmRelativeV1 } from './timesFmRelativeRankV1';
 
 export type PortfolioCandidateGateStatus = 'ELIGIBLE' | 'REJECTED';
-export type CandidateSelectionPolicy = 'LEGACY' | 'QUALITY_V1' | 'SLOPE_V1';
+export type CandidateSelectionPolicy = 'LEGACY' | 'QUALITY_V1' | 'SLOPE_V1' | 'TIMESFM_RELATIVE_RANK_V1';
+
+export interface TimesFmRelativeRankEvidence {
+  assetId: string;
+  predictedRelativeReturn20Pct: number;
+  predictedRelativeReturn60Pct: number;
+}
+
+export interface CandidateSelectionContext {
+  timesFmRelativeRankEvidence?: TimesFmRelativeRankEvidence[];
+}
 
 export interface PortfolioCandidateGateEntry {
   assetId: string;
@@ -30,6 +41,11 @@ export interface PortfolioCandidateGateEntry {
   timingSetup: EntryTimingSetup | null;
   timingScore: number | null;
   suggestedInitialFraction: number | null;
+  legacyRankingScore?: number | null;
+  timesFmRelativeRankMean?: number | null;
+  timesFmRelativeRankPosition?: number | null;
+  timesFmPredictedRelativeReturn20Pct?: number | null;
+  timesFmPredictedRelativeReturn60Pct?: number | null;
 }
 
 export interface PortfolioCandidateGateResult {
@@ -118,6 +134,11 @@ function baseEntry(input: {
   timingSetup?: EntryTimingSetup | null;
   timingScore?: number | null;
   suggestedInitialFraction?: number | null;
+  legacyRankingScore?: number | null;
+  timesFmRelativeRankMean?: number | null;
+  timesFmRelativeRankPosition?: number | null;
+  timesFmPredictedRelativeReturn20Pct?: number | null;
+  timesFmPredictedRelativeReturn60Pct?: number | null;
 }): PortfolioCandidateGateEntry {
   return {
     assetId: input.candidate.asset.assetId,
@@ -136,7 +157,12 @@ function baseEntry(input: {
     timingState: input.timingState ?? null,
     timingSetup: input.timingSetup ?? null,
     timingScore: input.timingScore ?? null,
-    suggestedInitialFraction: input.suggestedInitialFraction ?? null
+    suggestedInitialFraction: input.suggestedInitialFraction ?? null,
+    legacyRankingScore: input.legacyRankingScore ?? null,
+    timesFmRelativeRankMean: input.timesFmRelativeRankMean ?? null,
+    timesFmRelativeRankPosition: input.timesFmRelativeRankPosition ?? null,
+    timesFmPredictedRelativeReturn20Pct: input.timesFmPredictedRelativeReturn20Pct ?? null,
+    timesFmPredictedRelativeReturn60Pct: input.timesFmPredictedRelativeReturn60Pct ?? null
   };
 }
 
@@ -175,10 +201,11 @@ export class PortfolioCandidateGate {
     scan: AssetUniverseScanResult,
     cashBenchmarkAnnualPct: number,
     maxSelected = 12,
-    selectionPolicy: CandidateSelectionPolicy = 'LEGACY'
+    selectionPolicy: CandidateSelectionPolicy = 'LEGACY',
+    selectionContext: CandidateSelectionContext = {}
   ): PortfolioCandidateGateResult {
     const entries: PortfolioCandidateGateEntry[] = [];
-    const eligible: Array<{ candidate: AssetScanCandidate; rankingScore: number }> = [];
+    const eligible: Array<{ candidate: AssetScanCandidate; rankingScore: number; legacyRankingScore: number }> = [];
     const asOfDate = scan.candidates.map(candidate => candidate.asOfDate).filter(Boolean).sort().at(-1) ?? new Date().toISOString().slice(0, 10);
     const effectiveCashBenchmarkAnnualPct = resolveReplayAwareCashBenchmarkAnnualPct(cashBenchmarkAnnualPct, asOfDate);
     const dynamicShortlistIds = scan.dynamicMarketShortlist?.applied
@@ -241,13 +268,16 @@ export class PortfolioCandidateGate {
         continue;
       }
 
+      const legacyRankingScore = candidateRankingScore(candidate, consensus.consensusScore, cash.excessVsCashPctPoints ?? 0, timing.score, quality, slopeQualityScore, 'LEGACY');
       const rankingScore = candidateRankingScore(candidate, consensus.consensusScore, cash.excessVsCashPctPoints ?? 0, timing.score, quality, slopeQualityScore, selectionPolicy);
-      eligible.push({ candidate, rankingScore });
+      eligible.push({ candidate, rankingScore, legacyRankingScore });
       const reason = selectionPolicy === 'QUALITY_V1'
         ? 'BEATS_CASH_CONSENSUS_TIMING_AND_QUALITY_RANKED'
         : selectionPolicy === 'SLOPE_V1'
           ? 'BEATS_CASH_CONSENSUS_TIMING_AND_SLOPE_RANKED'
-          : 'BEATS_CASH_CONSENSUS_AND_TIMING';
+          : selectionPolicy === 'TIMESFM_RELATIVE_RANK_V1'
+            ? 'BEATS_CASH_CONSENSUS_TIMING_AND_TIMESFM_RELATIVE_RANKED'
+            : 'BEATS_CASH_CONSENSUS_AND_TIMING';
       entries.push(baseEntry({
         candidate,
         status: 'ELIGIBLE',
@@ -258,6 +288,7 @@ export class PortfolioCandidateGate {
         annualizedProxyPct: cash.netAnnualizedProxyPct,
         excessVsCashPctPoints: cash.excessVsCashPctPoints,
         rankingScore,
+        legacyRankingScore,
         timingState: timing.state,
         timingSetup: timing.setup,
         timingScore: timing.score,
@@ -267,11 +298,38 @@ export class PortfolioCandidateGate {
       }));
     }
 
-    eligible.sort((a, b) => b.rankingScore - a.rankingScore);
+    let orderedEligible = [...eligible].sort((a, b) => b.rankingScore - a.rankingScore);
+    if (selectionPolicy === 'TIMESFM_RELATIVE_RANK_V1') {
+      const ranked = rankEligibleCandidatesWithTimesFmRelativeV1(
+        eligible.map(row => ({
+          ...row,
+          assetId: row.candidate.asset.assetId
+        })),
+        selectionContext.timesFmRelativeRankEvidence ?? []
+      );
+      const ordinalScoreByAsset = new Map(ranked.map((row, index) => [row.assetId, ranked.length - index] as const));
+      const metaByAsset = new Map(ranked.map(row => [row.assetId, row] as const));
+      orderedEligible = ranked.map(row => ({
+        candidate: row.candidate,
+        legacyRankingScore: row.legacyRankingScore,
+        rankingScore: ordinalScoreByAsset.get(row.assetId) ?? 0
+      }));
+      for (const entry of entries) {
+        if (entry.status !== 'ELIGIBLE') continue;
+        const meta = metaByAsset.get(entry.assetId);
+        if (!meta) continue;
+        entry.rankingScore = ordinalScoreByAsset.get(entry.assetId) ?? null;
+        entry.legacyRankingScore = meta.legacyRankingScore;
+        entry.timesFmRelativeRankMean = meta.timesFmRelativeRankMean;
+        entry.timesFmRelativeRankPosition = meta.timesFmRelativeRankPosition;
+        entry.timesFmPredictedRelativeReturn20Pct = meta.timesFmPredictedRelativeReturn20Pct;
+        entry.timesFmPredictedRelativeReturn60Pct = meta.timesFmPredictedRelativeReturn60Pct;
+      }
+    }
     const selected: AssetScanCandidate[] = [];
     const perDiversificationBucket = new Map<string, number>();
     const dynamicCurrentMarket = Boolean(scan.dynamicMarketShortlist?.applied);
-    for (const row of eligible) {
+    for (const row of orderedEligible) {
       if (selected.length >= maxSelected) break;
       const bucket = diversificationBucket(row.candidate, dynamicCurrentMarket);
       const used = perDiversificationBucket.get(bucket) ?? 0;
