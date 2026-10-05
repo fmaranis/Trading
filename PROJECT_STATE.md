@@ -1823,3 +1823,12 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El fallo ocurría en `Guard contrato TimesFM Stage A`, antes del cliente ZeroGPU; por tanto el Space no llegaba a ejecutarse.
 - Corregidas las aserciones para comprobar literalmente: corte causal `full_with_future[:, :information_cutoff]`, `productionDefault: LEGACY` y decorador `@spaces.GPU`.
 - Este fallo y el bug de reconciliación juntos explican exactamente el síntoma observado: RUNNING breve -> salida técnica -> vuelta silenciosa a IDLE.
+
+
+#### Verificación ejecutada tras los fixes de estado/guard 2026-10-05
+
+- `timesfmRemoteClient.unit` ejecutado realmente con Node contra servidor HTTP/SSE mock: PASS. Reproduce status IDLE -> POST run_stage_a -> PASSED y marcador `TIMESFM_STAGE_A_SMOKE_RESULT`.
+- `reconcileTimesFmState` ejecutado realmente con Node sobre la implementación TypeScript publicada: PASS para RUNNING+IDLE, FAILED+IDLE, PASSED+IDLE, IDLE+RUNNING, IDLE+FAILED y RUNNING+FAILED.
+- Aserciones equivalentes completas de `timesfmStageAContract.unit.mjs` ejecutadas contra los blobs actuales de `main`: PASS, incluido orden de guards y causalidad ZeroGPU.
+- Aserciones equivalentes completas de `timesfmRemoteRunnerContract.unit.mjs` ejecutadas contra los blobs actuales de `main`: PASS.
+- Limitación de verificación desde ChatGPT: el entorno web/container disponible no permite abrir directamente el subdominio `*.hf.space`; por tanto no se declara falsamente probado el HTTP end-to-end contra el Space público real. El siguiente fallo remoto, si existe, ya no puede quedar oculto como IDLE: debe quedar visible como FAILED con salida técnica.
