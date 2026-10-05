@@ -179,9 +179,16 @@ assert.match(acceptedRunBlock, /\.\.\.acceptedState/);
 assert.match(ui, /setJobs\(current => current\.map\(job => job\.id === id \? \{ \.\.\.job, \.\.\.payload\.job \} : job\)\)/);
 assert.match(timesfmRemote, /callGradio\('status', 4_000\)/);
 assert.match(timesfmRemote, /checkTimesFmRemoteEndpoint/);
+assert.match(timesfmRemote, /fetchTimesFmMultivariateRunnerStatus/);
+assert.match(timesfmRemote, /multivariate_context_status/);
 assert.match(timesfmRemote, /\/gradio_api\/info/);
 assert.match(routes, /async function asyncPrerequisiteError\(job: JobDefinition\)/);
 assert.match(routes, /TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED/);
+assert.match(routes, /TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED/);
+assert.match(routes, /remote\.apiVersion !== 2/);
+assert.match(routes, /remote\.maxAnchorsPerCall !== 8/);
+assert.match(routes, /remote\.gpuDurationSeconds !== 120/);
+assert.match(routes, /tests\/timesfmMultivariateContextV1RunnerReadiness\.unit\.mjs/);
 assert.match(routes, /await asyncPrerequisiteError\(job\)/);
 assert.ok(
   routes.indexOf("const missing = await asyncPrerequisiteError(job);", routes.indexOf("researchValidationRouter.post('/jobs/:id/run'")) <
