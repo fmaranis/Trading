@@ -1806,3 +1806,12 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 
 
 - UX adicional del mismo fix: el frontend muestra inmediatamente `Arrancando…` y `Solicitando ejecución al backend…` desde el propio handler de clic, antes de recibir el POST. Así cualquier bloqueo posterior queda visible y el botón nunca vuelve a parecer inerte.
+
+
+### TimesFM Stage A — fix reconciliación FAILED -> IDLE 2026-10-05
+
+- Patrón observado por usuario: `RUNNING -> salida técnica -> IDLE`.
+- Causa confirmada en código: `publicJob()` reemplazaba cualquier estado local terminal por el estado remoto salvo sólo el caso especial `remote IDLE + local RUNNING`. Si un guard/cliente fallaba localmente y el Space todavía estaba `IDLE`, el error real quedaba oculto y la UI volvía a `IDLE`.
+- Nueva regla: `PASSED/FAILED` local siempre conserva autoridad para la ejecución lanzada por ese backend; `RUNNING + remote IDLE` conserva RUNNING; sólo un backend local `IDLE` (por ejemplo tras reinicio) adopta el estado durable del Space.
+- Se añade guard comportamental `tests/timesfmStateReconciliation.unit.ts` con casos explícitos RUNNING+IDLE, FAILED+IDLE, PASSED+IDLE, IDLE+RUNNING, IDLE+FAILED y RUNNING+FAILED.
+- El guard se ejecuta antes del contrato Stage A y antes de TypeScript/smoke remoto.
