@@ -4,6 +4,9 @@ import { TIMESFM_MULTIVARIATE_CONTEXT_V1 as P, quarterEndCalendarDates, validate
 assert.equal(validateTimesFmMultivariateContextProtocol(),true);
 assert.equal(P.version,'TIMESFM_MULTIVARIATE_CONTEXT_V1');
 assert.equal(P.model.packageVersion,'3.0.2');
+assert.equal(P.model.nativeApi,'timesfm3.TimesFM3Evaluator');
+assert.equal(P.model.remoteBatchMaxAnchors,8);
+assert.equal(P.model.zeroGpuDurationSecondsPerBatch,120);
 assert.equal(P.model.checkpoint,'google/timesfm-3.0-pytorch');
 assert.equal(P.targets.length,9);
 assert.equal(new Set(P.targets.map(x=>x.assetId)).size,9);
