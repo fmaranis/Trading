@@ -1930,3 +1930,28 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Estado al cerrar esta implementación: `sampleOpened=false`, `marketAccessed=false`, `outcomesOpened=false`.
 - Primera semana prospectiva elegible: ISO `2026-W42`, iniciada el 2026-10-12; `startAfter=2026-10-05`.
 - Objetivo preregistrado: mínimo 26 anchors maduros; la confirmación primaria exige madurez del outcome de 60 sesiones.
+
+
+### TimesFM · TIMESFM_RELATIVE_RANK_V1 economic shadow — frozen 2026-10-05
+
+- Se implementó y congeló `TIMESFM_RELATIVE_RANK_V1` antes del primer anchor prospectivo.
+- Motivación: Stage B histórico produjo `PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION`; la intervención económica se congela ahora para que la misma muestra fresh pueda medir señal y reach económico sin retuning posterior.
+- Integración productiva compartida, sin motor paralelo:
+  `AssetUniverseScanner -> PortfolioCandidateGate -> InvestmentDecisionEngine -> PortfolioDecisionEngine -> execution/follow-up`.
+- Política: TimesFM sólo reordena candidatos que YA hayan pasado REAL + cash hurdle + BUY consensus + no structural downtrend + EntryTiming != WAIT.
+- Ranking congelado: rango ordinal por forecast relativo al core a 20 sesiones + rango ordinal a 60 sesiones; media aritmética de ambos rangos; menor es mejor; empate por ranking LEGACY y después assetId.
+- No existen coeficientes, multiplicadores ni thresholds calibrados con outcomes.
+- Forecast faltante para cualquier candidato elegible => FAIL CLOSED; no fallback parcial a LEGACY.
+- `PortfolioCandidateGate` expone la policy explícita y metadatos de rango; `CurrentOpportunityAlertEngine` y `PortfolioDecisionEngine` propagan la misma policy/context.
+- `PortfolioDecisionEngine` mantiene `OpportunityAllocationPolicy=LEGACY`: TimesFM no modifica fórmula de sizing, cash objetivo, caps, starter/build, rotación, costes ni fiscalidad.
+- Se añadió `runDynamicReplayWithTimesFmRelativeRankV1` sobre el mismo `CORE_ARCHITECTURE_V1`; parchea temporalmente las clases canónicas para research y las restaura al finalizar.
+- Producción sigue `LEGACY`; `TIMESFM_RELATIVE_RANK_V1.productionAuthority=false`.
+- Documento preregistrado: `docs/TIMESFM_RELATIVE_RANK_V1_ECONOMIC_SHADOW_2026-10-05.md`.
+- Sello económico: `validation-runs/preregistration/timesfm-relative-rank-v1-economic-shadow-seal.json`, revisión 2.
+- Sello prospectivo actualizado: `validation-runs/preregistration/timesfm-stage-b-prospective-confirmation-v1-seal.json`, revisión 3, ya ligado a `TIMESFM_RELATIVE_RANK_V1`.
+- El collector prospectivo persiste `economicShadowPolicyVersion=TIMESFM_RELATIVE_RANK_V1` con cada anchor y mantiene `outcomesOpened=false`.
+- Guards añadidos antes del collector: `timesFmRelativeRankV1.unit.ts` + `timesFmRelativeRankV1Contract.unit.mjs`.
+- Verificación ejecutada desde ChatGPT sobre blobs exactos de main: pure policy behavior PASS, missing coverage fail-closed PASS, architecture contract PASS, prospective binding PASS, ambos sellos 12/12 blobs PASS, guard order PASS.
+- Limitación de entorno: checkout limpio + `tsc --noEmit` no pudo ejecutarse desde el contenedor ChatGPT porque DNS no resuelve github.com. El propio job del ResearchValidationCenter ejecuta esos guards y TypeScript antes de cualquier acceso a mercado.
+- Estado al sellar: `sampleOpened=false`, `marketAccessed=false`, `outcomesOpened=false`.
+- Primera semana eligible sigue siendo ISO 2026-W42, desde 2026-10-12.
