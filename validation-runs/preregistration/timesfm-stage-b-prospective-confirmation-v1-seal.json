@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "version": "TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1_SEAL",
+  "sealedAt": "2026-10-05",
+  "methodologySourceHead": "46dc873ab4e5afb626bf3c809d3e7d95582020b0",
+  "historicalDiagnostic": {
+    "version": "TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1",
+    "observedResult": "PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION",
+    "consumed": true,
+    "mayPromoteProduction": false
+  },
+  "prospective": {
+    "sampleOpened": false,
+    "marketAccessed": false,
+    "outcomesOpened": false,
+    "startAfter": "2026-10-05",
+    "cadence": "WEEKLY_FIRST_COMMON_TRADING_SESSION",
+    "noHistoricalCatchUp": true,
+    "noRetroactiveForecastAfterMissedAnchor": true,
+    "minimumMaturedAnchors": 26,
+    "primaryOutcomeRequires60SessionMaturity": true,
+    "sameCore": true,
+    "sameAssets": true,
+    "sameContextLength": true,
+    "sameHorizons": true,
+    "noRetuneAfterDiagnostic": true
+  },
+  "persistence": {
+    "mode": "GITHUB_REPLAY_RESULTS_HASH_CHAIN",
+    "branch": "replay-results",
+    "path": "validation-runs/timesfm-stage-b-prospective-confirmation-v1-state.json",
+    "tokenRequired": true
+  },
+  "infrastructure": {
+    "runner": "HUGGING_FACE_ZEROGPU",
+    "endpoint": "stage_b_predict",
+    "zeroCostOnly": true,
+    "newSpaceUploadRequired": false
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "manifestGitBlobSha1": {
+    "scripts/timesfmStageBProtocol.mjs": "fd6c532b6116819c4845515d5adcb7796e0641c6",
+    "scripts/timesfmStageBRemoteClient.mjs": "a1b7da04d57780b12568c6ad09e650f5d59bc1a9",
+    "scripts/timesfmStageBProspectiveProtocol.mjs": "1d1a02a9dcb087c5782f50d7b0fee8fb12293cd2",
+    "scripts/timesfmStageBProspectiveStateStore.mjs": "4f28678e345c7f8f7f0ba1e8d1af27383f7bf96b",
+    "scripts/timesfmStageBProspectiveCollectorLive.mjs": "d21ae7733e33955cde8d203b7ca7b255c26a64b1",
+    "runner/timesfm/hf-space/app.py": "d68c0b9cd651c28e4aefc7f2156e8706c62f10bf",
+    "tests/timesfmStageBProspective.unit.mjs": "3f6aa9db23ec467ad87809f9c9fffa9bc2a5770d",
+    "tests/timesfmStageBProspectiveContract.unit.mjs": "2a75250f7c872cdcc05dbc3e247e00904f43ed66",
+    "server/researchValidationRoutes.ts": "a59097595fa80f8faf921403bbf5891a8bcb3da1",
+    "src/components/ResearchValidationCenter.tsx": "174ef04ce669444f19a189e97d1b585eb000f687",
+    "tests/researchValidationRuntime.unit.ts": "41b2e2a87f25b25beac57f081f92b8339bd5a62e"
+  }
+}
