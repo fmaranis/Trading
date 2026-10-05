@@ -259,7 +259,8 @@ export async function main(now = new Date()) {
     cases,
     outcomesOpened:false,
     productionDefault:'LEGACY',
-    productionAuthority:false
+    productionAuthority:false,
+    economicShadowPolicyVersion:M.economicShadow.version
   };
   state=appendTimesFmProspectiveAnchor(state,draft,new Date().toISOString());
   const saved=await saveTimesFmProspectiveDurableState(state,remoteBlobSha);
@@ -273,7 +274,8 @@ export async function main(now = new Date()) {
     persistence:saved.persistence,
     commitSha:saved.commitSha,
     outcomesOpened:false,
-    productionDefault:'LEGACY'
+    productionDefault:'LEGACY',
+    economicShadowPolicyVersion:M.economicShadow.version
   };
   console.log(MARKER); console.log(JSON.stringify(result,null,2)); return result;
 }
