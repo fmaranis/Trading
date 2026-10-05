@@ -45,8 +45,10 @@ assert.match(portfolio, /candidateSelectionPolicy\?: CandidateSelectionPolicy/);
 assert.match(portfolio, /candidateSelectionContext\?: CandidateSelectionContext/);
 assert.match(portfolio, /CurrentOpportunityAlertEngine\.evaluate\(scan, cashBenchmarkAnnualPct, candidateSelectionPolicy, candidateSelectionContext\)/);
 assert.match(portfolio, /allocator, sizing, cash, caps, costes, fiscalidad y reglas de rotación permanecen sin cambios/);
-assert.match(portfolio, /OpportunityAllocationPolicy = 'LEGACY' \| 'QUALITY_ALLOCATION_BRIDGE_V1' \| 'TIMESFM_ALLOCATION_BRIDGE_V1'/);
+assert.match(portfolio, /OpportunityAllocationPolicy = 'LEGACY' \| 'QUALITY_ALLOCATION_BRIDGE_V1'/);
+assert.match(portfolio, /ResearchOpportunityAllocationPolicy = OpportunityAllocationPolicy \| 'TIMESFM_ALLOCATION_BRIDGE_V1'/);
 assert.doesNotMatch(portfolio, /OpportunityAllocationPolicy = [^\n]*TIMESFM_RELATIVE_RANK_V1/);
+assert.doesNotMatch(portfolio, /OpportunityAllocationPolicy = [^\n]*TIMESFM_ALLOCATION_BRIDGE_V1/);
 
 const relativeReplayStart = replay.indexOf('export function runDynamicReplayWithTimesFmRelativeRankV1');
 const allocationBridgeStart = replay.indexOf('export function runDynamicReplayWithTimesFmAllocationBridgeV1');
