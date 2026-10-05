@@ -47,6 +47,7 @@ assert.match(block, /visibility: 'CURRENT'/);
 assert.match(block, /requiresTimesFmRunner: true/);
 assert.match(block, /tests\/timesfmRemoteClient\.unit\.mjs/);
 assert.match(block, /tests\/timesfmRemoteRunnerContract\.unit\.mjs/);
+assert.match(block, /tests\/timesfmStateReconciliation\.unit\.ts/);
 assert.match(block, /tests\/timesfmStageAContract\.unit\.mjs/);
 assert.match(block, /tests\/researchValidationRuntime\.unit\.ts/);
 assert.match(block, /tests\/coreArchitectureV1\.unit\.ts/);
@@ -57,6 +58,7 @@ assert.doesNotMatch(block, /timesfmStageABootstrap\.mjs|timesfmPipBootstrap\.uni
 const order = [
   'tests/timesfmRemoteClient.unit.mjs',
   'tests/timesfmRemoteRunnerContract.unit.mjs',
+  'tests/timesfmStateReconciliation.unit.ts',
   'tests/timesfmStageAContract.unit.mjs',
   'tests/researchValidationRuntime.unit.ts',
   'tests/coreArchitectureV1.unit.ts',
