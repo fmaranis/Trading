@@ -315,7 +315,20 @@ function weekKey(date: string): string {
   d.setUTCDate(d.getUTCDate() - day);
   return d.toISOString().slice(0, 10);
 }
-function requestedDecisionDates(dataset: MultiAssetDataset, startDate: string, endDate: string, frequency: DynamicReplayFrequency): string[] {
+function requestedDecisionDates(
+  dataset: MultiAssetDataset,
+  startDate: string,
+  endDate: string,
+  frequency: DynamicReplayFrequency,
+  explicitDecisionDates?: readonly string[]
+): string[] {
+  if (explicitDecisionDates?.length) {
+    const normalized = [...new Set(explicitDecisionDates.map(date => String(date).slice(0, 10)))]
+      .filter(date => /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= startDate && date < endDate)
+      .sort();
+    if (!normalized.length) throw new Error('REPLAY_EXPLICIT_DECISION_DATES_EMPTY_AFTER_NORMALIZATION');
+    return normalized;
+  }
   if (frequency === 'DAILY') return tradingDates(dataset, startDate, endDate).filter(date => date < endDate);
   if (frequency === 'WEEKLY') {
     const out: string[] = [];
@@ -844,6 +857,8 @@ export class DynamicHistoricalReplayEngine {
     simulationMode?: DynamicReplaySimulationMode;
     initialPortfolio?: DynamicReplayInitialPortfolio;
     externalCashFlows?: DynamicReplayExternalCashFlow[];
+    /** Research-only explicit decision calendar. Omitted in product/default replay. */
+    explicitDecisionDates?: string[];
   }): DynamicHistoricalReplayResult {
     if (!(input.initialCapitalEur > 0)) throw new Error('El capital del replay dinámico debe ser > 0.');
     const frequency = input.frequency ?? 'MONTHLY';
@@ -987,7 +1002,7 @@ export class DynamicHistoricalReplayEngine {
       };
     }
 
-    for (const requestedDate of requestedDecisionDates(input.dataset, input.startDate, endDate, frequency)) {
+    for (const requestedDate of requestedDecisionDates(input.dataset, input.startDate, endDate, frequency, input.explicitDecisionDates)) {
       const fullScan = buildHistoricalFullScan({ dataset: input.dataset, catalog: input.catalog, date: requestedDate, minimumBars });
       if (fullScan.accepted < 1) continue;
       const decisionDate = requestedDate;
