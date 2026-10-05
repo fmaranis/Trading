@@ -2082,3 +2082,40 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - No cambia política, datos, replay, matriz, sizing ni gates.
 - Sello bridge revisión 4, integridad 13/13 PASS, `bridgeOutcomesOpened=false`.
 - Replay post-hoc todavía no ejecutado.
+
+
+### TimesFM allocation bridge V1 — POSTHOC_NO_REACH confirmado 2026-10-05
+
+- Resultado real del job `TimesFM · bridge económico post-hoc`: `POSTHOC_NO_REACH`.
+- 15/15 escenarios sin reach económico; 0 positivos, 0 negativos, 15 planos; mediana extra vs LEGACY = 0 EUR / 0 pp.
+- La firma de operaciones ejecutadas no cambió en ningún escenario.
+- El resultado confirma que mantener TimesFM subordinado a gates/allocator LEGACY no permite medir su valor económico real.
+- Bridge archivado; no se seguirá retocando sobre la muestra consumida.
+
+### TIMESFM_DIRECT_SELECTOR_V1 — selector directo integrado 2026-10-05
+
+- Nueva pregunta explícita: `TimesFM directo vs app LEGACY vs core EUNL`.
+- TimesFM pasa a elegir realmente el activo en el brazo research.
+- Pool congelado: 8 activos Stage B + EUNL core.
+- Regla congelada: ranking ordinal independiente a 20/60 sesiones -> media de rangos -> ganador #1; empate por mayor media de forecast relativo y después assetId.
+- EUNL compite con forecast relativo 0/0 por identidad; si todos los activos tienen peor forecast, TimesFM elige el core naturalmente.
+- No se usa score LEGACY, consenso, cash hurdle ni EntryTiming para elegir el activo en este brazo directo.
+- Target shadow congelado: 100% del equity ejecutable al ganador.
+- DynamicHistoricalReplayEngine incorpora `researchDirectSelector` research-only dentro del mismo replay canónico.
+- Cuando cambia ganador: EXIT anterior + BUY nuevo; cuando no cambia: HOLD/ADD de cash residual ejecutable.
+- Ejecución sigue siendo causal NEXT_OPEN; se mantienen títulos enteros, comisiones, fiscalidad, cash histórico y contabilidad existente.
+- Se añadió selection trace explícito: cada fecha guarda ticker elegido, forecasts 20/60, rangos y si el elegido fue el core.
+- Diagnóstico histórico directo: mismas 31 fechas Stage B consumidas, mismos 15 escenarios; brazos LEGACY_APP / TIMESFM_DIRECT / EUNL_CORE_DIRECT.
+- Sello histórico directo: `validation-runs/preregistration/timesfm-direct-selector-historical-diagnostic-v1-seal.json`; integridad 11/11 PASS; outcomesOpened=false.
+- ResearchValidationCenter: `timesfm-direct-selector-historical-diagnostic-v1` es el único job TimesFM CURRENT; bridge archivado; collector prospectivo PARKED temporalmente.
+
+### TimesFM prospective V1 — direct selector shadow resealed 2026-10-05
+
+- Antes del primer anchor fresh se sustituyó el shadow relative-rank sin reach por `TIMESFM_DIRECT_SELECTOR_V1`.
+- El signal benchmark Stage B, core/panel, TimesFM model, context 512 y horizontes 20/60 no cambian.
+- Cada anchor semanal futuro persistirá además `directShadow.selectedAssetId`, ticker, forecast relativo 20/60, rangos y flag structural-core antes de outcomes.
+- Se añadió guard de paridad TS<->collector para asegurar que histórico y prospectivo eligen exactamente el mismo ganador.
+- Sello prospectivo revisión 5: integridad 12/12 PASS.
+- Estado: sampleOpened=false, marketAccessed=false, outcomesOpened=false.
+- Primera ventana fresh permanece ISO 2026-W42 desde 2026-10-12.
+- Producción sigue LEGACY; el selector directo no tiene autoridad de órdenes reales.
