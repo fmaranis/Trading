@@ -1,4 +1,32 @@
 const DEFAULT_TIMESFM_ZERO_GPU_URL = 'https://fmaranis-timesfm-stage-a.hf.space';
+const HF_ZERO_GPU_QUOTA_URL = 'https://huggingface.co/api/spaces/zero-gpu/quota';
+
+function hfToken(){
+  const value=String(process.env.HF_TOKEN||process.env.HUGGINGFACE_TOKEN||process.env.HUGGING_FACE_HUB_TOKEN||'').trim();
+  return value||null;
+}
+
+function authHeaders(extra={}){
+  const token=hfToken();
+  return token?{...extra,Authorization:`Bearer ${token}`}:extra;
+}
+
+async function fetchQuota(timeoutMs){
+  if(!hfToken()) throw new Error('TIMESFM_HF_TOKEN_REQUIRED');
+  const response=await fetch(HF_ZERO_GPU_QUOTA_URL,{
+    headers:authHeaders({Accept:'application/json'}),
+    signal:AbortSignal.timeout(timeoutMs)
+  });
+  const text=await response.text();
+  if(!response.ok){
+    if(response.status===401||response.status===403) throw new Error(`TIMESFM_HF_TOKEN_QUOTA_PERMISSION_REQUIRED:${response.status}`);
+    throw new Error(`TIMESFM_ZERO_GPU_QUOTA_FAILED:${response.status}:${text.slice(0,300)}`);
+  }
+  const payload=JSON.parse(text);
+  const base=Number(payload?.base),remaining=Number(payload?.current);
+  if(!Number.isFinite(base)||!Number.isFinite(remaining)) throw new Error('TIMESFM_ZERO_GPU_QUOTA_RESPONSE_INVALID');
+  return {base,remaining,resetsAt:payload?.resetsAt?String(payload.resetsAt):null,overquotaUsed:payload?.overquotaUsed??null};
+}
 
 function parseGradioComplete(payload){
   for(const block of String(payload).split(/\r?\n\r?\n/)){
@@ -18,7 +46,7 @@ async function callStatus(base,timeoutMs){
   const endpoint='multivariate_context_status';
   const submit=await fetch(`${base}/gradio_api/call/${endpoint}`,{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:authHeaders({'Content-Type':'application/json'}),
     body:JSON.stringify({data:[]}),
     signal:AbortSignal.timeout(Math.min(timeoutMs,30_000))
   });
@@ -29,7 +57,7 @@ async function callStatus(base,timeoutMs){
   const accepted=await submit.json();
   if(!accepted?.event_id) throw new Error('TIMESFM_MULTIVARIATE_STATUS_EVENT_ID_MISSING');
   const response=await fetch(`${base}/gradio_api/call/${endpoint}/${encodeURIComponent(accepted.event_id)}`,{
-    headers:{Accept:'text/event-stream'},
+    headers:authHeaders({Accept:'text/event-stream'}),
     signal:AbortSignal.timeout(timeoutMs)
   });
   if(!response.ok){
@@ -43,9 +71,9 @@ export function validateTimesFmMultivariateRunnerStatus(status){
   if(!status || status.study!=='TIMESFM_MULTIVARIATE_CONTEXT_V1') throw new Error('TIMESFM_MULTIVARIATE_RUNNER_STUDY_INVALID');
   if(status.status!=='READY_TIMESFM_MULTIVARIATE_CONTEXT_V1') throw new Error('TIMESFM_MULTIVARIATE_RUNNER_STATUS_INVALID');
   const checks={
-    apiVersion:status.apiVersion===2,
+    apiVersion:status.apiVersion===3,
     maxAnchorsPerCall:status.maxAnchorsPerCall===8,
-    gpuDurationSeconds:status.gpuDurationSeconds===120,
+    gpuDurationSeconds:status.gpuDurationSeconds===45,
     targetCount:status.targetCount===9,
     pastOnlyCovariateCount:status.pastOnlyCovariateCount===23,
     contextLength:status.contextLength===512,
@@ -66,7 +94,7 @@ export async function checkTimesFmMultivariateRunner(options = {}) {
   const timeoutMs=Number(options.timeoutMs||15_000);
 
   const infoResponse = await fetch(`${base}/gradio_api/info`, {
-    headers: { Accept: 'application/json' },
+    headers: authHeaders({ Accept: 'application/json' }),
     signal: AbortSignal.timeout(timeoutMs)
   });
   const infoText = await infoResponse.text();
@@ -79,15 +107,19 @@ export async function checkTimesFmMultivariateRunner(options = {}) {
     throw new Error('TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED');
   }
 
+  if(!hfToken()) throw new Error('TIMESFM_HF_TOKEN_REQUIRED');
   const status=await callStatus(base,timeoutMs);
   const checks=validateTimesFmMultivariateRunnerStatus(status);
+  const quota=await fetchQuota(timeoutMs);
+  if(quota.remaining<70) throw new Error(`TIMESFM_ZERO_GPU_QUOTA_LOW:${quota.remaining}:${quota.resetsAt||'UNKNOWN_RESET'}`);
   return {
     status: 'PASS_TIMESFM_MULTIVARIATE_RUNNER_READY',
     endpoint: 'multivariate_context_predict',
     statusEndpoint:'multivariate_context_status',
     baseUrl: base,
     remoteStatus:status,
-    checks
+    checks,
+    quota
   };
 }
 
