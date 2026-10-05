@@ -16,16 +16,18 @@ assert.equal(P.totalScenarios,15);
 assert.equal(P.promotionAuthority,false);
 assert.equal(P.productionAuthority,false);
 
-assert.equal(classifyTimesFmDirectHistorical([
-  {timesFmExcessFinalEurVsLegacy:10,timesFmExcessFinalEurVsCore:8},
-  {timesFmExcessFinalEurVsLegacy:5,timesFmExcessFinalEurVsCore:2},
-  {timesFmExcessFinalEurVsLegacy:4,timesFmExcessFinalEurVsCore:1}
-]),'POSTHOC_TIMESFM_DIRECT_BEATS_BOTH');
+assert.equal(classifyTimesFmDirectHistorical(
+  Array.from({length:15},(_,i)=>({
+    timesFmExcessFinalEurVsLegacy:i<12?10:-1,
+    timesFmExcessFinalEurVsCore:i<11?8:-1
+  }))
+),'POSTHOC_TIMESFM_DIRECT_BEATS_BOTH');
 
-assert.equal(classifyTimesFmDirectHistorical([
-  {timesFmExcessFinalEurVsLegacy:-10,timesFmExcessFinalEurVsCore:-8},
-  {timesFmExcessFinalEurVsLegacy:-5,timesFmExcessFinalEurVsCore:-2},
-  {timesFmExcessFinalEurVsLegacy:-4,timesFmExcessFinalEurVsCore:-1}
-]),'POSTHOC_TIMESFM_DIRECT_BEATS_NEITHER');
+assert.equal(classifyTimesFmDirectHistorical(
+  Array.from({length:15},(_,i)=>({
+    timesFmExcessFinalEurVsLegacy:i<12?-10:1,
+    timesFmExcessFinalEurVsCore:i<11?-8:1
+  }))
+),'POSTHOC_TIMESFM_DIRECT_BEATS_NEITHER');
 
 console.log('timesfmDirectSelectorHistoricalDiagnosticV1.unit: PASS');
