@@ -1903,3 +1903,30 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - No se ejecutó Yahoo, no se construyó payload REAL, no se llamó a ZeroGPU y no se abrió ningún outcome económico.
 - Corrección exclusivamente de test: `deepEqual([100,110,120])` se sustituye por tolerancia absoluta `1e-12`. Protocolo, panel, core, modelo, ventanas y gates permanecen idénticos.
 - Sello actualizado a revisión 4 manteniendo el estado pre-outcome.
+
+
+### TimesFM Stage B V1 — PASS diagnóstico histórico 2026-10-05
+
+- Resultado observado en `ResearchValidationCenter`: `PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION`.
+- Interpretación válida: la señal histórica multivariante TimesFM asset+core superó todos los gates congelados de Stage B y habilita la confirmación prospectiva.
+- No se registran aquí valores métricos no aportados por el resultado visible; el PASS implica que todos los gates preregistrados fueron satisfechos.
+- La muestra histórica queda CONSUMIDA para diagnóstico y archivada. No se permite retuning, reejecución para promoción ni rescate con el brazo univariante.
+- Producción permanece `LEGACY`; este PASS no autoriza Stage C ni política económica.
+
+### TimesFM Stage B — confirmación prospectiva V1 preparada 2026-10-05
+
+- Versión: `TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1`.
+- Stage B histórico archivado con PASS; único job TimesFM CURRENT: `timesfm-stage-b-prospective-confirmation-v1`.
+- Collector integrado en `ResearchValidationCenter` como `TimesFM · confirmación prospectiva semanal`.
+- Reutiliza el endpoint ZeroGPU `stage_b_predict`; no requiere nueva subida de `app.py`.
+- Persistencia durable: rama `replay-results`, fichero `validation-runs/timesfm-stage-b-prospective-confirmation-v1-state.json`, hash-chain y token `GITHUB_REPLAY_SYNC_TOKEN`.
+- Reglas frozen: mismo EUNL.DE, mismos 8 activos, contexto 512, horizonte 60, evaluación 1/5/20/60, mismo modelo, baselines y gates.
+- Sin backfill histórico: si la primera sesión común semanal ya pasó y existe una sesión común posterior, esa semana se marca `MISSED_WEEK_NO_RETROACTIVE_FORECAST`.
+- En sesión del mismo día, no se permite captura antes de las 18:00 Europe/Berlin.
+- El collector no contiene evaluador de outcomes y persiste `outcomesOpened=false`.
+- Sello pre-market: `validation-runs/preregistration/timesfm-stage-b-prospective-confirmation-v1-seal.json`.
+- Sello verificado contra blobs exactos: PASS.
+- Harness puro ejecutado: selección semanal, no-backfill, 8 casos, 512 sesiones y materialización forecast PASS.
+- Estado al cerrar esta implementación: `sampleOpened=false`, `marketAccessed=false`, `outcomesOpened=false`.
+- Primera semana prospectiva elegible: ISO `2026-W42`, iniciada el 2026-10-12; `startAfter=2026-10-05`.
+- Objetivo preregistrado: mínimo 26 anchors maduros; la confirmación primaria exige madurez del outcome de 60 sesiones.
