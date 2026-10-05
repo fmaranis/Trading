@@ -24,12 +24,33 @@ assert.equal(seal.prospective.minimumMaturedAnchors,26);
 assert.equal(seal.prospective.noRetuneAfterDiagnostic,true);
 assert.equal(seal.productionDefault,'LEGACY');
 assert.equal(seal.productionAuthority,false);
+assert.equal(seal.sealRevision,2);
+assert.equal(seal.economicShadow.version,'TIMESFM_RELATIVE_RANK_V1');
+assert.equal(seal.economicShadow.frozenBeforeFirstProspectiveAnchor,true);
+assert.equal(seal.economicShadow.allEligibleForecastCoverageRequired,true);
+assert.equal(seal.economicShadow.gateAuthority,false);
+assert.equal(seal.economicShadow.sizingAuthority,false);
+assert.equal(seal.economicShadow.cashAuthority,false);
+assert.equal(seal.economicShadow.timingAuthority,false);
 
 for(const [relative,expected] of Object.entries(seal.manifestGitBlobSha1)){
   const absolute=path.resolve(root,relative);
   assert.equal(fs.existsSync(absolute),true,`Missing sealed file: ${relative}`);
   assert.equal(gitBlobSha(fs.readFileSync(absolute,'utf8')),expected,`Sealed blob changed: ${relative}`);
 }
+
+const economicSeal=JSON.parse(fs.readFileSync(path.resolve(root,'validation-runs/preregistration/timesfm-relative-rank-v1-economic-shadow-seal.json'),'utf8'));
+assert.equal(economicSeal.version,'TIMESFM_RELATIVE_RANK_V1_ECONOMIC_SHADOW_SEAL');
+assert.equal(economicSeal.policy.version,'TIMESFM_RELATIVE_RANK_V1');
+assert.equal(economicSeal.policy.fittedCoefficientCount,0);
+assert.equal(economicSeal.architecture.replay,'CORE_ARCHITECTURE_V1');
+assert.equal(economicSeal.architecture.baselineSelection,'LEGACY');
+assert.equal(economicSeal.architecture.candidateSelection,'TIMESFM_RELATIVE_RANK_V1');
+assert.equal(economicSeal.architecture.allocationPolicy,'LEGACY');
+assert.equal(economicSeal.architecture.productionAuthority,false);
+assert.equal(economicSeal.prospective.sampleOpened,false);
+assert.equal(economicSeal.prospective.marketAccessed,false);
+assert.equal(economicSeal.prospective.outcomesOpened,false);
 
 const routes=fs.readFileSync(path.resolve(root,'server/researchValidationRoutes.ts'),'utf8');
 const start=routes.indexOf("id: 'timesfm-stage-b-prospective-confirmation-v1'");
@@ -39,6 +60,8 @@ const block=routes.slice(start,end);
 assert.match(block,/visibility: 'CURRENT'/);
 assert.match(block,/requiresTimesFmRunner: true/);
 assert.match(block,/requiresGithubReplayToken: true/);
+assert.ok(block.indexOf('tests/timesFmRelativeRankV1.unit.ts') < block.indexOf('scripts/timesfmStageBProspectiveCollectorLive.mjs'));
+assert.ok(block.indexOf('tests/timesFmRelativeRankV1Contract.unit.mjs') < block.indexOf('scripts/timesfmStageBProspectiveCollectorLive.mjs'));
 assert.ok(block.indexOf('tests/timesfmStageBProspectiveSeal.unit.mjs') < block.indexOf('scripts/timesfmStageBProspectiveCollectorLive.mjs'));
 assert.ok(block.indexOf("npm', args: ['run', 'lint']") < block.indexOf('scripts/timesfmStageBProspectiveCollectorLive.mjs'));
 
