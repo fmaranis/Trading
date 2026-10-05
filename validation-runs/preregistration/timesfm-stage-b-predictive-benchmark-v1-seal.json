@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "study": "TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1",
+  "sealedAt": "2026-10-05",
+  "sealedBeforeEconomicOutcomes": true,
+  "baseHeadBeforeSealCommit": "bc6021bafb993c494b857f26cc04482b8b20c836",
+  "role": "HISTORICAL_SIGNAL_DIAGNOSTIC_NO_PROMOTION",
+  "stageAPrerequisite": "PASS_STAGE_A_TECHNICAL_SMOKE",
+  "model": {
+    "package": "timesfm",
+    "packageVersion": "3.0.2",
+    "checkpoint": "google/timesfm-3.0-pytorch",
+    "checkpointRevision": "24701cec1b1ea47232c0766e888855c9976ef62b",
+    "expectedWeightSha256": "a7592b0a8432baee54483254e5647856911ce69e09d09a9bb65904b2d98f17da"
+  },
+  "data": {
+    "provenance": "REAL",
+    "provider": "YAHOO_FINANCE",
+    "adjusted": false,
+    "downloadFrom": "2015-01-01",
+    "outcomesThrough": "2025-12-31"
+  },
+  "core": {
+    "assetId": "EUNL",
+    "ticker": "EUNL.DE"
+  },
+  "assetTickers": [
+    "SXR8.DE",
+    "EQQQ.DE",
+    "EXSA.DE",
+    "IS3N.DE",
+    "ZPRV.DE",
+    "EXH1.DE",
+    "IBCI.DE",
+    "4GLD.DE"
+  ],
+  "contextLength": 512,
+  "forecastHorizon": 60,
+  "evaluationHorizons": [
+    1,
+    5,
+    20,
+    60
+  ],
+  "primaryHorizons": [
+    20,
+    60
+  ],
+  "diagnostic": {
+    "firstAnchorQuarterEnd": "2018-03-31",
+    "lastAnchorQuarterEnd": "2025-09-30",
+    "expectedMaximumCases": 248,
+    "minimumAssetsPerAnchor": 6,
+    "historicalPromotionAuthority": false
+  },
+  "gates": {
+    "minimumCoveragePct": 85,
+    "minimumMeanRankIcPrimary20_60": 0.05,
+    "minimumRankIcLiftVsLegacy20_60": 0.02,
+    "minimumRelativeDirectionalAccuracyPct20_60": 52,
+    "minimumPositiveTemporalIcAssets": 5,
+    "quantile80CoverageMinPct": 60,
+    "quantile80CoverageMaxPct": 95
+  },
+  "prospectiveConfirmation": {
+    "frozenBeforeDiagnosticOutcomes": true,
+    "startAfter": "2026-10-05",
+    "cadence": "WEEKLY_FIRST_COMMON_TRADING_SESSION",
+    "minimumMaturedAnchors": 26,
+    "primaryOutcomeRequires60SessionMaturity": true,
+    "noRetuneAfterDiagnostic": true
+  },
+  "infrastructure": {
+    "provider": "HUGGING_FACE_ZEROGPU",
+    "oneBatchedGpuCall": true,
+    "gpuDurationCapSeconds": 80,
+    "paidInfrastructureAllowed": false,
+    "futureOutcomesSentToSpace": false
+  },
+  "verificationBeforeSeal": {
+    "exactMainStaticContract": "PASS",
+    "exactBlobBehavioralHarness": "PASS",
+    "syntheticCasesBuilt": 248,
+    "syntheticEventsEvaluated": 992,
+    "futureOutcomeLeakDetected": false
+  },
+  "blobs": {
+    "docs/TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1_2026-10-05.md": "751f9d3ee3128d6f4e1abbdd6a6d9608804526fd",
+    "scripts/timesfmStageBProtocol.mjs": "fd6c532b6116819c4845515d5adcb7796e0641c6",
+    "scripts/timesfmStageBRemoteClient.mjs": "a1b7da04d57780b12568c6ad09e650f5d59bc1a9",
+    "scripts/timesfmStageBDiagnosticLive.mjs": "e683e44fce947d1ed112d692b0cf821581b0d294",
+    "runner/timesfm/hf-space/app.py": "c2e7c6f803346e7b05e130f49c3a2854eeaf0eb7",
+    "tests/timesfmStageBProtocol.unit.mjs": "d673aacb63aa5fe1e9678ba0db1e5cddfe43b00c",
+    "tests/timesfmStageBRemoteClient.unit.mjs": "e64145ae2066a692493187d4415c072dc7815402",
+    "tests/timesfmStageBRemoteContract.unit.mjs": "cd3c61db295dbe687f18ed17698f0b1746a25545",
+    "tests/timesfmStageBDiagnostic.unit.mjs": "196f95b92d4658ee158e128f27dfe6dce49032c5",
+    "server/researchValidationRoutes.ts": "6e94cb5f44adf36073017d179d9ad6ae46341d21",
+    "src/components/ResearchValidationCenter.tsx": "4ecf570335e45bb4c9aa48a257025d54959dab16",
+    "tests/researchValidationRuntime.unit.ts": "9acda3c5967604e2bdfbf8b212d0784a697cff00"
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false
+}
