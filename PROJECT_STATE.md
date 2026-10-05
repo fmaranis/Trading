@@ -1966,3 +1966,13 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El checkout limpio/tsc desde el contenedor ChatGPT sigue bloqueado únicamente porque el DNS del contenedor no resuelve github.com; por eso el preflight real en la app es necesario antes del 2026-10-12.
 - El job puede ejecutarse el 2026-10-05 sin contaminar la muestra: el collector comprueba `berlin.date <= startAfter` antes de cargar estado durable, Yahoo o ZeroGPU y debe devolver `WAITING_START_AFTER_FROZEN_DATE`.
 - Estado metodológico permanece `sampleOpened=false`, `marketAccessed=false`, `outcomesOpened=false`.
+
+
+#### TimesFM shadow — reparación TypeScript pre-market 2026-10-05
+
+- El preflight real alcanzó TypeScript tras pasar sello, policy 13/13, contrato económico, protocolo prospectivo, contrato no-outcome, runtime, core y PortfolioCandidateGate 21/21.
+- `tsc --noEmit` falló únicamente porque `timesFmRelativeRankV1.ts` no declaraba tipos explícitos para el resultado genérico; `metaByAsset.get()` llegaba como `unknown` en `portfolioCandidateGate.ts`.
+- Reparación TYPE_ONLY: interfaces explícitas de evidence/rankable candidate/metadata + generic de salida. La matemática ordinal 20/60, tie-break LEGACY, gates y autoridad permanecen idénticos.
+- Se reprodujo localmente el mismo patrón `ranked -> Map -> metaByAsset -> entry` y `tsc --noEmit` pasó.
+- No se abrió estado prospectivo, Yahoo, ZeroGPU ni outcomes.
+- Sello prospectivo pasa a revisión 4; sello económico a revisión 3.
