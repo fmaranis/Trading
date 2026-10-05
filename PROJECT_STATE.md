@@ -1894,3 +1894,12 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Stage A se archivó; Stage B es el único job TimesFM CURRENT.
 - Producción sigue `LEGACY`; ningún resultado histórico de Stage B puede promocionar política.
 - Acción externa pendiente: sustituir el `app.py` del Space `fmaranis/timesfm-stage-a` por `runner/timesfm/hf-space/app.py` sellado. El conector HF disponible es read-only, por lo que esta escritura no puede hacerse desde ChatGPT.
+
+
+### TimesFM Stage B V1 — guard rebase IEEE-754 corregido pre-outcome 2026-10-05
+
+- Primera ejecución Stage B se detuvo en `Guard protocolo TimesFM Stage B`, inmediatamente después de que el guard del sello pasara.
+- Causa: falso negativo del test por igualdad estricta de coma flotante: `11 / 10 * 100` produce `110.00000000000001` en JavaScript.
+- No se ejecutó Yahoo, no se construyó payload REAL, no se llamó a ZeroGPU y no se abrió ningún outcome económico.
+- Corrección exclusivamente de test: `deepEqual([100,110,120])` se sustituye por tolerancia absoluta `1e-12`. Protocolo, panel, core, modelo, ventanas y gates permanecen idénticos.
+- Sello actualizado a revisión 4 manteniendo el estado pre-outcome.
