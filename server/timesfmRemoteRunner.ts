@@ -70,7 +70,7 @@ function validateRemoteState(value: unknown): TimesFmRemoteState {
 }
 
 export async function fetchTimesFmRemoteState(): Promise<TimesFmRemoteState> {
-  return validateRemoteState(await callGradio('status', 30_000));
+  return validateRemoteState(await callGradio('status', 4_000));
 }
 
 export async function runTimesFmRemoteStageA(): Promise<TimesFmRemoteState> {
