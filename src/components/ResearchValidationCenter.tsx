@@ -155,6 +155,33 @@ function resultSummary(result: any): React.ReactNode {
       </div>
     </div>;
   }
+  if (result.study === 'TIMESFM_ALLOCATION_BRIDGE_POSTHOC_V1') {
+    const status = String(result.status ?? 'RESULTADO');
+    const aggregate = result.aggregate ?? {};
+    const positive = status === 'POSTHOC_POSITIVE_ECONOMIC_REACH';
+    const negative = status === 'POSTHOC_NEGATIVE_ECONOMIC_REACH';
+    const noReach = status === 'POSTHOC_NO_REACH';
+    const tone = positive
+      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+      : negative
+        ? 'border-rose-500/30 bg-rose-500/10 text-rose-100'
+        : 'border-amber-500/30 bg-amber-500/10 text-amber-100';
+    const metric = (value: unknown, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : 'N/D';
+    return <div className="mt-4 space-y-3">
+      <div className={`rounded-xl border p-4 ${tone}`}>
+        <div className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0"/><div><div className="text-sm font-black">{status}</div><div className="mt-1 text-[11px] opacity-80">{positive ? 'El bridge dio reach económico histórico positivo en la muestra consumida.' : negative ? 'El bridge dio reach pero empeoró dinero históricamente.' : noReach ? 'Ni siquiera con autoridad de cola TimesFM llegó a cambiar la ejecución.' : 'El bridge cambió ejecución con resultado histórico mixto.'}</div></div></div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Mediana extra vs LEGACY</div><b className="text-xs text-white">{metric(aggregate.medianExcessFinalEur)} €</b><div className="mt-1 text-[9px] text-slate-600">{metric(aggregate.medianExcessReturnPctPoints)} pp</div></div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Positivos</div><b className="text-xs text-white">{String(aggregate.positiveScenarios ?? 'N/D')}/15</b></div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Negativos</div><b className="text-xs text-white">{String(aggregate.negativeScenarios ?? 'N/D')}/15</b></div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Reach</div><b className="text-xs text-white">{String(aggregate.scenariosWithEconomicReach ?? 'N/D')}/15</b></div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Bridge bate core</div><b className="text-xs text-white">{String(aggregate.candidateBeatsStructuralCoreScenarios ?? 'N/D')}/15</b></div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">LEGACY bate core</div><b className="text-xs text-white">{String(aggregate.baselineBeatsStructuralCoreScenarios ?? 'N/D')}/15</b></div>
+      </div>
+      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[10px] text-amber-100">POST-HOC sobre muestra consumida: mide reach arquitectónico, no valida ni promociona la política.</div>
+    </div>;
+  }
   if (result.study === 'TIMESFM_RELATIVE_RANK_ECONOMIC_DIAGNOSTIC_V1') {
     const status = String(result.status ?? 'RESULTADO');
     const aggregate = result.aggregate ?? {};
@@ -439,7 +466,7 @@ export const ResearchValidationCenter: React.FC = () => {
             <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Activity className="h-4 w-4 text-violet-300"/><b className="text-sm text-white">{job.name}</b><span className={`rounded-full border px-2 py-0.5 text-[8px] font-black ${badge(job.status)}`}>{job.status}</span></div><p className="mt-1 text-[10px] text-slate-500">{job.description}</p>{(launchingJobId === job.id || job.currentStep) && <div className="mt-2 text-[10px] text-cyan-200">Ejecutando: {launchingJobId === job.id ? 'Solicitando ejecución al backend…' : job.currentStep}</div>}{blocked && <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2 text-[10px] text-amber-200">{blocked}</div>}{job.id === 'timesfm-stage-a-smoke-v1' && job.runnerReachable === false && <div className="mt-2 rounded-lg border border-rose-500/25 bg-rose-500/5 p-2 text-[10px] text-rose-200">Runner TimesFM no accesible: {job.runnerError || 'sin respuesta'}</div>}</div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               {job.result != null && <button type="button" onClick={() => downloadJobEvidence(job)} className="touch-target flex w-full items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-[11px] font-black text-cyan-100 sm:w-auto"><Download className="mr-1 h-3.5 w-3.5"/>Evidencia JSON</button>}
-              <button type="button" disabled={loading || job.status === 'RUNNING' || job.readyToRun === false} onClick={() => void run(job.id)} className="touch-target w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[11px] font-black text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"><Play className="mr-1 inline h-3.5 w-3.5"/>{launchingJobId === job.id ? 'Arrancando…' : job.status === 'RUNNING' ? 'En ejecución' : job.readyToRun === false ? 'Bloqueado por preflight' : job.id === 'fundamental-quality-valuation-broad-pit-v1' ? 'Ejecutar validación PIT' : job.id === 'sector-52w-high-leadership-v1' ? 'Ejecutar diagnóstico 52W · rev. técnica 3' : job.id === 'timesfm-stage-a-smoke-v1' ? 'Ejecutar smoke TimesFM 3.0' : job.id === 'timesfm-stage-b-predictive-benchmark-v1' ? 'Ejecutar benchmark TimesFM Stage B' : job.id === 'timesfm-stage-b-prospective-confirmation-v1' ? 'Registrar forecast semanal TimesFM' : job.id === 'timesfm-relative-rank-economic-diagnostic-v1' ? 'Ejecutar diagnóstico económico TimesFM' : job.id === 'pead-yahoo-calendar-source-audit-r3' ? 'Ejecutar audit Yahoo REAL PEAD R3' : 'Comprobar / ejecutar checkpoint'}</button>
+              <button type="button" disabled={loading || job.status === 'RUNNING' || job.readyToRun === false} onClick={() => void run(job.id)} className="touch-target w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[11px] font-black text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"><Play className="mr-1 inline h-3.5 w-3.5"/>{launchingJobId === job.id ? 'Arrancando…' : job.status === 'RUNNING' ? 'En ejecución' : job.readyToRun === false ? 'Bloqueado por preflight' : job.id === 'fundamental-quality-valuation-broad-pit-v1' ? 'Ejecutar validación PIT' : job.id === 'sector-52w-high-leadership-v1' ? 'Ejecutar diagnóstico 52W · rev. técnica 3' : job.id === 'timesfm-stage-a-smoke-v1' ? 'Ejecutar smoke TimesFM 3.0' : job.id === 'timesfm-stage-b-predictive-benchmark-v1' ? 'Ejecutar benchmark TimesFM Stage B' : job.id === 'timesfm-stage-b-prospective-confirmation-v1' ? 'Registrar forecast semanal TimesFM' : job.id === 'timesfm-relative-rank-economic-diagnostic-v1' ? 'Ejecutar diagnóstico económico TimesFM' : job.id === 'timesfm-allocation-bridge-posthoc-v1' ? 'Ejecutar bridge económico TimesFM' : job.id === 'pead-yahoo-calendar-source-audit-r3' ? 'Ejecutar audit Yahoo REAL PEAD R3' : 'Comprobar / ejecutar checkpoint'}</button>
             </div>
           </div>
           {resultSummary(job.result)}
