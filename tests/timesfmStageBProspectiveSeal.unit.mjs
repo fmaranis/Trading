@@ -24,7 +24,7 @@ assert.equal(seal.prospective.minimumMaturedAnchors,26);
 assert.equal(seal.prospective.noRetuneAfterDiagnostic,true);
 assert.equal(seal.productionDefault,'LEGACY');
 assert.equal(seal.productionAuthority,false);
-assert.equal(seal.sealRevision,2);
+assert.equal(seal.sealRevision,3);
 assert.equal(seal.economicShadow.version,'TIMESFM_RELATIVE_RANK_V1');
 assert.equal(seal.economicShadow.frozenBeforeFirstProspectiveAnchor,true);
 assert.equal(seal.economicShadow.allEligibleForecastCoverageRequired,true);
