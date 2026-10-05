@@ -7,8 +7,10 @@ export const TIMESFM_MULTIVARIATE_CONTEXT_V1 = Object.freeze({
     checkpoint: 'google/timesfm-3.0-pytorch',
     checkpointRevision: '24701cec1b1ea47232c0766e888855c9976ef62b',
     expectedWeightSha256: 'a7592b0a8432baee54483254e5647856911ce69e09d09a9bb65904b2d98f17da',
-    nativeApi: 'timesfm3.TimesFM3Forecaster',
-    maxVariates: 32
+    nativeApi: 'timesfm3.TimesFM3Evaluator',
+    maxVariates: 32,
+    remoteBatchMaxAnchors: 8,
+    zeroGpuDurationSecondsPerBatch: 120
   }),
   data: Object.freeze({
     sourceType: 'REAL',
