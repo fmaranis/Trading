@@ -311,6 +311,8 @@ const JOBS: JobDefinition[] = [
     requiresGithubReplayToken: true,
     steps: [
       { label: 'Guard sello TimesFM prospectivo', command: 'node', args: ['tests/timesfmStageBProspectiveSeal.unit.mjs'] },
+      { label: 'Guard política económica TimesFM relative-rank', command: 'npx', args: ['tsx', 'tests/timesFmRelativeRankV1.unit.ts'] },
+      { label: 'Guard contrato económico TimesFM relative-rank', command: 'node', args: ['tests/timesFmRelativeRankV1Contract.unit.mjs'] },
       { label: 'Guard protocolo/collector TimesFM prospectivo', command: 'node', args: ['tests/timesfmStageBProspective.unit.mjs'] },
       { label: 'Guard contrato no-outcome TimesFM prospectivo', command: 'node', args: ['tests/timesfmStageBProspectiveContract.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
