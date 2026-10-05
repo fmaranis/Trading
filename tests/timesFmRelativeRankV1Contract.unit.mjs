@@ -26,7 +26,7 @@ assert.doesNotMatch(policy, /threshold|multiplier|coefficient/i);
 
 assert.match(gate, /'TIMESFM_RELATIVE_RANK_V1'/);
 assert.match(gate, /rankEligibleCandidatesWithTimesFmRelativeV1/);
-assert.match(gate, /TIMESFM_RELATIVE_RANK_V1_ELIGIBLE_FORECAST_MISSING/);
+assert.match(policy, /TIMESFM_RELATIVE_RANK_V1_ELIGIBLE_FORECAST_MISSING/);
 assert.match(gate, /BEATS_CASH_CONSENSUS_TIMING_AND_TIMESFM_RELATIVE_RANKED/);
 assert.ok(
   gate.indexOf("if (cash.passes !== true)") < gate.indexOf("if (selectionPolicy === 'TIMESFM_RELATIVE_RANK_V1')"),
