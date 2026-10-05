@@ -159,4 +159,4 @@ try {
 }
 check('gate fails closed when TimesFM coverage is incomplete for eligible set', gateCoverageFailed);
 
-console.log(`TimesFM relative rank V1: ${passed}/12 invariants passed.`);
+console.log(`TimesFM relative rank V1: ${passed}/13 invariants passed.`);
