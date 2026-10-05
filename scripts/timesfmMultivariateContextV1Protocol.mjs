@@ -34,7 +34,7 @@ export const TIMESFM_MULTIVARIATE_CONTEXT_V1 = Object.freeze({
   forecastHorizon: 60,
   evaluationHorizons: Object.freeze([1,5,20,60]),
   primaryHorizons: Object.freeze([20,60]),
-  targetNormalization: 'NATIVE_TIMESFM_ZNORM_PER_VARIATE',
+  targetNormalization: 'TIMESFM3_EVALUATOR_DEFAULT_NORMALIZATION',
   arms: Object.freeze({
     fullPanelTargetsOnly: Object.freeze({
       id: 'FULL_PANEL_TARGETS_ONLY',
