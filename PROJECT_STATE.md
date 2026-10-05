@@ -2158,5 +2158,8 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Sello: `validation-runs/preregistration/timesfm-multivariate-context-v1-seal.json`, revisión 3; manifest crítico verificado 8/8 blobs PASS desde ChatGPT.
 - Job CURRENT: `timesfm-multivariate-context-v1` / `TimesFM · multivariante nativo + contexto`.
 - Producción sigue `LEGACY`; no cambia gates, sizing, órdenes ni arquitectura productiva.
-- Runner ZeroGPU: cliente y endpoint canónico preparados. El endpoint requerido es `multivariate_context_predict`.
-- Limitación operativa externa: el conector Hugging Face disponible en este chat tiene OAuth de lectura de repositorios, no escritura; por tanto no puede publicar directamente el nuevo endpoint en el Space `fmaranis/timesfm-stage-a`. El código canónico a desplegar está en `scripts/hfTimesFmMultivariateContextV1Endpoint.py`.
+- Runner ZeroGPU integrado en la fuente canónica existente `runner/timesfm/hf-space/app.py`; Stage A, Stage B y V1 comparten el mismo `TimesFM3Evaluator` y checkpoint verificado. El endpoint nuevo es `multivariate_context_predict`.
+- Se eliminó la fuente Python paralela inicial para mantener un único runner del Space.
+- El job compila `app.py` y verifica `/gradio_api/info` antes de cualquier Yahoo/inferencia; si el Space aún no expone el endpoint, falla cerrado con `TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED` antes del diagnóstico.
+- Sello final revisión 5; diseño/model inputs siguen unopened para fresh y el diagnóstico histórico aún no se ha ejecutado con V1.
+- Limitación operativa externa: el conector Hugging Face disponible en este chat tiene OAuth `read-repos` pero no escritura; no puede publicar directamente el commit del Space `fmaranis/timesfm-stage-a`. Debe sincronizarse allí el `runner/timesfm/hf-space/app.py` canónico antes de ejecutar el job.
