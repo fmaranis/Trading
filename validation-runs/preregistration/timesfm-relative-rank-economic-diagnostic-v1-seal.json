@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "version": "TIMESFM_RELATIVE_RANK_ECONOMIC_DIAGNOSTIC_V1_SEAL",
+  "sealedAt": "2026-10-05",
+  "sourceHead": "af048008ce255d9a906141ea31bc40c9fc43368d",
+  "stageBHistoricalSample": "CONSUMED",
+  "stageBObservedResult": "PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION",
+  "economicOutcomesOpened": false,
+  "protocol": {
+    "scenarios": 15,
+    "decisionDates": "EXACT_STAGE_B_INFORMATION_DATES",
+    "baseline": "CORE_ARCHITECTURE_V1 + LEGACY_SELECTION",
+    "candidate": "CORE_ARCHITECTURE_V1 + TIMESFM_RELATIVE_RANK_V1",
+    "allocation": "LEGACY",
+    "capitals": [
+      250,
+      500,
+      2500,
+      10000,
+      30000
+    ],
+    "riskProfiles": [
+      "LOW",
+      "MEDIUM",
+      "HIGH"
+    ],
+    "horizonYears": 5,
+    "initialPortfolio": "ZERO",
+    "externalCashFlows": "NONE",
+    "cashBenchmarkMode": "HISTORICAL_ECB_DFR_FLOOR_0",
+    "execution": "NEXT_OPEN"
+  },
+  "interpretation": {
+    "diagnosticOnly": true,
+    "promotionAuthority": false,
+    "prospectiveConfirmationStillRequired": true
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "manifestGitBlobSha1": {
+    "scripts/timesfmRelativeRankEconomicDiagnosticV1Protocol.mjs": "0c5c328c3629486dcb3a22d0e0264d0b7dcd568e",
+    "scripts/timesfmRelativeRankEconomicDiagnosticV1.ts": "b245d59a5c3a29eaa9223219e3bbb323fc4b4daa",
+    "docs/TIMESFM_RELATIVE_RANK_V1_HISTORICAL_ECONOMIC_DIAGNOSTIC_2026-10-05.md": "454fc5bc6fc2e20762cbb7cf92d52f1a21509ccf",
+    "src/investment/decision/dynamicHistoricalReplayCore.ts": "d45140ea89e8a58c1fcf112c8c618aa1be92b2c9",
+    "src/investment/decision/replayTimesFmRelativeRankExperiment.ts": "f715b36b36a80febfde37e77a16af14547aa3bfa",
+    "src/investment/decision/timesFmRelativeRankV1.ts": "124129b858d2c39ef908d9122fefbc418e58802a",
+    "src/investment/decision/portfolioCandidateGate.ts": "18967db3be51ec4d5fcf0f1db296b2d13c3184d8",
+    "src/investment/decision/portfolioDecisionEngine.ts": "65ac6d1dda28fd1c1ac72ed6918b8191b0b138e3",
+    "tests/dynamicHistoricalReplay.unit.ts": "9567a558cdc3d3cd1810751398d65b17af84f28f",
+    "tests/timesFmRelativeRankV1.unit.ts": "7366ec1bca88d97177a1f38776ea6e00aacda8d3",
+    "tests/timesFmRelativeRankV1Contract.unit.mjs": "abfb99edfe3f5cde08a00c8130c85751bfcd8a0c",
+    "tests/timesfmRelativeRankEconomicDiagnosticV1.unit.mjs": "070569d63cd1319fa1d50223034ebbcba7891fe8",
+    "tests/timesfmRelativeRankEconomicDiagnosticV1Contract.unit.mjs": "34a98998cdf4d3ad75aab8f35fb42fd352c5b79d"
+  }
+}
