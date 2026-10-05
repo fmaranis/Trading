@@ -1875,3 +1875,22 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - Stage B job is integrated into the existing `ResearchValidationCenter`; production gate permits only jobs explicitly marked `requiresTimesFmRunner`.
 - Semantic `FAIL_SIGNAL_DIAGNOSTIC` / `INCONCLUSIVE_COVERAGE` exit nonzero so the validation surface does not mislabel a valid negative research conclusion as PASSED.
 - Production remains `LEGACY`; Stage C stays closed until a fresh prospective confirmation passes.
+
+
+### TimesFM Stage B V1 — implementación y sello final pre-outcome 2026-10-05
+
+- Implementación completada sin abrir outcomes económicos reales.
+- Sello definitivo: `validation-runs/preregistration/timesfm-stage-b-predictive-benchmark-v1-seal.json`, revisión 3, commit `9fc717bd8b8a33e43978ab989aac5b4d5947144b`.
+- Integridad comprobada contra `main`: 13/13 blobs sellados coinciden; guard order PASS; causal payload contract PASS; ZeroGPU batch contract PASS.
+- Se añadió `tests/timesfmStageBSeal.unit.mjs` como primer guard del job: cualquier modificación posterior de protocolo, runner, Space, tests, wiring o UI sellados bloquea Stage B antes de Yahoo/ZeroGPU.
+- Harness comportamental ejecutado sobre blobs exactos: 248 casos sintéticos construidos, 992 eventos evaluados, transporte Gradio mock PASS y ningún campo future/outcome enviado.
+- Durante preflight se detectó y corrigió antes de outcomes una sintaxis TypeScript accidental dentro de `timesfmStageBProtocol.mjs`; el protocolo quedó como ESM JavaScript válido sin cambiar parámetros.
+- API TimesFM 3 verificada contra documentación oficial: univariante 1D y multivariante `(num_variates, context)`; shapes del endpoint son correctos.
+- `per_core_batch_size=16` congelado como optimización de infraestructura previa a outcomes para completar el batch dentro de ZeroGPU; no cambia modelo, señal, muestra ni gates.
+- Endpoint Space añadido: `stage_b_predict`, una sola asignación ZeroGPU con cap 80 s, máximo 256 casos, contexto 512, horizonte 60.
+- El Space rechaza campos con future/outcome/actual/realized y no descarga mercado; recibe sólo `caseId + assetContext + coreContext`.
+- Runner local Yahoo mantiene los outcomes fuera del Space hasta que vuelve el forecast; entonces calcula métricas/gates.
+- Resultado visible en `ResearchValidationCenter`: cobertura, rank IC 20/60, lift vs LEGACY, dirección relativa al core, cobertura P10-P90 y activos con IC temporal positivo.
+- Stage A se archivó; Stage B es el único job TimesFM CURRENT.
+- Producción sigue `LEGACY`; ningún resultado histórico de Stage B puede promocionar política.
+- Acción externa pendiente: sustituir el `app.py` del Space `fmaranis/timesfm-stage-a` por `runner/timesfm/hf-space/app.py` sellado. El conector HF disponible es read-only, por lo que esta escritura no puede hacerse desde ChatGPT.
