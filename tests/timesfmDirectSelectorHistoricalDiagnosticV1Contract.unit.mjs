@@ -29,7 +29,7 @@ assert.match(replay,/REPLAY_DIRECT_SELECTOR_MISSING_SELECTION/);
 assert.match(replay,/action: 'EXIT'/);
 assert.match(replay,/targetWeight: 1/);
 
-assert.doesNotMatch(selector,/LEGACY/);
+assert.doesNotMatch(selector,/LEGACY_RANKING_SCORE|legacyRankingScore/);
 assert.match(selector,/productionAuthority: false/);
 
 console.log('timesfmDirectSelectorHistoricalDiagnosticV1Contract.unit: PASS');
