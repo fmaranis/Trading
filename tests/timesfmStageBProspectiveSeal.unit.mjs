@@ -24,7 +24,7 @@ assert.equal(seal.prospective.minimumMaturedAnchors,26);
 assert.equal(seal.prospective.noRetuneAfterDiagnostic,true);
 assert.equal(seal.productionDefault,'LEGACY');
 assert.equal(seal.productionAuthority,false);
-assert.equal(seal.sealRevision,3);
+assert.equal(seal.sealRevision,4);
 assert.equal(seal.economicShadow.version,'TIMESFM_RELATIVE_RANK_V1');
 assert.equal(seal.economicShadow.frozenBeforeFirstProspectiveAnchor,true);
 assert.equal(seal.economicShadow.allEligibleForecastCoverageRequired,true);
@@ -41,6 +41,7 @@ for(const [relative,expected] of Object.entries(seal.manifestGitBlobSha1)){
 
 const economicSeal=JSON.parse(fs.readFileSync(path.resolve(root,'validation-runs/preregistration/timesfm-relative-rank-v1-economic-shadow-seal.json'),'utf8'));
 assert.equal(economicSeal.version,'TIMESFM_RELATIVE_RANK_V1_ECONOMIC_SHADOW_SEAL');
+assert.equal(economicSeal.sealRevision,3);
 assert.equal(economicSeal.policy.version,'TIMESFM_RELATIVE_RANK_V1');
 assert.equal(economicSeal.policy.fittedCoefficientCount,0);
 assert.equal(economicSeal.architecture.replay,'CORE_ARCHITECTURE_V1');
