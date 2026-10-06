@@ -18,6 +18,12 @@ assert.match(protocol,/DIRECT_ASSET_SELECTOR_SHADOW/);
 assert.match(protocol,/8_STAGE_B_ASSETS_PLUS_EUNL_CORE/);
 assert.match(protocol,/LOWEST_MEAN_ORDINAL_RANK_20_60/);
 assert.match(protocol,/100_PERCENT_EXECUTABLE_SHADOW_EQUITY_TO_SELECTED_ASSET/);
+assert.match(protocol,/TIMESFM_MULTIVARIATE_CONTEXT_V1/);
+assert.match(protocol,/collectBothFrozenArms: true/);
+assert.match(protocol,/FULL_PANEL_TARGETS_ONLY/);
+assert.match(protocol,/FULL_PANEL_PLUS_CAUSAL_COVARIATES/);
+assert.match(protocol,/pastOnlyCovariates: MV\.covariates\.totalPastOnly/);
+assert.match(protocol,/noRetuneAfterCollectionOpens: true/);
 
 assert.match(collector,/MISSED_WEEK_NO_RETROACTIVE_FORECAST/);
 assert.match(collector,/berlin\.date <= M\.startAfter/);
@@ -29,8 +35,15 @@ assert.match(collector,/directShadow/);
 assert.match(collector,/selectedAssetId/);
 assert.match(collector,/selectedIsStructuralCore/);
 assert.match(collector,/callTimesFmStageB\(payload\)/);
+assert.match(collector,/callTimesFmMultivariateContextV1\(mvPayload\)/);
+assert.match(collector,/buildCausalMultivariateContext\(series,informationDate\)/);
+assert.match(collector,/multivariateSignalShadow/);
+assert.match(collector,/targetsOnly:mvAnchor\.targetsOnly/);
+assert.match(collector,/withCausalCovariates:mvAnchor\.withCausalCovariates/);
+assert.match(collector,/outcomesOpened:false/);
 assert.match(collector,/saveTimesFmProspectiveDurableState/);
 assert.ok(collector.indexOf('const remote=await callTimesFmStageB(payload);') < collector.indexOf('state=appendTimesFmProspectiveAnchor'));
+assert.ok(collector.indexOf('const mvRemote=await callTimesFmMultivariateContextV1(mvPayload);') < collector.indexOf('state=appendTimesFmProspectiveAnchor'));
 assert.doesNotMatch(collector,/actualReturn|futureReturn|realizedReturn|realisedReturn/);
 assert.doesNotMatch(collector,/evaluateStageB|StageBEvaluator/);
 
