@@ -36,6 +36,7 @@ interface JobState {
 
 const MAX_OUTPUT_CHARS = 1_500_000;
 const TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID = 'timesfm-multivariate-context-v1';
+const TIMESFM_PROSPECTIVE_JOB_ID = 'timesfm-stage-b-prospective-confirmation-v1';
 const TIMESFM_MULTIVARIATE_CONTEXT_ENDPOINT = 'multivariate_context_predict';
 
 function archivedJob(id: string, name: string, description: string, historyLabel: string, marker?: string): JobDefinition {
@@ -307,10 +308,11 @@ const JOBS: JobDefinition[] = [
   {
     id: 'timesfm-stage-b-prospective-confirmation-v1',
     name: 'TimesFM · confirmación prospectiva semanal',
-    description: 'Collector fresh/blind posterior al PASS histórico de Stage B. Registra como máximo un forecast por semana en la primera sesión común disponible, sin backfill retrospectivo, persiste evidencia con hash-chain y guarda además el activo elegido por TIMESFM_DIRECT_SELECTOR_V1 antes de outcomes. Producción continúa LEGACY.',
+    description: 'Collector fresh/blind único de TimesFM. Registra una observación semanal sin backfill: Stage B pairwise, selector directo shadow y los dos brazos multivariantes ya congelados (panel 9 y panel 9 + 23 covariables), siempre antes de outcomes. Producción continúa LEGACY.',
     marker: 'TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1_COLLECTOR_RESULT',
-    visibility: 'PARKED',
+    visibility: 'CURRENT',
     requiresTimesFmRunner: true,
+    requiresTimesFmAuth: true,
     requiresGithubReplayToken: true,
     steps: [
       { label: 'Guard sello TimesFM prospectivo', command: 'node', args: ['tests/timesfmStageBProspectiveSeal.unit.mjs'] },
@@ -394,9 +396,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'timesfm-multivariate-context-v1',
     name: 'TimesFM · multivariante nativo + contexto',
-    description: 'Diagnóstico de señal sobre la muestra Stage B ya consumida: compara TimesFM 3 viendo los 9 activos simultáneamente frente al mismo panel + 23 covariables OHLCV causales. No ejecuta política económica ni puede promocionar producción; ambos brazos quedan congelados antes de la primera semana fresh.',
+    description: 'Diagnóstico histórico consumido. El panel nativo de 9 activos mostró señal; las 23 covariables no añadieron lift agregado. No tiene autoridad de promoción y no debe relanzarse ni retunearse sobre esta muestra.',
     marker: 'TIMESFM_MULTIVARIATE_CONTEXT_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'TimesFM multivariante V1 · PANEL_SIGNAL_NO_COVARIATE_LIFT · muestra consumida',
     requiresTimesFmRunner: true,
     requiresTimesFmAuth: true,
     steps: [
@@ -597,7 +600,7 @@ function prerequisiteError(job: JobDefinition): string | null {
 async function asyncPrerequisiteError(job: JobDefinition): Promise<string | null> {
   const syncReason = prerequisiteError(job);
   if (syncReason) return syncReason;
-  if (job.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID) {
+  if (job.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID || job.id === TIMESFM_PROSPECTIVE_JOB_ID) {
     try {
       const available = await checkTimesFmRemoteEndpoint(TIMESFM_MULTIVARIATE_CONTEXT_ENDPOINT);
       if (!available) return 'TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED';
@@ -616,7 +619,8 @@ async function asyncPrerequisiteError(job: JobDefinition): Promise<string | null
         return 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED';
       }
       const quota = await fetchTimesFmZeroGpuQuota();
-      if (quota.remaining < 270) return 'TIMESFM_ZERO_GPU_QUOTA_INSUFFICIENT';
+      const minimumQuota = job.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID ? 270 : 70;
+      if (quota.remaining < minimumQuota) return 'TIMESFM_ZERO_GPU_QUOTA_INSUFFICIENT';
     } catch (error: any) {
       const message = error?.message || String(error);
       if (/TIMESFM_HF_TOKEN_REQUIRED/i.test(message)) return 'TIMESFM_HF_TOKEN_REQUIRED';
@@ -653,7 +657,7 @@ function prerequisiteDetail(reason: string): string {
     return 'HF_TOKEN existe, pero no permite consultar la cuota ZeroGPU. Un token fine-grained necesita Billing > Read billing usage and payment method status.';
   }
   if (reason === 'TIMESFM_ZERO_GPU_QUOTA_INSUFFICIENT') {
-    return 'La cuota ZeroGPU autenticada restante es insuficiente para garantizar los 4 lotes del diagnóstico. El job no arrancará hasta que la cuota se recupere.';
+    return 'La cuota ZeroGPU autenticada restante es insuficiente para la ejecución requerida. El job no arrancará hasta que la cuota se recupere.';
   }
   if (reason === 'TIMESFM_REMOTE_RUNNER_UNREACHABLE') {
     return 'No se ha podido verificar el Space TimesFM remoto. El job queda bloqueado antes de guards, Yahoo o inferencia.';
