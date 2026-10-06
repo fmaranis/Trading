@@ -37,6 +37,7 @@ interface JobState {
 const MAX_OUTPUT_CHARS = 1_500_000;
 const TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID = 'timesfm-multivariate-context-v1';
 const TIMESFM_PROSPECTIVE_JOB_ID = 'timesfm-stage-b-prospective-confirmation-v1';
+const TIMESFM_PANEL_STICKY_OOS_JOB_ID = 'timesfm-panel-sticky-oos-v1';
 const TIMESFM_MULTIVARIATE_CONTEXT_ENDPOINT = 'multivariate_context_predict';
 
 function archivedJob(id: string, name: string, description: string, historyLabel: string, marker?: string): JobDefinition {
@@ -310,7 +311,7 @@ const JOBS: JobDefinition[] = [
     name: 'TimesFM · confirmación prospectiva semanal',
     description: 'Collector fresh/blind único de TimesFM. Registra una observación semanal sin backfill: Stage B pairwise, selector directo shadow y los dos brazos multivariantes ya congelados (panel 9 y panel 9 + 23 covariables), siempre antes de outcomes. Producción continúa LEGACY.',
     marker: 'TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1_COLLECTOR_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'PARKED',
     requiresTimesFmRunner: true,
     requiresTimesFmAuth: true,
     requiresGithubReplayToken: true,
@@ -415,6 +416,26 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Yahoo REAL + TimesFM 3 · panel completo + covariables', command: 'node', args: ['scripts/timesfmMultivariateContextV1DiagnosticLive.mjs'] }
+    ]
+  },
+  {
+    id: 'timesfm-panel-sticky-oos-v1',
+    name: 'TimesFM · Panel Sticky V1 · OOS económico',
+    description: 'Pantalla económica OOS ya congelada sobre 2025-10→2026-06, posterior a la muestra consumida. Usa únicamente FULL_PANEL_TARGETS_ONLY a 60 sesiones, entrada top-1 y retención top-3 para reducir rotación. Compara contra LEGACY, EUNL y top-1 ingenuo. Producción continúa LEGACY.',
+    marker: 'TIMESFM_PANEL_STICKY_OOS_V1_RESULT',
+    visibility: 'CURRENT',
+    requiresTimesFmRunner: true,
+    requiresTimesFmAuth: true,
+    steps: [
+      { label: 'Guard sello TimesFM Panel Sticky OOS V1', command: 'node', args: ['tests/timesfmPanelStickyOosV1Seal.unit.mjs'] },
+      { label: 'Guard protocolo TimesFM Panel Sticky OOS V1', command: 'node', args: ['tests/timesfmPanelStickyOosV1Protocol.unit.mjs'] },
+      { label: 'Guard selector TimesFM Panel Sticky V1', command: 'npx', args: ['tsx', 'tests/timesFmPanelStickySelectorV1.unit.ts'] },
+      { label: 'Guard contrato TimesFM Panel Sticky OOS V1', command: 'node', args: ['tests/timesfmPanelStickyOosV1Contract.unit.mjs'] },
+      { label: 'Guard endpoint runner TimesFM multivariante', command: 'node', args: ['scripts/timesfmMultivariateContextV1RunnerReadiness.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Yahoo REAL + TimesFM · Panel Sticky OOS económico', command: 'npx', args: ['tsx', 'scripts/timesfmPanelStickyOosV1Live.ts'] }
     ]
   },
   {
@@ -602,7 +623,7 @@ function prerequisiteError(job: JobDefinition): string | null {
 async function asyncPrerequisiteError(job: JobDefinition): Promise<string | null> {
   const syncReason = prerequisiteError(job);
   if (syncReason) return syncReason;
-  if (job.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID || job.id === TIMESFM_PROSPECTIVE_JOB_ID) {
+  if (job.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID || job.id === TIMESFM_PROSPECTIVE_JOB_ID || job.id === TIMESFM_PANEL_STICKY_OOS_JOB_ID) {
     try {
       const available = await checkTimesFmRemoteEndpoint(TIMESFM_MULTIVARIATE_CONTEXT_ENDPOINT);
       if (!available) return 'TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED';
@@ -621,7 +642,7 @@ async function asyncPrerequisiteError(job: JobDefinition): Promise<string | null
         return 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED';
       }
       const quota = await fetchTimesFmZeroGpuQuota();
-      const minimumQuota = job.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID ? 270 : 120;
+      const minimumQuota = job.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID ? 270 : job.id === TIMESFM_PANEL_STICKY_OOS_JOB_ID ? 160 : 120;
       if (quota.remaining < minimumQuota) return 'TIMESFM_ZERO_GPU_QUOTA_INSUFFICIENT';
     } catch (error: any) {
       const message = error?.message || String(error);
