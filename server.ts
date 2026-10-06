@@ -29,7 +29,10 @@ function redactSecrets(value: unknown): unknown {
     process.env.GEMINI_API_KEY,
     process.env.ALERT_WEBHOOK_URL,
     process.env.ALERT_ADMIN_TOKEN,
-    process.env.GITHUB_REPLAY_SYNC_TOKEN
+    process.env.GITHUB_REPLAY_SYNC_TOKEN,
+    process.env.HF_TOKEN,
+    process.env.HUGGINGFACE_TOKEN,
+    process.env.HUGGING_FACE_HUB_TOKEN
   ].filter((v): v is string => Boolean(v && v.trim()));
   if (!secrets.length) return value;
   const scrub = (input: unknown): unknown => {
