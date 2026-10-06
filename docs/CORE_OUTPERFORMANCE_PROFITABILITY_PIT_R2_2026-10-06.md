@@ -29,6 +29,7 @@ Para cada fiscal year causal:
 - Debe existir al menos uno de COGS, SG&A o InterestExpense.
 - Cualquier componente de esos tres que falte se imputa a cero.
 - No se usa `OperatingIncomeLoss`.
+- Los tags XBRL equivalentes se unen por fiscal-period end; para un mismo cierre se toma el filing causal más reciente y, en empate, la prioridad congelada del tag. No se elige un único tag global para toda la historia.
 - No se usa ningún filing posterior a `signalDate`.
 
 ## Todo lo demás permanece congelado
