@@ -209,10 +209,11 @@ const JOBS: JobDefinition[] = [
   ),
   {
     id: 'core-outperformance-profitability-pit-v1',
-    name: 'Operating Profitability · traducción PIT stock-level',
-    description: 'Retoma la candidata pre-TimesFM con mejor evidencia: Operating Profitability pasó diagnóstico 2016–2021 y confirmación 2009–2014. Este job ejecuta la traducción causal stock-level ya congelada con S&P 500 histórico, SEC filed<=signalDate y Yahoo REAL; no retunea la señal ni cambia producción.',
+    name: 'Operating Profitability · traducción PIT stock-level · V1',
+    description: 'V1 cerrada como inconclusa antes de outcomes: la traducción SEC exigía simultáneamente COGS, SG&A e intereses y sólo obtuvo 114 filas evaluables en 2016 frente al mínimo 250.',
     marker: 'CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'Operating Profitability PIT V1 · INCONCLUSIVE coverage 114/250 · pre-outcome',
     requiresSecEdgarUserAgent: true,
     steps: [
       { label: 'Guard Operating Profitability PIT', command: 'node', args: ['tests/coreOutperformanceProfitabilityPitV1.unit.mjs'] },
@@ -220,6 +221,23 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'SEC PIT + Yahoo REAL · Operating Profitability', command: 'node', args: ['scripts/coreOutperformanceProfitabilityPitV1Live.mjs'] }
+    ]
+  },
+  {
+    id: 'core-outperformance-profitability-pit-r2',
+    name: 'Operating Profitability · traducción PIT R2 Fama/French',
+    description: 'R2 pre-outcome: misma hipótesis, fechas, top-decile, value-weight, NEXT_OPEN y gates; corrige sólo missingness contable según Fama/French: Revenue obligatorio, al menos uno de COGS/SG&A/intereses y faltantes imputados a cero. Producción LEGACY.',
+    marker: 'CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_RESULT',
+    visibility: 'CURRENT',
+    requiresSecEdgarUserAgent: true,
+    steps: [
+      { label: 'Guard sello Operating Profitability PIT R2', command: 'node', args: ['tests/coreOutperformanceProfitabilityPitR2Seal.unit.mjs'] },
+      { label: 'Guard protocolo Operating Profitability PIT R2', command: 'node', args: ['tests/coreOutperformanceProfitabilityPitR2.unit.mjs'] },
+      { label: 'Guard contrato missing-expense R2', command: 'node', args: ['tests/coreOutperformanceProfitabilityPitR2Contract.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'SEC PIT + Yahoo REAL · Operating Profitability R2', command: 'node', args: ['scripts/coreOutperformanceProfitabilityPitR2Live.mjs'] }
     ]
   },
   {
