@@ -2253,5 +2253,7 @@ Prospectivo:
 - No existía aún estado durable en `replay-results/validation-runs/timesfm-stage-b-prospective-confirmation-v1-state.json`, por lo que la muestra fresh seguía `NOT_OPENED` al reseñar.
 - Sello prospectivo actualizado a revisión 6 / state schema 2 antes de W42.
 - Primera semana elegible: `2026-W42`, comenzando el 2026-10-12; cadence `WEEKLY_FIRST_COMMON_TRADING_SESSION`; sin catch-up ni forecast retroactivo.
-- Preflight del job prospectivo exige Space multivariante API v3, `HF_TOKEN`, `GITHUB_REPLAY_SYNC_TOKEN` y al menos 70 GPU-s de cuota autenticada para la observación semanal.
+- Preflight del job prospectivo exige Space multivariante API v3, `HF_TOKEN`, `GITHUB_REPLAY_SYNC_TOKEN` y al menos 120 GPU-s de cuota autenticada para admitir con margen la llamada Stage B; el brazo multivariante vuelve a exigir >=70 GPU-s justo antes de su llamada.
 - Producción y autoridad económica permanecen `LEGACY` / false.
+- Las dos llamadas ZeroGPU semanales (`stage_b_predict` y `multivariate_context_predict`) envían `Authorization: Bearer HF_TOKEN`; ninguna rama prospectiva debe caer en cuota anónima.
+- Sello prospectivo final de esta preparación: revisión 7. La muestra fresh continúa `NOT_OPENED` y sin outcomes.
