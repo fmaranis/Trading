@@ -2435,3 +2435,12 @@ Prospectivo:
   - R2 une ahora todos los tags equivalentes por `fiscalEnd`, elige el filing causal más reciente y usa prioridad de tag sólo como desempate;
   - no cambia fórmula, missing-expense rule, fechas, selección ni gates;
   - sello R2 reseñado a revisión 2 con `stockOutcomesOpened=false`; 5/5 blobs críticos verificados MATCH.
+
+- Verificación final PIT R2 antes de ejecución:
+  - unit de protocolo ejecutado localmente: PASS;
+  - contrato estático sobre blob actual: PASS;
+  - sello revisión 3: 5/5 blobs críticos MATCH;
+  - `minimumEvaluable=250` y `minimumSelected=25` intactos;
+  - `OperatingIncomeLoss` continúa prohibido;
+  - coverage insuficiente se reportará como `INCONCLUSIVE_COVERAGE`, no como FAIL técnico;
+  - outcomes siguen unopened en el sello.
