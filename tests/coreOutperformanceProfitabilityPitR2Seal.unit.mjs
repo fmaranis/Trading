@@ -10,6 +10,11 @@ function gitBlobSha(text){
 }
 
 assert.equal(seal.version,'CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_SEAL');
+assert.equal(seal.sealRevision,2);
+assert.equal(seal.previousSealRevision,1);
+assert.equal(seal.preOutcomeTechnicalReseal.stockOutcomesOpened,false);
+assert.equal(seal.preOutcomeTechnicalReseal.methodologyChanged,false);
+assert.equal(seal.preOutcomeTechnicalReseal.coverageGatesChanged,false);
 assert.equal(seal.supersedesPreOutcome,'CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1');
 assert.equal(seal.v1Disposition,'INCONCLUSIVE_COVERAGE_PRE_OUTCOME_114_LT_250');
 assert.equal(seal.stockOutcomesOpened,false);
