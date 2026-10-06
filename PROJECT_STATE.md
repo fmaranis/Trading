@@ -2401,3 +2401,30 @@ Prospectivo:
   - UI explica el formato y bloquea placeholders sin email;
   - el runner mantiene SEC_INTERVAL_MS=130 (~7,7 req/s), por debajo del límite SEC de 10 req/s;
   - este hardening no altera fórmula, universo, fechas, selección, weighting ni outcomes del protocolo PIT.
+
+#### Operating Profitability PIT V1 → R2 · corrección pre-outcome de missing expenses 2026-10-06
+
+- Ejecución V1 recibida:
+  - job técnico `FAILED` porque el runner salió con código 1 al bloquear cobertura;
+  - study status `BLOCKED_DATA_ACCESS`;
+  - primer anchor 2016-06-30: `INCONCLUSIVE_OP_COVERAGE:2016-06-30:114`;
+  - mínimo preregistrado: 250 evaluables;
+  - no se abrió outcome stock-level ni Stage C1 económico.
+- Diagnóstico de causa:
+  - V1 exigía Revenue + COGS + SG&A + InterestExpense simultáneamente para el mismo fiscal year;
+  - esa condición era deliberadamente más estricta que la construcción Fama/French;
+  - Kenneth French documenta Revenue obligatorio + al menos uno de COGS / SG&A / InterestExpense;
+  - réplicas estándar de Fama/French imputan a cero los componentes de gasto faltantes, exigiendo que al menos uno esté observado.
+- V1 queda `ARCHIVED / INCONCLUSIVE_COVERAGE_PRE_OUTCOME_114_LT_250`; no se reduce el gate 250 y no se relanza como si fuese FAIL económico.
+- Nueva versión pre-outcome: `CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2`:
+  - fórmula preservada: `(Revenue - COGS - SG&A - InterestExpense) / positive BookEquity`;
+  - Revenue obligatorio;
+  - al menos uno de COGS/SG&A/InterestExpense debe estar observado;
+  - componentes faltantes entre esos tres se imputan a 0;
+  - `OperatingIncomeLoss` sigue prohibido como fallback;
+  - `filed <= signalDate` intacto;
+  - mismos anchors, universo, top decile, market-cap value weight, NEXT_OPEN, SPY/URTH y gates;
+  - mínimo evaluables sigue 250; mínimo seleccionados 25; no se relajan criterios de cobertura.
+- R2 se selló antes de outcomes en `validation-runs/preregistration/core-outperformance-profitability-pit-r2-seal.json`.
+- Job `core-outperformance-profitability-pit-r2` pasa a único `CURRENT`; V1 queda archivado.
+- Producción permanece `LEGACY`; TimesFM permanece PARKED hasta resolver primero esta traducción PIT.
