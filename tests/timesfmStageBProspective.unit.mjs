@@ -8,6 +8,8 @@ import {
 } from '../scripts/timesfmStageBProspectiveProtocol.mjs';
 import { selectProspectiveAnchor, isoWeekKey, buildProspectiveCases, materializeForecastCases, selectDirectTimesFmWinner } from '../scripts/timesfmStageBProspectiveCollectorLive.mjs';
 import { TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1 as P } from '../scripts/timesfmStageBProtocol.mjs';
+import { TIMESFM_MULTIVARIATE_CONTEXT_V1 as MV } from '../scripts/timesfmMultivariateContextV1Protocol.mjs';
+import { buildCausalMultivariateContext } from '../scripts/timesfmMultivariateContextV1DiagnosticLive.mjs';
 
 assert.equal(M.startAfter,'2026-10-05');
 assert.equal(M.cadence,'WEEKLY_FIRST_COMMON_TRADING_SESSION');
@@ -25,6 +27,12 @@ assert.equal(M.economicShadow.rule,'LOWEST_MEAN_ORDINAL_RANK_20_60');
 assert.equal(M.economicShadow.structuralCoreRelativeForecastPct,0);
 assert.equal(M.economicShadow.target,'100_PERCENT_EXECUTABLE_SHADOW_EQUITY_TO_SELECTED_ASSET');
 assert.deepEqual(M.economicShadow.comparisonArms,['LEGACY_APP','EUNL_CORE_DIRECT']);
+assert.equal(M.multivariateSignalShadow.version,'TIMESFM_MULTIVARIATE_CONTEXT_V1');
+assert.equal(M.multivariateSignalShadow.status,'FROZEN_BEFORE_FIRST_PROSPECTIVE_ANCHOR');
+assert.equal(M.multivariateSignalShadow.collectBothFrozenArms,true);
+assert.deepEqual(M.multivariateSignalShadow.arms,['FULL_PANEL_TARGETS_ONLY','FULL_PANEL_PLUS_CAUSAL_COVARIATES']);
+assert.equal(M.multivariateSignalShadow.pastOnlyCovariates,23);
+assert.equal(M.multivariateSignalShadow.productionAuthority,false);
 assert.equal(isoWeekKey('2026-10-12'),'2026-W42');
 
 assert.deepEqual(selectProspectiveAnchor(['2026-10-05'],'2026-10-05',20),{status:'WAITING_START',informationDate:null,isoWeek:null});
@@ -49,11 +57,18 @@ const dummyDirectShadow={
   predictedRelativeReturn20Pct:0,
   predictedRelativeReturn60Pct:0
 };
+const dummyMultivariateSignalShadow={
+  version:'TIMESFM_MULTIVARIATE_CONTEXT_V1',
+  targetsOnly:{point:{},quantiles:{}},
+  withCausalCovariates:{point:{},quantiles:{}},
+  outcomesOpened:false,
+  productionAuthority:false
+};
 state=appendTimesFmProspectiveAnchor(state,{
   id:'2026-10-12',isoWeek:'2026-W42',informationDate:'2026-10-12',collectedAt:'2026-10-12T17:00:00Z',
   dataProvenance:'REAL',provider:'YAHOO_FINANCE',contextStartDate:'2024-10-01',contextEndDate:'2026-10-12',
   contextLength:512,forecastHorizon:60,payloadFingerprintSha256:'a'.repeat(64),sourceManifest:{},remoteModel:{},remoteRuntime:{},
-  cases:dummyCases,directShadow:dummyDirectShadow,outcomesOpened:false,productionDefault:'LEGACY',productionAuthority:false
+  cases:dummyCases,directShadow:dummyDirectShadow,multivariateSignalShadow:dummyMultivariateSignalShadow,outcomesOpened:false,productionDefault:'LEGACY',productionAuthority:false
 },'2026-10-12T17:00:01Z');
 assert.equal(state.anchorCount,1);
 assert.equal(state.lastInformationDate,'2026-10-12');
@@ -66,10 +81,19 @@ const dates=Array.from({length:520},(_,i)=>{
 });
 const series={};
 for(const [idx,item] of [P.core,...P.assets].entries()){
-  series[item.ticker]=dates.map((date,i)=>({date,close:100+i*(0.1+idx*0.005)}));
+  series[item.ticker]=dates.map((date,i)=>{
+    const close=100+i*(0.1+idx*0.005);
+    return {date,open:close*0.999,high:close*1.004,low:close*0.996,close,volume:1_000_000+i*100+idx};
+  });
 }
 const info=dates.at(-1);
 const built=buildProspectiveCases(series,info);
+const mvBuilt=buildCausalMultivariateContext(series,info);
+assert.equal(mvBuilt.contextDates.length,512);
+assert.equal(mvBuilt.targetContext.length,MV.targets.length);
+assert.ok(mvBuilt.targetContext.every(row=>row.length===512));
+assert.equal(mvBuilt.pastOnlyCovariates.length,MV.covariates.totalPastOnly);
+assert.ok(mvBuilt.pastOnlyCovariates.every(row=>row.length===512));
 assert.equal(built.cases.length,8);
 assert.equal(built.contextDates.length,512);
 assert.ok(built.cases.every(row=>row.assetContext.length===512&&row.coreContext.length===512));
