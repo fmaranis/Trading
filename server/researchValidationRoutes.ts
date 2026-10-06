@@ -646,7 +646,11 @@ function prerequisiteError(job: JobDefinition): string | null {
     return 'DURABLE_GITHUB_TOKEN_REQUIRED';
   }
   if (job.requiresEodhdApiKey && !process.env.EODHD_API_KEY?.trim()) return 'EODHD_API_KEY_REQUIRED';
-  if (job.requiresSecEdgarUserAgent && !process.env.SEC_EDGAR_USER_AGENT?.trim()) return 'SEC_EDGAR_USER_AGENT_REQUIRED';
+  if (job.requiresSecEdgarUserAgent) {
+    const secUa = process.env.SEC_EDGAR_USER_AGENT?.trim() ?? '';
+    if (!secUa) return 'SEC_EDGAR_USER_AGENT_REQUIRED';
+    if (!/\S+@\S+\.\S+/.test(secUa)) return 'SEC_EDGAR_USER_AGENT_INVALID';
+  }
   if (job.requiresTimesFmRunner && !timesFmRemoteRunnerConfigured()) return 'TIMESFM_REMOTE_RUNNER_REQUIRED';
   if (job.requiresTimesFmAuth && !timesFmHfTokenConfigured()) return 'TIMESFM_HF_TOKEN_REQUIRED';
   return null;
