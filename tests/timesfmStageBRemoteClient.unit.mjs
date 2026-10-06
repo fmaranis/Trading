@@ -3,6 +3,8 @@ import http from 'node:http';
 import { callTimesFmStageB, TIMESFM_STAGE_B_STUDY } from '../scripts/timesfmStageBRemoteClient.mjs';
 
 let submitted = null;
+let submittedAuthorization = null;
+let resultAuthorization = null;
 const events = new Map();
 let nextId = 0;
 const server = http.createServer(async (req, res) => {
@@ -13,6 +15,7 @@ const server = http.createServer(async (req, res) => {
     let body = '';
     for await (const chunk of req) body += String(chunk);
     submitted = JSON.parse(body);
+    submittedAuthorization = req.headers.authorization ?? null;
     const id = `evt-${++nextId}`;
     const requestPayload = submitted.data[0];
     events.set(id, {
@@ -34,6 +37,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === 'GET' && eventId) {
     const value = events.get(eventId);
+    resultAuthorization = req.headers.authorization ?? null;
     if (!value) { res.statusCode=404; res.end('missing'); return; }
     res.setHeader('Content-Type','text/event-stream');
     res.end(`event: complete\ndata: ${JSON.stringify([value])}\n\n`);
@@ -53,13 +57,17 @@ const payload={
     coreContext:Array.from({length:512},(_,i)=>100+i*0.005)
   }]
 };
+process.env.HF_TOKEN='hf_test_timesfm_stage_b';
 const result=await callTimesFmStageB(payload,{baseUrl:`http://127.0.0.1:${address.port}`,timeoutMs:5000});
+delete process.env.HF_TOKEN;
 await new Promise(resolve => server.close(resolve));
 
 assert.equal(result.status,'PASS_STAGE_B_INFERENCE_BATCH');
 assert.equal(result.cases.length,1);
 assert.equal(result.cases[0].caseId,'2018Q1|SXR8');
 assert.deepEqual(submitted,{data:[payload]});
+assert.equal(submittedAuthorization,'Bearer hf_test_timesfm_stage_b');
+assert.equal(resultAuthorization,'Bearer hf_test_timesfm_stage_b');
 assert.equal(JSON.stringify(submitted).includes('future'),false);
 assert.equal(JSON.stringify(submitted).includes('outcome'),false);
 console.log('timesfmStageBRemoteClient.unit: PASS');
