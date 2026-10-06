@@ -91,51 +91,6 @@ function maps(series){return Object.fromEntries(TARGET_TICKERS.map(t=>[t,new Map
 function lastOnOrBefore(dates,cutoff){let out=null;for(const d of dates){if(d>cutoff)break;out=d;}return out;}
 function anchorKey(date){const y=Number(date.slice(0,4)),m=Number(date.slice(5,7));return `${y}Q${Math.ceil(m/3)}`;}
 
-function buildCausalMultivariateContextFromCommon(series,common,byTicker,informationDate){
-  const idx=common.indexOf(informationDate);
-  if(idx<0)throw new Error('TIMESFM_MV_V1_INFORMATION_DATE_NOT_COMMON:'+informationDate);
-  if(idx<P.contextLength+60-1)throw new Error('TIMESFM_MV_V1_CONTEXT_WARMUP_SHORT:'+(idx+1));
-  const contextDates=common.slice(idx-P.contextLength+1,idx+1);
-  const warmDates=common.slice(idx-P.contextLength-60+1,idx+1);
-  const closeHistory={};
-  for(const target of P.targets)closeHistory[target.assetId]=warmDates.map(d=>byTicker[target.ticker].get(d).close);
-  const targetContext=P.targets.map(target=>contextDates.map(d=>byTicker[target.ticker].get(d).close));
-  const covariates=[];
-  for(const target of P.targets){
-    const vals=contextDates.map(d=>Math.log1p(byTicker[target.ticker].get(d).volume));
-    covariates.push(zscore(vals));
-  }
-  for(const target of P.targets){
-    covariates.push(contextDates.map(d=>{const r=byTicker[target.ticker].get(d);return (r.high-r.low)/r.close*100;}));
-  }
-  const coreAll=closeHistory[CORE_ID];const offset=warmDates.length-contextDates.length;
-  const coreVol=[],coreDd=[],disp=[],gapMean=[],gapDisp=[];
-  for(let j=0;j<contextDates.length;j++){
-    const wi=offset+j;
-    coreVol.push(realizedVol20(coreAll,wi));
-    coreDd.push(drawdown60(coreAll,wi));
-    const dailyReturns=[],overnightGaps=[];
-    for(const target of P.targets){
-      const a=closeHistory[target.assetId];
-      if(wi>0&&a[wi-1]>0&&a[wi]>0)dailyReturns.push(Math.log(a[wi]/a[wi-1])*100);
-      const current=byTicker[target.ticker].get(warmDates[wi]);
-      const previous=byTicker[target.ticker].get(warmDates[wi-1]);
-      if(current?.open>0&&previous?.close>0)overnightGaps.push((current.open/previous.close-1)*100);
-    }
-    disp.push(stdev(dailyReturns)??0);
-    gapMean.push(mean(overnightGaps)??0);
-    gapDisp.push(stdev(overnightGaps)??0);
-  }
-  covariates.push(coreVol,coreDd,disp,gapMean,gapDisp);
-  if(covariates.length!==P.covariates.totalPastOnly)throw new Error('TIMESFM_MV_V1_COVARIATE_BUILD_COUNT:'+covariates.length);
-  return {contextDates,targetContext,pastOnlyCovariates:covariates};
-}
-
-export function buildCausalMultivariateContext(series,informationDate){
-  const common=intersectDates(series),byTicker=maps(series);
-  return buildCausalMultivariateContextFromCommon(series,common,byTicker,informationDate);
-}
-
 export function buildAnchors(series){
   const common=intersectDates(series),byTicker=maps(series),anchors=[],skips=[];
   for(const calendarDate of quarterEndCalendarDates()){
@@ -144,9 +99,41 @@ export function buildAnchors(series){
     if(idx<P.contextLength+60-1){skips.push({calendarDate,informationDate,reason:'CONTEXT_WARMUP_SHORT',available:idx+1});continue;}
     const futureDates=common.slice(idx+1,idx+1+P.forecastHorizon);
     if(futureDates.length<P.forecastHorizon){skips.push({calendarDate,informationDate,reason:'FUTURE_SHORT',available:futureDates.length});continue;}
-    const built=buildCausalMultivariateContextFromCommon(series,common,byTicker,informationDate);
+    const contextDates=common.slice(idx-P.contextLength+1,idx+1);
+    const warmDates=common.slice(idx-P.contextLength-60+1,idx+1);
+    const closeHistory={};
+    for(const target of P.targets)closeHistory[target.assetId]=warmDates.map(d=>byTicker[target.ticker].get(d).close);
+    const targetContext=P.targets.map(target=>contextDates.map(d=>byTicker[target.ticker].get(d).close));
+    const covariates=[];
+    for(const target of P.targets){
+      const vals=contextDates.map(d=>Math.log1p(byTicker[target.ticker].get(d).volume));
+      covariates.push(zscore(vals));
+    }
+    for(const target of P.targets){
+      covariates.push(contextDates.map(d=>{const r=byTicker[target.ticker].get(d);return (r.high-r.low)/r.close*100;}));
+    }
+    const coreAll=closeHistory[CORE_ID];const offset=warmDates.length-contextDates.length;
+    const coreVol=[],coreDd=[],disp=[],gapMean=[],gapDisp=[];
+    for(let j=0;j<contextDates.length;j++){
+      const wi=offset+j;
+      coreVol.push(realizedVol20(coreAll,wi));
+      coreDd.push(drawdown60(coreAll,wi));
+      const dailyReturns=[],overnightGaps=[];
+      for(const target of P.targets){
+        const a=closeHistory[target.assetId];
+        if(wi>0&&a[wi-1]>0&&a[wi]>0)dailyReturns.push(Math.log(a[wi]/a[wi-1])*100);
+        const current=byTicker[target.ticker].get(warmDates[wi]);
+        const previous=byTicker[target.ticker].get(warmDates[wi-1]);
+        if(current?.open>0&&previous?.close>0)overnightGaps.push((current.open/previous.close-1)*100);
+      }
+      disp.push(stdev(dailyReturns)??0);
+      gapMean.push(mean(overnightGaps)??0);
+      gapDisp.push(stdev(overnightGaps)??0);
+    }
+    covariates.push(coreVol,coreDd,disp,gapMean,gapDisp);
+    if(covariates.length!==P.covariates.totalPastOnly)throw new Error('TIMESFM_MV_V1_COVARIATE_BUILD_COUNT:'+covariates.length);
     const anchorId=anchorKey(calendarDate);
-    anchors.push({anchorId,calendarDate,informationDate,futureDates,...built});
+    anchors.push({anchorId,calendarDate,informationDate,contextDates,futureDates,targetContext,pastOnlyCovariates:covariates});
   }
   return {anchors,skips};
 }
