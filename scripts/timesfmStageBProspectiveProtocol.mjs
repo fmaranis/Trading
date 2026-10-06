@@ -1,8 +1,9 @@
 import crypto from 'node:crypto';
 import { TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1 as STAGE_B } from './timesfmStageBProtocol.mjs';
+import { TIMESFM_MULTIVARIATE_CONTEXT_V1 as MV } from './timesfmMultivariateContextV1Protocol.mjs';
 
 export const TIMESFM_STAGE_B_PROSPECTIVE_VERSION = 'TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1';
-export const TIMESFM_STAGE_B_PROSPECTIVE_SCHEMA_VERSION = 1;
+export const TIMESFM_STAGE_B_PROSPECTIVE_SCHEMA_VERSION = 2;
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -39,6 +40,24 @@ export const TIMESFM_STAGE_B_PROSPECTIVE_METHODOLOGY = Object.freeze({
   baselines: STAGE_B.baselines,
   gates: STAGE_B.gates,
   normalization: STAGE_B.normalization,
+  multivariateSignalShadow: Object.freeze({
+    version: MV.version,
+    status: 'FROZEN_BEFORE_FIRST_PROSPECTIVE_ANCHOR',
+    role: 'SIGNAL_ONLY_SHADOW',
+    historicalDisposition: 'POSTHOC_PANEL_SIGNAL_NO_COVARIATE_LIFT',
+    historicalSample: 'CONSUMED_DIAGNOSTIC_ONLY',
+    collectBothFrozenArms: true,
+    targetIds: MV.targets.map(x=>x.assetId),
+    targetVariates: MV.arms.fullPanelTargetsOnly.targetVariates,
+    pastOnlyCovariates: MV.covariates.totalPastOnly,
+    contextLength: MV.contextLength,
+    forecastHorizon: MV.forecastHorizon,
+    evaluationHorizons: MV.evaluationHorizons,
+    primaryHorizons: MV.primaryHorizons,
+    arms: ['FULL_PANEL_TARGETS_ONLY','FULL_PANEL_PLUS_CAUSAL_COVARIATES'],
+    noRetuneAfterCollectionOpens: true,
+    productionAuthority: false
+  }),
   economicShadow: Object.freeze({
     version: 'TIMESFM_DIRECT_SELECTOR_V1',
     status: 'FROZEN_BEFORE_FIRST_PROSPECTIVE_ANCHOR',
@@ -148,6 +167,15 @@ export function verifyTimesFmProspectiveState(state) {
       throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_DIRECT_SHADOW_POLICY:' + row.id);
     }
     if (!row.directShadow?.selectedAssetId) throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_DIRECT_SHADOW_SELECTION:' + row.id);
+    if (row.multivariateSignalShadow?.version !== TIMESFM_STAGE_B_PROSPECTIVE_METHODOLOGY.multivariateSignalShadow.version) {
+      throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_MULTIVARIATE_SHADOW_VERSION:' + row.id);
+    }
+    if (row.multivariateSignalShadow?.outcomesOpened !== false) {
+      throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_MULTIVARIATE_OUTCOME_OPENED:' + row.id);
+    }
+    if (!row.multivariateSignalShadow?.targetsOnly || !row.multivariateSignalShadow?.withCausalCovariates) {
+      throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_MULTIVARIATE_ARMS:' + row.id);
+    }
   }
   const expectedLast = state.anchors.at(-1)?.informationDate ?? null;
   if (state.lastInformationDate !== expectedLast) throw new Error('TIMESFM_STAGE_B_PROSPECTIVE_LAST_DATE');
