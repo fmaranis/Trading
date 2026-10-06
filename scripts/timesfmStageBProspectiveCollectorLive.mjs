@@ -8,6 +8,9 @@ import {
   trailing60LogDriftForecast
 } from './timesfmStageBProtocol.mjs';
 import { callTimesFmStageB } from './timesfmStageBRemoteClient.mjs';
+import { TIMESFM_MULTIVARIATE_CONTEXT_V1 as MV } from './timesfmMultivariateContextV1Protocol.mjs';
+import { callTimesFmMultivariateContextV1 } from './timesfmMultivariateContextV1RemoteClient.mjs';
+import { buildCausalMultivariateContext } from './timesfmMultivariateContextV1DiagnosticLive.mjs';
 import {
   TIMESFM_STAGE_B_PROSPECTIVE_METHODOLOGY as M,
   appendTimesFmProspectiveAnchor,
@@ -73,9 +76,9 @@ export function parseYahooClosePayload(symbol, text) {
   const quote=result.indicators?.quote?.[0]??{};
   const bars=[];
   for(let i=0;i<result.timestamp.length;i++){
-    const close=Number(quote.close?.[i]);
-    if(!(close>0) || !Number.isFinite(close)) continue;
-    bars.push({date:new Date(Number(result.timestamp[i])*1000).toISOString().slice(0,10),close});
+    const open=Number(quote.open?.[i]),high=Number(quote.high?.[i]),low=Number(quote.low?.[i]),close=Number(quote.close?.[i]),volume=Number(quote.volume?.[i]);
+    if(![open,high,low,close,volume].every(Number.isFinite)||!(open>0)||!(high>0)||!(low>0)||!(close>0)||volume<0) continue;
+    bars.push({date:new Date(Number(result.timestamp[i])*1000).toISOString().slice(0,10),open,high,low,close,volume});
   }
   bars.sort((a,b)=>a.date.localeCompare(b.date));
   return { bars, meta:{ symbol:String(result.meta?.symbol??symbol).toUpperCase(), instrumentType:String(result.meta?.instrumentType??'').toUpperCase() } };
@@ -304,6 +307,45 @@ export async function main(now = new Date()) {
   const remote=await callTimesFmStageB(payload);
   const cases=materializeForecastCases(built,remote);
   const directShadow=selectDirectTimesFmWinner(cases);
+
+  const mvBuilt=buildCausalMultivariateContext(series,informationDate);
+  const mvPayload={
+    study:MV.version,
+    protocol:{
+      contextLength:MV.contextLength,
+      forecastHorizon:MV.forecastHorizon,
+      targetIds:MV.targets.map(x=>x.assetId),
+      pastOnlyCovariateCount:MV.covariates.totalPastOnly,
+      useZNorm:true
+    },
+    anchors:[{
+      anchorId:informationDate,
+      informationDate,
+      targetContext:mvBuilt.targetContext,
+      pastOnlyCovariates:mvBuilt.pastOnlyCovariates
+    }]
+  };
+  const mvPayloadFingerprintSha256=sha256Canonical(mvPayload);
+  const mvRemote=await callTimesFmMultivariateContextV1(mvPayload);
+  const mvAnchor=mvRemote.anchors?.[0];
+  if(!mvAnchor || mvAnchor.anchorId!==informationDate) throw new Error('TIMESFM_PROSPECTIVE_MULTIVARIATE_ANCHOR_MISMATCH');
+  const multivariateSignalShadow={
+    version:MV.version,
+    historicalDisposition:'POSTHOC_PANEL_SIGNAL_NO_COVARIATE_LIFT',
+    contextStartDate:mvBuilt.contextDates[0],
+    contextEndDate:mvBuilt.contextDates.at(-1),
+    contextLength:MV.contextLength,
+    forecastHorizon:MV.forecastHorizon,
+    targetIds:MV.targets.map(x=>x.assetId),
+    lastCloseByAsset:Object.fromEntries(MV.targets.map((target,index)=>[target.assetId,round(mvBuilt.targetContext[index].at(-1),8)])),
+    payloadFingerprintSha256:mvPayloadFingerprintSha256,
+    remoteModel:mvRemote.model,
+    remoteRuntime:mvRemote.runtime,
+    targetsOnly:mvAnchor.targetsOnly,
+    withCausalCovariates:mvAnchor.withCausalCovariates,
+    outcomesOpened:false,
+    productionAuthority:false
+  };
   const draft={
     id:informationDate,
     isoWeek:selected.isoWeek,
@@ -321,6 +363,7 @@ export async function main(now = new Date()) {
     remoteRuntime:remote.runtime,
     cases,
     directShadow,
+    multivariateSignalShadow,
     outcomesOpened:false,
     productionDefault:'LEGACY',
     productionAuthority:false,
@@ -336,6 +379,12 @@ export async function main(now = new Date()) {
     anchorCount:state.anchorCount,
     cases:cases.length,
     directShadow,
+    multivariateSignalShadow:{
+      version:multivariateSignalShadow.version,
+      arms:['FULL_PANEL_TARGETS_ONLY','FULL_PANEL_PLUS_CAUSAL_COVARIATES'],
+      targetCount:multivariateSignalShadow.targetIds.length,
+      outcomesOpened:false
+    },
     persistence:saved.persistence,
     commitSha:saved.commitSha,
     outcomesOpened:false,
