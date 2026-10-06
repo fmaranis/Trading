@@ -84,6 +84,8 @@ assert.match(profitabilityPitBlock, /scripts\/coreOutperformanceProfitabilityPit
 assert.match(routes, /id: 'fundamental-quality-valuation-broad-pit-v1'/);
 assert.match(routes, /scripts\/fundamentalQualityValuationBroadPitV1Live\.ts/);
 assert.match(routes, /SEC_EDGAR_USER_AGENT_REQUIRED/);
+assert.match(routes, /SEC_EDGAR_USER_AGENT_INVALID/);
+assert.match(routes, /\\S\+@\\S\+\\.\\S\+/);
 assert.match(routes, /id: 'phase6-forward-risk-context-stage-a-r2-readiness'/);
 assert.match(routes, /scripts\/phase6ForwardRiskContextStageAR2CollectorLive\.ts/);
 assert.match(routes, /id: 'quality-allocation-dynamic-future-forward-v1'/);
