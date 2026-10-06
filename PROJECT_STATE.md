@@ -2211,3 +2211,6 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 - El job queda bloqueado antes de Yahoo/inferencia si falta token, el token no puede consultar cuota, el runner desplegado no es v3 o la cuota restante es insuficiente.
 - Muestra fresh 2026-W42+ continúa unopened/outcomes unopened.
 - Sello actualizado a revisión 9.
+
+- Hardening posterior: `.env.example` documenta `HF_TOKEN` como secreto server-side y `server.ts` redacciona `HF_TOKEN`, `HUGGINGFACE_TOKEN` y `HUGGING_FACE_HUB_TOKEN` en cualquier salida serializada.
+- El valor del token nunca se versiona ni se incorpora al sello/evidencia.
