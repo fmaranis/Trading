@@ -316,6 +316,8 @@ const JOBS: JobDefinition[] = [
     requiresGithubReplayToken: true,
     steps: [
       { label: 'Guard sello TimesFM prospectivo', command: 'node', args: ['tests/timesfmStageBProspectiveSeal.unit.mjs'] },
+      { label: 'Guard cliente ZeroGPU Stage B autenticado', command: 'node', args: ['tests/timesfmStageBRemoteClient.unit.mjs'] },
+      { label: 'Guard contrato ZeroGPU Stage B autenticado', command: 'node', args: ['tests/timesfmStageBRemoteContract.unit.mjs'] },
       { label: 'Guard selector directo TimesFM', command: 'npx', args: ['tsx', 'tests/timesFmDirectSelectorV1.unit.ts'] },
       { label: 'Guard contrato selector directo TimesFM', command: 'node', args: ['tests/timesFmDirectSelectorV1Contract.unit.mjs'] },
       { label: 'Guard paridad selector directo prospectivo', command: 'npx', args: ['tsx', 'tests/timesFmDirectSelectorProspectiveParity.unit.ts'] },
@@ -619,7 +621,7 @@ async function asyncPrerequisiteError(job: JobDefinition): Promise<string | null
         return 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED';
       }
       const quota = await fetchTimesFmZeroGpuQuota();
-      const minimumQuota = job.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID ? 270 : 70;
+      const minimumQuota = job.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID ? 270 : 120;
       if (quota.remaining < minimumQuota) return 'TIMESFM_ZERO_GPU_QUOTA_INSUFFICIENT';
     } catch (error: any) {
       const message = error?.message || String(error);
