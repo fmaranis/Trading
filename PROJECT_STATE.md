@@ -2337,3 +2337,34 @@ Prospectivo:
   - muestra consumida, sin autoridad de promoción ni retuning.
 - El collector prospectivo W42 sigue `PARKED` hasta terminar este postmortem y después debe reactivarse como línea fresh/blind.
 - Producción permanece `LEGACY`.
+
+
+#### TIMESFM_PANEL_STICKY_OOS_V1_POSTMORTEM — señal OOS negativa 2026-10-06
+
+- Postmortem completado correctamente: `CONSUMED_HOLDOUT_SIGNAL_DIAGNOSTIC_ONLY`.
+- Holdout ya consumido: 9 anchors mensuales 2025-10-31 → 2026-06-30, horizonte 60 sesiones.
+- Calidad de señal OOS del panel TimesFM a 60 sesiones:
+  - mean Rank IC = `-0.240741`;
+  - directional accuracy = `43.06%`;
+  - anchors con Rank IC positivo = `3/9`;
+  - top-1 exact hits = `1/9`;
+  - top-1 previsto dentro del top-3 real = `4/9`;
+  - exceso relativo real medio del activo Sticky seleccionado = `-2.4674 pp`.
+- El deterioro aparece después de los primeros anchors:
+  - 2025-10 Rank IC `+0.428571`, top-1 correcto;
+  - 2025-11 `+0.238095`;
+  - 2025-12 `-0.142857`;
+  - 2026-01 y 2026-02 `-0.738095`;
+  - 2026-03 `-0.357143`;
+  - 2026-04 `-0.428571`;
+  - 2026-05 `-0.595238`;
+  - 2026-06 `+0.166667`.
+- Interpretación:
+  - el FAIL económico Sticky no puede atribuirse sólo a sizing/rotación;
+  - la propia señal cross-sectional TimesFM 60 también falló en este OOS concreto;
+  - el resultado histórico 2018Q1-2025Q3 queda como evidencia de señal pasada, pero no demuestra estabilidad temporal suficiente;
+  - no se debe crear Sticky V2/V3 ni reajustar ranks/thresholds/horizonte usando este holdout consumido.
+- `timesfm-panel-sticky-oos-v1-postmortem` queda `ARCHIVED`.
+- Se reactiva `timesfm-stage-b-prospective-confirmation-v1` como único `CURRENT`.
+- La siguiente evidencia válida debe venir del collector fresh/blind W42+ ya preregistrado, manteniendo simultáneamente Stage B pairwise, selector directo shadow, panel 9 y panel 9 + 23 covariables.
+- Producción permanece `LEGACY`.
