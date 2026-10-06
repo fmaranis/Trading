@@ -1,0 +1,33 @@
+{
+  "version": "CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_SEAL",
+  "frozenAt": "2026-10-06",
+  "supersedesPreOutcome": "CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1",
+  "v1Disposition": "INCONCLUSIVE_COVERAGE_PRE_OUTCOME_114_LT_250",
+  "stockOutcomesOpened": false,
+  "methodologyChangeScope": "MISSING_EXPENSE_TRANSLATION_ONLY",
+  "evidenceBasis": [
+    "KENNETH_FRENCH_OP_REQUIRES_REVENUE_AND_AT_LEAST_ONE_EXPENSE_COMPONENT",
+    "STANDARD_FF_REPLICATIONS_IMPUTE_MISSING_COGS_SGA_INTEREST_TO_ZERO"
+  ],
+  "preserved": {
+    "anchors": true,
+    "universe": true,
+    "filingCutoff": true,
+    "formula": true,
+    "topDecile": true,
+    "valueWeight": true,
+    "nextOpen": true,
+    "benchmarks": true,
+    "coverageGates": true,
+    "productionDefault": true
+  },
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "expectedGitBlobSha": {
+    "docs/CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_2026-10-06.md": "d486c65a1efdcea6308eac8bcf0663c11a3948b0",
+    "scripts/coreOutperformanceProfitabilityPitR2Protocol.mjs": "cd00ea9f3e2ac93c683301a0a224eb3d1e44cd6d",
+    "scripts/coreOutperformanceProfitabilityPitR2Live.mjs": "1b71b8938a7fdc2fb89c4cafb29cccbb2beed599",
+    "tests/coreOutperformanceProfitabilityPitR2.unit.mjs": "db102ae16300851e98844c16eb1b22ccdd1a2742",
+    "tests/coreOutperformanceProfitabilityPitR2Contract.unit.mjs": "88b2cf9ab96ac6f88dc959c141a097bbb96fb039"
+  }
+}
