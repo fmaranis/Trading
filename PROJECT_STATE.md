@@ -2393,3 +2393,11 @@ Prospectivo:
   - TimesFM podrá investigarse como contexto de ranking/confianza/riesgo/timing, no como sustituto del factor ni como 100% al ganador;
   - cualquier validación combinada deberá usar muestra fresh/OOS adecuada; no se reutilizan los outcomes consumidos de TimesFM Sticky ni se retunea sobre ellos.
 - PEAD R3 permanece PARKED; sigue siendo una línea ortogonal válida, pero no es la candidata pre-TimesFM con evidencia económica más fuerte.
+
+- Hardening SEC EDGAR 2026-10-06:
+  - SEC_EDGAR_USER_AGENT sigue siendo secreto server-side, no API key;
+  - preflight exige ahora email de contacto además de texto identificador;
+  - formato esperado: Custodia Trading Research <email-real>;
+  - UI explica el formato y bloquea placeholders sin email;
+  - el runner mantiene SEC_INTERVAL_MS=130 (~7,7 req/s), por debajo del límite SEC de 10 req/s;
+  - este hardening no altera fórmula, universo, fechas, selección, weighting ni outcomes del protocolo PIT.
