@@ -26,14 +26,20 @@
   "expectedGitBlobSha": {
     "docs/CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_2026-10-06.md": "752950736f9bed4d573f37ce3d3f48452b8dfcae",
     "scripts/coreOutperformanceProfitabilityPitR2Protocol.mjs": "37289820885926f7d12406a5c6bbc1721c0e4223",
-    "scripts/coreOutperformanceProfitabilityPitR2Live.mjs": "b56b318bb931914665bdea4125985c956af81f2a",
+    "scripts/coreOutperformanceProfitabilityPitR2Live.mjs": "4c663121347591d09431f1b8b520dcca2ca64962",
     "tests/coreOutperformanceProfitabilityPitR2.unit.mjs": "db102ae16300851e98844c16eb1b22ccdd1a2742",
-    "tests/coreOutperformanceProfitabilityPitR2Contract.unit.mjs": "49c1b7684c9efe98be6ca0791e0350398f4eab78"
+    "tests/coreOutperformanceProfitabilityPitR2Contract.unit.mjs": "547816e6b0723f746278c7b269f1818fdebeedfb"
   },
-  "sealRevision": 2,
-  "previousSealRevision": 1,
+  "sealRevision": 3,
+  "previousSealRevision": 2,
   "preOutcomeTechnicalReseal": {
     "reason": "Equivalent SEC tags must be unioned by fiscal end instead of selecting one global tag series.",
+    "stockOutcomesOpened": false,
+    "methodologyChanged": false,
+    "coverageGatesChanged": false
+  },
+  "preOutcomeStatusSemantics": {
+    "reason": "Coverage insufficiency is an inconclusive research result, not a technical data-access failure.",
     "stockOutcomesOpened": false,
     "methodologyChanged": false,
     "coverageGatesChanged": false
