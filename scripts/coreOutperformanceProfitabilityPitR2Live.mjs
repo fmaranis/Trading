@@ -97,23 +97,28 @@ function unitRows(payload, taxonomy, tag, kind) {
   return Array.isArray(match?.[1]) ? match[1] : [];
 }
 function annualSeries(payload,tags,signalDate) {
-  let best=[];
-  for (const tag of tags) {
+  const byEnd=new Map();
+  for (let tagPriority=0; tagPriority<tags.length; tagPriority++) {
+    const tag=tags[tagPriority];
     const rows=unitRows(payload,'us-gaap',tag,'USD').filter(row => {
       const start=Date.parse(String(row.start??'')), end=Date.parse(String(row.end??''));
       const days=(end-start)/86400000;
       return Number.isFinite(Number(row.val)) && P.fundamentals.acceptedForms.includes(String(row.form))
         && iso(row.filed) && iso(row.filed)<=signalDate && days>=250 && days<=460;
     });
-    const byEnd=new Map();
     for (const row of rows) {
-      const end=iso(row.end), prev=byEnd.get(end);
-      if (!prev || iso(row.filed)>iso(prev.filed)) byEnd.set(end,row);
+      const end=iso(row.end);
+      if (!end) continue;
+      const candidate={end,value:Number(row.val),filed:iso(row.filed),tag,tagPriority};
+      const prev=byEnd.get(end);
+      if (!prev
+        || candidate.filed>prev.filed
+        || (candidate.filed===prev.filed && candidate.tagPriority<prev.tagPriority)) {
+        byEnd.set(end,candidate);
+      }
     }
-    const series=[...byEnd.entries()].map(([end,row])=>({end,value:Number(row.val),filed:iso(row.filed),tag})).sort((a,b)=>a.end.localeCompare(b.end));
-    if (series.length>best.length) best=series;
   }
-  return best;
+  return [...byEnd.values()].sort((x,y)=>x.end.localeCompare(y.end));
 }
 function instantAtEnd(payload,tags,end,signalDate) {
   for (const tag of tags) {
