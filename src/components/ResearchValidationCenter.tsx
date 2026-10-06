@@ -444,7 +444,8 @@ function blockedMessage(reason: string | null | undefined): string | null {
     return 'Falta GITHUB_REPLAY_SYNC_TOKEN en el backend. El job no arrancará hasta que la persistencia durable esté disponible.';
   }
   if (reason === 'EODHD_API_KEY_REQUIRED') return 'Falta EODHD_API_KEY. La validación PIT amplia necesita la membresía histórica del S&P 500 y no arrancará sin ella.';
-  if (reason === 'SEC_EDGAR_USER_AGENT_REQUIRED') return 'Falta SEC_EDGAR_USER_AGENT. Debe identificar el acceso automatizado a SEC EDGAR; sin ese dato el job queda bloqueado antes de abrir la muestra.';
+  if (reason === 'SEC_EDGAR_USER_AGENT_REQUIRED') return 'Falta SEC_EDGAR_USER_AGENT. Crea un secret server-side con un identificador y email real, por ejemplo: Custodia Trading Research tu_correo@dominio.com. No uses VITE_ ni pegues el correo en el código.';
+  if (reason === 'SEC_EDGAR_USER_AGENT_INVALID') return 'SEC_EDGAR_USER_AGENT existe pero no incluye un email de contacto válido. Usa formato: Custodia Trading Research tu_correo@dominio.com.';
   if (reason === 'TIMESFM_REMOTE_RUNNER_REQUIRED') return 'Falta el Space gratuito Hugging Face ZeroGPU de TimesFM. AI Studio ya no descarga ni ejecuta el modelo.';
   if (reason === 'TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED') return 'El Space TimesFM todavía no expone multivariate_context_predict. Este job queda bloqueado antes de guards, Yahoo o inferencia.';
   if (reason === 'TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED') return 'El Space TimesFM todavía no tiene la versión exacta requerida: API v3, lotes de 8 y 45 s por llamada. El job queda bloqueado antes de Yahoo o inferencia.';
