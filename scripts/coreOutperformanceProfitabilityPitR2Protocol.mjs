@@ -26,6 +26,7 @@ export const CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2 = Object.freeze({
     interestTags: ['InterestExpenseNonOperating','InterestExpense'],
     equityTags: ['StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest','StockholdersEquity'],
     sharesTags: ['EntityCommonStockSharesOutstanding','CommonStockSharesOutstanding'],
+    equivalentTagResolution: 'UNION_BY_FISCAL_END_LATEST_FILED_THEN_TAG_PRIORITY',
     eligibility: 'REVENUE_REQUIRED_AND_AT_LEAST_ONE_OF_COGS_SGA_INTEREST_PRESENT',
     missingExpenseRule: 'MISSING_COGS_SGA_OR_INTEREST_IMPUTED_ZERO_AFTER_AT_LEAST_ONE_EXPENSE_IS_PRESENT',
     noOperatingIncomeFallback: true,
