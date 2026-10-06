@@ -198,7 +198,7 @@ assert.match(routes, /TIMESFM_MULTIVARIATE_RUNNER_ENDPOINT_REQUIRED/);
 assert.match(routes, /TIMESFM_MULTIVARIATE_RUNNER_VERSION_REQUIRED/);
 assert.match(routes, /TIMESFM_PROSPECTIVE_JOB_ID/);
 assert.match(routes, /job\.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID \|\| job\.id === TIMESFM_PROSPECTIVE_JOB_ID/);
-assert.match(routes, /minimumQuota = job\.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID \? 270 : 70/);
+assert.match(routes, /minimumQuota = job\.id === TIMESFM_MULTIVARIATE_CONTEXT_JOB_ID \? 270 : 120/);
 assert.match(routes, /TIMESFM_HF_TOKEN_REQUIRED/);
 assert.match(routes, /TIMESFM_HF_TOKEN_QUOTA_PERMISSION_REQUIRED/);
 assert.match(routes, /TIMESFM_ZERO_GPU_QUOTA_INSUFFICIENT/);
