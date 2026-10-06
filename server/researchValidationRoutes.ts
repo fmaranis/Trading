@@ -311,7 +311,7 @@ const JOBS: JobDefinition[] = [
     name: 'TimesFM · confirmación prospectiva semanal',
     description: 'Collector fresh/blind único de TimesFM. Registra una observación semanal sin backfill: Stage B pairwise, selector directo shadow y los dos brazos multivariantes ya congelados (panel 9 y panel 9 + 23 covariables), siempre antes de outcomes. Producción continúa LEGACY.',
     marker: 'TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1_COLLECTOR_RESULT',
-    visibility: 'PARKED',
+    visibility: 'CURRENT',
     requiresTimesFmRunner: true,
     requiresTimesFmAuth: true,
     requiresGithubReplayToken: true,
@@ -444,7 +444,8 @@ const JOBS: JobDefinition[] = [
     name: 'TimesFM · postmortem señal OOS Sticky V1',
     description: 'Diagnóstico local sobre el holdout OOS ya consumido. Mide Rank IC 60, dirección y calidad del top-1 usando los forecasts guardados y los Yahoo REAL ya descargados. No llama a TimesFM, no abre muestra nueva y no puede promocionar producción.',
     marker: 'TIMESFM_PANEL_STICKY_OOS_V1_POSTMORTEM_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'TimesFM Sticky V1 postmortem · señal OOS negativa · holdout consumido',
     steps: [
       { label: 'Guard métricas postmortem TimesFM', command: 'npx', args: ['tsx', 'tests/timesfmPanelStickyOosV1Postmortem.unit.ts'] },
       { label: 'Guard alcance postmortem TimesFM', command: 'node', args: ['tests/timesfmPanelStickyOosV1PostmortemContract.unit.mjs'] },
