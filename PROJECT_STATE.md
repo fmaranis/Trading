@@ -2444,3 +2444,43 @@ Prospectivo:
   - `OperatingIncomeLoss` continúa prohibido;
   - coverage insuficiente se reportará como `INCONCLUSIVE_COVERAGE`, no como FAIL técnico;
   - outcomes siguen unopened en el sello.
+
+#### Operating Profitability PIT R2 — FAIL económico cerrado 2026-10-07
+
+- Ejecución técnica completada: job `PASSED`, exitCode 0; study status `FAIL_ACTIONABLE_TRANSLATION`.
+- Stage C1 abrió los 5 periodos congelados con ejecución causal NEXT_OPEN y cobertura suficiente; ya no es un problema de datos.
+- CAGR bruto:
+  - candidato: `12.6832%`;
+  - SPY: `17.5698%`;
+  - URTH: `14.9861%`;
+  - exceso vs SPY: `-4.8866 pp`;
+  - exceso vs URTH: `-2.3029 pp`.
+- Consistencia por periodo:
+  - bate SPY: `0/5`;
+  - bate URTH: `1/5`;
+  - 2016: -7.5986 pp vs SPY / -7.2108 pp vs URTH;
+  - 2017: -4.1132 / -1.0286;
+  - 2018: -1.2971 / +2.1318;
+  - 2019: -7.9487 / -3.6957;
+  - 2020: -2.7238 / -1.5543.
+- Veredicto congelado del runner: `STOP_TRANSLATION_NO_RETUNING`.
+- No se abre Stage C2 económico y no se mezcla TimesFM con esta traducción fallida.
+- No se modifica fórmula, decil, ponderación, fechas ni thresholds usando estos outcomes consumidos.
+- Evidencia durable: `validation-runs/diagnostics/core-outperformance-profitability-pit-r2-result.json`.
+- `core-outperformance-profitability-pit-r2` queda `ARCHIVED`.
+
+#### Retorno a PEAD R3 2026-10-07
+
+- Tras cerrar Profitability PIT R2, se reactiva `pead-yahoo-calendar-source-audit-r3` como único `CURRENT`.
+- PEAD R3 sigue pre-price/pre-outcome:
+  - Yahoo historical calendar by range;
+  - doble PIT S&P 500;
+  - 2024-01-15 → 2024-03-15;
+  - entrada congelada = primera apertura regular estrictamente posterior al `reportDate`;
+  - sin BMO/AMC inference;
+  - sin fallback sintético;
+  - `priceOutcomesFetched=false`, `economicOutcomesOpened=false`.
+- Sello PEAD R3 reseñado técnicamente a revisión 2 sólo para actualizar hashes de routes/runtime/UI después de reactivarlo; metodología, muestra y gates no cambian.
+- Si Source Audit R3 pasa, el siguiente paso ya preregistrado es `PEAD_ANALYST_SURPRISE_V1` a 60 sesiones; no se diseña una política económica hasta comprobar primero calidad predictiva.
+- TimesFM prospectivo continúa PARKED hasta W42 y no se utiliza para rescatar retrospectivamente ninguna línea fallida.
+- Producción permanece `LEGACY`.
