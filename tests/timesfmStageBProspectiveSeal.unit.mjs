@@ -13,7 +13,7 @@ function gitBlobSha(content){
 }
 
 assert.equal(seal.version,'TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1_SEAL');
-assert.equal(seal.sealRevision,6);
+assert.equal(seal.sealRevision,7);
 assert.equal(seal.historicalDiagnostic.observedResult,'PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION');
 assert.equal(seal.historicalDiagnostic.consumed,true);
 assert.equal(seal.prospective.sampleOpened,false);
@@ -36,6 +36,12 @@ assert.equal(seal.multivariateSignalShadow.targets,9);
 assert.equal(seal.multivariateSignalShadow.pastOnlyCovariates,23);
 assert.equal(seal.multivariateSignalShadow.persistsBothArmsBeforeOutcomes,true);
 assert.equal(seal.multivariateSignalShadow.productionAuthority,false);
+assert.equal(seal.infrastructure.authenticatedWithHfToken,true);
+assert.equal(seal.infrastructure.stageBGpuDurationSeconds,80);
+assert.equal(seal.infrastructure.multivariateGpuDurationSeconds,45);
+assert.equal(seal.infrastructure.minimumAuthenticatedQuotaSecondsBeforeWeeklyRun,120);
+assert.equal(seal.infrastructure.multivariateMinimumQuotaSecondsBeforeCall,70);
+assert.deepEqual(seal.infrastructure.endpoints,['stage_b_predict','multivariate_context_predict']);
 assert.equal(seal.directShadow.version,'TIMESFM_DIRECT_SELECTOR_V1');
 assert.equal(seal.directShadow.frozenBeforeFirstProspectiveAnchor,true);
 assert.equal(seal.directShadow.candidatePool,'8_STAGE_B_ASSETS_PLUS_EUNL_CORE');
@@ -65,6 +71,8 @@ assert.match(block,/visibility: 'CURRENT'/);
 assert.match(block,/requiresTimesFmRunner: true/);
 assert.match(block,/requiresTimesFmAuth: true/);
 assert.match(block,/requiresGithubReplayToken: true/);
+assert.ok(block.indexOf('tests/timesfmStageBRemoteClient.unit.mjs') < block.indexOf('scripts/timesfmStageBProspectiveCollectorLive.mjs'));
+assert.ok(block.indexOf('tests/timesfmStageBRemoteContract.unit.mjs') < block.indexOf('scripts/timesfmStageBProspectiveCollectorLive.mjs'));
 assert.ok(block.indexOf('tests/timesFmDirectSelectorV1.unit.ts') < block.indexOf('scripts/timesfmStageBProspectiveCollectorLive.mjs'));
 assert.ok(block.indexOf('tests/timesFmDirectSelectorV1Contract.unit.mjs') < block.indexOf('scripts/timesfmStageBProspectiveCollectorLive.mjs'));
 assert.ok(block.indexOf('tests/timesFmDirectSelectorProspectiveParity.unit.ts') < block.indexOf('scripts/timesfmStageBProspectiveCollectorLive.mjs'));
