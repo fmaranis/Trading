@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "study": "CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2",
+  "capturedAt": "2026-10-07",
+  "sourceRun": {
+    "jobId": "core-outperformance-profitability-pit-r2",
+    "jobStatus": "PASSED",
+    "studyStatus": "FAIL_ACTIONABLE_TRANSLATION",
+    "startedAt": "2026-10-06T22:08:39.252Z",
+    "finishedAt": "2026-10-06T22:15:45.803Z",
+    "exitCode": 0
+  },
+  "protocol": {
+    "researchOnly": true,
+    "productionDefault": "LEGACY",
+    "productionAuthority": false,
+    "periods": 5,
+    "execution": "NEXT_OPEN",
+    "benchmarks": [
+      "SPY",
+      "URTH"
+    ]
+  },
+  "periodResults": [
+    {
+      "signalDate": "2016-06-30",
+      "portfolioReturnPct": 10.702237985739021,
+      "spyReturnPct": 18.300815309999052,
+      "urthReturnPct": 17.913043786723648,
+      "excessVsSpyPctPoints": -7.598577324260031,
+      "excessVsUrthPctPoints": -7.210805800984627
+    },
+    {
+      "signalDate": "2017-06-30",
+      "portfolioReturnPct": 8.926018109348336,
+      "spyReturnPct": 13.039173185869402,
+      "urthReturnPct": 9.954612424934561,
+      "excessVsSpyPctPoints": -4.113155076521066,
+      "excessVsUrthPctPoints": -1.0285943155862256
+    },
+    {
+      "signalDate": "2018-06-29",
+      "portfolioReturnPct": 10.961443535885627,
+      "spyReturnPct": 12.258540138993235,
+      "urthReturnPct": 8.829639101305876,
+      "excessVsSpyPctPoints": -1.297096603107608,
+      "excessVsUrthPctPoints": 2.1318044345797507
+    },
+    {
+      "signalDate": "2019-06-28",
+      "portfolioReturnPct": -1.5209160014432328,
+      "spyReturnPct": 6.427764847643869,
+      "urthReturnPct": 2.1747511410841636,
+      "excessVsSpyPctPoints": -7.9486808490871015,
+      "excessVsUrthPctPoints": -3.6956671425273964
+    },
+    {
+      "signalDate": "2020-06-30",
+      "portfolioReturnPct": 37.87699938089771,
+      "spyReturnPct": 40.60076028615298,
+      "urthReturnPct": 39.43131433573288,
+      "excessVsSpyPctPoints": -2.7237609052552756,
+      "excessVsUrthPctPoints": -1.5543149548351707
+    }
+  ],
+  "metrics": {
+    "candidateCagrPct": 12.68320477143623,
+    "spyCagrPct": 17.569789904406896,
+    "urthCagrPct": 14.986083065509902,
+    "excessVsSpyPctPoints": -4.886585132970666,
+    "excessVsUrthPctPoints": -2.302878294073672,
+    "periodsBeatingSpy": 0,
+    "periodsBeatingUrth": 1
+  },
+  "verdict": "FAIL_ACTIONABLE_TRANSLATION",
+  "nextAction": "STOP_TRANSLATION_NO_RETUNING",
+  "interpretation": [
+    "Coverage and causal execution completed; this is an economic translation failure, not a data-access failure.",
+    "The candidate underperformed SPY in all 5 periods and URTH in 4 of 5 periods.",
+    "Do not retune formula, decile, weighting, dates or thresholds on this consumed implementation window.",
+    "Do not open Stage C2 or combine TimesFM with this failed translation."
+  ]
+}
