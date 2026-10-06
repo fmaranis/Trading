@@ -6,10 +6,10 @@ import {
   appendTimesFmProspectiveAnchor,
   verifyTimesFmProspectiveState
 } from '../scripts/timesfmStageBProspectiveProtocol.mjs';
-import { selectProspectiveAnchor, isoWeekKey, buildProspectiveCases, materializeForecastCases, selectDirectTimesFmWinner } from '../scripts/timesfmStageBProspectiveCollectorLive.mjs';
+import { selectProspectiveAnchor, isoWeekKey, buildProspectiveCases, buildProspectiveMultivariateContext, materializeForecastCases, selectDirectTimesFmWinner } from '../scripts/timesfmStageBProspectiveCollectorLive.mjs';
 import { TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1 as P } from '../scripts/timesfmStageBProtocol.mjs';
 import { TIMESFM_MULTIVARIATE_CONTEXT_V1 as MV } from '../scripts/timesfmMultivariateContextV1Protocol.mjs';
-import { buildCausalMultivariateContext } from '../scripts/timesfmMultivariateContextV1DiagnosticLive.mjs';
+import { buildAnchors as buildHistoricalMultivariateAnchors } from '../scripts/timesfmMultivariateContextV1DiagnosticLive.mjs';
 
 assert.equal(M.startAfter,'2026-10-05');
 assert.equal(M.cadence,'WEEKLY_FIRST_COMMON_TRADING_SESSION');
@@ -75,7 +75,7 @@ assert.equal(state.lastInformationDate,'2026-10-12');
 verifyTimesFmProspectiveState(state);
 assert.throws(()=>appendTimesFmProspectiveAnchor(state,{...state.anchors[0],previousObservationHashSha256:undefined,observationHashSha256:undefined},'2026-10-12T18:00:00Z'),/DUPLICATE_ANCHOR/);
 
-const dates=Array.from({length:520},(_,i)=>{
+const dates=Array.from({length:1100},(_,i)=>{
   const d=new Date(Date.UTC(2024,0,2+i));
   return d.toISOString().slice(0,10);
 });
@@ -88,12 +88,25 @@ for(const [idx,item] of [P.core,...P.assets].entries()){
 }
 const info=dates.at(-1);
 const built=buildProspectiveCases(series,info);
-const mvBuilt=buildCausalMultivariateContext(series,info);
+const mvBuilt=buildProspectiveMultivariateContext(series,info);
 assert.equal(mvBuilt.contextDates.length,512);
 assert.equal(mvBuilt.targetContext.length,MV.targets.length);
 assert.ok(mvBuilt.targetContext.every(row=>row.length===512));
 assert.equal(mvBuilt.pastOnlyCovariates.length,MV.covariates.totalPastOnly);
 assert.ok(mvBuilt.pastOnlyCovariates.every(row=>row.length===512));
+
+const historical=buildHistoricalMultivariateAnchors(series);
+const parityAnchor=historical.anchors.find(row=>row.informationDate===info);
+if(parityAnchor){
+  assert.deepEqual(mvBuilt.targetContext,parityAnchor.targetContext);
+  assert.deepEqual(mvBuilt.pastOnlyCovariates,parityAnchor.pastOnlyCovariates);
+}else{
+  const candidate=historical.anchors.at(-1);
+  assert.ok(candidate,'Historical parity fixture must yield at least one anchor');
+  const parity=buildProspectiveMultivariateContext(series,candidate.informationDate);
+  assert.deepEqual(parity.targetContext,candidate.targetContext);
+  assert.deepEqual(parity.pastOnlyCovariates,candidate.pastOnlyCovariates);
+}
 assert.equal(built.cases.length,8);
 assert.equal(built.contextDates.length,512);
 assert.ok(built.cases.every(row=>row.assetContext.length===512&&row.coreContext.length===512));
