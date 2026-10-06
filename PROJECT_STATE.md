@@ -2214,3 +2214,44 @@ Actualización 2026-10-01 — PEAD R2 cerrado por timing Yahoo; R3 next-session 
 
 - Hardening posterior: `.env.example` documenta `HF_TOKEN` como secreto server-side y `server.ts` redacciona `HF_TOKEN`, `HUGGINGFACE_TOKEN` y `HUGGING_FACE_HUB_TOKEN` en cualquier salida serializada.
 - El valor del token nunca se versiona ni se incorpora al sello/evidencia.
+
+#### TIMESFM_MULTIVARIATE_CONTEXT_V1 — diagnóstico histórico completado y cierre prospectivo 2026-10-06
+
+- Ejecución completada `PASSED` el 2026-10-06; resultado metodológico: `POSTHOC_PANEL_SIGNAL_NO_COVARIATE_LIFT`.
+- Cobertura: 31/31 anchors trimestrales utilizables, sin skips. Datos Yahoo Finance REAL; sin fallback sintético.
+- Panel nativo 9 targets, sin covariables:
+  - mean Rank IC 20/60 = `0.0986943164`;
+  - directional accuracy 20/60 = `56.25%`;
+  - P10-P90 coverage 20/60 = `69.3548%`;
+  - 5/8 candidatos con temporal IC positivo.
+- Panel + 23 covariables causales:
+  - mean Rank IC 20/60 = `0.0687403994`;
+  - directional accuracy 20/60 = `54.8387%`;
+  - P10-P90 coverage 20/60 = `67.9435%`;
+  - 5/8 candidatos con temporal IC positivo.
+- Lift Rank IC de covariables vs panel = `-0.029954`: las covariables congeladas NO añaden señal agregada suficiente.
+- Lectura por horizonte del panel sin covariables:
+  - 20 sesiones: Rank IC `0.0506912`, dirección `52.0161%`; apenas supera los gates descriptivos y momentum (`0.06298`) queda ligeramente por encima en Rank IC.
+  - 60 sesiones: Rank IC `0.1466974`, dirección `60.4839%`; LEGACY (`-0.03303`) y momentum (`-0.03840`) quedan negativos en Rank IC.
+- Diagnóstico descriptivo adicional sobre la misma muestra consumida, sin autoridad de promoción:
+  - Rank IC 60 sesiones por bloques 2018-20 / 2021-23 / 2024-25Q3 ≈ `0.127 / 0.143 / 0.187`;
+  - Rank IC 20 sesiones por los mismos bloques ≈ `0.252 / -0.052 / -0.119`.
+- Interpretación: hay información predictiva retenida en el panel nativo, especialmente a 60 sesiones; NO se retunea el protocolo para elegir sólo 60 porque la muestra está consumida.
+- El brazo con covariables no se elimina del fresh: ambos brazos ya estaban congelados antes de la primera observación prospectiva y se recogerán lado a lado.
+- No se evaluó trading, allocation, fiscalidad ni política económica. Producción continúa `LEGACY`.
+- El job histórico `timesfm-multivariate-context-v1` queda `ARCHIVED` y no debe relanzarse sobre 2018Q1-2025Q3.
+
+Prospectivo:
+- Se reutiliza el único collector existente `timesfm-stage-b-prospective-confirmation-v1`; no se crea un motor/job paralelo.
+- El collector pasa a `CURRENT` y conserva:
+  - Stage B pairwise;
+  - `TIMESFM_DIRECT_SELECTOR_V1` shadow ya congelado;
+  - `FULL_PANEL_TARGETS_ONLY`;
+  - `FULL_PANEL_PLUS_CAUSAL_COVARIATES`.
+- Ambos brazos multivariantes se persisten antes de outcomes dentro de la misma hash-chain durable.
+- Builder prospectivo OHLCV tiene guard de paridad contra el builder histórico sellado; el script que produjo el diagnóstico histórico fue restaurado exactamente a su blob sellado.
+- No existía aún estado durable en `replay-results/validation-runs/timesfm-stage-b-prospective-confirmation-v1-state.json`, por lo que la muestra fresh seguía `NOT_OPENED` al reseñar.
+- Sello prospectivo actualizado a revisión 6 / state schema 2 antes de W42.
+- Primera semana elegible: `2026-W42`, comenzando el 2026-10-12; cadence `WEEKLY_FIRST_COMMON_TRADING_SESSION`; sin catch-up ni forecast retroactivo.
+- Preflight del job prospectivo exige Space multivariante API v3, `HF_TOKEN`, `GITHUB_REPLAY_SYNC_TOKEN` y al menos 70 GPU-s de cuota autenticada para la observación semanal.
+- Producción y autoridad económica permanecen `LEGACY` / false.
