@@ -2257,3 +2257,47 @@ Prospectivo:
 - Producción y autoridad económica permanecen `LEGACY` / false.
 - Las dos llamadas ZeroGPU semanales (`stage_b_predict` y `multivariate_context_predict`) envían `Authorization: Bearer HF_TOKEN`; ninguna rama prospectiva debe caer en cuota anónima.
 - Sello prospectivo final de esta preparación: revisión 7. La muestra fresh continúa `NOT_OPENED` y sin outcomes.
+
+
+#### TIMESFM_PANEL_STICKY_OOS_V1 — política económica OOS congelada 2026-10-06
+
+- Objetivo: intentar monetizar la señal retenida de `TIMESFM_MULTIVARIATE_CONTEXT_V1` sin repetir el fallo del selector full-rotation.
+- La política se diseñó después de observar la muestra consumida 2018Q1-2025Q3; por tanto ESA muestra no puede validar ni promocionar esta política.
+- Política congelada antes de abrir el holdout:
+  - señal: `FULL_PANEL_TARGETS_ONLY`;
+  - horizonte usado por la política: 60 sesiones;
+  - universo: EUNL + 8 candidatos congelados;
+  - entrada: mejor candidato (rank 1) sólo si forecast relativo vs EUNL > 0;
+  - hysteresis/no-trade buffer: mantener incumbente mientras siga rank <= 3 y forecast relativo >= 0;
+  - si no existe candidato con ventaja positiva, fallback a EUNL;
+  - sizing research: 100% shadow equity al activo seleccionado;
+  - revisión: último día común de mercado de cada mes;
+  - ejecución: `NEXT_OPEN`;
+  - producción: `LEGACY`.
+- Justificación económica externa revisada antes de abrir el holdout: la literatura de implementación de señales predictivas destaca que turnover y costes pueden destruir una señal útil; no-trade bands/hysteresis son una vía estándar para reducir churn.
+- Holdout OOS reservado y todavía unopened al sellar:
+  - 2025-10 a 2026-06;
+  - 9 anchors mensuales;
+  - outcomes hasta 2026-09-30;
+  - esas information dates no fueron usadas por el research TimesFM anterior.
+- Comparadores congelados:
+  - `LEGACY_APP`;
+  - `EUNL_CORE_DIRECT`;
+  - `PANEL_TOP1_60_NAIVE`.
+- Gate económico OOS:
+  - Sticky debe batir a EUNL en >=10/15 escenarios;
+  - Sticky debe batir a LEGACY en >=10/15;
+  - mediana de exceso de retorno vs EUNL > 0;
+  - mediana de exceso vs LEGACY > 0;
+  - deterioro máximo de drawdown vs EUNL <= 5 pp;
+  - cambios de ganador Sticky <= top-1 ingenuo.
+- Un PASS sólo significa `PASS_OOS_ECONOMIC_SCREEN_CONTINUE_PROSPECTIVE`; NO promociona producción.
+- Implementación integrada en el replay canónico:
+  - mismo `DynamicHistoricalReplayEngine`;
+  - mismos costes, impuestos, whole-share feasibility, cash y NEXT_OPEN;
+  - no se creó un motor paralelo.
+- Job `timesfm-panel-sticky-oos-v1` queda como único `CURRENT`.
+- El collector `timesfm-stage-b-prospective-confirmation-v1` queda `PARKED` temporalmente y se conserva intacto para W42.
+- Preflight TimesFM del job OOS exige runner multivariante v3, `HF_TOKEN` y >=160 GPU-s autenticados antes de abrir Yahoo/inferencia.
+- Sello: `TIMESFM_PANEL_STICKY_OOS_V1_SEAL`, revisión 1.
+- Al cerrar esta preparación: `holdout.opened=false`, `yahooAccessed=false`, `timesFmForecastsReturned=false`, `outcomesEvaluated=false`.
