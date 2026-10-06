@@ -2428,3 +2428,10 @@ Prospectivo:
 - R2 se selló antes de outcomes en `validation-runs/preregistration/core-outperformance-profitability-pit-r2-seal.json`.
 - Job `core-outperformance-profitability-pit-r2` pasa a único `CURRENT`; V1 queda archivado.
 - Producción permanece `LEGACY`; TimesFM permanece PARKED hasta resolver primero esta traducción PIT.
+
+- R2 pre-outcome hardening adicional antes de primera ejecución:
+  - se detectó que el helper heredado `annualSeries` elegía un único tag XBRL global por longitud histórica;
+  - esto contradice la intención de las listas de tags equivalentes y podía perder ejercicios cuando una compañía cambiaba de concepto XBRL;
+  - R2 une ahora todos los tags equivalentes por `fiscalEnd`, elige el filing causal más reciente y usa prioridad de tag sólo como desempate;
+  - no cambia fórmula, missing-expense rule, fechas, selección ni gates;
+  - sello R2 reseñado a revisión 2 con `stockOutcomesOpened=false`; 5/5 blobs críticos verificados MATCH.
