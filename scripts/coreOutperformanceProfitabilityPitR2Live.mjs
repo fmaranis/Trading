@@ -309,7 +309,15 @@ async function main() {
 }
 
 main().catch(error => {
-  const payload={version:P.version,status:'BLOCKED_DATA_ACCESS',reason:error?.message||String(error),productionDefault:'LEGACY',productionAuthority:false};
-  console.error('CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_RESULT',JSON.stringify(payload));
-  process.exitCode=1;
+  const reason=error?.message||String(error);
+  const inconclusive=String(reason).startsWith('INCONCLUSIVE_');
+  const payload={
+    version:P.version,
+    status:inconclusive?'INCONCLUSIVE_COVERAGE':'BLOCKED_DATA_ACCESS',
+    reason,
+    productionDefault:'LEGACY',
+    productionAuthority:false
+  };
+  console.log('CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_RESULT',JSON.stringify(payload));
+  if(!inconclusive) process.exitCode=1;
 });
