@@ -24,10 +24,18 @@
   "productionDefault": "LEGACY",
   "productionAuthority": false,
   "expectedGitBlobSha": {
-    "docs/CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_2026-10-06.md": "d486c65a1efdcea6308eac8bcf0663c11a3948b0",
-    "scripts/coreOutperformanceProfitabilityPitR2Protocol.mjs": "cd00ea9f3e2ac93c683301a0a224eb3d1e44cd6d",
-    "scripts/coreOutperformanceProfitabilityPitR2Live.mjs": "1b71b8938a7fdc2fb89c4cafb29cccbb2beed599",
+    "docs/CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_2026-10-06.md": "752950736f9bed4d573f37ce3d3f48452b8dfcae",
+    "scripts/coreOutperformanceProfitabilityPitR2Protocol.mjs": "37289820885926f7d12406a5c6bbc1721c0e4223",
+    "scripts/coreOutperformanceProfitabilityPitR2Live.mjs": "b56b318bb931914665bdea4125985c956af81f2a",
     "tests/coreOutperformanceProfitabilityPitR2.unit.mjs": "db102ae16300851e98844c16eb1b22ccdd1a2742",
-    "tests/coreOutperformanceProfitabilityPitR2Contract.unit.mjs": "88b2cf9ab96ac6f88dc959c141a097bbb96fb039"
+    "tests/coreOutperformanceProfitabilityPitR2Contract.unit.mjs": "49c1b7684c9efe98be6ca0791e0350398f4eab78"
+  },
+  "sealRevision": 2,
+  "previousSealRevision": 1,
+  "preOutcomeTechnicalReseal": {
+    "reason": "Equivalent SEC tags must be unioned by fiscal end instead of selecting one global tag series.",
+    "stockOutcomesOpened": false,
+    "methodologyChanged": false,
+    "coverageGatesChanged": false
   }
 }
