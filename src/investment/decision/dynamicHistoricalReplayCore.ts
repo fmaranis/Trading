@@ -32,7 +32,7 @@ export type DynamicReplayEventType = 'BUY' | 'ADD' | 'REDUCE' | 'EXIT' | 'TRANSF
 export type DynamicReplayDeploymentSession = 1 | 5 | 20 | 60;
 export type DynamicReplaySimulationMode = 'CUSTODIA_ENGINE' | 'HOLD_ONLY';
 export type DynamicReplayInitialPortfolioSource = 'ZERO' | 'MANUAL' | 'CURRENT_PORTFOLIO';
-export type DynamicReplayResearchDirectSelectorPolicy = 'TIMESFM_DIRECT_SELECTOR_V1';
+export type DynamicReplayResearchDirectSelectorPolicy = 'TIMESFM_DIRECT_SELECTOR_V1' | 'TIMESFM_PANEL_STICKY_SELECTOR_V1';
 
 export interface DynamicReplayResearchDirectSelector {
   policy: DynamicReplayResearchDirectSelectorPolicy;
@@ -1171,7 +1171,7 @@ export class DynamicHistoricalReplayEngine {
               estimatedTaxEur: 0,
               taxDeferredTransferEur: 0,
               executionPriceEur: null,
-              reason: `TIMESFM_DIRECT_SELECTOR_V1: ${selectedItem.ticker} sustituye a ${item.ticker} como ganador directo 20/60.`
+              reason: `${input.researchDirectSelector.policy}: ${selectedItem.ticker} sustituye a ${item.ticker} como selección research directa.`
             }
           });
         }
@@ -1214,7 +1214,7 @@ export class DynamicHistoricalReplayEngine {
               estimatedTaxEur: 0,
               taxDeferredTransferEur: 0,
               executionPriceEur: null,
-              reason: `TIMESFM_DIRECT_SELECTOR_V1: ganador directo ${selectedItem.ticker}; objetivo shadow 100% del equity ejecutable.`
+              reason: `${input.researchDirectSelector.policy}: selección directa ${selectedItem.ticker}; objetivo shadow 100% del equity ejecutable.`
             }
           });
         }
