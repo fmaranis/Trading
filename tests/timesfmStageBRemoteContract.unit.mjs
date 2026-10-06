@@ -34,7 +34,11 @@ assert.doesNotMatch(stageB, /Yahoo|EODHD|SEC_EDGAR|PortfolioDecisionEngine|Portf
 
 assert.match(client, /\/gradio_api\/call\/stage_b_predict/);
 assert.match(client, /JSON\.stringify\(\{ data: \[payload\] \}\)/);
-assert.doesNotMatch(client, /TIMESFM_RUNNER_TOKEN|Authorization|Bearer/);
+assert.doesNotMatch(client, /TIMESFM_RUNNER_TOKEN/);
+assert.match(client, /HF_TOKEN/);
+assert.match(client, /Authorization/);
+assert.match(client, /Bearer/);
+assert.match(client, /TIMESFM_HF_TOKEN_REQUIRED/);
 assert.match(client, /PASS_STAGE_B_INFERENCE_BATCH/);
 
 assert.match(live, /sourceType:'REAL'/);
