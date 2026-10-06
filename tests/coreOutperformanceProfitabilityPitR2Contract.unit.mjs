@@ -5,6 +5,9 @@ const runner=fs.readFileSync('scripts/coreOutperformanceProfitabilityPitR2Live.m
 const protocol=fs.readFileSync('scripts/coreOutperformanceProfitabilityPitR2Protocol.mjs','utf8');
 
 assert.match(runner,/CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_RESULT/);
+assert.match(runner,/INCONCLUSIVE_COVERAGE/);
+assert.match(runner,/BLOCKED_DATA_ACCESS/);
+assert.match(runner,/if\(!inconclusive\) process\.exitCode=1/);
 assert.match(runner,/observed\.length===0/);
 assert.match(runner,/\(cg\?\.value\?\?0\)/);
 assert.match(runner,/\(sg\?\.value\?\?0\)/);
