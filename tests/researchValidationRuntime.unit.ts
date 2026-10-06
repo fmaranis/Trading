@@ -42,7 +42,7 @@ assert.match(routes, /id: 'pead-yahoo-calendar-source-audit-r3'/);
 const peadR3Start = routes.indexOf("id: 'pead-yahoo-calendar-source-audit-r3'");
 const peadR3End = routes.indexOf("id: 'pead-analyst-surprise-v1'", peadR3Start);
 const peadR3Block = routes.slice(peadR3Start, peadR3End > peadR3Start ? peadR3End : undefined);
-assert.match(peadR3Block, /visibility: 'PARKED'/);
+assert.match(peadR3Block, /visibility: 'CURRENT'/);
 assert.match(peadR3Block, /tests\/peadYahooCalendarSourceAuditR3Seal\.unit\.mjs/);
 assert.match(peadR3Block, /tests\/peadYahooCalendarSourceAuditR3\.unit\.mjs/);
 assert.match(peadR3Block, /tests\/peadYahooCalendarSourceAuditR2\.integration\.mjs/);
@@ -85,7 +85,7 @@ assert.match(profitabilityPitV1Block, /scripts\/coreOutperformanceProfitabilityP
 assert.match(routes, /id: 'core-outperformance-profitability-pit-r2'/);
 const profitabilityPitR2End = routes.indexOf("id: 'fundamental-quality-valuation-broad-pit-v1'", profitabilityPitR2Start);
 const profitabilityPitR2Block = routes.slice(profitabilityPitR2Start, profitabilityPitR2End);
-assert.match(profitabilityPitR2Block, /visibility: 'CURRENT'/);
+assert.match(profitabilityPitR2Block, /visibility: 'ARCHIVED'/);
 assert.match(profitabilityPitR2Block, /requiresSecEdgarUserAgent: true/);
 assert.match(profitabilityPitR2Block, /tests\/coreOutperformanceProfitabilityPitR2Seal\.unit\.mjs/);
 assert.match(profitabilityPitR2Block, /tests\/coreOutperformanceProfitabilityPitR2\.unit\.mjs/);
