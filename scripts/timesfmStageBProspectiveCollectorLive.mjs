@@ -10,7 +10,6 @@ import {
 import { callTimesFmStageB } from './timesfmStageBRemoteClient.mjs';
 import { TIMESFM_MULTIVARIATE_CONTEXT_V1 as MV } from './timesfmMultivariateContextV1Protocol.mjs';
 import { callTimesFmMultivariateContextV1 } from './timesfmMultivariateContextV1RemoteClient.mjs';
-import { buildCausalMultivariateContext } from './timesfmMultivariateContextV1DiagnosticLive.mjs';
 import {
   TIMESFM_STAGE_B_PROSPECTIVE_METHODOLOGY as M,
   appendTimesFmProspectiveAnchor,
@@ -109,6 +108,53 @@ function intersectDates(series) {
 }
 
 function mapBars(rows) { return new Map(rows.map(row=>[row.date,row.close])); }
+function mean(values){return values.length?values.reduce((a,b)=>a+b,0)/values.length:null;}
+function stdev(values){if(values.length<2)return null;const m=mean(values);return Math.sqrt(values.reduce((sum,v)=>sum+(v-m)**2,0)/(values.length-1));}
+function zscore(values){const m=mean(values),s=stdev(values);return values.map(v=>s&&s>1e-12?(v-m)/s:0);}
+function realizedVol20(values,index){const start=Math.max(1,index-19),returns=[];for(let i=start;i<=index;i++)if(values[i-1]>0&&values[i]>0)returns.push(Math.log(values[i]/values[i-1]));const s=stdev(returns);return s==null?0:s*Math.sqrt(252)*100;}
+function drawdown60(values,index){const start=Math.max(0,index-59),slice=values.slice(start,index+1),peak=Math.max(...slice);return peak>0?(values[index]/peak-1)*100:0;}
+
+export function buildProspectiveMultivariateContext(series,informationDate){
+  const common=intersectDates(series);
+  const idx=common.indexOf(informationDate);
+  if(idx<0)throw new Error('TIMESFM_PROSPECTIVE_MULTIVARIATE_INFORMATION_DATE_NOT_COMMON');
+  if(idx<MV.contextLength+60-1)throw new Error('TIMESFM_PROSPECTIVE_MULTIVARIATE_CONTEXT_WARMUP_SHORT:'+(idx+1));
+  const byTicker=Object.fromEntries(MV.targets.map(target=>[target.ticker,new Map(series[target.ticker].map(row=>[row.date,row]))]));
+  const contextDates=common.slice(idx-MV.contextLength+1,idx+1);
+  const warmDates=common.slice(idx-MV.contextLength-60+1,idx+1);
+  const closeHistory={};
+  for(const target of MV.targets)closeHistory[target.assetId]=warmDates.map(date=>byTicker[target.ticker].get(date).close);
+  const targetContext=MV.targets.map(target=>contextDates.map(date=>byTicker[target.ticker].get(date).close));
+  const pastOnlyCovariates=[];
+  for(const target of MV.targets){
+    const values=contextDates.map(date=>Math.log1p(byTicker[target.ticker].get(date).volume));
+    pastOnlyCovariates.push(zscore(values));
+  }
+  for(const target of MV.targets){
+    pastOnlyCovariates.push(contextDates.map(date=>{const row=byTicker[target.ticker].get(date);return (row.high-row.low)/row.close*100;}));
+  }
+  const coreAll=closeHistory.EUNL,offset=warmDates.length-contextDates.length;
+  const coreVol=[],coreDd=[],disp=[],gapMean=[],gapDisp=[];
+  for(let j=0;j<contextDates.length;j++){
+    const wi=offset+j;
+    coreVol.push(realizedVol20(coreAll,wi));
+    coreDd.push(drawdown60(coreAll,wi));
+    const dailyReturns=[],overnightGaps=[];
+    for(const target of MV.targets){
+      const values=closeHistory[target.assetId];
+      if(wi>0&&values[wi-1]>0&&values[wi]>0)dailyReturns.push(Math.log(values[wi]/values[wi-1])*100);
+      const current=byTicker[target.ticker].get(warmDates[wi]);
+      const previous=byTicker[target.ticker].get(warmDates[wi-1]);
+      if(current?.open>0&&previous?.close>0)overnightGaps.push((current.open/previous.close-1)*100);
+    }
+    disp.push(stdev(dailyReturns)??0);
+    gapMean.push(mean(overnightGaps)??0);
+    gapDisp.push(stdev(overnightGaps)??0);
+  }
+  pastOnlyCovariates.push(coreVol,coreDd,disp,gapMean,gapDisp);
+  if(pastOnlyCovariates.length!==MV.covariates.totalPastOnly)throw new Error('TIMESFM_PROSPECTIVE_MULTIVARIATE_COVARIATE_COUNT:'+pastOnlyCovariates.length);
+  return {contextDates,targetContext,pastOnlyCovariates};
+}
 
 export function buildProspectiveCases(series, informationDate) {
   const common=intersectDates(series).filter(date=>date<=informationDate);
@@ -308,7 +354,7 @@ export async function main(now = new Date()) {
   const cases=materializeForecastCases(built,remote);
   const directShadow=selectDirectTimesFmWinner(cases);
 
-  const mvBuilt=buildCausalMultivariateContext(series,informationDate);
+  const mvBuilt=buildProspectiveMultivariateContext(series,informationDate);
   const mvPayload={
     study:MV.version,
     protocol:{
