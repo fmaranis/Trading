@@ -2368,3 +2368,28 @@ Prospectivo:
 - Se reactiva `timesfm-stage-b-prospective-confirmation-v1` como único `CURRENT`.
 - La siguiente evidencia válida debe venir del collector fresh/blind W42+ ya preregistrado, manteniendo simultáneamente Stage B pairwise, selector directo shadow, panel 9 y panel 9 + 23 covariables.
 - Producción permanece `LEGACY`.
+
+
+#### Operating Profitability — reactivación pre-TimesFM + regla de integración TimesFM 2026-10-06
+
+- Se reconstruyó la línea pre-TimesFM con mejor evidencia económica histórica del proyecto:
+  - `OPERATING_PROFITABILITY_DECILE_10_VW`;
+  - diagnóstico 2016-01→2021-12: CAGR `20.80%` vs parent USA `17.52%`, exceso `+3.28 pp/año`, vs URTH `+6.58 pp/año`;
+  - confirmación temporal preregistrada 2009-01→2014-12: CAGR `18.24%` vs parent USA `17.72%`, exceso `+0.52 pp/año`, vs desarrollado global `+4.42 pp/año`;
+  - ambas ventanas PASS de señal; producción nunca fue promocionada.
+- La tarea pendiente correcta era `CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1`: traducción stock-level causal de la misma familia usando S&P 500 histórico, SEC CompanyFacts con `filed <= signalDate`, selección top-decile value-weighted y ejecución NEXT_OPEN.
+- Este protocolo ya estaba congelado antes de outcomes stock-level y no se modifica ahora.
+- Se reactiva en `ResearchValidationCenter` como único `CURRENT`:
+  - id: `core-outperformance-profitability-pit-v1`;
+  - guards -> runtime/core -> TypeScript -> cálculo largo;
+  - `SEC_EDGAR_USER_AGENT` es preflight obligatorio;
+  - producción continúa `LEGACY`.
+- `timesfm-stage-b-prospective-confirmation-v1` pasa temporalmente a `PARKED` hasta W42; su protocolo/sello no cambia.
+- Regla de integración con TimesFM:
+  - TimesFM NO cambia el filtro fundamental ni valida retrospectivamente Profitability;
+  - primero debe resolverse Stage C1 de `CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1`;
+  - sólo un `PASS_ACTIONABLE_TRANSLATION_GROSS_ONLY` permite diseñar/congelar un brazo separado de complementarity/contexto TimesFM dentro del harness existente;
+  - ese brazo deberá preservar eligibility fundamental, causalidad, NEXT_OPEN, costes/fiscalidad/cash y `CORE_ARCHITECTURE_V1`;
+  - TimesFM podrá investigarse como contexto de ranking/confianza/riesgo/timing, no como sustituto del factor ni como 100% al ganador;
+  - cualquier validación combinada deberá usar muestra fresh/OOS adecuada; no se reutilizan los outcomes consumidos de TimesFM Sticky ni se retunea sobre ellos.
+- PEAD R3 permanece PARKED; sigue siendo una línea ortogonal válida, pero no es la candidata pre-TimesFM con evidencia económica más fuerte.
