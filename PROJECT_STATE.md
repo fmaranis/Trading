@@ -2301,3 +2301,39 @@ Prospectivo:
 - Preflight TimesFM del job OOS exige runner multivariante v3, `HF_TOKEN` y >=160 GPU-s autenticados antes de abrir Yahoo/inferencia.
 - Sello: `TIMESFM_PANEL_STICKY_OOS_V1_SEAL`, revisión 1.
 - Al cerrar esta preparación: `holdout.opened=false`, `yahooAccessed=false`, `timesFmForecastsReturned=false`, `outcomesEvaluated=false`.
+
+
+#### TIMESFM_PANEL_STICKY_OOS_V1 — resultado OOS FAIL y postmortem de señal 2026-10-06
+
+- Ejecución OOS completada correctamente: job status `PASSED`, study status `FAIL_OOS_ECONOMIC_SCREEN_DO_NOT_PROMOTE`.
+- Holdout abierto y consumido:
+  - 9 anchors mensuales;
+  - information dates 2025-10-31 → 2026-06-30;
+  - outcomes hasta 2026-09-30;
+  - Yahoo Finance REAL, sin fallback sintético.
+- Resultado económico agregado:
+  - Sticky bate EUNL/core: `0/15`;
+  - Sticky bate LEGACY: `0/15`;
+  - Sticky bate top-1 ingenuo: `15/15`;
+  - mediana exceso Sticky vs core: `-10.2917 pp`;
+  - mediana exceso Sticky vs LEGACY: `-9.4827 pp`;
+  - mediana exceso Sticky vs top-1 ingenuo: `+16.2633 pp`;
+  - máximo deterioro de drawdown vs core: `+16.0013 pp`.
+- Comportamiento de selección:
+  - Sticky eligió `4GLD` en 2025-10 y mantuvo `4GLD` en los 9 anchors;
+  - `stickyChanges=0`;
+  - top-1 ingenuo hizo `4` cambios.
+- Interpretación metodológica:
+  - el buffer/hysteresis sí redujo drásticamente churn y costes respecto al top-1 ingenuo;
+  - la traducción económica 100% concentrada en un único ganador siguió fallando de forma clara frente a EUNL y LEGACY;
+  - este FAIL NO invalida automáticamente la señal predictiva del panel; hay que separar señal de política.
+- El holdout 2025-10→2026-06 queda consumido para cualquier política diseñada después de observar este resultado. No se permite retunear Sticky V1 y volver a evaluarlo sobre el mismo holdout.
+- `timesfm-panel-sticky-oos-v1` queda `ARCHIVED` con histórico FAIL.
+- Se crea `timesfm-panel-sticky-oos-v1-postmortem` como único `CURRENT` temporal:
+  - reutiliza exclusivamente forecasts ya guardados y los Yahoo REAL ya descargados;
+  - no llama a TimesFM/ZeroGPU ni abre muestra nueva;
+  - calcula Rank IC 60 OOS, dirección, top-1 exact hit, top-1 dentro del top-3 real y retorno relativo real de la selección;
+  - objetivo: decidir si falló la señal OOS o principalmente la política económica de concentración;
+  - muestra consumida, sin autoridad de promoción ni retuning.
+- El collector prospectivo W42 sigue `PARKED` hasta terminar este postmortem y después debe reactivarse como línea fresh/blind.
+- Producción permanece `LEGACY`.
