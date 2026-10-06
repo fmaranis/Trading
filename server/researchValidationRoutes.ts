@@ -421,9 +421,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'timesfm-panel-sticky-oos-v1',
     name: 'TimesFM · Panel Sticky V1 · OOS económico',
-    description: 'Pantalla económica OOS ya congelada sobre 2025-10→2026-06, posterior a la muestra consumida. Usa únicamente FULL_PANEL_TARGETS_ONLY a 60 sesiones, entrada top-1 y retención top-3 para reducir rotación. Compara contra LEGACY, EUNL y top-1 ingenuo. Producción continúa LEGACY.',
+    description: 'FAIL OOS cerrado. Sticky redujo la rotación pero quedó concentrado en 4GLD y perdió contra EUNL/LEGACY en 15/15 escenarios. Holdout consumido: no puede retunear ni promocionar una política nueva.',
     marker: 'TIMESFM_PANEL_STICKY_OOS_V1_RESULT',
-    visibility: 'CURRENT',
+    historyLabel: 'TimesFM Panel Sticky OOS V1 · FAIL · holdout consumido',
+    visibility: 'ARCHIVED',
     requiresTimesFmRunner: true,
     requiresTimesFmAuth: true,
     steps: [
@@ -436,6 +437,21 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Yahoo REAL + TimesFM · Panel Sticky OOS económico', command: 'npx', args: ['tsx', 'scripts/timesfmPanelStickyOosV1Live.ts'] }
+    ]
+  },
+  {
+    id: 'timesfm-panel-sticky-oos-v1-postmortem',
+    name: 'TimesFM · postmortem señal OOS Sticky V1',
+    description: 'Diagnóstico local sobre el holdout OOS ya consumido. Mide Rank IC 60, dirección y calidad del top-1 usando los forecasts guardados y los Yahoo REAL ya descargados. No llama a TimesFM, no abre muestra nueva y no puede promocionar producción.',
+    marker: 'TIMESFM_PANEL_STICKY_OOS_V1_POSTMORTEM_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard métricas postmortem TimesFM', command: 'npx', args: ['tsx', 'tests/timesfmPanelStickyOosV1Postmortem.unit.ts'] },
+      { label: 'Guard alcance postmortem TimesFM', command: 'node', args: ['tests/timesfmPanelStickyOosV1PostmortemContract.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Postmortem señal OOS TimesFM', command: 'npx', args: ['tsx', 'scripts/timesfmPanelStickyOosV1Postmortem.ts'] }
     ]
   },
   {
