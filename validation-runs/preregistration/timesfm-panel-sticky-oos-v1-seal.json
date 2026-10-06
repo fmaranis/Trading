@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "version": "TIMESFM_PANEL_STICKY_OOS_V1_SEAL",
+  "sealRevision": 1,
+  "sealedAt": "2026-10-06",
+  "sourceHeadBeforeHoldoutOpen": "ebecc3872af705ac4a0465932ecb01ce60da2728",
+  "design": {
+    "policy": "TIMESFM_PANEL_STICKY_SELECTOR_V1",
+    "signalArm": "FULL_PANEL_TARGETS_ONLY",
+    "forecastHorizonSessions": 60,
+    "entryRank": 1,
+    "incumbentRetentionRank": 3,
+    "relativeReturnFloorPct": 0,
+    "structuralCoreAssetId": "EUNL",
+    "reviewCadence": "MONTHLY_LAST_COMMON_TRADING_SESSION",
+    "executionSemantics": "NEXT_OPEN"
+  },
+  "holdout": {
+    "firstCalendarMonth": "2025-10",
+    "lastCalendarMonth": "2026-06",
+    "expectedAnchors": 9,
+    "outcomesThrough": "2026-09-30",
+    "opened": false,
+    "yahooAccessed": false,
+    "timesFmForecastsReturned": false,
+    "outcomesEvaluated": false
+  },
+  "comparators": [
+    "LEGACY_APP",
+    "EUNL_CORE_DIRECT",
+    "PANEL_TOP1_60_NAIVE"
+  ],
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "manifestGitBlobSha1": {
+    "src/investment/decision/timesFmPanelStickySelectorV1.ts": "f553466cf7601e9ad3f22c66ad3cbca1c2805d49",
+    "src/investment/decision/dynamicHistoricalReplayCore.ts": "84ec268439d48e1f42a3570b4dda9d8e30d51d4b",
+    "scripts/timesfmPanelStickyOosV1Protocol.mjs": "8bf34a43bd80fc0e3178a277e1b5e73dcc2bc1d5",
+    "scripts/timesfmPanelStickyOosV1Live.ts": "557662fb2d818af5c253e3ce28a33bacb6a5cb6d",
+    "scripts/timesfmMultivariateContextV1Protocol.mjs": "dacc4a2eee48cf83e339c3a21c4e4558c501b0e7",
+    "scripts/timesfmMultivariateContextV1RemoteClient.mjs": "9cb53f2c6e72c63854c89e3c0214400916e16175",
+    "scripts/timesfmStageBProspectiveCollectorLive.mjs": "b408fa7c1c23088d3e5070e3309bfc8f9125ed14",
+    "tests/timesFmPanelStickySelectorV1.unit.ts": "24a3bd475f64b62ebb99289120539e0a76450a0d",
+    "tests/timesfmPanelStickyOosV1Protocol.unit.mjs": "8175b760ff7703756e577e161339f84b8934d691",
+    "tests/timesfmPanelStickyOosV1Contract.unit.mjs": "87dfb7609d1d2d8cb91901f4aa594271ed3b3724",
+    "tests/researchValidationRuntime.unit.ts": "14907ad7de468a5a056e2efee930f880426cd642",
+    "server/researchValidationRoutes.ts": "d3105658fcd8afbd32ea561d5be3d1a720f9f7d0"
+  }
+}
