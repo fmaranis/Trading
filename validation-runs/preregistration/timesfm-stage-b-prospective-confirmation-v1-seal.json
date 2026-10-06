@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "version": "TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1_SEAL",
-  "sealRevision": 6,
+  "sealRevision": 7,
   "sealedAt": "2026-10-05",
   "methodologySourceHead": "37b6580e9902fd3d1c0c4a1f27311f461325349f",
-  "previousSealRevision": 5,
+  "previousSealRevision": 6,
   "historicalDiagnostic": {
     "version": "TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1",
     "observedResult": "PASS_DIAGNOSTIC_START_PROSPECTIVE_CONFIRMATION",
@@ -73,9 +73,12 @@
     ],
     "authenticatedWithHfToken": true,
     "zeroCostOnly": true,
+    "stageBGpuDurationSeconds": 80,
     "multivariateRunnerApiVersion": 3,
     "multivariateGpuDurationSeconds": 45,
-    "multivariateMaxAnchorsPerCall": 8
+    "multivariateMaxAnchorsPerCall": 8,
+    "minimumAuthenticatedQuotaSecondsBeforeWeeklyRun": 120,
+    "multivariateMinimumQuotaSecondsBeforeCall": 70
   },
   "productionDefault": "LEGACY",
   "productionAuthority": false,
@@ -83,17 +86,20 @@
     "scripts/timesfmStageBProspectiveProtocol.mjs": "4cf4b4f0f0083bbdc6b9deec6d5f5b2168f687ef",
     "scripts/timesfmStageBProspectiveStateStore.mjs": "4f28678e345c7f8f7f0ba1e8d1af27383f7bf96b",
     "scripts/timesfmStageBProspectiveCollectorLive.mjs": "b408fa7c1c23088d3e5070e3309bfc8f9125ed14",
+    "scripts/timesfmStageBRemoteClient.mjs": "9889cf3fc57e6be91b380b46e3867478f827d131",
     "scripts/timesfmMultivariateContextV1Protocol.mjs": "dacc4a2eee48cf83e339c3a21c4e4558c501b0e7",
     "scripts/timesfmMultivariateContextV1RemoteClient.mjs": "9cb53f2c6e72c63854c89e3c0214400916e16175",
     "runner/timesfm/hf-space/app.py": "a65c204d8fbf4ea67a11979d4a4c2663b62ab0bb",
     "src/investment/decision/timesFmDirectSelectorV1.ts": "1ddc0da03cf8507ebcc57c2c9335d12f55351aa6",
     "src/investment/decision/dynamicHistoricalReplayCore.ts": "bcdf1f0ed6367f69d55789a90bb136d545421a37",
+    "tests/timesfmStageBRemoteClient.unit.mjs": "b9d67897968a766e09efa92b0865dcd6e636db21",
+    "tests/timesfmStageBRemoteContract.unit.mjs": "5302fd00010b8d9acc378b4a9c3cccf4705cb4ae",
     "tests/timesFmDirectSelectorV1.unit.ts": "08ec612210c39455691c52316842b13329b582cb",
     "tests/timesFmDirectSelectorV1Contract.unit.mjs": "f95b4c38943242a2e42c88a218b39182336a68ff",
     "tests/timesFmDirectSelectorProspectiveParity.unit.ts": "10d54414290cfab89f358bbc25400e6dd3495dca",
     "tests/timesfmStageBProspective.unit.mjs": "3215394d56566b021d68c751c249dd3d2abc8329",
     "tests/timesfmStageBProspectiveContract.unit.mjs": "089b70260a993d1ddf33b298945d81fdbf8382d4",
-    "server/researchValidationRoutes.ts": "afbe545694e1b6413084d8704ae2382cab623b78",
+    "server/researchValidationRoutes.ts": "e23f5d31b2866aa2b3c00bfeeaf77acf25e14a9a",
     "docs/TIMESFM_DIRECT_SELECTOR_V1_2026-10-05.md": "1a847c61c1f1504e6d80d4529a21ad996c8d2579"
   },
   "historicalMultivariateDiagnostic": {
@@ -126,5 +132,17 @@
     "persistsBothArmsBeforeOutcomes": true,
     "noRetuneAfterCollectionOpens": true,
     "productionAuthority": false
-  }
+  },
+  "preOpenTransportRepairs": [
+    {
+      "date": "2026-10-06",
+      "scope": "AUTHENTICATE_STAGE_B_ZERO_GPU",
+      "reason": "Prospective collector invokes both stage_b_predict and multivariate_context_predict. Require HF_TOKEN on both transports before first fresh anchor so no weekly leg falls back to anonymous ZeroGPU quota.",
+      "modelInputsChanged": false,
+      "signalRulesChanged": false,
+      "evaluationRulesChanged": false,
+      "sampleOpened": false,
+      "outcomesOpened": false
+    }
+  ]
 }
