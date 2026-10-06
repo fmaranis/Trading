@@ -208,6 +208,21 @@ const JOBS: JobDefinition[] = [
     'PHASE6_FORWARD_RISK_CONTEXT_STAGE_A_COLLECTOR_RESULT'
   ),
   {
+    id: 'core-outperformance-profitability-pit-v1',
+    name: 'Operating Profitability · traducción PIT stock-level',
+    description: 'Retoma la candidata pre-TimesFM con mejor evidencia: Operating Profitability pasó diagnóstico 2016–2021 y confirmación 2009–2014. Este job ejecuta la traducción causal stock-level ya congelada con S&P 500 histórico, SEC filed<=signalDate y Yahoo REAL; no retunea la señal ni cambia producción.',
+    marker: 'CORE_OUTPERFORMANCE_PROFITABILITY_PIT_V1_RESULT',
+    visibility: 'CURRENT',
+    requiresSecEdgarUserAgent: true,
+    steps: [
+      { label: 'Guard Operating Profitability PIT', command: 'node', args: ['tests/coreOutperformanceProfitabilityPitV1.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'SEC PIT + Yahoo REAL · Operating Profitability', command: 'node', args: ['scripts/coreOutperformanceProfitabilityPitV1Live.mjs'] }
+    ]
+  },
+  {
     id: 'fundamental-quality-valuation-broad-pit-v1',
     name: 'Fundamental Quality × valoración · validación PIT amplia',
     description: 'Diagnóstico research-only sobre miembros históricos del S&P 500 a 2021-05-03: EODHD fija la membresía PIT, SEC EDGAR aporta fundamentales con filed <= informationDate y Yahoo REAL mide outcomes. Quality y valoración están congelados antes de abrir outcomes; no puede promocionar producción.',
@@ -311,7 +326,7 @@ const JOBS: JobDefinition[] = [
     name: 'TimesFM · confirmación prospectiva semanal',
     description: 'Collector fresh/blind único de TimesFM. Registra una observación semanal sin backfill: Stage B pairwise, selector directo shadow y los dos brazos multivariantes ya congelados (panel 9 y panel 9 + 23 covariables), siempre antes de outcomes. Producción continúa LEGACY.',
     marker: 'TIMESFM_STAGE_B_PROSPECTIVE_CONFIRMATION_V1_COLLECTOR_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'PARKED',
     requiresTimesFmRunner: true,
     requiresTimesFmAuth: true,
     requiresGithubReplayToken: true,
