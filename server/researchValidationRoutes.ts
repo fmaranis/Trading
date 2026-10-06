@@ -226,9 +226,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'core-outperformance-profitability-pit-r2',
     name: 'Operating Profitability · traducción PIT R2 Fama/French',
-    description: 'R2 pre-outcome: misma hipótesis, fechas, top-decile, value-weight, NEXT_OPEN y gates; corrige sólo missingness contable según Fama/French: Revenue obligatorio, al menos uno de COGS/SG&A/intereses y faltantes imputados a cero. Producción LEGACY.',
+    description: 'R2 completada: traducción stock-level causal válida pero FAIL económico. CAGR 12,68% vs SPY 17,57% y URTH 14,99%; STOP_TRANSLATION_NO_RETUNING. Producción LEGACY.',
     marker: 'CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2_RESULT',
-    visibility: 'CURRENT',
+    historyLabel: 'Operating Profitability PIT R2 · FAIL actionable translation · cerrado',
+    visibility: 'ARCHIVED',
     requiresSecEdgarUserAgent: true,
     steps: [
       { label: 'Guard sello Operating Profitability PIT R2', command: 'node', args: ['tests/coreOutperformanceProfitabilityPitR2Seal.unit.mjs'] },
@@ -493,7 +494,7 @@ const JOBS: JobDefinition[] = [
     name: 'PEAD · Yahoo histórico + doble PIT · R3 next-session',
     description: 'Auditoría causal R3 pre-precio. Reutiliza el transporte Yahoo por rango validado en R2, mantiene doble PIT y congela entrada en la primera apertura regular estrictamente posterior al reportDate. El timing Yahoo queda sólo como diagnóstico.',
     marker: 'PEAD_EARNINGS_SOURCE_AUDIT_R3_RESULT',
-    visibility: 'PARKED',
+    visibility: 'CURRENT',
     steps: [
       { label: 'Guard seal PEAD R3', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs'] },
       { label: 'Guard PEAD R3 next-session', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR3.unit.mjs'] },
