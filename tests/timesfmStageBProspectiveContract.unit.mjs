@@ -36,7 +36,7 @@ assert.match(collector,/selectedAssetId/);
 assert.match(collector,/selectedIsStructuralCore/);
 assert.match(collector,/callTimesFmStageB\(payload\)/);
 assert.match(collector,/callTimesFmMultivariateContextV1\(mvPayload\)/);
-assert.match(collector,/buildCausalMultivariateContext\(series,informationDate\)/);
+assert.match(collector,/buildProspectiveMultivariateContext\(series,informationDate\)/);
 assert.match(collector,/multivariateSignalShadow/);
 assert.match(collector,/targetsOnly:mvAnchor\.targetsOnly/);
 assert.match(collector,/withCausalCovariates:mvAnchor\.withCausalCovariates/);
