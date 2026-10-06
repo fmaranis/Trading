@@ -51,12 +51,12 @@
     "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_R3_2026-10-01.md": "8b2089fc7780d6e226d2eb2f5588738d8b884f4c",
     "scripts/peadYahooCalendarSourceAuditR3.mjs": "46fe07ceb9a097bb3b5da6a6aff007c7dfa3ea7f",
     "tests/peadYahooCalendarSourceAuditR3.unit.mjs": "1474392bfc15000241901cebc6c88d7c561fea01",
-    "tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs": "6544052aebf6102a15b77a51b802f5ba4d91fe8f",
+    "tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs": "9408e2279ca8a9766a81d2b24481cca6077f3419",
     "scripts/peadYahooCalendarSourceAuditR2.mjs": "75eb52bb5e0000e30a940667cf3f9e8abdb1a91a",
     "tests/peadYahooCalendarSourceAuditR2.integration.mjs": "6941383eb2faefd87c547a8a0aff330316c308c5",
-    "server/researchValidationRoutes.ts": "4bf7332c28aa438aee8ed35fdc5d7f78c3bf8075",
-    "tests/researchValidationRuntime.unit.ts": "ae3efcfd0bda04ea648069952febda457e582238",
-    "src/components/ResearchValidationCenter.tsx": "566e0b548468c94a5f08b1bf439c8a294ff69287",
+    "server/researchValidationRoutes.ts": "45bb3eafb43d085869e51e157f9b001929c72902",
+    "tests/researchValidationRuntime.unit.ts": "42454cc690016d51b48a160d907cf4a3d5434346",
+    "src/components/ResearchValidationCenter.tsx": "bc3ea36c04b866dca12e27bcd6cf5f69eeef5b8d",
     "scripts/peadSignalDiagnosticV1.mjs": "06027574074648d7cfdf54ae4f02d77784ef3970",
     "tests/peadSignalSourceR3Readiness.unit.mjs": "2cbd44a5d09914c7d84575e86e1ef7b5c5c2b08e",
     "validation-runs/diagnostics/pead-source-r2-inconclusive-timing-unavailable-2026-09-30.json": "e410e5b9801a81fa9311d7026f5348ed2521103c"
@@ -81,5 +81,16 @@
     "exactR3BlobContradictionFail": "PASS_EXECUTED_BY_CHATGPT",
     "exactSignalBlobNextSession": "PASS_EXECUTED_BY_CHATGPT",
     "exactSignalEntryExample": "2024-02-02 after reportDate 2024-02-01"
+  },
+  "sealRevision": 2,
+  "previousSealRevision": 1,
+  "technicalReseal": {
+    "date": "2026-10-07",
+    "reason": "Reactivate unchanged PEAD R3 after Operating Profitability PIT R2 closed; refresh technical route/runtime/UI hashes only.",
+    "priceOutcomesOpened": false,
+    "economicOutcomesOpened": false,
+    "methodologyChanged": false,
+    "gatesChanged": false,
+    "sampleChanged": false
   }
 }
