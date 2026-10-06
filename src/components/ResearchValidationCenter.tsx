@@ -114,7 +114,7 @@ function resultSummary(result: any): React.ReactNode {
     const status = String(result.status ?? 'RESULTADO');
     const metrics = result.metrics ?? {};
     const passed = status === 'PASS_ACTIONABLE_TRANSLATION_GROSS_ONLY';
-    const blocked = status === 'BLOCKED_DATA_ACCESS';
+    const blocked = status === 'BLOCKED_DATA_ACCESS' || status === 'INCONCLUSIVE_COVERAGE';
     const tone = passed
       ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
       : blocked
