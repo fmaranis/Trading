@@ -494,7 +494,8 @@ const JOBS: JobDefinition[] = [
     name: 'Kronos · Stage A · smoke técnico',
     description: 'Smoke research-only de Kronos-small con código/pesos pinneados. Usa OHLCV sintético, conserva trayectorias Monte Carlo individuales y calcula P(retorno>0) y P(pendiente>0). Sin Yahoo, outcomes ni autoridad productiva.',
     marker: 'KRONOS_STAGE_A_SMOKE_V1_RESULT',
-    visibility: 'CURRENT',
+    historyLabel: 'Kronos Stage A · PASS_STAGE_A_TECHNICAL_SMOKE · cerrado',
+    visibility: 'ARCHIVED',
     steps: [
       { label: 'Guard sello Kronos Stage A', command: 'node', args: ['tests/kronosStageASeal.unit.mjs'] },
       { label: 'Guard bootstrap pip local Kronos', command: 'node', args: ['tests/kronosPipBootstrap.unit.mjs'] },
@@ -504,6 +505,22 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Kronos-small · smoke aislado CPU', command: 'node', args: ['scripts/kronosStageALive.mjs'] }
+    ]
+  },
+  {
+    id: 'kronos-stage-b-diagnostic-v1',
+    name: 'Kronos · Stage B · diagnóstico 20/60',
+    description: 'Benchmark histórico descriptivo sobre la muestra ya consumida de TimesFM: mismo panel/anchors, Yahoo REAL causal, 20 trayectorias por activo y horizontes 20/60. Compara RankIC, dirección, Brier y momentum. Sin autoridad de promoción por cutoff de pretraining desconocido.',
+    marker: 'KRONOS_STAGE_B_DIAGNOSTIC_V1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard protocolo Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1.unit.mjs'] },
+      { label: 'Guard contrato Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1Contract.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Kronos runtime · revalidar Stage A', command: 'node', args: ['scripts/kronosStageALive.mjs'] },
+      { label: 'Kronos Stage B · Yahoo REAL + batch 20x', command: 'node', args: ['scripts/kronosStageBDiagnosticLive.mjs'] }
     ]
   },
   {
