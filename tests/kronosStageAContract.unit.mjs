@@ -37,6 +37,9 @@ assert.match(bootstrap,/\.research-python.*kronos-v1/s);
 assert.match(bootstrap,/download\.pytorch\.org\/whl\/cpu/);
 assert.match(bootstrap,/torch==2\.8\.0/);
 assert.match(bootstrap,/requirements-kronos\.txt/);
+assert.match(bootstrap,/bootstrap\.pypa\.io\/get-pip\.py/);
+assert.match(bootstrap,/kronos-pip-bootstrap/);
+assert.match(bootstrap,/urllib\.request\.urlretrieve/);
 assert.doesNotMatch(bootstrap,/sudo|apt-get|github actions/i);
 
 const start=routes.indexOf("id: 'kronos-stage-a-smoke-v1'");
@@ -45,6 +48,7 @@ const end=routes.indexOf("id: 'pead-yahoo-calendar-source-audit-r3'",start);
 const block=routes.slice(start,end>start?end:undefined);
 assert.match(block,/visibility: 'CURRENT'/);
 assert.match(block,/tests\/kronosStageASeal\.unit\.mjs/);
+assert.match(block,/tests\/kronosPipBootstrap\.unit\.mjs/);
 assert.match(block,/tests\/kronosStageAProtocol\.unit\.mjs/);
 assert.match(block,/tests\/kronosStageAContract\.unit\.mjs/);
 assert.match(block,/scripts\/kronosStageALive\.mjs/);
