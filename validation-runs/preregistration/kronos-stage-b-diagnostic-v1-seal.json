@@ -48,6 +48,16 @@
     "backend/scripts/kronos_stage_b_diagnostic.py": "1ce3ba02664ae94555c163c1985e7c7d77d132e4",
     "scripts/kronosStageBDiagnosticLive.mjs": "aa3c11c2921fb1d2db043e4aa37a218c5d3ac810",
     "tests/kronosStageBDiagnosticV1.unit.mjs": "91b9153eb033d4d857c09b126e1bd9f946466d57",
-    "tests/kronosStageBDiagnosticV1Contract.unit.mjs": "e0826620dc5a2d3914282d61c4339b3472c201e7"
+    "tests/kronosStageBDiagnosticV1Contract.unit.mjs": "4fcd8e5f5dd957e67b932ddbd697790c457ffab1"
+  },
+  "sealRevision": 2,
+  "previousSealRevision": 1,
+  "technicalReseal": {
+    "reason": "Fix false-positive Stage B contract guard: multiline productionAuthority regex crossed unrelated True tokens. Guard now checks exact productionAuthority boolean literal.",
+    "methodologyChanged": false,
+    "runtimeChanged": false,
+    "guardOnly": true,
+    "economicPolicyOpened": false,
+    "productionAuthority": false
   }
 }
