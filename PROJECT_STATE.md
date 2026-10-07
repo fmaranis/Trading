@@ -2484,3 +2484,48 @@ Prospectivo:
 - Si Source Audit R3 pasa, el siguiente paso ya preregistrado es `PEAD_ANALYST_SURPRISE_V1` a 60 sesiones; no se diseña una política económica hasta comprobar primero calidad predictiva.
 - TimesFM prospectivo continúa PARKED hasta W42 y no se utiliza para rescatar retrospectivamente ninguna línea fallida.
 - Producción permanece `LEGACY`.
+
+#### KRONOS_MARKET_CONTEXT_V1 — roadmap + Stage A implementado 2026-10-07
+
+- Se evaluó el repositorio oficial `shiyu-coder/Kronos` y se decidió integrarlo únicamente como capacidad research/shadow dentro de `CORE_ARCHITECTURE_V1`.
+- Motivación:
+  - Kronos está diseñado específicamente para K-lines/OHLCV financieros;
+  - `Kronos-small` tiene 24.7M parámetros y contexto máximo 512;
+  - licencia MIT;
+  - aporta sampling autoregresivo que permite estimar distribución de trayectorias, no sólo forecast puntual.
+- Pins congelados:
+  - source repo commit: `67b630e67f6a18c9e9be918d9b4337c960db1e9a`;
+  - model: `NeoQuasar/Kronos-small@901c26c1332695a2a8f243eb2f37243a37bea320`;
+  - model SHA256: `b082dfcbd8e8c142a725c8bbb99781802f38fec81210e13479effb32b3c3e020`;
+  - tokenizer: `NeoQuasar/Kronos-Tokenizer-base@0e0117387f39004a9016484a186a908917e22426`;
+  - tokenizer SHA256: `59d85f6af76a2c3b8240ea06cb21db4213b4eeca053f246b23e29cf832fc6bee`.
+- Riesgo metodológico importante:
+  - el cutoff temporal de pretraining de Kronos no está documentado de forma verificable;
+  - existe una issue pública solicitando esa fecha;
+  - por tanto cualquier backtest histórico Kronos se considera diagnóstico/descriptivo y no puede promocionar producción;
+  - primera evidencia promocionable debe ser prospectiva posterior al freeze; primera semana elegible prevista: `2026-10-12`.
+- Roadmap congelado en `docs/KRONOS_MARKET_CONTEXT_ROADMAP_2026-10-07.md`:
+  1. Stage A smoke técnico sin mercado/outcomes;
+  2. Stage B benchmark histórico descriptivo vs TimesFM/momentum;
+  3. Stage C incorporación como brazo shadow al collector prospectivo semanal existente;
+  4. Stage D PEAD + Kronos sólo de forma prospectiva, sin usar PEAD-2024 como OOS promocionable;
+  5. Stage E integración productiva únicamente si evidencia fresh lo justifica.
+- Stage A implementado:
+  - id: `kronos-stage-a-smoke-v1`;
+  - estado inicial: `PARKED`; PEAD R3 permanece único `CURRENT`;
+  - runtime Python aislado local `.research-python/kronos-v1`;
+  - instalación CPU Torch pinneada;
+  - código oficial Kronos se descarga en runtime al commit congelado y se verifica con Git blob SHA;
+  - pesos model/tokenizer se descargan desde Hugging Face a revisiones congeladas y se verifican SHA256;
+  - smoke usa únicamente OHLCV sintético;
+  - 4 trayectorias individuales con seeds deterministas;
+  - salida incluye `P(return>0)` y `P(log-close slope>0)`;
+  - no se usa el promedio interno de `sample_count` para inferir probabilidad;
+  - `marketPricesFetched=false`, `marketOutcomesOpened=false`, `economicPolicyOpened=false`;
+  - producción `LEGACY`, `productionAuthority=false`.
+- Sello: `validation-runs/preregistration/kronos-stage-a-smoke-v1-seal.json`, revisión 3.
+- PEAD R3 fue reseñado técnicamente a revisión 3 porque routes/runtime/UI cambiaron al registrar Kronos PARKED; metodología, muestra, gates y outcomes PEAD no cambiaron.
+- Regla de integración:
+  - Kronos no crea motor paralelo;
+  - si Stage A y benchmarks justifican seguir, se añadirá como contexto/shadow al collector prospectivo existente;
+  - no se usará como selector 100% al ganador sin política económica separada y validación fresh.
