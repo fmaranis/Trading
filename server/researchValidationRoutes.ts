@@ -517,6 +517,7 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard sello Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1Seal.unit.mjs'] },
       { label: 'Guard protocolo Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1.unit.mjs'] },
       { label: 'Guard contrato Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1Contract.unit.mjs'] },
+      { label: 'Guard sintaxis Python Kronos Stage B', command: 'python3', args: ['-m', 'py_compile', 'backend/scripts/kronos_stage_b_diagnostic.py'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
