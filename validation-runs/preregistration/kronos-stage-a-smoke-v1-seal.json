@@ -49,17 +49,19 @@
     "scripts/kronosMarketContextV1Protocol.mjs": "a54c85a68643319fd4aa8759a70fa00f865fe1bb",
     "backend/requirements-kronos.txt": "a38ce9aac7bf87917e99f26e813bc278c1d2c8ca",
     "backend/scripts/kronos_stage_a_smoke.py": "37ff5535c8615df33f7929e7113d653d9719d560",
-    "scripts/kronosStageALive.mjs": "482195569444b082a720a02643d0ec09f0526271",
+    "scripts/kronosStageALive.mjs": "ff31e613bfe6ec1aa8a7d2f0c48a016df131ca62",
     "tests/kronosStageAProtocol.unit.mjs": "550e6401596efc55dde231826a12bc852f273fff",
-    "tests/kronosStageAContract.unit.mjs": "78fe4dd4e48e510617f66313b4f583deff553215"
+    "tests/kronosStageAContract.unit.mjs": "71e8f5e1f9ab0a45fbaf95ed9df8105003ca970d",
+    "tests/kronosPipBootstrap.unit.mjs": "51551f28f5ddb49400c2ecdc96d0cff865fc8bbe"
   },
-  "sealRevision": 4,
-  "previousSealRevision": 3,
+  "sealRevision": 5,
+  "previousSealRevision": 4,
   "technicalReseal": {
-    "reason": "Activate already-preregistered Kronos Stage A after PEAD signal diagnostic closed FAIL; no Kronos market data or outcomes opened.",
+    "reason": "Stage A runtime bootstrap hardening after live environment showed python3 without pip and without ensurepip. Add repo-local get-pip fallback; no model, signal, market data or outcome semantics changed.",
     "marketPricesFetched": false,
     "marketOutcomesOpened": false,
     "economicPolicyOpened": false,
-    "methodologyChanged": false
+    "methodologyChanged": false,
+    "runtimeOnly": true
   }
 }
