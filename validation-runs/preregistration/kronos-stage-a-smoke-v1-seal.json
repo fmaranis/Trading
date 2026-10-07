@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "study": "KRONOS_STAGE_A_SMOKE_V1",
+  "protocol": "KRONOS_MARKET_CONTEXT_V1",
+  "frozenAt": "2026-10-07",
+  "status": "FROZEN_PRE_RUN_TECHNICAL_ONLY",
+  "source": {
+    "repository": "shiyu-coder/Kronos",
+    "commit": "67b630e67f6a18c9e9be918d9b4337c960db1e9a",
+    "license": "MIT"
+  },
+  "model": {
+    "repoId": "NeoQuasar/Kronos-small",
+    "revision": "901c26c1332695a2a8f243eb2f37243a37bea320",
+    "weightSha256": "b082dfcbd8e8c142a725c8bbb99781802f38fec81210e13479effb32b3c3e020"
+  },
+  "tokenizer": {
+    "repoId": "NeoQuasar/Kronos-Tokenizer-base",
+    "revision": "0e0117387f39004a9016484a186a908917e22426",
+    "weightSha256": "59d85f6af76a2c3b8240ea06cb21db4213b4eeca053f246b23e29cf832fc6bee"
+  },
+  "smoke": {
+    "dataProvenance": "SYNTHETIC",
+    "lookback": 128,
+    "horizon": 5,
+    "samplePaths": 4,
+    "individualPathsPreserved": true,
+    "probabilityOutputs": [
+      "P_RETURN_POSITIVE",
+      "P_LOG_CLOSE_SLOPE_POSITIVE"
+    ]
+  },
+  "pretrainingCutoff": {
+    "known": false,
+    "historicalPromotionAllowed": false,
+    "firstProspectiveEligibleWeek": "2026-10-12"
+  },
+  "outcomes": {
+    "marketPricesFetched": false,
+    "marketOutcomesOpened": false,
+    "economicPolicyOpened": false
+  },
+  "authority": {
+    "productionDefault": "LEGACY",
+    "productionAuthority": false
+  },
+  "expectedGitBlobSha": {
+    "docs/KRONOS_MARKET_CONTEXT_ROADMAP_2026-10-07.md": "663b00e20a9e59799b589c96e0b1a1c23831368d",
+    "scripts/kronosMarketContextV1Protocol.mjs": "a54c85a68643319fd4aa8759a70fa00f865fe1bb",
+    "backend/requirements-kronos.txt": "a38ce9aac7bf87917e99f26e813bc278c1d2c8ca",
+    "backend/scripts/kronos_stage_a_smoke.py": "37ff5535c8615df33f7929e7113d653d9719d560",
+    "scripts/kronosStageALive.mjs": "482195569444b082a720a02643d0ec09f0526271",
+    "tests/kronosStageAProtocol.unit.mjs": "550e6401596efc55dde231826a12bc852f273fff",
+    "tests/kronosStageAContract.unit.mjs": "aec04c2dadf5d92847feeb7770e9e73f98e59378"
+  }
+}
