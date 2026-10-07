@@ -2656,3 +2656,18 @@ Prospectivo:
   - `marketOutcomesOpened=false`;
   - `economicPolicyOpened=false`.
 - Verificación de integridad: 8/8 blobs del sello MATCH; Kronos sigue como único `CURRENT`.
+
+#### Fix falso positivo guard Kronos pip bootstrap 2026-10-07
+
+- Fallo observado: `kronosPipBootstrap.unit` rechazó el runner por regex `/sudo|apt-get|apt install/`.
+- Causa: el propio log informativo contenía el texto `without sudo/apt`; no existía ninguna ejecución real de `sudo`/`apt`.
+- Corrección guard-only:
+  - eliminado el regex global sobre texto;
+  - ahora se comprueba explícitamente ausencia de llamadas ejecutables `run('sudo'|'apt-get'|'apt')` y `spawnSync(...)` equivalentes.
+- Runtime Kronos no cambia.
+- Sello Kronos Stage A actualizado a revisión 6:
+  - `guardOnly=true`;
+  - `runtimeOnly=true`;
+  - `methodologyChanged=false`;
+  - mercado/outcomes/política siguen cerrados.
+- Verificación: 8/8 blobs sellados MATCH y todos los checks del nuevo guard PASS.
