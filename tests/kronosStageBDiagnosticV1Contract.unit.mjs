@@ -27,6 +27,7 @@ assert.ok(a>=0);
 const b=routes.indexOf("\n  },",a)+5;
 const block=routes.slice(a,b);
 assert.match(block,/visibility: 'CURRENT'/);
+assert.match(block,/kronosStageBDiagnosticV1Seal\.unit\.mjs/);
 assert.match(block,/kronosStageBDiagnosticV1\.unit\.mjs/);
 assert.match(block,/kronosStageBDiagnosticV1Contract\.unit\.mjs/);
 assert.match(block,/kronosStageALive\.mjs/);
