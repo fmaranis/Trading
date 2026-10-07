@@ -2529,3 +2529,58 @@ Prospectivo:
   - Kronos no crea motor paralelo;
   - si Stage A y benchmarks justifican seguir, se añadirá como contexto/shadow al collector prospectivo existente;
   - no se usará como selector 100% al ganador sin política económica separada y validación fresh.
+
+
+#### PEAD Source Audit R3 — PASS y apertura del diagnóstico de señal 2026-10-07
+
+- Resultado live recibido y persistido exactamente en `validation-runs/diagnostics/pead-yahoo-calendar-source-audit-r3-result.json`.
+- Job técnico: `PASSED`, exitCode 0.
+- Study status: `PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION_R3`.
+- Ventana: 2024-01-15 → 2024-03-15.
+- Fuente earnings: Yahoo Finance historical calendar by range, provenance REAL.
+- Universo: doble PIT S&P 500, provenance STATIC_REFERENCE.
+- Resultado audit:
+  - raw calendar rows: 3585;
+  - PIT events: 470;
+  - actual+estimate: 470 / 100%;
+  - surprise finite: 470 / 100%;
+  - causal eligible: 470;
+  - R1 overlap: 454 / 98.4816%;
+  - new vs R1: 16;
+  - duplicates: 0;
+  - directional contradictions: 0;
+  - unparseable calendar rows: 0;
+  - terminal pagination page seen: true.
+- Timing Yahoo continúa UNKNOWN 470/470 y tiene autoridad DIAGNOSTIC_ONLY_NOT_A_GATE.
+- Ejecución causal preservada: `FIRST_REGULAR_OPEN_STRICTLY_AFTER_REPORT_DATE`; announcement-day return excluido; no BMO/AMC inference.
+- Todos los gates R3 PASS.
+- R3 queda `ARCHIVED` como evidencia causal cerrada.
+- Sello R3 actualizado a revisión 4 tras el PASS; `priceOutcomesFetched=false` y `economicOutcomesOpened=false`.
+
+#### PEAD_ANALYST_SURPRISE_V1 — habilitado pre-price 2026-10-07
+
+- Pasa a único `CURRENT` tras PASS de Source Audit R3.
+- El protocolo sigue exactamente congelado:
+  - predictor: Yahoo Surprise(%);
+  - horizonte: 60 sesiones;
+  - benchmark: SPY;
+  - entrada: primera apertura regular estrictamente posterior al reportDate;
+  - salida: adjusted close exactamente 60 sesiones después;
+  - mínimo source events: 440;
+  - mínimo absoluto price coverage: 415;
+  - mínimo price coverage: 90%;
+  - Spearman > 0;
+  - Q5-Q1 > 0;
+  - Q5 mean excess return > 0;
+  - Q5 excess hit-rate > 50%;
+  - p unilateral Spearman < 0.05;
+  - p unilateral Q5-Q1 < 0.05;
+  - 2000 permutaciones within-report-week, seed 20260929.
+- Con 470 eventos source, el gate efectivo de cobertura por porcentaje será al menos 423 outcomes utilizables.
+- Se corrigió únicamente semántica de ejecución: un FAIL/INCONCLUSIVE científico ya no convierte el job técnico en FAILED; sólo errores reales de runtime/red producen fallo técnico.
+- Sello de señal actualizado a revisión 2 con `sourceReadiness=READY_R3_LIVE_PASS`.
+- Antes de la primera ejecución de señal: `priceOutcomesOpened=false`, `economicPolicyOpened=false`.
+- Un PASS sólo autoriza diseñar confirmación fresh; no abre sizing ni política económica.
+- Un FAIL termina la línea de señal sin retuning sobre esta muestra.
+- Producción permanece `LEGACY`.
+- Kronos Stage A continúa `PARKED`; no se mezcla con esta muestra PEAD histórica.
