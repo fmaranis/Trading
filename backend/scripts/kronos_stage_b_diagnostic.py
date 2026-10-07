@@ -15,7 +15,7 @@ RESULT=ROOT/"validation-runs/diagnostics/kronos-stage-b-diagnostic-v1-result.jso
 ASSETS=[
 ("EUNL","EUNL.DE",False),("SXR8","SXR8.DE",False),("EQQQ","EQQQ.DE",False),("EXSA","EXSA.DE",False),
 ("IS3N","IS3N.DE",False),("ZPRV","ZPRV.DE",False),("EXH1","EXH1.DE",False),("IBCI","IBCI.DE",True),("4GLD","4GLD.DE",True)]
-CORE="EUNL"; CONTEXT=512; HORIZON=60; PATHS=20; CHUNK=3; SEED=20261007
+CORE="EUNL"; CONTEXT=512; HORIZON=60; PATHS=20; ASSET_CHUNK=1; PATH_BATCH=4; SEED=20261007
 FROM="2015-01-01"; TO="2025-12-31"
 
 def qend_dates():
@@ -97,19 +97,41 @@ def summarize_paths(last_close,paths,h):
     return {"medianReturnPct":float(np.median(rets)),"pReturnPositive":float(np.mean(np.array(rets)>0)),
             "pSlopePositive":float(np.mean(np.array(slopes)>0)),"returnP10Pct":float(qs[0]),"returnP50Pct":float(qs[1]),"returnP90Pct":float(qs[2])}
 
-def run_anchor(pred,series,anchor):
+def save_progress(progress):
+    PROGRESS.parent.mkdir(parents=True,exist_ok=True)
+    tmp=PROGRESS.with_suffix(".tmp")
+    tmp.write_text(json.dumps(progress))
+    tmp.replace(PROGRESS)
+
+def run_anchor(pred,series,anchor,progress):
     torch.manual_seed(SEED+anchor["index"]); np.random.seed(SEED+anchor["index"])
-    rows=anchor["rows"]; forecasts={}
-    for start in range(0,len(rows),CHUNK):
-      chunk=rows[start:start+CHUNK]; dfs=[]; xs=[]; ys=[]; labels=[]
-      for r in chunk:
-        base=series[r["ticker"]].loc[r["contextDates"],["open","high","low","close","volume","amount"]]
-        x=pd.Series(r["contextDates"]); y=pd.Series(r["futureDates"])
-        for pi in range(PATHS):
-          dfs.append(base); xs.append(x); ys.append(y); labels.append((r["assetId"],pi))
-      outs=pred.predict_batch(dfs,xs,ys,HORIZON,T=1.0,top_k=0,top_p=.9,sample_count=1,verbose=False)
-      for (aid,pi),out in zip(labels,outs):
-        forecasts.setdefault(aid,[None]*PATHS)[pi]=[float(v) for v in out["close"].to_numpy()]
+    rows=anchor["rows"]; key=anchor["anchor"]
+    partial=progress.setdefault("partial",{}).setdefault(key,{"forecasts":{}})
+    forecasts=partial["forecasts"]
+    total_assets=len(rows)
+
+    for asset_i,r in enumerate(rows,1):
+      aid=r["assetId"]
+      existing=forecasts.setdefault(aid,[None]*PATHS)
+      done=sum(1 for x in existing if x is not None)
+      if done>=PATHS:
+        print(f"[Kronos B] {key} asset {asset_i}/{total_assets} {aid} already complete",flush=True)
+        continue
+      base=series[r["ticker"]].loc[r["contextDates"],["open","high","low","close","volume","amount"]]
+      x=pd.Series(r["contextDates"]); y=pd.Series(r["futureDates"])
+      for p0 in range(0,PATHS,PATH_BATCH):
+        pending=[pi for pi in range(p0,min(PATHS,p0+PATH_BATCH)) if existing[pi] is None]
+        if not pending: continue
+        print(f"[Kronos B] {key} asset {asset_i}/{total_assets} {aid} paths {pending[0]+1}-{pending[-1]+1}/{PATHS}",flush=True)
+        dfs=[base for _ in pending]; xs=[x for _ in pending]; ys=[y for _ in pending]
+        outs=pred.predict_batch(dfs,xs,ys,HORIZON,T=1.0,top_k=0,top_p=.9,sample_count=1,verbose=False)
+        for pi,out in zip(pending,outs):
+          existing[pi]=[float(v) for v in out["close"].to_numpy()]
+        save_progress(progress)
+
+    if any(any(path is None for path in forecasts.get(r["assetId"],[])) for r in rows):
+      raise RuntimeError("KRONOS_STAGE_B_PARTIAL_ANCHOR_INCOMPLETE:"+key)
+
     result=[]
     core_row=next(r for r in rows if r["assetId"]==CORE)
     core_last=float(series[core_row["ticker"]].loc[core_row["informationDate"],"close"])
@@ -146,9 +168,9 @@ def metrics(all_rows,h):
       "positiveTemporalIcAssets":sum(1 for v in tic.values() if v is not None and v>0),"temporalIcByAsset":tic}
 
 def main():
-    torch.set_num_threads(max(1,min(4,os.cpu_count() or 1)))
+    torch.set_num_threads(1)\n    torch.set_num_interop_threads(1)
     series={t:parse(t,fetch(t)) for _,t,_ in ASSETS}; anchors=build_cases(series)
-    pred=load_models(); progress={"version":"KRONOS_STAGE_B_DIAGNOSTIC_V1","completed":{}}
+    pred=load_models(); progress={"version":"KRONOS_STAGE_B_DIAGNOSTIC_V1","completed":{},"partial":{}}
     if PROGRESS.exists():
       try: progress=json.loads(PROGRESS.read_text())
       except: pass
@@ -159,8 +181,7 @@ def main():
         rows=progress["completed"][key]
       else:
         print(f"[Kronos B] anchor {i}/{len(anchors)} {key}",flush=True)
-        rows=run_anchor(pred,series,a); progress.setdefault("completed",{})[key]=rows
-        PROGRESS.parent.mkdir(parents=True,exist_ok=True); PROGRESS.write_text(json.dumps(progress))
+        rows=run_anchor(pred,series,a,progress); progress.setdefault("completed",{})[key]=rows; progress.setdefault("partial",{}).pop(key,None)\n        save_progress(progress)
       all_rows.extend(rows)
     ms=[metrics(all_rows,h) for h in (20,60)]
     mean_rank=float(np.mean([m["meanCrossSectionalRankIc"] for m in ms])); mean_mom=float(np.mean([m["momentumMeanCrossSectionalRankIc"] for m in ms]))
