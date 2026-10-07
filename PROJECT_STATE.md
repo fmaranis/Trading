@@ -2774,3 +2774,11 @@ Prospectivo:
   - `torch.set_num_interop_threads(1)` presente.
 - Sello Stage B revisión 4: `syntaxOnly=true`, `resourceOnly=true`, `methodologyChanged=false`.
 - 5/5 blobs específicos MATCH.
+
+#### Fix final newline literal + py_compile Kronos Stage B 2026-10-07
+
+- Segundo `SyntaxError` live localizado en el checkpoint post-anchor: quedaba un único `\\n` literal residual en el runner.
+- Se eliminó ese último `\\n` literal; verificación posterior: count=0.
+- Se añadió guard previo `python3 -m py_compile backend/scripts/kronos_stage_b_diagnostic.py` antes de cualquier runtime Kronos Stage B.
+- El hardening resource-safe permanece sin cambios: 1 hilo CPU, 4 paths por minibatch, 20 paths totales y checkpoint parcial.
+- Sello Stage B revisión 5; 5/5 blobs específicos MATCH.
