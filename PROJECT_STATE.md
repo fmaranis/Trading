@@ -2687,3 +2687,45 @@ Prospectivo:
   - runner no contiene llamadas privilegiadas;
   - bootstrap repo-local `get-pip.py` permanece intacto.
 - Sello Kronos Stage A revisión 7; 8/8 blobs MATCH; metodología y outcomes sin cambios.
+
+#### Kronos Stage A PASS + Stage B preregistrado 2026-10-07
+
+- Resultado live de `kronos-stage-a-smoke-v1`: job técnico `PASSED`, exitCode 0, study `PASS_STAGE_A_TECHNICAL_SMOKE`.
+- Stage A confirmó:
+  - código oficial pinneado y blobs verificados;
+  - modelo/tokenizer y SHA256 verificados;
+  - runtime Python 3.10.12 + Torch 2.8.0 CPU;
+  - 4 trayectorias individuales preservadas;
+  - misma seed exactamente reproducible (`sameSeedMaxAbsDiff=0`);
+  - seeds distintas producen dispersión (`pathDiversityStdMax=0.4976874`);
+  - probabilidades finitas;
+  - sin precios de mercado ni outcomes.
+- Evidencia durable: `validation-runs/diagnostics/kronos-stage-a-smoke-v1-result.json`.
+- Stage A queda `ARCHIVED`.
+
+#### KRONOS_STAGE_B_DIAGNOSTIC_V1 — CURRENT
+
+- Stage B queda preregistrado y sellado antes del primer resultado histórico Kronos.
+- Reutiliza exactamente la muestra ya consumida de `TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1`:
+  - 31 anchors trimestrales, 2018Q1 → 2025Q3;
+  - core EUNL;
+  - 8 candidatos SXR8/EQQQ/EXSA/IS3N/ZPRV/EXH1/IBCI/4GLD;
+  - Yahoo REAL;
+  - contexto 512;
+  - horizontes primarios 20/60.
+- Sampling congelado:
+  - 20 trayectorias por activo/anchor;
+  - T=1.0, top_p=0.9, top_k=0;
+  - batch por chunks de 3 activos;
+  - `sample_count=1` por copia para preservar cada trayectoria individual.
+- Métricas congeladas:
+  - cross-sectional RankIC;
+  - directional accuracy relativa;
+  - Brier absoluto de subida;
+  - temporal IC por activo;
+  - comparación RankIC con momentum;
+  - comparación con resultado TimesFM Stage B existente si está disponible.
+- El runner guarda checkpoint tras cada anchor en `.runtime/kronos-stage-b-v1/progress.json` y reanuda tras interrupciones.
+- Cutoff temporal de pretraining sigue desconocido: todo Stage B es DESCRIPTIVE_ONLY y no puede promocionar producción.
+- Sello: `validation-runs/preregistration/kronos-stage-b-diagnostic-v1-seal.json`; 5/5 blobs específicos MATCH.
+- `kronos-stage-b-diagnostic-v1` es el único `CURRENT`; producción permanece `LEGACY`.
