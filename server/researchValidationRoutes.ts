@@ -490,6 +490,21 @@ const JOBS: JobDefinition[] = [
     ]
   },
   {
+    id: 'kronos-stage-a-smoke-v1',
+    name: 'Kronos · Stage A · smoke técnico',
+    description: 'Smoke research-only de Kronos-small con código/pesos pinneados. Usa OHLCV sintético, conserva trayectorias Monte Carlo individuales y calcula P(retorno>0) y P(pendiente>0). Sin Yahoo, outcomes ni autoridad productiva.',
+    marker: 'KRONOS_STAGE_A_SMOKE_V1_RESULT',
+    visibility: 'PARKED',
+    steps: [
+      { label: 'Guard protocolo Kronos Stage A', command: 'node', args: ['tests/kronosStageAProtocol.unit.mjs'] },
+      { label: 'Guard contrato Kronos Stage A', command: 'node', args: ['tests/kronosStageAContract.unit.mjs'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Kronos-small · smoke aislado CPU', command: 'node', args: ['scripts/kronosStageALive.mjs'] }
+    ]
+  },
+  {
     id: 'pead-yahoo-calendar-source-audit-r3',
     name: 'PEAD · Yahoo histórico + doble PIT · R3 next-session',
     description: 'Auditoría causal R3 pre-precio. Reutiliza el transporte Yahoo por rango validado en R2, mantiene doble PIT y congela entrada en la primera apertura regular estrictamente posterior al reportDate. El timing Yahoo queda sólo como diagnóstico.',
