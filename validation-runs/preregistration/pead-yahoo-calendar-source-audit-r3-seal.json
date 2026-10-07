@@ -54,9 +54,9 @@
     "tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs": "9408e2279ca8a9766a81d2b24481cca6077f3419",
     "scripts/peadYahooCalendarSourceAuditR2.mjs": "75eb52bb5e0000e30a940667cf3f9e8abdb1a91a",
     "tests/peadYahooCalendarSourceAuditR2.integration.mjs": "6941383eb2faefd87c547a8a0aff330316c308c5",
-    "server/researchValidationRoutes.ts": "45bb3eafb43d085869e51e157f9b001929c72902",
-    "tests/researchValidationRuntime.unit.ts": "42454cc690016d51b48a160d907cf4a3d5434346",
-    "src/components/ResearchValidationCenter.tsx": "bc3ea36c04b866dca12e27bcd6cf5f69eeef5b8d",
+    "server/researchValidationRoutes.ts": "ec74b5d50a1a8bc1b612617114cf099b005d10d4",
+    "tests/researchValidationRuntime.unit.ts": "581e06c032d0e8a4eeb720b9947d81b75ee19cb6",
+    "src/components/ResearchValidationCenter.tsx": "0e55530572bfa40cef2e236cf0f67ae7c86295c1",
     "scripts/peadSignalDiagnosticV1.mjs": "06027574074648d7cfdf54ae4f02d77784ef3970",
     "tests/peadSignalSourceR3Readiness.unit.mjs": "2cbd44a5d09914c7d84575e86e1ef7b5c5c2b08e",
     "validation-runs/diagnostics/pead-source-r2-inconclusive-timing-unavailable-2026-09-30.json": "e410e5b9801a81fa9311d7026f5348ed2521103c"
@@ -82,11 +82,11 @@
     "exactSignalBlobNextSession": "PASS_EXECUTED_BY_CHATGPT",
     "exactSignalEntryExample": "2024-02-02 after reportDate 2024-02-01"
   },
-  "sealRevision": 2,
-  "previousSealRevision": 1,
+  "sealRevision": 3,
+  "previousSealRevision": 2,
   "technicalReseal": {
     "date": "2026-10-07",
-    "reason": "Reactivate unchanged PEAD R3 after Operating Profitability PIT R2 closed; refresh technical route/runtime/UI hashes only.",
+    "reason": "Kronos Stage A added as PARKED research line; refresh technical route/runtime/UI hashes while PEAD R3 remains CURRENT.",
     "priceOutcomesOpened": false,
     "economicOutcomesOpened": false,
     "methodologyChanged": false,
