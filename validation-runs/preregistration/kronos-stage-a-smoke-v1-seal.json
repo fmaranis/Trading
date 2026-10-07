@@ -52,16 +52,17 @@
     "scripts/kronosStageALive.mjs": "ff31e613bfe6ec1aa8a7d2f0c48a016df131ca62",
     "tests/kronosStageAProtocol.unit.mjs": "550e6401596efc55dde231826a12bc852f273fff",
     "tests/kronosStageAContract.unit.mjs": "71e8f5e1f9ab0a45fbaf95ed9df8105003ca970d",
-    "tests/kronosPipBootstrap.unit.mjs": "51551f28f5ddb49400c2ecdc96d0cff865fc8bbe"
+    "tests/kronosPipBootstrap.unit.mjs": "6755d55c437e07c022b9f0edb6823059f40231eb"
   },
-  "sealRevision": 5,
-  "previousSealRevision": 4,
+  "sealRevision": 6,
+  "previousSealRevision": 5,
   "technicalReseal": {
-    "reason": "Stage A runtime bootstrap hardening after live environment showed python3 without pip and without ensurepip. Add repo-local get-pip fallback; no model, signal, market data or outcome semantics changed.",
+    "reason": "Fix false-positive bootstrap guard: log text 'without sudo/apt' matched the old broad regex. Guard now checks executable sudo/apt commands only.",
     "marketPricesFetched": false,
     "marketOutcomesOpened": false,
     "economicPolicyOpened": false,
     "methodologyChanged": false,
-    "runtimeOnly": true
+    "runtimeOnly": true,
+    "guardOnly": true
   }
 }
