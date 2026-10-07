@@ -3,7 +3,7 @@
   "study": "PEAD_EARNINGS_SOURCE_AUDIT_R3",
   "sourceRevision": "YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION",
   "frozenAt": "2026-10-01",
-  "status": "FROZEN_PRE_LIVE_NO_PRICE_OUTCOMES",
+  "status": "COMPLETED_PASS_SOURCE_CAUSALITY_PRE_PRICE",
   "window": {
     "from": "2024-01-15",
     "to": "2024-03-15"
@@ -51,15 +51,16 @@
     "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_R3_2026-10-01.md": "8b2089fc7780d6e226d2eb2f5588738d8b884f4c",
     "scripts/peadYahooCalendarSourceAuditR3.mjs": "46fe07ceb9a097bb3b5da6a6aff007c7dfa3ea7f",
     "tests/peadYahooCalendarSourceAuditR3.unit.mjs": "1474392bfc15000241901cebc6c88d7c561fea01",
-    "tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs": "a469a75ae9643abfd83ab6f964e92c1561191d22",
+    "tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs": "9b79b3df25beb01b00dc722ba59caa8f907ac7e9",
     "scripts/peadYahooCalendarSourceAuditR2.mjs": "75eb52bb5e0000e30a940667cf3f9e8abdb1a91a",
     "tests/peadYahooCalendarSourceAuditR2.integration.mjs": "6941383eb2faefd87c547a8a0aff330316c308c5",
-    "server/researchValidationRoutes.ts": "ec74b5d50a1a8bc1b612617114cf099b005d10d4",
-    "tests/researchValidationRuntime.unit.ts": "581e06c032d0e8a4eeb720b9947d81b75ee19cb6",
+    "server/researchValidationRoutes.ts": "2ed2ef8ca54bacec72df25c257cd724e86edd806",
+    "tests/researchValidationRuntime.unit.ts": "a646b3ff6c54bea364b7c0097636b568d930a330",
     "src/components/ResearchValidationCenter.tsx": "0e55530572bfa40cef2e236cf0f67ae7c86295c1",
     "scripts/peadSignalDiagnosticV1.mjs": "06027574074648d7cfdf54ae4f02d77784ef3970",
     "tests/peadSignalSourceR3Readiness.unit.mjs": "2cbd44a5d09914c7d84575e86e1ef7b5c5c2b08e",
-    "validation-runs/diagnostics/pead-source-r2-inconclusive-timing-unavailable-2026-09-30.json": "e410e5b9801a81fa9311d7026f5348ed2521103c"
+    "validation-runs/diagnostics/pead-source-r2-inconclusive-timing-unavailable-2026-09-30.json": "e410e5b9801a81fa9311d7026f5348ed2521103c",
+    "validation-runs/diagnostics/pead-yahoo-calendar-source-audit-r3-result.json": "8dd1b64196c242eac0c9bfd1cec6884c2619efb6"
   },
   "runtimeVerification": {
     "unknownTiming468Fixture": "PASS_EXPECTED",
@@ -68,7 +69,7 @@
     "paginationFailClosed": true,
     "unparseableRowFailClosed": true,
     "exactSignalUsesNextSessionOnly": true,
-    "liveYahooCalendarAudit": "NOT_RUN",
+    "liveYahooCalendarAudit": "PASS",
     "priceOutcomesOpened": false,
     "exactR3BlobUnknownTiming468": "PASS_EXECUTED_BY_CHATGPT",
     "exactR3BlobCounts": {
@@ -80,13 +81,22 @@
     "exactR3BlobDuplicateFail": "PASS_EXECUTED_BY_CHATGPT",
     "exactR3BlobContradictionFail": "PASS_EXECUTED_BY_CHATGPT",
     "exactSignalBlobNextSession": "PASS_EXECUTED_BY_CHATGPT",
-    "exactSignalEntryExample": "2024-02-02 after reportDate 2024-02-01"
+    "exactSignalEntryExample": "2024-02-02 after reportDate 2024-02-01",
+    "livePitEvents": 470,
+    "liveCausalEligible": 470,
+    "liveActualEstimatePct": 100,
+    "liveSurprisePct": 100,
+    "liveR1OverlapPct": 98.48156182212581,
+    "liveDuplicateCount": 0,
+    "liveDirectionalContradictionCount": 0,
+    "liveUnparseableCalendarRows": 0,
+    "economicOutcomesOpened": false
   },
-  "sealRevision": 3,
-  "previousSealRevision": 2,
+  "sealRevision": 4,
+  "previousSealRevision": 3,
   "technicalReseal": {
     "date": "2026-10-07",
-    "reason": "Kronos Stage A added as PARKED research line; refresh technical route/runtime/UI hashes while PEAD R3 remains CURRENT.",
+    "reason": "Persist exact live PASS source audit and activate preregistered signal diagnostic; no price/economic outcomes opened.",
     "priceOutcomesOpened": false,
     "economicOutcomesOpened": false,
     "methodologyChanged": false,
