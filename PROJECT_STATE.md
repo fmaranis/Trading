@@ -2760,3 +2760,17 @@ Prospectivo:
   - checkpoint parcial por activo/path en `.runtime/kronos-stage-b-v1/progress.json` con escritura atómica.
 - Si se interrumpe dentro de un anchor, la siguiente ejecución reanuda desde las trayectorias ya persistidas, no sólo desde el último anchor completo.
 - Sello Stage B revisión 3: `resourceOnly=true`, `methodologyChanged=false`, `finalKronosMetricsObservedBeforeChange=false`.
+
+#### Fix sintaxis Kronos Stage B tras hardening recursos 2026-10-07
+
+- Fallo live: `SyntaxError` en `backend/scripts/kronos_stage_b_diagnostic.py` línea 171.
+- Causa: el parche de hardening dejó un `\\n` literal entre `torch.set_num_threads(1)` y `torch.set_num_interop_threads(1)`.
+- Corrección syntax-only:
+  - dos líneas Python reales correctamente indentadas;
+  - sin cambios en paths, anchors, seeds, horizontes, métricas, gates ni batching resource-safe.
+- Verificación del runner:
+  - no queda `\\n` literal en `main()`;
+  - `torch.set_num_threads(1)` presente;
+  - `torch.set_num_interop_threads(1)` presente.
+- Sello Stage B revisión 4: `syntaxOnly=true`, `resourceOnly=true`, `methodologyChanged=false`.
+- 5/5 blobs específicos MATCH.
