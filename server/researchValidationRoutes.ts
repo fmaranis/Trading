@@ -497,6 +497,7 @@ const JOBS: JobDefinition[] = [
     visibility: 'CURRENT',
     steps: [
       { label: 'Guard sello Kronos Stage A', command: 'node', args: ['tests/kronosStageASeal.unit.mjs'] },
+      { label: 'Guard bootstrap pip local Kronos', command: 'node', args: ['tests/kronosPipBootstrap.unit.mjs'] },
       { label: 'Guard protocolo Kronos Stage A', command: 'node', args: ['tests/kronosStageAProtocol.unit.mjs'] },
       { label: 'Guard contrato Kronos Stage A', command: 'node', args: ['tests/kronosStageAContract.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
