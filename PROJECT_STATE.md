@@ -2729,3 +2729,18 @@ Prospectivo:
 - Cutoff temporal de pretraining sigue desconocido: todo Stage B es DESCRIPTIVE_ONLY y no puede promocionar producción.
 - Sello: `validation-runs/preregistration/kronos-stage-b-diagnostic-v1-seal.json`; 5/5 blobs específicos MATCH.
 - `kronos-stage-b-diagnostic-v1` es el único `CURRENT`; producción permanece `LEGACY`.
+
+#### Fix falso positivo producción Kronos Stage B 2026-10-07
+
+- Fallo observado en `kronosStageBDiagnosticV1Contract.unit`: regex multilinea `/productionAuthority.*True/s` atravesaba contenido no relacionado y encontraba un `True` posterior.
+- Stage B todavía no había arrancado; el fallo fue exclusivamente del guard.
+- Corrección guard-only:
+  - exigir literal exacto `productionAuthority: False` en el runner Python;
+  - rechazar literal exacto `productionAuthority: True`;
+  - eliminado el regex multilinea ambiguo.
+- Verificación:
+  - contrato usa checks exactos False/True;
+  - runner contiene `productionAuthority: False` y no contiene `True`;
+  - sello Stage B revisión 2;
+  - 5/5 blobs específicos MATCH;
+  - metodología, runtime y política sin cambios.
