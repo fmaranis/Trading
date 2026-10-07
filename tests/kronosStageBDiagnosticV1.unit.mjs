@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { KRONOS_STAGE_B_DIAGNOSTIC_V1 as P } from '../scripts/kronosStageBDiagnosticV1Protocol.mjs';
+assert.equal(P.version,'KRONOS_STAGE_B_DIAGNOSTIC_V1');
+assert.equal(P.role,'HISTORICAL_DESCRIPTIVE_SIGNAL_DIAGNOSTIC_NO_PROMOTION');
+assert.equal(P.sampleReuse.source,'TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1');
+assert.equal(P.sampleReuse.expectedMaximumCases,248);
+assert.deepEqual(P.primaryHorizons,[20,60]);
+assert.equal(P.contextLength,512);
+assert.equal(P.forecastHorizon,60);
+assert.equal(P.sampling.pathsPerAssetAnchor,20);
+assert.equal(P.sampling.assetChunkSize,3);
+assert.equal(P.sampling.preserveIndividualPaths,true);
+assert.equal(P.pretrainingCutoff.known,false);
+assert.equal(P.pretrainingCutoff.promotionAllowed,false);
+assert.equal(P.productionDefault,'LEGACY');
+assert.equal(P.productionAuthority,false);
+console.log('kronosStageBDiagnosticV1.unit: PASS');
