@@ -36,7 +36,9 @@ export const KRONOS_STAGE_B_DIAGNOSTIC_V1 = Object.freeze({
     topK: 0,
     pathsPerAssetAnchor: 20,
     deterministicSeedBase: 20261007,
-    assetChunkSize: 3,
+    assetChunkSize: 1,
+    pathBatchSize: 4,
+    cpuThreads: 1,
     preserveIndividualPaths: true
   }),
   outputs: Object.freeze({
