@@ -508,9 +508,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'pead-yahoo-calendar-source-audit-r3',
     name: 'PEAD · Yahoo histórico + doble PIT · R3 next-session',
-    description: 'Auditoría causal R3 pre-precio. Reutiliza el transporte Yahoo por rango validado en R2, mantiene doble PIT y congela entrada en la primera apertura regular estrictamente posterior al reportDate. El timing Yahoo queda sólo como diagnóstico.',
+    description: 'R3 completada con PASS causal: 470 eventos PIT, 100% actual/estimate y surprise, 98,48% overlap R1, 0 duplicados/contradicciones/unparseables. Sin precios ni outcomes económicos.',
     marker: 'PEAD_EARNINGS_SOURCE_AUDIT_R3_RESULT',
-    visibility: 'CURRENT',
+    historyLabel: 'PEAD Source Audit R3 · PASS causal · 470 eventos',
+    visibility: 'ARCHIVED',
     steps: [
       { label: 'Guard seal PEAD R3', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs'] },
       { label: 'Guard PEAD R3 next-session', command: 'node', args: ['tests/peadYahooCalendarSourceAuditR3.unit.mjs'] },
@@ -524,9 +525,9 @@ const JOBS: JobDefinition[] = [
   {
     id: 'pead-analyst-surprise-v1',
     name: 'PEAD · calidad predictiva de sorpresa · V1',
-    description: 'Diagnóstico preregistrado de señal bloqueado hasta PASS de PEAD Source Audit R3. Mantiene Surprise(%), horizonte 60 sesiones, SPY y gates estadísticos congelados; la entrada queda fijada en la primera apertura estrictamente posterior al reportDate. Sin sizing, costes ni política económica.',
+    description: 'Diagnóstico preregistrado de señal habilitado tras PASS de PEAD Source Audit R3. Mantiene Surprise(%), horizonte 60 sesiones, SPY y gates estadísticos congelados; entrada en primera apertura estrictamente posterior al reportDate. Sin sizing, costes ni política económica.',
     marker: 'PEAD_ANALYST_SURPRISE_V1_RESULT',
-    visibility: 'PARKED',
+    visibility: 'CURRENT',
     steps: [
       { label: 'Guard fuente PEAD R3', command: 'node', args: ['tests/peadSignalSourceR3Readiness.unit.mjs'] },
       { label: 'Guard seal PEAD señal', command: 'node', args: ['tests/peadSignalDiagnosticV1Seal.unit.mjs'] },
