@@ -51,13 +51,14 @@
   },
   "gitBlobSha": {
     "docs/CORE_OUTPERFORMANCE_PEAD_SIGNAL_PREREGISTRATION_2026-09-29.md": "c042b0194c56ee27b1157eeb2651f0986094afae",
-    "scripts/peadSignalDiagnosticV1.mjs": "06027574074648d7cfdf54ae4f02d77784ef3970",
+    "scripts/peadSignalDiagnosticV1.mjs": "e9a0b1dc28daebceb7ba34ffd1e068e99aa5d6e0",
     "tests/peadSignalDiagnosticV1.unit.mjs": "90a64fec5f92b373f60b593645bb91d342ded3eb",
-    "tests/peadSignalDiagnosticV1Seal.unit.mjs": "f7e1a7bb559b55eebe44fc4b288d86c2aad84020",
+    "tests/peadSignalDiagnosticV1Seal.unit.mjs": "499cc164f6e40d27599e04b2934c8b7731af21e2",
     "tests/peadSignalSourceR3Readiness.unit.mjs": "2cbd44a5d09914c7d84575e86e1ef7b5c5c2b08e",
-    "server/researchValidationRoutes.ts": "4bf7332c28aa438aee8ed35fdc5d7f78c3bf8075",
-    "tests/researchValidationRuntime.unit.ts": "ae3efcfd0bda04ea648069952febda457e582238",
-    "validation-runs/preregistration/pead-yahoo-calendar-source-audit-r3-seal.json": "6b7c670af5cf730df4aee9ee1171af6e416d4dff",
+    "server/researchValidationRoutes.ts": "2ed2ef8ca54bacec72df25c257cd724e86edd806",
+    "tests/researchValidationRuntime.unit.ts": "a646b3ff6c54bea364b7c0097636b568d930a330",
+    "validation-runs/preregistration/pead-yahoo-calendar-source-audit-r3-seal.json": "b62ac11800d08ca523c602e1c6ebd11a48e617fd",
+    "validation-runs/diagnostics/pead-yahoo-calendar-source-audit-r3-result.json": "8dd1b64196c242eac0c9bfd1cec6884c2619efb6",
     "validation-runs/diagnostics/pead-source-r2-inconclusive-timing-unavailable-2026-09-30.json": "e410e5b9801a81fa9311d7026f5348ed2521103c"
   },
   "runtimeVerification": {
@@ -90,7 +91,11 @@
     "exactSignalNextSessionOnly": "PASS_EXECUTED_BY_CHATGPT",
     "r3ExactSourceFixture": "PASS_EXECUTED_BY_CHATGPT",
     "r3ExactNextSessionEntry": "PASS_EXECUTED_BY_CHATGPT",
-    "sourceReadiness": "PENDING_R3_LIVE_PASS"
+    "sourceReadiness": "READY_R3_LIVE_PASS",
+    "r3LiveStatus": "PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION_R3",
+    "r3LiveEvents": 470,
+    "r3LiveR1OverlapPct": 98.48156182212581,
+    "priceOutcomesOpened": false
   },
   "inference": {
     "method": "ONE_SIDED_WITHIN_REPORT_WEEK_PERMUTATION",
@@ -98,5 +103,17 @@
     "seed": 20260929,
     "rationale": "Shuffle surprise only within announcement week so temporal market regimes cannot alone create PASS."
   },
-  "sourceReadiness": "PENDING_R3_LIVE_PASS"
+  "sourceReadiness": "READY_R3_LIVE_PASS",
+  "sealRevision": 2,
+  "previousSealRevision": 1,
+  "technicalReseal": {
+    "date": "2026-10-07",
+    "reason": "R3 live source audit passed and exact 470-event source result is persisted; refresh technical hashes and scientific/technical exit semantics before first price outcome.",
+    "priceOutcomesOpened": false,
+    "economicPolicyOpened": false,
+    "methodologyChanged": false,
+    "signalChanged": false,
+    "gatesChanged": false,
+    "horizonChanged": false
+  }
 }
