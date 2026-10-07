@@ -21,7 +21,9 @@
     "contextLength": 512,
     "forecastHorizon": 60,
     "pathsPerAssetAnchor": 20,
-    "assetChunkSize": 3
+    "assetChunkSize": 1,
+    "pathBatchSize": 4,
+    "cpuThreads": 1
   },
   "primaryHorizons": [
     20,
@@ -44,20 +46,22 @@
     "productionAuthority": false
   },
   "expectedGitBlobSha": {
-    "scripts/kronosStageBDiagnosticV1Protocol.mjs": "2edc26b4753037ea2d70773ffbc79a4cf2720999",
-    "backend/scripts/kronos_stage_b_diagnostic.py": "1ce3ba02664ae94555c163c1985e7c7d77d132e4",
+    "scripts/kronosStageBDiagnosticV1Protocol.mjs": "fad6a6ed99f35494473ad5af2875b1806608e821",
+    "backend/scripts/kronos_stage_b_diagnostic.py": "fd32b48f4be35d85e2c7afa45fa02133c377f9e7",
     "scripts/kronosStageBDiagnosticLive.mjs": "aa3c11c2921fb1d2db043e4aa37a218c5d3ac810",
-    "tests/kronosStageBDiagnosticV1.unit.mjs": "91b9153eb033d4d857c09b126e1bd9f946466d57",
-    "tests/kronosStageBDiagnosticV1Contract.unit.mjs": "4fcd8e5f5dd957e67b932ddbd697790c457ffab1"
+    "tests/kronosStageBDiagnosticV1.unit.mjs": "48e2d153d2c078f6a7e390a5b91e22b21630ff32",
+    "tests/kronosStageBDiagnosticV1Contract.unit.mjs": "b3b509f8b6ffad95b6bf55d5a71ef7d3ab4d2f32"
   },
-  "sealRevision": 2,
-  "previousSealRevision": 1,
+  "sealRevision": 3,
+  "previousSealRevision": 2,
   "technicalReseal": {
-    "reason": "Fix false-positive Stage B contract guard: multiline productionAuthority regex crossed unrelated True tokens. Guard now checks exact productionAuthority boolean literal.",
+    "reason": "Resource-stability hardening after live Stage B reached anchor 1/31 and monopolized CPU/RAM with a 60-series batch. Same frozen 20 paths, horizons, assets, anchors, seeds, metrics and gates; only execution batching/checkpoint granularity changes.",
     "methodologyChanged": false,
-    "runtimeChanged": false,
-    "guardOnly": true,
-    "economicPolicyOpened": false,
+    "runtimeChanged": true,
+    "resourceOnly": true,
+    "historicalSampleAlreadyConsumed": true,
+    "historicalYahooDataOpened": true,
+    "finalKronosMetricsObservedBeforeChange": false,
     "productionAuthority": false
   }
 }
