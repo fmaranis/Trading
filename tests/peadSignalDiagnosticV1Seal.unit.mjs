@@ -12,6 +12,9 @@ function gitBlobSha(text){
 
 const seal=JSON.parse(fs.readFileSync(SEAL_PATH,'utf8'));
 assert.equal(seal.study,'PEAD_ANALYST_SURPRISE_V1');
+assert.equal(seal.sealRevision,2);
+assert.equal(seal.previousSealRevision,1);
+assert.equal(seal.sourceReadiness,'READY_R3_LIVE_PASS');
 assert.equal(seal.sourceStudy,'PEAD_EARNINGS_SOURCE_AUDIT_R3');
 assert.equal(seal.sourceRevision,'YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION');
 assert.equal(seal.signal?.predictor,'Yahoo Surprise(%)');
@@ -68,7 +71,7 @@ const start=routes.indexOf("id: 'pead-analyst-surprise-v1'");
 assert.ok(start>=0);
 const end=routes.indexOf("archivedJob(",start);
 const block=routes.slice(start,end>start?end:undefined);
-assert.match(block,/visibility: 'PARKED'/);
+assert.match(block,/visibility: 'CURRENT'/);
 assert.match(block,/Guard fuente PEAD R3/);
 assert.match(block,/Yahoo REAL · diagnóstico PEAD 60 sesiones/);
 
