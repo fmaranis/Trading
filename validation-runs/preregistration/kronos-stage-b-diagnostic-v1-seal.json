@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "study": "KRONOS_STAGE_B_DIAGNOSTIC_V1",
+  "frozenAt": "2026-10-07",
+  "status": "FROZEN_PRE_RUN_DIAGNOSTIC_ONLY",
+  "sourceStageA": "KRONOS_STAGE_A_SMOKE_V1",
+  "stageADisposition": "PASS_STAGE_A_TECHNICAL_SMOKE",
+  "sample": {
+    "source": "TIMESFM_STAGE_B_PREDICTIVE_BENCHMARK_V1",
+    "firstAnchorQuarterEnd": "2018-03-31",
+    "lastAnchorQuarterEnd": "2025-09-30",
+    "expectedAnchors": 31,
+    "expectedMaximumCases": 248,
+    "alreadyConsumed": true
+  },
+  "model": {
+    "repoId": "NeoQuasar/Kronos-small",
+    "revision": "901c26c1332695a2a8f243eb2f37243a37bea320",
+    "tokenizerRepoId": "NeoQuasar/Kronos-Tokenizer-base",
+    "tokenizerRevision": "0e0117387f39004a9016484a186a908917e22426",
+    "contextLength": 512,
+    "forecastHorizon": 60,
+    "pathsPerAssetAnchor": 20,
+    "assetChunkSize": 3
+  },
+  "primaryHorizons": [
+    20,
+    60
+  ],
+  "metrics": [
+    "MEAN_CROSS_SECTIONAL_RANK_IC",
+    "RELATIVE_DIRECTIONAL_ACCURACY",
+    "ABSOLUTE_DIRECTION_BRIER",
+    "TEMPORAL_IC_BY_ASSET",
+    "MOMENTUM_RANK_IC"
+  ],
+  "pretrainingCutoffKnown": false,
+  "historicalPromotionAllowed": false,
+  "outcomes": {
+    "economicPolicyOpened": false
+  },
+  "authority": {
+    "productionDefault": "LEGACY",
+    "productionAuthority": false
+  },
+  "expectedGitBlobSha": {
+    "scripts/kronosStageBDiagnosticV1Protocol.mjs": "2edc26b4753037ea2d70773ffbc79a4cf2720999",
+    "backend/scripts/kronos_stage_b_diagnostic.py": "1ce3ba02664ae94555c163c1985e7c7d77d132e4",
+    "scripts/kronosStageBDiagnosticLive.mjs": "aa3c11c2921fb1d2db043e4aa37a218c5d3ac810",
+    "tests/kronosStageBDiagnosticV1.unit.mjs": "91b9153eb033d4d857c09b126e1bd9f946466d57",
+    "tests/kronosStageBDiagnosticV1Contract.unit.mjs": "e0826620dc5a2d3914282d61c4339b3472c201e7"
+  }
+}
