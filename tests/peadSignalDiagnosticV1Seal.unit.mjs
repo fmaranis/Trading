@@ -60,6 +60,7 @@ assert.match(runner,/bar\.date>event\.reportDate/);
 assert.doesNotMatch(runner,/BeforeMarket:'SAME_DATE/);
 assert.match(runner,/PASS_SIGNAL_DIAGNOSTIC_CANDIDATE_FOR_FRESH_CONFIRMATION/);
 assert.match(runner,/FAIL_SIGNAL_DIAGNOSTIC_NO_POLICY/);
+assert.doesNotMatch(runner,/process\.exitCode=2/);
 assert.doesNotMatch(runner,/horizonSessions:(?:5|10|20|40|90|120)/);
 
 const routes=fs.readFileSync('server/researchValidationRoutes.ts','utf8');
