@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "study": "KRONOS_STAGE_A_SMOKE_V1",
+  "capturedAt": "2026-10-07",
+  "job": {
+    "id": "kronos-stage-a-smoke-v1",
+    "name": "Kronos · Stage A · smoke técnico",
+    "status": "PASSED",
+    "startedAt": "2026-10-07T16:49:59.139Z",
+    "finishedAt": "2026-10-07T16:53:26.371Z",
+    "exitCode": 0,
+    "error": null
+  },
+  "status": "PASS_STAGE_A_TECHNICAL_SMOKE",
+  "source": {
+    "repository": "shiyu-coder/Kronos",
+    "commit": "67b630e67f6a18c9e9be918d9b4337c960db1e9a",
+    "license": "MIT",
+    "verified": true
+  },
+  "model": {
+    "repoId": "NeoQuasar/Kronos-small",
+    "revision": "901c26c1332695a2a8f243eb2f37243a37bea320",
+    "weightSha256": "b082dfcbd8e8c142a725c8bbb99781802f38fec81210e13479effb32b3c3e020",
+    "tokenizerRepoId": "NeoQuasar/Kronos-Tokenizer-base",
+    "tokenizerRevision": "0e0117387f39004a9016484a186a908917e22426",
+    "tokenizerWeightSha256": "59d85f6af76a2c3b8240ea06cb21db4213b4eeca053f246b23e29cf832fc6bee",
+    "maxContext": 512
+  },
+  "runtime": {
+    "python": "3.10.12",
+    "torch": "2.8.0+cpu",
+    "numpy": "2.1.3",
+    "pandas": "2.2.2",
+    "huggingfaceHub": "0.33.1",
+    "device": "cpu"
+  },
+  "smoke": {
+    "dataProvenance": "SYNTHETIC",
+    "lookback": 128,
+    "horizon": 5,
+    "samplePaths": 4,
+    "pReturnPositive": 1,
+    "pSlopePositive": 1,
+    "sameSeedMaxAbsDiff": 0,
+    "pathDiversityStdMax": 0.49768741100451697
+  },
+  "checks": {
+    "sourcePinnedAndVerified": true,
+    "modelWeightSha256Matches": true,
+    "tokenizerWeightSha256Matches": true,
+    "syntheticOnlyNoMarketPrices": true,
+    "fourIndividualPathsPreserved": true,
+    "sameSeedRepeatable": true,
+    "differentSeedsProducePathDiversity": true,
+    "probabilitiesFinite": true
+  },
+  "marketPricesFetched": false,
+  "marketOutcomesOpened": false,
+  "economicPolicyOpened": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "nextAction": "STAGE_B_DIAGNOSTIC_ONLY"
+}
