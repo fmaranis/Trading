@@ -4,6 +4,10 @@ import fs from 'node:fs';
 const seal=JSON.parse(fs.readFileSync('validation-runs/preregistration/kronos-stage-b-diagnostic-v1-seal.json','utf8'));
 function sha(text){const b=Buffer.from(text.replace(/\r\n/g,'\n'),'utf8');return crypto.createHash('sha1').update(Buffer.concat([Buffer.from(`blob ${b.length}\0`),b])).digest('hex');}
 assert.equal(seal.study,'KRONOS_STAGE_B_DIAGNOSTIC_V1');
+assert.equal(seal.sealRevision,2);
+assert.equal(seal.previousSealRevision,1);
+assert.equal(seal.technicalReseal.guardOnly,true);
+assert.equal(seal.technicalReseal.methodologyChanged,false);
 assert.equal(seal.status,'FROZEN_PRE_RUN_DIAGNOSTIC_ONLY');
 assert.equal(seal.stageADisposition,'PASS_STAGE_A_TECHNICAL_SMOKE');
 assert.equal(seal.sample.alreadyConsumed,true);
