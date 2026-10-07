@@ -13,8 +13,8 @@ function gitBlobSha(text){
 
 const seal=JSON.parse(fs.readFileSync(SEAL,'utf8'));
 assert.equal(seal.study,'PEAD_EARNINGS_SOURCE_AUDIT_R3');
-assert.equal(seal.sealRevision,5);
-assert.equal(seal.previousSealRevision,4);
+assert.equal(seal.sealRevision,6);
+assert.equal(seal.previousSealRevision,5);
 assert.equal(seal.technicalReseal?.priceOutcomesOpened,false);
 assert.equal(seal.technicalReseal?.methodologyChanged,false);
 assert.equal(seal.sourceRevision,'YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION');
