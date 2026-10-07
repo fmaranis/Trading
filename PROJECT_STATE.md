@@ -2586,3 +2586,14 @@ Prospectivo:
 - Kronos Stage A continúa `PARKED`; no se mezcla con esta muestra PEAD histórica.
 
 - La UI del Centro muestra Spearman, p-values, Q5−Q1, Q5 excess mean, hit-rate y cobertura para `PEAD_ANALYST_SURPRISE_V1`.
+
+#### Fix sello PEAD fuente cerrada 2026-10-07
+
+- Fallo observado en `Guard PEAD fuente cerrada`: `PEAD_SEAL_MISMATCH` sobre `server/researchValidationRoutes.ts`.
+- Causa: el sello archivado `PEAD_EARNINGS_SOURCE_AUDIT_V1` fingerprintaba archivos globales mutables del Centro (`researchValidationRoutes.ts` y `researchValidationRuntime.unit.ts`). La integración PARKED de Kronos y cambios posteriores de routing alteraron esos blobs sin modificar la auditoría PEAD histórica.
+- Corrección:
+  - el sello archivado deja de fingerprintar esos dos archivos globales mutables;
+  - conserva fingerprints de los artefactos source-specific e históricos de PEAD;
+  - el propio guard sigue comprobando por separado que el job PEAD fuente permanece `ARCHIVED`, que hay <=1 CURRENT y que no reaparece `requiresEodhdApiKey`.
+- Verificación directa contra blobs actuales de `main`: PASS, 0 mismatches.
+- No cambian fuente, ventana, universo, gates, resultado archivado, precios ni outcomes económicos.
