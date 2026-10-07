@@ -10,8 +10,8 @@ function gitBlobSha(text){
 }
 
 assert.equal(seal.study,'KRONOS_STAGE_A_SMOKE_V1');
-assert.equal(seal.sealRevision,6);
-assert.equal(seal.previousSealRevision,5);
+assert.equal(seal.sealRevision,7);
+assert.equal(seal.previousSealRevision,6);
 assert.equal(seal.technicalReseal.marketPricesFetched,false);
 assert.equal(seal.technicalReseal.methodologyChanged,false);
 assert.equal(seal.technicalReseal.runtimeOnly,true);
