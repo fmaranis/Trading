@@ -182,7 +182,10 @@ def main():
         rows=progress["completed"][key]
       else:
         print(f"[Kronos B] anchor {i}/{len(anchors)} {key}",flush=True)
-        rows=run_anchor(pred,series,a,progress); progress.setdefault("completed",{})[key]=rows; progress.setdefault("partial",{}).pop(key,None)\n        save_progress(progress)
+        rows=run_anchor(pred,series,a,progress)
+        progress.setdefault("completed",{})[key]=rows
+        progress.setdefault("partial",{}).pop(key,None)
+        save_progress(progress)
       all_rows.extend(rows)
     ms=[metrics(all_rows,h) for h in (20,60)]
     mean_rank=float(np.mean([m["meanCrossSectionalRankIc"] for m in ms])); mean_mom=float(np.mean([m["momentumMeanCrossSectionalRankIc"] for m in ms]))
