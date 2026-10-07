@@ -11,7 +11,12 @@ assert.match(runner,/KRONOS_PIP_UNAVAILABLE_AFTER_REPO_LOCAL_BOOTSTRAP/);
 assert.match(runner,/Repo-local pip ready/);
 assert.match(runner,/System pip\/ensurepip unavailable; bootstrapping repo-local pip without sudo\/apt/);
 assert.match(runner,/PYTHONPATH: \[TARGET, PIP_BOOTSTRAP/);
-assert.doesNotMatch(runner,/sudo|apt-get|apt install/);
+assert.doesNotMatch(runner,/run\(['"]sudo['"]/);
+assert.doesNotMatch(runner,/run\(['"]apt-get['"]/);
+assert.doesNotMatch(runner,/run\(['"]apt['"]/);
+assert.doesNotMatch(runner,/spawnSync\(['"]sudo['"]/);
+assert.doesNotMatch(runner,/spawnSync\(['"]apt-get['"]/);
+assert.doesNotMatch(runner,/spawnSync\(['"]apt['"]/);
 
 const ensureStart=runner.indexOf('function ensurePip');
 const runtimeStart=runner.indexOf('function runtimeEnv',ensureStart);
