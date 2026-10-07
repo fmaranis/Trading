@@ -36,8 +36,8 @@
     "tests/peadEarningsSourceAuditV1.unit.mjs": "650f000c1a72cb3767ed36fc0953a6152cecf3da",
     "tests/peadEarningsSourceAuditV1.integration.mjs": "73301acdc57ba02870b0928aa72987fd630694b8",
     "tests/peadEarningsSourceAuditV1Seal.unit.mjs": "1e409c0428acb9909fdf2d3fe2ad77c0de60a310",
-    "server/researchValidationRoutes.ts": "08021cca6cd0cc530f1925ce2f53b00db2285044",
-    "tests/researchValidationRuntime.unit.ts": "e761171a03bb3f6ccd1eebdb2463fb1ba9d29cbb",
+    "server/researchValidationRoutes.ts": "2ed2ef8ca54bacec72df25c257cd724e86edd806",
+    "tests/researchValidationRuntime.unit.ts": "a646b3ff6c54bea364b7c0097636b568d930a330",
     "validation-runs/diagnostics/pead-earnings-source-audit-v1-result.json": "067813b55d5c1c0e07d0edd8ec29c1861ba6193d"
   },
   "runtimeVerification": {
@@ -82,10 +82,11 @@
     "pitCrossSourceDisagreements": 1,
     "pitCrossSourceDisagreementExample": "FISV|2024-02-06|lawcal-only|excluded",
     "priceOutcomesFetched": false,
-    "economicOutcomesOpened": false
+    "economicOutcomesOpened": false,
+    "sharedRouteRuntimeTechnicalReseal20261007": true
   },
-  "technicalResealAt": "2026-09-29",
-  "technicalResealReason": "Registered the next PEAD signal diagnostic as PARKED and updated the runtime guard. Source inputs, source logic, frozen window, source gates and archived PASS evidence are unchanged; no price outcomes opened by this reseal.",
+  "technicalResealAt": "2026-10-07",
+  "technicalResealReason": "Kronos PARKED integration and PEAD R3/current-signal routing changed only shared ResearchValidationCenter route/runtime declarations. PEAD_EARNINGS_SOURCE_AUDIT_V1 source inputs, source logic, frozen window, source gates, archived PASS evidence and outcomes remain unchanged; no price or economic outcomes are opened by this reseal.",
   "preLiveVisibility": "ARCHIVED_SOURCE_AUDIT_PASS_NO_USER_ACTION",
   "sourceRevision": "YAHOO_STATIC_DUAL_PIT_R1"
 }
