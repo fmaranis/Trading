@@ -51,12 +51,12 @@
     "backend/scripts/kronos_stage_a_smoke.py": "37ff5535c8615df33f7929e7113d653d9719d560",
     "scripts/kronosStageALive.mjs": "482195569444b082a720a02643d0ec09f0526271",
     "tests/kronosStageAProtocol.unit.mjs": "550e6401596efc55dde231826a12bc852f273fff",
-    "tests/kronosStageAContract.unit.mjs": "aec04c2dadf5d92847feeb7770e9e73f98e59378"
+    "tests/kronosStageAContract.unit.mjs": "a9be51b6c0796d03cd11f7a964bbc124fa18b130"
   },
-  "sealRevision": 2,
-  "previousSealRevision": 1,
+  "sealRevision": 3,
+  "previousSealRevision": 2,
   "technicalReseal": {
-    "reason": "Add seal guard to the validation job before first execution.",
+    "reason": "Contract guard now explicitly requires the seal step before first execution.",
     "marketPricesFetched": false,
     "marketOutcomesOpened": false,
     "methodologyChanged": false
