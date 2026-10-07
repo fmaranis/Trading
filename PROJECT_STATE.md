@@ -2744,3 +2744,19 @@ Prospectivo:
   - sello Stage B revisión 2;
   - 5/5 blobs específicos MATCH;
   - metodología, runtime y política sin cambios.
+
+#### Kronos Stage B · hardening de recursos tras hang en anchor 1 2026-10-07
+
+- Ejecución live llegó correctamente hasta `[Kronos B] anchor 1/31 2018Q1` después de PASS de todos los guards y Stage A.
+- El diseño inicial agrupaba hasta `3 activos × 20 paths = 60 series` en un único `predict_batch` de 60 pasos sobre CPU.
+- Síntoma observado: alta carga / app no responsiva mientras el primer batch seguía ejecutándose.
+- Cambio exclusivamente de ejecución, antes de observar métricas finales Kronos:
+  - mismas 20 trayectorias por activo/anchor;
+  - mismos seeds, assets, 31 anchors, horizontes 20/60, métricas y gates;
+  - 1 activo por vez;
+  - 4 trayectorias por minibatch;
+  - Torch limitado a 1 hilo CPU + 1 hilo interop;
+  - heartbeat visible en cada minibatch;
+  - checkpoint parcial por activo/path en `.runtime/kronos-stage-b-v1/progress.json` con escritura atómica.
+- Si se interrumpe dentro de un anchor, la siguiente ejecución reanuda desde las trayectorias ya persistidas, no sólo desde el último anchor completo.
+- Sello Stage B revisión 3: `resourceOnly=true`, `methodologyChanged=false`, `finalKronosMetricsObservedBeforeChange=false`.
