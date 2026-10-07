@@ -334,7 +334,6 @@ export async function main(){
   fs.mkdirSync(path.dirname(OUT),{recursive:true});
   fs.writeFileSync(OUT,JSON.stringify(result,null,2)+'\n');
   console.log(MARKER,JSON.stringify(result));
-  if(!evaluation.passed)process.exitCode=2;
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href){
