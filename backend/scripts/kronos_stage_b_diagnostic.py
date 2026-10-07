@@ -168,7 +168,8 @@ def metrics(all_rows,h):
       "positiveTemporalIcAssets":sum(1 for v in tic.values() if v is not None and v>0),"temporalIcByAsset":tic}
 
 def main():
-    torch.set_num_threads(1)\n    torch.set_num_interop_threads(1)
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
     series={t:parse(t,fetch(t)) for _,t,_ in ASSETS}; anchors=build_cases(series)
     pred=load_models(); progress={"version":"KRONOS_STAGE_B_DIAGNOSTIC_V1","completed":{},"partial":{}}
     if PROGRESS.exists():
