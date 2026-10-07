@@ -51,7 +51,7 @@
     "docs/CORE_OUTPERFORMANCE_PEAD_SOURCE_AUDIT_R3_2026-10-01.md": "8b2089fc7780d6e226d2eb2f5588738d8b884f4c",
     "scripts/peadYahooCalendarSourceAuditR3.mjs": "46fe07ceb9a097bb3b5da6a6aff007c7dfa3ea7f",
     "tests/peadYahooCalendarSourceAuditR3.unit.mjs": "1474392bfc15000241901cebc6c88d7c561fea01",
-    "tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs": "9408e2279ca8a9766a81d2b24481cca6077f3419",
+    "tests/peadYahooCalendarSourceAuditR3Seal.unit.mjs": "a469a75ae9643abfd83ab6f964e92c1561191d22",
     "scripts/peadYahooCalendarSourceAuditR2.mjs": "75eb52bb5e0000e30a940667cf3f9e8abdb1a91a",
     "tests/peadYahooCalendarSourceAuditR2.integration.mjs": "6941383eb2faefd87c547a8a0aff330316c308c5",
     "server/researchValidationRoutes.ts": "ec74b5d50a1a8bc1b612617114cf099b005d10d4",
