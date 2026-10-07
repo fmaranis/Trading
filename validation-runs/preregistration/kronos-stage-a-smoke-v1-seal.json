@@ -51,14 +51,15 @@
     "backend/scripts/kronos_stage_a_smoke.py": "37ff5535c8615df33f7929e7113d653d9719d560",
     "scripts/kronosStageALive.mjs": "482195569444b082a720a02643d0ec09f0526271",
     "tests/kronosStageAProtocol.unit.mjs": "550e6401596efc55dde231826a12bc852f273fff",
-    "tests/kronosStageAContract.unit.mjs": "a9be51b6c0796d03cd11f7a964bbc124fa18b130"
+    "tests/kronosStageAContract.unit.mjs": "78fe4dd4e48e510617f66313b4f583deff553215"
   },
-  "sealRevision": 3,
-  "previousSealRevision": 2,
+  "sealRevision": 4,
+  "previousSealRevision": 3,
   "technicalReseal": {
-    "reason": "Contract guard now explicitly requires the seal step before first execution.",
+    "reason": "Activate already-preregistered Kronos Stage A after PEAD signal diagnostic closed FAIL; no Kronos market data or outcomes opened.",
     "marketPricesFetched": false,
     "marketOutcomesOpened": false,
+    "economicPolicyOpened": false,
     "methodologyChanged": false
   }
 }
