@@ -2633,3 +2633,26 @@ Prospectivo:
   - `marketOutcomesOpened=false`;
   - `economicPolicyOpened=false`.
 - Stage A sigue siendo smoke técnico sintético y production remains `LEGACY`.
+
+#### Fix Kronos Stage A · pip/ensurepip ausentes 2026-10-07
+
+- Fallo live observado después de que todos los guards rápidos y TypeScript pasasen:
+  - `python3` disponible;
+  - `python3 -m pip` no disponible;
+  - `python3 -m ensurepip` no disponible;
+  - error previo: `KRONOS_PIP_UNAVAILABLE:/usr/bin/python3: No module named ensurepip`.
+- Causa: el bootstrap Kronos V1 sólo contemplaba pip del sistema o `ensurepip`, pero el runtime de la app es una distribución Python mínima.
+- Corrección runtime-only:
+  1. probar `python -m pip`;
+  2. intentar `python -m ensurepip --upgrade`;
+  3. si ambos fallan, descargar `https://bootstrap.pypa.io/get-pip.py` usando `urllib.request` de la stdlib;
+  4. instalar pip en `.research-python/kronos-pip-bootstrap` mediante `--target`;
+  5. añadir ese directorio a `PYTHONPATH` y usar ese pip para instalar Torch CPU y requirements Kronos en `.research-python/kronos-v1`.
+- No usa `sudo`, `apt`, venv ni modifica Python del sistema.
+- Nuevo guard: `tests/kronosPipBootstrap.unit.mjs`; se ejecuta antes del resto del Stage A.
+- Sello `KRONOS_STAGE_A_SMOKE_V1` actualizado a revisión 5 por cambio exclusivamente runtime:
+  - `methodologyChanged=false`;
+  - `marketPricesFetched=false`;
+  - `marketOutcomesOpened=false`;
+  - `economicPolicyOpened=false`.
+- Verificación de integridad: 8/8 blobs del sello MATCH; Kronos sigue como único `CURRENT`.
