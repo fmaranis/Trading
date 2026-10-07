@@ -1,0 +1,5067 @@
+{
+  "schemaVersion": 1,
+  "study": "PEAD_EARNINGS_SOURCE_AUDIT_R3",
+  "sourceRevision": "YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION",
+  "status": "PASS_SOURCE_CAUSALITY_READY_FOR_SIGNAL_PREREGISTRATION_R3",
+  "window": {
+    "from": "2024-01-15",
+    "to": "2024-03-15"
+  },
+  "provider": "YAHOO_FINANCE_CALENDAR_RANGE",
+  "provenance": "REAL",
+  "universeProvenance": "STATIC_REFERENCE",
+  "sourcePins": {
+    "pitFja": {
+      "repository": "fja05680/sp500",
+      "commit": "a2430f2af0c79ddf0748e91de11bdeb1616ab5a7",
+      "path": "sp500_ticker_start_end.csv",
+      "blobSha": "3ed3b0e8d9e6e63730c153ee1f13ddaf6ed281bb"
+    },
+    "pitLawcal": {
+      "repository": "lawcal/sp500-components-history",
+      "commit": "2e59b86998a119d68e377f9f98aa7a816cfc7d5b",
+      "path": "data/components_history.csv",
+      "blobSha": "6a865618173f322ecda9a569bc6bd48edcfaf996"
+    },
+    "r1BaselineEarnings": {
+      "repository": "vivek-v-rao/Earnings-Dates",
+      "commit": "7ed98a0e2497b0a83bcbc290db41705089768c16",
+      "path": "earnings_dates_all.csv",
+      "blobSha": "abde11f719e93dc427a1040ffed3f0b8590b8508"
+    }
+  },
+  "yahooContract": {
+    "endpoint": "/v1/finance/visualization",
+    "region": "us",
+    "eventTypes": [
+      "EAD",
+      "ERA"
+    ],
+    "filterMostActive": false,
+    "currentTickerSeed": false,
+    "transportRevision": "R2_VALIDATED_COOKIE_CRUMB_RAW_ROW_PAGINATION",
+    "pagination": {
+      "size": 100,
+      "pages": [
+        {
+          "offset": 0,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "a6ababf0ee3f0947dc9078fc3d13d0dc13841dd48a2cee3064aa9038347c9986"
+        },
+        {
+          "offset": 100,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "fc9cd67f05608b7dcda7c69e1e8b10bdf4b2fafcd7e78cc11a0aa7eded3e1017"
+        },
+        {
+          "offset": 200,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "86232dcebec2b7f68b193d787f810e460ee5e59d54672a86e51db49050125f57"
+        },
+        {
+          "offset": 300,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "8670bbe1126d739fa4b6e2993090129168c0f49d1957fb5160ce0e352861b51b"
+        },
+        {
+          "offset": 400,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "0b8676faf2422b31cf6386833afba6b3a452f6c3efb41d532168c782909b7506"
+        },
+        {
+          "offset": 500,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "acfd06fd135c959f9bb8b7e7f08380333fa74e4b51da4dff191f258e0c3cd906"
+        },
+        {
+          "offset": 600,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "4c167891e8045120bd85994f5d9865b11afa38a7cdf83e7f6911229f28e2e949"
+        },
+        {
+          "offset": 700,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "693e9a9acf2a48bfe73609fdf072d8f28091fced7a6c9bf1b12c494ca079c3b5"
+        },
+        {
+          "offset": 800,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "f38f7825e2b49a90d5b944637ad6324cb1285256aa17092efa429b6dd17130a5"
+        },
+        {
+          "offset": 900,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "bf0e9694308fd51daef9c575cd18d638bfc3c712dedd1073db0c1b89cf51c1e7"
+        },
+        {
+          "offset": 1000,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "e4863ef8102a83a09b521c34a516dd80639e532f8ba0a2b4af704d1aad9323c1"
+        },
+        {
+          "offset": 1100,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "40fc04cc2e54f6940002d038d909c9e4dbf7151b10400c0442c2eb14415596e9"
+        },
+        {
+          "offset": 1200,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "96cf0197fe81b8b927f7dbc1b53522314e180c1e869feab556a4e32eb8a0656b"
+        },
+        {
+          "offset": 1300,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "bd47fde45c3169b78221eafd42ae992be92f05b63fca3146772451ea642546f0"
+        },
+        {
+          "offset": 1400,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "ebce0534c4af6478ba2934289ca1c5c85e027c1819c8b4fded0c3da2e56eecf1"
+        },
+        {
+          "offset": 1500,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "ed243e6cba02193769e26f77b2cfa24116f4990e0bea24b9aa3cecaa6e683305"
+        },
+        {
+          "offset": 1600,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "e89b96ed51fdadd53a6987fd1af2b966081399762ab8284869b20618644f8c4a"
+        },
+        {
+          "offset": 1700,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "6484741de4af696274249fcb4a6f235feb8f8f1f174a96a8f9cc8072c156fb2a"
+        },
+        {
+          "offset": 1800,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "40f5195a8e768f7a746908048c99b98acc7cc34ea67ce81c3a32988a04411f54"
+        },
+        {
+          "offset": 1900,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "f7c2eead8e0e916549ecc32f3fda009707d30c079470fd2f16a0f7924f762f5c"
+        },
+        {
+          "offset": 2000,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "77d1977d4107ce9344ce09dacc1a0b2f61e690557ca6e742608931c5567de5ec"
+        },
+        {
+          "offset": 2100,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "2c36dc9413dbd4345658929213880293f7c9595d4a0fab8f5761af1dcf2961d1"
+        },
+        {
+          "offset": 2200,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "988a44542d224d0588c102e4f28a174917ab83a96c5f103924d9602803da0879"
+        },
+        {
+          "offset": 2300,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "889e321ab15743e5878ae08295f37e151401b6fcfdc994f38f49762bb9792420"
+        },
+        {
+          "offset": 2400,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "a03c8e180930bed70b4a852ed4ee331a6c5e8347779a5dc61f730d21ce371384"
+        },
+        {
+          "offset": 2500,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "fb0c9ad5ced1f6785dd1a381ab291f53b977802e50df77758a36a9edd5c1f662"
+        },
+        {
+          "offset": 2600,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "19da68b8012183b88fd2db5babbfe320fc68907b6a0ebdcc0a222b56a7696cff"
+        },
+        {
+          "offset": 2700,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "0b939a63a4b5e6181f779ba342bc12449a6a64fb98f78df64207aab790e44af7"
+        },
+        {
+          "offset": 2800,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "6a1eb7e53053faf23cad6a13209254e9e7b6d273482f9e86a04a55f4cd431ff1"
+        },
+        {
+          "offset": 2900,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "725213e0c79821f704c084cbcfa591eacd45e6e662a4e5aefd1005b0ff8f176d"
+        },
+        {
+          "offset": 3000,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "d1755ef728f2356871ffec94153ce61bd18faf01de5440b805c8e60bab0deb25"
+        },
+        {
+          "offset": 3100,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "c7a86101e4512caa5dd85ced449b6586da58f0a8d3cff4385fafb56154967553"
+        },
+        {
+          "offset": 3200,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "0ab602ee327b72f917514b158fab1d79091568fda6aeb0cac801837de661179b"
+        },
+        {
+          "offset": 3300,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "0816c3a18cb2adf7615a1d2b2f07b31cb9beab22582bf7cbf7592608e90fab2f"
+        },
+        {
+          "offset": 3400,
+          "rowCount": 100,
+          "normalizedRowCount": 100,
+          "unparseableRowCount": 0,
+          "sha256": "00643753c13eb13aa7ef316876bd0e18bd7b327901929d15842d66c800bc7697"
+        },
+        {
+          "offset": 3500,
+          "rowCount": 85,
+          "normalizedRowCount": 85,
+          "unparseableRowCount": 0,
+          "sha256": "b859289ff33de281cf22cdcc46ca8a61516b7caa1998c741ce671e0d98d61ce6"
+        }
+      ]
+    }
+  },
+  "audit": {
+    "counts": {
+      "rawCalendarRows": 3585,
+      "windowRows": 3585,
+      "pitEvents": 470,
+      "actualEstimate": 470,
+      "surpriseFinite": 470,
+      "causalEligible": 470,
+      "r1CausalEvents": 461,
+      "r1Overlap": 454,
+      "newVsR1": 16
+    },
+    "coverage": {
+      "actualEstimatePct": 100,
+      "surprisePct": 100,
+      "r1OverlapPct": 98.48156182212581
+    },
+    "quality": {
+      "duplicateCount": 0,
+      "directionalContradictionCount": 0,
+      "terminalPageSeen": true,
+      "unparseableCalendarRows": 0
+    },
+    "timingDiagnostic": {
+      "beforeMarket": 0,
+      "afterMarket": 0,
+      "duringMarket": 0,
+      "unknown": 470,
+      "authority": "DIAGNOSTIC_ONLY_NOT_A_GATE"
+    },
+    "executionSemantics": {
+      "entry": "FIRST_REGULAR_OPEN_STRICTLY_AFTER_REPORT_DATE",
+      "announcementDayReturnIncluded": false,
+      "timingInferenceAllowed": false
+    },
+    "gates": {
+      "pitEvents": true,
+      "actualEstimateCoverage": true,
+      "surpriseCoverage": true,
+      "causalEligible": true,
+      "noDuplicates": true,
+      "noDirectionalContradictions": true,
+      "paginationComplete": true,
+      "noUnparseableCalendarRows": true,
+      "r1Overlap": true,
+      "nextSessionExecutionFrozen": true,
+      "noCurrentTickerSeed": true,
+      "noSynthetic": true
+    },
+    "passed": true
+  },
+  "causalEvents": [
+    {
+      "ticker": "GS",
+      "reportDate": "2024-01-16",
+      "startDateTime": "2024-01-16T12:34:01.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.27,
+      "actual": 5.48,
+      "surprisePct": 28.33
+    },
+    {
+      "ticker": "MS",
+      "reportDate": "2024-01-16",
+      "startDateTime": "2024-01-16T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.03,
+      "actual": 0.85,
+      "surprisePct": -17.84
+    },
+    {
+      "ticker": "PNC",
+      "reportDate": "2024-01-16",
+      "startDateTime": "2024-01-16T11:42:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.04,
+      "actual": 1.85,
+      "surprisePct": -9.44
+    },
+    {
+      "ticker": "CFG",
+      "reportDate": "2024-01-17",
+      "startDateTime": "2024-01-17T11:29:09.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.84,
+      "actual": 0.85,
+      "surprisePct": 1.16
+    },
+    {
+      "ticker": "DFS",
+      "reportDate": "2024-01-17",
+      "startDateTime": "2024-01-17T21:15:52.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.51,
+      "actual": 1.54,
+      "surprisePct": -38.57
+    },
+    {
+      "ticker": "KMI",
+      "reportDate": "2024-01-17",
+      "startDateTime": "2024-01-17T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.29,
+      "actual": 0.28,
+      "surprisePct": -4.72
+    },
+    {
+      "ticker": "PLD",
+      "reportDate": "2024-01-17",
+      "startDateTime": "2024-01-17T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.62,
+      "actual": 0.68,
+      "surprisePct": 10.57
+    },
+    {
+      "ticker": "SCHW",
+      "reportDate": "2024-01-17",
+      "startDateTime": "2024-01-17T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.64,
+      "actual": 0.68,
+      "surprisePct": 6.37
+    },
+    {
+      "ticker": "USB",
+      "reportDate": "2024-01-17",
+      "startDateTime": "2024-01-17T11:54:27.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.91,
+      "actual": 0.49,
+      "surprisePct": -46
+    },
+    {
+      "ticker": "FAST",
+      "reportDate": "2024-01-18",
+      "startDateTime": "2024-01-18T11:50:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.22,
+      "actual": 0.23,
+      "surprisePct": 2.27
+    },
+    {
+      "ticker": "JBHT",
+      "reportDate": "2024-01-18",
+      "startDateTime": "2024-01-18T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.74,
+      "actual": 1.47,
+      "surprisePct": -15.54
+    },
+    {
+      "ticker": "KEY",
+      "reportDate": "2024-01-18",
+      "startDateTime": "2024-01-18T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.23,
+      "actual": 0.03,
+      "surprisePct": -86.95
+    },
+    {
+      "ticker": "MTB",
+      "reportDate": "2024-01-18",
+      "startDateTime": "2024-01-18T11:08:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.67,
+      "actual": 3.6,
+      "surprisePct": -1.84
+    },
+    {
+      "ticker": "NTRS",
+      "reportDate": "2024-01-18",
+      "startDateTime": "2024-01-18T11:58:36.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.91,
+      "actual": 0.52,
+      "surprisePct": -42.86
+    },
+    {
+      "ticker": "PPG",
+      "reportDate": "2024-01-18",
+      "startDateTime": "2024-01-18T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.5,
+      "actual": 1.53,
+      "surprisePct": 2.21
+    },
+    {
+      "ticker": "TFC",
+      "reportDate": "2024-01-18",
+      "startDateTime": "2024-01-18T11:07:04.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.9,
+      "actual": 0.81,
+      "surprisePct": -9.5
+    },
+    {
+      "ticker": "CMA",
+      "reportDate": "2024-01-19",
+      "startDateTime": "2024-01-19T11:36:58.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.39,
+      "actual": 1.46,
+      "surprisePct": 4.83
+    },
+    {
+      "ticker": "FITB",
+      "reportDate": "2024-01-19",
+      "startDateTime": "2024-01-19T11:30:24.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.64,
+      "actual": 0.72,
+      "surprisePct": 12.78
+    },
+    {
+      "ticker": "HBAN",
+      "reportDate": "2024-01-19",
+      "startDateTime": "2024-01-19T11:31:27.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.17,
+      "actual": 0.15,
+      "surprisePct": -9.89
+    },
+    {
+      "ticker": "RF",
+      "reportDate": "2024-01-19",
+      "startDateTime": "2024-01-19T11:02:50.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.48,
+      "actual": 0.52,
+      "surprisePct": 7.87
+    },
+    {
+      "ticker": "SLB",
+      "reportDate": "2024-01-19",
+      "startDateTime": "2024-01-19T11:50:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.83,
+      "actual": 0.86,
+      "surprisePct": 3.23
+    },
+    {
+      "ticker": "STT",
+      "reportDate": "2024-01-19",
+      "startDateTime": "2024-01-19T12:30:54.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.83,
+      "actual": 2.04,
+      "surprisePct": 11.51
+    },
+    {
+      "ticker": "TRV",
+      "reportDate": "2024-01-19",
+      "startDateTime": "2024-01-19T11:57:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.09,
+      "actual": 7.01,
+      "surprisePct": 37.79
+    },
+    {
+      "ticker": "BRO",
+      "reportDate": "2024-01-22",
+      "startDateTime": "2024-01-23T00:16:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.53,
+      "actual": 0.58,
+      "surprisePct": 10.01
+    },
+    {
+      "ticker": "UAL",
+      "reportDate": "2024-01-22",
+      "startDateTime": "2024-01-22T21:00:04.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.7,
+      "actual": 2,
+      "surprisePct": 17.41
+    },
+    {
+      "ticker": "ZION",
+      "reportDate": "2024-01-22",
+      "startDateTime": "2024-01-22T21:04:53.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.06,
+      "actual": 1.3,
+      "surprisePct": 22.42
+    },
+    {
+      "ticker": "BKR",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T22:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.48,
+      "actual": 0.51,
+      "surprisePct": 6.88
+    },
+    {
+      "ticker": "DHI",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.89,
+      "actual": 2.82,
+      "surprisePct": -2.28
+    },
+    {
+      "ticker": "GE",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T11:23:08.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.9,
+      "actual": 1.03,
+      "surprisePct": 14.86
+    },
+    {
+      "ticker": "HAL",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.8,
+      "actual": 0.86,
+      "surprisePct": 8.07
+    },
+    {
+      "ticker": "ISRG",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.49,
+      "actual": 1.6,
+      "surprisePct": 7.72
+    },
+    {
+      "ticker": "IVZ",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T12:46:58.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.4,
+      "actual": 0.47,
+      "surprisePct": 18.69
+    },
+    {
+      "ticker": "JNJ",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T11:20:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.28,
+      "actual": 2.29,
+      "surprisePct": 0.39
+    },
+    {
+      "ticker": "LMT",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T12:29:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 7.25,
+      "actual": 7.58,
+      "surprisePct": 4.51
+    },
+    {
+      "ticker": "MMM",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.31,
+      "actual": 2.42,
+      "surprisePct": 4.61
+    },
+    {
+      "ticker": "NFLX",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T21:02:17.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.22,
+      "actual": 0.21,
+      "surprisePct": -4.8
+    },
+    {
+      "ticker": "PCAR",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T13:10:10.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.21,
+      "actual": 2.7,
+      "surprisePct": 22.11
+    },
+    {
+      "ticker": "PG",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.7,
+      "actual": 1.84,
+      "surprisePct": 8.28
+    },
+    {
+      "ticker": "RTX",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.25,
+      "actual": 1.29,
+      "surprisePct": 3.46
+    },
+    {
+      "ticker": "STLD",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.62,
+      "actual": 2.61,
+      "surprisePct": -0.51
+    },
+    {
+      "ticker": "SYF",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T11:00:58.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.95,
+      "actual": 1.18,
+      "surprisePct": 24.04
+    },
+    {
+      "ticker": "TXN",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.49,
+      "actual": 1.46,
+      "surprisePct": -2.1
+    },
+    {
+      "ticker": "VZ",
+      "reportDate": "2024-01-23",
+      "startDateTime": "2024-01-23T12:00:34.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.08,
+      "actual": 1.08,
+      "surprisePct": -0.15
+    },
+    {
+      "ticker": "ABT",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.19,
+      "actual": 1.19,
+      "surprisePct": 0.04
+    },
+    {
+      "ticker": "AMP",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:08:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 7.7,
+      "actual": 7.2,
+      "surprisePct": -6.44
+    },
+    {
+      "ticker": "APH",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.19,
+      "actual": 0.21,
+      "surprisePct": 7.02
+    },
+    {
+      "ticker": "CCI",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:17:32.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.76,
+      "actual": 0.86,
+      "surprisePct": 13.52
+    },
+    {
+      "ticker": "CSX",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.44,
+      "actual": 0.45,
+      "surprisePct": 1.86
+    },
+    {
+      "ticker": "ELV",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.59,
+      "actual": 5.62,
+      "surprisePct": 0.62
+    },
+    {
+      "ticker": "FCX",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T13:10:55.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.23,
+      "actual": 0.27,
+      "surprisePct": 17.07
+    },
+    {
+      "ticker": "GD",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.62,
+      "actual": 3.64,
+      "surprisePct": 0.68
+    },
+    {
+      "ticker": "IBM",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:08:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.8,
+      "actual": 3.87,
+      "surprisePct": 1.86
+    },
+    {
+      "ticker": "KMB",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.54,
+      "actual": 1.51,
+      "surprisePct": -2.13
+    },
+    {
+      "ticker": "LRCX",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.71,
+      "actual": 0.75,
+      "surprisePct": 5.69
+    },
+    {
+      "ticker": "LVS",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.61,
+      "actual": 0.57,
+      "surprisePct": -6.51
+    },
+    {
+      "ticker": "NOW",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:10:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.56,
+      "actual": 0.62,
+      "surprisePct": 11.94
+    },
+    {
+      "ticker": "PGR",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T13:41:13.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.43,
+      "actual": 2.97,
+      "surprisePct": 22.59
+    },
+    {
+      "ticker": "PKG",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:59:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.83,
+      "actual": 2.13,
+      "surprisePct": 16.22
+    },
+    {
+      "ticker": "RJF",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:29:05.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.26,
+      "actual": 2.4,
+      "surprisePct": 6.34
+    },
+    {
+      "ticker": "RMD",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.78,
+      "actual": 1.88,
+      "surprisePct": 5.45
+    },
+    {
+      "ticker": "STX",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:07:30.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.06,
+      "actual": 0.12,
+      "surprisePct": 290.81
+    },
+    {
+      "ticker": "T",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T11:27:27.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.56,
+      "actual": 0.54,
+      "surprisePct": -3.16
+    },
+    {
+      "ticker": "TDY",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.04,
+      "actual": 5.44,
+      "surprisePct": 7.91
+    },
+    {
+      "ticker": "TEL",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.71,
+      "actual": 1.84,
+      "surprisePct": 7.83
+    },
+    {
+      "ticker": "TSLA",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.74,
+      "actual": 0.71,
+      "surprisePct": -4.1
+    },
+    {
+      "ticker": "TXT",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.53,
+      "actual": 1.6,
+      "surprisePct": 4.49
+    },
+    {
+      "ticker": "URI",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 10.91,
+      "actual": 11.26,
+      "surprisePct": 3.22
+    },
+    {
+      "ticker": "WRB",
+      "reportDate": "2024-01-24",
+      "startDateTime": "2024-01-24T21:11:26.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.92,
+      "actual": 0.97,
+      "surprisePct": 5.61
+    },
+    {
+      "ticker": "AAL",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T12:00:23.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.08,
+      "actual": 0.29,
+      "surprisePct": 265.56
+    },
+    {
+      "ticker": "AJG",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.85,
+      "actual": 1.85,
+      "surprisePct": -0.06
+    },
+    {
+      "ticker": "BX",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T11:56:02.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.95,
+      "actual": 1.11,
+      "surprisePct": 16.94
+    },
+    {
+      "ticker": "CMCSA",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T12:09:02.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.79,
+      "actual": 0.84,
+      "surprisePct": 6.35
+    },
+    {
+      "ticker": "COF",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.67,
+      "actual": 2.24,
+      "surprisePct": -15.96
+    },
+    {
+      "ticker": "DOW",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T12:06:59.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.4,
+      "actual": 0.43,
+      "surprisePct": 8.13
+    },
+    {
+      "ticker": "FICO",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T21:15:35.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.06,
+      "actual": 4.81,
+      "surprisePct": -4.98
+    },
+    {
+      "ticker": "HUM",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.92,
+      "actual": -0.11,
+      "surprisePct": -111.98
+    },
+    {
+      "ticker": "INTC",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.45,
+      "actual": 0.54,
+      "surprisePct": 20.29
+    },
+    {
+      "ticker": "KLAC",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T21:07:26.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.59,
+      "actual": 0.62,
+      "surprisePct": 4.74
+    },
+    {
+      "ticker": "LHX",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T21:10:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.31,
+      "actual": 3.35,
+      "surprisePct": 1.21
+    },
+    {
+      "ticker": "LUV",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T11:30:23.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.13,
+      "actual": 0.37,
+      "surprisePct": 176.61
+    },
+    {
+      "ticker": "MKC",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.79,
+      "actual": 0.85,
+      "surprisePct": 7.11
+    },
+    {
+      "ticker": "MMC",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T12:06:25.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.63,
+      "actual": 1.68,
+      "surprisePct": 3.37
+    },
+    {
+      "ticker": "NEE",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T12:40:31.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.49,
+      "actual": 0.52,
+      "surprisePct": 6.6
+    },
+    {
+      "ticker": "NOC",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T11:49:01.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.8,
+      "actual": 6.27,
+      "surprisePct": 8.1
+    },
+    {
+      "ticker": "SHW",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T12:06:25.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.8,
+      "actual": 1.81,
+      "surprisePct": 0.59
+    },
+    {
+      "ticker": "TMUS",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T21:04:05.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.96,
+      "actual": 1.83,
+      "surprisePct": -6.53
+    },
+    {
+      "ticker": "UNP",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T12:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.57,
+      "actual": 2.71,
+      "surprisePct": 5.44
+    },
+    {
+      "ticker": "V",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.34,
+      "actual": 2.41,
+      "surprisePct": 3.05
+    },
+    {
+      "ticker": "VLO",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T11:37:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3,
+      "actual": 3.55,
+      "surprisePct": 18.16
+    },
+    {
+      "ticker": "WDC",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -1.1,
+      "actual": -0.69,
+      "surprisePct": 37.05
+    },
+    {
+      "ticker": "WY",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T21:32:20.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.14,
+      "actual": 0.16,
+      "surprisePct": 17.57
+    },
+    {
+      "ticker": "XEL",
+      "reportDate": "2024-01-25",
+      "startDateTime": "2024-01-25T11:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.83,
+      "actual": 0.83,
+      "surprisePct": -0.41
+    },
+    {
+      "ticker": "AXP",
+      "reportDate": "2024-01-26",
+      "startDateTime": "2024-01-26T12:01:25.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.65,
+      "actual": 2.62,
+      "surprisePct": -1.01
+    },
+    {
+      "ticker": "CL",
+      "reportDate": "2024-01-26",
+      "startDateTime": "2024-01-26T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.85,
+      "actual": 0.87,
+      "surprisePct": 2.6
+    },
+    {
+      "ticker": "NSC",
+      "reportDate": "2024-01-26",
+      "startDateTime": "2024-01-26T13:04:38.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.87,
+      "actual": 2.83,
+      "surprisePct": -1.36
+    },
+    {
+      "ticker": "ARE",
+      "reportDate": "2024-01-29",
+      "startDateTime": "2024-01-29T21:10:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.8,
+      "actual": 0.82,
+      "surprisePct": 2.11
+    },
+    {
+      "ticker": "BEN",
+      "reportDate": "2024-01-29",
+      "startDateTime": "2024-01-29T13:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.58,
+      "actual": 0.65,
+      "surprisePct": 11.8
+    },
+    {
+      "ticker": "FFIV",
+      "reportDate": "2024-01-29",
+      "startDateTime": "2024-01-29T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.04,
+      "actual": 3.43,
+      "surprisePct": 12.95
+    },
+    {
+      "ticker": "NUE",
+      "reportDate": "2024-01-29",
+      "startDateTime": "2024-01-29T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.83,
+      "actual": 3.16,
+      "surprisePct": 11.59
+    },
+    {
+      "ticker": "WHR",
+      "reportDate": "2024-01-29",
+      "startDateTime": "2024-01-29T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.53,
+      "actual": 3.85,
+      "surprisePct": 8.95
+    },
+    {
+      "ticker": "AMD",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.77,
+      "actual": 0.77,
+      "surprisePct": -0.01
+    },
+    {
+      "ticker": "AOS",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T11:56:40.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.96,
+      "actual": 0.97,
+      "surprisePct": 1.4
+    },
+    {
+      "ticker": "BXP",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:37:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.62,
+      "actual": 0.57,
+      "surprisePct": -6.85
+    },
+    {
+      "ticker": "CB",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T22:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.12,
+      "actual": 5.54,
+      "surprisePct": 8.13
+    },
+    {
+      "ticker": "DHR",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.91,
+      "actual": 2.09,
+      "surprisePct": 9.15
+    },
+    {
+      "ticker": "EQR",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.43,
+      "actual": 0.4,
+      "surprisePct": -8.2
+    },
+    {
+      "ticker": "GLW",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T12:10:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.41,
+      "actual": 0.39,
+      "surprisePct": -4.08
+    },
+    {
+      "ticker": "GM",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.14,
+      "actual": 1.24,
+      "surprisePct": 8.78
+    },
+    {
+      "ticker": "GOOG",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:01:26.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.6,
+      "actual": 1.64,
+      "surprisePct": 2.53
+    },
+    {
+      "ticker": "GOOGL",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:01:26.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.6,
+      "actual": 1.64,
+      "surprisePct": 2.75
+    },
+    {
+      "ticker": "HCA",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.05,
+      "actual": 5.9,
+      "surprisePct": 16.79
+    },
+    {
+      "ticker": "HUBB",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.58,
+      "actual": 3.69,
+      "surprisePct": 3.09
+    },
+    {
+      "ticker": "JCI",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T11:57:24.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.51,
+      "actual": 0.51,
+      "surprisePct": 0.31
+    },
+    {
+      "ticker": "JNPR",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:16:23.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.63,
+      "actual": 0.61,
+      "surprisePct": -3.91
+    },
+    {
+      "ticker": "MDLZ",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:10:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.77,
+      "actual": 0.84,
+      "surprisePct": 8.51
+    },
+    {
+      "ticker": "MPC",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T11:40:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.22,
+      "actual": 3.98,
+      "surprisePct": 79.18
+    },
+    {
+      "ticker": "MSCI",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.29,
+      "actual": 3.68,
+      "surprisePct": 11.93
+    },
+    {
+      "ticker": "MSFT",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:03:17.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.77,
+      "actual": 2.93,
+      "surprisePct": 5.83
+    },
+    {
+      "ticker": "MTCH",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:15:45.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.72,
+      "actual": 1.08,
+      "surprisePct": 49.7
+    },
+    {
+      "ticker": "NVR",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T14:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 121.5,
+      "actual": 121.56,
+      "surprisePct": 0.05
+    },
+    {
+      "ticker": "PFE",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.18,
+      "actual": 0.1,
+      "surprisePct": 154.7
+    },
+    {
+      "ticker": "PHM",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.23,
+      "actual": 3.52,
+      "surprisePct": 8.97
+    },
+    {
+      "ticker": "PNR",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.86,
+      "actual": 0.87,
+      "surprisePct": 0.75
+    },
+    {
+      "ticker": "RHI",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:00:27.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.82,
+      "actual": 0.83,
+      "surprisePct": 1.02
+    },
+    {
+      "ticker": "SBUX",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.94,
+      "actual": 0.9,
+      "surprisePct": -4.1
+    },
+    {
+      "ticker": "SWKS",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.95,
+      "actual": 1.97,
+      "surprisePct": 0.86
+    },
+    {
+      "ticker": "SYK",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.27,
+      "actual": 3.46,
+      "surprisePct": 5.88
+    },
+    {
+      "ticker": "SYY",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.88,
+      "actual": 0.89,
+      "surprisePct": 1.62
+    },
+    {
+      "ticker": "TER",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T22:10:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.72,
+      "actual": 0.79,
+      "surprisePct": 10.04
+    },
+    {
+      "ticker": "UPS",
+      "reportDate": "2024-01-30",
+      "startDateTime": "2024-01-30T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.46,
+      "actual": 2.47,
+      "surprisePct": 0.41
+    },
+    {
+      "ticker": "ADP",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T11:55:21.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.1,
+      "actual": 2.13,
+      "surprisePct": 1.35
+    },
+    {
+      "ticker": "AFL",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.45,
+      "actual": 1.25,
+      "surprisePct": -14.04
+    },
+    {
+      "ticker": "ALGN",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T21:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.18,
+      "actual": 2.42,
+      "surprisePct": 11.22
+    },
+    {
+      "ticker": "APTV",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.33,
+      "actual": 1.4,
+      "surprisePct": 4.91
+    },
+    {
+      "ticker": "AVB",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.27,
+      "actual": 1.79,
+      "surprisePct": 41.15
+    },
+    {
+      "ticker": "AVY",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.16,
+      "actual": 2.16,
+      "surprisePct": -0.2
+    },
+    {
+      "ticker": "BA",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.79,
+      "actual": -0.47,
+      "surprisePct": 40.28
+    },
+    {
+      "ticker": "BSX",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.51,
+      "actual": 0.55,
+      "surprisePct": 7.33
+    },
+    {
+      "ticker": "CHRW",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.81,
+      "actual": 0.5,
+      "surprisePct": -37.92
+    },
+    {
+      "ticker": "COR",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.89,
+      "actual": 3.28,
+      "surprisePct": 13.46
+    },
+    {
+      "ticker": "CTVA",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T22:04:24.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.06,
+      "actual": 0.15,
+      "surprisePct": 170.03
+    },
+    {
+      "ticker": "FTV",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.94,
+      "actual": 0.98,
+      "surprisePct": 4.45
+    },
+    {
+      "ticker": "HES",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.39,
+      "actual": 1.63,
+      "surprisePct": 17.54
+    },
+    {
+      "ticker": "MA",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T13:03:14.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.08,
+      "actual": 3.18,
+      "surprisePct": 3.17
+    },
+    {
+      "ticker": "MET",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.91,
+      "actual": 1.83,
+      "surprisePct": -3.94
+    },
+    {
+      "ticker": "MKTX",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.72,
+      "actual": 1.84,
+      "surprisePct": 7.13
+    },
+    {
+      "ticker": "NDAQ",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.71,
+      "actual": 0.72,
+      "surprisePct": 1.78
+    },
+    {
+      "ticker": "ODFL",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.42,
+      "actual": 1.47,
+      "surprisePct": 3.35
+    },
+    {
+      "ticker": "OTIS",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T11:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.86,
+      "actual": 0.87,
+      "surprisePct": 1.09
+    },
+    {
+      "ticker": "PSX",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.38,
+      "actual": 3.09,
+      "surprisePct": 29.58
+    },
+    {
+      "ticker": "PTC",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.97,
+      "actual": 1.11,
+      "surprisePct": 14.92
+    },
+    {
+      "ticker": "QCOM",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T21:01:55.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.37,
+      "actual": 2.75,
+      "surprisePct": 16.1
+    },
+    {
+      "ticker": "QRVO",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T21:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.66,
+      "actual": 2.1,
+      "surprisePct": 26.72
+    },
+    {
+      "ticker": "ROK",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.63,
+      "actual": 2.04,
+      "surprisePct": -22.51
+    },
+    {
+      "ticker": "ROP",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.33,
+      "actual": 4.37,
+      "surprisePct": 0.86
+    },
+    {
+      "ticker": "TMO",
+      "reportDate": "2024-01-31",
+      "startDateTime": "2024-01-31T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.65,
+      "actual": 5.67,
+      "surprisePct": 0.42
+    },
+    {
+      "ticker": "AAPL",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.1,
+      "actual": 2.18,
+      "surprisePct": 3.66
+    },
+    {
+      "ticker": "AMZN",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.8,
+      "actual": 1,
+      "surprisePct": 24.38
+    },
+    {
+      "ticker": "BALL",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.75,
+      "actual": 0.78,
+      "surprisePct": 3.59
+    },
+    {
+      "ticker": "BDX",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.4,
+      "actual": 2.68,
+      "surprisePct": 11.64
+    },
+    {
+      "ticker": "BR",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T13:00:14.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.89,
+      "actual": 0.92,
+      "surprisePct": 3.18
+    },
+    {
+      "ticker": "CAH",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T13:54:23.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.6,
+      "actual": 1.82,
+      "surprisePct": 14
+    },
+    {
+      "ticker": "CLX",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T21:13:20.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.1,
+      "actual": 2.16,
+      "surprisePct": 95.83
+    },
+    {
+      "ticker": "CMS",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.04,
+      "actual": 1.05,
+      "surprisePct": 0.62
+    },
+    {
+      "ticker": "CPT",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.42,
+      "actual": 0.42,
+      "surprisePct": 1.11
+    },
+    {
+      "ticker": "DGX",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.11,
+      "actual": 2.15,
+      "surprisePct": 1.68
+    },
+    {
+      "ticker": "DOV",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.43,
+      "actual": 2.45,
+      "surprisePct": 0.94
+    },
+    {
+      "ticker": "EMN",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T21:44:01.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.3,
+      "actual": 1.31,
+      "surprisePct": 0.76
+    },
+    {
+      "ticker": "ETN",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.47,
+      "actual": 2.55,
+      "surprisePct": 3.21
+    },
+    {
+      "ticker": "GEN",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T21:09:39.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.5,
+      "actual": 0.49,
+      "surprisePct": -1.35
+    },
+    {
+      "ticker": "HIG",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.41,
+      "actual": 3.06,
+      "surprisePct": 26.82
+    },
+    {
+      "ticker": "HII",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T12:24:39.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.26,
+      "actual": 6.9,
+      "surprisePct": 61.89
+    },
+    {
+      "ticker": "HON",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.18,
+      "actual": 5.2,
+      "surprisePct": 0.33
+    },
+    {
+      "ticker": "IP",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.35,
+      "actual": 0.41,
+      "surprisePct": 18.84
+    },
+    {
+      "ticker": "ITW",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T14:19:09.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.41,
+      "actual": 2.42,
+      "surprisePct": 0.24
+    },
+    {
+      "ticker": "LYB",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-02T00:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.34,
+      "actual": 1.26,
+      "surprisePct": -5.85
+    },
+    {
+      "ticker": "MCHP",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T21:10:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.06,
+      "actual": 1.08,
+      "surprisePct": 1.57
+    },
+    {
+      "ticker": "META",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.94,
+      "actual": 5.33,
+      "surprisePct": 7.88
+    },
+    {
+      "ticker": "MO",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.18,
+      "actual": 1.18,
+      "surprisePct": 0.41
+    },
+    {
+      "ticker": "MRK",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.11,
+      "actual": 0.03,
+      "surprisePct": 127.48
+    },
+    {
+      "ticker": "PH",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T13:00:50.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.26,
+      "actual": 6.15,
+      "surprisePct": 16.89
+    },
+    {
+      "ticker": "RCL",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.13,
+      "actual": 1.25,
+      "surprisePct": 10.79
+    },
+    {
+      "ticker": "RVTY",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.16,
+      "actual": 1.25,
+      "surprisePct": 7.47
+    },
+    {
+      "ticker": "SWK",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.78,
+      "actual": 0.92,
+      "surprisePct": 17.39
+    },
+    {
+      "ticker": "TECH",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.41,
+      "actual": 0.4,
+      "surprisePct": -3.12
+    },
+    {
+      "ticker": "TSCO",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T12:55:03.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.44,
+      "actual": 0.46,
+      "surprisePct": 2.79
+    },
+    {
+      "ticker": "TT",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.13,
+      "actual": 2.17,
+      "surprisePct": 1.73
+    },
+    {
+      "ticker": "WEC",
+      "reportDate": "2024-02-01",
+      "startDateTime": "2024-02-01T12:27:19.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.09,
+      "actual": 0.69,
+      "surprisePct": -36.78
+    },
+    {
+      "ticker": "ABBV",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T12:36:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.8,
+      "actual": 2.79,
+      "surprisePct": -0.32
+    },
+    {
+      "ticker": "AON",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T11:03:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.06,
+      "actual": 3.89,
+      "surprisePct": -4.29
+    },
+    {
+      "ticker": "BMY",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T11:59:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.58,
+      "actual": 1.7,
+      "surprisePct": 7.77
+    },
+    {
+      "ticker": "CBOE",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T12:30:31.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.03,
+      "actual": 2.06,
+      "surprisePct": 1.28
+    },
+    {
+      "ticker": "CHD",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.65,
+      "actual": 0.65,
+      "surprisePct": 0.63
+    },
+    {
+      "ticker": "CHTR",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 8.84,
+      "actual": 7.07,
+      "surprisePct": -19.99
+    },
+    {
+      "ticker": "CI",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T11:10:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 6.54,
+      "actual": 6.79,
+      "surprisePct": 3.83
+    },
+    {
+      "ticker": "CVX",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T11:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.22,
+      "actual": 3.45,
+      "surprisePct": 7.26
+    },
+    {
+      "ticker": "GWW",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 8.08,
+      "actual": 8.33,
+      "surprisePct": 3.14
+    },
+    {
+      "ticker": "REGN",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 10.75,
+      "actual": 11.86,
+      "surprisePct": 10.37
+    },
+    {
+      "ticker": "XOM",
+      "reportDate": "2024-02-02",
+      "startDateTime": "2024-02-02T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.19,
+      "actual": 2.48,
+      "surprisePct": 13.04
+    },
+    {
+      "ticker": "APD",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3,
+      "actual": 2.82,
+      "surprisePct": -6.14
+    },
+    {
+      "ticker": "CAT",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.75,
+      "actual": 5.23,
+      "surprisePct": 10.06
+    },
+    {
+      "ticker": "EL",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.56,
+      "actual": 0.88,
+      "surprisePct": 57.54
+    },
+    {
+      "ticker": "FMC",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.08,
+      "actual": 1.07,
+      "surprisePct": -0.83
+    },
+    {
+      "ticker": "IDXX",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.12,
+      "actual": 2.32,
+      "surprisePct": 9.39
+    },
+    {
+      "ticker": "MCD",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.83,
+      "actual": 2.95,
+      "surprisePct": 4.39
+    },
+    {
+      "ticker": "NXPI",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.64,
+      "actual": 3.71,
+      "surprisePct": 1.84
+    },
+    {
+      "ticker": "ON",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.2,
+      "actual": 1.25,
+      "surprisePct": 4.01
+    },
+    {
+      "ticker": "SPG",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.84,
+      "actual": 1.55,
+      "surprisePct": -15.81
+    },
+    {
+      "ticker": "TSN",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.42,
+      "actual": 0.69,
+      "surprisePct": 63.5
+    },
+    {
+      "ticker": "VRTX",
+      "reportDate": "2024-02-05",
+      "startDateTime": "2024-02-05T21:06:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.09,
+      "actual": 4.2,
+      "surprisePct": 2.78
+    },
+    {
+      "ticker": "AIZ",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:15:32.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.71,
+      "actual": 4.58,
+      "surprisePct": 23.34
+    },
+    {
+      "ticker": "AMCR",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:10:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.76,
+      "actual": 0.79,
+      "surprisePct": 2.87
+    },
+    {
+      "ticker": "AME",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.63,
+      "actual": 1.68,
+      "surprisePct": 3.12
+    },
+    {
+      "ticker": "AMGN",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.59,
+      "actual": 4.71,
+      "surprisePct": 2.58
+    },
+    {
+      "ticker": "ATO",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:46:33.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.05,
+      "actual": 2.08,
+      "surprisePct": 1.56
+    },
+    {
+      "ticker": "CARR",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:49:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.51,
+      "actual": 0.53,
+      "surprisePct": 3.85
+    },
+    {
+      "ticker": "CINF",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.93,
+      "actual": 2.28,
+      "surprisePct": 18.2
+    },
+    {
+      "ticker": "CMG",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:11:12.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.19,
+      "actual": 0.21,
+      "surprisePct": 6.52
+    },
+    {
+      "ticker": "CMI",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.47,
+      "actual": 4.14,
+      "surprisePct": -7.29
+    },
+    {
+      "ticker": "CNC",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.44,
+      "actual": 0.45,
+      "surprisePct": 2.13
+    },
+    {
+      "ticker": "CTSH",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.04,
+      "actual": 1.18,
+      "surprisePct": 13.94
+    },
+    {
+      "ticker": "DD",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.53,
+      "actual": 2.61,
+      "surprisePct": 3.07
+    },
+    {
+      "ticker": "ENPH",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.55,
+      "actual": 0.54,
+      "surprisePct": -2.17
+    },
+    {
+      "ticker": "ESS",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:38:01.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.46,
+      "actual": 1.01,
+      "surprisePct": -30.85
+    },
+    {
+      "ticker": "EW",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:23:49.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.64,
+      "actual": 0.64,
+      "surprisePct": 0.16
+    },
+    {
+      "ticker": "F",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:08:43.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.12,
+      "actual": 0.29,
+      "surprisePct": 137.7
+    },
+    {
+      "ticker": "FI",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T12:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.15,
+      "actual": 2.19,
+      "surprisePct": 1.67
+    },
+    {
+      "ticker": "FTNT",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.43,
+      "actual": 0.51,
+      "surprisePct": 18.14
+    },
+    {
+      "ticker": "GEHC",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:20:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.07,
+      "actual": 1.18,
+      "surprisePct": 9.82
+    },
+    {
+      "ticker": "GILD",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:02:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.76,
+      "actual": 1.72,
+      "surprisePct": -2.34
+    },
+    {
+      "ticker": "IT",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.83,
+      "actual": 3.04,
+      "surprisePct": 7.51
+    },
+    {
+      "ticker": "J",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:40:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.56,
+      "actual": 2.02,
+      "surprisePct": 29.55
+    },
+    {
+      "ticker": "JKHY",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:40:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.13,
+      "actual": 1.22,
+      "surprisePct": 7.81
+    },
+    {
+      "ticker": "LIN",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:11:34.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.5,
+      "actual": 3.59,
+      "surprisePct": 2.67
+    },
+    {
+      "ticker": "LLY",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.37,
+      "actual": 2.49,
+      "surprisePct": 5.14
+    },
+    {
+      "ticker": "OMC",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:02:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.16,
+      "actual": 2.2,
+      "surprisePct": 1.84
+    },
+    {
+      "ticker": "PRU",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:18:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.67,
+      "actual": 2.58,
+      "surprisePct": -3.2
+    },
+    {
+      "ticker": "UDR",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:18:57.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.11,
+      "actual": 0.11,
+      "surprisePct": -2.28
+    },
+    {
+      "ticker": "VFC",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.78,
+      "actual": 0.57,
+      "surprisePct": -27.14
+    },
+    {
+      "ticker": "VLTO",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T21:32:59.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.81,
+      "actual": 0.87,
+      "surprisePct": 7.97
+    },
+    {
+      "ticker": "WAT",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:50:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.55,
+      "actual": 3.62,
+      "surprisePct": 1.88
+    },
+    {
+      "ticker": "WTW",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:00:57.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 7.06,
+      "actual": 7.44,
+      "surprisePct": 5.45
+    },
+    {
+      "ticker": "XYL",
+      "reportDate": "2024-02-06",
+      "startDateTime": "2024-02-06T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.95,
+      "actual": 0.99,
+      "surprisePct": 3.69
+    },
+    {
+      "ticker": "ALL",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:16:20.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.94,
+      "actual": 5.82,
+      "surprisePct": 47.88
+    },
+    {
+      "ticker": "BG",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.8,
+      "actual": 3.7,
+      "surprisePct": 32.22
+    },
+    {
+      "ticker": "CDW",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.56,
+      "actual": 2.57,
+      "surprisePct": 0.36
+    },
+    {
+      "ticker": "CVS",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.99,
+      "actual": 2.12,
+      "surprisePct": 6.59
+    },
+    {
+      "ticker": "DAY",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.32,
+      "actual": 0.5,
+      "surprisePct": 57.94
+    },
+    {
+      "ticker": "DIS",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.03,
+      "actual": 1.22,
+      "surprisePct": 18.24
+    },
+    {
+      "ticker": "EFX",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:25:53.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.75,
+      "actual": 1.81,
+      "surprisePct": 3.28
+    },
+    {
+      "ticker": "EG",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:17:31.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 14.65,
+      "actual": 25.18,
+      "surprisePct": 71.87
+    },
+    {
+      "ticker": "EMR",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.04,
+      "actual": 1.22,
+      "surprisePct": 17.09
+    },
+    {
+      "ticker": "FOX",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.12,
+      "actual": 0.34,
+      "surprisePct": 183.33
+    },
+    {
+      "ticker": "FOXA",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.12,
+      "actual": 0.34,
+      "surprisePct": 173.75
+    },
+    {
+      "ticker": "GL",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.73,
+      "actual": 2.8,
+      "surprisePct": 2.53
+    },
+    {
+      "ticker": "HLT",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.57,
+      "actual": 1.68,
+      "surprisePct": 7.09
+    },
+    {
+      "ticker": "IEX",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T14:30:59.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.78,
+      "actual": 1.83,
+      "surprisePct": 3.02
+    },
+    {
+      "ticker": "MAA",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.08,
+      "actual": 1.14,
+      "surprisePct": 6.13
+    },
+    {
+      "ticker": "MCK",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:05:29.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 7.05,
+      "actual": 7.74,
+      "surprisePct": 9.79
+    },
+    {
+      "ticker": "MOH",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:18:44.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.35,
+      "actual": 4.38,
+      "surprisePct": 0.73
+    },
+    {
+      "ticker": "MPWR",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:01:23.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.85,
+      "actual": 2.88,
+      "surprisePct": 0.99
+    },
+    {
+      "ticker": "NWS",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.21,
+      "actual": 0.26,
+      "surprisePct": 23.81
+    },
+    {
+      "ticker": "NWSA",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.21,
+      "actual": 0.26,
+      "surprisePct": 23.81
+    },
+    {
+      "ticker": "ORLY",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.61,
+      "actual": 0.62,
+      "surprisePct": 0.46
+    },
+    {
+      "ticker": "PAYC",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:06:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.78,
+      "actual": 1.93,
+      "surprisePct": 8.46
+    },
+    {
+      "ticker": "PYPL",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:14:35.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.36,
+      "actual": 1.48,
+      "surprisePct": 8.65
+    },
+    {
+      "ticker": "STE",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:38:06.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.17,
+      "actual": 2.22,
+      "surprisePct": 2.37
+    },
+    {
+      "ticker": "UBER",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.4,
+      "actual": 0.86,
+      "surprisePct": 115.9
+    },
+    {
+      "ticker": "WYNN",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T21:02:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.16,
+      "actual": 1.91,
+      "surprisePct": 64.9
+    },
+    {
+      "ticker": "YUM",
+      "reportDate": "2024-02-07",
+      "startDateTime": "2024-02-07T12:01:19.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.4,
+      "actual": 1.26,
+      "surprisePct": -10.08
+    },
+    {
+      "ticker": "BAX",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T12:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.86,
+      "actual": 0.88,
+      "surprisePct": 1.76
+    },
+    {
+      "ticker": "BWA",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.94,
+      "actual": 0.9,
+      "surprisePct": -4.7
+    },
+    {
+      "ticker": "COP",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.17,
+      "actual": 2.4,
+      "surprisePct": 10.7
+    },
+    {
+      "ticker": "DTE",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.96,
+      "actual": 1.97,
+      "surprisePct": 0.59
+    },
+    {
+      "ticker": "DUK",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T11:11:35.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.54,
+      "actual": 1.51,
+      "surprisePct": -1.79
+    },
+    {
+      "ticker": "DXCM",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T21:03:15.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.43,
+      "actual": 0.5,
+      "surprisePct": 16.01
+    },
+    {
+      "ticker": "EXPE",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T21:02:19.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.7,
+      "actual": 1.72,
+      "surprisePct": 1.41
+    },
+    {
+      "ticker": "FE",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T21:26:14.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.59,
+      "actual": 0.62,
+      "surprisePct": 4.56
+    },
+    {
+      "ticker": "HSY",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.96,
+      "actual": 2.02,
+      "surprisePct": 3.28
+    },
+    {
+      "ticker": "ICE",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T12:30:15.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.29,
+      "actual": 1.33,
+      "surprisePct": 3.06
+    },
+    {
+      "ticker": "ILMN",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T21:13:11.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.12,
+      "actual": 0.14,
+      "surprisePct": 17.58
+    },
+    {
+      "ticker": "IPG",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T13:45:22.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.14,
+      "actual": 1.18,
+      "surprisePct": 3.84
+    },
+    {
+      "ticker": "K",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T13:06:32.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.74,
+      "actual": 0.78,
+      "surprisePct": 5.11
+    },
+    {
+      "ticker": "KIM",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T11:52:20.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.17,
+      "actual": 0.17,
+      "surprisePct": 5.02
+    },
+    {
+      "ticker": "KVUE",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T11:58:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.28,
+      "actual": 0.31,
+      "surprisePct": 9.85
+    },
+    {
+      "ticker": "MAS",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.66,
+      "actual": 0.83,
+      "surprisePct": 26.52
+    },
+    {
+      "ticker": "MHK",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T21:18:04.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.86,
+      "actual": 1.96,
+      "surprisePct": 5.43
+    },
+    {
+      "ticker": "MSI",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T21:15:07.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.63,
+      "actual": 3.9,
+      "surprisePct": 7.33
+    },
+    {
+      "ticker": "MTD",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T22:10:06.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 9.54,
+      "actual": 9.4,
+      "surprisePct": -1.44
+    },
+    {
+      "ticker": "PM",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T12:02:48.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.45,
+      "actual": 1.36,
+      "surprisePct": -6.28
+    },
+    {
+      "ticker": "REG",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T22:19:15.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.51,
+      "actual": 0.47,
+      "surprisePct": -8.6
+    },
+    {
+      "ticker": "RL",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T13:26:20.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.55,
+      "actual": 4.17,
+      "surprisePct": 17.53
+    },
+    {
+      "ticker": "SNA",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.66,
+      "actual": 4.75,
+      "surprisePct": 1.87
+    },
+    {
+      "ticker": "SPGI",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T12:10:23.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.14,
+      "actual": 3.13,
+      "surprisePct": -0.43
+    },
+    {
+      "ticker": "TDG",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T12:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 6.4,
+      "actual": 7.16,
+      "surprisePct": 11.86
+    },
+    {
+      "ticker": "TPR",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T11:45:34.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.46,
+      "actual": 1.63,
+      "surprisePct": 11.48
+    },
+    {
+      "ticker": "TROW",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T12:02:03.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.63,
+      "actual": 1.72,
+      "surprisePct": 5.8
+    },
+    {
+      "ticker": "TTWO",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T21:15:34.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.72,
+      "actual": 0.53,
+      "surprisePct": -27.08
+    },
+    {
+      "ticker": "VRSN",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T21:06:49.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.86,
+      "actual": 2.6,
+      "surprisePct": 39.78
+    },
+    {
+      "ticker": "ZBH",
+      "reportDate": "2024-02-08",
+      "startDateTime": "2024-02-08T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.16,
+      "actual": 2.2,
+      "surprisePct": 2.01
+    },
+    {
+      "ticker": "CTLT",
+      "reportDate": "2024-02-09",
+      "startDateTime": "2024-02-09T13:04:59.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.02,
+      "actual": -0.24,
+      "surprisePct": -1212.91
+    },
+    {
+      "ticker": "PEP",
+      "reportDate": "2024-02-09",
+      "startDateTime": "2024-02-09T11:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.72,
+      "actual": 1.78,
+      "surprisePct": 3.43
+    },
+    {
+      "ticker": "ANET",
+      "reportDate": "2024-02-12",
+      "startDateTime": "2024-02-12T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.43,
+      "actual": 0.52,
+      "surprisePct": 21.6
+    },
+    {
+      "ticker": "CDNS",
+      "reportDate": "2024-02-12",
+      "startDateTime": "2024-02-12T21:02:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.33,
+      "actual": 1.38,
+      "surprisePct": 3.68
+    },
+    {
+      "ticker": "FRT",
+      "reportDate": "2024-02-12",
+      "startDateTime": "2024-02-12T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.67,
+      "actual": 0.66,
+      "surprisePct": -2.1
+    },
+    {
+      "ticker": "PFG",
+      "reportDate": "2024-02-12",
+      "startDateTime": "2024-02-12T21:16:55.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.69,
+      "actual": 1.83,
+      "surprisePct": 8.24
+    },
+    {
+      "ticker": "TRMB",
+      "reportDate": "2024-02-12",
+      "startDateTime": "2024-02-12T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.6,
+      "actual": 0.63,
+      "surprisePct": 5.77
+    },
+    {
+      "ticker": "WM",
+      "reportDate": "2024-02-12",
+      "startDateTime": "2024-02-12T23:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.53,
+      "actual": 1.74,
+      "surprisePct": 13.69
+    },
+    {
+      "ticker": "ABNB",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T21:09:06.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.7,
+      "actual": -0.55,
+      "surprisePct": -178.56
+    },
+    {
+      "ticker": "AIG",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T21:16:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.64,
+      "actual": 1.79,
+      "surprisePct": 9.19
+    },
+    {
+      "ticker": "AKAM",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T21:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.61,
+      "actual": 1.69,
+      "surprisePct": 4.75
+    },
+    {
+      "ticker": "BIIB",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T12:07:23.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.18,
+      "actual": 2.95,
+      "surprisePct": -7.21
+    },
+    {
+      "ticker": "DVA",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T21:11:16.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.66,
+      "actual": 1.87,
+      "surprisePct": 12.83
+    },
+    {
+      "ticker": "ECL",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.54,
+      "actual": 1.55,
+      "surprisePct": 0.76
+    },
+    {
+      "ticker": "EQT",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.47,
+      "actual": 0.48,
+      "surprisePct": 1.8
+    },
+    {
+      "ticker": "ES",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T22:48:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.97,
+      "actual": 0.95,
+      "surprisePct": -2.42
+    },
+    {
+      "ticker": "HAS",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.64,
+      "actual": 0.38,
+      "surprisePct": -40.32
+    },
+    {
+      "ticker": "HWM",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T12:05:25.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.46,
+      "actual": 0.53,
+      "surprisePct": 14.25
+    },
+    {
+      "ticker": "INCY",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T12:03:49.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.15,
+      "actual": 1.06,
+      "surprisePct": -7.71
+    },
+    {
+      "ticker": "INVH",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T21:15:51.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.15,
+      "actual": 0.13,
+      "surprisePct": -8.1
+    },
+    {
+      "ticker": "KO",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T11:57:58.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.49,
+      "actual": 0.49,
+      "surprisePct": 0.33
+    },
+    {
+      "ticker": "LDOS",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.75,
+      "actual": 1.99,
+      "surprisePct": 13.96
+    },
+    {
+      "ticker": "MAR",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.12,
+      "actual": 3.57,
+      "surprisePct": 68.19
+    },
+    {
+      "ticker": "MCO",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T12:00:40.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.32,
+      "actual": 2.19,
+      "surprisePct": -5.55
+    },
+    {
+      "ticker": "MGM",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T21:14:27.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.71,
+      "actual": 1.06,
+      "surprisePct": 49.72
+    },
+    {
+      "ticker": "TAP",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.12,
+      "actual": 1.19,
+      "surprisePct": 6.44
+    },
+    {
+      "ticker": "WELL",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T21:06:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.21,
+      "actual": 0.25,
+      "surprisePct": 19.33
+    },
+    {
+      "ticker": "ZTS",
+      "reportDate": "2024-02-13",
+      "startDateTime": "2024-02-13T12:06:12.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.32,
+      "actual": 1.24,
+      "surprisePct": -5.87
+    },
+    {
+      "ticker": "ACGL",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T21:13:46.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.01,
+      "actual": 2.49,
+      "surprisePct": 23.85
+    },
+    {
+      "ticker": "ALB",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.11,
+      "actual": 1.85,
+      "surprisePct": 66.72
+    },
+    {
+      "ticker": "AWK",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T21:31:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.83,
+      "actual": 0.88,
+      "surprisePct": 6.18
+    },
+    {
+      "ticker": "CF",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.56,
+      "actual": 1.58,
+      "surprisePct": 1.55
+    },
+    {
+      "ticker": "CME",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.28,
+      "actual": 2.37,
+      "surprisePct": 3.87
+    },
+    {
+      "ticker": "CRL",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.4,
+      "actual": 2.46,
+      "surprisePct": 2.4
+    },
+    {
+      "ticker": "CSCO",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T21:11:04.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.84,
+      "actual": 0.87,
+      "surprisePct": 3.96
+    },
+    {
+      "ticker": "EQIX",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.17,
+      "actual": 2.4,
+      "surprisePct": 10.5
+    },
+    {
+      "ticker": "GNRC",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.09,
+      "actual": 2.07,
+      "surprisePct": -0.92
+    },
+    {
+      "ticker": "GPN",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.64,
+      "actual": 2.65,
+      "surprisePct": 0.41
+    },
+    {
+      "ticker": "IQV",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.82,
+      "actual": 2.84,
+      "surprisePct": 0.65
+    },
+    {
+      "ticker": "KHC",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.77,
+      "actual": 0.78,
+      "surprisePct": 1.36
+    },
+    {
+      "ticker": "MLM",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.95,
+      "actual": 4.74,
+      "surprisePct": 19.95
+    },
+    {
+      "ticker": "OXY",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T21:17:46.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.69,
+      "actual": 0.74,
+      "surprisePct": 7.45
+    },
+    {
+      "ticker": "ROL",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T21:07:12.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.21,
+      "actual": 0.21,
+      "surprisePct": -1.17
+    },
+    {
+      "ticker": "TYL",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T21:17:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.86,
+      "actual": 1.89,
+      "surprisePct": 1.54
+    },
+    {
+      "ticker": "VTR",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.17,
+      "actual": -0.3,
+      "surprisePct": -75.29
+    },
+    {
+      "ticker": "WAB",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T12:08:30.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.58,
+      "actual": 1.54,
+      "surprisePct": -2.48
+    },
+    {
+      "ticker": "WMB",
+      "reportDate": "2024-02-14",
+      "startDateTime": "2024-02-14T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.45,
+      "actual": 0.48,
+      "surprisePct": 5.5
+    },
+    {
+      "ticker": "AMAT",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T21:03:18.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.91,
+      "actual": 2.13,
+      "surprisePct": 11.78
+    },
+    {
+      "ticker": "BIO",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T21:24:31.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.87,
+      "actual": 3.1,
+      "surprisePct": 8.16
+    },
+    {
+      "ticker": "CBRE",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.18,
+      "actual": 1.38,
+      "surprisePct": 16.71
+    },
+    {
+      "ticker": "DE",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T11:00:37.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 5.25,
+      "actual": 6.23,
+      "surprisePct": 18.68
+    },
+    {
+      "ticker": "DLR",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.2,
+      "actual": 0.08,
+      "surprisePct": -57.49
+    },
+    {
+      "ticker": "ED",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T21:56:59.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.97,
+      "actual": 1,
+      "surprisePct": 2.75
+    },
+    {
+      "ticker": "EPAM",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.5,
+      "actual": 2.75,
+      "surprisePct": 10.03
+    },
+    {
+      "ticker": "GPC",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.2,
+      "actual": 2.26,
+      "surprisePct": 2.65
+    },
+    {
+      "ticker": "IR",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T21:41:57.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.77,
+      "actual": 0.86,
+      "surprisePct": 11.53
+    },
+    {
+      "ticker": "LH",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T11:56:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.26,
+      "actual": 3.3,
+      "surprisePct": 1.27
+    },
+    {
+      "ticker": "LNT",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T23:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.55,
+      "actual": 0.48,
+      "surprisePct": -11.93
+    },
+    {
+      "ticker": "SO",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.6,
+      "actual": 0.64,
+      "surprisePct": 6.46
+    },
+    {
+      "ticker": "TRGP",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T21:01:08.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.43,
+      "actual": 1.5,
+      "surprisePct": 4.72
+    },
+    {
+      "ticker": "WST",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.78,
+      "actual": 1.83,
+      "surprisePct": 2.71
+    },
+    {
+      "ticker": "ZBRA",
+      "reportDate": "2024-02-15",
+      "startDateTime": "2024-02-15T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.64,
+      "actual": 1.71,
+      "surprisePct": 4.17
+    },
+    {
+      "ticker": "PPL",
+      "reportDate": "2024-02-16",
+      "startDateTime": "2024-02-16T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.38,
+      "actual": 0.4,
+      "surprisePct": 5.24
+    },
+    {
+      "ticker": "VMC",
+      "reportDate": "2024-02-16",
+      "startDateTime": "2024-02-16T12:05:25.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.4,
+      "actual": 1.46,
+      "surprisePct": 4.35
+    },
+    {
+      "ticker": "ALLE",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T10:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.58,
+      "actual": 1.68,
+      "surprisePct": 6.09
+    },
+    {
+      "ticker": "CE",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T21:20:09.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.31,
+      "actual": 2.24,
+      "surprisePct": -2.94
+    },
+    {
+      "ticker": "CNP",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T11:34:49.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.32,
+      "actual": 0.32,
+      "surprisePct": -0.13
+    },
+    {
+      "ticker": "CSGP",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T21:32:13.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.32,
+      "actual": 0.33,
+      "surprisePct": 3.95
+    },
+    {
+      "ticker": "CZR",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.05,
+      "actual": -0.34,
+      "surprisePct": -812.94
+    },
+    {
+      "ticker": "EXPD",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T13:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.21,
+      "actual": 1.09,
+      "surprisePct": -10.16
+    },
+    {
+      "ticker": "FANG",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.65,
+      "actual": 4.74,
+      "surprisePct": 1.89
+    },
+    {
+      "ticker": "HD",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.77,
+      "actual": 2.82,
+      "surprisePct": 1.63
+    },
+    {
+      "ticker": "IFF",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.77,
+      "actual": 0.72,
+      "surprisePct": -6.11
+    },
+    {
+      "ticker": "KEYS",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T21:06:56.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.59,
+      "actual": 1.63,
+      "surprisePct": 2.67
+    },
+    {
+      "ticker": "MDT",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.26,
+      "actual": 1.3,
+      "surprisePct": 3.06
+    },
+    {
+      "ticker": "O",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T21:18:17.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.33,
+      "actual": 0.31,
+      "surprisePct": -5.59
+    },
+    {
+      "ticker": "PANW",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T21:12:41.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.65,
+      "actual": 0.73,
+      "surprisePct": 12.2
+    },
+    {
+      "ticker": "PSA",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T21:58:39.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.7,
+      "actual": 2.53,
+      "surprisePct": -6.26
+    },
+    {
+      "ticker": "WMT",
+      "reportDate": "2024-02-20",
+      "startDateTime": "2024-02-20T11:59:55.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.55,
+      "actual": 0.6,
+      "surprisePct": 9.35
+    },
+    {
+      "ticker": "ADI",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.71,
+      "actual": 1.73,
+      "surprisePct": 1.43
+    },
+    {
+      "ticker": "ANSS",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.7,
+      "actual": 3.94,
+      "surprisePct": 6.48
+    },
+    {
+      "ticker": "APA",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T17:07:32.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.33,
+      "actual": 1.15,
+      "surprisePct": -13.71
+    },
+    {
+      "ticker": "ETSY",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.33,
+      "actual": 1.21,
+      "surprisePct": -9.04
+    },
+    {
+      "ticker": "EXC",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T11:50:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.58,
+      "actual": 0.6,
+      "surprisePct": 3.06
+    },
+    {
+      "ticker": "GRMN",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.4,
+      "actual": 1.72,
+      "surprisePct": 22.45
+    },
+    {
+      "ticker": "HST",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T22:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.19,
+      "actual": 0.19,
+      "surprisePct": -1.04
+    },
+    {
+      "ticker": "MOS",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T21:29:01.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.86,
+      "actual": 0.71,
+      "surprisePct": -17.11
+    },
+    {
+      "ticker": "MRO",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.66,
+      "actual": 0.69,
+      "surprisePct": 5.18
+    },
+    {
+      "ticker": "NDSN",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.09,
+      "actual": 2.21,
+      "surprisePct": 6
+    },
+    {
+      "ticker": "NI",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T11:37:28.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.53,
+      "actual": 0.53,
+      "surprisePct": 0.95
+    },
+    {
+      "ticker": "NVDA",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T21:20:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.46,
+      "actual": 0.52,
+      "surprisePct": 11.4
+    },
+    {
+      "ticker": "SNPS",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.41,
+      "actual": 3.56,
+      "surprisePct": 4.26
+    },
+    {
+      "ticker": "VRSK",
+      "reportDate": "2024-02-21",
+      "startDateTime": "2024-02-21T12:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.44,
+      "actual": 1.4,
+      "surprisePct": -2.72
+    },
+    {
+      "ticker": "AEE",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T21:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.61,
+      "actual": 0.6,
+      "surprisePct": -1.15
+    },
+    {
+      "ticker": "BKNG",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T21:01:50.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.2,
+      "actual": 1.28,
+      "surprisePct": 6.48
+    },
+    {
+      "ticker": "BLDR",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.58,
+      "actual": 3.55,
+      "surprisePct": 37.67
+    },
+    {
+      "ticker": "CPRT",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.34,
+      "actual": 0.33,
+      "surprisePct": -4.25
+    },
+    {
+      "ticker": "D",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.36,
+      "actual": 0.29,
+      "surprisePct": -18.79
+    },
+    {
+      "ticker": "EIX",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.15,
+      "actual": 1.28,
+      "surprisePct": 11.25
+    },
+    {
+      "ticker": "EOG",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.11,
+      "actual": 3.07,
+      "surprisePct": -1.42
+    },
+    {
+      "ticker": "ETR",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.27,
+      "actual": 0.26,
+      "surprisePct": -2.41
+    },
+    {
+      "ticker": "INTU",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T21:03:01.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.31,
+      "actual": 2.63,
+      "surprisePct": 13.95
+    },
+    {
+      "ticker": "IRM",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T11:45:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.45,
+      "actual": 0.52,
+      "surprisePct": 14.44
+    },
+    {
+      "ticker": "KDP",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.54,
+      "actual": 0.55,
+      "surprisePct": 1.49
+    },
+    {
+      "ticker": "LKQ",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.76,
+      "actual": 0.84,
+      "surprisePct": 10.12
+    },
+    {
+      "ticker": "LYV",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T21:07:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.94,
+      "actual": -1.02,
+      "surprisePct": -8.25
+    },
+    {
+      "ticker": "MRNA",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T11:32:03.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.99,
+      "actual": 0.55,
+      "surprisePct": 155.57
+    },
+    {
+      "ticker": "NEM",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T12:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.44,
+      "actual": 0.5,
+      "surprisePct": 13.5
+    },
+    {
+      "ticker": "PCG",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T11:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.45,
+      "actual": 0.47,
+      "surprisePct": 3.32
+    },
+    {
+      "ticker": "PODD",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T21:08:40.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.66,
+      "actual": 1.4,
+      "surprisePct": 111.44
+    },
+    {
+      "ticker": "POOL",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.27,
+      "actual": 1.3,
+      "surprisePct": 2.14
+    },
+    {
+      "ticker": "PWR",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.98,
+      "actual": 2.04,
+      "surprisePct": 2.79
+    },
+    {
+      "ticker": "TFX",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.26,
+      "actual": 3.38,
+      "surprisePct": 3.53
+    },
+    {
+      "ticker": "VICI",
+      "reportDate": "2024-02-22",
+      "startDateTime": "2024-02-22T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.65,
+      "actual": 0.73,
+      "surprisePct": 12.4
+    },
+    {
+      "ticker": "WBD",
+      "reportDate": "2024-02-23",
+      "startDateTime": "2024-02-23T12:05:29.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.06,
+      "actual": -0.16,
+      "surprisePct": -164.81
+    },
+    {
+      "ticker": "BRK-B",
+      "reportDate": "2024-02-24",
+      "startDateTime": "2024-02-24T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.79,
+      "actual": 3.92,
+      "surprisePct": 3.28
+    },
+    {
+      "ticker": "AEP",
+      "reportDate": "2024-02-26",
+      "startDateTime": "2024-02-26T21:35:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.26,
+      "actual": 1.23,
+      "surprisePct": -2.28
+    },
+    {
+      "ticker": "AES",
+      "reportDate": "2024-02-26",
+      "startDateTime": "2024-02-26T22:27:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.67,
+      "actual": 0.73,
+      "surprisePct": 9.17
+    },
+    {
+      "ticker": "DPZ",
+      "reportDate": "2024-02-26",
+      "startDateTime": "2024-02-26T11:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.4,
+      "actual": 4.48,
+      "surprisePct": 1.91
+    },
+    {
+      "ticker": "FIS",
+      "reportDate": "2024-02-26",
+      "startDateTime": "2024-02-26T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.09,
+      "actual": 0.94,
+      "surprisePct": -13.82
+    },
+    {
+      "ticker": "OKE",
+      "reportDate": "2024-02-26",
+      "startDateTime": "2024-02-26T21:50:31.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.2,
+      "actual": 1.18,
+      "surprisePct": -1.91
+    },
+    {
+      "ticker": "PEG",
+      "reportDate": "2024-02-26",
+      "startDateTime": "2024-02-26T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.52,
+      "actual": 0.54,
+      "surprisePct": 3.74
+    },
+    {
+      "ticker": "SBAC",
+      "reportDate": "2024-02-26",
+      "startDateTime": "2024-02-26T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.39,
+      "actual": 0.75,
+      "surprisePct": -46.14
+    },
+    {
+      "ticker": "A",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.23,
+      "actual": 1.29,
+      "surprisePct": 4.68
+    },
+    {
+      "ticker": "AMT",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.94,
+      "actual": 0.25,
+      "surprisePct": -73.86
+    },
+    {
+      "ticker": "AXON",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T21:04:05.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.85,
+      "actual": 1.12,
+      "surprisePct": 31.24
+    },
+    {
+      "ticker": "AZO",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T11:55:14.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 26.62,
+      "actual": 28.89,
+      "surprisePct": 8.53
+    },
+    {
+      "ticker": "CEG",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T10:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.17,
+      "actual": 1.51,
+      "surprisePct": -30.24
+    },
+    {
+      "ticker": "DVN",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T21:14:14.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.4,
+      "actual": 1.41,
+      "surprisePct": 0.51
+    },
+    {
+      "ticker": "EBAY",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.03,
+      "actual": 1.07,
+      "surprisePct": 3.94
+    },
+    {
+      "ticker": "EXR",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.19,
+      "actual": 1.04,
+      "surprisePct": -12.97
+    },
+    {
+      "ticker": "FSLR",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T21:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.13,
+      "actual": 3.25,
+      "surprisePct": 3.67
+    },
+    {
+      "ticker": "HSIC",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.7,
+      "actual": 0.66,
+      "surprisePct": -5.24
+    },
+    {
+      "ticker": "LOW",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.68,
+      "actual": 1.77,
+      "surprisePct": 5.25
+    },
+    {
+      "ticker": "NCLH",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.13,
+      "actual": -0.18,
+      "surprisePct": -33.33
+    },
+    {
+      "ticker": "PNW",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T13:22:54.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": -0.13,
+      "actual": 0,
+      "surprisePct": 100
+    },
+    {
+      "ticker": "RSG",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T21:09:04.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.29,
+      "actual": 1.41,
+      "surprisePct": 9.13
+    },
+    {
+      "ticker": "SJM",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T12:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.27,
+      "actual": 2.48,
+      "surprisePct": 9.19
+    },
+    {
+      "ticker": "SRE",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T11:51:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.08,
+      "actual": 1.13,
+      "surprisePct": 4.83
+    },
+    {
+      "ticker": "UHS",
+      "reportDate": "2024-02-27",
+      "startDateTime": "2024-02-27T21:16:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.91,
+      "actual": 3.13,
+      "surprisePct": 7.64
+    },
+    {
+      "ticker": "CRM",
+      "reportDate": "2024-02-28",
+      "startDateTime": "2024-02-28T21:04:22.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.27,
+      "actual": 2.29,
+      "surprisePct": 0.96
+    },
+    {
+      "ticker": "HPQ",
+      "reportDate": "2024-02-28",
+      "startDateTime": "2024-02-28T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.81,
+      "actual": 0.81,
+      "surprisePct": -0.18
+    },
+    {
+      "ticker": "MNST",
+      "reportDate": "2024-02-28",
+      "startDateTime": "2024-02-28T21:28:15.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.19,
+      "actual": 0.18,
+      "surprisePct": -9.13
+    },
+    {
+      "ticker": "NRG",
+      "reportDate": "2024-02-28",
+      "startDateTime": "2024-02-28T11:58:29.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.76,
+      "actual": 1.64,
+      "surprisePct": -56.41
+    },
+    {
+      "ticker": "PARA",
+      "reportDate": "2024-02-28",
+      "startDateTime": "2024-02-28T21:06:05.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0,
+      "actual": 0.04,
+      "surprisePct": 2172.54
+    },
+    {
+      "ticker": "TJX",
+      "reportDate": "2024-02-28",
+      "startDateTime": "2024-02-28T12:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.12,
+      "actual": 1.22,
+      "surprisePct": 9.08
+    },
+    {
+      "ticker": "VTRS",
+      "reportDate": "2024-02-28",
+      "startDateTime": "2024-02-28T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.65,
+      "actual": 0.62,
+      "surprisePct": -4.29
+    },
+    {
+      "ticker": "ADSK",
+      "reportDate": "2024-02-29",
+      "startDateTime": "2024-02-29T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.95,
+      "actual": 2.09,
+      "surprisePct": 7.29
+    },
+    {
+      "ticker": "BBWI",
+      "reportDate": "2024-02-29",
+      "startDateTime": "2024-02-29T11:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.87,
+      "actual": 2.06,
+      "surprisePct": 10.09
+    },
+    {
+      "ticker": "BBY",
+      "reportDate": "2024-02-29",
+      "startDateTime": "2024-02-29T12:00:40.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.5,
+      "actual": 2.72,
+      "surprisePct": 8.67
+    },
+    {
+      "ticker": "COO",
+      "reportDate": "2024-02-29",
+      "startDateTime": "2024-02-29T21:20:28.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.78,
+      "actual": 0.85,
+      "surprisePct": 8.47
+    },
+    {
+      "ticker": "EVRG",
+      "reportDate": "2024-02-29",
+      "startDateTime": "2024-02-29T12:00:58.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.28,
+      "actual": 0.27,
+      "surprisePct": -2.34
+    },
+    {
+      "ticker": "HPE",
+      "reportDate": "2024-02-29",
+      "startDateTime": "2024-02-29T21:07:49.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.45,
+      "actual": 0.48,
+      "surprisePct": 6.99
+    },
+    {
+      "ticker": "HRL",
+      "reportDate": "2024-02-29",
+      "startDateTime": "2024-02-29T11:36:31.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.34,
+      "actual": 0.41,
+      "surprisePct": 20.43
+    },
+    {
+      "ticker": "NTAP",
+      "reportDate": "2024-02-29",
+      "startDateTime": "2024-02-29T21:05:26.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.69,
+      "actual": 1.94,
+      "surprisePct": 14.95
+    },
+    {
+      "ticker": "XRAY",
+      "reportDate": "2024-02-29",
+      "startDateTime": "2024-02-29T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.44,
+      "actual": 0.44,
+      "surprisePct": 1.12
+    },
+    {
+      "ticker": "ROST",
+      "reportDate": "2024-03-05",
+      "startDateTime": "2024-03-05T21:01:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.65,
+      "actual": 1.82,
+      "surprisePct": 10.12
+    },
+    {
+      "ticker": "TGT",
+      "reportDate": "2024-03-05",
+      "startDateTime": "2024-03-05T11:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.41,
+      "actual": 2.98,
+      "surprisePct": 23.52
+    },
+    {
+      "ticker": "BF-B",
+      "reportDate": "2024-03-06",
+      "startDateTime": "2024-03-06T13:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.56,
+      "actual": 0.6,
+      "surprisePct": 7.23
+    },
+    {
+      "ticker": "CPB",
+      "reportDate": "2024-03-06",
+      "startDateTime": "2024-03-06T12:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 0.77,
+      "actual": 0.8,
+      "surprisePct": 3.94
+    },
+    {
+      "ticker": "AVGO",
+      "reportDate": "2024-03-07",
+      "startDateTime": "2024-03-07T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.04,
+      "actual": 1.1,
+      "surprisePct": 5.44
+    },
+    {
+      "ticker": "COST",
+      "reportDate": "2024-03-07",
+      "startDateTime": "2024-03-07T21:15:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 3.64,
+      "actual": 3.71,
+      "surprisePct": 2.02
+    },
+    {
+      "ticker": "KR",
+      "reportDate": "2024-03-07",
+      "startDateTime": "2024-03-07T13:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.13,
+      "actual": 1.34,
+      "surprisePct": 18.3
+    },
+    {
+      "ticker": "ORCL",
+      "reportDate": "2024-03-11",
+      "startDateTime": "2024-03-11T20:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.38,
+      "actual": 1.41,
+      "surprisePct": 2.47
+    },
+    {
+      "ticker": "ADM",
+      "reportDate": "2024-03-12",
+      "startDateTime": "2024-03-12T11:00:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.43,
+      "actual": 1.36,
+      "surprisePct": -5.02
+    },
+    {
+      "ticker": "DLTR",
+      "reportDate": "2024-03-13",
+      "startDateTime": "2024-03-13T10:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.65,
+      "actual": 2.55,
+      "surprisePct": -3.75
+    },
+    {
+      "ticker": "LEN",
+      "reportDate": "2024-03-13",
+      "startDateTime": "2024-03-13T20:30:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 2.22,
+      "actual": 2.61,
+      "surprisePct": 17.57
+    },
+    {
+      "ticker": "ADBE",
+      "reportDate": "2024-03-14",
+      "startDateTime": "2024-03-14T20:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 4.38,
+      "actual": 4.48,
+      "surprisePct": 2.23
+    },
+    {
+      "ticker": "DG",
+      "reportDate": "2024-03-14",
+      "startDateTime": "2024-03-14T10:55:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 1.73,
+      "actual": 1.83,
+      "surprisePct": 5.81
+    },
+    {
+      "ticker": "ULTA",
+      "reportDate": "2024-03-14",
+      "startDateTime": "2024-03-14T20:05:00.000Z",
+      "timingDiagnostic": "UNKNOWN",
+      "rawTiming": "TAS",
+      "estimate": 7.54,
+      "actual": 8.08,
+      "surprisePct": 7.21
+    }
+  ],
+  "providerContract": {
+    "earnings": "Yahoo Finance calendar queried by historical date range, not by a current ticker universe",
+    "timing": "Yahoo historical startdatetimetype is diagnostic only; TAS/unknown never inferred",
+    "pitMembership": "exact-ticker intersection of two commit-pinned S&P 500 historical reconstructions",
+    "estimate": "historical Yahoo EPS Estimate; no independent consensus-vintage archive guarantee",
+    "execution": "first regular open strictly after reportDate for every event",
+    "interpretation": "diagnostic source only; cannot authorize production promotion by itself"
+  },
+  "economicOutcomesOpened": false,
+  "priceOutcomesFetched": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "promotionAllowed": false
+}
