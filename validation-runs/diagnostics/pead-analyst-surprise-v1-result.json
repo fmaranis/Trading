@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "study": "PEAD_ANALYST_SURPRISE_V1",
+  "capturedAt": "2026-10-07",
+  "sourceRun": {
+    "jobId": "pead-analyst-surprise-v1",
+    "jobName": "PEAD · calidad predictiva de sorpresa · V1",
+    "jobStatus": "PASSED",
+    "startedAt": "2026-10-07T16:04:27.125Z",
+    "finishedAt": "2026-10-07T16:04:55.990Z",
+    "exitCode": 0
+  },
+  "protocol": {
+    "sourceStudy": "PEAD_EARNINGS_SOURCE_AUDIT_R3",
+    "sourceRevision": "YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION",
+    "horizonSessions": 60,
+    "predictor": "Yahoo Surprise(%)",
+    "benchmark": "SPY",
+    "execution": "FIRST_REGULAR_OPEN_STRICTLY_AFTER_REPORT_DATE"
+  },
+  "coverage": {
+    "sourceEvents": 470,
+    "usableOutcomes": 455,
+    "coveragePct": 96.80851063829788,
+    "minimumUsable": 423
+  },
+  "metrics": {
+    "spearmanRho": 0.005589421184388553,
+    "q1MeanExcessReturn60": -0.017381579284905854,
+    "q5MeanExcessReturn60": -0.0033951311128897384,
+    "q5MinusQ1MeanExcessReturn60": 0.013986448172016115,
+    "q5ExcessHitRatePct": 46.15384615384615,
+    "spearmanP": 0.36531734132933535,
+    "extremeSpreadP": 0.15892053973013492,
+    "permutationIterations": 2000,
+    "permutationSeed": 20260929
+  },
+  "gates": {
+    "priceCoverage": true,
+    "positiveSpearman": true,
+    "significantSpearman": false,
+    "positiveExtremeSpread": true,
+    "significantExtremeSpread": false,
+    "positiveLongSide": false,
+    "longSideHitRate": false
+  },
+  "missingOutcomeCount": 15,
+  "verdict": "FAIL_SIGNAL_DIAGNOSTIC_NO_POLICY",
+  "sampleAuthority": "DIAGNOSTIC_CONSUMED_AFTER_THIS_RUN",
+  "economicPolicyOpened": false,
+  "productionDefault": "LEGACY",
+  "productionAuthority": false,
+  "promotionAllowed": false,
+  "nextAction": "CLOSE_NO_RETUNING"
+}
