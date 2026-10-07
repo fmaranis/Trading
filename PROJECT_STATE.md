@@ -2671,3 +2671,19 @@ Prospectivo:
   - `methodologyChanged=false`;
   - mercado/outcomes/política siguen cerrados.
 - Verificación: 8/8 blobs sellados MATCH y todos los checks del nuevo guard PASS.
+
+#### Fix falso positivo contrato Kronos Stage A 2026-10-07
+
+- Fallo observado en `kronosStageAContract.unit`: regex global `/sudo|apt-get|github actions/i` detectó el texto informativo `without sudo/apt` del runner.
+- No existía ejecución real de comandos privilegiados.
+- Corrección guard-only:
+  - eliminado el regex global sobre texto del contrato;
+  - se comprueban explícitamente llamadas ejecutables `run/spawnSync('sudo'|'apt-get'|'apt')`;
+  - se mantiene el bloqueo textual específico de GitHub Actions.
+- Verificación conjunta:
+  - `kronosPipBootstrap.unit` sin regex global;
+  - `kronosStageAContract.unit` sin regex global;
+  - ambos verifican comandos reales;
+  - runner no contiene llamadas privilegiadas;
+  - bootstrap repo-local `get-pip.py` permanece intacto.
+- Sello Kronos Stage A revisión 7; 8/8 blobs MATCH; metodología y outcomes sin cambios.
