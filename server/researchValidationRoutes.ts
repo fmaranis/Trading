@@ -494,7 +494,7 @@ const JOBS: JobDefinition[] = [
     name: 'Kronos · Stage A · smoke técnico',
     description: 'Smoke research-only de Kronos-small con código/pesos pinneados. Usa OHLCV sintético, conserva trayectorias Monte Carlo individuales y calcula P(retorno>0) y P(pendiente>0). Sin Yahoo, outcomes ni autoridad productiva.',
     marker: 'KRONOS_STAGE_A_SMOKE_V1_RESULT',
-    visibility: 'PARKED',
+    visibility: 'CURRENT',
     steps: [
       { label: 'Guard sello Kronos Stage A', command: 'node', args: ['tests/kronosStageASeal.unit.mjs'] },
       { label: 'Guard protocolo Kronos Stage A', command: 'node', args: ['tests/kronosStageAProtocol.unit.mjs'] },
@@ -525,9 +525,10 @@ const JOBS: JobDefinition[] = [
   {
     id: 'pead-analyst-surprise-v1',
     name: 'PEAD · calidad predictiva de sorpresa · V1',
-    description: 'Diagnóstico preregistrado de señal habilitado tras PASS de PEAD Source Audit R3. Mantiene Surprise(%), horizonte 60 sesiones, SPY y gates estadísticos congelados; entrada en primera apertura estrictamente posterior al reportDate. Sin sizing, costes ni política económica.',
+    description: 'Cerrado tras ejecución: FAIL_SIGNAL_DIAGNOSTIC_NO_POLICY. Cobertura 455/470 (96,8%) suficiente, pero Surprise(%) no mostró señal estadísticamente útil a 60 sesiones; sin política ni retuning.',
     marker: 'PEAD_ANALYST_SURPRISE_V1_RESULT',
-    visibility: 'CURRENT',
+    historyLabel: 'PEAD Analyst Surprise V1 · FAIL_SIGNAL_DIAGNOSTIC_NO_POLICY · cerrado',
+    visibility: 'ARCHIVED',
     steps: [
       { label: 'Guard fuente PEAD R3', command: 'node', args: ['tests/peadSignalSourceR3Readiness.unit.mjs'] },
       { label: 'Guard seal PEAD señal', command: 'node', args: ['tests/peadSignalDiagnosticV1Seal.unit.mjs'] },
