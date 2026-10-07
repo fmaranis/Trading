@@ -2555,7 +2555,7 @@ Prospectivo:
 - Ejecución causal preservada: `FIRST_REGULAR_OPEN_STRICTLY_AFTER_REPORT_DATE`; announcement-day return excluido; no BMO/AMC inference.
 - Todos los gates R3 PASS.
 - R3 queda `ARCHIVED` como evidencia causal cerrada.
-- Sello R3 actualizado a revisión 5 tras el PASS y un reseal posterior UI-only; `priceOutcomesFetched=false` y `economicOutcomesOpened=false`.
+- Sello R3 actualizado a revisión 6 tras el PASS y reseals técnicos pre-price; `priceOutcomesFetched=false` y `economicOutcomesOpened=false`.
 
 #### PEAD_ANALYST_SURPRISE_V1 — habilitado pre-price 2026-10-07
 
@@ -2578,7 +2578,7 @@ Prospectivo:
   - 2000 permutaciones within-report-week, seed 20260929.
 - Con 470 eventos source, el gate efectivo de cobertura por porcentaje será al menos 423 outcomes utilizables.
 - Se corrigió únicamente semántica de ejecución: un FAIL/INCONCLUSIVE científico ya no convierte el job técnico en FAILED; sólo errores reales de runtime/red producen fallo técnico.
-- Sello de señal actualizado a revisión 3 con `sourceReadiness=READY_R3_LIVE_PASS`.
+- Sello de señal actualizado a revisión 4 con `sourceReadiness=READY_R3_LIVE_PASS`.
 - Antes de la primera ejecución de señal: `priceOutcomesOpened=false`, `economicPolicyOpened=false`.
 - Un PASS sólo autoriza diseñar confirmación fresh; no abre sizing ni política económica.
 - Un FAIL termina la línea de señal sin retuning sobre esta muestra.
