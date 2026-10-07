@@ -47,18 +47,19 @@
   },
   "expectedGitBlobSha": {
     "scripts/kronosStageBDiagnosticV1Protocol.mjs": "fad6a6ed99f35494473ad5af2875b1806608e821",
-    "backend/scripts/kronos_stage_b_diagnostic.py": "2b047cedcc8148770580b237e3536b7aa967c5bb",
+    "backend/scripts/kronos_stage_b_diagnostic.py": "f1587b2cda259ce09656718fe4a44cc2ae926723",
     "scripts/kronosStageBDiagnosticLive.mjs": "aa3c11c2921fb1d2db043e4aa37a218c5d3ac810",
     "tests/kronosStageBDiagnosticV1.unit.mjs": "48e2d153d2c078f6a7e390a5b91e22b21630ff32",
-    "tests/kronosStageBDiagnosticV1Contract.unit.mjs": "b3b509f8b6ffad95b6bf55d5a71ef7d3ab4d2f32"
+    "tests/kronosStageBDiagnosticV1Contract.unit.mjs": "5bd2e80648b7ef9a9095e6ba960692b534ae1e0a"
   },
-  "sealRevision": 4,
-  "previousSealRevision": 3,
+  "sealRevision": 5,
+  "previousSealRevision": 4,
   "technicalReseal": {
-    "reason": "Repair literal backslash-n introduced in resource hardening patch. Syntax-only fix; no methodology, batching, sample, metric, seed, asset or horizon change.",
+    "reason": "Remove the final literal backslash-n in the Stage B runner and add a pre-runtime Python py_compile guard. Syntax/guard-only; methodology and resource batching unchanged.",
     "methodologyChanged": false,
     "runtimeChanged": true,
     "syntaxOnly": true,
+    "guardOnly": true,
     "resourceOnly": true,
     "historicalSampleAlreadyConsumed": true,
     "historicalYahooDataOpened": true,
