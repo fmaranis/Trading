@@ -2597,3 +2597,39 @@ Prospectivo:
   - el propio guard sigue comprobando por separado que el job PEAD fuente permanece `ARCHIVED`, que hay <=1 CURRENT y que no reaparece `requiresEodhdApiKey`.
 - Verificación directa contra blobs actuales de `main`: PASS, 0 mismatches.
 - No cambian fuente, ventana, universo, gates, resultado archivado, precios ni outcomes económicos.
+
+#### PEAD_ANALYST_SURPRISE_V1 — FAIL señal cerrado 2026-10-07
+
+- Ejecución técnica: `PASSED`, exitCode 0.
+- Veredicto científico: `FAIL_SIGNAL_DIAGNOSTIC_NO_POLICY`.
+- Cobertura suficiente: `455/470 = 96.8085%`, mínimo efectivo 423.
+- Métricas congeladas:
+  - Spearman rho: `0.0055894`;
+  - p unilateral Spearman: `0.3653173`;
+  - Q1 mean excess 60: `-1.7382%`;
+  - Q5 mean excess 60: `-0.3395%`;
+  - Q5-Q1: `+1.3986 pp`;
+  - p unilateral Q5-Q1: `0.1589205`;
+  - Q5 excess hit-rate: `46.1538%`.
+- Gates:
+  - price coverage PASS;
+  - signo Spearman positivo por margen mínimo, pero significancia FAIL;
+  - spread extremo positivo, pero significancia FAIL;
+  - long-side mean excess FAIL;
+  - long-side hit-rate FAIL.
+- Interpretación: Surprise(%) por sí sola no muestra señal predictiva útil a 60 sesiones en esta muestra.
+- La muestra queda consumida: `DIAGNOSTIC_CONSUMED_AFTER_THIS_RUN`.
+- No se retunean horizonte, predictor, quintiles, thresholds ni p-values con estos outcomes.
+- No se abre política económica.
+- Evidencia durable: `validation-runs/diagnostics/pead-analyst-surprise-v1-result.json`.
+- `pead-analyst-surprise-v1` queda `ARCHIVED`.
+
+#### Kronos Stage A activado 2026-10-07
+
+- Tras cerrar PEAD signal V1, `kronos-stage-a-smoke-v1` pasa a único `CURRENT`.
+- Sello Kronos actualizado a revisión 4 únicamente por cambio de visibilidad PARKED→CURRENT.
+- No se han abierto datos de mercado ni outcomes Kronos:
+  - `marketPricesFetched=false`;
+  - `marketOutcomesOpened=false`;
+  - `economicPolicyOpened=false`.
+- Stage A sigue siendo smoke técnico sintético y production remains `LEGACY`.
