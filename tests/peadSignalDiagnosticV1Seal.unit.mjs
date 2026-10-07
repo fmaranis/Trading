@@ -12,8 +12,8 @@ function gitBlobSha(text){
 
 const seal=JSON.parse(fs.readFileSync(SEAL_PATH,'utf8'));
 assert.equal(seal.study,'PEAD_ANALYST_SURPRISE_V1');
-assert.equal(seal.sealRevision,2);
-assert.equal(seal.previousSealRevision,1);
+assert.equal(seal.sealRevision,3);
+assert.equal(seal.previousSealRevision,2);
 assert.equal(seal.sourceReadiness,'READY_R3_LIVE_PASS');
 assert.equal(seal.sourceStudy,'PEAD_EARNINGS_SOURCE_AUDIT_R3');
 assert.equal(seal.sourceRevision,'YAHOO_CALENDAR_RANGE_DUAL_PIT_R3_NEXT_SESSION');
