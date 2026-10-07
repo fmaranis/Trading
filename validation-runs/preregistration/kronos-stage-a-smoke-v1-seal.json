@@ -52,5 +52,13 @@
     "scripts/kronosStageALive.mjs": "482195569444b082a720a02643d0ec09f0526271",
     "tests/kronosStageAProtocol.unit.mjs": "550e6401596efc55dde231826a12bc852f273fff",
     "tests/kronosStageAContract.unit.mjs": "aec04c2dadf5d92847feeb7770e9e73f98e59378"
+  },
+  "sealRevision": 2,
+  "previousSealRevision": 1,
+  "technicalReseal": {
+    "reason": "Add seal guard to the validation job before first execution.",
+    "marketPricesFetched": false,
+    "marketOutcomesOpened": false,
+    "methodologyChanged": false
   }
 }
