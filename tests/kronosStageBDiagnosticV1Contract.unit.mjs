@@ -37,6 +37,7 @@ assert.match(block,/visibility: 'CURRENT'/);
 assert.match(block,/kronosStageBDiagnosticV1Seal\.unit\.mjs/);
 assert.match(block,/kronosStageBDiagnosticV1\.unit\.mjs/);
 assert.match(block,/kronosStageBDiagnosticV1Contract\.unit\.mjs/);
+assert.match(block,/py_compile/);
 assert.match(block,/kronosStageALive\.mjs/);
 assert.match(block,/kronosStageBDiagnosticLive\.mjs/);
 console.log('kronosStageBDiagnosticV1Contract.unit: PASS');
