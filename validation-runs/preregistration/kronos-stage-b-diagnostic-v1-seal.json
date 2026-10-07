@@ -47,17 +47,18 @@
   },
   "expectedGitBlobSha": {
     "scripts/kronosStageBDiagnosticV1Protocol.mjs": "fad6a6ed99f35494473ad5af2875b1806608e821",
-    "backend/scripts/kronos_stage_b_diagnostic.py": "fd32b48f4be35d85e2c7afa45fa02133c377f9e7",
+    "backend/scripts/kronos_stage_b_diagnostic.py": "2b047cedcc8148770580b237e3536b7aa967c5bb",
     "scripts/kronosStageBDiagnosticLive.mjs": "aa3c11c2921fb1d2db043e4aa37a218c5d3ac810",
     "tests/kronosStageBDiagnosticV1.unit.mjs": "48e2d153d2c078f6a7e390a5b91e22b21630ff32",
     "tests/kronosStageBDiagnosticV1Contract.unit.mjs": "b3b509f8b6ffad95b6bf55d5a71ef7d3ab4d2f32"
   },
-  "sealRevision": 3,
-  "previousSealRevision": 2,
+  "sealRevision": 4,
+  "previousSealRevision": 3,
   "technicalReseal": {
-    "reason": "Resource-stability hardening after live Stage B reached anchor 1/31 and monopolized CPU/RAM with a 60-series batch. Same frozen 20 paths, horizons, assets, anchors, seeds, metrics and gates; only execution batching/checkpoint granularity changes.",
+    "reason": "Repair literal backslash-n introduced in resource hardening patch. Syntax-only fix; no methodology, batching, sample, metric, seed, asset or horizon change.",
     "methodologyChanged": false,
     "runtimeChanged": true,
+    "syntaxOnly": true,
     "resourceOnly": true,
     "historicalSampleAlreadyConsumed": true,
     "historicalYahooDataOpened": true,
