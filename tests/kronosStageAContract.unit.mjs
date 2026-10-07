@@ -44,6 +44,7 @@ assert.ok(start>=0,'Kronos Stage A job must exist');
 const end=routes.indexOf("id: 'pead-yahoo-calendar-source-audit-r3'",start);
 const block=routes.slice(start,end>start?end:undefined);
 assert.match(block,/visibility: 'PARKED'/);
+assert.match(block,/tests\/kronosStageASeal\.unit\.mjs/);
 assert.match(block,/tests\/kronosStageAProtocol\.unit\.mjs/);
 assert.match(block,/tests\/kronosStageAContract\.unit\.mjs/);
 assert.match(block,/scripts\/kronosStageALive\.mjs/);
