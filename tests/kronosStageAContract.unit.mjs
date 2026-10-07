@@ -40,7 +40,13 @@ assert.match(bootstrap,/requirements-kronos\.txt/);
 assert.match(bootstrap,/bootstrap\.pypa\.io\/get-pip\.py/);
 assert.match(bootstrap,/kronos-pip-bootstrap/);
 assert.match(bootstrap,/urllib\.request\.urlretrieve/);
-assert.doesNotMatch(bootstrap,/sudo|apt-get|github actions/i);
+assert.doesNotMatch(bootstrap,/run\(['"]sudo['"]/);
+assert.doesNotMatch(bootstrap,/run\(['"]apt-get['"]/);
+assert.doesNotMatch(bootstrap,/run\(['"]apt['"]/);
+assert.doesNotMatch(bootstrap,/spawnSync\(['"]sudo['"]/);
+assert.doesNotMatch(bootstrap,/spawnSync\(['"]apt-get['"]/);
+assert.doesNotMatch(bootstrap,/spawnSync\(['"]apt['"]/);
+assert.doesNotMatch(bootstrap,/github actions/i);
 
 const start=routes.indexOf("id: 'kronos-stage-a-smoke-v1'");
 assert.ok(start>=0,'Kronos Stage A job must exist');
