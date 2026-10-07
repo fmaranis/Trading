@@ -51,13 +51,13 @@
     "backend/scripts/kronos_stage_a_smoke.py": "37ff5535c8615df33f7929e7113d653d9719d560",
     "scripts/kronosStageALive.mjs": "ff31e613bfe6ec1aa8a7d2f0c48a016df131ca62",
     "tests/kronosStageAProtocol.unit.mjs": "550e6401596efc55dde231826a12bc852f273fff",
-    "tests/kronosStageAContract.unit.mjs": "71e8f5e1f9ab0a45fbaf95ed9df8105003ca970d",
+    "tests/kronosStageAContract.unit.mjs": "a87c23234843346d9d9ceae1bf56339eb7f978b9",
     "tests/kronosPipBootstrap.unit.mjs": "6755d55c437e07c022b9f0edb6823059f40231eb"
   },
-  "sealRevision": 6,
-  "previousSealRevision": 5,
+  "sealRevision": 7,
+  "previousSealRevision": 6,
   "technicalReseal": {
-    "reason": "Fix false-positive bootstrap guard: log text 'without sudo/apt' matched the old broad regex. Guard now checks executable sudo/apt commands only.",
+    "reason": "Fix second false-positive guard in kronosStageAContract: broad sudo/apt text regex matched informational log only. Guard now checks actual executable privileged commands.",
     "marketPricesFetched": false,
     "marketOutcomesOpened": false,
     "economicPolicyOpened": false,
