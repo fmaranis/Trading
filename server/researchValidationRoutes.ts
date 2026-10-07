@@ -514,6 +514,7 @@ const JOBS: JobDefinition[] = [
     marker: 'KRONOS_STAGE_B_DIAGNOSTIC_V1_RESULT',
     visibility: 'CURRENT',
     steps: [
+      { label: 'Guard sello Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1Seal.unit.mjs'] },
       { label: 'Guard protocolo Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1.unit.mjs'] },
       { label: 'Guard contrato Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1Contract.unit.mjs'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
