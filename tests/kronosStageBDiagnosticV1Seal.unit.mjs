@@ -6,8 +6,8 @@ function sha(text){const b=Buffer.from(text.replace(/\r\n/g,'\n'),'utf8');return
 assert.equal(seal.study,'KRONOS_STAGE_B_DIAGNOSTIC_V1');
 assert.equal(seal.sealRevision,3);
 assert.equal(seal.previousSealRevision,2);
-assert.equal(seal.technicalReseal.guardOnly,true);
 assert.equal(seal.technicalReseal.methodologyChanged,false);
+assert.equal(seal.technicalReseal.runtimeChanged,true);
 assert.equal(seal.technicalReseal.resourceOnly,true);
 assert.equal(seal.technicalReseal.finalKronosMetricsObservedBeforeChange,false);
 assert.equal(seal.status,'FROZEN_PRE_RUN_DIAGNOSTIC_ONLY');
