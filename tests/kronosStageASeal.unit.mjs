@@ -10,6 +10,10 @@ function gitBlobSha(text){
 }
 
 assert.equal(seal.study,'KRONOS_STAGE_A_SMOKE_V1');
+assert.equal(seal.sealRevision,2);
+assert.equal(seal.previousSealRevision,1);
+assert.equal(seal.technicalReseal.marketPricesFetched,false);
+assert.equal(seal.technicalReseal.methodologyChanged,false);
 assert.equal(seal.protocol,'KRONOS_MARKET_CONTEXT_V1');
 assert.equal(seal.source.repository,'shiyu-coder/Kronos');
 assert.equal(seal.source.license,'MIT');
