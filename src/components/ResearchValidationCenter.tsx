@@ -20,6 +20,15 @@ interface ValidationJob {
   runnerReachable?: boolean | null;
   runnerError?: string | null;
 }
+interface KronosCheckpointStatus {
+  available: boolean;
+  completedAnchors?: number;
+  partialAnchors?: number;
+  completedPaths?: number;
+  expectedMaximumPaths?: number;
+  progressPctOfMaximum?: number;
+  savedAt?: string;
+}
 interface ValidationHistoryItem { id: string; label: string; }
 interface ProviderStatus { provider: string; configured: boolean; role?: string; primaryProvider?: string; }
 interface ValidationPrerequisites { githubReplaySyncConfigured: boolean; eodhdConfigured?: boolean; secEdgarUserAgentConfigured?: boolean; timesFmRemoteRunnerConfigured?: boolean; timesFmHfTokenConfigured?: boolean; }
@@ -548,10 +557,40 @@ export const ResearchValidationCenter: React.FC = () => {
   const [phase4R3, setPhase4R3] = useState<Phase4R3Status | null>(null);
   const [prerequisites, setPrerequisites] = useState<ValidationPrerequisites | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [kronosCheckpoint, setKronosCheckpoint] = useState<KronosCheckpointStatus | null>(null);
+  const [checkpointBusy, setCheckpointBusy] = useState(false);
+  const [checkpointMessage, setCheckpointMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [launchingJobId, setLaunchingJobId] = useState<string | null>(null);
   const [eodhd, setEodhd] = useState<ProviderStatus | null>(null);
   const [alpha, setAlpha] = useState<ProviderStatus | null>(null);
+
+  const inspectKronosCheckpoint = async () => {
+    try {
+      const response = await fetch(`${BASE}/kronos-stage-b/checkpoint/status`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || `HTTP_${response.status}`);
+      setKronosCheckpoint(data as KronosCheckpointStatus);
+      setCheckpointMessage(null);
+    } catch (error: any) { setCheckpointMessage(error?.message || String(error)); }
+  };
+
+  const restoreKronosCheckpoint = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    setCheckpointBusy(true);
+    try {
+      const response = await fetch(`${BASE}/kronos-stage-b/checkpoint/restore`, {
+        method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: await file.arrayBuffer()
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || `HTTP_${response.status}`);
+      setKronosCheckpoint(data.checkpoint as KronosCheckpointStatus);
+      setCheckpointMessage('Checkpoint restaurado. La próxima ejecución reanudará lo guardado.');
+    } catch (error: any) { setCheckpointMessage(error?.message || String(error)); }
+    finally { setCheckpointBusy(false); }
+  };
 
   const refresh = async () => {
     try {
@@ -575,7 +614,7 @@ export const ResearchValidationCenter: React.FC = () => {
     } catch (e: any) { setError(e?.message || String(e)); }
   };
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { void refresh(); void inspectKronosCheckpoint(); }, []);
   useEffect(() => {
     if (!jobs.some(job => job.status === 'RUNNING') && phase4Recovery?.status !== 'RUNNING' && phase4R3?.status !== 'RUNNING') return;
     const timer = window.setInterval(() => void refresh(), 2000);
@@ -668,6 +707,19 @@ export const ResearchValidationCenter: React.FC = () => {
               <button type="button" disabled={loading || job.status === 'RUNNING' || job.readyToRun === false} onClick={() => void run(job.id)} className="touch-target w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[11px] font-black text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"><Play className="mr-1 inline h-3.5 w-3.5"/>{launchingJobId === job.id ? 'Arrancando…' : job.status === 'RUNNING' ? 'En ejecución' : job.readyToRun === false ? 'Bloqueado por preflight' : job.id === 'fundamental-quality-valuation-broad-pit-v1' ? 'Ejecutar validación PIT' : job.id === 'sector-52w-high-leadership-v1' ? 'Ejecutar diagnóstico 52W · rev. técnica 3' : job.id === 'timesfm-stage-a-smoke-v1' ? 'Ejecutar smoke TimesFM 3.0' : job.id === 'timesfm-stage-b-predictive-benchmark-v1' ? 'Ejecutar benchmark TimesFM Stage B' : job.id === 'timesfm-stage-b-prospective-confirmation-v1' ? 'Registrar forecast semanal TimesFM' : job.id === 'timesfm-relative-rank-economic-diagnostic-v1' ? 'Ejecutar diagnóstico económico TimesFM' : job.id === 'timesfm-allocation-bridge-posthoc-v1' ? 'Ejecutar bridge económico TimesFM' : job.id === 'timesfm-direct-selector-historical-diagnostic-v1' ? 'Comparar TimesFM directo vs app vs core' : job.id === 'timesfm-multivariate-context-v1' ? 'Ejecutar TimesFM multivariante V1' : job.id === 'timesfm-panel-sticky-oos-v1' ? 'Ejecutar TimesFM Panel Sticky OOS' : job.id === 'timesfm-panel-sticky-oos-v1-postmortem' ? 'Analizar señal OOS TimesFM' : job.id === 'pead-analyst-surprise-v1' ? 'Ejecutar señal PEAD 60 sesiones' : job.id === 'kronos-stage-a-smoke-v1' ? 'Ejecutar smoke Kronos' : job.id === 'pead-yahoo-calendar-source-audit-r3' ? 'Ejecutar audit Yahoo REAL PEAD R3' : job.id === 'core-outperformance-profitability-pit-v1' ? 'Ejecutar Operating Profitability PIT' : job.id === 'core-outperformance-profitability-pit-r2' ? 'Ejecutar Operating Profitability PIT R2' : 'Comprobar / ejecutar checkpoint'}</button>
             </div>
           </div>
+          {job.id === 'kronos-stage-b-diagnostic-v1' && <div className="mt-3 rounded-lg border border-cyan-500/20 bg-slate-950/40 p-3 text-[10px] text-slate-300">
+            <div className="flex flex-wrap items-center gap-2">
+              <b className="text-cyan-200">Checkpoint Kronos · guardado por minibatch</b>
+              <button type="button" onClick={() => void inspectKronosCheckpoint()} className="rounded border border-slate-600 px-2 py-1 font-bold">Revisar progreso</button>
+              {kronosCheckpoint?.available && <a href={`${BASE}/kronos-stage-b/checkpoint/download`} download="kronos-stage-b-checkpoint.json" className="rounded border border-cyan-600 px-2 py-1 font-bold text-cyan-200"><Download className="mr-1 inline h-3 w-3"/>Guardar copia JSON</a>}
+              {!kronosCheckpoint?.available && job.status !== 'RUNNING' && <label className={`rounded border border-slate-600 px-2 py-1 font-bold ${checkpointBusy ? 'opacity-40' : 'cursor-pointer'}`}>Restaurar copia JSON<input type="file" accept=".json,application/json" disabled={checkpointBusy} className="hidden" onChange={event => void restoreKronosCheckpoint(event)}/></label>}
+            </div>
+            <p className="mt-2">{kronosCheckpoint?.available
+              ? `${kronosCheckpoint.completedAnchors ?? 0}/31 trimestres completos · ${kronosCheckpoint.completedPaths ?? 0} de hasta ${kronosCheckpoint.expectedMaximumPaths ?? 5580} trayectorias guardadas (${kronosCheckpoint.progressPctOfMaximum ?? 0} %) · actualizado ${kronosCheckpoint.savedAt ?? '—'}`
+              : 'Todavía no se ha detectado un checkpoint en este backend. Al reanudar se preserva el archivo existente.'}</p>
+            {checkpointMessage && <p className="mt-2 text-amber-200">{checkpointMessage}</p>}
+            <p className="mt-1 text-slate-500">La copia descargada permite restaurar lo calculado si el entorno pierde su carpeta .runtime. Restaurar nunca sobreescribe otro checkpoint existente.</p>
+          </div>}
           {resultSummary(job.result)}
           {(job.output || job.error) && <details className="mt-3"><summary className="touch-target flex cursor-pointer items-center text-[10px] font-bold text-slate-500">Salida técnica</summary><pre className="mobile-scroll-x mt-2 max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-black/40 p-3 text-[10px] text-slate-400">{job.error ? `${job.error}\n\n` : ''}{job.output}</pre></details>}
         </div>;
