@@ -21,6 +21,8 @@ function env(){
 const python=findPython();
 const probe=run(python,['-c',"import torch,numpy,pandas,huggingface_hub; assert torch.__version__.split('+')[0]=='2.8.0'"],{timeout:30000,env:env()});
 if(probe.status!==0)throw new Error('KRONOS_STAGE_B_RUNTIME_NOT_READY_RUN_STAGE_A');
-const result=run(python,[RUNNER],{inherit:true,timeout:7200000,env:env()});
+// No artificial two-hour timeout: the CPU forecast can take many hours.
+// The Python runner persists progress after every four-path minibatch.
+const result=run(python,[RUNNER],{inherit:true,timeout:0,env:env()});
 if(result.error)throw result.error;
 if(result.status!==0)process.exitCode=result.status??1;
