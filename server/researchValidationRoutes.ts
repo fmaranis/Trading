@@ -1,5 +1,7 @@
 import express, { Request, Response } from 'express';
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 import { loadDurableJobState, reconcileLoadedJobState, saveDurableJobState } from './researchValidationStateStore.mjs';
 import { checkTimesFmRemoteEndpoint, fetchTimesFmMultivariateRunnerStatus, fetchTimesFmRemoteState, fetchTimesFmZeroGpuQuota, reconcileTimesFmState, timesFmHfTokenConfigured, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
 
@@ -882,6 +884,123 @@ async function publicJob(job: JobDefinition) {
 function safeFilePart(value: string): string {
   return value.replace(/[:.]/g, '-').replace(/[^0-9A-Za-zTZ_-]/g, '_').slice(0, 120) || 'result';
 }
+
+
+const KRONOS_STAGE_B_CHECKPOINT = path.resolve(process.cwd(), '.runtime/kronos-stage-b-v1/progress.json');
+const KRONOS_STAGE_B_ASSETS = new Set(['EUNL','SXR8','EQQQ','EXSA','IS3N','ZPRV','EXH1','IBCI','4GLD']);
+const KRONOS_STAGE_B_EXPECTED_PATHS = 31 * 9 * 20;
+
+function readKronosCheckpoint(): Record<string, any> | null {
+  if (!fs.existsSync(KRONOS_STAGE_B_CHECKPOINT)) return null;
+  const parsed = JSON.parse(fs.readFileSync(KRONOS_STAGE_B_CHECKPOINT, 'utf8'));
+  if (!parsed || parsed.version !== 'KRONOS_STAGE_B_DIAGNOSTIC_V1' ||
+      !parsed.completed || typeof parsed.completed !== 'object' || Array.isArray(parsed.completed) ||
+      !parsed.partial || typeof parsed.partial !== 'object' || Array.isArray(parsed.partial)) {
+    throw new Error('KRONOS_STAGE_B_CHECKPOINT_INVALID_SCHEMA');
+  }
+  return parsed;
+}
+
+function validateKronosCheckpointData(data: Record<string, any>): void {
+  const anchor = /^(?:201[89]|202[0-4])Q[1-4]$|^2025Q[1-3]$/;
+  for (const [key, rows] of Object.entries(data.completed)) {
+    if (!anchor.test(key) || !Array.isArray(rows) || rows.length > 8 ||
+        rows.some((row: any) => !row || typeof row !== 'object' ||
+          !KRONOS_STAGE_B_ASSETS.has(String(row.assetId)) || row.assetId === 'EUNL' ||
+          !row.horizons?.['20'] || !row.horizons?.['60'])) {
+      throw new Error('KRONOS_STAGE_B_CHECKPOINT_INVALID_COMPLETED');
+    }
+  }
+  for (const [key, partial] of Object.entries(data.partial)) {
+    const part = partial as any;
+    if (!anchor.test(key) || !part || typeof part !== 'object' ||
+        !part.forecasts || typeof part.forecasts !== 'object' || Array.isArray(part.forecasts)) {
+      throw new Error('KRONOS_STAGE_B_CHECKPOINT_INVALID_PARTIAL');
+    }
+    for (const [assetId, paths] of Object.entries(part.forecasts)) {
+      if (!KRONOS_STAGE_B_ASSETS.has(assetId) || !Array.isArray(paths) || paths.length !== 20 ||
+          paths.some((p: any) => p !== null &&
+            (!Array.isArray(p) || p.length !== 60 || p.some((v: unknown) => typeof v !== 'number' || !Number.isFinite(v) || v <= 0)))) {
+        throw new Error('KRONOS_STAGE_B_CHECKPOINT_INVALID_PATHS');
+      }
+    }
+    if (part.torchRngState !== undefined &&
+        (!Array.isArray(part.torchRngState) || !part.torchRngState.every((v: unknown) => Number.isInteger(v) && Number(v) >= 0 && Number(v) <= 255))) {
+      throw new Error('KRONOS_STAGE_B_CHECKPOINT_INVALID_RNG');
+    }
+  }
+}
+
+function summarizeKronosCheckpoint(data: Record<string, any>) {
+  const completedAnchors = Object.keys(data.completed).length;
+  let completedPaths = 0;
+  for (const rows of Object.values(data.completed) as any[]) completedPaths += (rows.length + 1) * 20;
+  let partialPaths = 0;
+  for (const part of Object.values(data.partial) as any[]) {
+    for (const paths of Object.values(part.forecasts) as any[]) {
+      partialPaths += paths.filter((value: unknown) => value !== null).length;
+    }
+  }
+  const count = completedPaths + partialPaths;
+  const savedAt = fs.statSync(KRONOS_STAGE_B_CHECKPOINT).mtime.toISOString();
+  return {
+    available: true, completedAnchors, partialAnchors: Object.keys(data.partial).length,
+    completedPaths: count, expectedMaximumPaths: KRONOS_STAGE_B_EXPECTED_PATHS,
+    progressPctOfMaximum: Math.round(count / KRONOS_STAGE_B_EXPECTED_PATHS * 1000) / 10,
+    savedAt
+  };
+}
+
+researchValidationRouter.get('/kronos-stage-b/checkpoint/status', (_req: Request, res: Response): void => {
+  if (process.env.NODE_ENV === 'production') { res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY' }); return; }
+  try {
+    const data = readKronosCheckpoint();
+    if (!data) { res.json({ available: false }); return; }
+    validateKronosCheckpointData(data);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(summarizeKronosCheckpoint(data));
+  } catch (error: any) { res.status(422).json({ error: error?.message || 'INVALID_KRONOS_CHECKPOINT' }); }
+});
+
+researchValidationRouter.get('/kronos-stage-b/checkpoint/download', (_req: Request, res: Response): void => {
+  if (process.env.NODE_ENV === 'production') { res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY' }); return; }
+  try {
+    const data = readKronosCheckpoint();
+    if (!data) { res.status(404).json({ error: 'KRONOS_STAGE_B_CHECKPOINT_NOT_AVAILABLE' }); return; }
+    validateKronosCheckpointData(data);
+    res.setHeader('Cache-Control', 'no-store');
+    res.download(KRONOS_STAGE_B_CHECKPOINT, 'kronos-stage-b-checkpoint.json');
+  } catch (error: any) { res.status(422).json({ error: error?.message || 'INVALID_KRONOS_CHECKPOINT' }); }
+});
+
+researchValidationRouter.post(
+  '/kronos-stage-b/checkpoint/restore',
+  express.raw({ type: 'application/octet-stream', limit: '32mb' }),
+  (req: Request, res: Response): void => {
+    if (process.env.NODE_ENV === 'production') { res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY' }); return; }
+    if (stateFor('kronos-stage-b-diagnostic-v1').status === 'RUNNING') {
+      res.status(409).json({ error: 'KRONOS_STAGE_B_RUNNING_RESTORE_FORBIDDEN' }); return;
+    }
+    if (fs.existsSync(KRONOS_STAGE_B_CHECKPOINT)) {
+      res.status(409).json({ error: 'KRONOS_STAGE_B_EXISTING_CHECKPOINT_PROTECTED' }); return;
+    }
+    try {
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) throw new Error('EMPTY_KRONOS_CHECKPOINT');
+      const data = JSON.parse(req.body.toString('utf8'));
+      if (!data || data.version !== 'KRONOS_STAGE_B_DIAGNOSTIC_V1' ||
+          !data.completed || typeof data.completed !== 'object' || Array.isArray(data.completed) ||
+          !data.partial || typeof data.partial !== 'object' || Array.isArray(data.partial)) {
+        throw new Error('KRONOS_STAGE_B_CHECKPOINT_INVALID_SCHEMA');
+      }
+      validateKronosCheckpointData(data);
+      fs.mkdirSync(path.dirname(KRONOS_STAGE_B_CHECKPOINT), { recursive: true });
+      const tmp = KRONOS_STAGE_B_CHECKPOINT + '.restore.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(data));
+      fs.renameSync(tmp, KRONOS_STAGE_B_CHECKPOINT);
+      res.json({ ok: true, checkpoint: summarizeKronosCheckpoint(data) });
+    } catch (error: any) { res.status(422).json({ error: error?.message || 'INVALID_KRONOS_CHECKPOINT' }); }
+  }
+);
 
 researchValidationRouter.get('/jobs', async (_req: Request, res: Response): Promise<void> => {
   const currentJobs = await Promise.all(JOBS.filter(job => job.visibility === 'CURRENT').map(publicJob));
