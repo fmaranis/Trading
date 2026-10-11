@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, CheckCircle2, Clock3, Download, Play, RefreshCw, TerminalSquare } from 'lucide-react';
+import { parseKronosCheckpointDownload } from './kronosCheckpointTransfer';
 
 type Status = 'IDLE' | 'RUNNING' | 'PASSED' | 'FAILED';
 interface ValidationJob {
@@ -575,6 +576,51 @@ export const ResearchValidationCenter: React.FC = () => {
     } catch (error: any) { setCheckpointMessage(error?.message || String(error)); }
   };
 
+  const downloadKronosCheckpoint = async () => {
+    if (checkpointBusy || !kronosCheckpoint?.available) return;
+    setCheckpointBusy(true);
+    setCheckpointMessage(null);
+    try {
+      // Fetch through the same-origin app API; direct download navigation in
+      // AI Studio embedded previews can be intercepted by its cookie gate.
+      const response = await fetch(`${BASE}/kronos-stage-b/checkpoint/download`, {
+        credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }
+      });
+      const raw = await response.text();
+      if (!response.ok) {
+        try {
+          const error = JSON.parse(raw);
+          throw new Error(error?.error || `HTTP_${response.status}`);
+        } catch (error: any) {
+          if (error instanceof SyntaxError) {
+            // Detect HTML auth gates even on non-200 responses.
+            parseKronosCheckpointDownload(raw, response.headers.get('content-type') ?? '');
+            throw new Error(`No se pudo descargar el checkpoint (HTTP ${response.status}).`);
+          }
+          throw error;
+        }
+      }
+      const validJson = parseKronosCheckpointDownload(raw, response.headers.get('content-type') ?? '');
+      const blob = new Blob([validJson], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      try {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'kronos-stage-b-checkpoint.json';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } finally {
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      setCheckpointMessage('Descarga solicitada: copia JSON verificada como checkpoint Kronos Stage B. Conserve el archivo en un lugar seguro.');
+    } catch (error: any) {
+      setCheckpointMessage(`Descarga fallida: ${error?.message || String(error)}`);
+    } finally {
+      setCheckpointBusy(false);
+    }
+  };
+
   const restoreKronosCheckpoint = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = '';
@@ -711,7 +757,7 @@ export const ResearchValidationCenter: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2">
               <b className="text-cyan-200">Checkpoint Kronos · guardado por minibatch</b>
               <button type="button" onClick={() => void inspectKronosCheckpoint()} className="rounded border border-slate-600 px-2 py-1 font-bold">Revisar progreso</button>
-              {kronosCheckpoint?.available && <a href={`${BASE}/kronos-stage-b/checkpoint/download`} download="kronos-stage-b-checkpoint.json" className="rounded border border-cyan-600 px-2 py-1 font-bold text-cyan-200"><Download className="mr-1 inline h-3 w-3"/>Guardar copia JSON</a>}
+              {kronosCheckpoint?.available && <button type="button" disabled={checkpointBusy} onClick={() => void downloadKronosCheckpoint()} className="rounded border border-cyan-600 px-2 py-1 font-bold text-cyan-200 disabled:opacity-40"><Download className="mr-1 inline h-3 w-3"/>Guardar copia JSON</button>}
               {!kronosCheckpoint?.available && job.status !== 'RUNNING' && <label className={`rounded border border-slate-600 px-2 py-1 font-bold ${checkpointBusy ? 'opacity-40' : 'cursor-pointer'}`}>Restaurar copia JSON<input type="file" accept=".json,application/json" disabled={checkpointBusy} className="hidden" onChange={event => void restoreKronosCheckpoint(event)}/></label>}
             </div>
             <p className="mt-2">{kronosCheckpoint?.available
