@@ -2782,3 +2782,19 @@ Prospectivo:
 - Se añadió guard previo `python3 -m py_compile backend/scripts/kronos_stage_b_diagnostic.py` antes de cualquier runtime Kronos Stage B.
 - El hardening resource-safe permanece sin cambios: 1 hilo CPU, 4 paths por minibatch, 20 paths totales y checkpoint parcial.
 - Sello Stage B revisión 5; 5/5 blobs específicos MATCH.
+
+
+#### Kronos Stage B · ETIMEDOUT de dos horas y preservación de checkpoint — 2026-10-11
+
+- Fallo real observado: `Error: spawnSync python3 ETIMEDOUT` tras 7.200.000 ms en `scripts/kronosStageBDiagnosticLive.mjs`. La inferencia había terminado el anchor 2018Q1 y avanzado hasta 2018Q2 EXSA; no hubo fallo de modelo ni de guards.
+- El proceso Node fijaba artificialmente un límite de 2 h para una muestra cuya ejecución CPU necesita bastante más. Se retira sólo dicho timeout: `inherit:true,timeout:0`. El backend sigue gestionando el mismo job del `ResearchValidationCenter`; no se crea otro motor ni se ejecuta en GitHub Actions.
+- Se conserva sin reducción la muestra preregistrada: 31 anchors, 9 activos (EUNL + 8), 20 paths por activo/anchor, contexto 512, horizonte 60 y métricas 20/60. `LEGACY` mantiene autoridad de producción; los diagnósticos son descriptivos y no promocionables por cutoff de pretraining desconocido.
+- Los checkpoints siguen en `.runtime/kronos-stage-b-v1/progress.json`. La escritura atómica ahora añade `fsync`. En cada minibatch se guardan también los estados aleatorios de Torch y NumPy para reanudación exacta de la secuencia de generación dentro del mismo anchor.
+- Los checkpoints de la revisión anterior, sin estado aleatorio, se admiten **sin descartar ninguna trayectoria ya calculada**. Para las nuevas trayectorias pendientes se emplea una semilla de continuación distinta y determinista, evitando volver a partir del mismo estado RNG inicial. Este rescate es técnico, no una nueva política de señal ni una nueva selección de parámetros. La reanudación de un checkpoint legacy **no es bit-a-bit equivalente** a una ejecución ininterrumpida anterior.
+- Un checkpoint corrupto no se ignora ni se reemplaza silenciosamente: bloquea con `KRONOS_STAGE_B_CHECKPOINT_CORRUPT_RESTORE_BACKUP`. Las trayectorias nuevas deben tener longitud y valores válidos.
+- En el Centro de validación, el job Kronos puede **consultar progreso**, **descargar copia JSON** y **restaurar copia JSON** cuando no existe checkpoint y no hay job RUNNING. Se impide sobreescribir progreso previo en una restauración.
+- Atención: `.runtime` es almacenamiento del entorno backend, no GitHub ni un almacenamiento garantizado entre reconstrucciones. Si AI Studio destruye el entorno, puede perderse el checkpoint salvo que exista una copia descargada. El historial del log no prueba por sí solo que el archivo siga existiendo.
+- Se incorpora un guard de superficie Node y un guard de comportamiento TypeScript previo a inferencia, junto con los guards existentes y `py_compile`.
+- Sello Stage B revisión 6: `methodologyChanged=false`, `rngStateCheckpointed=true`, `wallClockTimeoutRemoved=true`; **6/6 blobs** específicos coinciden en GitHub.
+- La eliminación del timeout elimina el fallo artificial pero **no demuestra mayor velocidad por trayectoria**. No se tocó número de hilos CPU ni se realizaron retunings sobre resultados.
+- Verificación desde GitHub: checks de integridad estática y blobs. Los unit tests/TypeScript completos y una reanudación live aún requieren ejecución en backend/app; no se afirma PASS runtime no observado.
