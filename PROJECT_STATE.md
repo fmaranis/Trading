@@ -2798,3 +2798,14 @@ Prospectivo:
 - Sello Stage B revisión 6: `methodologyChanged=false`, `rngStateCheckpointed=true`, `wallClockTimeoutRemoved=true`; **6/6 blobs** específicos coinciden en GitHub.
 - La eliminación del timeout elimina el fallo artificial pero **no demuestra mayor velocidad por trayectoria**. No se tocó número de hilos CPU ni se realizaron retunings sobre resultados.
 - Verificación desde GitHub: checks de integridad estática y blobs. Los unit tests/TypeScript completos y una reanudación live aún requieren ejecución en backend/app; no se afirma PASS runtime no observado.
+
+
+#### Kronos Stage B · descarga interceptada por AI Studio Cookie check — 2026-10-11
+
+- Un archivo descargado con nombre `kronos-stage-b-checkpoint.json` resultó ser HTML de AI Studio con título `Cookie check`, no datos del checkpoint. Evidencia de descarga defectuosa, **no prueba de pérdida de `.runtime`**.
+- Causa superficial: la UI empleaba un enlace directo `<a href="/api/.../checkpoint/download" download>`, vulnerable a que la navegación/descarga en preview incrustado fuese redirigida al control de cookies de AI Studio.
+- Reparación de la misma pantalla existente: descarga por `fetch` con credenciales del origen, `no-store`, verifica HTTP y contenido real JSON `version=KRONOS_STAGE_B_DIAGNOSTIC_V1`, campos `completed`/`partial`, rechaza `text/html` y el documento `<!doctype html>` aunque el servidor responda HTTP 200, y sólo entonces crea la descarga JSON local.
+- La UI da error explícito si recibe HTML/cookie gate; en ese caso no produce otra falsa copia JSON.
+- Guard específico `tests/kronosCheckpointTransfer.unit.ts` registrado como preflight de Stage B. Se ejecutaron 8/8 casos de comportamiento del validador en aislamiento V8 a partir del código real del HEAD (aceptación JSON válido/rechazo HTML y estructuras incorrectas); **no se afirma prueba end-to-end del navegador**.
+- Esta revisión modifica sólo transferencia/UX y guard en `ResearchValidationCenter`; no cambia runner de inferencia, sample, seed, checkpoints, resultados, sellos ni `LEGACY` de producción.
+- Precaución operativa: **no reiniciar/reconstruir AI Studio antes de asegurar una copia verdadera del checkpoint del backend actual**, ya que `.runtime` puede ser efímero. Abrir la app fuera del iframe o resolver la autenticación de cookies puede permitir la descarga existente sin despliegue.
