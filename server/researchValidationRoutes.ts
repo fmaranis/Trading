@@ -521,6 +521,7 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard contrato Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1Contract.unit.mjs'] },
       { label: 'Guard recuperación checkpoint Kronos Stage B', command: 'node', args: ['tests/kronosStageBCheckpointSurface.unit.mjs'] },
       { label: 'Guard integridad real checkpoint Kronos Stage B', command: 'npx', args: ['tsx', 'tests/kronosStageBCheckpointBehavior.unit.ts'] },
+      { label: 'Guard descarga JSON checkpoint Kronos Stage B', command: 'npx', args: ['tsx', 'tests/kronosCheckpointTransfer.unit.ts'] },
       { label: 'Guard sintaxis Python Kronos Stage B', command: 'python3', args: ['-m', 'py_compile', 'backend/scripts/kronos_stage_b_diagnostic.py'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
