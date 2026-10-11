@@ -109,6 +109,21 @@ def run_anchor(pred,series,anchor,progress):
     partial=progress.setdefault("partial",{}).setdefault(key,{"forecasts":{}})
     forecasts=partial["forecasts"]
     total_assets=len(rows)
+    # Resume the exact RNG stream after an interrupted minibatch. A pre-v6
+    # checkpoint has no RNG state: retain all its predictions and start the
+    # remaining random draws from a distinct deterministic continuation seed.
+    saved_torch=partial.get("torchRngState")
+    saved_numpy=partial.get("numpyRngState")
+    if saved_torch is not None and saved_numpy is not None:
+      torch.set_rng_state(torch.tensor(saved_torch,dtype=torch.uint8))
+      np.random.set_state((saved_numpy[0],np.asarray(saved_numpy[1],dtype=np.uint32),int(saved_numpy[2]),int(saved_numpy[3]),float(saved_numpy[4])))
+      print(f"[Kronos B] {key} resuming saved RNG stream",flush=True)
+    elif any(any(path is not None for path in paths) for paths in forecasts.values()):
+      completed_paths=sum(sum(path is not None for path in paths) for paths in forecasts.values())
+      continuation_seed=SEED+10000000+anchor["index"]*10000+completed_paths
+      torch.manual_seed(continuation_seed); np.random.seed(continuation_seed)
+      partial["legacyResumeRngRebased"]=True
+      print(f"[Kronos B] {key} preserving legacy partial paths; distinct continuation RNG seed",flush=True)
 
     for asset_i,r in enumerate(rows,1):
       aid=r["assetId"]
@@ -125,8 +140,16 @@ def run_anchor(pred,series,anchor,progress):
         print(f"[Kronos B] {key} asset {asset_i}/{total_assets} {aid} paths {pending[0]+1}-{pending[-1]+1}/{PATHS}",flush=True)
         dfs=[base for _ in pending]; xs=[x for _ in pending]; ys=[y for _ in pending]
         outs=pred.predict_batch(dfs,xs,ys,HORIZON,T=1.0,top_k=0,top_p=.9,sample_count=1,verbose=False)
+        if len(outs)!=len(pending):
+          raise RuntimeError("KRONOS_STAGE_B_PATH_BATCH_COUNT_MISMATCH:"+key)
         for pi,out in zip(pending,outs):
-          existing[pi]=[float(v) for v in out["close"].to_numpy()]
+          closes=[float(v) for v in out["close"].to_numpy()]
+          if len(closes)!=HORIZON or not all(math.isfinite(v) and v>0 for v in closes):
+            raise RuntimeError("KRONOS_STAGE_B_INVALID_FORECAST_PATH:"+key+":"+aid)
+          existing[pi]=closes
+        partial["torchRngState"]=torch.get_rng_state().tolist()
+        np_state=np.random.get_state()
+        partial["numpyRngState"]=[np_state[0],np_state[1].tolist(),int(np_state[2]),int(np_state[3]),float(np_state[4])]
         save_progress(progress)
 
     if any(any(path is None for path in forecasts.get(r["assetId"],[])) for r in rows):
