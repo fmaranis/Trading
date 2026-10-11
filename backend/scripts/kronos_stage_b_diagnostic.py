@@ -100,7 +100,10 @@ def summarize_paths(last_close,paths,h):
 def save_progress(progress):
     PROGRESS.parent.mkdir(parents=True,exist_ok=True)
     tmp=PROGRESS.with_suffix(".tmp")
-    tmp.write_text(json.dumps(progress))
+    with tmp.open("w") as file:
+      json.dump(progress,file)
+      file.flush()
+      os.fsync(file.fileno())
     tmp.replace(PROGRESS)
 
 def run_anchor(pred,series,anchor,progress):
@@ -196,12 +199,18 @@ def main():
     series={t:parse(t,fetch(t)) for _,t,_ in ASSETS}; anchors=build_cases(series)
     pred=load_models(); progress={"version":"KRONOS_STAGE_B_DIAGNOSTIC_V1","completed":{},"partial":{}}
     if PROGRESS.exists():
-      try: progress=json.loads(PROGRESS.read_text())
-      except: pass
+      try:
+        progress=json.loads(PROGRESS.read_text())
+      except (OSError,ValueError) as e:
+        raise RuntimeError("KRONOS_STAGE_B_CHECKPOINT_CORRUPT_RESTORE_BACKUP") from e
+      if progress.get("version")!="KRONOS_STAGE_B_DIAGNOSTIC_V1" or not isinstance(progress.get("completed"),dict) or not isinstance(progress.get("partial"),dict):
+        raise RuntimeError("KRONOS_STAGE_B_CHECKPOINT_INVALID_SCHEMA_RESTORE_BACKUP")
+      print(f"[Kronos B] checkpoint found: {len(progress['completed'])} completed anchor(s), {len(progress['partial'])} partial anchor(s)",flush=True)
     all_rows=[]
     for i,a in enumerate(anchors,1):
       key=a["anchor"]
       if key in progress.get("completed",{}):
+        print(f"[Kronos B] anchor {i}/{len(anchors)} {key} recovered from checkpoint",flush=True)
         rows=progress["completed"][key]
       else:
         print(f"[Kronos B] anchor {i}/{len(anchors)} {key}",flush=True)
