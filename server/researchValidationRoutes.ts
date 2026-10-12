@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readRemoteKronosCheckpoint, countKronosPaths, assertKronosMonotone } from '../scripts/kronosStageBDurableStore.mjs';
 import { loadDurableJobState, reconcileLoadedJobState, saveDurableJobState } from './researchValidationStateStore.mjs';
 import { checkTimesFmRemoteEndpoint, fetchTimesFmMultivariateRunnerStatus, fetchTimesFmRemoteState, fetchTimesFmZeroGpuQuota, reconcileTimesFmState, timesFmHfTokenConfigured, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
 
@@ -948,7 +949,9 @@ function summarizeKronosCheckpoint(data: Record<string, any>) {
     }
   }
   const count = completedPaths + partialPaths;
-  const savedAt = fs.statSync(KRONOS_STAGE_B_CHECKPOINT).mtime.toISOString();
+  const savedAt = fs.existsSync(KRONOS_STAGE_B_CHECKPOINT)
+    ? fs.statSync(KRONOS_STAGE_B_CHECKPOINT).mtime.toISOString()
+    : 'GITHUB_REPLAY_RESULTS_VERIFIED';
   return {
     available: true, completedAnchors, partialAnchors: Object.keys(data.partial).length,
     completedPaths: count, expectedMaximumPaths: KRONOS_STAGE_B_EXPECTED_PATHS,
@@ -957,26 +960,53 @@ function summarizeKronosCheckpoint(data: Record<string, any>) {
   };
 }
 
-researchValidationRouter.get('/kronos-stage-b/checkpoint/status', (_req: Request, res: Response): void => {
+researchValidationRouter.get('/kronos-stage-b/checkpoint/status', async (_req: Request, res: Response): Promise<void> => {
   if (process.env.NODE_ENV === 'production') { res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY' }); return; }
+  res.setHeader('Cache-Control', 'no-store');
   try {
-    const data = readKronosCheckpoint();
-    if (!data) { res.json({ available: false }); return; }
-    validateKronosCheckpointData(data);
-    res.setHeader('Cache-Control', 'no-store');
-    res.json(summarizeKronosCheckpoint(data));
-  } catch (error: any) { res.status(422).json({ error: error?.message || 'INVALID_KRONOS_CHECKPOINT' }); }
+    const local = readKronosCheckpoint();
+    if (local) validateKronosCheckpointData(local);
+    // Remote is authoritative across AI Studio rebuilds; unavailable remote is
+    // an explicit error, never reported as "no checkpoint".
+    const remote = await readRemoteKronosCheckpoint();
+    if (remote) validateKronosCheckpointData(remote);
+    if (local && remote) {
+      const localAhead = (() => { try { assertKronosMonotone(remote, local); return true; } catch { return false; } })();
+      const remoteAhead = (() => { try { assertKronosMonotone(local, remote); return true; } catch { return false; } })();
+      if (!localAhead && !remoteAhead) throw new Error('KRONOS_DURABLE_LOCAL_REMOTE_DIVERGED_MANUAL_RECONCILIATION');
+    }
+    const localPaths = local ? countKronosPaths(local) : 0;
+    const durablePaths = remote ? countKronosPaths(remote) : 0;
+    const best = localPaths >= durablePaths ? (local ?? remote) : remote;
+    if (!best) { res.json({ available: false, durableConfigured: true, durablePaths: 0 }); return; }
+    res.json({ ...summarizeKronosCheckpoint(best), durablePaths,
+      locallySavedPaths: localPaths, durableConfirmed: Boolean(remote),
+      persistence: 'GITHUB_REPLAY_RESULTS',
+      note: localPaths > durablePaths ? 'LOCAL_AHEAD_REMOTE_BACKUP_PENDING' : 'DURABLE_CHECKPOINT_CONFIRMED'
+    });
+  } catch (error: any) {
+    res.status(503).json({ error: error?.message || 'KRONOS_DURABLE_CHECKPOINT_STATUS_UNAVAILABLE' });
+  }
 });
 
-researchValidationRouter.get('/kronos-stage-b/checkpoint/download', (_req: Request, res: Response): void => {
+researchValidationRouter.get('/kronos-stage-b/checkpoint/download', async (_req: Request, res: Response): Promise<void> => {
   if (process.env.NODE_ENV === 'production') { res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY' }); return; }
   try {
-    const data = readKronosCheckpoint();
-    if (!data) { res.status(404).json({ error: 'KRONOS_STAGE_B_CHECKPOINT_NOT_AVAILABLE' }); return; }
-    validateKronosCheckpointData(data);
+    const local = readKronosCheckpoint();
+    if (local) validateKronosCheckpointData(local);
+    const remote = await readRemoteKronosCheckpoint();
+    const selected = local && (!remote || countKronosPaths(local) >= countKronosPaths(remote)) ? local : remote;
+    if (!selected) { res.status(404).json({ error: 'KRONOS_STAGE_B_CHECKPOINT_NOT_AVAILABLE' }); return; }
+    if (remote && local) {
+      const localAhead = (() => { try { assertKronosMonotone(remote, local); return true; } catch { return false; } })();
+      const remoteAhead = (() => { try { assertKronosMonotone(local, remote); return true; } catch { return false; } })();
+      if (!localAhead && !remoteAhead) throw new Error('KRONOS_DURABLE_LOCAL_REMOTE_DIVERGED_MANUAL_RECONCILIATION');
+    }
+    validateKronosCheckpointData(selected);
+    res.setHeader('Content-Disposition', 'attachment; filename="kronos-stage-b-checkpoint.json"');
     res.setHeader('Cache-Control', 'no-store');
-    res.download(KRONOS_STAGE_B_CHECKPOINT, 'kronos-stage-b-checkpoint.json');
-  } catch (error: any) { res.status(422).json({ error: error?.message || 'INVALID_KRONOS_CHECKPOINT' }); }
+    res.status(200).json(selected);
+  } catch (error: any) { res.status(503).json({ error: error?.message || 'KRONOS_DURABLE_CHECKPOINT_DOWNLOAD_UNAVAILABLE' }); }
 });
 
 researchValidationRouter.post(
