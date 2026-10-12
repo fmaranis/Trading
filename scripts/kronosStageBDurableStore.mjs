@@ -4,7 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-export const KRONOS_PROGRESS_PATH = path.resolve(process.cwd(), '.runtime/kronos-stage-b-v1/progress.json');
+const isolatedTestPath = process.env.NODE_ENV === 'test' && process.env.KRONOS_STAGE_B_DURABLE_TEST === '1'
+  ? process.env.KRONOS_STAGE_B_TEST_CHECKPOINT_PATH : null;
+export const KRONOS_PROGRESS_PATH = path.resolve(isolatedTestPath || path.resolve(process.cwd(), '.runtime/kronos-stage-b-v1/progress.json'));
 export const KRONOS_REMOTE_PATH = 'validation-runs/kronos-stage-b-v1-progress.json';
 const VERSION = 'KRONOS_STAGE_B_DIAGNOSTIC_V1';
 const EXPECTED_ASSETS = new Set(['EUNL','SXR8','EQQQ','EXSA','IS3N','ZPRV','EXH1','IBCI','4GLD']);
