@@ -14,8 +14,8 @@ export function validateKronosProgress(value) {
   if (!value || value.version !== VERSION || !plain(value.completed) || !plain(value.partial))
     throw new Error('KRONOS_DURABLE_INVALID_SCHEMA');
   for (const [anchor,rows] of Object.entries(value.completed)) {
-    if (!anchorPattern.test(anchor) || !Array.isArray(rows) || rows.length !== 8 ||
-        new Set(rows.map(row=>row.assetId)).size !== 8 ||
+    if (!anchorPattern.test(anchor) || !Array.isArray(rows) || rows.length < 5 || rows.length > 8 ||
+        new Set(rows.map(row=>row?.assetId)).size !== rows.length ||
         rows.some(row=> !plain(row) || !EXPECTED_ASSETS.has(row.assetId) ||
           row.assetId === 'EUNL' || !plain(row.horizons) || !plain(row.horizons['20']) ||
           !plain(row.horizons['60'])))
@@ -55,7 +55,7 @@ export function assertKronosMonotone(previous,next) {
   }
   for (const [anchor,part] of Object.entries(previous.partial)) {
     if (next.completed[anchor]) {
-      if (Object.keys(part.forecasts).length !== 9 ||
+      if (Object.keys(part.forecasts).length !== next.completed[anchor].length+1 ||
           Object.values(part.forecasts).some(paths=>paths.some(p=>p===null)))
         throw new Error('KRONOS_DURABLE_INCOMPLETE_TO_COMPLETED:' + anchor);
       continue;
