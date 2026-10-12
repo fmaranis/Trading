@@ -511,6 +511,7 @@ const JOBS: JobDefinition[] = [
   },
   {
     id: 'kronos-stage-b-diagnostic-v1',
+    requiresGithubReplayToken: true,
     name: 'Kronos · Stage B · diagnóstico 20/60',
     description: 'Benchmark histórico descriptivo sobre la muestra ya consumida de TimesFM: mismo panel/anchors, Yahoo REAL causal, 20 trayectorias por activo y horizontes 20/60. Compara RankIC, dirección, Brier y momentum. Sin autoridad de promoción por cutoff de pretraining desconocido.',
     marker: 'KRONOS_STAGE_B_DIAGNOSTIC_V1_RESULT',
@@ -522,10 +523,12 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard recuperación checkpoint Kronos Stage B', command: 'node', args: ['tests/kronosStageBCheckpointSurface.unit.mjs'] },
       { label: 'Guard integridad real checkpoint Kronos Stage B', command: 'npx', args: ['tsx', 'tests/kronosStageBCheckpointBehavior.unit.ts'] },
       { label: 'Guard descarga JSON checkpoint Kronos Stage B', command: 'npx', args: ['tsx', 'tests/kronosCheckpointTransfer.unit.ts'] },
+      { label: 'Guard almacén durable Kronos Stage B', command: 'node', args: ['tests/kronosStageBDurableStore.unit.mjs'] },
       { label: 'Guard sintaxis Python Kronos Stage B', command: 'python3', args: ['-m', 'py_compile', 'backend/scripts/kronos_stage_b_diagnostic.py'] },
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Preflight checkpoint remoto Kronos Stage B', command: 'node', args: ['scripts/kronosStageBDurableStore.mjs','bootstrap'] },
       { label: 'Kronos runtime · revalidar Stage A', command: 'node', args: ['scripts/kronosStageALive.mjs'] },
       { label: 'Kronos Stage B · Yahoo REAL + batch 20x', command: 'node', args: ['scripts/kronosStageBDiagnosticLive.mjs'] }
     ]
