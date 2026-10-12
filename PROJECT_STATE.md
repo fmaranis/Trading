@@ -2809,3 +2809,15 @@ Prospectivo:
 - Guard específico `tests/kronosCheckpointTransfer.unit.ts` registrado como preflight de Stage B. Se ejecutaron 8/8 casos de comportamiento del validador en aislamiento V8 a partir del código real del HEAD (aceptación JSON válido/rechazo HTML y estructuras incorrectas); **no se afirma prueba end-to-end del navegador**.
 - Esta revisión modifica sólo transferencia/UX y guard en `ResearchValidationCenter`; no cambia runner de inferencia, sample, seed, checkpoints, resultados, sellos ni `LEGACY` de producción.
 - Precaución operativa: **no reiniciar/reconstruir AI Studio antes de asegurar una copia verdadera del checkpoint del backend actual**, ya que `.runtime` puede ser efímero. Abrir la app fuera del iframe o resolver la autenticación de cookies puede permitir la descarga existente sin despliegue.
+
+
+#### Kronos Stage B · «Revisar progreso» sin respuesta visible — 2026-10-12
+
+- Usuario informó que pulsar «Revisar progreso» no tenía efecto visible, tras un cuelgue de backend y un intento anterior de descarga que terminó en HTML de AI Studio Cookie check.
+- La ruta `/api/alerts/research-validation/kronos-stage-b/checkpoint/status` existe y está montada en el backend; **desde GitHub no es posible comprobar el estado vivo ni leer el fichero `.runtime/kronos-stage-b-v1/progress.json` del backend del usuario**.
+- Defecto confirmado en la UI: `inspectKronosCheckpoint()` llamaba a `fetch` sin mostrar estado de espera, sin timeout y con fallos relegados a un texto pequeño; `response.json()` no diferenciaba la página HTML de cookies de datos válidos.
+- Corregido **sólo flujo de consulta/read-only**: muestra mensaje inmediato y botón `Consultando…`; `AbortController` corta la espera a 12 s; verifica HTTP y estructura JSON; detecta HTML Cookie check incluso con HTTP 200; distingue checkpoint confirmado, ausencia real comunicada por backend, fallo de red, error y timeout, con mensajes visibles `aria-live`. Un error de red no se interpreta como pérdida de checkpoint.
+- `tests/kronosCheckpointTransfer.unit.ts`, ya integrado como guard previo al runtime, amplía casos de HTML, HTTP 403, respuesta no JSON, contadores inválidos y estados válidos. Ejecución aislada de la función de parseo usando V8: 9/9 casos PASS. Verificados contrato UI y ausencia de cambios en el cálculo.
+- No se modificaron runner, semillas, horizontes, número de trayectorias, protección de backups, `LEGACY` ni sello Kronos Stage B revisión 6.
+- **No sincronizar o reconstruir el entorno actual antes de tener copia válida del checkpoint**, porque `.runtime` puede ser efímero; la corrección de frontend requiere despliegue para ser visible, pero no justifica perder el entorno del cálculo.
+- Persistencia y disponibilidad real de los checkpoints **no verificadas**. No se afirma test end-to-end del navegador/AI Studio ni recuperación consumada.
