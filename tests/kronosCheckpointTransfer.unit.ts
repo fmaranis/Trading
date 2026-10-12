@@ -54,4 +54,14 @@ assert.throws(() => parseKronosCheckpointStatusResponse(
 assert.throws(() => parseKronosCheckpointStatusResponse(
   JSON.stringify({...status,progressPctOfMaximum:101}), 'application/json', 200
 ), /progreso inv[aá]lidos/);
+import fs from 'node:fs';
+const ui=fs.readFileSync('src/components/ResearchValidationCenter.tsx','utf8');
+assert.match(ui,/setCheckpointChecking\(true\)/);
+assert.match(ui,/controller\.abort\(\), 12000/);
+assert.match(ui,/parseKronosCheckpointStatusResponse\(raw,/);
+assert.match(ui,/aria-live="polite"/);
+assert.match(ui,/Consultando…/);
+assert.match(ui,/No se pudo revisar el progreso/);
+assert.match(ui,/no se sabe si el checkpoint sigue guardado/);
+assert.doesNotMatch(ui,/Todavía no se ha detectado un checkpoint/);
 console.log('kronosCheckpointTransfer.unit: PASS');
