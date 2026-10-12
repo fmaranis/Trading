@@ -73,6 +73,10 @@
     "failedRemoteWriteStopsInference": true,
     "remoteResumptionEnabled": true,
     "storageBranch": "replay-results",
-    "productionAuthority": false
+    "productionAuthority": false,
+    "wallClockTimeoutRemoved": true,
+    "rngStateCheckpointed": true,
+    "existingPartialCheckpointsRetained": true,
+    "resumableDownloadEnabled": true
   }
 }
