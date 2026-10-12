@@ -18,6 +18,10 @@ function findPython(){
 function env(){
   return {...process.env,PYTHONPATH:[TARGET,PIP_BOOTSTRAP,process.env.PYTHONPATH].filter(Boolean).join(path.delimiter),PYTHONNOUSERSITE:'1'};
 }
+// Preflight durable replay-results before installing or running Kronos CPU.
+const durable=run('node',['scripts/kronosStageBDurableStore.mjs','bootstrap'],{inherit:true,timeout:120000});
+if(durable.error)throw durable.error;
+if(durable.status!==0)throw new Error('KRONOS_STAGE_B_DURABLE_CHECKPOINT_PREFLIGHT_FAILED');
 const python=findPython();
 const probe=run(python,['-c',"import torch,numpy,pandas,huggingface_hub; assert torch.__version__.split('+')[0]=='2.8.0'"],{timeout:30000,env:env()});
 if(probe.status!==0)throw new Error('KRONOS_STAGE_B_RUNTIME_NOT_READY_RUN_STAGE_A');
