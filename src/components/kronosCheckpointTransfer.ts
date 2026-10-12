@@ -21,3 +21,49 @@ export function parseKronosCheckpointDownload(raw: string, contentType: string):
   }
   return JSON.stringify(parsed, null, 2) + '\n';
 }
+
+export interface KronosCheckpointStatusResponse {
+  available: boolean;
+  completedAnchors?: number;
+  partialAnchors?: number;
+  completedPaths?: number;
+  expectedMaximumPaths?: number;
+  progressPctOfMaximum?: number;
+  savedAt?: string;
+}
+
+/** Fail visibly on login pages, empty bodies and malformed backend responses. */
+export function parseKronosCheckpointStatusResponse(
+  raw: string, contentType: string, httpStatus: number
+): KronosCheckpointStatusResponse {
+  if (/text\/html/i.test(contentType) || /^\s*<(?:!doctype\s+html|html)\b/i.test(raw)) {
+    throw new Error('AI Studio ha interceptado la consulta con una página de autenticación (Cookie check). No se ha podido comprobar el checkpoint; no significa que se haya perdido.');
+  }
+  let data: unknown;
+  try { data = JSON.parse(raw); }
+  catch { throw new Error('El backend no ha devuelto un JSON válido al consultar el progreso de Kronos. No se puede confirmar si existe checkpoint.'); }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('El backend devolvió una respuesta inválida. No se puede comprobar el checkpoint.');
+  }
+  const item = data as Record<string, unknown>;
+  if (httpStatus < 200 || httpStatus >= 300) {
+    const detail = typeof item.error === 'string' ? item.error : 'Error desconocido';
+    throw new Error(`Consulta rechazada por el backend (HTTP ${httpStatus}): ${detail}. No se ha borrado ningún checkpoint.`);
+  }
+  if (typeof item.available !== 'boolean') {
+    throw new Error('La respuesta no contiene el estado del checkpoint; no se puede confirmar su existencia.');
+  }
+  if (item.available) {
+    for (const name of ['completedAnchors', 'partialAnchors', 'completedPaths', 'expectedMaximumPaths']) {
+      const value = item[name];
+      if (!Number.isInteger(value) || (value as number) < 0) {
+        throw new Error('El backend ha devuelto contadores de checkpoint inválidos.');
+      }
+    }
+    if (typeof item.progressPctOfMaximum !== 'number' || !Number.isFinite(item.progressPctOfMaximum) ||
+        item.progressPctOfMaximum < 0 || item.progressPctOfMaximum > 100 || typeof item.savedAt !== 'string') {
+      throw new Error('El backend ha devuelto datos de progreso inválidos.');
+    }
+  }
+  return item as unknown as KronosCheckpointStatusResponse;
+}
