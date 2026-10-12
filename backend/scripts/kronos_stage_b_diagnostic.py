@@ -204,10 +204,9 @@ def metrics(all_rows,h):
 def main():
     torch.set_num_threads(1)
     torch.set_num_interop_threads(1)
-    series={t:parse(t,fetch(t)) for _,t,_ in ASSETS}; anchors=build_cases(series)
-    # Bootstrap is a mandatory preflight in the app and in the direct CLI.
-    # Fail before model load if a remote durable checkpoint cannot be restored.
+    # Check durable recovery before Yahoo, model weights or any inference CPU.
     subprocess.run(["node","scripts/kronosStageBDurableStore.mjs","bootstrap"],cwd=str(ROOT),check=True)
+    series={t:parse(t,fetch(t)) for _,t,_ in ASSETS}; anchors=build_cases(series)
     pred=load_models(); progress={"version":"KRONOS_STAGE_B_DIAGNOSTIC_V1","completed":{},"partial":{}}
     if PROGRESS.exists():
       try:
