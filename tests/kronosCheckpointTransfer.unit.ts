@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { parseKronosCheckpointDownload } from '../src/components/kronosCheckpointTransfer';
+import { parseKronosCheckpointDownload, parseKronosCheckpointStatusResponse } from '../src/components/kronosCheckpointTransfer';
 
 const checkpoint = {
   version: 'KRONOS_STAGE_B_DIAGNOSTIC_V1',
@@ -29,4 +29,29 @@ assert.throws(
   () => parseKronosCheckpointDownload(JSON.stringify({ ...checkpoint, version: 'SOMETHING_ELSE' }), 'application/json'),
   /no es un checkpoint/
 );
+const status = { available: true, completedAnchors: 1, partialAnchors: 1, completedPaths: 240,
+  expectedMaximumPaths: 5580, progressPctOfMaximum: 4.3, savedAt: '2026-10-11T18:00:00.000Z' };
+assert.deepEqual(parseKronosCheckpointStatusResponse(JSON.stringify(status), 'application/json', 200),status);
+assert.deepEqual(parseKronosCheckpointStatusResponse('{"available":false}', 'application/json', 200),{available:false});
+assert.throws(() => parseKronosCheckpointStatusResponse(
+  '<!doctype html><html><title>Cookie check</title></html>', 'text/html', 200
+), /autenticaci[oó]n/);
+assert.throws(() => parseKronosCheckpointStatusResponse(
+  '<html>login</html>', 'application/json', 200
+), /autenticaci[oó]n/);
+assert.throws(() => parseKronosCheckpointStatusResponse(
+  '{"error":"RESEARCH_VALIDATION_LOCAL_ONLY"}', 'application/json', 403
+), /HTTP 403/);
+assert.throws(() => parseKronosCheckpointStatusResponse(
+  'not a json', 'text/plain', 200
+), /JSON v[aá]lido/);
+assert.throws(() => parseKronosCheckpointStatusResponse(
+  '{"status":"RUNNING"}', 'application/json', 200
+), /estado del checkpoint/);
+assert.throws(() => parseKronosCheckpointStatusResponse(
+  JSON.stringify({...status,completedPaths:-1}), 'application/json', 200
+), /contadores/);
+assert.throws(() => parseKronosCheckpointStatusResponse(
+  JSON.stringify({...status,progressPctOfMaximum:101}), 'application/json', 200
+), /progreso inv[aá]lidos/);
 console.log('kronosCheckpointTransfer.unit: PASS');
