@@ -30,6 +30,11 @@ export interface KronosCheckpointStatusResponse {
   expectedMaximumPaths?: number;
   progressPctOfMaximum?: number;
   savedAt?: string;
+  durablePaths?: number;
+  locallySavedPaths?: number;
+  durableConfirmed?: boolean;
+  persistence?: 'GITHUB_REPLAY_RESULTS';
+  note?: string;
 }
 
 /** Fail visibly on login pages, empty bodies and malformed backend responses. */
