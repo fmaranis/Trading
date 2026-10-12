@@ -29,6 +29,11 @@ interface KronosCheckpointStatus {
   expectedMaximumPaths?: number;
   progressPctOfMaximum?: number;
   savedAt?: string;
+  durablePaths?: number;
+  locallySavedPaths?: number;
+  durableConfirmed?: boolean;
+  persistence?: 'GITHUB_REPLAY_RESULTS';
+  note?: string;
 }
 interface ValidationHistoryItem { id: string; label: string; }
 interface ProviderStatus { provider: string; configured: boolean; role?: string; primaryProvider?: string; }
@@ -586,8 +591,10 @@ export const ResearchValidationCenter: React.FC = () => {
       setKronosCheckpoint(data);
       setCheckpointChecked(true);
       setCheckpointMessage(data.available
-        ? 'Checkpoint confirmado en este backend. Guarda una copia JSON válida antes de cambiar o reconstruir el entorno.'
-        : 'El backend ha respondido: NO se encuentra un checkpoint en este entorno. No reinicies Kronos todavía; puede existir una copia en el entorno anterior.');
+        ? data.durableConfirmed
+          ? `GitHub replay-results confirmado: ${data.durablePaths ?? 0} trayectorias respaldadas. ${(data.locallySavedPaths ?? 0) > (data.durablePaths ?? 0) ? 'Hay cálculos locales todavía pendientes de sincronizar.' : 'Se puede recuperar el progreso tras reconstruir AI Studio.'}`
+          : 'El checkpoint existe localmente, pero NO está confirmado en GitHub. Guarda una copia y no reconstruyas el entorno.'
+        : 'No existe checkpoint local ni remoto en replay-results. La próxima ejecución empezará desde cero, con persistencia externa obligatoria.');
     } catch (error: any) {
       setKronosCheckpoint(null);
       const message = error?.name === 'AbortError'
@@ -788,7 +795,10 @@ export const ResearchValidationCenter: React.FC = () => {
             </div>
             <div className="mt-2" role="status" aria-live="polite" aria-atomic="true">
               {checkpointChecking && <p className="font-bold text-cyan-200">Consultando el backend… (máximo 12 segundos)</p>}
-              {checkpointChecked && kronosCheckpoint?.available && <p className="font-bold text-emerald-200">{`${kronosCheckpoint.completedAnchors ?? 0}/31 trimestres completos · ${kronosCheckpoint.completedPaths ?? 0} de hasta ${kronosCheckpoint.expectedMaximumPaths ?? 5580} trayectorias guardadas (${kronosCheckpoint.progressPctOfMaximum ?? 0} %) · actualizado ${kronosCheckpoint.savedAt ?? '—'}`}</p>}
+              {checkpointChecked && kronosCheckpoint?.available && <div className="space-y-1">
+                <p className="font-bold text-emerald-200">{`${kronosCheckpoint.completedAnchors ?? 0}/31 trimestres completos · ${kronosCheckpoint.completedPaths ?? 0} de hasta ${kronosCheckpoint.expectedMaximumPaths ?? 5580} trayectorias calculadas (${kronosCheckpoint.progressPctOfMaximum ?? 0} %)`}</p>
+                <p className="font-bold text-cyan-200">{`Respaldo GitHub replay-results: ${kronosCheckpoint.durablePaths ?? 0} trayectorias · sólo locales: ${Math.max(0,(kronosCheckpoint.locallySavedPaths ?? 0)-(kronosCheckpoint.durablePaths ?? 0))}`}</p>
+              </div>}
               {!checkpointChecked && !checkpointChecking && !checkpointMessage && <p className="text-slate-400">Pulsa «Revisar progreso» para comprobar si sigue existiendo el checkpoint. No inicia ningún cálculo.</p>}
               {checkpointMessage && <p className={`mt-1 rounded-md border px-2 py-2 font-bold ${checkpointMessage.startsWith('No se pudo') ? 'border-rose-500/40 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>{checkpointMessage}</p>}
             </div>
