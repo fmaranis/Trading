@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, CheckCircle2, Clock3, Download, Play, RefreshCw, TerminalSquare } from 'lucide-react';
-import { parseKronosCheckpointDownload } from './kronosCheckpointTransfer';
+import { parseKronosCheckpointDownload, parseKronosCheckpointStatusResponse } from './kronosCheckpointTransfer';
 
 type Status = 'IDLE' | 'RUNNING' | 'PASSED' | 'FAILED';
 interface ValidationJob {
@@ -560,6 +560,8 @@ export const ResearchValidationCenter: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [kronosCheckpoint, setKronosCheckpoint] = useState<KronosCheckpointStatus | null>(null);
   const [checkpointBusy, setCheckpointBusy] = useState(false);
+  const [checkpointChecking, setCheckpointChecking] = useState(false);
+  const [checkpointChecked, setCheckpointChecked] = useState(false);
   const [checkpointMessage, setCheckpointMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [launchingJobId, setLaunchingJobId] = useState<string | null>(null);
@@ -567,13 +569,37 @@ export const ResearchValidationCenter: React.FC = () => {
   const [alpha, setAlpha] = useState<ProviderStatus | null>(null);
 
   const inspectKronosCheckpoint = async () => {
+    setCheckpointChecking(true);
+    setCheckpointChecked(false);
+    setCheckpointMessage('Consultando el checkpoint del backend… No se ejecutará ningún cálculo ni se modificará ningún archivo.');
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
     try {
-      const response = await fetch(`${BASE}/kronos-stage-b/checkpoint/status`, { cache: 'no-store' });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || `HTTP_${response.status}`);
-      setKronosCheckpoint(data as KronosCheckpointStatus);
-      setCheckpointMessage(null);
-    } catch (error: any) { setCheckpointMessage(error?.message || String(error)); }
+      const response = await fetch(`${BASE}/kronos-stage-b/checkpoint/status`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal
+      });
+      const raw = await response.text();
+      const data = parseKronosCheckpointStatusResponse(raw, response.headers.get('content-type') ?? '', response.status);
+      setKronosCheckpoint(data);
+      setCheckpointChecked(true);
+      setCheckpointMessage(data.available
+        ? 'Checkpoint confirmado en este backend. Guarda una copia JSON válida antes de cambiar o reconstruir el entorno.'
+        : 'El backend ha respondido: NO se encuentra un checkpoint en este entorno. No reinicies Kronos todavía; puede existir una copia en el entorno anterior.');
+    } catch (error: any) {
+      setKronosCheckpoint(null);
+      const message = error?.name === 'AbortError'
+        ? 'La consulta superó 12 segundos sin responder. El backend puede estar bloqueado o inaccesible; no se sabe si el checkpoint sigue guardado.'
+        : error instanceof TypeError
+          ? 'No se pudo conectar con el backend de validación. Comprueba la sesión de AI Studio; esto no demuestra pérdida del checkpoint.'
+          : error?.message || String(error);
+      setCheckpointMessage(`No se pudo revisar el progreso: ${message}`);
+    } finally {
+      window.clearTimeout(timeout);
+      setCheckpointChecking(false);
+    }
   };
 
   const downloadKronosCheckpoint = async () => {
@@ -756,14 +782,16 @@ export const ResearchValidationCenter: React.FC = () => {
           {job.id === 'kronos-stage-b-diagnostic-v1' && <div className="mt-3 rounded-lg border border-cyan-500/20 bg-slate-950/40 p-3 text-[10px] text-slate-300">
             <div className="flex flex-wrap items-center gap-2">
               <b className="text-cyan-200">Checkpoint Kronos · guardado por minibatch</b>
-              <button type="button" onClick={() => void inspectKronosCheckpoint()} className="rounded border border-slate-600 px-2 py-1 font-bold">Revisar progreso</button>
+              <button type="button" disabled={checkpointChecking || checkpointBusy} onClick={() => void inspectKronosCheckpoint()} aria-busy={checkpointChecking} className="rounded border border-slate-600 px-2 py-1 font-bold disabled:opacity-50">{checkpointChecking ? 'Consultando…' : 'Revisar progreso'}</button>
               {kronosCheckpoint?.available && <button type="button" disabled={checkpointBusy} onClick={() => void downloadKronosCheckpoint()} className="rounded border border-cyan-600 px-2 py-1 font-bold text-cyan-200 disabled:opacity-40"><Download className="mr-1 inline h-3 w-3"/>Guardar copia JSON</button>}
               {!kronosCheckpoint?.available && job.status !== 'RUNNING' && <label className={`rounded border border-slate-600 px-2 py-1 font-bold ${checkpointBusy ? 'opacity-40' : 'cursor-pointer'}`}>Restaurar copia JSON<input type="file" accept=".json,application/json" disabled={checkpointBusy} className="hidden" onChange={event => void restoreKronosCheckpoint(event)}/></label>}
             </div>
-            <p className="mt-2">{kronosCheckpoint?.available
-              ? `${kronosCheckpoint.completedAnchors ?? 0}/31 trimestres completos · ${kronosCheckpoint.completedPaths ?? 0} de hasta ${kronosCheckpoint.expectedMaximumPaths ?? 5580} trayectorias guardadas (${kronosCheckpoint.progressPctOfMaximum ?? 0} %) · actualizado ${kronosCheckpoint.savedAt ?? '—'}`
-              : 'Todavía no se ha detectado un checkpoint en este backend. Al reanudar se preserva el archivo existente.'}</p>
-            {checkpointMessage && <p className="mt-2 text-amber-200">{checkpointMessage}</p>}
+            <div className="mt-2" role="status" aria-live="polite" aria-atomic="true">
+              {checkpointChecking && <p className="font-bold text-cyan-200">Consultando el backend… (máximo 12 segundos)</p>}
+              {checkpointChecked && kronosCheckpoint?.available && <p className="font-bold text-emerald-200">{`${kronosCheckpoint.completedAnchors ?? 0}/31 trimestres completos · ${kronosCheckpoint.completedPaths ?? 0} de hasta ${kronosCheckpoint.expectedMaximumPaths ?? 5580} trayectorias guardadas (${kronosCheckpoint.progressPctOfMaximum ?? 0} %) · actualizado ${kronosCheckpoint.savedAt ?? '—'}`}</p>}
+              {!checkpointChecked && !checkpointChecking && !checkpointMessage && <p className="text-slate-400">Pulsa «Revisar progreso» para comprobar si sigue existiendo el checkpoint. No inicia ningún cálculo.</p>}
+              {checkpointMessage && <p className={`mt-1 rounded-md border px-2 py-2 font-bold ${checkpointMessage.startsWith('No se pudo') ? 'border-rose-500/40 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>{checkpointMessage}</p>}
+            </div>
             <p className="mt-1 text-slate-500">La copia descargada permite restaurar lo calculado si el entorno pierde su carpeta .runtime. Restaurar nunca sobreescribe otro checkpoint existente.</p>
           </div>}
           {resultSummary(job.result)}
