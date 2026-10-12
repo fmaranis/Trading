@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib,json,math,os,sys,time,urllib.request
+import hashlib,json,math,os,sys,time,urllib.request,subprocess
 from pathlib import Path
 from statistics import median
 import numpy as np, pandas as pd, torch
@@ -106,6 +106,11 @@ def save_progress(progress):
       os.fsync(file.fileno())
     tmp.replace(PROGRESS)
 
+def sync_durable():
+    # Preserve four-path local writes, but make every completed 20-path asset
+    # durable before moving on to spend CPU on another asset.
+    subprocess.run(["node","scripts/kronosStageBDurableStore.mjs","sync"],cwd=str(ROOT),check=True)
+
 def run_anchor(pred,series,anchor,progress):
     torch.manual_seed(SEED+anchor["index"]); np.random.seed(SEED+anchor["index"])
     rows=anchor["rows"]; key=anchor["anchor"]
@@ -154,6 +159,9 @@ def run_anchor(pred,series,anchor,progress):
         np_state=np.random.get_state()
         partial["numpyRngState"]=[np_state[0],np_state[1].tolist(),int(np_state[2]),int(np_state[3]),float(np_state[4])]
         save_progress(progress)
+      # This asset is complete: confirm GitHub replay-results persistence now.
+      sync_durable()
+      print(f"[Kronos B] {key} asset {asset_i}/{total_assets} {aid} saved remotely (20/20)",flush=True)
 
     if any(any(path is None for path in forecasts.get(r["assetId"],[])) for r in rows):
       raise RuntimeError("KRONOS_STAGE_B_PARTIAL_ANCHOR_INCOMPLETE:"+key)
@@ -197,6 +205,9 @@ def main():
     torch.set_num_threads(1)
     torch.set_num_interop_threads(1)
     series={t:parse(t,fetch(t)) for _,t,_ in ASSETS}; anchors=build_cases(series)
+    # Bootstrap is a mandatory preflight in the app and in the direct CLI.
+    # Fail before model load if a remote durable checkpoint cannot be restored.
+    subprocess.run(["node","scripts/kronosStageBDurableStore.mjs","bootstrap"],cwd=str(ROOT),check=True)
     pred=load_models(); progress={"version":"KRONOS_STAGE_B_DIAGNOSTIC_V1","completed":{},"partial":{}}
     if PROGRESS.exists():
       try:
@@ -218,6 +229,8 @@ def main():
         progress.setdefault("completed",{})[key]=rows
         progress.setdefault("partial",{}).pop(key,None)
         save_progress(progress)
+        sync_durable()
+        print(f"[Kronos B] {key} completed and saved remotely",flush=True)
       all_rows.extend(rows)
     ms=[metrics(all_rows,h) for h in (20,60)]
     mean_rank=float(np.mean([m["meanCrossSectionalRankIc"] for m in ms])); mean_mom=float(np.mean([m["momentumMeanCrossSectionalRankIc"] for m in ms]))
