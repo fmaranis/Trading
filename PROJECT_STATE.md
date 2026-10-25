@@ -2852,3 +2852,12 @@ Prospectivo:
 - Comprobación del código de `main`: el `ResearchValidationCenter` usa `spawn` asíncrono para pasos, pero Kronos Stage B usa CPU en el mismo runtime, procesa 20 paths por activo y no tiene pausa voluntaria de job entre unidades; el runner ya hace checkpoint local por 4 paths y sync remoto al cerrar un activo. No se atribuye el bloqueo a `spawnSync` de su subproceso sin una prueba de recursos.
 - Estado de evidencia: checkpoint GitHub confirmado con 680/5580 paths; estado vivo/tiempo CPU/estabilidad preview aún no verificados. No abrir ni reiniciar estudio pesado hasta disponer de ejecución acotada con guard de continuidad y retorno `INCOMPLETE` inequívoco.
 - Ningún cambio productivo, variante de política o reemplazo de hosting aprobado. Coste objetivo 0 EUR extra, sin prometer servicio 24/7 gratuito. El usuario sólo interviene cuando se necesiten autorizaciones/credenciales/despliegues que no son accesibles desde el repositorio.
+
+
+### 2026-10-25 — H1 auditoría piloto de trazas realizada, read-only
+
+- Artefacto verificable: `replay-results/validation-runs/diagnostics/decision-audit-trace-2019-2022-v1.json` producido mediante lectura del export histórico original (muestra CONSUMED). No se ejecutó backtest nuevo ni se alteró código productivo.
+- 1.024 señales originales según contadores; export legible contiene sólo 34 señales diagnósticas, por lo que NO permite atribuir las 861 acciones `AVOID` a causas detalladas. Se necesitan las trazas completas o ampliar la instrumentación causal antes de formular contrafactuales sobre esos `AVOID`.
+- El core selector aporta 48 puntos de decisión legibles: 33 `HEALTHY_INCUMBENT_INERTIA`, 11 `DEGRADED_INCUMBENT_HOLD`, 2 `NO_HEALTHY_CORE`, 1 `BEST_HEALTHY_CORE`, 1 `REPLACE_UNHEALTHY_INCUMBENT`; son categorías de routing, NO causas probadas del diferencial de rentabilidad.
+- La posición Vanguard Global acumuló ~4.077,30 EUR netos (aprox. 89,17% del beneficio final del portfolio reportado). Tampoco demuestra que aumentar/reducir asignación al core mejorase el resultado: requiere replay pareado respetando capital/costes/cash/impuestos.
+- H1 continúa `IN_PROGRESS` hasta disponer de trazas completas por etapa y clasificación de reach. H0 `PENDING`: todavía sin aislamiento real de CPU/pausa del job; se han preservado los checkpoints. La próxima modificación de código debe ser pequeña, tener guards y no modificar gates económicos ni sellos sin análisis.
