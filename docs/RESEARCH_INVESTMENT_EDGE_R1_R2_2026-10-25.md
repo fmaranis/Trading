@@ -1,0 +1,117 @@
+# Custodia — R1/R2: primera investigación económica y decisión sobre el experimento inicial
+
+Fecha: 2026-10-25  
+Estado: **RESEARCH SCOPING + AUDITORÍA READ-ONLY REALIZADA / SIN ALFA DEMOSTRADA**  
+Canon: `fmaranis/Trading/main` · `PROJECT_STATE.md` · `docs/DECISION_FIRST_EXECUTION_PLAN_2026-10-25.md`
+
+## Pregunta del proyecto
+
+**¿Cuándo tiene justificación económica invertir un euro adicional en una oportunidad en lugar de mantenerlo en el núcleo global indexado?** Y, si el dinero ya está invertido, ¿qué evidencia justificaría la venta/traspaso de una posición para financiar esa oportunidad **después** de costes, impuestos, riesgo y las pérdidas potenciales de no mantener el core?
+
+No buscamos una estrategia con muchas operaciones ni la mayor tasa bruta de acierto. Buscamos patrimonio terminal neto y robustez superiores al core con una cadena causal única.
+
+## 1. Estado técnico REAL de Custodia
+
+Comprobado en el HEAD de `main` del 2026-10-25:
+
+- `src/investment/decision/assetUniverseScanner.ts`: scanner de momentum absoluto **20/60/120 sesiones**, con score penalizado por riesgo/volatilidad; `src/investment/decision/assetSelectionQuality.ts` ya calcula persistencia, drawdown y score de oportunidad. No ganaremos nada creando «Momentum V2» que replique lo existente.
+- `src/investment/decision/portfolioCandidateGate.ts`: ranking `LEGACY`, `QUALITY_V1` y `SLOPE_V1` opcionales; `QUALITY` y `SLOPE` no tienen autoridad productiva. Existen señales de timing y consenso.
+- `src/investment/decision/portfolioDecisionEngine.ts`: la prioridad de nuevas oportunidades pondera `excessVsCashPctPoints`, consenso y volatilidad. También hay posiciones actuales y `DYNAMIC_CORE_SELECTOR_V1`; no afirmar que el core esté ausente del motor.
+- `src/investment/decision/portfolioAssetRole.ts`: el núcleo de crecimiento estratégico se identifica explícitamente; su selección real no es una prioridad fija, sino `DYNAMIC_CORE_SELECTOR_V1`.
+- `docs/CORE_DYNAMIC_MARKET_SELECTION_ARCHITECTURE.md`: shortlist **dinámica actual** Top64. Yahoo discovery actual **no** reconstruye un universo historical point-in-time; persistirá survivorship hasta disponer de un master histórico válido.
+- `docs/ECONOMIC_VALIDATION_PROTOCOL_V1.md`: no retune sobre datos consumidos; benchmark con los mismos flujos/capital; `NEXT_OPEN`, cash BCE, costes e impuestos causales.
+- `PROJECT_STATE.md`: previous `QUALITY_V1/SLOPE_V1` sin evidencia de promoción; `QUALITY_ALLOCATION_BRIDGE_V1` tenía reach limitado porque el allocator carecía de capital nuevo libre. Riesgo V8 con señal predictiva útil no equivale a éxito económico de V8-V11.
+
+### Hallazgo matemático esencial
+
+Si dos activos se comparan el mismo día y mismo horizonte con un core de retorno común `r_core`, ordenar por `r_asset - r_core` produce **exactamente el mismo ranking que ordenar por `r_asset`**. El retorno relativo compuesto `(1 + r_asset)/(1 + r_core) - 1` también preserva ese orden si el benchmark es idéntico y su retorno > -100%.
+
+**Consecuencia:** un ranking de precios con «core relativo» puede ser sólo una transformación de nuestro momentum. El valor diferencial debe venir de alguna de estas cuestiones verificables: (i) el hurdle para decidir **core o satélite**, (ii) persistencia y horizontes temporales con resultados predictivos, (iii) un ajuste causal de riesgo o (iv) información adicional verdaderamente nueva —beneficios, valoración, etc.—. No presentar un cambio nominal como una estrategia innovadora.
+
+## 2. Evidencia académica contrastada (externa, no evidencia de Custodia)
+
+| Línea | Resultados publicados | Limitación relevante |
+| --- | --- | --- |
+| Momentum | Jegadeesh y Titman (1993) hallan persistencia del retorno relativo de ganadores en horizontes de 3–12 meses. | La prima de estrategias de factores, muchas veces long-short, no demuestra que una cartera europea long-only supere un fondo global tras impuestos. |
+| Valor + momentum | Asness, Moskowitz y Pedersen (2013) documentan primas de valor y momentum en distintos mercados/activos y correlación negativa entre ambas. | Diversificación de factores no implica una regla óptima ni alfa neta para Custodia; ninguna calibración puede importarse sin prueba causal. |
+| Calidad y valoración | Novy-Marx (2013) encuentra poder explicativo de la rentabilidad bruta sobre activos; Fama–French (2015) encuentran relevancia de rentabilidad e inversión en un modelo de cinco factores. | En acciones históricas se necesitan fundamentales `filed <= informationDate`, precio/acciones/divisa correctos y universo PIT; cobertura de hoy no basta. |
+| Riesgo de momentum | Daniel y Moskowitz (2016) documentan *momentum crashes* en pánicos y rebotes, incluso cuando el factor funciona de media. | Una protección mecánica ante caídas puede ser peor que mantener en una recuperación rápida. |
+| Riesgo de sobreajuste | McLean y Pontiff (2016), 97 predictores: medias de cartera 26% más bajas OOS y 58% más bajas tras publicación. | El artículo no cuantifica la caída esperable específica de nuestra estrategia. Las muestras ya inspeccionadas no pueden promocionar. |
+| Automatización ML | Microsoft Qlib proporciona benchmark reproducible LightGBM, métricas IC/RankIC y backtests. | Sus benchmarks usan otros mercados/datos, no la cartera de Custodia. Modelos grandes no equivalen necesariamente a ventaja neta. |
+
+**Fuentes primarias:**
+
+- Jegadeesh–Titman 1993: https://doi.org/10.1111/j.1540-6261.1993.tb04702.x
+- Asness–Moskowitz–Pedersen 2013: https://www.aqr.com/Insights/Research/Journal-Article/Value-and-Momentum-Everywhere
+- Novy-Marx 2013: https://www.nber.org/papers/w15940
+- Fama–French 2015: https://doi.org/10.1016/j.jfineco.2014.10.010
+- Daniel–Moskowitz 2016: https://www.nber.org/papers/w20439
+- McLean–Pontiff 2016: https://doi.org/10.1111/jofi.12365
+- Qlib oficial y ejemplos: https://github.com/microsoft/qlib
+
+Se distinguen **publicaciones externas**, **hechos auditados de nuestro motor** e **hipótesis propuestas**. Nada de ello certifica alfa de Custodia.
+
+## 3. Primera auditoría económica nueva: margen efectivo de capital (muestra consumida)
+
+Artefacto reproducible: `replay-results/validation-runs/diagnostics/investment-pivot-reach-audit-2019-2022-v1.json`.
+
+Origen leído sin generar un replay nuevo: `replay-results/validation-runs/latest-chatgpt.json`, exportación publicada el 2026-09-11 de 2019-01-01 a 2022-12-30, capital inicial **13.000 €**. Ésta es una **muestra CONSUMED para diagnósticos**, NO para promoción.
+
+Datos directamente calculados de las 1.028 filas diarias con régimen distinto de `PRE_DECISION`:
+
+| Año | Filas | Cash medio / equity |
+| --- | ---: | ---: |
+| 2019 | 256 | 20,37% (incluye meses de entrada desde 100% cash) |
+| 2020 | 257 | 4,90% |
+| 2021 | 258 | 3,97% |
+| 2022 | 257 | 3,50% |
+
+Desde **2019-04-01**, 0 de 965 filas observadas supera el 20% cash/equity. La cartera comprometió ~93,50% del capital inicial a la sesión 60. De sus **18 operaciones ejecutadas**, hubo 7 BUY, 7 ADD y 4 EXIT. La posición Vanguard Global explica **4.077,30 €** de los 4.572,29 € de beneficio neto total reportado; que concentre ese beneficio **NO** es una contribución contrafactual. El resultado global fue **17.572,29 €** frente a **20.365,50 €** del benchmark structural core, brecha de **−2.793,21 €**. Esta diferencia no demuestra que una alternativa concreta hubiera ganado 2.793 € más.
+
+**Diagnóstico:** con este perfil operativo, mejorar el ranking exclusivamente sobre efectivo disponible podría tener poco alcance incremental. Estudiar un cambio de selección **sin estudiar el coste de oportunidad de mantener el core y su eventual sustitución parcial** deja el problema principal sin resolver. Aun así, que no haya cash libre NO autoriza automáticamente rotar desde el núcleo.
+
+## 4. Priorización de hipótesis económicas NUEVAS
+
+| Prioridad | Hipótesis | Viabilidad causal/coste | Riesgo de resultado engañoso |
+| --- | --- | --- | --- |
+| **1** | **H-CORE-OPPORTUNITY:** elegir entre mantener core y financiar una exposición satélite cuando existe información incremental con ventaja neta y capacidad de ejecución. | Herramientas de cartera, core, replay y precios ya integrados. Falta cuantificar reach real y cobertura PIT para el universo evaluado. | **Alto** si se vende el core en retrospectiva al conocer qué satélites ganaron; evitarlo con política preregistrada/holdout. |
+| 2 | Calidad/profitabilidad × valoración como señal diferencial respecto a precio pasado. | Fundamentos académicos sólidos, pero SEC EDGAR y otros fundamentales deben llevar fechas efectivas de publicación y master histórico; no hay cobertura PIT completa certificada. | **Muy alto** si se rellena historia con fundamentals de hoy o sólo supervivientes. |
+| 3 | Ranking ML ligero (LightGBM) para valor añadido de features mixtas. | Requiere panel amplio y limpio con outcomes independent, buena cobertura PIT y control de train/validation/test por fecha; **NO** prioridad inicial. | **Muy alto** por fuga de datos y aprendizaje de artefactos del catálogo. |
+| 4 | Modelos de secuencias TimesFM/Kronos o V8 como contexto. | Datos/cutoff y costes de inferencia; los FAIL económicos previos no recomiendan autoridad. | No cambiar el rumbo hacia más cómputo pesado. |
+
+### Decisión metodológica R1
+
+Elegir **H-CORE-OPPORTUNITY** para especificación técnica *research-only*, no para producción. Su novedad no es la palabra momentum: es exigir rentabilidad esperada **frente a la alternativa concreta de mantener el core**, considerando el capital ya invertido y su coste fiscal/de transacción. Calidad/valoración queda como segunda investigación formal condicionada por master PIT.
+
+## 5. Qué experimento H-CORE-OPPORTUNITY sería falsable
+
+Separar estrictamente:
+
+**A. Calidad de señal (sin órdenes ni ventas):**
+
+- A cada fecha de decisión, comparar la serie de un candidato y la del core usando datos disponibles **hasta esa fecha**, misma moneda, tratamiento de dividendos/ajustes, y lag explícito para NAV de fondos.
+- Familia inicial no ajustada con outcomes: *momentum académico intermedio* aproximado 12–1 meses (252 a 21 sesiones anteriores a la decisión), comparado con el retorno correspondiente del core; analizar también el score actual `LEGACY` y comprobar si la nueva medición ofrece alguna información **incremental**, no sólo ranking idéntico.
+- Outcome de señal separado: exceso de retorno futuro del candidato frente al core a un horizonte previamente declarado, sujeto a calendarios/ejecución posterior a señal. Evaluar RankIC/IC, cobertura, incertidumbre y estabilidad cronológica. **El número de sesiones y los criterios de evaluación se congelan antes de abrir confirmación OOS**.
+- Ante falta de serie core/candidato comparable, `UNAVAILABLE`. No interpolar resultados con lookahead, no usar Yahoo *current universe discovery* para reconstruir empresas pasadas, no ocultar instrumentos delistados. Casos con survivorship se marcan **diagnósticos condicionados**.
+
+**B. Calidad de la política económica (UNA alternativa, replay único):**
+
+- Control A=`LEGACY` real y control pasivo con un core compatible con los mismos `externalCashFlows`.
+- Política candidata B, una vez redactada y congelada ex ante, sólo puede cambiar una decisión sobre `core vs satélite` para capital realmente disponible, o justificar una rotación que incluya explícitamente coste, impuesto y riesgo de permanencia fuera del core.
+- Conservar `NEXT_OPEN` y todas las invariantes del replay, medir órdenes **distintas** entre A/B, valor terminal neto y drawdown, costes fiscales, exposición, retornos sacrificados en rebotes y reach. No usar como benchmark un core incapaz de recibir los mismos flujos.
+- El estudio 2019–2022 ya consumido es sólo un ensayo diagnóstico para detectar faltas de datos, incompatibilidades e instrumentación. **No entrenar/ajustar política sobre él y presentarla como éxito.**
+- Bloqueo de promoción hasta inventario PIT suficiente, freeze explícito y holdout verdaderamente fresco. Si el holdout disponible no alcanza decisiones ejecutables, marcar `INCONCLUSIVE_INSUFFICIENT_REACH`.
+
+## 6. Tarea técnica siguiente, sin trabajo del usuario
+
+1. Revisar en la cadena existente dónde se conservan exactamente por fecha `candidate`, `core`, `cash`, `cost`, `tax` y `available-to-rotate capital`; cuantificar cobertura del core en `AssetUniverseScanResult` y trazas de `DynamicHistoricalReplayCore`.
+2. Preparar **un diagnóstico research-only** de `core-vs-satellite` dentro del flujo/resultado de replay actual: evidencia y decisiones que cambian; no crear pantalla, motor, job largo ni gate productivo.
+3. Guard con tres pruebas obligatorias: (i) cálculo sólo usa precios <= fecha, (ii) si falta serie comparable devuelve `UNAVAILABLE`, (iii) cuando no hay capital o un ajuste no cambia órdenes declara reach cero. Después pruebas rápidas de arquitectura y `tsc --noEmit`.
+4. **Sólo después** definir y congelar la fórmula de una única política B, verificar viabilidad de universo historical/PIT y ejecutar el backtest pareado mediante `ResearchValidationCenter` en la propia aplicación. Nunca con GitHub Actions.
+
+## Estado
+
+- **DONE:** revisión de fuentes y literatura; lectura de componentes canónicos; cálculo de reach/cash de replay archivado, con artefacto persistido en rama `replay-results`; priorización H-CORE-OPPORTUNITY.
+- **NOT DONE:** feature completa, pruebas TypeScript/guards, contrafactual y primer backtest A/B; rendimiento incremental no demostrado.
+- **BLOQUEOS POTENCIALES:** master de universo histórico PIT, NAV/fundamentales comparables, falta de sample fresh, y financiación efectiva de operaciones.
+- **PRODUCCIÓN:** sin cambios, `LEGACY`; Kronos sigue aparcado.
