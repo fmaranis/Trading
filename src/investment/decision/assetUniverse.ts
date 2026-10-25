@@ -87,9 +87,9 @@ export const EUR_ASSET_UNIVERSE: AssetUniverseItem[] = [
  * thresholds on them or report them as unbiased OOS performance evidence.
  */
 export const EUR_VALIDATION_HOLDOUT_UNIVERSE: AssetUniverseItem[] = [
-  { assetId: 'HOLDOUT_XDEM', ticker: 'XDEM.DE', name: 'Xtrackers MSCI World Momentum Factor UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
-  { assetId: 'HOLDOUT_XDEV', ticker: 'XDEV.DE', name: 'Xtrackers MSCI World Value UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
-  { assetId: 'HOLDOUT_XDEQ', ticker: 'XDEQ.DE', name: 'Xtrackers MSCI World Quality Factor UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_XDEM', ticker: 'XDEM.DE', isin: 'IE00BL25JP72', name: 'Xtrackers MSCI World Momentum Factor UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_XDEV', ticker: 'XDEV.DE', isin: 'IE00BL25JM42', name: 'Xtrackers MSCI World Value UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
+  { assetId: 'HOLDOUT_XDEQ', ticker: 'XDEQ.DE', isin: 'IE00BL25JL35', name: 'Xtrackers MSCI World Quality Factor UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
   { assetId: 'HOLDOUT_XDEB', ticker: 'XDEB.DE', name: 'Xtrackers MSCI World Minimum Volatility UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
   { assetId: 'HOLDOUT_IS3R', ticker: 'IS3R.DE', name: 'iShares Edge MSCI World Momentum Factor UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
   { assetId: 'HOLDOUT_IS3S', ticker: 'IS3S.DE', name: 'iShares Edge MSCI World Value Factor UCITS ETF', category: 'GLOBAL_EQUITY', currency: 'EUR' },
