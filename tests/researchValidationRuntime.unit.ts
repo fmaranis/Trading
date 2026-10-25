@@ -31,11 +31,11 @@ const ucitsEnd = routes.indexOf("id: 'pead-yahoo-calendar-source-audit-r3'", uci
 assert.ok(ucitsStart >= 0 && ucitsEnd > ucitsStart, 'Single integrated UCITS research job exists');
 const ucitsBlock = routes.slice(ucitsStart, ucitsEnd);
 assert.match(ucitsBlock, /visibility: 'CURRENT'/);
-assert.match(ucitsBlock, /tests\\/staticUcitsFactorMarketDataPreflightV1\\.unit\\.mjs/);
-assert.match(ucitsBlock, /tests\\/unifiedInvestmentUniverse\\.unit\\.ts/);
-assert.match(ucitsBlock, /tests\\/coreArchitectureV1\\.unit\\.ts/);
-assert.match(ucitsBlock, /tests\\/researchValidationRuntime\\.unit\\.ts/);
-assert.match(ucitsBlock, /scripts\\/staticUcitsFactorMarketDataPreflightV1\\.mjs/);
+assert.match(ucitsBlock, /tests\/staticUcitsFactorMarketDataPreflightV1\.unit\.mjs/);
+assert.match(ucitsBlock, /tests\/unifiedInvestmentUniverse\.unit\.ts/);
+assert.match(ucitsBlock, /tests\/coreArchitectureV1\.unit\.ts/);
+assert.match(ucitsBlock, /tests\/researchValidationRuntime\.unit\.ts/);
+assert.match(ucitsBlock, /scripts\/staticUcitsFactorMarketDataPreflightV1\.mjs/);
 assert.doesNotMatch(ucitsBlock, /requiresGithubReplayToken|requiresEodhdApiKey|requiresTimesFmRunner|Kronos Stage B/);
 assert.ok(ucitsBlock.indexOf("args: ['run', 'lint']") < ucitsBlock.indexOf("scripts/staticUcitsFactorMarketDataPreflightV1.mjs"), 'TypeScript must pass before provider access');
 const currentVisibilityCount = (routes.match(/visibility: 'CURRENT'/g) ?? []).length;
