@@ -1,0 +1,75 @@
+{
+  "version": "INVESTMENT_PIVOT_REACH_AUDIT_V1",
+  "classification": "DESCRIPTIVE_CONSUMED_NOT_POLICY_TEST",
+  "researchDate": "2026-10-25",
+  "source": {
+    "repository": "fmaranis/Trading",
+    "branch": "replay-results",
+    "path": "validation-runs/latest-chatgpt.json",
+    "blobSha": "03b0c557e2e700d4838dab627945b906473c0690",
+    "publishedAt": "2026-09-11T17:21:50.939Z",
+    "reviewWindow": [
+      "2019-01-01",
+      "2022-12-30"
+    ]
+  },
+  "capitalAndPerformance": {
+    "initialCapitalEur": 13000,
+    "engineFinalEur": 17572.28704486159,
+    "structuralCoreFinalEur": 20365.498168004346,
+    "engineVsCoreFinalEur": -2793.2111231427552,
+    "engineMaxDrawdownPct": 30.801894036171827,
+    "structuralCoreMaxDrawdownPct": 33.75721787915486
+  },
+  "economicReach": {
+    "observedNonPredecisionPathRows": 1028,
+    "yearlyCashAsPctOfPortfolio": {
+      "2019": {
+        "sessions": 256,
+        "minCashPct": 4.284583824905124,
+        "maxCashPct": 100,
+        "averageCashPct": 20.36752992934276
+      },
+      "2020": {
+        "sessions": 257,
+        "minCashPct": 3.985218214325858,
+        "maxCashPct": 6.039076579921224,
+        "averageCashPct": 4.89598935269953
+      },
+      "2021": {
+        "sessions": 258,
+        "minCashPct": 3.2329726871331035,
+        "maxCashPct": 4.51664850504103,
+        "averageCashPct": 3.9657054021222877
+      },
+      "2022": {
+        "sessions": 257,
+        "minCashPct": 3.2232712876531986,
+        "maxCashPct": 3.8157266647722086,
+        "averageCashPct": 3.498878717171101
+      }
+    },
+    "rowsSince2019April": 965,
+    "rowsSince2019AprilWithCashShareAbove20Pct": 0,
+    "longHorizonCoreNetProfitEur": 4077.296386206859,
+    "longHorizonCoreNetProfitSharePct": 89.17411234688316,
+    "coreTotalBoughtEur": 11749.543392258189,
+    "coreTotalBoughtAsPctInitialCapital": 90.38110301737068,
+    "initialCapitalCommittedPctAfter60Sessions": 93.49823342037202,
+    "orderCounts": {
+      "BUY": 7,
+      "ADD": 7,
+      "EXIT": 4
+    },
+    "totalOriginalSignals": 1024,
+    "totalReadableDiagnostics": 34,
+    "notes": [
+      "Core totalBoughtEur includes multiple purchases and may be financed by proceeds; its ratio to initial capital is NOT a time-varying allocation.",
+      "Missing free cash does not prove that funds cannot be redeployed; selling or transferring creates economic turnover, fee and tax consequences.",
+      "NO new replay or intervention, no causal attribution of underperformance.",
+      "The input replay sample is consumed for design; never use it to promote a policy or tune weights."
+    ]
+  },
+  "methodologicalInsight": "Subtracting the same benchmark return from every asset in a given same-date same-horizon cross section does not change ranking order. A core-relative signal must introduce a testable decision hurdle, time-consistency, valuation/fundamental evidence, or risk adjustment rather than a renamed ranking.",
+  "nextGate": "Research-only comparison of choose-core versus actionable satellite candidate with full opportunity-cost and cost/tax effects; enforce historical instrument universe PIT before any promotion."
+}
