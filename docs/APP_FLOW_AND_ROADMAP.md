@@ -414,6 +414,11 @@ Regla de continuidad: primero diagnóstico offline y feature separation; despué
 
 ---
 
+
+## Prioridad estratégica vigente · 2026-10-25
+
+**CAMBIO DE RUMBO confirmado:** investigación de ventaja económica sostenible respecto al `structural core`, no desarrollo centrado en Kronos ni correcciones aisladas de `LEGACY`. Primero diagnóstico de decisiones y contraste de hipótesis de inversión con fundamento causal (liderazgo relativo, calidad/valoración, riesgo contextual); luego un solo experimento research/shadow en el replay existente, seguido de holdout fresh. Ver plan vigente `docs/DECISION_FIRST_EXECUTION_PLAN_2026-10-25.md` (revisión que **sustituye** la prioridad inicial H0 Kronos). Se preserva el checkpoint Kronos sin relanzarlo. No infraestructura nueva ni modelos grandes como prerrequisito.
+
 ## Ruta 2026-10-25 — de investigación de modelos a auditoría económica de decisiones
 
 **Objetivo:** aprovechar la única cadena y el replay causal ya integrados para identificar decisiones que destruyen valor frente a `LEGACY` y al structural core. No ampliar pantallas, motores o proveedores de pago ni cambiar los defaults productivos por intuición.
