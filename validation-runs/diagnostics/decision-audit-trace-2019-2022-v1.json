@@ -1,0 +1,114 @@
+{
+  "version": "DECISION_AUDIT_TRACE_PILOT_V1",
+  "classification": "READ_ONLY_CONSUMED_SAMPLE_NO_CAUSAL_ATTRIBUTION",
+  "createdDate": "2026-10-25",
+  "source": {
+    "repo": "fmaranis/Trading",
+    "branch": "replay-results",
+    "path": "validation-runs/latest-chatgpt.json",
+    "sha": "03b0c557e2e700d4838dab627945b906473c0690",
+    "exportedAt": "2026-09-11T17:21:50.517Z"
+  },
+  "window": {
+    "start": "2019-01-01",
+    "end": "2022-12-30"
+  },
+  "counts": {
+    "savedSignalRows": 34,
+    "originalActionCounts": {
+      "AVOID": 861,
+      "BUY": 8,
+      "HOLD": 95,
+      "ADD": 7,
+      "EXIT": 5,
+      "WATCH": 47,
+      "REDUCE": 1
+    },
+    "originalExecutedActionCounts": {
+      "BUY": 7,
+      "ADD": 7,
+      "EXIT": 4
+    },
+    "executionRows": 18,
+    "positionRows": 7,
+    "coreSelectionRows": 48,
+    "coreSelectionReasonCounts": {
+      "BEST_HEALTHY_CORE": 1,
+      "DEGRADED_INCUMBENT_HOLD": 11,
+      "HEALTHY_INCUMBENT_INERTIA": 33,
+      "NO_HEALTHY_CORE": 2,
+      "REPLACE_UNHEALTHY_INCUMBENT": 1
+    }
+  },
+  "income": {
+    "portfolioNetProfitEur": 4572.28704486159,
+    "positionNetProfitSumEur": 4570.450849116558,
+    "otherIncomeOrAccountingDifferenceEur": 1.8361957450324553,
+    "corePositionNetProfitEur": 4077.296386206859,
+    "corePositionShareOfPortfolioNetProfitPct": 89.17411234688318
+  },
+  "investing": {
+    "committedPctInitialAt20Sessions": 0,
+    "committedPctInitialAt60Sessions": 93.49823342037202
+  },
+  "benchmark": {
+    "portfolioFinalEur": 17572.28704486159,
+    "structuralCoreFinalEur": 20365.498168004346,
+    "deltaVsStructuralCoreEur": -2793.2111231427552,
+    "portfolioMaxDDPct": 30.801894036171827,
+    "coreMaxDDPct": 33.75721787915486
+  },
+  "positions": [
+    {
+      "assetId": "4GLD",
+      "netProfitEur": 177.82999420166016,
+      "initialInvestedEur": 369.11998748779297,
+      "exited": false
+    },
+    {
+      "assetId": "EQ_IBERDROLA",
+      "netProfitEur": 58.626393222808844,
+      "initialInvestedEur": 386.74800968170166,
+      "exited": true
+    },
+    {
+      "assetId": "EQ_ADIDAS",
+      "netProfitEur": 12.460002136230468,
+      "initialInvestedEur": 217.39999389648438,
+      "exited": true
+    },
+    {
+      "assetId": "EQ_AIRLIQUIDE",
+      "netProfitEur": 168.7425079345703,
+      "initialInvestedEur": 377.3649215698242,
+      "exited": false
+    },
+    {
+      "assetId": "EQ_ENEL",
+      "netProfitEur": 119.35556221008301,
+      "initialInvestedEur": 649.7720260620117,
+      "exited": true
+    },
+    {
+      "assetId": "FUND_VANGUARD_GLOBAL",
+      "netProfitEur": 4077.296386206859,
+      "initialInvestedEur": 11749.543392258189,
+      "exited": false
+    },
+    {
+      "assetId": "EQ_INDITEX",
+      "netProfitEur": -43.8599967956543,
+      "initialInvestedEur": 377.02000427246094,
+      "exited": true
+    }
+  ],
+  "limitations": [
+    "Core selection reason counts are observations about CORE routing, not causal explanation of the wealth gap.",
+    "Readable export includes 34 diagnostic signal rows, whereas original actionCounts contain 1024 signals; 861 AVOID outcomes cannot be attributed by gate reason from this filtered file.",
+    "Other income/accounting difference is not automatically cash interest without reconciling separate ledger.",
+    "Core position profit share is not counterfactual performance impact; replacement of each position changes capital path and tax.",
+    "Do not infer lost return from first 20 sessions undeployed before matching a causal alternative with same flows, fees and trades.",
+    "All decisions and thresholds conditioned on this audit consume 2019-2022 for promotion."
+  ],
+  "nextAction": "Audit existing full replay or instrument stage-specific causal traces without modifying LEGACY; select ONE decision type for paired backtest."
+}
