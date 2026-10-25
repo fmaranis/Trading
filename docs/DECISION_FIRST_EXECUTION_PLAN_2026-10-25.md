@@ -122,3 +122,12 @@ Investigar LightGBM/boosting, Qlib u otros modelos ligeros para ranking relativo
 - Evidencia cuantitativa reproducible de reach/cash 2019–2022: `replay-results/validation-runs/diagnostics/investment-pivot-reach-audit-2019-2022-v1.json` (**CONSUMED**, sólo diagnóstico).
 - Decisión de investigación: primer candidato `H-CORE-OPPORTUNITY` — coste de oportunidad de sustituir/rotar exposición desde core hacia oportunidades realmente ejecutables. No crear «momentum» cosmético: restar un retorno benchmark común preserva el ranking de un mismo horizonte. Calidad/valoración será segunda línea si se acredita cobertura PIT.
 - Próxima entrega: alcance instrumental del replay canónico para core vs satélite, capital rotatable, FX/corporate actions, guards missing/future/zero-reach y diseño congelable del primer test. **No nueva estrategia aprobada**, no variante de replay ni cambio a `LEGACY`.
+
+
+## Resultado R0 · inventario completado 2026-10-25
+
+Inventario y evidencia: `docs/INVESTMENT_EDGE_RESEARCH_LEDGER_AND_NEXT_GATE_2026-10-25.md`. No seguir la antigua línea `H-CORE-OPPORTUNITY` ni intentar momentum/52W/profitability stock/PEAD de nuevo: se verificaron resultados FAIL/NO_REACH y los consumos.
+
+**Siguiente tarea concreta, previa a nuevas fórmulas:** `STATIC_UCITS_FACTOR_IMPLEMENTABILITY_PRECHECK` — estudiar si la **diversificación pasiva de factores en ETFs UCITS reales**, con instrumentos `HOLDOUT_XDEM`, `HOLDOUT_XDEQ`, `HOLDOUT_XDEV` preexistentes y EUNL como core, puede traducir la prometedora combinación exploratoria de **índices**, ya conocida, en una alternativa comprable y fiscalmente defendible. Diferencia económica: *implementación diversificada estable*, no predicción de ganador ni ranking/timing. Primero disponibilidad, metodología exacta (XDEQ sector neutral, XDEV benchmark switch), costes, cash, FX, overlapped holdings y elegibilidad de datos; después una política congelada de un solo brazo, sin búsqueda de pesos, con mismo benchmark/flujos/riesgo; sólo evaluación histórica diagnóstica si muestra consumida. Si preflight FAIL, STOP y nueva investigación ortogonal; no cambiar el ETF para rescatar resultados.
+
+La ventaja pasada de los índices no equivale al retorno de los vehículos y **no se ha demostrado** una superioridad neta, causal y OOS. Producción `LEGACY` intacta.
