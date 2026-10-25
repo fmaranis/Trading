@@ -2836,3 +2836,11 @@ Prospectivo:
 - Nuevos guards locales de contrato/superficie y pruebas con GitHub simulado en `tests/kronosStageBDurableStore.unit.mjs` para persistencia, pérdida de carpeta local, restauración, indisponibilidad remota, conflicto y protección de rama. Se ejecutaron 10/10 escenarios equivalentes sobre el código real transformado en un aislamiento V8 (sin conexión externa); los guard tests del backend y `tsc --noEmit` siguen pendientes de ejecutar en el entorno de la app, antes de cualquier cálculo.
 - Sello Stage B revisión 7, `persistenceOnly=true`, `methodologyChanged=false`, `productionAuthority=false`. `LEGACY` permanece productivo.
 - **Importante**: la persistencia duradera será operativa sólo tras confirmar que el backend tiene un token GitHub con permiso de lectura y escritura en la rama `replay-results`. No se ha lanzado ningún backtest largo ni se ha creado aún el checkpoint remoto desde el backend de AI Studio. La fase técnica se considera preparada pero su primera sincronización live permanece sin verificar.
+
+
+### 2026-10-25 — giro metodológico hacia auditoría de decisiones, sin cambios productivos
+
+- Fuente: `docs/APP_FLOW_AND_ROADMAP.md` (ruta añadida). No hay cambio de código/authority ni nuevo motor/pantalla/job.
+- Kronos Stage B: verificación GitHub directa del checkpoint duradero `replay-results/validation-runs/kronos-stage-b-v1-progress.json`: 680/5.580 paths almacenados, 2018Q1-Q3 completos y 2018Q4 parcial (7 activos ×20). Estado del proceso live **NO VERIFICADO**. Preservar muestra, sello y checkpoint; no ejecutar de nuevo a ciegas ni declarar resultados finales.
+- Primer diagnóstico read-only guardado en `replay-results/validation-runs/diagnostics/decision-audit-pilot-2019-2022-v1.json` usando el replay publicado 2026-09-11: 2019-2022, capital 13.000 EUR, 18 ejecuciones, engine 17.572,29 EUR vs structural core 20.365,50 EUR, diferencia -2.793,21 EUR; drawdown 30,80% vs 33,76%. Reproducción de resumen preexistente, no nueva validación. Muestra **CONSUMED**.
+- Próxima acción: diagnóstico causal por etapas sobre replay existente y un solo A/B de política con reach, mismo cash/flujos/costes/fiscalidad/benchmark; congelar antes de abrir nuevo holdout fresh. No optimización retrospectiva; no nuevos costes/servicios de pago. Producción sigue `LEGACY`.
