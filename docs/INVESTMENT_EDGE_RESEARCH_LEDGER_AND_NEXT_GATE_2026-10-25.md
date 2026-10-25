@@ -6,6 +6,8 @@ Fecha: **2026-10-25** · Fuente canónica: `fmaranis/Trading/main` y `PROJECT_ST
 
 Este documento sintetiza hechos **ya investigados en el proyecto**, señala lo que NO se debe reabrir, y formula el único siguiente gate lógico de bajo coste. No sustituye sellos ni permite reutilizar como fresh muestras ya inspeccionadas.
 
+> **Preflight 2026-10-25 ejecutado:** identidad, metodología, mercado y tarifas públicas comprobadas; estados `PARTIAL_PREFLIGHT_BLOCKED_BEFORE_ECONOMIC_DATA`, con 4 ISINs por verificar en el bróker y datos REAL Xetra/NAV aún no auditados. Documento operativo `docs/STATIC_UCITS_FACTOR_IMPLEMENTABILITY_PREFLIGHT_2026-10-25.md`; manifest `validation-runs/diagnostics/static-ucits-factor-implementability-preflight-2026-10-25.json`. No backtest ejecutado, no promoción.
+
 ## 1. Evidencia histórica comprobada — no repetir
 
 | Estudio / pregunta efectivamente probado | Evidencia y veredicto | Restricción metodológica |
@@ -51,7 +53,7 @@ Especialmente importante: la investigación de AQR documenta dificultades para o
 - **XDEQ**, Xtrackers MSCI World Quality UCITS ETF 1C, ISIN IE00BL25JL35, aproximadamente TER 0,25%, acumulación, Xetra EUR: https://www.justetf.com/en-es/etf-profile.html?isin=IE00BL25JL35
 - **XDEV**, Xtrackers MSCI World Value UCITS ETF 1C, ISIN IE00BL25JM42, aproximadamente TER 0,25%, acumulación, Xetra EUR: https://etf.dws.com/en/IE00BL25JM42-msci-world-value-ucits-etf-1c/
 
-**Incompatibilidades que invalidarían una réplica ingenua:** `XDEQ` sigue **MSCI World Sector Neutral Quality**, NO necesariamente el MSCI World Quality ordinario usado en la comprobación ilustrativa del índice. `XDEV` tuvo un cambio de benchmark el **03-11-2016** (de DB Equity Value Factor a MSCI World Enhanced Value): cualquier episodio anterior exige segmentar metodología. La cotización `EUR` no elimina exposición FX de acciones globales USD. El TER suele estar incorporado en el NAV/retorno adjusted del ETF; **no descontarlo por duplicado**. Obtener fechas exactas de inicio, split/corporate actions, NAV de proveedor y disponibilidad/tickets reales del broker antes del cálculo.
+**Incompatibilidades que invalidarían una réplica ingenua:** `XDEQ` sigue **MSCI World Sector Neutral Quality**, NO el MSCI World Quality ordinario usado en la comprobación ilustrativa del índice. **Los tres Xtrackers XDEM/XDEQ/XDEV cambiaron de índice el 03-11-2016**, desde sus respectivos DB Equity Momentum / Quality / Value Factor a MSCI World Momentum / Sector Neutral Quality / Enhanced Value. Por tanto **todo el historial anterior al cambio carece de comparabilidad con la política de índices vigentes**, no sólo el de XDEV. Fuente directa: las tres páginas DWS; ver preflight documentado en `docs/STATIC_UCITS_FACTOR_IMPLEMENTABILITY_PREFLIGHT_2026-10-25.md`. La cotización `EUR` no elimina exposición FX de acciones globales USD. El TER suele estar incorporado en el NAV/retorno adjusted del ETF; **no descontarlo por duplicado**. Obtener fechas exactas de inicio, split/corporate actions, NAV de proveedor y disponibilidad/tickets reales del broker antes del cálculo.
 
 Fuentes para metodologías: XDEQ https://www.justetf.com/en-es/etf-profile.html?isin=IE00BL25JL35 ; XDEV factsheet del emisor https://etf.dws.com/en/IE00BL25JM42-msci-world-value-ucits-etf-1c/.
 
