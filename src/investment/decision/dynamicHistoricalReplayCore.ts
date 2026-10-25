@@ -229,6 +229,10 @@ export interface DynamicReplayCoreOpportunityAuditRow {
   baseDeployableEur: number;
   plannedRotationProceedsEur: number;
   plannedNonCoreContributionsEur: number;
+  /** Proposal counts, never executed orders or guaranteed capacity. */
+  proposedNonCoreOrderCount: number;
+  proposedNonCoreRotationCount: number;
+  proposedOrderReach: 'ZERO' | 'PROPOSED_NOT_EXECUTED';
   eligibleNonCoreCount: number;
   comparableNonCoreCount: number;
   candidates: DynamicReplayCoreOpportunityCandidate[];
@@ -253,9 +257,12 @@ export function assessReplayCoreOpportunityReadOnly(input: {
   const eligible = gate.entries.filter(entry => entry.status === 'ELIGIBLE' && entry.assetId !== referenceCoreAssetId);
   const core = scan.candidates.find(candidate => candidate.asset.assetId === referenceCoreAssetId);
   const baseDeployableEur = Math.max(0, portfolioDecision.deployableToAssetsEur - portfolioDecision.plannedRotationProceedsEur);
-  const plannedNonCoreContributionsEur = portfolioDecision.contributions
-    .filter(row => row.assetId !== referenceCoreAssetId)
-    .reduce((total, row) => total + row.amountEur, 0);
+  const nonCoreContributions = portfolioDecision.contributions.filter(row => row.assetId !== referenceCoreAssetId);
+  const plannedNonCoreContributionsEur = nonCoreContributions.reduce((total, row) => total + row.amountEur, 0);
+  const proposedNonCoreOrderCount = nonCoreContributions.filter(row => row.amountEur > 0).length;
+  const proposedNonCoreRotationCount = nonCoreContributions
+    .filter(row => row.amountEur > 0 && row.positionStage === 'ROTATION_ENTRY').length;
+  const proposedOrderReach = proposedNonCoreOrderCount === 0 ? 'ZERO' : 'PROPOSED_NOT_EXECUTED';
   const unavailable = (reason: string): DynamicReplayCoreOpportunityAuditRow => ({
     decisionDate, referenceCoreAssetId, status: 'UNAVAILABLE', reason,
     referenceCoreAsOfDate: null, referenceCoreMomentum120Pct: null,
@@ -263,8 +270,8 @@ export function assessReplayCoreOpportunityReadOnly(input: {
     equityBeforeDecisionEur: input.equityBeforeDecisionEur,
     cashBeforeDecisionEur: input.cashBeforeDecisionEur,
     baseDeployableEur, plannedRotationProceedsEur: portfolioDecision.plannedRotationProceedsEur,
-    plannedNonCoreContributionsEur, eligibleNonCoreCount: eligible.length,
-    comparableNonCoreCount: 0, candidates: []
+    plannedNonCoreContributionsEur, proposedNonCoreOrderCount, proposedNonCoreRotationCount, proposedOrderReach,
+    eligibleNonCoreCount: eligible.length, comparableNonCoreCount: 0, candidates: []
   });
   if (!isStrategicGrowthCoreAssetId(referenceCoreAssetId)) return unavailable('REFERENCE_NOT_STRATEGIC_GROWTH_CORE');
   if (!core || core.status !== 'ACCEPTED' || !core.asOfDate || core.asOfDate > decisionDate
@@ -297,7 +304,7 @@ export function assessReplayCoreOpportunityReadOnly(input: {
     equityBeforeDecisionEur: input.equityBeforeDecisionEur,
     cashBeforeDecisionEur: input.cashBeforeDecisionEur,
     baseDeployableEur, plannedRotationProceedsEur: portfolioDecision.plannedRotationProceedsEur,
-    plannedNonCoreContributionsEur,
+    plannedNonCoreContributionsEur, proposedNonCoreOrderCount, proposedNonCoreRotationCount, proposedOrderReach,
     eligibleNonCoreCount: eligible.length,
     comparableNonCoreCount: candidates.length,
     candidates
