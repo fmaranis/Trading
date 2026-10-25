@@ -82,3 +82,20 @@ Investigar LightGBM/boosting, Qlib u otros modelos ligeros para ranking relativo
 ## Primera próxima entrega real
 
 **R1+R2:** diagnóstico consolidado de los resultados existentes y selección crítica de la primera hipótesis alternativa con fuentes PIT y reach verificables. Debe producir una respuesta sobre **qué decisión mejorará** y **cómo falsarla**, no otra lista de modelos ni una nueva pantalla. Después implementar el experimento mínimo research-only si la hipótesis y los datos lo permiten.
+
+
+## R2 prioridad de investigación: máximos históricos, estrés de mercado y decisiones durante un desplome
+
+**Motivo (2026-10-25):** el usuario plantea exposición a máximos y riesgo de caída sincronizada. Esto es **un caso de uso central** del nuevo rumbo de inversión, NO un mandato de predecir un crash ni de activar un ON/OFF anticipatorio. Las cotizaciones altas y el sentimiento mediático no justifican por sí solos vender. Congelar cualquier política antes de abrir un holdout.
+
+**Lo que ya hace la app:** `PortfolioDecisionEngine` calcula `systemicStress` si detecta >=3 posiciones con consenso <=-3 y >=3 votos negativos, representando >=50% de posiciones observables. En estrés, convierte ciertos `EXIT` individuales en `REDUCE` hasta `ENTRY_READY` o `WATCH`, y bloquea la rotación competitiva. También tiene evaluación de salud de posiciones, rotación y cash. Esta protección contra liquidaciones sincronizadas **no es un presupuesto de riesgo agregado probado** y puede dejar exposición en un mercado bajista prolongado. `Forward Risk V8` conserva evidencia de señal predictiva, pero no tiene autoridad productiva y sus monetizaciones probadas fracasaron.
+
+**Investigación dentro de R1-R4, no nueva pantalla/motor:**
+
+1. Auditar exposición actual si existen datos de cartera REAL disponibles: beta y concentración, solapamiento de fondos/acciones, exposición sectorial y divisa, correlaciones en estrés, importe de capital verdaderamente disponible, y pérdidas hipotéticas por shocks (-20%, -35%, -50% como **escenarios**, no pronósticos). Si no hay cartera actual accesible, marcar `NOT_AVAILABLE`, no inventar exposición.
+2. Separar tres preguntas: (a) señales **anticipatorias** con calidad fuera de muestra; (b) reglas de **contención** cuando el deterioro ya es observable; (c) oportunidad de **reentrada/despliegue** sin adivinar mínimos. Nunca confundir minimizar drawdown con maximizar riqueza final.
+3. Proponer medidas descriptivas PIT de amplitud, momentum/ruptura, concentración, volatilidad y spreads de crédito cuando haya fuente y licencia/serie histórica válidas; valuation/CAPE sólo contexto de rentabilidad esperada de largo plazo, no disparador diario. Identificar la disponibilidad real de datos antes de programar features.
+4. Reutilizar el replay causal para contrastar `LEGACY`, core pasivo compatible y UNA candidata preregistrada en episodios de estrés (p.ej. 2000-03, 2007-09, 2020, 2022) **sólo si existen datos y universo PIT válidos**. Caso contrario reportar límites y realizar únicamente simulación de escenarios sobre cartera fija, sin atribuirla como validación de alfa.
+5. Para cualquier regla de defensa, medir errores de falsa alarma, retorno sacrificado en recuperaciones, impuestos, coste de salida/reentrada, oportunidad perdida, pérdidas máximas y final wealth. No optimizar umbrales tras observar las mismas crisis; usar bloques cronológicos independientes y prospective/shadow si se agotaron los holdouts.
+
+**No hacer:** vender todo por noticias, abrir apalancamiento/cortos/opciones como primera respuesta, prometer ganar durante desplomes, ni activar V8 diariamente de forma binaria. Antes de aconsejar una operación individual, confirmar cartera, necesidades de liquidez y tolerancia real al riesgo.
