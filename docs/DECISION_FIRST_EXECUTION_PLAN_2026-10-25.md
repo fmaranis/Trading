@@ -6,6 +6,21 @@ Actualizado: 2026-10-25 · Fuente canónica: `fmaranis/Trading/main` + `PROJECT_
 > **Kronos NO es la prioridad ni un prerrequisito del nuevo rumbo.**
 > Este plan tiene por finalidad descubrir, construir y comprobar una forma económicamente mejor de decidir inversiones con Custodia. Mantener una app web accesible desde el móvil es una restricción, no el objeto principal de la investigación.
 
+## R0 — revisión de investigaciones existentes (obligatoria antes de proponer más pruebas)
+
+**Rectificación 2026-10-25:** se habían omitido resultados importantes de septiembre/octubre al definir R1–R3. En particular, `CORE_RELATIVE_LEADERSHIP_RESEARCH_V1` y ruta tras EXIT, `CORE_OUTPERFORMANCE_MOMENTUM_REFERENCE_V1`, `SECTOR_52W_HIGH_LEADERSHIP_V1`, `CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2` y `PEAD_ANALYST_SURPRISE_V1` **ya fueron ejecutados/cerrados con los estados del repositorio**. La supuesta investigación novedosa `H-CORE-OPPORTUNITY` **NO procede** por duplicar el enrutamiento core-vs-satélite y no demostrar diferencia sustantiva respecto a pruebas consumidas. No reabrir esos estudios ni buscar una victoria cambiando parámetros.
+
+Antes de R1/R2/R3:
+- Leer `PROJECT_STATE.md`, `docs/OPPORTUNITY_ALPHA_RESEARCH_2026-09-24.md` y los registros de experimentos con resultados machine-readable; no limitar la revisión a fechas recientes.
+- Crear inventario de las preguntas **efectivamente probadas**, estado técnico/económico, tamaño de muestra, autoridad, disponibilidad de datos, muestras consumidas y razones exactas del STOP. Reutilizar evidencia ya persistida.
+- Elegir, como máximo, una hipótesis nueva sólo si difiere económicamente de todas las pruebas previas: nueva información predictiva independiente, mecanismo de asignación/ejecución distinto, o universo/datos nuevos y válidos; demostrar esa diferencia **antes** de programar. Un nombre o score distinto no basta.
+- La antigua auditoría opt-in `researchCoreOpportunityReferenceAssetId` añadida en el turno anterior **se ha revertido**, junto con su test no ejecutado, para no acumular instrumentación sin pregunta ni prueba. La lógica productiva recupera exactamente el blob anterior.
+- No pedir al usuario repetir largos jobs ni abandonar el nuevo rumbo. El objetivo permanece encontrar valor económico neto sostenible; no convertir una lista de modelos en trabajo.
+
+**Registro de verificación y rectificación:** `docs/RESEARCH_INVESTMENT_EDGE_R1_R2_2026-10-25.md` (apartado superior RECTIFICACIÓN CANÓNICA). Las prioridades R1/R2 y el viejo `H-CORE-OPPORTUNITY` de las secciones siguientes tienen carácter **histórico/supeditado a R0**, no constituyen orden de ejecución vigente.
+
+---
+
 ## Objetivo económico
 
 Responder de forma causal y demostrable a la pregunta: **¿cuándo, qué activo y qué importe merece apartarse de una cartera global indexada, y cuándo conviene no hacerlo?**
