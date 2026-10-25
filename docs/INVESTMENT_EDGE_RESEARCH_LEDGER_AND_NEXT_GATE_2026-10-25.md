@@ -46,7 +46,7 @@ Especialmente importante: la investigación de AQR documenta dificultades para o
 
 **Hecho verificado en el código del 2026-10-25:** `src/investment/decision/assetUniverse.ts` ya incluye las referencias research `HOLDOUT_XDEM`, `HOLDOUT_XDEV` y `HOLDOUT_XDEQ` en `EUR_VALIDATION_HOLDOUT_UNIVERSE`, así como `EUNL` en el universo principal. No son prueba de que el rendimiento esté disponible o sea fresh.
 
-- **EUNL**, iShares Core MSCI World UCITS ETF Acc, ISIN IE00B4L5Y983; benchmark MSCI World, TER referencial 0,20%, EUR listing Xetra. Fuente proveedor: https://www.ishares.com/uk/professional/en/products/251882/ishares-msci-world-ucits-etf-acc-fund
+- **EUNL**, iShares Core MSCI World UCITS ETF Acc, ISIN IE00B4L5Y983; benchmark MSCI World, TER referencial 0,20%, EUR listing Xetra. Fuente proveedor: https://www.justetf.com/en-es/etf-profile.html?isin=IE00B4L5Y983
 - **XDEM**, Xtrackers MSCI World Momentum UCITS ETF 1C, ISIN IE00BL25JP72, aproximadamente TER 0,25%, acumulación, Xetra EUR: https://www.justetf.com/en-es/etf-profile.html?isin=IE00BL25JP72
 - **XDEQ**, Xtrackers MSCI World Quality UCITS ETF 1C, ISIN IE00BL25JL35, aproximadamente TER 0,25%, acumulación, Xetra EUR: https://www.justetf.com/en-es/etf-profile.html?isin=IE00BL25JL35
 - **XDEV**, Xtrackers MSCI World Value UCITS ETF 1C, ISIN IE00BL25JM42, aproximadamente TER 0,25%, acumulación, Xetra EUR: https://etf.dws.com/en/IE00BL25JM42-msci-world-value-ucits-etf-1c/
@@ -55,7 +55,7 @@ Especialmente importante: la investigación de AQR documenta dificultades para o
 
 Fuentes para metodologías: XDEQ https://www.justetf.com/en-es/etf-profile.html?isin=IE00BL25JL35 ; XDEV factsheet del emisor https://etf.dws.com/en/IE00BL25JM42-msci-world-value-ucits-etf-1c/.
 
-## 4. Único siguiente paso propuesto: gate de ejecutabilidad factorial estática
+## 4. Único siguiente paso propuesto: STATIC_UCITS_FACTOR_IMPLEMENTABILITY_PRECHECK
 
 **Pregunta ECONÓMICA distinta de los experimentos cerrados:** *¿Puede una cartera diversificada de ETFs UCITS factoriales, comprable y mantenida sin predicción/rotaciones frecuentes, mejorar el patrimonio neto y la consistencia relativa al core global para capitales normales en EUR?*
 
