@@ -2869,3 +2869,11 @@ Prospectivo:
 - Kronos Stage B queda **PARKED**, conservando las 680/5.580 trayectorias durables, sin reinicio de prueba, sin cambio de sello y **sin bloquear** otras investigaciones. Su estabilidad y separación de CPU se abordan únicamente si se decide reactivarlo o si afectan a la app cotidiana.
 - El primer trabajo sustantivo pendiente es investigar y contrastar hipótesis de inversión (liderazgo relativo/tendencia, calidad fundamental × valoración, riesgo contextual predictivo V8 sin monetización antigua) y detectar dónde hay datos PIT, reach y posibilidad de experimento falsable. No confundir una auditoría histórica descriptiva con prueba de alfa ni hacer retuning con muestras consumidas.
 - No se modificó código productivo, no hay resultados económicos nuevos ni tests de runtime ejecutados en esta corrección documental. Producción `LEGACY` sin cambios.
+
+
+### 2026-10-25 — escenario máximos/crash como investigación R2 (sin política nueva)
+
+- R2 añade estudio causal de fragilidad, estrés sincronizado y oportunidades tras caídas en `docs/DECISION_FIRST_EXECUTION_PLAN_2026-10-25.md`. No introduce nuevo motor, pantalla, backtest, plugin, señal productiva ni umbrales económicos.
+- Comprobado en `PortfolioDecisionEngine` `main`: `systemicStress` cuando >=3 posiciones representan >=50% de posiciones evaluables con consenso <=-3 y >=3 votos adversos. Bajo estrés se convierten ciertos `EXIT` individuales en `REDUCE` o `WATCH` y se bloquea rotación competitiva. Esto limita liquidación colectiva, pero NO prueba preservación de patrimonio frente a crash; merece evaluación específica de trade-off recuperación vs caída prolongada.
+- Datos externos (último cierre disponible 2026-10-23): S&P 500 ~7.623,68, ~2,5% bajo su récord del 2026-10-06; CAPE octubre ~40,7; FactSet forward P/E ~18,7. Son señales descriptivas de valoración/riesgo, NO disparadores ni predicción de desplome. Sin cartera actual verificada no se afirma exposición concreta del usuario.
+- Siguiente trabajo: auditoría descriptiva PIT de exposición y estrés, luego una hipótesis preregistrada para replay causal en período elegible, con core y LEGACY compatibles, costes/cash/fiscalidad/flows y evaluación de reentrada. Evitar parámetros ajustados sobre crisis consumidas. `LEGACY` sin cambios.
