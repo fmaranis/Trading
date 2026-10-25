@@ -34,4 +34,13 @@ check('620 IBCI is classified as inflation-linked government bonds, not corporat
 check('621 EUN6 is the verified euro government 0-1yr product', EUR_ASSET_UNIVERSE.find(x => x.assetId === 'EUN6')?.name.includes('0-1yr') === true && EUR_ASSET_UNIVERSE.find(x => x.assetId === 'EUN6')?.isin === 'IE00B3FH7618');
 check('622 commodity instruments use EUR exchange listings', EUR_ASSET_UNIVERSE.find(x => x.assetId === 'AIGC')?.ticker === 'AIGC.MI' && EUR_ASSET_UNIVERSE.find(x => x.assetId === 'WCOA')?.ticker === 'WCOA.MI');
 
-console.log(`Unified investment universe: ${passed}/22 invariants passed. Production=${EUR_ASSET_UNIVERSE.length}, production funds=${funds.length}, holdout=${EUR_VALIDATION_HOLDOUT_UNIVERSE.length}, holdout funds=${holdoutFunds.length}.`);
+check('623 Xtrackers factor holdouts preserve issuer-verified ISIN identity on Xetra', [
+  ['HOLDOUT_XDEM', 'XDEM.DE', 'IE00BL25JP72'],
+  ['HOLDOUT_XDEQ', 'XDEQ.DE', 'IE00BL25JL35'],
+  ['HOLDOUT_XDEV', 'XDEV.DE', 'IE00BL25JM42']
+].every(([assetId, ticker, isin]) => {
+  const asset = EUR_VALIDATION_HOLDOUT_UNIVERSE.find(row => row.assetId === assetId);
+  return asset?.ticker === ticker && asset?.isin === isin && isValidIsin(isin);
+}));
+
+console.log(`Unified investment universe: ${passed}/23 invariants passed. Production=${EUR_ASSET_UNIVERSE.length}, production funds=${funds.length}, holdout=${EUR_VALIDATION_HOLDOUT_UNIVERSE.length}, holdout funds=${holdoutFunds.length}.`);
