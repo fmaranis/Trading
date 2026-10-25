@@ -7,8 +7,9 @@ import { brokerCommission } from './costAwareExecutionPolicy';
 import type { EntryTimingSetup, EntryTimingState } from './entryTiming';
 import { HistoricalDecisionReplayEngine } from './historicalDecisionReplay';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
-import { PortfolioCandidateGate } from './portfolioCandidateGate';
-import { PortfolioDecisionEngine, type PortfolioPositionDecision } from './portfolioDecisionEngine';
+import { PortfolioCandidateGate, type PortfolioCandidateGateResult } from './portfolioCandidateGate';
+import { PortfolioDecisionEngine, type PortfolioDecisionResult, type PortfolioPositionDecision } from './portfolioDecisionEngine';
+import { isStrategicGrowthCoreAssetId } from './portfolioAssetRole';
 import { assessDeteriorationStreak, classifyPositionHealth, isDiversifiedCoreCategory, type PortfolioPositionHealthSnapshot, type PositionHealthContext } from './portfolioPositionHealth';
 import { accrueRemuneratedCash, allCashBenchmark } from './remuneratedCash';
 import {
@@ -185,6 +186,8 @@ export interface DynamicHistoricalReplayResult {
   timingStateCounts: DynamicReplayTimingStateCounts;
   trendProtectionV1Counts: DynamicReplayTrendProtectionV1Counts;
   deploymentHorizons: DynamicReplayDeploymentHorizon[];
+  /** Present only when explicitly requested by research; never drives orders. */
+  researchCoreOpportunityAudit?: DynamicReplayCoreOpportunityAuditRow[];
   totalFeesEur: number;
   totalEstimatedTaxEur: number;
   totalTransferredEur: number;
@@ -195,6 +198,110 @@ export interface DynamicHistoricalReplayResult {
   events: DynamicReplayEvent[];
   equityPath: DynamicReplayEquityPoint[];
   notes: string[];
+}
+
+
+/**
+ * Research-only descriptive trace. A benchmark reference is supplied explicitly,
+ * not inferred from the current/live dynamic core selector.
+ * No future returns, theoretical sales, tax-free proceeds or new orders are implied.
+ */
+export interface DynamicReplayCoreOpportunityCandidate {
+  assetId: string;
+  ticker: string;
+  asOfDate: string;
+  momentum120Pct: number;
+  excessMomentum120VsReferenceCorePctPoints: number;
+  plannedContributionEur: number;
+  plannedPositionStage: 'STARTER' | 'BUILD' | 'ROTATION_ENTRY' | null;
+}
+
+export interface DynamicReplayCoreOpportunityAuditRow {
+  decisionDate: string;
+  referenceCoreAssetId: string;
+  status: 'AVAILABLE' | 'UNAVAILABLE';
+  reason: string;
+  referenceCoreAsOfDate: string | null;
+  referenceCoreMomentum120Pct: number | null;
+  heldReferenceCoreValueEur: number;
+  equityBeforeDecisionEur: number;
+  cashBeforeDecisionEur: number;
+  baseDeployableEur: number;
+  plannedRotationProceedsEur: number;
+  plannedNonCoreContributionsEur: number;
+  eligibleNonCoreCount: number;
+  comparableNonCoreCount: number;
+  candidates: DynamicReplayCoreOpportunityCandidate[];
+}
+
+/**
+ * Reads only the already-causal date scan and existing portfolio decision.
+ * Candidate figures are diagnostic comparisons, not expected returns or orders.
+ * Non-comparable NAV/as-of dates must never be silently treated as aligned.
+ */
+export function assessReplayCoreOpportunityReadOnly(input: {
+  decisionDate: string;
+  referenceCoreAssetId: string;
+  scan: AssetUniverseScanResult;
+  gate: PortfolioCandidateGateResult;
+  portfolioDecision: Pick<PortfolioDecisionResult, 'deployableToAssetsEur' | 'plannedRotationProceedsEur' | 'contributions'>;
+  equityBeforeDecisionEur: number;
+  cashBeforeDecisionEur: number;
+  heldReferenceCoreValueEur: number;
+}): DynamicReplayCoreOpportunityAuditRow {
+  const { decisionDate, referenceCoreAssetId, scan, gate, portfolioDecision } = input;
+  const eligible = gate.entries.filter(entry => entry.status === 'ELIGIBLE' && entry.assetId !== referenceCoreAssetId);
+  const core = scan.candidates.find(candidate => candidate.asset.assetId === referenceCoreAssetId);
+  const baseDeployableEur = Math.max(0, portfolioDecision.deployableToAssetsEur - portfolioDecision.plannedRotationProceedsEur);
+  const plannedNonCoreContributionsEur = portfolioDecision.contributions
+    .filter(row => row.assetId !== referenceCoreAssetId)
+    .reduce((total, row) => total + row.amountEur, 0);
+  const unavailable = (reason: string): DynamicReplayCoreOpportunityAuditRow => ({
+    decisionDate, referenceCoreAssetId, status: 'UNAVAILABLE', reason,
+    referenceCoreAsOfDate: null, referenceCoreMomentum120Pct: null,
+    heldReferenceCoreValueEur: input.heldReferenceCoreValueEur,
+    equityBeforeDecisionEur: input.equityBeforeDecisionEur,
+    cashBeforeDecisionEur: input.cashBeforeDecisionEur,
+    baseDeployableEur, plannedRotationProceedsEur: portfolioDecision.plannedRotationProceedsEur,
+    plannedNonCoreContributionsEur, eligibleNonCoreCount: eligible.length,
+    comparableNonCoreCount: 0, candidates: []
+  });
+  if (!isStrategicGrowthCoreAssetId(referenceCoreAssetId)) return unavailable('REFERENCE_NOT_STRATEGIC_GROWTH_CORE');
+  if (!core || core.status !== 'ACCEPTED' || !core.asOfDate || core.asOfDate > decisionDate
+      || !Number.isFinite(core.momentum120Pct) || core.asset.currency !== 'EUR') {
+    return unavailable('REFERENCE_CORE_REAL_CAUSAL_SERIES_MISSING');
+  }
+  const contributionsById = new Map(portfolioDecision.contributions.map(row => [row.assetId, row]));
+  const candidates = eligible.flatMap(entry => {
+    const candidate = scan.candidates.find(row => row.asset.assetId === entry.assetId);
+    if (!candidate || candidate.status !== 'ACCEPTED' || candidate.asset.currency !== 'EUR'
+        || !candidate.asOfDate || candidate.asOfDate > decisionDate
+        || candidate.asOfDate !== core.asOfDate || !Number.isFinite(candidate.momentum120Pct)) return [];
+    const contribution = contributionsById.get(candidate.asset.assetId);
+    return [{
+      assetId: candidate.asset.assetId,
+      ticker: candidate.asset.ticker,
+      asOfDate: candidate.asOfDate,
+      momentum120Pct: Number(candidate.momentum120Pct),
+      excessMomentum120VsReferenceCorePctPoints: Number(candidate.momentum120Pct) - Number(core.momentum120Pct),
+      plannedContributionEur: contribution?.amountEur ?? 0,
+      plannedPositionStage: contribution?.positionStage ?? null
+    }];
+  });
+  return {
+    decisionDate, referenceCoreAssetId, status: 'AVAILABLE',
+    reason: candidates.length === 0 ? 'NO_COMPARABLE_ELIGIBLE_NON_CORE' : 'DESCRIPTIVE_ONLY_NOT_ECONOMIC_ADVANTAGE',
+    referenceCoreAsOfDate: core.asOfDate,
+    referenceCoreMomentum120Pct: Number(core.momentum120Pct),
+    heldReferenceCoreValueEur: input.heldReferenceCoreValueEur,
+    equityBeforeDecisionEur: input.equityBeforeDecisionEur,
+    cashBeforeDecisionEur: input.cashBeforeDecisionEur,
+    baseDeployableEur, plannedRotationProceedsEur: portfolioDecision.plannedRotationProceedsEur,
+    plannedNonCoreContributionsEur,
+    eligibleNonCoreCount: eligible.length,
+    comparableNonCoreCount: candidates.length,
+    candidates
+  };
 }
 
 interface ReplayLot {
@@ -867,11 +974,16 @@ export class DynamicHistoricalReplayEngine {
     explicitDecisionDates?: string[];
     /** Research-only direct asset selector. Omitted in product/default replay. */
     researchDirectSelector?: DynamicReplayResearchDirectSelector;
+    /** Optional read-only core-vs-satellite audit. Does not change the baseline. */
+    researchCoreOpportunityReferenceAssetId?: string;
   }): DynamicHistoricalReplayResult {
     if (!(input.initialCapitalEur > 0)) throw new Error('El capital del replay dinámico debe ser > 0.');
     const frequency = input.frequency ?? 'MONTHLY';
     const minimumBars = input.minimumBars ?? 252;
     const simulationMode = input.simulationMode ?? 'CUSTODIA_ENGINE';
+    if (input.researchCoreOpportunityReferenceAssetId && simulationMode !== 'CUSTODIA_ENGINE') {
+      throw new Error('REPLAY_CORE_OPPORTUNITY_AUDIT_REQUIRES_CUSTODIA_ENGINE');
+    }
     if (input.researchDirectSelector && simulationMode !== 'CUSTODIA_ENGINE') {
       throw new Error('REPLAY_DIRECT_SELECTOR_REQUIRES_CUSTODIA_ENGINE');
     }
@@ -888,6 +1000,7 @@ export class DynamicHistoricalReplayEngine {
     const signals: DynamicReplaySignal[] = [...seeded.signals];
     const events: DynamicReplayEvent[] = [];
     const decisionStates: DecisionState[] = [];
+    const researchCoreOpportunityAudit: DynamicReplayCoreOpportunityAuditRow[] = [];
     const positiveGainByYear = new Map<string, number>();
     const appliedExternalCashFlows: DynamicReplayAppliedCashFlow[] = [];
     let nextExternalFlowIndex = 0;
@@ -1044,6 +1157,20 @@ export class DynamicHistoricalReplayEngine {
         positionHealth: healthMap,
         cashBenchmarkAnnualPct
       });
+      if (input.researchCoreOpportunityReferenceAssetId) {
+        const referenceCoreAssetId = input.researchCoreOpportunityReferenceAssetId;
+        const heldCore = holdings.get(referenceCoreAssetId);
+        researchCoreOpportunityAudit.push(assessReplayCoreOpportunityReadOnly({
+          decisionDate,
+          referenceCoreAssetId,
+          scan: dateScan,
+          gate: dateGate,
+          portfolioDecision,
+          equityBeforeDecisionEur: current.equityEur,
+          cashBeforeDecisionEur: cashEur,
+          heldReferenceCoreValueEur: heldCore ? holdingValue(input.dataset, heldCore, decisionDate) : 0
+        }));
+      }
 
       const plannedByAsset = new Map<string, PlannedSignal>();
       const rotationIncumbentByChallenger = new Map<string, string>();
@@ -1485,6 +1612,7 @@ export class DynamicHistoricalReplayEngine {
       executedReductions: signals.filter(signal => !signal.isInitialAllocation && signal.action === 'REDUCE' && signal.executed).length,
       executedExits: signals.filter(signal => !signal.isInitialAllocation && signal.action === 'EXIT' && signal.executed).length,
       timingStateCounts, trendProtectionV1Counts, deploymentHorizons,
+      ...(input.researchCoreOpportunityReferenceAssetId ? { researchCoreOpportunityAudit } : {}),
       totalFeesEur, totalEstimatedTaxEur, totalTransferredEur, cashInterestEur,
       taxMethod: taxSettings.contextConfirmed ? 'CONFIGURED_PROGRESSIVE' : 'CONSERVATIVE_MAX_RATE',
       operationalParity: 'CURRENT_IN_UNIVERSE_CHAIN',
