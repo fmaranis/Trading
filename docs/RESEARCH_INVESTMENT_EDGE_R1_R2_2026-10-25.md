@@ -4,6 +4,28 @@ Fecha: 2026-10-25
 Estado: **RESEARCH SCOPING + AUDITORÍA READ-ONLY REALIZADA / SIN ALFA DEMOSTRADA**  
 Canon: `fmaranis/Trading/main` · `PROJECT_STATE.md` · `docs/DECISION_FIRST_EXECUTION_PLAN_2026-10-25.md`
 
+## RECTIFICACIÓN CANÓNICA — 2026-10-25: investigación previa verificada
+
+**Estado de este documento: SUPERSEDED_AS_NEW_RESEARCH.** Tras consultar **todo** el historial relevante de `PROJECT_STATE.md` y `docs/OPPORTUNITY_ALPHA_RESEARCH_2026-09-24.md`, la pretendida hipótesis novedosa `H-CORE-OPPORTUNITY` **repite el mismo núcleo decisional** de investigaciones anteriores, por lo que **se retira como prioridad de experimentación**. Las secciones originales inferiores quedan como registro de cómo se detectó el error, no como una autorización de ejecución.
+
+Investigaciones ya realizadas y **no reabribles mediante retuning sobre sus muestras**:
+
+1. **Enrutamiento inmediato tras EXIT/REDUCE frente al structural core** (2026-09-24): 15 episodios evaluables; 9/15 mejor que core a ~6 meses; exceso ponderado +38,5 EUR sobre ~7.515 EUR de capital desviado (~0,51% bruto), dispersión alta; `ARCHIVED / NO IMPLEMENTATION`. `CORE_RELATIVE_LEADERSHIP_RESEARCH_V1` (2026-09-25) comprobó slopes 20/60, aceleración y ENTRY_STRONG sobre esos 15 episodios; evidencia insuficiente, `ARCHIVED`.
+2. **Momentum 12–2 meses, long-only winner decile, revisión mensual** (`CORE_OUTPERFORMANCE_MOMENTUM_REFERENCE_V1`, 2026-09-27): CAGR candidato 16,6797%, US parent 17,5161%, URTH 14,2209%; `FAIL_DIAGNOSTIC / STOP_PRIMARY_REPLICA_NO_VARIANTS`. Resultado contrastado desde caché; confirmación reservada no abierta.
+3. **Liderazgo sectorial 52-week high** (`SECTOR_52W_HIGH_LEADERSHIP_V1`, 2026-09-28, rev. técnica R3): CAGR candidato neto de modelado 20 pb/lado 10,1157%, SPY 11,3116%, basket9 10,2581%; `FAIL_DIAGNOSTIC`, replicación no abierta, sin V2 paramétrica.
+4. **Operating Profitability**: señal académica `OPERATING_PROFITABILITY_DECILE_10_VW` mantiene `PASS_CONFIRMATION_SIGNAL_ONLY` (dos ventanas), **pero la traducción stock-level PIT `CORE_OUTPERFORMANCE_PROFITABILITY_PIT_R2` terminó el 2026-10-07 `FAIL_ACTIONABLE_TRANSLATION`**: candidato CAGR bruto 12,6832%, SPY 17,5698%, URTH 14,9861%, bate SPY 0/5 y URTH 1/5, `STOP_TRANSLATION_NO_RETUNING`. NO seguir describiendo Stage C1 como meramente bloqueada por User-Agent: aquella era una situación **anterior** ya resuelta para R2.
+5. **Quality × valoración:** `VALUATION_AWARE_QUALITY` quedó `PROMISING_DIAGNOSTIC`, la evidencia reportada amplia obtuvo FAIL de alfa y auditoría PIT incompleta; R2 parcialmente abierta/consumida, no holdout fresh.
+6. **PEAD Analyst Surprise V1** (2026-10-07): 455/470 outcomes válidos, Spearman ~0,00559 (p ~0,365), Q5 exceso medio -0,3395%, hit-rate de exceso ~46,15%; `FAIL_SIGNAL_DIAGNOSTIC_NO_POLICY`, `ARCHIVED`. No retunearlo con 2024-01→03.
+7. **TimesFM relative rank/economía** (2026-10): 15/15 escenarios sin alterar operaciones de `LEGACY`, `NO_ECONOMIC_REACH`. Otras variantes económicas también cerradas/no promovidas.
+
+**Corrección al desarrollo efectuado el 2026-10-25:** se añadió a `dynamicHistoricalReplayCore.ts` una traza opt-in de momentum120/core, propuestas de cash y un test sin ejecutar, presentada como primer paso H-CORE. **Se ha revertido exactamente el archivo del replay a su blob anterior** y borrado el test nuevo. Era una duplicación metodológica que no acreditaba una pregunta nueva; además su guard no había pasado pruebas runtime. No creó un resultado económico; no se ha reabierto ninguna muestra.
+
+**Siguiente paso válido:** antes de elegir otra hipótesis y programarla, producir un **inventario antirrepetición** de líneas ya cerradas, evidencia conservada/consumida, huecos que son únicamente de datos, y posibles hipótesis *materialmente ortogonales*. Para cada propuesta, exigir una diferencia económica explícita respecto a los experimentos anteriores; si no se puede explicar, `DUPLICATE_STOP`. El próximo trabajo debe partir de evidencia histórica verificada, no de literatura genérica presentada como hallazgo nuevo. Producción `LEGACY` intacta, Kronos aparcado.
+
+Fuentes internas de autoridad: `PROJECT_STATE.md` (secciones 12–13, desarrollo 2026-10-07), `docs/OPPORTUNITY_ALPHA_RESEARCH_2026-09-24.md`, `docs/CORE_OUTPERFORMANCE_RESEARCH_PLAN_2026-09-27.md`, `docs/CORE_OUTPERFORMANCE_PROFITABILITY_V1_EXECUTION_2026-09-27.md`, `docs/CORE_OUTPERFORMANCE_PROFITABILITY_EXUS_GENERALIZATION_V1_EXECUTION_2026-09-27.md` y los resultados `validation-runs/diagnostics/*` allí referenciados.
+
+---
+
 ## Pregunta del proyecto
 
 **¿Cuándo tiene justificación económica invertir un euro adicional en una oportunidad en lugar de mantenerlo en el núcleo global indexado?** Y, si el dinero ya está invertido, ¿qué evidencia justificaría la venta/traspaso de una posición para financiar esa oportunidad **después** de costes, impuestos, riesgo y las pérdidas potenciales de no mantener el core?
