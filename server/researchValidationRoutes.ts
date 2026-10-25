@@ -516,7 +516,7 @@ const JOBS: JobDefinition[] = [
     name: 'Kronos · Stage B · diagnóstico 20/60',
     description: 'Benchmark histórico descriptivo sobre la muestra ya consumida de TimesFM: mismo panel/anchors, Yahoo REAL causal, 20 trayectorias por activo y horizontes 20/60. Compara RankIC, dirección, Brier y momentum. Sin autoridad de promoción por cutoff de pretraining desconocido.',
     marker: 'KRONOS_STAGE_B_DIAGNOSTIC_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'PARKED',
     steps: [
       { label: 'Guard sello Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1Seal.unit.mjs'] },
       { label: 'Guard protocolo Kronos Stage B', command: 'node', args: ['tests/kronosStageBDiagnosticV1.unit.mjs'] },
@@ -532,6 +532,21 @@ const JOBS: JobDefinition[] = [
       { label: 'Preflight checkpoint remoto Kronos Stage B', command: 'node', args: ['scripts/kronosStageBDurableStore.mjs','bootstrap'] },
       { label: 'Kronos runtime · revalidar Stage A', command: 'node', args: ['scripts/kronosStageALive.mjs'] },
       { label: 'Kronos Stage B · Yahoo REAL + batch 20x', command: 'node', args: ['scripts/kronosStageBDiagnosticLive.mjs'] }
+    ]
+  },
+  {
+    id: 'static-ucits-factor-market-data-preflight-v1',
+    name: 'Investigación · ETFs factoriales · comprobar datos REAL',
+    description: 'Comprobación limitada de EUNL/XDEM/XDEQ/XDEV: identidad, series Yahoo Xetra EUR, cobertura compartida y splits. NO calcula rentabilidad, NO modifica LEGACY, NO abre un holdout ni inicia backtest.',
+    marker: 'STATIC_UCITS_FACTOR_MARKET_DATA_PREFLIGHT_V1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard UCITS identidad/cobertura causal', command: 'node', args: ['tests/staticUcitsFactorMarketDataPreflightV1.unit.mjs'] },
+      { label: 'Guard catálogo inversión unificado', command: 'npx', args: ['tsx', 'tests/unifiedInvestmentUniverse.unit.ts'] },
+      { label: 'Guard arquitectura productiva', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Yahoo REAL Xetra · preflight sin outcomes', command: 'node', args: ['scripts/staticUcitsFactorMarketDataPreflightV1.mjs'] }
     ]
   },
   {
