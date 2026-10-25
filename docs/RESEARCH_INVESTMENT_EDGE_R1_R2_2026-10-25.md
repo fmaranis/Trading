@@ -115,3 +115,27 @@ Separar estrictamente:
 - **NOT DONE:** feature completa, pruebas TypeScript/guards, contrafactual y primer backtest A/B; rendimiento incremental no demostrado.
 - **BLOQUEOS POTENCIALES:** master de universo histórico PIT, NAV/fundamentales comparables, falta de sample fresh, y financiación efectiva de operaciones.
 - **PRODUCCIÓN:** sin cambios, `LEGACY`; Kronos sigue aparcado.
+
+
+## 7. Entrega técnica R3-A · trazabilidad opt-in de core frente a satélite (2026-10-25)
+
+**Implementación en main:** `src/investment/decision/dynamicHistoricalReplayCore.ts` ahora acepta opcionalmente `researchCoreOpportunityReferenceAssetId` para emitir `researchCoreOpportunityAudit` sólo en `CUSTODIA_ENGINE`. Si no se activa, el replay/producto no añade datos ni cambia selección, órdenes, cash, tasas, fiscalidad o cifras finales. Se reutilizan el `dateScan`, `PortfolioCandidateGate`, `PortfolioDecisionEngine`, `holdings` y el dinero **previo** a la fecha de decisión; no existe otro motor, job de cálculo largo o pantalla.
+
+Por **cada fecha**, audita: core global de referencia solicitado explícitamente (nunca infiere retrospectivamente el seleccionado por DYNAMIC_CORE_SELECTOR), disponibilidad y fecha de sus precios/retorno 120 sesiones, valor del core ya poseído, equity, cash, `baseDeployableEur` (separado de `plannedRotationProceedsEur`), propuestas no-core, cantidad de órdenes propuestas y si su origen se corresponde con `ROTATION_ENTRY`. Lista candidatos que ya pasan el gate y **sólo** si core y candidato tienen el mismo `asOfDate` no futuro y moneda EUR; ofrece exceso de momentum 120 sesiones **descriptivo**, no promesa de retorno ni criterio de trading.
+
+- Falta el core causal o el ID no representa un core estratégico: `UNAVAILABLE`; jamás fallback o core histórico inventado.
+- Fechas de NAV distintas, series insuficientes, señales future-dated: excluir candidato, informar ausencia de comparables.
+- Si la política vigente no propone ninguna compra no-core, `proposedOrderReach=ZERO` aunque haya señales elegibles. Si propone compra, `PROPOSED_NOT_EXECUTED`; no confundir una propuesta con una orden real ni con valor ganado.
+- Esta auditoría es **opt-in**; una referencia seleccionada para comparar no concede autoridad para rotar la cartera ni altera `LEGACY`.
+
+**Guards añadidos:** `tests/dynamicReplayCoreOpportunityAudit.unit.ts` prueba core inexistente/futuro, fechas NAV desalineadas, satélite futuro, cero capital, datos descriptivos, inmovilidad del input y paridad completa entre el replay canónico sin auditoría y con auditoría. Pruebas deterministas sintéticas se usan **sólo como fixtures de contrato**, no como validación económica con datos reales.
+
+**Estado al commit:** fuente y tests registrados en GitHub y comprobación de contratos por inspección de fuente, pero **`tsx`/TypeScript y pruebas de runtime aún NO EJECUTADAS** porque la herramienta GitHub no ejecuta comandos en el backend de la app. No declarar `PASS` ni abrir un holdout. Comandos rápidos necesarios en el runtime antes de trabajos largos:
+
+```bash
+npx tsx tests/dynamicReplayCoreOpportunityAudit.unit.ts
+npx tsx tests/coreArchitectureV1.unit.ts
+npm run lint
+```
+
+**Siguiente paso tras PASS técnico:** obtener un replay real/corpus PIT con ambas series comparables; auditar propuestas vs ejecuciones y rotaciones realmente financiadas; únicamente entonces especificar/fijar una regla B susceptible de test A/B neto contra `LEGACY` y core compatible. No usar como validación el sample consumido 2019–2022.
