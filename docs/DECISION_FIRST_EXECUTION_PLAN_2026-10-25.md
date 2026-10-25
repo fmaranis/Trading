@@ -99,3 +99,11 @@ Investigar LightGBM/boosting, Qlib u otros modelos ligeros para ranking relativo
 5. Para cualquier regla de defensa, medir errores de falsa alarma, retorno sacrificado en recuperaciones, impuestos, coste de salida/reentrada, oportunidad perdida, pérdidas máximas y final wealth. No optimizar umbrales tras observar las mismas crisis; usar bloques cronológicos independientes y prospective/shadow si se agotaron los holdouts.
 
 **No hacer:** vender todo por noticias, abrir apalancamiento/cortos/opciones como primera respuesta, prometer ganar durante desplomes, ni activar V8 diariamente de forma binaria. Antes de aconsejar una operación individual, confirmar cartera, necesidades de liquidez y tolerancia real al riesgo.
+
+
+## Primera entrega R1/R2 completada · 2026-10-25
+
+- Investigación científica y auditoría del motor actual: `docs/RESEARCH_INVESTMENT_EDGE_R1_R2_2026-10-25.md`.
+- Evidencia cuantitativa reproducible de reach/cash 2019–2022: `replay-results/validation-runs/diagnostics/investment-pivot-reach-audit-2019-2022-v1.json` (**CONSUMED**, sólo diagnóstico).
+- Decisión de investigación: primer candidato `H-CORE-OPPORTUNITY` — coste de oportunidad de sustituir/rotar exposición desde core hacia oportunidades realmente ejecutables. No crear «momentum» cosmético: restar un retorno benchmark común preserva el ranking de un mismo horizonte. Calidad/valoración será segunda línea si se acredita cobertura PIT.
+- Próxima entrega: alcance instrumental del replay canónico para core vs satélite, capital rotatable, FX/corporate actions, guards missing/future/zero-reach y diseño congelable del primer test. **No nueva estrategia aprobada**, no variante de replay ni cambio a `LEGACY`.
