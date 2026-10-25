@@ -1,69 +1,84 @@
-# Custodia — hoja de ruta de ejecución «decision-first» y coste adicional objetivo 0 €
+# Custodia — CAMBIO DE RUMBO: investigación de ventaja económica verificable
 
-Fecha: 2026-10-25  
-Repositorio: `fmaranis/Trading`, rama canónica `main`  
-Fuente de estado: `PROJECT_STATE.md`; reglas de producto: `docs/APP_FLOW_AND_ROADMAP.md`.
+Actualizado: 2026-10-25 · Fuente canónica: `fmaranis/Trading/main` + `PROJECT_STATE.md`
 
-## Objetivo
-Convertir Custodia en una aplicación web accesible desde móvil y ordenador que muestre qué hacer, importe, razones, oportunidades y riesgos; y en un laboratorio causal capaz de localizar decisiones erróneas, probar alternativas y admitir cambios productivos sólo con evidencia independiente. **No crear otra app, otro motor de decisión o múltiples replays.** La app web y el Centro de validación siguen siendo las superficies visibles.
+> **Esta revisión sustituye la priorización inicial H0/H1 de este documento.**
+> **Kronos NO es la prioridad ni un prerrequisito del nuevo rumbo.**
+> Este plan tiene por finalidad descubrir, construir y comprobar una forma económicamente mejor de decidir inversiones con Custodia. Mantener una app web accesible desde el móvil es una restricción, no el objeto principal de la investigación.
 
-## Condiciones no negociables
-- Producción continúa `LEGACY`; `CORE_ARCHITECTURE_V1` y `PortfolioCandidateGate -> InvestmentDecisionEngine -> PortfolioDecisionEngine` permanecen únicos.
-- `NEXT_OPEN`, información point-in-time, cash BCE, costes, fiscalidad y `externalCashFlows` no se relajan.
-- Sin Yahoo current discovery como universo histórico; respetar cobertura incompleta y muestras consumidas.
-- Ningún job grande arranca si fallan guards/tests específicos o `tsc --noEmit`.
-- No GitHub Actions para cálculos largos; cálculo en el backend local o worker duradero de la aplicación, no en procesos de ChatGPT.
-- Coste adicional objetivo: 0 EUR. Un servicio gratuito es candidato, no garantía de CPU permanente, de alta disponibilidad ni de cuotas suficientes. No desplegar migración ni introducir servicios de pago sin necesidad acreditada y decisión del usuario.
-- No reescribir retrospectivamente resultados ni fingir PASS económico al completar una comprobación técnica.
-- Cambios pequeños directamente en `main`, con verificaciones rápidas y actualización de `PROJECT_STATE.md`. No avanzar al hito siguiente mientras haya regresión grave.
+## Objetivo económico
 
-## Orden de ejecución y condiciones de salida
+Responder de forma causal y demostrable a la pregunta: **¿cuándo, qué activo y qué importe merece apartarse de una cartera global indexada, y cuándo conviene no hacerlo?**
 
-### H0 · Control del bloqueo, preservar evidencia
-**Estado inicial comprobado:** 2026-10-25, checkpoint GitHub `replay-results/validation-runs/kronos-stage-b-v1-progress.json` con 680/5580 trayectorias (2018Q1-Q3 completos y 2018Q4 parcial); el estado vivo del proceso/servidor sigue desconocido.
+Medir patrimonio neto después de costes, impuestos y flujos externos, valor incremental frente a `LEGACY` y al `structural core`, rentabilidad/riesgo, drawdown, estabilidad temporal y frecuencia de decisiones realmente ejecutables (`reach`). Una tasa de acierto elevada aislada no equivale a ventaja económica.
 
-**Implementación:** auditar en el código real runner, estado durable, UI y coordinación del proceso; introducir ejecución acotada por unidad conservando metodología y checkpoint, y estado explícito `PAUSED/INCOMPLETE`, nunca `PASSED` mientras falten trayectorias. No presuponer que cuatro paths/minibatch ya evitan bloqueos; esa protección ya existe. Al interrumpir, finalizar unidad coherente, guardar y liberar CPU. La app debe poder mostrar progreso y seguir operando; la continuación se hace tras nueva ejecución o con un worker persistente si existe infraestructura comprobada. No convertir el cierre de la pestaña móvil en terminación del cálculo cuando el servidor persista.
+**Principio de investigación:** no limitarse a pequeñas correcciones de LEGACY. Buscar **hipótesis económicas distintas** (calidad/valoración, liderazgo relativo y tendencia, y uso de riesgo predictivo sólo cuando tenga causalidad y utilidad incremental). Usar bibliografía, metodologías open source y modelos ML ligeros, pero no asumir que una técnica tiene alfa por ser conocida.
 
-**Pruebas de salida:** test sin inferencia real con checkpoint, reanudación, no pérdida o mutación de paths, guard de concurrencia, fallos de red/token y error de estado (sin falso PASS). Medición de recursos y estabilidad del backend en un smoke corto. Antes de tocar archivos sellados, analizar impacto y reseal técnico sólo si está permitido metodológicamente; conservar intactas muestras, anchors, assets, seed, temperatura, horizonte y outcomes. El job completo permanece no recomendado hasta superar estas pruebas.
+## Prioridad real y orden de trabajo
 
-### H1 · Auditoría de decisiones ya registradas (sin modelos caros)
-**Primera evidencia disponible:** `replay-results/validation-runs/diagnostics/decision-audit-pilot-2019-2022-v1.json` (read-only, consumida). Engine: 17.572,29 EUR vs structural core 20.365,50 EUR; diferencia -2.793,21 EUR, sin causa atribuida todavía.
+### R1 — Evidencia, referencia y problemas decisionales [PRIMERO]
 
-**Implementación:** informe integrado en el resultado/auditoría del replay existente, sin motor paralelo ni pantalla nueva. Para cada decisión: universo PIT disponible, candidatos, gate, ranking, cash desplegable, sizing, timing, orden ejecutada, costes/impuestos y alternativas `HOLD`/core cuando la evidencia lo permite. Capturar eventos bloqueados y distinguir `NO_SIGNAL` de `NO_CAPITAL` y de `NOT_ELIGIBLE`. Si falta trazabilidad, reportar `NOT_AUDITABLE` antes que inferir causas.
+1. Recuperar la definición exacta del `structural core`, `LEGACY`, política fiscal y costes en el replay ya integrado; evitar benchmarks sin flujos comparables.
+2. Reutilizar auditorías y resultados existentes, distinguiendo la evidencia predictiva de políticas que monetizan mal la señal. Investigar decisiones fallidas y también qué inversiones realmente funcionaron.
+3. Identificar clases de decisiones con impacto económico y alcance operativo: elegir acción en vez de core, entrar/salir, rotar, asignar el efectivo que sí existe y abstenerse.
+4. Detectar ausencia de datos PIT, muestras consumidas, universo no histórico y errores de atribución antes de formular conclusiones.
 
-**Salida:** clasificación reproducible de errores con reach económico: cuántas decisiones potencialmente mejorables, cuántas alteraron órdenes, impacto estimado y límites de causalidad. No calcular alfa ni promover con este diagnóstico histórico consumido.
+**Salida:** una matriz corta de oportunidades de investigación priorizadas por plausibilidad económica, alcance, disponibilidad causal de datos y coste de verificación. Ningún cambio productivo.
 
-### H2 · Un experimento económico A/B mínimo
-**Elección:** seleccionar una sola clase de decisión con reach real en H1. A=`LEGACY`; B=una regla candidata definida y congelada antes de ejecutar los outcomes del test pertinente. Ambas usan el **mismo** `DynamicHistoricalReplayEngine`, universo, precios, fechas, capital, `externalCashFlows`, `NEXT_OPEN`, fiscalidad, costes, benchmarks compatibles y estado inicial.
+### R2 — Nuevas hipótesis de inversión [PARALELO A AUDITORÍA, SIN KRONOS]
 
-**Salida:** logs pareados de diferencia efectiva de órdenes, ventaja neta en EUR y pp frente a A y al structural core, max drawdown, exposición, concentración, consistencia temporal, costes e impuestos. Una política sin reach se etiqueta `INCONCLUSIVE`, no PASS ni FAIL económico. Una política evaluada en muestra utilizada para diseñarla sigue `CONSUMED`.
+Preparar y documentar un pequeño número de familias **conceptualmente diferentes**, aprovechando literatura publicada y lo ya aprendido:
 
-### H3 · Contraste independiente de eficacia
-**Implementación:** congelar implementación, parámetros, muestra y gates antes de abrir datos fresh/blind point-in-time; persistir sello, procedimiento y resultados; confirmar en bloque/ventana independiente según la hipótesis. Evitar leakage entre selección de muestras, tuning y confirmación.
+- **Liderazgo relativo y tendencia:** fuerza frente al core, persistencia, calidad de pendiente y confirmación de ruptura/continuación, no sólo un umbral aislado.
+- **Calidad fundamental × valoración:** rentabilidad del capital, márgenes, crecimiento, balances y precio pagado, usando fundamentales únicamente con `filed <= informationDate` y cobertura PIT acreditable.
+- **Riesgo contextual:** preservar la evidencia predictiva Forward Risk V8, pero investigar sólo contribuciones no redundantes a ranking, sizing, alertas o escenarios; nunca resurrectar V8/V9/V10/V11 como interruptor directo o retuning de muestras consumidas.
 
-**Salida:** sólo evidencia suficientemente sólida puede justificar la propuesta de pasar de research/shadow a decisión productiva. En caso contrario `LEGACY` se mantiene.
+No montar tres motores. Priorizar UNA familia comprobable tras auditar cobertura real y reach. Las otras se documentan y aparcan.
 
-### H4 · Infraestructura web independiente de AI Studio
-**Implementación:** evaluar opciones gratuitas reales para frontend web HTTPS y backend/worker persistente; mantener desarrollo en GitHub. Probar compatibilidad Node/Python/Torch, secretos, disco durable, reinicios, cuotas, privacidad, logs, exposición pública, restablecimiento y coste. Comparar con ejecución CPU local opcional. Usar un piloto no productivo antes de migración. No aceptar solución que dependa del móvil abierto para completar jobs ni que convierta la app pública en un endpoint de ejecución arbitraria.
+**Salida:** hipótesis falsable, features disponibles **hasta** cada fecha, benchmarks simples y qué experimento podría invalidarla. El informe histórico exploratorio NO promociona.
 
-**Salida:** decisión documentada `KEEP_CURRENT` o `MIGRATE` con smoke end-to-end, coste medido, reversión disponible y acceso web/móvil confirmado. Evitar despliegue disruptivo.
+### R3 — Experimento research-only integrado [DESPUÉS DE R1/R2]
 
-### H5 · IA que añada valor incremental
-**Implementación:** modelos baratos y reproducibles primero (ranking relativo al structural core, calidad fundamental PIT, momentum/régimen, LightGBM si hay datos adecuados); comparar con reglas simples y con `LEGACY`. TimesFM y Kronos se conservan como fuentes **research-only** que deben justificar señal incremental y reach; no recomendación automática basada en forecasts históricos con cutoff de entrenamiento desconocido.
+Introducir sólo la capacidad mínima de investigación/shadow en la cadena existente:
 
-**Salida:** primero calidad de señal fuera de muestra; luego utilidad económica mediante H2-H3, sin tuning sobre samples consumidas. No ampliar a ML si H1-H3 no identifican una pregunta accionable.
+`AssetUniverseScanner -> PortfolioCandidateGate -> InvestmentDecisionEngine -> PortfolioDecisionEngine/evaluatePortfolioDecision -> ejecución y seguimiento`.
 
-## Responsabilidades y mínima participación del usuario
-ChatGPT: investigar el repositorio, decidir la solución menos invasiva, implementar cambios cuando haya herramienta disponible, añadir guards/tests rápidos, auditar resultados, actualizar roadmap/estado y comunicar SHA + un resumen de evidencias/limitaciones; no relegar el trabajo a Work ni GitHub Actions.
+El único replay actual reproduce la política A=`LEGACY` y B=candidata **prerregistrada**, con mismo universo causal, cash, costes, impuestos, `NEXT_OPEN`, `externalCashFlows`, selección y disponibilidad de datos. Sin alternativas adivinadas retrospectivamente. Registrar decisiones que realmente cambian y presupuesto disponible. El `ResearchValidationCenter` es la superficie de ejecución.
 
-Usuario: sólo cuando sea inevitable, realizar una acción que ChatGPT no puede hacer desde GitHub (autorizar/cargar un secreto en el runtime, crear cuenta gratuita de infraestructura, sincronizar/deplegar la web, o iniciar/verificar un cálculo en su backend). Reducir a **una instrucción operativa inequívoca** por entrega; no pedir decisiones ya documentadas. No solicitar copiar claves al chat. No pedir seguimiento diario ni encender un PC por la noche.
+**Salida:** comparativa económica y alcance operativo reproducibles, métricas de riesgo/consistencia, posibles `FAIL`/`INCONCLUSIVE`. La muestra utilizada para construir o interpretar la política queda `CONSUMED`, no se retunea para convertirla en PASS.
 
-## Secuencia práctica
-- Primero H0: detener el patrón de reinicios y perder progreso de Kronos.
-- H1 ya puede avanzar independientemente de H0 usando auditorías existentes; no bloquear diagnóstico de decisiones por una inferencia de horas.
-- H2 se alimenta de un hallazgo verificable de H1, no de ideas abstractas.
-- H4 avanza sólo tras verificar costes y viabilidad; la app actual permanece operativa.
-- H5 es posterior a demostrar valor en la cadena económica, no un requisito inicial.
+### R4 — Confirmación independiente [GATE PARA PRODUCCIÓN]
 
-## Registro de avance por entrega
-Cada entrega debe describir: HEAD/commit, archivos modificados, pruebas ejecutadas/no ejecutadas, evidencia fuente (PIT/REAL/STATIC_REFERENCE/SYNTHETIC), estado `DONE/PENDING/BLOCKED`, y la única intervención humana imprescindible si la hay. No afirmar trabajo en segundo plano entre conversaciones.
+Congelar política/algoritmo/parámetros y criterios *antes* de abrir un holdout fresh/blind con datos PIT y universo válido, conforme al protocolo económico. Ninguna confirmación retrospectiva sobre los datos consumidos. Si no hay muestra independiente suficiente, mantener investigación prospectiva/shadow y comunicar `NO PROMOTION EVIDENCE`.
+
+**Salida:** sólo un resultado robusto y repetido, neto frente a `LEGACY` y a un core comparable, permite **proponer** un cambio productivo; `LEGACY` continúa por defecto mientras tanto.
+
+### R5 — IA y producto [SEGÚN EVIDENCIA, NO COMO PRIMERA TAREA]
+
+Investigar LightGBM/boosting, Qlib u otros modelos ligeros para ranking relativo si hay datos PIT suficientes y una pregunta predictiva que métodos simples no resuelvan. Medir *incremental* signal + economic reach. Cada capacidad aprobada responde integrado a «qué hacer hoy / activo / importe / por qué» sin nuevos paneles, variantes de replay o motores desconectados.
+
+### Infraestructura y Kronos — TAREAS DE SOPORTE, FUERA DE RUTA CRÍTICA
+
+- **Kronos aparcado:** conservar checkpoint duradero confirmado de 680/5.580 trayectorias en `replay-results`. No relanzarlo ni reducir su protocolo congelado por impulso; sólo trabajar en aislamiento/ejecución por unidades si se decide reactivarlo y existe una infraestructura capaz. Ni Kronos ni TimesFM bloquean R1–R4.
+- **Web permanece:** GitHub `main` canónico, acceso móvil/navegador y backend existente. Evaluar alojamiento/worker alternativo *cuando una prueba de la nueva investigación lo necesite* o la fiabilidad de uso diario lo exija. No migrar por moda.
+- **Coste incremental objetivo 0 EUR:** software abierto, Yahoo REAL cuando corresponde, datasets ya disponibles y cálculo en backend local/app. El hosting permanentemente disponible y CPU intensiva ilimitada no están garantizados gratis; no contratar sin propuesta concreta y aprobación expresa.
+- **Cálculo largo:** motor propio de la app; jamás GitHub Actions ni agentes gastando tokens durante horas. Guards/unit/TypeScript antes de arrancar trabajos caros.
+
+## Qué hace ChatGPT y cuándo interviene el usuario
+
+**ChatGPT:** inspecciona HEAD y fuentes, prepara investigación crítica, implementa cambios **directamente en main** cuando estén justificados, añade tests rápidos/contratos, prepara ejecuciones en el Centro de validación, interpreta resultados persistidos, registra límites y actualiza `PROJECT_STATE.md`.
+
+**Usuario:** no tiene que supervisar diariamente ni explicar de nuevo decisiones anteriores. Sólo actúa ante permisos externos, secretos/credenciales que ChatGPT no puede administrar, sincronización/despliegue necesario, o ejecución manual de un job cuya máquina/backend no sea accesible desde GitHub. En esos casos, dar una sola instrucción concreta; jamás pedir claves en el chat.
+
+## Estado inicial (2026-10-25)
+
+- Existe auditoría consumida 2019–2022: engine 17.572,29 EUR vs structural core 20.365,50 EUR, brecha -2.793,21 EUR; **no demuestra** una causa ni ventaja de hipotética corrección.
+- 1.024 señales originales contabilizadas, 34 señales diagnósticas legibles en export parcial: no imputar las 861 `AVOID` sin trazas completas.
+- El cuello de botella documentado de algunas políticas de ranking es la **falta de capital nuevo desplegable**, no sólo ordenar candidatos.
+- Forward Risk V8 conserva evidencia predictiva histórica, distinta del FAIL económico de monetizaciones V8–V11.
+- TimesFM tuvo FAIL económico de políticas probadas; Kronos sigue sin evidencia económica final.
+- `LEGACY` continúa íntegro, `CORE_ELIGIBILITY_V2` sigue shadow.
+
+## Primera próxima entrega real
+
+**R1+R2:** diagnóstico consolidado de los resultados existentes y selección crítica de la primera hipótesis alternativa con fuentes PIT y reach verificables. Debe producir una respuesta sobre **qué decisión mejorará** y **cómo falsarla**, no otra lista de modelos ni una nueva pantalla. Después implementar el experimento mínimo research-only si la hipótesis y los datos lo permiten.
