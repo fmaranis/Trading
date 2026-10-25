@@ -1,0 +1,211 @@
+{
+  "version": "STATIC_UCITS_FACTOR_IMPLEMENTABILITY_PREFLIGHT_V1",
+  "auditDate": "2026-10-25",
+  "state": "PARTIAL_PREFLIGHT_BLOCKED_BEFORE_ECONOMIC_DATA",
+  "decision": "DO_NOT_RUN_ECONOMIC_REPLAY_OR_PROMOTE",
+  "purpose": "Assess if static factor UCITS ETFs are an actually implementable alternative to an EUNL reference, without reopening consumed stock/ranking studies",
+  "canonicalRepo": "fmaranis/Trading",
+  "canonicalBranch": "main",
+  "researchAuthority": "IDENTITY_AND_IMPLEMENTATION_SCREEN_ONLY",
+  "sources": {
+    "xdem": "https://etf.dws.com/en-gb/IE00BL25JP72-msci-world-momentum-ucits-etf-1c/",
+    "xdeq": "https://etf.dws.com/en/IE00BL25JL35-msci-world-quality-ucits-etf-1c/",
+    "xdev": "https://etf.dws.com/en/IE00BL25JM42-msci-world-value-ucits-etf-1c/",
+    "eunl": "https://www.justetf.com/en/etf-profile.html?isin=IE00B4L5Y983",
+    "myInvestor": "https://myinvestor.es/ayuda/preguntas-frecuentes/inversion/",
+    "myInvestorBroker": "https://myinvestor.es/inversion/broker/",
+    "cnmv": "https://www.cnmv.es/DocPortal/Publicaciones/Guias/FiscalidadFondosDeInversionEnElIRPF.pdf"
+  },
+  "instruments": [
+    {
+      "role": "PASSIVE_BENCHMARK",
+      "assetId": "EUNL",
+      "ticker": "EUNL.DE",
+      "isin": "IE00B4L5Y983",
+      "exchange": "XETRA",
+      "tradingCurrency": "EUR",
+      "shareClassCurrency": "USD",
+      "ucits": true,
+      "accumulating": true,
+      "terAnnualPct": 0.2,
+      "launchDate": "2009-09-25",
+      "currentBenchmark": "MSCI World",
+      "benchmarkSwitchDate": null,
+      "priorBenchmark": null,
+      "verification": "IDENTITY_AND_PUBLIC_XETRA_LISTING_CONFIRMED"
+    },
+    {
+      "role": "FACTOR_MOMENTUM",
+      "assetId": "HOLDOUT_XDEM",
+      "ticker": "XDEM.DE",
+      "isin": "IE00BL25JP72",
+      "exchange": "XETRA",
+      "tradingCurrency": "EUR",
+      "shareClassCurrency": "USD",
+      "ucits": true,
+      "accumulating": true,
+      "terAnnualPct": 0.25,
+      "launchDate": "2014-09-05",
+      "currentBenchmark": "MSCI World Momentum",
+      "benchmarkSwitchDate": "2016-11-03",
+      "priorBenchmark": "DB Equity Momentum Factor",
+      "verification": "IDENTITY_AND_PUBLIC_XETRA_LISTING_CONFIRMED"
+    },
+    {
+      "role": "FACTOR_QUALITY",
+      "assetId": "HOLDOUT_XDEQ",
+      "ticker": "XDEQ.DE",
+      "isin": "IE00BL25JL35",
+      "exchange": "XETRA",
+      "tradingCurrency": "EUR",
+      "shareClassCurrency": "USD",
+      "ucits": true,
+      "accumulating": true,
+      "terAnnualPct": 0.25,
+      "launchDate": "2014-09-11",
+      "currentBenchmark": "MSCI World Sector Neutral Quality",
+      "benchmarkSwitchDate": "2016-11-03",
+      "priorBenchmark": "DB Equity Quality Factor",
+      "verification": "IDENTITY_AND_PUBLIC_XETRA_LISTING_CONFIRMED"
+    },
+    {
+      "role": "FACTOR_VALUE",
+      "assetId": "HOLDOUT_XDEV",
+      "ticker": "XDEV.DE",
+      "isin": "IE00BL25JM42",
+      "exchange": "XETRA",
+      "tradingCurrency": "EUR",
+      "shareClassCurrency": "USD",
+      "ucits": true,
+      "accumulating": true,
+      "terAnnualPct": 0.25,
+      "launchDate": "2014-09-11",
+      "currentBenchmark": "MSCI World Enhanced Value",
+      "benchmarkSwitchDate": "2016-11-03",
+      "priorBenchmark": "DB Equity Value Factor",
+      "verification": "IDENTITY_AND_PUBLIC_XETRA_LISTING_CONFIRMED"
+    }
+  ],
+  "brokerPublicFacts": {
+    "broker": "MYINVESTOR",
+    "xetraAvailableInMarkets": true,
+    "etfTradeCommissionPct": 0.12,
+    "minEur": 1,
+    "maxEur": 25,
+    "currencyConversionFeePct": 0.3,
+    "eurXetraOrderHasDirectBrokerFxFee": false,
+    "extraFeesUnknown": [
+      "spread",
+      "exchange_and_third_party_charges",
+      "exact_ISIN_orderability",
+      "execution_quotes"
+    ],
+    "publicTermsDate": "2026-10-25",
+    "caveat": "EUR trading quote removes automatic broker conversion fee for a EUR trade, NOT exposure to USD/underlying equity currencies"
+  },
+  "taxAndRisk": {
+    "spainEtfTransfersEligibleForFundTaxDeferral": false,
+    "sellTriggersCapitalGainLossTaxConsideration": true,
+    "noPeriodicSellInInitialBuyHold": true,
+    "dividendsAccumulated": true,
+    "etfNavAlreadyReflectsFundRunningExpenses": true,
+    "allInstrumentsShareBroadDevelopedEquityRisk": true,
+    "coreOverlapAndDiversificationUnverified": true,
+    "structuralMutualFundCoreTaxDeferralNotEquivalentToEtfCore": true
+  },
+  "validityConstraints": {
+    "benchmarkChangeDate": "2016-11-03",
+    "earliestPolicyComparableTradingDay": "FIRST_VERIFIED_COMMON_XETRA_SESSION_STRICTLY_AFTER_2016-11-03",
+    "currentIndexHistoryBeforeChangeNotComparable": true,
+    "prior2014to2025AcademicBlend": "ALREADY_INSPECTED_INDEX_LEVEL_NOT_IMPLEMENTABLE_ETF_VALIDATION",
+    "historyAfter2016": "DESCRIPTIVE_OR_CONSUMED_UNLESS_FRESH_PROMOTION_SAMPLE",
+    "noBackfilledIndices": true,
+    "noSilentSyntheticFallback": true,
+    "compareAllInEur": true,
+    "noTERDoubleCount": true,
+    "benchmarkCompare": "100_PERCENT_EUNL_ETF_SAME_FLOWS_VS_AS_YET_UNFROZEN_STATIC_FACTOR_UCITS_ARM",
+    "productionPolicy": "LEGACY"
+  },
+  "gates": [
+    {
+      "id": "ISINS_MATCH_OFFICIAL",
+      "status": "PASS",
+      "evidence": "Issuer fund pages and iShares/justETF EUNL"
+    },
+    {
+      "id": "PUBLIC_XETRA_EUR_LISTING",
+      "status": "PASS",
+      "evidence": "justETF listings for all four instrument ISINs"
+    },
+    {
+      "id": "MYINVESTOR_XETRA_MARKET_SUPPORTED",
+      "status": "PASS",
+      "evidence": "MyInvestor official broker market list"
+    },
+    {
+      "id": "BROKER_EXACT_FOUR_ISIN_TRADABLE_AND_ORDER_FEES",
+      "status": "UNVERIFIED",
+      "evidence": "Public market coverage is not a per-ISIN access confirmation"
+    },
+    {
+      "id": "CURRENT_BENCHMARK_VALID_2014_TO_2016",
+      "status": "FAIL",
+      "evidence": "All three DWS Xtrackers switched benchmarks on 2016-11-03"
+    },
+    {
+      "id": "SHARED_HISTORICAL_REAL_ADJUSTED_XETRA_EUR_PRICE_WINDOW",
+      "status": "UNVERIFIED",
+      "evidence": "No authenticated common 4-symbol dataset fetched in this check"
+    },
+    {
+      "id": "ISSUER_NAV_CORPORATE_ACTIONS_FX_RECONCILIATION",
+      "status": "UNVERIFIED",
+      "evidence": "No price/NAV reconciliation run"
+    },
+    {
+      "id": "PIT_FACTOR_WEIGHTED_LOOKTHROUGH_OVERLAP",
+      "status": "UNVERIFIED",
+      "evidence": "Current/historical holdings not audited"
+    },
+    {
+      "id": "FAIR_ECONOMIC_BENCHMARK_AND_TAX_MODEL_DESIGNED",
+      "status": "PARTIAL",
+      "evidence": "ETF-vs-ETF baseline specified; candidate cashflows/weights not frozen"
+    },
+    {
+      "id": "FRESH_BLIND_OOS_AVAILABLE",
+      "status": "UNVERIFIED",
+      "evidence": "2014-2025 factor indices already inspected, future performance cannot be claimed"
+    }
+  ],
+  "preliminaryCostIllustrations": [
+    {
+      "capitalEur": 500,
+      "assumedOneBuyPerAsset": "equal_weight_three_factor_ETFs",
+      "factorCommissionOnlyEur": 3,
+      "benchmarkSingleEunlCommissionOnlyEur": 1,
+      "differenceEur": 2,
+      "notes": "Illustrative only; ignore whole-share feasibility and spreads"
+    },
+    {
+      "capitalEur": 13000,
+      "assumedOneBuyPerAsset": "equal_weight_three_factor_ETFs",
+      "factorCommissionOnlyEur": 15.6,
+      "benchmarkSingleEunlCommissionOnlyEur": 15.6,
+      "differenceEur": 0,
+      "notes": "Before whole-share rounding/spreads, if exactly equal notional and 0.12% applies to every order"
+    }
+  ],
+  "nextAction": "One bounded REAL provenance/adjustment/identity fetch and reconciliation of EUNL.DE XDEM.DE XDEQ.DE XDEV.DE using the existing app market-data backend, not Github Actions. Do not open retrospective outcomes before preflight passes; then freeze a single static construction without return-tuned weights.",
+  "doNotDo": [
+    "promote_2014to2025_index_blend",
+    "pretend_any_factor_ETF_is_CRASH_HEDGE",
+    "infer_live_BROKER_AVAILABILITY_from_market_list",
+    "relaunch_KRONOS",
+    "create_parallel_replay_or_UI",
+    "estimate_fresh_alpha_from_consumed_data"
+  ],
+  "noLongJobRun": true,
+  "notActualReturns": true,
+  "noUserTradingAction": true
+}
