@@ -1,0 +1,55 @@
+{
+  "version": "DECISION_AUDIT_PILOT_V1",
+  "role": "READ_ONLY_HISTORICAL_DIAGNOSTIC",
+  "createdOn": "2026-10-25",
+  "sampleStatus": "CONSUMED_FOR_POLICY_DESIGN_NOT_ELIGIBLE_FOR_PROMOTION",
+  "source": {
+    "repository": "fmaranis/Trading",
+    "branch": "replay-results",
+    "path": "validation-runs/latest-chatgpt.json",
+    "blobSha": "03b0c557e2e700d4838dab627945b906473c0690",
+    "exportDate": "2026-09-11T17:21:50.517Z"
+  },
+  "replay": {
+    "startDate": "2019-01-01",
+    "endDate": "2022-12-30",
+    "initialCapitalEur": 13000,
+    "simulationMode": "CUSTODIA_ENGINE",
+    "frequency": "MONTHLY",
+    "executedOperations": 18,
+    "actionCounts": {
+      "AVOID": 861,
+      "BUY": 8,
+      "HOLD": 95,
+      "ADD": 7,
+      "EXIT": 5,
+      "WATCH": 47,
+      "REDUCE": 1
+    },
+    "externalFlowAssumption": "NO_EXTERNAL_FLOWS_DECLARED_IN_THIS_READABLE_AUDIT"
+  },
+  "results": {
+    "engineFinalEur": 17572.28704486159,
+    "engineReturnPct": 35.171438806627606,
+    "engineMaxDrawdownPct": 30.801894036171827,
+    "benchmarkAssetId": "FUND_VANGUARD_GLOBAL",
+    "benchmarkTicker": "IE00B03HD191",
+    "benchmarkFinalEur": 20365.498168004346,
+    "benchmarkReturnPct": 56.65767821541805,
+    "benchmarkMaxDrawdownPct": 33.75721787915486,
+    "excessEngineVsCoreEur": -2793.2111231427552,
+    "excessEngineVsCorePctPoints": -21.486239408790446
+  },
+  "cashDeployment": {
+    "investmentPctOfInitialAfter20Sessions": 0,
+    "investmentPctOfInitialAfter60Sessions": 93.49823342037202
+  },
+  "interpretation": "This is a retrospective read-only gap diagnosis. It does NOT identify the cause of the return gap or prove a candidate fix. Benchmark comparison taken from the original replay. No new trading simulations or threshold changes.",
+  "requiredNextChecks": [
+    "Trace exactly which original decisions generated opportunity costs using the same causal replay",
+    "Classify errors: universe, eligibility, timing, allocation, hold/exit, costs",
+    "Make paired A/B replay without changing cash flows, costs, tax or market data",
+    "Design policy using consumed diagnostics but freeze it before any fresh independent test",
+    "Require economic benefit vs structural core and LEGACY and downside guardrails"
+  ]
+}
