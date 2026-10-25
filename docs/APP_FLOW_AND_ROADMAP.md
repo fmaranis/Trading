@@ -410,3 +410,24 @@ Fuentes/metodologías de referencia:
 - filings oficiales SEC / EU MAR para ownership.
 
 Regla de continuidad: primero diagnóstico offline y feature separation; después freeze; sólo entonces fresh/blind validation. Ninguna de estas ideas tiene autoridad productiva.
+
+
+---
+
+## Ruta 2026-10-25 — de investigación de modelos a auditoría económica de decisiones
+
+**Objetivo:** aprovechar la única cadena y el replay causal ya integrados para identificar decisiones que destruyen valor frente a `LEGACY` y al structural core. No ampliar pantallas, motores o proveedores de pago ni cambiar los defaults productivos por intuición.
+
+**Incidencia Kronos:** el checkpoint de `replay-results/validation-runs/kronos-stage-b-v1-progress.json` fue inspeccionado el 2026-10-25: 680/5.580 trayectorias persistidas (3 anchors completos, 2018Q4 parcial). No prueba que el backend esté en ejecución ni que pueda acabar en el entorno preview. Mantener intactos checkpoint, seal y metodología; no relanzar el job pesado por rutina. Sólo considerar reanudación tras confirmar estado durable, integridad, disponibilidad real de CPU/backend y continuidad desconectado de móvil. Kronos no bloquea la ruta de decisiones.
+
+**Primera evidencia (lectura, no backtest nuevo):** `replay-results/validation-runs/diagnostics/decision-audit-pilot-2019-2022-v1.json`, derivada del replay completo publicado el 2026-09-11 para 2019-01-01 a 2022-12-30. Engine 17.572,29 EUR (+35,17%) frente al structural core 20.365,50 EUR (+56,66%), brecha -2.793,21 EUR / -21,49 pp. Drawdown 30,80% vs core 33,76%; 18 operaciones; 0% comprometido a 20 sesiones y 93,50% a 60. Muestra CONSUMED: diagnóstico exploratorio; no identificar causas ni promover reglas sin contrafactual causal.
+
+**Ruta incremental de verificación:**
+
+1. **Auditoría de decisiones read-only y ligera** sobre las sesiones/JSON ya persistidos: clasificar por etapa `discovery -> eligibility -> ranking -> cash disponible -> allocation -> timing -> ejecución -> holding/exit`; distinguir oportunidad realmente accionable de oportunidades hindsight que no podían conocerse. Registrar el efecto de no hacer nada. No alterar cartera, política o datos productivos.
+2. **Primer experimento económico mínimo:** escoger UNA clase de error con reach observado. Ejecutar A/B contrafactual sobre el **mismo replay canónico**, mismo universo causal, precios disponibles por fecha, `NEXT_OPEN`, capital, `externalCashFlows`, fees, cash BCE y fiscalidad. A=LEGACY intacto; B=únicamente la modificación preregistrada. Structural core con flujos compatibles como hurdle. Comparaciones incompatibles = N/D.
+3. **Diagnóstico histórico consumido:** analizar reach, operaciones alteradas, exceso EUR/% y drawdown, estabilidad por períodos, concentración, costes/impuestos y efectos adversos. La ventana usada para elegir política queda consumida. No retunear parámetros sobre ella.
+4. **Confirmación independiente:** congelar fórmula/decisión, muestra, controles y criterios antes de abrir un holdout realmente fresco, PIT y sin contaminación. Sólo un resultado out-of-sample y confirmación adicional permite considerar cambios a producción.
+5. **Despliegue gradual:** la política que no acredita mejora permanece research/shadow; producción sigue `LEGACY`. No diseñar módulos/UI independientes ni jobs largos cuando un análisis read-only o un replay corto pueda contestar la pregunta.
+
+**Coste operativo:** preferir TypeScript/Node existentes, JSON de replays, Yahoo REAL disponible y máquina/backend actuales, sin nuevos servicios de pago ni GitHub Actions para cálculo. No afirmar gratuidad ilimitada: el entorno de AI Studio/servicios externos tiene cuotas y limitaciones; las simulaciones pesadas no deben ser requisito para validar la primera hipótesis.
