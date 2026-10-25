@@ -2861,3 +2861,11 @@ Prospectivo:
 - El core selector aporta 48 puntos de decisión legibles: 33 `HEALTHY_INCUMBENT_INERTIA`, 11 `DEGRADED_INCUMBENT_HOLD`, 2 `NO_HEALTHY_CORE`, 1 `BEST_HEALTHY_CORE`, 1 `REPLACE_UNHEALTHY_INCUMBENT`; son categorías de routing, NO causas probadas del diferencial de rentabilidad.
 - La posición Vanguard Global acumuló ~4.077,30 EUR netos (aprox. 89,17% del beneficio final del portfolio reportado). Tampoco demuestra que aumentar/reducir asignación al core mejorase el resultado: requiere replay pareado respetando capital/costes/cash/impuestos.
 - H1 continúa `IN_PROGRESS` hasta disponer de trazas completas por etapa y clasificación de reach. H0 `PENDING`: todavía sin aislamiento real de CPU/pausa del job; se han preservado los checkpoints. La próxima modificación de código debe ser pequeña, tener guards y no modificar gates económicos ni sellos sin análisis.
+
+
+### 2026-10-25 — corrección explícita de prioridad estratégica (Kronos fuera de ruta crítica)
+
+- **Cambio de dirección solicitado/confirmado**: la prioridad NO es reparar ni completar Kronos. El foco es descubrir y validar decisiones económicamente superiores al core, en vez de añadir modelos de predicción de precios o ajustar continuamente `LEGACY`. La hoja de ruta de ejecución `docs/DECISION_FIRST_EXECUTION_PLAN_2026-10-25.md` fue revisada para reemplazar el orden H0/H1 antiguo por R1 evidencia+objetivo, R2 hipótesis nuevas, R3 integración research-only y replay causal, R4 holdout independiente, R5 IA/UX si merece la pena.
+- Kronos Stage B queda **PARKED**, conservando las 680/5.580 trayectorias durables, sin reinicio de prueba, sin cambio de sello y **sin bloquear** otras investigaciones. Su estabilidad y separación de CPU se abordan únicamente si se decide reactivarlo o si afectan a la app cotidiana.
+- El primer trabajo sustantivo pendiente es investigar y contrastar hipótesis de inversión (liderazgo relativo/tendencia, calidad fundamental × valoración, riesgo contextual predictivo V8 sin monetización antigua) y detectar dónde hay datos PIT, reach y posibilidad de experimento falsable. No confundir una auditoría histórica descriptiva con prueba de alfa ni hacer retuning con muestras consumidas.
+- No se modificó código productivo, no hay resultados económicos nuevos ni tests de runtime ejecutados en esta corrección documental. Producción `LEGACY` sin cambios.
