@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "study": "STATIC_UCITS_FACTOR_MARKET_DATA_PREFLIGHT_V1",
+  "reviewDate": "2026-10-26",
+  "reviewStatus": "BACKEND_PASS_DATA_COVERAGE_ONLY",
+  "source": {
+    "type": "USER_UPLOADED_VALIDATION_JOB_EXPORT",
+    "uploadedFilename": "static-ucits-factor-market-data-preflight-v1-2026-10-26T17-48-18-332Z.json",
+    "note": "Summary export, not the locally persisted sourceRawCache nor the full preflight result JSON. Do not claim independent source or NAV verification."
+  },
+  "job": {
+    "id": "static-ucits-factor-market-data-preflight-v1",
+    "reportedStatus": "PASSED",
+    "startedAt": "2026-10-26T17:47:47.737Z",
+    "finishedAt": "2026-10-26T17:48:18.332Z",
+    "reportedExitCode": 0,
+    "reportedError": null
+  },
+  "result": {
+    "status": "PASS_DATA_COVERAGE_PENDING_EXTERNAL_RECONCILIATION",
+    "resultPathInApp": "validation-runs/diagnostics/static-ucits-factor-market-data-preflight-v1-result.json",
+    "sourceType": "REAL",
+    "economicOutcomesCalculated": false,
+    "productionAuthority": false
+  },
+  "coverage": {
+    "benchmarkChangeDate": "2016-11-03",
+    "comparableStartDate": "2016-11-04",
+    "lastCommonDate": "2026-10-23",
+    "sharedDates": 2532,
+    "referenceDates": 2532,
+    "sharedCoverageFraction": 1,
+    "instruments": {
+      "EUNL.DE": {
+        "bars": 2532,
+        "first": "2016-11-04",
+        "last": "2026-10-23",
+        "referenceDaysCovered": 2532,
+        "referenceCoverageFraction": 1
+      },
+      "XDEM.DE": {
+        "bars": 2533,
+        "first": "2016-11-04",
+        "last": "2026-10-23",
+        "referenceDaysCovered": 2532,
+        "referenceCoverageFraction": 1
+      },
+      "XDEQ.DE": {
+        "bars": 2533,
+        "first": "2016-11-04",
+        "last": "2026-10-23",
+        "referenceDaysCovered": 2532,
+        "referenceCoverageFraction": 1
+      },
+      "XDEV.DE": {
+        "bars": 2533,
+        "first": "2016-11-04",
+        "last": "2026-10-23",
+        "referenceDaysCovered": 2532,
+        "referenceCoverageFraction": 1
+      }
+    }
+  },
+  "interpretation": {
+    "fullCoverageVsEunl": true,
+    "additionalFactorOnlyDates": {
+      "XDEM.DE": 1,
+      "XDEQ.DE": 1,
+      "XDEV.DE": 1
+    },
+    "unitAndTscSequence": "Job PASSED suggests all configured steps exited zero; separate logs/stdout not present in supplied export.",
+    "evidenceLimitations": [
+      "Summary does not include provenance hashes, raw Yahoo chart payloads, adjusted prices, issuer NAV, FX history or corporate actions audit.",
+      "DWS Xtrackers share-class NAV is USD while Xetra trading is EUR; no direct level/day-close comparison without documented FX and timing convention.",
+      "A data coverage pass is NOT source price reconciliation, broker-specific tradability or an economic outperform test.",
+      "Shared 2532 sessions do not establish backtest promotion eligibility; historical windows already partially consumed."
+    ],
+    "nextGate": "ISSUER_NAV_AND_XETRA_PRICE_CURRENCY_ADJUSTMENT_RECONCILIATION",
+    "noNeedToRerunCoverageJob": true,
+    "productionPolicy": "LEGACY"
+  }
+}
