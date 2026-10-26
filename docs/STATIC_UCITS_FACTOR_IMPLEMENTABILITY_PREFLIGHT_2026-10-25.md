@@ -92,3 +92,31 @@ Las respuestas brutas se preservan con SHA256 y escritura **create-only** bajo `
 **Verificación en esta sesión:** contratos de integración presentes e inspeccionados en los blobs actuales de GitHub (un solo CURRENT, Kronos PARKED, guards antes de fuente, botón correcto, estado económico falso). Las pruebas completas Node/TS **todavía NO han podido ejecutarse**, pues las herramientas de este chat no tienen un checkout ejecutable del backend de la app ni acceso a su proceso. **No se ha descargado ningún precio REAL ni se ha observado el retorno de cartera**. Cualquier `PASSED` futuro de este job sólo certificará identificación/cobertura del feed, no conciliación de NAV ni mejora frente al core.
 
 Siguiente hito tras los guards y captura: contrastar el resultado contra NAV y eventos oficiales para todos los ISINs, disponibilidad broker y solapamiento efectivo. Sólo después fijar una construcción estática comparable y un estudio económico causal.
+
+
+## 6. Ejecución REAL 2026-10-26 — cobertura PASS, conciliación pendiente
+
+**Se recibió el export de la aplicación**, job `static-ucits-factor-market-data-preflight-v1`, `PASSED` / exitCode `0`, desde `2026-10-26T17:47:47.737Z` a `2026-10-26T17:48:18.332Z`. El resultado efectivo no es `PASS` económico, sino **`PASS_DATA_COVERAGE_PENDING_EXTERNAL_RECONCILIATION`**. Evidencia materializada en `validation-runs/diagnostics/static-ucits-factor-market-data-preflight-v1-execution-review-2026-10-26.json`, sin sobrescribir informes históricos ni el output local del backend.
+
+| Ticker Xetra EUR | Barras Yahoo declaradas | Alineadas con EUNL | Porcentaje de solapamiento |
+| --- | ---: | ---: | ---: |
+| EUNL.DE | 2532 | 2532 | 100% |
+| XDEM.DE | 2533 | 2532 | 100% |
+| XDEQ.DE | 2533 | 2532 | 100% |
+| XDEV.DE | 2533 | 2532 | 100% |
+
+- Sesión común inicial **2016-11-04**, final **2026-10-23**: 2532 fechas idénticas. Los tres ETFs factoriales tienen **una fecha extra cada uno** ajena al calendario EUNL; no afecta al solapamiento pero no se deduce de qué fechas son a partir de este resumen.
+- `sourceType=REAL` según **declaración del backend**. El export subido **no incluye** payload Yahoo, manifiesto SHA256, tablas OHLC ajustadas, detalles split/dividends ni NAV oficial. Por ello la revisión del chat **no acredita independientemente los precios**, sólo el resultado y los conteos del job.
+- `economicOutcomesCalculated=false`, `productionAuthority=false`. Conservar `LEGACY` y las ventanas previamente inspeccionadas como históricas/consumidas.
+
+### Próximo y único gate: verificación independiente de los datos utilizados
+
+Antes de congelar pesos o ejecutar un replay económico, conciliar **por ISIN** `EUNL/IE00B4L5Y983`, `XDEM/IE00BL25JP72`, `XDEQ/IE00BL25JL35`, `XDEV/IE00BL25JM42` de la siguiente forma:
+
+1. Recuperar del **backend ya ejecutado** el output completo `validation-runs/diagnostics/static-ucits-factor-market-data-preflight-v1-result.json` y hashes/cache original `.runtime/static-ucits-factor-v1/yahoo/`. **No solicitar repetir la descarga** salvo pérdida/autenticación rota o hash discrepante; no inventar que este material reside en GitHub.
+2. Contrastar los datos contra **NAV oficial del emisor**: [iShares EUNL](https://www.ishares.com/uk/individual/en/products/251882/ishares-msci-world-ucits-etf-acc-fund) y páginas DWS [XDEM](https://etf.dws.com/en/IE00BL25JP72-msci-world-momentum-ucits-etf-1c/), [XDEQ](https://etf.dws.com/en/IE00BL25JL35-msci-world-quality-ucits-etf-1c/), [XDEV](https://etf.dws.com/en/IE00BL25JM42-msci-world-value-ucits-etf-1c/). **NAV de share class expresado en USD; precios Xetra en EUR**. Primero reconciliar FX con fuente, fecha y cierre temporal explícitos; comparar series de rendimientos o tracking y diferencias justificables por prima/descuento a NAV/spread, no equiparar niveles absolutos.
+3. Verificar eventos corporativos, ajuste Yahoo (`rawOpen × adjustedClose/rawClose`), dataciones y metodología vigente post-2016-11-03; ante huecos discrepantes **`INCONCLUSIVE_SOURCE_RECONCILIATION`**, no fijar tolerancias tras ver el error para forzar PASS.
+4. Confirmar disponibilidad concreta de los tres ETF factoriales y EUNL para MyInvestor y tamaño mínimo ejecutable con títulos enteros; no deducirlo de que MyInvestor admita Xetra.
+5. Sólo con estos requisitos superados se podrá congelar UNA construcción estática de ETF factoriales y compararla **neto** con 100% EUNL, mismo capital, cash, flujos, fiscalidad y `NEXT_OPEN`, usando replay actual. Ni los 2532 días ni la ventaja exploratoria del índice 2014–2025 son confirmación fresh.
+
+**Decisión de continuidad 2026-10-26:** datos de cobertura `PASS`; **pasar a conciliación de proveedor/NAV, no volver a ejecutar el mismo preflight ni abrir directamente el backtest**.
