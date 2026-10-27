@@ -120,3 +120,47 @@ Antes de congelar pesos o ejecutar un replay económico, conciliar **por ISIN** 
 5. Sólo con estos requisitos superados se podrá congelar UNA construcción estática de ETF factoriales y compararla **neto** con 100% EUNL, mismo capital, cash, flujos, fiscalidad y `NEXT_OPEN`, usando replay actual. Ni los 2532 días ni la ventaja exploratoria del índice 2014–2025 son confirmación fresh.
 
 **Decisión de continuidad 2026-10-26:** datos de cobertura `PASS`; **pasar a conciliación de proveedor/NAV, no volver a ejecutar el mismo preflight ni abrir directamente el backtest**.
+
+
+## 7. Reconciliación oficial 2017–2025 integrada · 2026-10-27
+
+Se ha avanzado desde `PASS_DATA_COVERAGE_PENDING_EXTERNAL_RECONCILIATION` a una **verificación independiente de consistencia anual del NAV**, manteniendo la misma muestra histórica **consumida** y sin abrir un backtest/política.
+
+### Fuentes oficiales recuperadas (USD, ISIN exactos)
+
+Los tres `Past Performance` oficiales DWS para las clases **1C** y el factsheet oficial iShares de la clase EUNL/SWDA **IE00B4L5Y983** contienen los rendimientos anuales del **propio ETF (NAV, después de gastos internos)**, no la rentabilidad de un índice simulada. Los documentos DWS señalan el cambio de benchmark del 3 de noviembre de 2016 y que 2016 es mixto, por lo que se **excluye**.
+
+- EUNL / BlackRock: https://www.ishares.com/uk/professional/en/literature/fact-sheet/swda-ishares-core-msci-world-ucits-etf-fund-fact-sheet-en-gb.pdf
+- XDEM / DWS: https://etf.dws.com/Download/Past%20Performance/IE00BL25JP72/IE/EN
+- XDEQ / DWS: https://etf.dws.com/Download/Past%20Performance/IE00BL25JL35/IE/EN
+- XDEV / DWS: https://etf.dws.com/Download/Past%20Performance/IE00BL25JM42/IE/EN
+
+Rendimientos de **clase/ETF**, en **porcentaje USD**, transcritos del material oficial; **no son mediciones del replay de Custodia**:
+
+| Año | EUNL | XDEM | XDEQ | XDEV |
+| --- | ---: | ---: | ---: | ---: |
+| 2017 | 22,45 | 32,7 | 23,2 | 22,3 |
+| 2018 | −8,65 | −4,0 | −7,9 | −14,4 |
+| 2019 | 27,76 | 28,8 | 31,5 | 19,6 |
+| 2020 | 15,95 | 28,0 | 14,9 | −4,0 |
+| 2021 | 21,90 | 14,5 | 23,3 | 20,1 |
+| 2022 | −18,03 | −17,8 | −19,2 | −9,8 |
+| 2023 | 23,86 | 11,7 | 25,8 | 19,5 |
+| 2024 | 18,70 | 30,0 | 16,7 | 5,2 |
+| 2025 | 21,16 | 21,2 | 15,4 | 39,5 |
+
+**Uso limitado:** esta tabla se emplea **exclusivamente como referencia congelada de calidad de precios**; no escoger los ETFs ni pesos según quién obtuvo mejor retorno, no convertir los 9 años ya inspeccionados en holdout de inversión. Fuente y datos transcritos están dentro de `scripts/staticUcitsFactorIssuerAnnualReconciliationV1.mjs`.
+
+### Cálculo y arquitectura
+
+El nuevo runner `scripts/staticUcitsFactorIssuerAnnualReconciliationV1.mjs` **lee** el `manifest`/raw Yahoo que generó la prueba del 26 de octubre; comprueba los SHA256 sin refrescar las descargas de cotización. Descarga **una sola serie de divisas** oficial del BCE (USD por EUR: `EXR.D.USD.EUR.SP00.A`), también con caché create-only; convierte el cierre ajustado Xetra EUR a USD **multiplicando** por USD/EUR.
+
+Para cada año 2017–2025 toma el último cierre Xetra disponible en diciembre del año anterior y el del año, con su referencia BCE de fecha igual/anterior; las separaciones máximas admitidas quedan definidas antes de abrir precios en `QUALITY_LIMITS`: cierre Xetra no más de **7 días** antes del fin de año, fijación BCE no más de **4 días** anteriores a ese cierre. Calcula `100 × ((closeEUR_fin × USDperEUR_fin) / (closeEUR_inicio × USDperEUR_inicio) − 1)` y lo compara con el rendimiento anual oficial, sin aplicar de nuevo TER. Rechaza datos faltantes, identidades de ISIN/serie FX incorrectas, ruta cache inesperada, hash distinto o retorno incongruente.
+
+**Gates de consistencia preregistrados** exclusivamente para decidir si el feed exige investigar discrepancias (NO para inversión): 9 años por ETF, diferencia máxima por año **3,0 puntos porcentuales** y diferencia absoluta media por ETF **1,5 puntos**. El error puede reflejar diferencias entre cierre bursátil, instante de fijación del BCE y NAV; si se incumple, devolver `INCONCLUSIVE_ANNUAL_RECONCILIATION` sin alterar thresholds. Si pasa, estado `PASS_ANNUAL_CONSISTENCY_PENDING_DAILY_NAV`, **no** aceptación de NAV diario/corporate actions/broker ni alfa probado.
+
+**Centro de validación integrado:** `static-ucits-factor-market-data-preflight-v1` pasa a `ARCHIVED` (resultado **PASSED** y 2532 fechas compartidas ya conservado), `kronos-stage-b-diagnostic-v1` sigue PARKED. Único CURRENT `static-ucits-factor-issuer-annual-reconciliation-v1`, mismo Centro y botón **«Contrastar gestoras y BCE»**. Orden fail-fast: test unitario del nuevo comparador -> test preflight antiguo -> guard catálogo -> arquitectura -> runtime -> TypeScript -> ejecutar reconciliador. **Nunca relanzar descarga de Yahoo en el job nuevo**. Pruebas deterministas en `tests/staticUcitsFactorIssuerAnnualReconciliationV1.unit.mjs`.
+
+El output compacto del backend será `validation-runs/diagnostics/static-ucits-factor-issuer-annual-reconciliation-v1-result.json`, create-only, con las 36 comparaciones, hash FX BCE, URL documental de cada gestora, informe de diferencias y estado del gate; `productionAuthority=false`. **Advertencia de persistencia:** si el runtime perdió `.runtime/static-ucits-factor-v1/yahoo` o `validation-runs/diagnostics/static-ucits-factor-market-data-preflight-v1-result.json`, el job devuelve **BLOCKED**, sin recrear falsamente el snapshot original ni re-descargarlo en silencio; se investigará la recuperación real del manifiesto/caché.
+
+**Estado al cierre del cambio de código:** fuentes issuer recuperadas y 36 retornos oficiales congelados; modelo matemático, conversión, cuatro activos y parser BCE probados sobre fixtures construidos en el runtime de comprobación (4/4 coincidencias sintéticas, 2201 fechas FX de prueba y rechazo de FX ausente). **No se ha ejecutado este job en el backend de Custodia** ni se ha leído su caché/FX reales desde ChatGPT; falta `npm run lint` y los guards en el runtime real. No afirmar `PASS` de precio, ni rentabilidad económica de cartera o mejora frente al core.
