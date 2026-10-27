@@ -539,7 +539,8 @@ const JOBS: JobDefinition[] = [
     name: 'Investigación · ETFs factoriales · comprobar datos REAL',
     description: 'Comprobación limitada de EUNL/XDEM/XDEQ/XDEV: identidad, series Yahoo Xetra EUR, cobertura compartida y splits. NO calcula rentabilidad, NO modifica LEGACY, NO abre un holdout ni inicia backtest.',
     marker: 'STATIC_UCITS_FACTOR_MARKET_DATA_PREFLIGHT_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'ETFs factoriales · cobertura REAL 2532/2532 · PASS 2026-10-26',
     steps: [
       { label: 'Guard UCITS identidad/cobertura causal', command: 'node', args: ['tests/staticUcitsFactorMarketDataPreflightV1.unit.mjs'] },
       { label: 'Guard catálogo inversión unificado', command: 'npx', args: ['tsx', 'tests/unifiedInvestmentUniverse.unit.ts'] },
@@ -547,6 +548,22 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Yahoo REAL Xetra · preflight sin outcomes', command: 'node', args: ['scripts/staticUcitsFactorMarketDataPreflightV1.mjs'] }
+    ]
+  },
+  {
+    id: 'static-ucits-factor-issuer-annual-reconciliation-v1',
+    name: 'Investigación · ETFs factoriales · contrastar gestoras y BCE',
+    description: 'Reutiliza la captura Yahoo REAL de EUNL/XDEM/XDEQ/XDEV sin descargarla otra vez. Contrasta rentabilidades anuales publicadas por BlackRock/DWS (USD) con cotizaciones Xetra EUR convertidas con tipo BCE. No es conciliación diaria de NAV ni un backtest.',
+    marker: 'STATIC_UCITS_FACTOR_ISSUER_ANNUAL_RECONCILIATION_V1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard reconciliación gestoras/BCE · contrato', command: 'node', args: ['tests/staticUcitsFactorIssuerAnnualReconciliationV1.unit.mjs'] },
+      { label: 'Guard cobertura de ETFs previamente capturada', command: 'node', args: ['tests/staticUcitsFactorMarketDataPreflightV1.unit.mjs'] },
+      { label: 'Guard catálogo inversión unificado', command: 'npx', args: ['tsx', 'tests/unifiedInvestmentUniverse.unit.ts'] },
+      { label: 'Guard arquitectura productiva', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Contrastar Yahoo cache con rentabilidades oficiales y BCE · sin replay', command: 'node', args: ['scripts/staticUcitsFactorIssuerAnnualReconciliationV1.mjs'] }
     ]
   },
   {
