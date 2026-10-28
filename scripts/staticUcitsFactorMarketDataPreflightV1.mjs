@@ -119,8 +119,8 @@ export function auditCoverage(panels,gates=DATA_GATES){
   };
 }
 
-async function readRawYahoo(ticker){
-  const file=path.join(CACHE_DIR,ticker+'.json');
+async function readRawYahoo(ticker,cacheDir=CACHE_DIR){
+  const file=path.join(cacheDir,ticker+'.json');
   if(fs.existsSync(file)){
     const raw=fs.readFileSync(file,'utf8');
     return {raw,sha256:sha256(raw),cached:true,path:file};
@@ -135,7 +135,7 @@ async function readRawYahoo(ticker){
       const raw=await reply.text();
       if(!reply.ok)throw new Error('YAHOO_HTTP_'+reply.status+':'+ticker);
       JSON.parse(raw); // invalid JSON must never be cached
-      fs.mkdirSync(CACHE_DIR,{recursive:true});
+      fs.mkdirSync(cacheDir,{recursive:true});
       fs.writeFileSync(file,raw,{flag:'wx'}); // raw snapshot cannot be refreshed post hoc
       return {raw,sha256:sha256(raw),cached:false,path:file};
     }catch(err){lastError=err;}
@@ -143,21 +143,25 @@ async function readRawYahoo(ticker){
   throw lastError??new Error('YAHOO_FETCH_UNAVAILABLE:'+ticker);
 }
 
-export async function main(){
+export async function main(options={}){
+  // A recapture is a separate immutable vintage, never an overwrite of the
+  // original 26 October observation. Keep the existing default path unchanged.
+  const {cacheDir=CACHE_DIR,outputPath=OUTPUT_PATH,
+    captureType='ORIGINAL_CAPTURE'}=options;
   readFrozenCatalogue();
-  if(fs.existsSync(OUTPUT_PATH)){
-    const old=JSON.parse(fs.readFileSync(OUTPUT_PATH,'utf8'));
+  if(fs.existsSync(outputPath)){
+    const old=JSON.parse(fs.readFileSync(outputPath,'utf8'));
     assert(old.version===VERSION && old.status==='PASS_DATA_COVERAGE_PENDING_EXTERNAL_RECONCILIATION','SAVED_RESULT_INVALID');
     for(const [ticker,evidence] of Object.entries(old.sourceRawCache??{})){
       const raw=fs.readFileSync(evidence.path,'utf8');
       assert(sha256(raw)===evidence.sha256 && INSTRUMENTS.some(x=>x.ticker===ticker),'SAVED_RAW_CACHE_MISMATCH:'+ticker);
     }
-    console.log(MARKER,JSON.stringify({status:'ALREADY_SAVED',version:VERSION,resultPath:OUTPUT_PATH,productionAuthority:false}));
-    return;
+    console.log(MARKER,JSON.stringify({status:'ALREADY_SAVED',version:VERSION,resultPath:outputPath,captureType:old.captureType??'ORIGINAL_CAPTURE',productionAuthority:false}));
+    return old;
   }
   const panels={},sourceRawCache={};
   for(const inst of INSTRUMENTS){
-    const entry=await readRawYahoo(inst.ticker);
+    const entry=await readRawYahoo(inst.ticker,cacheDir);
     const parsed=parseYahooEtfChart(inst.ticker,entry.raw);
     panels[inst.ticker]=parsed;
     sourceRawCache[inst.ticker]={
@@ -168,6 +172,7 @@ export async function main(){
   const result={
     version:VERSION,status:'PASS_DATA_COVERAGE_PENDING_EXTERNAL_RECONCILIATION',
     generatedAt:new Date().toISOString(),sourceType:'REAL',provider:'YAHOO_FINANCE',
+    captureType, sourceVintageHash:null,
     from:START,through:THROUGH,sourceRawCache,coverage,
     instruments:INSTRUMENTS.map(inst=>({...inst,metadata:panels[inst.ticker].meta})),
     priceOutcomesAnalyzed:false,economicOutcomesCalculated:false,
@@ -180,12 +185,15 @@ export async function main(){
       'No rankings, returns, simulation, portfolio strategy or fresh-out-of-sample claims'
     ]
   };
-  fs.mkdirSync(path.dirname(OUTPUT_PATH),{recursive:true});
-  fs.writeFileSync(OUTPUT_PATH,JSON.stringify(result,null,2)+'\n',{flag:'wx'});
+  result.sourceVintageHash=sha256(INSTRUMENTS.map(inst=>inst.ticker+':'+sourceRawCache[inst.ticker].sha256).join('|'));
+  fs.mkdirSync(path.dirname(outputPath),{recursive:true});
+  fs.writeFileSync(outputPath,JSON.stringify(result,null,2)+'\n',{flag:'wx'});
   console.log(MARKER,JSON.stringify({
-    status:result.status,resultPath:OUTPUT_PATH,coverage:result.coverage,sourceType:'REAL',
+    status:result.status,resultPath:outputPath,coverage:result.coverage,sourceType:'REAL',
+    captureType,sourceVintageHash:result.sourceVintageHash,
     economicOutcomesCalculated:false,productionAuthority:false
   }));
+  return result;
 }
 
 const invoked=process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href;
