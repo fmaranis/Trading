@@ -74,3 +74,13 @@ Si la supuesta prima mensual o a tres meses es del mismo orden, **STOP antes de 
 - **Qué no sabemos todavía:** calidad y alcance del universo histórico, survivorship, muestra consumida, validez prospectiva y nula garantía de 80%.
 
 **Decisión del 28-10:** `E1_PAPER_SOURCE_FEASIBILITY_OPEN`; `E2_BACKUP_PAPER_ONLY`; `E3_CONTEXT_ONLY_HIGH_IMPLEMENTATION_FRICTION`. **Hoy no se inicia ningún replay, no se altera ningún producto.** Este documento sustituye la prioridad antigua del ETF factorial, cerrada `FAIL_DIAGNOSTIC` en `docs/STATIC_UCITS_FACTOR_ECONOMIC_R1_RESULT_REVIEW_2026-10-28.md`.
+
+
+## 6. Primera comprobación real de expedientes SEC (sin precios/outcomes)
+
+Ya se ha iniciado la auditoría documental de **existencia y significado del dato** sobre dos documentos 10-K reales. Estos casos son **ejemplos no aleatorizados de esquema**, NO un muestreo de rentabilidad, ni sirven para inferir alpha, frecuencia o selección de activos:
+
+- **Alphabet, 10-K FY2025** `CIK 1652044`, `accession 000165204426000018`: en el último trimestre 2025 publicó compras **20,240 miles de acciones** A/C en total (Oct **14,146 miles**, Nov **6,094 miles**, Dic **0**), pese a grandes autorizaciones agregadas. **Primera lección tangible**: una autorización de recompra y una recompra efectivamente ejecutada NO son equivalentes, y no hay por qué asumir compras continuadas. Fuente original HTML SEC: https://www.sec.gov/Archives/edgar/data/1652044/000165204426000018/goog-20251231.htm
+- **Palantir, 10-K FY2025** `CIK 1321655`, `accession 000132165526000011`: informó **106.171 acciones** recompradas en Q4 (oct 37.533, nov 32.630, dic 36.008) bajo su programa; declaró que el programa se **terminó en enero 2026**. **Segunda lección**: la actividad debe relacionarse con fechas de publicación, vigencia/terminación y denominador de shares outstanding, no sólo número nominal. Fuente SEC: https://www.sec.gov/Archives/edgar/data/1321655/000132165526000011/pltr-20251231.htm
+
+**Aún NO verificado**: hora de aceptación EDGAR de ambos acccesions, cifra de dilución neta, retorno posterior, sesgo de selección, aptitud de compra MyInvestor y cobertura PIT del universo histórico. Nada de esto debe reconstruirse por suposición ni extrapolarse desde estos dos casos. Siguiente tarea en papel: documentar un método de muestreo **definido sin observar rentabilidades**, y establecer cómo medir neto de emisión/compras de forma causal. Estado `E1_DOCUMENT_SCHEMA_OBSERVED_PAPER_SOURCE_GATE_OPEN`.
