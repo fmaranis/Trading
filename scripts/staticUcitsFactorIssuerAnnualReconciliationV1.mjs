@@ -213,7 +213,7 @@ export async function resolveUcitsSourceSnapshot(){
     originalSnapshotPreserved:sourceResolution==='ORIGINAL_VERIFIED_MANIFEST'};
 }
 
-async function fetchEcb(){
+export async function fetchEcb(){
   if(fs.existsSync(FX_CACHE)){const raw=fs.readFileSync(FX_CACHE,'utf8');return {raw,cached:true,sha256:sha256(raw)};}
   const response=await fetch(ECB_URL,{headers:{'Accept':'text/csv'},signal:AbortSignal.timeout(30000)});
   insist(response.ok,'ECB_HTTP_'+response.status);
