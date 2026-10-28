@@ -145,7 +145,7 @@ export function chooseUcitsSourceResolution({originalManifestExists,originalRawC
   if(!originalManifestExists&&originalRawCount===INSTRUMENTS.length)return 'REBUILD_MANIFEST_FROM_UNCHANGED_ORIGINAL_RAW';
   if(recaptureManifestExists)
     return recaptureRawCount===INSTRUMENTS.length?'EXPLICIT_RECAPTURE_EXISTING':'BLOCKED_RECAPTURE_MISSING_RAW';
-  return recaptureRawCount===0?'EXPLICIT_NEW_SOURCE_RECAPTURE':'BLOCKED_PARTIAL_RECAPTURE';
+  return recaptureRawCount===0?'EXPLICIT_NEW_SOURCE_RECAPTURE':'EXPLICIT_RESUME_NEW_SOURCE_RECAPTURE';
 }
 function countRaw(cacheDir){
   return INSTRUMENTS.filter(inst=>fs.existsSync(path.join(cacheDir,inst.ticker+'.json'))).length;
@@ -167,7 +167,7 @@ export async function resolveUcitsSourceSnapshot(){
       captureType:'RECONSTRUCTED_FROM_RETAINED_ORIGINAL_RAW_NO_PRIOR_MANIFEST'
     });
   }
-  if(sourceResolution==='EXPLICIT_NEW_SOURCE_RECAPTURE'){
+  if(sourceResolution==='EXPLICIT_NEW_SOURCE_RECAPTURE'||sourceResolution==='EXPLICIT_RESUME_NEW_SOURCE_RECAPTURE'){
     // Separate file tree and manifest; no overwrite, no partially mixed vintages.
     // Original 2532-date 2026-10-26 PASS remains historical evidence ONLY.
     await buildUcitsPreflightSnapshot({
@@ -176,6 +176,7 @@ export async function resolveUcitsSourceSnapshot(){
     });
   }
   const manifestPath=sourceResolution==='EXPLICIT_NEW_SOURCE_RECAPTURE'
+    ||sourceResolution==='EXPLICIT_RESUME_NEW_SOURCE_RECAPTURE'
     ||sourceResolution==='EXPLICIT_RECAPTURE_EXISTING'?RECAPTURE_MANIFEST:COVERAGE_MANIFEST;
   const cacheDir=manifestPath===COVERAGE_MANIFEST?ORIGINAL_YAHOO_CACHE:RECAPTURE_CACHE;
   const prior=JSON.parse(fs.readFileSync(manifestPath,'utf8'));
@@ -235,7 +236,9 @@ export async function main(){
   const exchange=await fetchEcb(),fx=parseEcbCsv(exchange.raw);
   const comparisons=INSTRUMENTS.map(inst=>reconcileAnnual(inst,panels[inst.ticker].bars,fx));
   const allPass=comparisons.every(x=>x.annualConsistency==='PASS_ANNUAL_CONSISTENCY_ONLY');
-  const result={version:VERSION,status:allPass?'PASS_ANNUAL_CONSISTENCY_PENDING_DAILY_NAV':'INCONCLUSIVE_ANNUAL_RECONCILIATION',
+  const status=!matchesPriorPublishedSummary?'INCONCLUSIVE_SOURCE_VINTAGE_COVERAGE_DIFFERENCE'
+    :allPass?'PASS_ANNUAL_CONSISTENCY_PENDING_DAILY_NAV':'INCONCLUSIVE_ANNUAL_RECONCILIATION';
+  const result={version:VERSION,status,
     sourceType:'REAL',issuerSourceType:'OFFICIAL_ISSUER_PUBLISHED_ANNUAL_NAV_RETURNS',currency:'USD',
     generatedAt:new Date().toISOString(),studyWindow:'2017-2025',sourceRawCache:prior.sourceRawCache,
     rawLineageMatchesPreviousPreflight:true,coverageSharedDays:coverage.sharedDates,
@@ -249,7 +252,8 @@ export async function main(){
     previousPublishedCoverageSummaryIsNotRawEvidence:true,
     pending:['DAILY_NAV_INDEPENDENT_CROSSCHECK','CORPORATE_ACTION_ACCOUNTING','BROKER_EXACT_ISINS','LOOKTHROUGH','SINGLE_FROZEN_POLICY_AND_FRESH_SAMPLE'],
     notes:[
-      'If original local cache was lost, new files were acquired as a separately identified REAL Yahoo vintage with separate SHA256; no claim of exact identity to 2026-10-26 raw data',
+      'If original cache was lost, new files acquired in a separate REAL Yahoo vintage, possibly resumed in its own isolated folder; original raw data are never mixed into a new recovery',
+      'If any dates differ from the published 2026-10-26 coverage, the annual consistency study is marked inconclusive and cannot be promoted',
       'Issuer calendar-year NAV returns in USD, including internal fees, read from original issuer documents; not a daily NAV series',
       'Yahoo Xetra EUR adjusted closing quotations converted to USD with ECB published reference USD/EUR fixing on/before each Xetra close',
       'FX fixing and NAV valuation times differ from market close; this is an annual consistency filter, never proof of exact daily price reconciliation',
