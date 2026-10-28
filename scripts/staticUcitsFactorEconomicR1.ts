@@ -129,7 +129,9 @@ export async function main(){
           startDate:common[0],endDate:common.at(-1),timeframe:'1d'}};
     })
   };
-  const scenarios=[];
+  const scenarios:Array<{capitalEur:number;status:'EXECUTABLE'|'UNEXECUTABLE';
+    comparison:ReturnType<typeof compareEconomicResults>|null;
+    orders?:{A:unknown[];B:unknown[]};reason?:string}>=[];
   for(const capital of CAPITALS_EUR){
     function run(targetWeights:Record<string,number>){
       return DynamicHistoricalReplayEngine.run({
@@ -140,18 +142,33 @@ export async function main(){
         researchStaticBuyHold:{targetWeights,slippagePct:SLIPPAGE_PCT,liquidateAtEnd:true}
       });
     }
-    const control=run(A),candidate=run(B);
-    assert(control.executedBuys===1&&candidate.executedBuys===4
-      &&control.executedExits===1&&candidate.executedExits===4,
-      'UNEXECUTABLE_INITIAL_OR_TERMINAL_ORDERS:'+capital);
-    assert([...control.signals,...candidate.signals].every(x=>
-      x.executed&&Number.isInteger(Math.abs(x.unitsDelta))&&x.executionDate!==null&&x.executionDate>x.signalDate),
-      'NONCAUSAL_OR_FRACTIONAL_ORDER:'+capital);
-    scenarios.push({capitalEur:capital,comparison:compareEconomicResults(control,candidate),
-      orders:{A:control.signals.map(x=>({action:x.action,assetId:x.assetId,date:x.executionDate,units:x.unitsDelta,feeEur:round(x.feeEur)})),
-       B:candidate.signals.map(x=>({action:x.action,assetId:x.assetId,date:x.executionDate,units:x.unitsDelta,feeEur:round(x.feeEur)}))}});
+    try {
+      const control=run(A),candidate=run(B);
+      assert(control.executedBuys===1&&candidate.executedBuys===4
+        &&control.executedExits===1&&candidate.executedExits===4,
+        'UNEXECUTABLE_INITIAL_OR_TERMINAL_ORDERS:'+capital);
+      assert([...control.signals,...candidate.signals].every(x=>
+        x.executed&&Number.isInteger(Math.abs(x.unitsDelta))
+        &&x.executionDate!==null&&x.executionDate>x.signalDate),
+        'NONCAUSAL_OR_FRACTIONAL_ORDER:'+capital);
+      scenarios.push({capitalEur:capital,status:'EXECUTABLE',
+        comparison:compareEconomicResults(control,candidate),
+        orders:{
+          A:control.signals.map(x=>({action:x.action,assetId:x.assetId,date:x.executionDate,
+            units:x.unitsDelta,feeEur:round(x.feeEur)})),
+          B:candidate.signals.map(x=>({action:x.action,assetId:x.assetId,date:x.executionDate,
+            units:x.unitsDelta,feeEur:round(x.feeEur)}))
+        }});
+    } catch(error) {
+      // Only a whole-share feasibility failure may be treated as unavailable
+      // for a non-primary capital. All other methodology/data errors must STOP.
+      const reason=error instanceof Error?error.message:String(error);
+      if(capital===CAPITALS_EUR[0]||!reason.includes('UNEXECUTABLE_WHOLE_SHARES'))throw error;
+      scenarios.push({capitalEur:capital,status:'UNEXECUTABLE',comparison:null,reason});
+    }
   }
-  const primary=scenarios[0].comparison;
+  const primary=scenarios[0]?.comparison;
+  assert(primary && scenarios[0].status==='EXECUTABLE','PRIMARY_CAPITAL_MUST_BE_EXECUTABLE');
   const scientificStatus=primary.netExcessEur>0?'PROMISING_DIAGNOSTIC_ONLY':'FAIL_DIAGNOSTIC';
   const result={
     version:VERSION,status:'COMPLETED_CONSUMED_HISTORY_DIAGNOSTIC',
