@@ -224,15 +224,23 @@ async function fetchEcb(){
   return {raw,cached:false,sha256:sha256(raw)};
 }
 export async function main(){
+  // A previously audited, immutable result is reusable without requiring
+  // the local raw provider cache to survive yet another deployment.
+  if(fs.existsSync(OUTPUT)){
+    const already=JSON.parse(fs.readFileSync(OUTPUT,'utf8'));
+    insist(already.version===VERSION&&already.rawLineageMatchesPreviousPreflight===true
+      &&typeof already.sourceVintageHash==='string'&&/^[a-f0-9]{64}$/.test(already.sourceVintageHash)
+      &&Array.isArray(already.comparisons)&&already.comparisons.length===INSTRUMENTS.length,
+      'EXISTING_RESULT_INVALID');
+    console.log(MARKER,JSON.stringify({status:'ALREADY_SAVED',study:VERSION,
+      sourceResolution:already.sourceResolution,sourceVintageHash:already.sourceVintageHash,
+      scientificStatus:already.status,output:OUTPUT,economicOutcomesCalculated:false,
+      productionAuthority:false}));
+    return already;
+  }
   const {prior,panels,coverage,sourceResolution,sourceVintageHash,
     manifestPath,matchesPriorPublishedSummary,originalSnapshotPreserved}
     =await resolveUcitsSourceSnapshot();
-  if(fs.existsSync(OUTPUT)){
-    const already=JSON.parse(fs.readFileSync(OUTPUT,'utf8'));
-    insist(already.version===VERSION&&already.rawLineageMatchesPreviousPreflight===true,'EXISTING_RESULT_INVALID');
-    console.log(MARKER,JSON.stringify({status:'ALREADY_SAVED',study:VERSION,output:OUTPUT,economicOutcomesCalculated:false}));
-    return;
-  }
   const exchange=await fetchEcb(),fx=parseEcbCsv(exchange.raw);
   const comparisons=INSTRUMENTS.map(inst=>reconcileAnnual(inst,panels[inst.ticker].bars,fx));
   const allPass=comparisons.every(x=>x.annualConsistency==='PASS_ANNUAL_CONSISTENCY_ONLY');
