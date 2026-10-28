@@ -28,22 +28,30 @@ assert.match(peadSignalBlock, /scripts\/peadSignalDiagnosticV1\.mjs/);
 assert.match(peadSignalBlock, /Yahoo REAL · diagnóstico PEAD 60 sesiones/);
 const ucitsStart = routes.indexOf("id: 'static-ucits-factor-market-data-preflight-v1'");
 const issuerStart = routes.indexOf("id: 'static-ucits-factor-issuer-annual-reconciliation-v1'", ucitsStart);
-const ucitsEnd = routes.indexOf("id: 'pead-yahoo-calendar-source-audit-r3'", issuerStart);
-assert.ok(ucitsStart >= 0 && issuerStart > ucitsStart && ucitsEnd > issuerStart, 'Prior data capture retained, issuer reconciliation reuses same validation surface');
+const economicStart = routes.indexOf("id: 'static-ucits-factor-economic-diagnostic-r1'", issuerStart);
+const ucitsEnd = routes.indexOf("id: 'pead-yahoo-calendar-source-audit-r3'", economicStart);
+assert.ok(ucitsStart >= 0 && issuerStart > ucitsStart && economicStart > issuerStart && ucitsEnd > economicStart,
+  'One integrated UCITS line progresses from source to official reconciliation to economic R1');
 const ucitsBlock = routes.slice(ucitsStart, issuerStart);
-const issuerBlock = routes.slice(issuerStart, ucitsEnd);
+const issuerBlock = routes.slice(issuerStart, economicStart);
+const economicBlock = routes.slice(economicStart, ucitsEnd);
 assert.match(ucitsBlock, /visibility: 'ARCHIVED'/);
 assert.match(ucitsBlock, /2532\/2532/);
-assert.match(issuerBlock, /visibility: 'CURRENT'/);
-assert.match(issuerBlock, /tests\/staticUcitsFactorIssuerAnnualReconciliationV1\.unit\.mjs/);
-assert.match(issuerBlock, /tests\/staticUcitsFactorMarketDataPreflightV1\.unit\.mjs/);
-assert.match(issuerBlock, /tests\/unifiedInvestmentUniverse\.unit\.ts/);
-assert.match(issuerBlock, /tests\/coreArchitectureV1\.unit\.ts/);
-assert.match(issuerBlock, /tests\/researchValidationRuntime\.unit\.ts/);
-assert.match(issuerBlock, /scripts\/staticUcitsFactorIssuerAnnualReconciliationV1\.mjs/);
-assert.doesNotMatch(issuerBlock, /requiresGithubReplayToken|requiresEodhdApiKey|requiresTimesFmRunner|Kronos Stage B/);
-assert.ok(issuerBlock.indexOf("args: ['run', 'lint']") < issuerBlock.indexOf('scripts/staticUcitsFactorIssuerAnnualReconciliationV1.mjs'), 'TypeScript must pass before reconciliation');
-assert.ok(!issuerBlock.includes("scripts/staticUcitsFactorMarketDataPreflightV1.mjs"), 'Do not redownload already-frozen Yahoo source');
+assert.match(issuerBlock, /visibility: 'ARCHIVED'/);
+assert.match(issuerBlock, /36\/36 PASS/);
+assert.match(economicBlock, /visibility: 'CURRENT'/);
+assert.match(economicBlock, /tests\/staticUcitsFactorEconomicR1\.unit\.ts/);
+assert.match(economicBlock, /tests\/staticUcitsFactorIssuerAnnualReconciliationV1\.unit\.mjs/);
+assert.match(economicBlock, /tests\/unifiedInvestmentUniverse\.unit\.ts/);
+assert.match(economicBlock, /tests\/coreArchitectureV1\.unit\.ts/);
+assert.match(economicBlock, /tests\/researchValidationRuntime\.unit\.ts/);
+assert.match(economicBlock, /scripts\/staticUcitsFactorEconomicR1\.ts/);
+assert.doesNotMatch(economicBlock, /requiresGithubReplayToken|requiresEodhdApiKey|requiresTimesFmRunner|Kronos Stage B/);
+assert.ok(economicBlock.indexOf("args: ['run', 'lint']") < economicBlock.indexOf('scripts/staticUcitsFactorEconomicR1.ts'),
+  'TypeScript must pass before economic outcomes');
+assert.ok(!economicBlock.includes("scripts/staticUcitsFactorMarketDataPreflightV1.mjs") &&
+  !economicBlock.includes("scripts/staticUcitsFactorIssuerAnnualReconciliationV1.mjs"),
+  'Existing data-quality jobs must not be rerun as extra validation jobs');
 const currentVisibilityCount = (routes.match(/visibility: 'CURRENT'/g) ?? []).length;
 assert.equal(currentVisibilityCount, 1, 'Exactly one research line should be visible as CURRENT');
 const parkedVisibilityCount = (routes.match(/visibility: 'PARKED'/g) ?? []).length;
