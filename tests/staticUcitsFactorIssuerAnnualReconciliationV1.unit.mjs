@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   VERSION,MARKER,PERIODS,ECB_URL,OFFICIAL,QUALITY_LIMITS,parseEcbCsv,
-  annualUsdReturns,reconcileAnnual
+  annualUsdReturns,reconcileAnnual,chooseUcitsSourceResolution
 } from '../scripts/staticUcitsFactorIssuerAnnualReconciliationV1.mjs';
 import { INSTRUMENTS } from '../scripts/staticUcitsFactorMarketDataPreflightV1.mjs';
 
@@ -53,7 +53,22 @@ assert.equal(PERIODS.at(-1),2025);
 assert.ok(ECB_URL.includes('D.USD.EUR.SP00.A'));
 assert.equal(QUALITY_LIMITS.maxYearAbsoluteDifferencePctPoints,3);
 const source=fs.readFileSync('scripts/staticUcitsFactorIssuerAnnualReconciliationV1.mjs','utf8');
-assert.match(source,/COVERAGE_MANIFEST_NOT_PERSISTED_LOCAL/);
+// Original 26-Oct source is never silently replaced by a fresh download.
+const choose=(originalManifestExists,originalRawCount,recaptureManifestExists,recaptureRawCount)=>
+  chooseUcitsSourceResolution({originalManifestExists,originalRawCount,recaptureManifestExists,recaptureRawCount});
+assert.equal(choose(true,4,false,0),'ORIGINAL_VERIFIED_MANIFEST');
+assert.equal(choose(false,4,false,0),'REBUILD_MANIFEST_FROM_UNCHANGED_ORIGINAL_RAW');
+assert.equal(choose(false,0,false,0),'EXPLICIT_NEW_SOURCE_RECAPTURE');
+assert.equal(choose(true,0,false,0),'EXPLICIT_NEW_SOURCE_RECAPTURE');
+assert.equal(choose(true,2,false,0),'EXPLICIT_NEW_SOURCE_RECAPTURE');
+assert.equal(choose(true,3,true,4),'EXPLICIT_RECAPTURE_EXISTING');
+assert.equal(choose(false,0,true,4),'EXPLICIT_RECAPTURE_EXISTING');
+assert.equal(choose(false,0,false,2),'BLOCKED_PARTIAL_RECAPTURE');
+assert.equal(choose(true,0,true,2),'BLOCKED_RECAPTURE_MISSING_RAW');
+assert.throws(()=>choose(true,5,false,0),/INVALID_SOURCE_FILE_COUNTS/);
+assert.match(source,/REBUILD_MANIFEST_FROM_UNCHANGED_ORIGINAL_RAW/);
+assert.match(source,/NEW_REAL_YAHOO_SOURCE_VINTAGE_AFTER_EPHEMERAL_STORAGE_LOSS/);
+assert.match(source,/SOURCE_VINTAGE_HASH_DIVERGENCE/);
 assert.match(source,/RAW_CHECKSUM_MISMATCH/);
 assert.match(source,/flag:'wx'/);
 assert.match(source,/sourceType:'REAL'/);
@@ -61,6 +76,6 @@ assert.match(source,/dailyIssuerNavReconciliation:false/);
 assert.match(source,/economicOutcomesCalculated:false/);
 assert.ok(!source.includes('Math.random'));
 console.log('STATIC_UCITS_FACTOR_ISSUER_ANNUAL_RECONCILIATION_V1_UNIT_PASS',JSON.stringify({
-  contract:VERSION,marker:MARKER,scenarios:'four issuer fixtures, 36 annual comparisons, mismatched market, wrong ISIN, FX gaps, FX inversion, immutable lineage, no portfolio policy',
+  contract:VERSION,marker:MARKER,scenarios:'four issuer fixtures, 36 annual comparisons, wrong market/ISIN/FX, 10 source-recovery decisions, no mixed vintage or portfolio policy',
   marketDataFetched:false,sourceType:'SYNTHETIC_UNIT_FIXTURE_ONLY'
 }));
