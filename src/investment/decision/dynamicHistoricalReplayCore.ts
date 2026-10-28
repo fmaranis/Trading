@@ -1075,7 +1075,7 @@ export class DynamicHistoricalReplayEngine {
       } else {
         advanceCashTo(endDate);
       }
-      decisionStates.push({ date: input.startDate, regime: 'HOLD_ONLY', method: 'SIN_MOTOR' });
+      if (!input.researchStaticBuyHold) decisionStates.push({ date: input.startDate, regime: 'HOLD_ONLY', method: 'SIN_MOTOR' });
       const finalPortfolio = portfolioValue(input.dataset, holdings, cashEur, endDate);
       const finalValueEur = finalPortfolio.equityEur;
       const performance = cashFlowAdjustedPerformance({ finalValueEur, initialCapitalEur: input.initialCapitalEur, appliedFlows: appliedExternalCashFlows });
