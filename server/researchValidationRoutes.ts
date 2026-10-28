@@ -555,7 +555,8 @@ const JOBS: JobDefinition[] = [
     name: 'Investigación · ETFs factoriales · contrastar gestoras y BCE',
     description: 'Reutiliza la captura Yahoo REAL de EUNL/XDEM/XDEQ/XDEV sin descargarla otra vez. Contrasta rentabilidades anuales publicadas por BlackRock/DWS (USD) con cotizaciones Xetra EUR convertidas con tipo BCE. No es conciliación diaria de NAV ni un backtest.',
     marker: 'STATIC_UCITS_FACTOR_ISSUER_ANNUAL_RECONCILIATION_V1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'ARCHIVED',
+    historyLabel: 'ETFs factoriales · NAV oficial 36/36 PASS · 2026-10-28',
     steps: [
       { label: 'Guard reconciliación gestoras/BCE · contrato', command: 'node', args: ['tests/staticUcitsFactorIssuerAnnualReconciliationV1.unit.mjs'] },
       { label: 'Guard cobertura de ETFs previamente capturada', command: 'node', args: ['tests/staticUcitsFactorMarketDataPreflightV1.unit.mjs'] },
@@ -564,6 +565,22 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Contrastar Yahoo cache con rentabilidades oficiales y BCE · sin replay', command: 'node', args: ['scripts/staticUcitsFactorIssuerAnnualReconciliationV1.mjs'] }
+    ]
+  },
+  {
+    id: 'static-ucits-factor-economic-diagnostic-r1',
+    name: 'Investigación · ETFs factoriales · patrimonio neto vs EUNL',
+    description: 'Único diagnóstico research-only: 100% EUNL vs 50% EUNL + 1/6 XDEM/XDEQ/XDEV; 13.000 EUR y sensibilidades congeladas, NEXT_OPEN whole shares, fees y fiscalidad. 2017–2025 ya consumido; NO promoción.',
+    marker: 'STATIC_UCITS_FACTOR_ECONOMIC_DIAGNOSTIC_R1_RESULT',
+    visibility: 'CURRENT',
+    steps: [
+      { label: 'Guard ejecución causal ETF y paridad legado', command: 'npx', args: ['tsx', 'tests/staticUcitsFactorEconomicR1.unit.ts'] },
+      { label: 'Guard protocolo de fuente Yahoo y BCE', command: 'node', args: ['tests/staticUcitsFactorIssuerAnnualReconciliationV1.unit.mjs'] },
+      { label: 'Guard catálogo inversión unificado', command: 'npx', args: ['tsx', 'tests/unifiedInvestmentUniverse.unit.ts'] },
+      { label: 'Guard arquitectura productiva', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard runtime validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
+      { label: 'Diagnóstico económico consumido · 2 carteras × 3 capitales', command: 'npx', args: ['tsx', 'scripts/staticUcitsFactorEconomicR1.ts'] }
     ]
   },
   {
