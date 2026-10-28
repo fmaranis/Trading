@@ -3,7 +3,7 @@ import type { AssetUniverseItem } from './assetUniverse';
 import type { AssetScanCandidate, AssetUniverseScanResult } from './assetUniverseScanner';
 import { executionPolicyForCapital } from './adaptiveExecutionPolicy';
 import { assessAgainstCashBenchmark, DEFAULT_CASH_BENCHMARK_ANNUAL_PCT } from './cashBenchmark';
-import { brokerCommission } from './costAwareExecutionPolicy';
+import { brokerCommission, rebalanceCostAware } from './costAwareExecutionPolicy';
 import type { EntryTimingSetup, EntryTimingState } from './entryTiming';
 import { HistoricalDecisionReplayEngine } from './historicalDecisionReplay';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
@@ -37,6 +37,15 @@ export type DynamicReplayResearchDirectSelectorPolicy = 'TIMESFM_DIRECT_SELECTOR
 export interface DynamicReplayResearchDirectSelector {
   policy: DynamicReplayResearchDirectSelectorPolicy;
   selectionsByDate: Record<string, string>;
+}
+
+/** Opt-in only: a from-cash passive comparison, never initial holdings supplied by user. */
+export interface DynamicReplayResearchStaticBuyHold {
+  targetWeights: Record<string, number>;
+  /** Frozen one-way execution slippage, percent of adjusted NEXT_OPEN. */
+  slippagePct: number;
+  /** Sell at last common session NEXT_OPEN based on the previous session. */
+  liquidateAtEnd: true;
 }
 
 export interface DynamicReplayInitialAllocation {
@@ -867,6 +876,8 @@ export class DynamicHistoricalReplayEngine {
     explicitDecisionDates?: string[];
     /** Research-only direct asset selector. Omitted in product/default replay. */
     researchDirectSelector?: DynamicReplayResearchDirectSelector;
+    /** Opt-in passive research execution, prohibited in the normal engine. */
+    researchStaticBuyHold?: DynamicReplayResearchStaticBuyHold;
   }): DynamicHistoricalReplayResult {
     if (!(input.initialCapitalEur > 0)) throw new Error('El capital del replay dinámico debe ser > 0.');
     const frequency = input.frequency ?? 'MONTHLY';
@@ -874,6 +885,9 @@ export class DynamicHistoricalReplayEngine {
     const simulationMode = input.simulationMode ?? 'CUSTODIA_ENGINE';
     if (input.researchDirectSelector && simulationMode !== 'CUSTODIA_ENGINE') {
       throw new Error('REPLAY_DIRECT_SELECTOR_REQUIRES_CUSTODIA_ENGINE');
+    }
+    if (input.researchStaticBuyHold && (simulationMode !== 'HOLD_ONLY' || input.initialPortfolio || input.researchDirectSelector || input.externalCashFlows?.length)) {
+      throw new Error('REPLAY_STATIC_BUY_HOLD_REQUIRES_CASH_HOLD_ONLY_WITHOUT_FLOWS');
     }
     const initialPortfolioSource: DynamicReplayInitialPortfolioSource = input.initialPortfolio?.source ?? 'ZERO';
     const cashBenchmarkAnnualPct = Number.isFinite(input.cashBenchmarkAnnualPct) ? Math.max(0, Number(input.cashBenchmarkAnnualPct)) : DEFAULT_CASH_BENCHMARK_ANNUAL_PCT;
@@ -948,7 +962,119 @@ export class DynamicHistoricalReplayEngine {
     if (simulationMode === 'HOLD_ONLY') {
       firstDecisionDate = input.startDate;
       lastCashDate = input.startDate;
-      advanceCashTo(endDate);
+      if (input.researchStaticBuyHold) {
+        const plan = input.researchStaticBuyHold;
+        const assets = Object.entries(plan.targetWeights);
+        const sum = assets.reduce((n, [, w]) => n + w, 0);
+        if (!assets.length || assets.length > 4 || !assets.every(([id, w]) =>
+          Boolean(assetById(input.dataset, id)) && Boolean(catalogItem(input.catalog, id))
+          && instrumentType(input.catalog, id) === 'ETF_ETC'
+          && Number.isFinite(w) && w > 0 && w <= 1)
+          || Math.abs(sum - 1) > 1e-5 || !Number.isFinite(plan.slippagePct)
+          || plan.slippagePct < 0 || plan.slippagePct > 1 || plan.liquidateAtEnd !== true) {
+          throw new Error('REPLAY_STATIC_BUY_HOLD_INVALID_FROZEN_POLICY');
+        }
+        const eligible = tradingDates(input.dataset, input.startDate, endDate).filter(date =>
+          assets.every(([id]) => assetById(input.dataset, id)?.bars.some(bar =>
+            isoDate(bar.timestamp) === date && bar.open > 0 && bar.close > 0)));
+        const entryDate = eligible.find(date => date > input.startDate);
+        const exitDate = eligible.at(-1);
+        const exitSignalDate = eligible.at(-2);
+        if (!entryDate || !exitDate || !exitSignalDate || entryDate >= exitDate) {
+          throw new Error('REPLAY_STATIC_BUY_HOLD_NO_COMMON_NEXT_OPEN');
+        }
+        // Every security is purchased at the SAME next common session,
+        // never at the signal-date close and never with fractional units.
+        advanceCashTo(entryDate);
+        const prices: Record<string, number> = {};
+        const positions: Record<string, {assetId: string; ticker: string; shares: number}> = {};
+        for (const [assetId] of assets) {
+          const bar = assetById(input.dataset, assetId)!.bars.find(row => isoDate(row.timestamp) === entryDate)!;
+          prices[assetId] = bar.open * (1 + plan.slippagePct / 100);
+          positions[assetId] = { assetId, ticker: catalogItem(input.catalog, assetId)!.ticker, shares: 0 };
+        }
+        const buy = rebalanceCostAware({
+          positions, pricesEur: prices, cashEur, targetWeights: plan.targetWeights,
+          referenceEquityEur: cashEur, policy: executionPolicyForCapital(input.initialCapitalEur)
+        });
+        if (buy.orders.length !== assets.length || buy.orders.some(order => order.side !== 'BUY')) {
+          throw new Error('REPLAY_STATIC_BUY_HOLD_UNEXECUTABLE_WHOLE_SHARES');
+        }
+        cashEur = buy.cashEur;
+        totalFeesEur += buy.totalCommissionEur;
+        for (const order of buy.orders) {
+          const holding: Holding = {
+            assetId: order.assetId, ticker: order.ticker, instrumentType: 'ETF_ETC',
+            units: order.shares, lots: []
+          };
+          // Acquisition fee belongs to the tax cost basis.
+          addLot(holding, order.shares, order.notionalEur + order.commissionEur, entryDate);
+          holdings.set(order.assetId, holding);
+          signals.push({
+            id: input.startDate + '_' + order.assetId + '_STATIC_BUY',
+            signalDate: input.startDate, executionDate: entryDate,
+            assetId: order.assetId, ticker: order.ticker, action: 'BUY',
+            targetWeight: plan.targetWeights[order.assetId], currentWeight: 0,
+            recommendedAmountEur: input.initialCapitalEur * plan.targetWeights[order.assetId],
+            consensusScore: null, favorableVotes: null, unfavorableVotes: null,
+            structuralDowntrend: false, buyTheDipCandidate: false,
+            timingState: null, timingSetup: null, timingScore: null,
+            suggestedInitialFraction: null,
+            executed: true, unitsDelta: order.shares, notionalEur: order.notionalEur,
+            feeEur: order.commissionEur, realizedGainEur: 0, estimatedTaxEur: 0,
+            taxDeferredTransferEur: 0, executionPriceEur: order.marketPriceEur,
+            reason: 'Research-only static portfolio; NEXT_OPEN whole-share buy with broker fees/slippage.'
+          });
+          events.push({
+            id: entryDate + '_' + order.assetId + '_STATIC_BUY', date: entryDate,
+            type: 'BUY', ticker: order.ticker, amountEur: order.notionalEur,
+            feeEur: order.commissionEur, taxEur: 0, realizedGainEur: 0,
+            label: 'Compra inicial causal', detail: 'Cartera pasiva congelada antes de outcomes; no decisión del motor.'
+          });
+        }
+        // Terminal liquidation is a frozen horizon rule. The prior trading
+        // session is the sell signal; last common session OPEN is the fill.
+        advanceCashTo(exitDate);
+        for (const [assetId] of assets) {
+          const holding = holdings.get(assetId)!;
+          const bar = assetById(input.dataset, assetId)!.bars.find(row => isoDate(row.timestamp) === exitDate)!;
+          const executionPriceEur = bar.open * (1 - plan.slippagePct / 100);
+          const notionalEur = holding.units * executionPriceEur;
+          const feeEur = brokerCommission(notionalEur);
+          const costBasisEur = consumeLots(holding, holding.units);
+          const gainEur = notionalEur - feeEur - costBasisEur;
+          const taxEur = taxForPositiveGain(gainEur, exitDate, taxSettings, positiveGainByYear);
+          cashEur += notionalEur - feeEur - taxEur;
+          totalFeesEur += feeEur;
+          totalEstimatedTaxEur += taxEur;
+          signals.push({
+            id: exitSignalDate + '_' + assetId + '_STATIC_EXIT', signalDate: exitSignalDate,
+            executionDate: exitDate, assetId, ticker: holding.ticker, action: 'EXIT',
+            targetWeight: 0, currentWeight: 0, recommendedAmountEur: 0,
+            consensusScore: null, favorableVotes: null, unfavorableVotes: null,
+            structuralDowntrend: false, buyTheDipCandidate: false,
+            timingState: null, timingSetup: null, timingScore: null,
+            suggestedInitialFraction: null, executed: true, unitsDelta: -holding.units,
+            notionalEur, feeEur, realizedGainEur: gainEur,
+            estimatedTaxEur: taxEur, taxDeferredTransferEur: 0, executionPriceEur,
+            reason: 'Research-only terminal liquidation after previous-session signal; no market-timed exit.'
+          });
+          events.push({
+            id: exitDate + '_' + assetId + '_STATIC_EXIT', date: exitDate,
+            type: 'EXIT', ticker: holding.ticker, amountEur: notionalEur,
+            feeEur, taxEur, realizedGainEur: gainEur,
+            label: 'Liquidación terminal', detail: 'Salida precongelada al cierre del horizonte; NEXT_OPEN.'
+          });
+          holdings.delete(assetId);
+        }
+        if (cashEur < -0.01 || !Number.isFinite(cashEur)) {
+          throw new Error('REPLAY_STATIC_BUY_HOLD_INVALID_TERMINAL_CASH');
+        }
+        advanceCashTo(endDate);
+        decisionStates.push({ date: input.startDate, regime: 'STATIC_RESEARCH', method: 'NEXT_OPEN_BUY_AND_HOLD' });
+      } else {
+        advanceCashTo(endDate);
+      }
       decisionStates.push({ date: input.startDate, regime: 'HOLD_ONLY', method: 'SIN_MOTOR' });
       const finalPortfolio = portfolioValue(input.dataset, holdings, cashEur, endDate);
       const finalValueEur = finalPortfolio.equityEur;
@@ -986,16 +1112,16 @@ export class DynamicHistoricalReplayEngine {
         excessReturnVsCashPctPoints: totalReturnPct - allCash.returnPct,
         decisionPathMaxDrawdownPct: pathMaxDrawdown(equityPath),
         decisions: 0,
-        materialSignals: 0,
-        executedBuys: 0,
+        materialSignals: input.researchStaticBuyHold ? signals.length : 0,
+        executedBuys: input.researchStaticBuyHold ? signals.filter(x => x.action === 'BUY').length : 0,
         executedAdds: 0,
         executedReductions: 0,
-        executedExits: 0,
+        executedExits: input.researchStaticBuyHold ? signals.filter(x => x.action === 'EXIT').length : 0,
         timingStateCounts: { WAIT: 0, ENTRY_READY: 0, ENTRY_STRONG: 0 },
         trendProtectionV1Counts: { HOLD: 0, WATCH: 0, REDUCE: 0, EXIT: 0, winnerProtectionArmed: 0, loserFailureArmed: 0, earlierProtectionCandidates: 0 },
         deploymentHorizons,
-        totalFeesEur: 0,
-        totalEstimatedTaxEur: 0,
+        totalFeesEur,
+        totalEstimatedTaxEur,
         totalTransferredEur: 0,
         cashInterestEur,
         taxMethod: taxSettings.contextConfirmed ? 'CONFIGURED_PROGRESSIVE' : 'CONSERVATIVE_MAX_RATE',
@@ -1004,10 +1130,10 @@ export class DynamicHistoricalReplayEngine {
         events,
         equityPath,
         notes: [
-          'Modo MANTENER CARTERA: las posiciones iniciales se valoran a lo largo del periodo sin BUY/ADD/WATCH/REDUCE/EXIT/ROTATE del motor.',
+          input.researchStaticBuyHold ? 'RESEARCH-ONLY: compras de títulos enteros NEXT_OPEN, comisión, slippage y liquidación terminal con impuesto conservador. Nunca simular como cartera previa.' : 'Modo MANTENER CARTERA: las posiciones iniciales se valoran a lo largo del periodo sin BUY/ADD/WATCH/REDUCE/EXIT/ROTATE del motor.',
           'El efectivo no invertido conserva exactamente la misma remuneración histórica/configurada y fiscalidad del cash que el replay normal.',
           normalizedExternalCashFlows.length ? `Flujos externos explícitos: ${performance.summary.contributionsEur.toFixed(2)} € aportados y ${performance.summary.withdrawalsEur.toFixed(2)} € retirados. MONTHLY no crea dinero por sí mismo.` : 'No hay flujos externos: MONTHLY sigue siendo sólo frecuencia de revisión.',
-          'Las posiciones iniciales son estado de partida definido por el usuario; no son recomendaciones ni decisiones de Custodia.',
+          input.researchStaticBuyHold ? 'Se empieza desde efectivo, sin aportaciones y sin recomendación ni rotación del motor. Diferencias fiscales y de coste terminal expresas.' : 'Las posiciones iniciales son estado de partida definido por el usuario; no son recomendaciones ni decisiones de Custodia.',
           'Toda la valoración usa únicamente precios REAL disponibles en el dataset del replay.'
         ]
       };
