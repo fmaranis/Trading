@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { INSTRUMENTS, parseYahooEtfChart, auditCoverage } from './staticUcitsFactorMarketDataPreflightV1.mjs';
+import { INSTRUMENTS, parseYahooEtfChart, auditCoverage, main as buildUcitsPreflightSnapshot } from './staticUcitsFactorMarketDataPreflightV1.mjs';
 
 export const VERSION='STATIC_UCITS_FACTOR_ISSUER_ANNUAL_RECONCILIATION_V1';
 export const MARKER='STATIC_UCITS_FACTOR_ISSUER_ANNUAL_RECONCILIATION_V1_RESULT';
@@ -16,6 +16,12 @@ export const PERIODS=Object.freeze([2017,2018,2019,2020,2021,2022,2023,2024,2025
 export const ECB_URL='https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?startPeriod=2016-12-01&endPeriod=2025-12-31&format=csvdata';
 export const FX_CACHE='.runtime/static-ucits-factor-v1/ecb/eur-usd-reference-2016-2025.csv';
 export const COVERAGE_MANIFEST='validation-runs/diagnostics/static-ucits-factor-market-data-preflight-v1-result.json';
+export const ORIGINAL_YAHOO_CACHE='.runtime/static-ucits-factor-v1/yahoo';
+export const RECAPTURE_CACHE='.runtime/static-ucits-factor-v1/reacquired-source-v2/yahoo';
+export const RECAPTURE_MANIFEST='validation-runs/diagnostics/static-ucits-factor-market-data-preflight-v1-reacquired-v2-result.json';
+export const ORIGINAL_REPORTED_COMMON_DAYS=2532;
+export const ORIGINAL_REPORTED_START='2016-11-04';
+export const ORIGINAL_REPORTED_END='2026-10-23';
 export const OUTPUT='validation-runs/diagnostics/static-ucits-factor-issuer-annual-reconciliation-v1-result.json';
 const sha256=x=>crypto.createHash('sha256').update(x).digest('hex');
 const insist=(x,reason)=>{if(!x)throw Error('ISSUER_ANNUAL_RECONCILIATION_'+reason);};
@@ -124,6 +130,88 @@ export function reconcileAnnual(instrument,bars,fx,official=OFFICIAL,limits=QUAL
     years:outcomes,meanAbsoluteDifferencePctPoints,maximumAbsoluteDifferencePctPoints,
     annualConsistency:qualified?'PASS_ANNUAL_CONSISTENCY_ONLY':'INCONCLUSIVE_ANNUAL_MISMATCH'};
 }
+
+/**
+ * Choose the evidence source explicitly. Never mix partial old/new files or
+ * misrepresent a re-download as the original 26 October Yahoo source vintage.
+ * This is an infrastructure repair, NOT a second return study.
+ */
+export function chooseUcitsSourceResolution({originalManifestExists,originalRawCount,
+  recaptureManifestExists,recaptureRawCount}){
+  insist(Number.isInteger(originalRawCount)&&originalRawCount>=0&&originalRawCount<=INSTRUMENTS.length
+    &&Number.isInteger(recaptureRawCount)&&recaptureRawCount>=0&&recaptureRawCount<=INSTRUMENTS.length,
+  'INVALID_SOURCE_FILE_COUNTS');
+  if(originalManifestExists&&originalRawCount===INSTRUMENTS.length)return 'ORIGINAL_VERIFIED_MANIFEST';
+  if(!originalManifestExists&&originalRawCount===INSTRUMENTS.length)return 'REBUILD_MANIFEST_FROM_UNCHANGED_ORIGINAL_RAW';
+  if(recaptureManifestExists)
+    return recaptureRawCount===INSTRUMENTS.length?'EXPLICIT_RECAPTURE_EXISTING':'BLOCKED_RECAPTURE_MISSING_RAW';
+  return recaptureRawCount===0?'EXPLICIT_NEW_SOURCE_RECAPTURE':'BLOCKED_PARTIAL_RECAPTURE';
+}
+function countRaw(cacheDir){
+  return INSTRUMENTS.filter(inst=>fs.existsSync(path.join(cacheDir,inst.ticker+'.json'))).length;
+}
+export async function resolveUcitsSourceSnapshot(){
+  const state={
+    originalManifestExists:fs.existsSync(COVERAGE_MANIFEST),
+    originalRawCount:countRaw(ORIGINAL_YAHOO_CACHE),
+    recaptureManifestExists:fs.existsSync(RECAPTURE_MANIFEST),
+    recaptureRawCount:countRaw(RECAPTURE_CACHE)
+  };
+  const sourceResolution=chooseUcitsSourceResolution(state);
+  if(sourceResolution.startsWith('BLOCKED'))throw Error('ISSUER_ANNUAL_RECONCILIATION_'+sourceResolution);
+  if(sourceResolution==='REBUILD_MANIFEST_FROM_UNCHANGED_ORIGINAL_RAW'){
+    // All four original cache files must exist. The preflight rechecks
+    // identity/coverage and creates an explicitly reconstructed manifest.
+    await buildUcitsPreflightSnapshot({
+      cacheDir:ORIGINAL_YAHOO_CACHE,outputPath:COVERAGE_MANIFEST,
+      captureType:'RECONSTRUCTED_FROM_RETAINED_ORIGINAL_RAW_NO_PRIOR_MANIFEST'
+    });
+  }
+  if(sourceResolution==='EXPLICIT_NEW_SOURCE_RECAPTURE'){
+    // Separate file tree and manifest; no overwrite, no partially mixed vintages.
+    // Original 2532-date 2026-10-26 PASS remains historical evidence ONLY.
+    await buildUcitsPreflightSnapshot({
+      cacheDir:RECAPTURE_CACHE,outputPath:RECAPTURE_MANIFEST,
+      captureType:'NEW_REAL_YAHOO_SOURCE_VINTAGE_AFTER_EPHEMERAL_STORAGE_LOSS'
+    });
+  }
+  const manifestPath=sourceResolution==='EXPLICIT_NEW_SOURCE_RECAPTURE'
+    ||sourceResolution==='EXPLICIT_RECAPTURE_EXISTING'?RECAPTURE_MANIFEST:COVERAGE_MANIFEST;
+  const cacheDir=manifestPath===COVERAGE_MANIFEST?ORIGINAL_YAHOO_CACHE:RECAPTURE_CACHE;
+  const prior=JSON.parse(fs.readFileSync(manifestPath,'utf8'));
+  insist(prior.version==='STATIC_UCITS_FACTOR_MARKET_DATA_PREFLIGHT_V1'
+    &&prior.status==='PASS_DATA_COVERAGE_PENDING_EXTERNAL_RECONCILIATION'
+    &&prior.sourceType==='REAL'&&prior.economicOutcomesCalculated===false,
+    'COVERAGE_MANIFEST_INVALID');
+  const panels={};
+  for(const inst of INSTRUMENTS){
+    const evidence=prior.sourceRawCache?.[inst.ticker];
+    insist(evidence&&typeof evidence.sha256==='string'&&/^[a-f0-9]{64}$/.test(evidence.sha256),
+      'RAW_LINEAGE_MISSING:'+inst.ticker);
+    const expected=path.join(cacheDir,inst.ticker+'.json');
+    insist(evidence.path===expected,'RAW_CACHE_PATH_MISMATCH:'+inst.ticker);
+    insist(fs.existsSync(expected),'RAW_CACHE_MISSING:'+inst.ticker);
+    const raw=fs.readFileSync(expected,'utf8');
+    insist(sha256(raw)===evidence.sha256,'RAW_CHECKSUM_MISMATCH:'+inst.ticker);
+    panels[inst.ticker]=parseYahooEtfChart(inst.ticker,raw);
+  }
+  const coverage=auditCoverage(panels);
+  insist(coverage.sharedDates===prior.coverage?.sharedDates&&coverage.sharedDates>=2500,
+    'PREVIOUS_COVERAGE_CHANGED');
+  // Do not claim original-source equivalence when Yahoo's historical records
+  // have changed, even if the newly captured source passes the general gate.
+  const matchesPriorPublishedSummary=coverage.sharedDates===ORIGINAL_REPORTED_COMMON_DAYS
+    &&coverage.comparableStartDate===ORIGINAL_REPORTED_START
+    &&coverage.lastCommonDate===ORIGINAL_REPORTED_END;
+  const sourceVintageHash=sha256(INSTRUMENTS.map(inst=>
+    inst.ticker+':'+prior.sourceRawCache[inst.ticker].sha256).join('|'));
+  if(prior.sourceVintageHash)insist(prior.sourceVintageHash===sourceVintageHash,
+    'SOURCE_VINTAGE_HASH_DIVERGENCE');
+  return {prior,panels,coverage,sourceResolution,sourceVintageHash,
+    manifestPath,cacheDir,matchesPriorPublishedSummary,
+    originalSnapshotPreserved:sourceResolution==='ORIGINAL_VERIFIED_MANIFEST'};
+}
+
 async function fetchEcb(){
   if(fs.existsSync(FX_CACHE)){const raw=fs.readFileSync(FX_CACHE,'utf8');return {raw,cached:true,sha256:sha256(raw)};}
   const response=await fetch(ECB_URL,{headers:{'Accept':'text/csv'},signal:AbortSignal.timeout(30000)});
@@ -135,24 +223,9 @@ async function fetchEcb(){
   return {raw,cached:false,sha256:sha256(raw)};
 }
 export async function main(){
-  insist(fs.existsSync(COVERAGE_MANIFEST),'COVERAGE_MANIFEST_NOT_PERSISTED_LOCAL');
-  const prior=JSON.parse(fs.readFileSync(COVERAGE_MANIFEST,'utf8'));
-  insist(prior.version==='STATIC_UCITS_FACTOR_MARKET_DATA_PREFLIGHT_V1'
-    &&prior.sourceType==='REAL'&&prior.economicOutcomesCalculated===false,'COVERAGE_MANIFEST_INVALID');
-  const panels={};
-  for(const inst of INSTRUMENTS){
-    const evidence=prior.sourceRawCache?.[inst.ticker];
-    insist(evidence&&typeof evidence.sha256==='string'&&/^[a-f0-9]{64}$/.test(evidence.sha256),'RAW_LINEAGE_MISSING:'+inst.ticker);
-    // Read only from frozen local prefix; a manifest cannot redirect outside repo-local runtime.
-    const expected=path.join('.runtime/static-ucits-factor-v1/yahoo',inst.ticker+'.json');
-    insist(evidence.path===expected,'RAW_CACHE_PATH_MISMATCH:'+inst.ticker);
-    insist(fs.existsSync(expected),'RAW_CACHE_MISSING:'+inst.ticker);
-    const raw=fs.readFileSync(expected,'utf8');
-    insist(sha256(raw)===evidence.sha256,'RAW_CHECKSUM_MISMATCH:'+inst.ticker);
-    panels[inst.ticker]=parseYahooEtfChart(inst.ticker,raw);
-  }
-  const coverage=auditCoverage(panels);
-  insist(coverage.sharedDates===prior.coverage?.sharedDates&&coverage.sharedDates>=2500,'PREVIOUS_COVERAGE_CHANGED');
+  const {prior,panels,coverage,sourceResolution,sourceVintageHash,
+    manifestPath,matchesPriorPublishedSummary,originalSnapshotPreserved}
+    =await resolveUcitsSourceSnapshot();
   if(fs.existsSync(OUTPUT)){
     const already=JSON.parse(fs.readFileSync(OUTPUT,'utf8'));
     insist(already.version===VERSION&&already.rawLineageMatchesPreviousPreflight===true,'EXISTING_RESULT_INVALID');
@@ -166,13 +239,17 @@ export async function main(){
     sourceType:'REAL',issuerSourceType:'OFFICIAL_ISSUER_PUBLISHED_ANNUAL_NAV_RETURNS',currency:'USD',
     generatedAt:new Date().toISOString(),studyWindow:'2017-2025',sourceRawCache:prior.sourceRawCache,
     rawLineageMatchesPreviousPreflight:true,coverageSharedDays:coverage.sharedDates,
+    sourceResolution,sourceManifestPath:manifestPath,sourceVintageHash,
+    originalSnapshotPreserved,matchesPriorPublishedSummary,
     fx:{provider:'ECB',series:'EXR.D.USD.EUR.SP00.A',source:ECB_URL,sha256:exchange.sha256,cached:exchange.cached,convention:'USD_PER_EUR'},
     officialSources:Object.fromEntries(INSTRUMENTS.map(x=>[x.isin,OFFICIAL[x.ticker].url])),
     issuerFiguresFrozenBeforeLocalMarketComparisons:true,qualityLimits:QUALITY_LIMITS,comparisons,
     dailyIssuerNavReconciliation:false,brokerIsinEligibilityVerified:false,productionAuthority:false,
     economicOutcomesCalculated:false,benchmarkAlphaOrPortfolioReturnsCalculated:false,
+    previousPublishedCoverageSummaryIsNotRawEvidence:true,
     pending:['DAILY_NAV_INDEPENDENT_CROSSCHECK','CORPORATE_ACTION_ACCOUNTING','BROKER_EXACT_ISINS','LOOKTHROUGH','SINGLE_FROZEN_POLICY_AND_FRESH_SAMPLE'],
     notes:[
+      'If original local cache was lost, new files were acquired as a separately identified REAL Yahoo vintage with separate SHA256; no claim of exact identity to 2026-10-26 raw data',
       'Issuer calendar-year NAV returns in USD, including internal fees, read from original issuer documents; not a daily NAV series',
       'Yahoo Xetra EUR adjusted closing quotations converted to USD with ECB published reference USD/EUR fixing on/before each Xetra close',
       'FX fixing and NAV valuation times differ from market close; this is an annual consistency filter, never proof of exact daily price reconciliation',
@@ -181,6 +258,7 @@ export async function main(){
   fs.mkdirSync(path.dirname(OUTPUT),{recursive:true});fs.writeFileSync(OUTPUT,JSON.stringify(result,null,2)+'\n',{flag:'wx'});
   console.log(MARKER,JSON.stringify({study:VERSION,status:result.status,counts:comparisons.map(x=>({ticker:x.ticker,years:x.years.length,
     meanAbsDiff:x.meanAbsoluteDifferencePctPoints,maxAbsDiff:x.maximumAbsoluteDifferencePctPoints,gate:x.annualConsistency})),
+    sourceResolution,sourceVintageHash,matchesPriorPublishedSummary,
     economicOutcomesCalculated:false,productionAuthority:false,output:OUTPUT}));
 }
 const invoked=process.argv[1]&&import.meta.url===pathToFileURL(path.resolve(process.argv[1])).href;
