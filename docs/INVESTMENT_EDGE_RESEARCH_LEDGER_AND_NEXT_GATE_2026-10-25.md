@@ -79,3 +79,11 @@ Fuentes para metodologías: XDEQ https://www.justetf.com/en-es/etf-profile.html?
 Ante cualquier nueva idea: contrastar primero esta matriz y `PROJECT_STATE.md`. Si ya está en familia/política/muestra cerrada, `DUPLICATE_STOP`. Si es una traducción real de una señal previa, etiquetar **IMPLEMENTATION_TRANSLATION** y preservar el resultado original; no presentarla como nuevo descubrimiento predictor.
 
 Objetivo final constante: que Custodia produzca decisiones de inversión con patrimonio neto superior a indexación simple, si y sólo si la evidencia causal, ejecutable y fuera de muestra lo justifica. Si no, recomendar la alternativa indexada sin operaciones extra. La app web y `CORE_ARCHITECTURE_V1` se conservan. Ningún permiso de promoción productiva nuevo.
+
+## Actualización de decisión 2026-10-28: ruta nueva PAPER-FIRST reemplaza prioridad UCITS
+
+**La antigua prioridad está cerrada, NO pendiente**. El estudio real UCITS factorial R1 fue ejecutado por el backend: `PASSED` de ejecución, pero `FAIL_DIAGNOSTIC` económico, 13.000 EUR iniciales, B frente a EUNL −464,1056 EUR netos, 4/9 años ganadores; `LEGACY` intacto. Véase `docs/STATIC_UCITS_FACTOR_ECONOMIC_R1_RESULT_REVIEW_2026-10-28.md`.
+
+**Ruta activa:** `docs/NEW_ECONOMIC_EDGE_RESEARCH_ROUTE_2026-10-28.md`, estado `E1_PAPER_SOURCE_FEASIBILITY_OPEN`. Primero estudiar **recompras de acciones efectivamente realizadas** y reducción neta de capital a partir de `Item 703` SEC publicado, con datos PIT y **coste real MyInvestor de acciones y FX**. No programar nada aún ni ejecutar backtests. Alternativas secuenciales sólo si E1 falla en papel: E2 spin-offs/ventas forzadas; E3 insiders Form4, context-only de entrada por resultado académico adverso a copying realizable. No son tres variantes o tres jobs.
+
+**Regla antirrepetición:** el resultado anterior se conserva aunque desfavorable; un estudio publicado de asociación entre recompras y rentabilidades NO justifica por sí mismo implementación. No abrir outcomes antes de congelar pregunta y comprobar fecha disponible, viabilidad, canal causal y caja de órdenes. Si falla una condición, `PAPER_REJECTED` sin código.
