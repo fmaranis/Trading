@@ -63,7 +63,7 @@ assert.equal(choose(true,0,false,0),'EXPLICIT_NEW_SOURCE_RECAPTURE');
 assert.equal(choose(true,2,false,0),'EXPLICIT_NEW_SOURCE_RECAPTURE');
 assert.equal(choose(true,3,true,4),'EXPLICIT_RECAPTURE_EXISTING');
 assert.equal(choose(false,0,true,4),'EXPLICIT_RECAPTURE_EXISTING');
-assert.equal(choose(false,0,false,2),'BLOCKED_PARTIAL_RECAPTURE');
+assert.equal(choose(false,0,false,2),'EXPLICIT_RESUME_NEW_SOURCE_RECAPTURE');
 assert.equal(choose(true,0,true,2),'BLOCKED_RECAPTURE_MISSING_RAW');
 assert.throws(()=>choose(true,5,false,0),/INVALID_SOURCE_FILE_COUNTS/);
 assert.match(source,/REBUILD_MANIFEST_FROM_UNCHANGED_ORIGINAL_RAW/);
@@ -76,6 +76,6 @@ assert.match(source,/dailyIssuerNavReconciliation:false/);
 assert.match(source,/economicOutcomesCalculated:false/);
 assert.ok(!source.includes('Math.random'));
 console.log('STATIC_UCITS_FACTOR_ISSUER_ANNUAL_RECONCILIATION_V1_UNIT_PASS',JSON.stringify({
-  contract:VERSION,marker:MARKER,scenarios:'four issuer fixtures, 36 annual comparisons, wrong market/ISIN/FX, 10 source-recovery decisions, no mixed vintage or portfolio policy',
+  contract:VERSION,marker:MARKER,scenarios:'four issuer fixtures, 36 annual comparisons, wrong market/ISIN/FX, recovered original, fresh and resumed separate vintages, no mixed original/reacquired data',
   marketDataFetched:false,sourceType:'SYNTHETIC_UNIT_FIXTURE_ONLY'
 }));
