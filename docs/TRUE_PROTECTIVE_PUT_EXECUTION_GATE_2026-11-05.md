@@ -59,4 +59,44 @@ V8 retuvo información predictiva sobre caídas futuras (p. ej., **72/83 episodi
 
 **`LISTED_TRUE_PUT_FOUND_EXECUTABLE_EDGE_NOT_DEMONSTRATED`**: la existencia del producto sí supera el veto inicial de *«no existe opción»*, pero **NO** el de *«se puede contratar a una prima real que permita monetizar V8 desde esta cartera y bróker»*. Se ha verificado un candidato exacto (PUT IWDA / EUNL mismo ISIN) y otro candidato con actividad estadística (EUN2) pero **subyacente distinto**. Sin quotes ASK/BID verificables y sin acceso MyInvestor confirmado, **NO-GO para programar replay/órdenes de puts ahora**.
 
-No recomendar al usuario cambiar broker ni comprar opciones. **El siguiente trabajo que sí puede desbloquear el estudio es obtener una única ficha de cotización real y cadena con vencimiento/strike y autorización de operativa, y solo entonces decidir si el importe de primas y liquidez merece investigación prospectiva.** Ante ausencia de esos datos no hay motivo para más código, ni para reejecutar V8–V11 ni para reajustar sus thresholds. 
+No recomendar al usuario cambiar broker ni comprar opciones. **El siguiente trabajo que sí puede desbloquear el estudio es obtener una única ficha de cotización real y cadena con vencimiento/strike y autorización de operativa, y solo entonces decidir si el importe de primas y liquidez merece investigación prospectiva.** Ante ausencia de esos datos no hay motivo para más código, ni para reejecutar V8–V11 ni para reajustar sus thresholds.
+
+
+## 6. Revisión adversarial de actividad y precios de 2026-11-03 a 2026-11-05
+
+**Fecha de revisión: 05-11-2026. Resultado: `PROTECTIVE_PUT_EXECUTABLE_QUOTE_GATE_FAIL_PUBLIC_DATA`.** La existencia del contrato no certifica un precio de negociación, y hay un dato **más reciente** de fuente oficial Eurex para `CSPX` que refuerza el bloqueo. Se conserva el estado previo `LISTED_TRUE_PUT_FOUND_EXECUTABLE_EDGE_NOT_DEMONSTRATED`.
+
+### 6.1. CSPX: 10 ETF por contrato, pero predominio de CALL y PUT sin operaciones
+
+Eurex confirma `iShares Core S&P 500 UCITS Options (CSPX)`, **ISIN subyacente `IE00B5BMR087`**, divisa **USD**, contrato **10 ETF** (excepción al multiplicador general 100). Un contrato de tamaño más ajustable que IWDA (100 ETF), aunque **CSPX cubre S&P 500, NO exactamente una cartera MSCI World u otro índice arbitrario**. Ficha oficial: https://www.eurex.com/ex-en/markets/etf-etc/eqt-idx-etfs/iShares-Core-S-P-500-UCITS-Options-946876
+
+La **tabla Eurex con Trading Date 2026-11-03** (URL indexada con parámetros de newsletter, mismos datos oficiales) exhibe **Open Interest 5.988** y **volumen total 1**: https://www.eurex.com/ex-en/markets/etf-etc/eqt-idx-etfs/iShares-Core-S-P-500-UCITS-Options-946876?pk_campaign=Email-EquityIndexNews_Newsletter&pk_cid=campaign-id-value&pk_content=20230526_ETFOptionsLaunch_2026-10-09-08%3A10_3562492&pk_group=null&pk_kwd=campaign-keyword-value&pk_medium=email&pk_placement=null&pk_source=newsletter
+
+**Desglose de todos los vencimientos publicados, en esa fecha concreta**:
+- `CALL` open interest: `14+609+235+4383=5.241` contratos = **87,53%** del total. `PUT` open interest: `28+444+245+30=747` contratos = **12,47%**. El principal bloque de `CALL` estaba en **junio 2027** con `4.383` contratos (73,2% de TODO el open interest). Citar headline OI de 5988 como si fueran PUT de protección sería incorrecto.
+- **PUT negociadas el 03-11-2026: CERO**. La única operación registrada fue CALL del vencimiento junio 2027. `Open Interest` NO demuestra liquidez a ASK razonable en la serie PUT que necesitamos; negociación cero no demuestra tampoco que un creador de mercado no cotizase sin que se ejecutara ninguna orden.
+- Una tabla pública Eurex para `IWDA` que aún devuelve **Trading Date 09-09-2026** muestra volumen/OI cero; **no se ha conseguido obtener** una instantánea por contrato `IWDA` con fecha 03-11 o 04-11 en la interfaz web pública. No extrapolar el valor de septiembre a hoy.
+- La estadística general de Eurex `Market statistics (online)` está fechada **2026-11-04** y disponible en https://eurexchange.com/ex-en/data/statistics/market-statistics-online , **pero no permite deducir el ASK/BID individual de CSPX/IWDA ni por sí sola la actividad de su put concreta**. No inventar que la tabla general valida la microestructura.
+
+### 6.2. Precios de liquidación oficiales ≠ ejecuciones posibles
+
+Las **especificaciones oficiales Eurex** indican expresamente que el **precio diario de liquidación de las ETF options se calcula con un modelo binomial Cox/Ross/Rubinstein**, cuando procede con dividendos/tipos de interés. Esa marca puede existir incluso sin transacciones reales en una serie. Fuente https://www.eurex.com/ex-en/markets/etf-etc/eqt-idx-etfs/iShares-Core-EURO-STOXX-50-UCITS-Options-944948
+
+**Decisión metodológica obligatoria:** el precio de liquidación sirve para contabilidad/valoración y puede figurar como fuente `REAL_REFERENCE_MARKET_SETTLEMENT` si se etiqueta de forma inequívoca, pero **no se aceptará como `REAL_EXECUTABLE_OPTION_PREMIUM`** para una prueba de prima comprada o liquidación vendida. Lo mismo para valores `theoretical` Eurex o una aplicación de simulación bursátil como `IEX Beursspel` (https://beursspel.iex.nl/) que muestra tablas históricas sin timestamp de orden verificable. **No usar supuestos ASK generados por modelo, precios «last» de otra fecha ni una pantalla sin profundidad como ejecuciones causales.**
+
+Deutsche Börse/Eurex explican que el histórico granular del libro de órdenes y transacciones está disponible mediante productos de datos propios y proveedores habilitados: https://www.eurex.com/ex-en/data ; https://www.eurexgroup.com/dbcm-en/instruments-statistics/statistics/market-data . Por ahora **no se dispone en herramientas conectadas de un feed ASK/BID vivo del contrato exacto**, aunque existe una ruta comercial de datos y la alternativa de intermediarios habilitados. Tener acceso a datos requiere suscripción/licencia y **no implica** automáticamente derecho de operativa en el broker.
+
+### 6.3. Condición matemática de la prima, que V8 todavía no suministra
+
+**Ejemplo exclusivamente algebraico para una PUT ATM conservada hasta vencimiento, sobre exactamente el mismo subyacente y nocional, SIN primas observadas ni costes/riesgo/FX**: si la prima cuesta `c` fracción del nocional, la caída al vencimiento de magnitud `d` produce payoff `d` del nocional, y hay dos únicos escenarios (caída de magnitud d con probabilidad `q` o ausencia de pago), el valor esperado de la PUT es `q×d−c`. Para no perder en expectativa por **la PUT aislada**, se necesita `q > c/d`.
+
+- Hipótesis prima `c=3%` y caída `d=10%` → tasa verdadera de **alertas que terminan en ese tipo de caída `q >30%`**, antes de fees/otros escenarios.
+- Si `d=20%` → `q >15%`, en el mismo escenario simplificado.
+- **No se ha medido `q`**, porque `72/83` de V8 es sensibilidad de episodios, NO `P(crash | alerta)`. Además el filtro binario omite caídas de distinta magnitud, movimientos antes de vencimiento, cancelación/cierre temprano y oportunidades correlacionadas. **No convertir `c=3%`, `d=10%` o el resultado de este ejemplo en thresholds/promoción**.
+- **La comparación económica correcta exige también la cartera sin PUT, rendimiento neto, riesgo, coste de cash/derivado, pérdidas de alertas falsas y capacidad de comprar cada contrato antes de que suba la volatilidad implícita.** Una política puede ahorrar drawdown sin sumar patrimonio neto.
+
+### 6.4. Cierre y siguiente condición externa
+
+**Resultado de puerta: `PROTECTIVE_PUT_EXECUTABLE_QUOTE_GATE_FAIL_PUBLIC_DATA`**. No se ha demostrado que la PUT específica sobre IWDA o CSPX tenga ASK/BID competitivo y disponible en el momento de una señal de V8; **no se descarta universalmente el instrumento**, pero **no debe abrirse replay, política de mercado o motor**. No comprar ni vender; no sugerir arbitrariamente cambiar de bróker por la mera existencia del contrato. `LEGACY` inalterado.
+
+**Evidencia que realmente cambia la decisión**: instantánea auditable de **contrato + strike + vencimiento + multiplicador + timestamp + ASK/BID + tamaño cotizado**, mercado y costes de ejecución y tratamiento de ejercicio/cierre confirmados, junto con una fuente sostenible de **snapshots futuros as-of**. Una cotización única de hoy puede demostrar ejecutabilidad **hoy**, pero no reconstruye precios históricos de V8 ya consumidos ni valida rendimiento de una estrategia retrospectiva. Sólo entonces diseñar investigación prospectiva con un protocolo congelado antes de observar outcomes.
