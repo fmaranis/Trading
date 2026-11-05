@@ -100,3 +100,50 @@ Deutsche Börse/Eurex explican que el histórico granular del libro de órdenes 
 **Resultado de puerta: `PROTECTIVE_PUT_EXECUTABLE_QUOTE_GATE_FAIL_PUBLIC_DATA`**. No se ha demostrado que la PUT específica sobre IWDA o CSPX tenga ASK/BID competitivo y disponible en el momento de una señal de V8; **no se descarta universalmente el instrumento**, pero **no debe abrirse replay, política de mercado o motor**. No comprar ni vender; no sugerir arbitrariamente cambiar de bróker por la mera existencia del contrato. `LEGACY` inalterado.
 
 **Evidencia que realmente cambia la decisión**: instantánea auditable de **contrato + strike + vencimiento + multiplicador + timestamp + ASK/BID + tamaño cotizado**, mercado y costes de ejecución y tratamiento de ejercicio/cierre confirmados, junto con una fuente sostenible de **snapshots futuros as-of**. Una cotización única de hoy puede demostrar ejecutabilidad **hoy**, pero no reconstruye precios históricos de V8 ya consumidos ni valida rendimiento de una estrategia retrospectiva. Sólo entonces diseñar investigación prospectiva con un protocolo congelado antes de observar outcomes.
+
+
+## 7. Alternativa accesible en España: WARRANT PUT ordinario (no turbo), con cotización de emisor y broker concreto
+
+**Fecha de revisión 2026-11-05. Nuevo resultado `VANILLA_PUT_WARRANT_MARKET_AND_BROKER_PATH_FOUND_QUOTE_NOT_VERIFIED`.**
+Anterior conclusión **PUT Eurex IQDA/IWDA/CSPX sin ejecutabilidad** permanece intacta; este hallazgo investiga otro instrumento **titulizado**; no es la misma PUT estandarizada ni está libre de riesgo emisor.
+
+### 7.1. ¿Existe el instrumento en un mercado utilizable desde España?
+
+**SÍ**: BME Exchange documenta **warrants PUT ordinarios** sobre índices y otros subyacentes; son valores cotizados, con ratio por unidad, strike, expiración, **liquidación en EUR por diferencias** en el SIBE y nombramiento del especialista que facilita precios de compra/venta durante sesión. Contratar en cantidades pequeñas puede resultar más flexible que tener que comprar 10/100 participaciones del contrato Eurex; **PERO** no equivale a garantía de que cualquier hora haya ASK con tamaño, ni de que se cumplan términos de cobertura de cualquier cartera. BME distingue **warrants estándar** de **turbos** (barrera `knock-out` que puede extinguir seguro cuando el precio repunta), de `multi` (reseteo diario) y de `put-write` (vender puts, no comprar seguro). **Filtro obligatorio por tipo de producto**: `WARRANT_PUT_PLAIN_VANILLA`, sin barrera, *payoff PUT por debajo del strike*, con vencimiento posterior a señal.
+
+Fuentes BME para esta distinción, funcionamiento y admisiones oficiales:
+- https://www.bolsasymercados.es/es/bme-exchange/negociar/warrants.html
+- https://www.bolsasymercados.es/es/bme-exchange/mercados-y-cotizaciones/warrants/admisiones.html
+- https://www.bolsasymercados.es/es/bme-exchange/mercados-y-cotizaciones/warrants/warrants.html (**la tabla de precios devuelve «Information not available at this moment» al recuperarla; NO se ha capturado quote de serie vigente del libro BME**).
+- CNMV documento inversor warrants: https://www.cnmv.es/Portal/Inversor/Warrants?lang=es . **Riesgo de crédito del banco emisor y suspensión del market making, posible pérdida total de prima**. Contrato emitido privado no equivale a opción compensada por cámara como Eurex.
+
+**Intermediario REAL que publica acceso a categoría, sin afirmarlo del usuario:** Bankinter bróker permite **warrants ordinarios, turbos, etc.**, con comisión visible **4,50 EUR por orden hasta 3.000 EUR**, **9 EUR** superior, y **canon mercado BME** adicional (por ejemplo, rango efectivo 0–300 EUR publica 1,10 EUR por orden, más otras partidas). Es una ruta concreta de **mercado + intermediario para la CATEGORÍA**, sujeta a test de conveniencia/permisos y validación del ISIN. No prueba que Bankinter pueda negociar cualquier ISIN emitido hoy, ni que el usuario tenga cuenta, y no debemos recomendar abrirla por eso. Fuente: https://www.bankinter.com/broker/productos/cotizados y https://www.bankinter.com/broker/tarifas-comisiones/cotizados
+- MyInvestor publica **acciones/ETF**, incluso acceso a Inversis-MyInvestor bajo tests para acciones/ETFs no listados en app, pero **no tenemos confirmación de operación de warrants**: https://myinvestor.es/inversion/broker/ . No inferir permiso por el mero buscador ISIN Inversis.
+- Renta4/SG documento de conectividad de productos cotizados, fuente con interés comercial: https://bolsa.societegenerale.es/servicios/contratacion/brokers-conectados . No transferir automáticamente su acceso a MyInvestor ni su tarifa a Bankinter.
+
+### 7.2. La primera cotización publicada (tiene FECHA y no es ASK ejecutable de hoy)
+
+BNP Paribas, en su web de **España**, publicó la ficha de **warrant ordinario PUT S&P 500** `DE000BB20571` con:
+- strike **7.000 USD**, **ratio/paridad 100 warrants por unidad de índice**, vencimiento **18-12-2026**, sin barrera knock-out en la ficha, delta indicada **−0,10**, subyacente de referencia S&P 500 **7.761,90**.
+- **snapshot de 08-10-2026 a las 11:20:25**, `bid/Venta EUR 0,39` y `ask/Compra EUR 0,41`, tamaño **238.000** publicado por emisor. **No usar el bid de octubre como cotización de noviembre ni como transacción real**; la ficha advierte expresamente que **son indicaciones basadas en modelos propios y que el emisor puede suspender cotizaciones**. `Spread=(0,41−0,39)/0,41 = 4,878%` **de la prima ofertada**, incluso en ese instante y antes de broker. Eso **no** es el coste sobre todo el nocional cubierto, y NO se debe usar como horquilla esperada genérica.
+- Página del emisor: https://warrants.bnpparibas.com/esp/es/product-details/DE000BB20571/ . El texto de la ficha con `08:00–22:00` hora de Berlín **no confirma que esa serie DE esté admitida en BME Madrid**. No sumar cotización de Alemania a tarifa de negociación BME de Bankinter como si fuera una única operación real.
+
+**Economía del strike, no de un seguro exacto:** el índice del snapshot está `761,90/7761,90 = 9,816%` **por encima** de strike. Si el S&P 500 cayera `10%` hasta **6.985,71**, la PUT obtendría a vencimiento tan solo **(7000−6985,71)/100 ≈ 0,1429 USD por warrant** antes de divisas, mientras el coste de prima indicativo en ese momento era **0,41 EUR por warrant**. **No comparar USD de payoff con EUR de prima sin conversión**, pero sí evidenciar que una PUT muy OTM no protege el *primer tramo* de pérdidas y podría no compensar siquiera tras una caída de 10%. La etiqueta «PUT» no prueba que sea cobertura suficiente para el patrimonio.
+- Una PUT sobre S&P 500 puede proteger la exposición de **S&P 500** de la cartera, pero no es una cobertura perfecta de cualquier ETF/índice global, ni de un índice europeo, bonos, divisa EUR/USD u otras posiciones.
+
+### 7.3. Coste de orden: por qué importa incluso cuando las primas unitarias parecen pequeñas
+
+**Cálculo ilustrativo independiente del ISIN anterior**, para **un warrant confirmado en BME** que se pudiera contratar por Bankinter en dos órdenes de hasta 3.000 EUR cada una (compra + venta antes del vencimiento):
+- solo comisión broker `2×4,50 = 9,00 EUR`;
+- canon de bolsa BME publicado para órdenes con efectivo inferior a 300 EUR `2×1,10 = 2,20 EUR`; sin contar otras partidas variables ni posibles reglas de amortización;
+- coste básico aproximado **≥11,20 EUR por operación de ida/vuelta**, sin diferencia bid/ask, ni posible canon adicional, impuestos o pérdidas por prima. Si el presupuesto pagado de protección fuese sólo **100 EUR**, ese coste sería **≥11,2% del desembolso** en el supuesto concreto, no 11,2% del valor total de la cartera. Si fueran **250 EUR**, ≥**4,48% de prima**. **No es cotización de oferta ni un umbral V8**: explica por qué entradas frecuentes pueden destruir ventaja.
+- Prima y ratio deben escalar correctamente: `unidades warrants × precio ask EUR` es prima inicial; nominal económico subyacente exige `unidades × (índice_subyacente / paridad) × FX` y **delta/riesgo base**; un presupuesto de 100 EUR en warrants OTM no garantiza 13.000 EUR cubiertos contra cualquier caída.
+
+### 7.4. Decisión de diseño, sin crear otro módulo
+
+**`VANILLA_PUT_WARRANT_MARKET_AND_BROKER_PATH_FOUND_QUOTE_NOT_VERIFIED`.** Por primera vez se confirma **mercado español + categoría de PUT ordinaria + acceso de un broker concreto y tarifas + un ejemplo real de bid/ask de emisor fechado con ISIN**. Se reducen dos bloqueos de la cobertura temporal **sin vender el núcleo**. **PERO NO se ha demostrado un único contrato con ISIN vigente, admisión BME, KID de serie, bid/ask BME con fecha/hora, volumen ejecutable y permiso broker simultáneamente**: los documentos son piezas distintas que NO deben combinarse en una transacción inventada.
+- **Nueva puerta operativa mínima** si se continúa: una fila `ISIN + WarrantPlainPut + index + strike + ratio + maturity + listedBME + issuerCredit + BME/market quoteTime + trueBid/Ask+sizes + brokerOffer+allFees + settlement terms + applicableFX`. Sin todos estos datos en **UNA MISMA** serie, **`NO_EXECUTABLE_QUOTE_CONFIRMED`**.
+- Sólo después se podría medir el coste de falsas alertas de V8 a partir de nuevas observaciones `REAL` **registradas después de congelar las reglas**, nunca generar primas por Black-Scholes ni utilizar el ejemplo de octubre para rellenar un backtest histórico. Los resultados V8 ya consumidos no sirven para elegir strikes, vencimiento o umbrales.
+- Dado el capital de ejemplo 13.000 EUR, posibilidad de que el broker real del usuario sea distinto y riesgo de emisor, **NO recomendar ni operar el warrant** a partir de esta evidencia. Producto/decisión `LEGACY` inalterados; no nuevo job, feature, pantalla ni PR por inercia.
+
+**El hallazgo sí modifica el juicio anterior**: la cubierta convexa **no está bloqueada por inexistencia comercial en España**; está bloqueada por demostrar **cotización operable de una serie determinada y una economía neta favorable**.
