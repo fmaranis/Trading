@@ -76,7 +76,7 @@ export function parseEurostatFirstRelease(text) {
   requireData(Math.abs(matches[0].value - SOURCES.hicp.expectedAnnualRate) < 1e-9, 'EUROSTAT_INDEPENDENT_RELEASE_MISMATCH');
   return {
     provider: 'EUROSTAT', series: 'prc_hicp_fpd', sourceRole: 'HICP_FIRST_PUBLISHED_FULL',
-    provenance: 'REAL', observationPeriod: SOURCES.hicp.period,
+    observationPeriod: SOURCES.hicp.period,
     originalReleaseDate: SOURCES.hicp.releaseDate, earliestDecisionDate: SOURCES.hicp.earliestDecisionDate,
     value: matches[0].value, unit: 'annual_percent', sourceURL: SOURCES.hicp.url,
     releaseEvidence: SOURCES.hicp.releaseEvidence, dimensionCodes: matches[0].dimensionCodes
@@ -101,7 +101,7 @@ export function parseEcbSpfPress(html) {
   requireData(Number(infl[2]) === 3.6 && Number(gdp[2]) === 1.5, 'SPF_RELEASE_ANCHOR_MISMATCH');
   return {
     provider: 'ECB', series: 'SPF_2022Q3_RELEASE', sourceRole: 'SPF_QUARTERLY_FORECAST',
-    provenance: 'REAL', surveyRound: SOURCES.spf.round, forecastTargetPeriod: SOURCES.spf.target,
+    surveyRound: SOURCES.spf.round, forecastTargetPeriod: SOURCES.spf.target,
     originalReleaseDate: SOURCES.spf.releaseDate, earliestDecisionDate: SOURCES.spf.earliestDecisionDate,
     inflationForecast: Number(infl[2]), gdpForecast: Number(gdp[2]), unit: 'annual_percent', sourceURL: SOURCES.spf.url
   };
@@ -134,7 +134,7 @@ export function parseEcbYieldCsv(text) {
   requireData(String(row[valueColumn]).trim() !== '' && Number.isFinite(value), 'YC_INVALID_YIELD');
   return {
     provider: 'ECB', series: SOURCES.yc.series, sourceRole: 'ECB_YC_ESTIMATED_CURVE',
-    provenance: 'REAL', observationPeriod: SOURCES.yc.period,
+    observationPeriod: SOURCES.yc.period,
     earliestDecisionDate: SOURCES.yc.earliestDecisionDate, value, unit: 'percent_per_annum',
     sourceURL: SOURCES.yc.url, executableQuote: false
   };
@@ -162,7 +162,7 @@ export async function runMacroPitPreflight(options = {}) {
   const text = {};
   for (const role of ['hicp', 'spf', 'yc']) text[role] = await fetchOfficialText(SOURCES[role].url, fetchImpl);
   const observations = [parseEurostatFirstRelease(text.hicp), parseEcbSpfPress(text.spf), parseEcbYieldCsv(text.yc)]
-    .map(item => fixtureInjected ? { ...item, provenance: 'SYNTHETIC' } : item);
+    .map(item => ({ ...item, provenance: fixtureInjected ? 'SYNTHETIC' : 'REAL' }));
   for (const observation of observations) {
     enforceInformationDate(observation, observation.earliestDecisionDate);
     const oneDayEarly = new Date(Date.parse(observation.earliestDecisionDate + 'T00:00:00Z') - 86400000).toISOString().slice(0,10);
