@@ -155,10 +155,14 @@ async function fetchOfficialText(url, fetchImpl) {
   requireData(body.length > 30 && body.length < 4_000_000, 'RESPONSE_SIZE');
   return body;
 }
-export async function runMacroPitPreflight({ fetchImpl = fetch, save = false, now = () => new Date().toISOString() } = {}) {
+export async function runMacroPitPreflight(options = {}) {
+  const { fetchImpl = fetch, save = false, now = () => new Date().toISOString() } = options;
+  const fixtureInjected = Object.hasOwn(options, 'fetchImpl');
+  requireData(!(fixtureInjected && save), 'FIXTURE_CANNOT_PERSIST');
   const text = {};
   for (const role of ['hicp', 'spf', 'yc']) text[role] = await fetchOfficialText(SOURCES[role].url, fetchImpl);
-  const observations = [parseEurostatFirstRelease(text.hicp), parseEcbSpfPress(text.spf), parseEcbYieldCsv(text.yc)];
+  const observations = [parseEurostatFirstRelease(text.hicp), parseEcbSpfPress(text.spf), parseEcbYieldCsv(text.yc)]
+    .map(item => fixtureInjected ? { ...item, provenance: 'SYNTHETIC' } : item);
   for (const observation of observations) {
     enforceInformationDate(observation, observation.earliestDecisionDate);
     const oneDayEarly = new Date(Date.parse(observation.earliestDecisionDate + 'T00:00:00Z') - 86400000).toISOString().slice(0,10);
@@ -167,8 +171,8 @@ export async function runMacroPitPreflight({ fetchImpl = fetch, save = false, no
   const capture = Object.fromEntries(Object.entries(text).map(([role, raw]) => [role, {
     url: SOURCES[role].url, sha256: crypto.createHash('sha256').update(raw).digest('hex'), length: Buffer.byteLength(raw)
   }]));
-  const result = { study: STUDY, status: 'PASS_SOURCE_PARSER_ONLY', capturedAt: now(),
-    provenance: 'REAL', capture, observations, productionAuthority: false, economicOutcomesCalculated: false,
+  const result = { study: STUDY, status: fixtureInjected ? 'PASS_FIXTURE_ONLY' : 'PASS_SOURCE_PARSER_ONLY', capturedAt: now(),
+    provenance: fixtureInjected ? 'SYNTHETIC' : 'REAL', capture, observations, productionAuthority: false, economicOutcomesCalculated: false,
     historicalTradingAuthority: false, policyFrozen: false,
     limitations: ['Eurostat release date anchored to official press release; API does not supply per-observation publication timestamp',
       'ECB SPF press page is documentary source, not a tradable surprise series',
