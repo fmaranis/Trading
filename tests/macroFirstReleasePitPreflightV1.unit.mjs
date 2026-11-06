@@ -29,7 +29,7 @@ assert.equal(hicp.dimensionCodes.coicop18, 'CP00');
 assert.equal(hicp.dimensionCodes.release, 'F');
 assert.equal(hicp.originalReleaseDate, '2026-10-16');
 assert.equal(hicp.earliestDecisionDate, '2026-10-19');
-assert.equal(hicp.provenance, 'REAL');
+assert.equal(hicp.provenance, undefined, 'parsing alone cannot assert real provenance');
 assert.equal(parseEcbSpfPress(ecbSpfHtml).inflationForecast, 3.6);
 assert.equal(parseEcbSpfPress(ecbSpfHtml).gdpForecast, 1.5);
 assert.equal(parseEcbYieldCsv(ycCsv).value, 1.23);
