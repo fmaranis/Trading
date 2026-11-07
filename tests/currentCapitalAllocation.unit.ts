@@ -154,6 +154,13 @@ const fullSlotPortfolio: any = {
 };
 const fullSlotResult = PortfolioDecisionEngine.evaluate({ portfolio: fullSlotPortfolio, scan, decision, cashBenchmarkAnnualPct: 2.5 });
 check('950 a full 12-slot medium-risk portfolio cannot open another unrelated starter without freeing a slot', fullSlotResult.maxPortfolioPositions === 12 && fullSlotResult.availablePortfolioSlots === 0 && fullSlotResult.contributions.every(row => (row.currentAssetValueEur ?? 0) > 0));
+const fullSlotReach = PortfolioDecisionEngine.evaluate({
+  portfolio: fullSlotPortfolio, scan, decision, cashBenchmarkAnnualPct: 2.5, researchReachTrace: true
+}).researchReachTrace;
+check('950a research reach trace identifies that full portfolio slots forbid another starter',
+  Boolean(fullSlotReach?.opportunityAssetIds.includes('STRONG_TECH'))
+  && fullSlotReach?.nonFundingReasonByAssetId.STRONG_TECH === 'NO_PORTFOLIO_SLOT');
+
 
 const incumbentBars = bars(0.9998);
 const incumbentCandidate: any = candidate('INCUMBENT', 'INC.DE', 'EUROPE_EQUITY', incumbentBars, -8, 18, 4);
