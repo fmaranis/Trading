@@ -192,6 +192,39 @@ const freeSlotRotationResult = PortfolioDecisionEngine.evaluate({ portfolio: fre
 const freeSlotIncumbent = freeSlotRotationResult.existingPositions.find(row => row.assetId === 'INCUMBENT');
 check('951 a free portfolio slot lets a challenger enter without forcing a competitive sale', freeSlotRotationResult.availablePortfolioSlots === 11 && freeSlotRotationResult.plannedRotationProceedsEur === 0 && freeSlotIncumbent?.action === 'WATCH' && freeSlotRotationResult.contributions.some(row => row.assetId === 'STRONG_TECH' && row.positionStage === 'STARTER'));
 
+// NEW criterion, not a new economic policy: compare a challenger with invested
+// capital even when there are many empty portfolio slots but no deployable cash.
+// The shadow must never generate a purchase, sale, or synthetic tax estimate.
+const cashLockedFreeSlots: any = {
+  ...freeSlotRotationPortfolio,
+  stagedCapitalPlan: { ...freeSlotRotationPortfolio.stagedCapitalPlan, availableEur: 0 }
+};
+const cashLockedBaseline = PortfolioDecisionEngine.evaluate({
+  portfolio: cashLockedFreeSlots, scan: rotationScan, decision: rotationDecision,
+  positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5
+});
+const cashLockedAudited = PortfolioDecisionEngine.evaluate({
+  portfolio: cashLockedFreeSlots, scan: rotationScan, decision: rotationDecision,
+  positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5, researchReachTrace: true
+});
+const { researchReachTrace: constrainedReach, ...cashLockedWithoutTrace } = cashLockedAudited;
+const competingPair = constrainedReach?.capitalMobilityShadow?.potentialPairs.find(
+  pair => pair.challengerAssetId === 'STRONG_TECH' && pair.incumbentAssetId === 'INCUMBENT'
+);
+check('951a with free slots but no deployable cash the shadow compares existing capital instead of inventing money',
+  cashLockedBaseline.availablePortfolioSlots === 11
+  && cashLockedBaseline.deployableToAssetsEur === 0
+  && cashLockedBaseline.plannedRotationProceedsEur === 0
+  && cashLockedBaseline.contributions.length === 0
+  && constrainedReach?.capitalMobilityShadow?.condition === 'FREE_SLOTS_NO_DEPLOYABLE_NEW_MONEY'
+  && Boolean(competingPair)
+  && competingPair?.relativeMomentum120PctPoints != null
+  && competingPair?.estimatedBrokerCommissionsEur > 0
+  && competingPair?.taxAssessment === 'NOT_ESTIMABLE_FROM_PORTFOLIO_STATE'
+  && competingPair?.recommendation === 'NONE_RESEARCH_ONLY'
+  && JSON.stringify(cashLockedWithoutTrace) === JSON.stringify(cashLockedBaseline));
+
+
 const rotationPortfolio: any = {
   cashEur: 0,
   holdings: [{ ticker: 'INC.DE', shares: 2000 / incumbentPrice }],
