@@ -79,7 +79,7 @@ check('937a reach trace is completely absent unless explicitly requested', resul
 check('937b reach trace keeps every ordinary output identical', JSON.stringify(reachAuditedBaseline) === JSON.stringify(result));
 check('937c reach trace records the actual opportunity pool and funded positions',
   Boolean(reachOnly?.opportunityAssetIds.includes('STRONG_TECH'))
-  && Boolean(reachOnly?.fundedAssetIds.includes('STRONG_TECH'))
+  && Boolean(reachOnly?.plannedContributionAssetIds.includes('STRONG_TECH'))
   && reachOnly?.baseDeployableToAssetsEur === 9000);
 const noDeployablePortfolio: any = {
   ...portfolio, cashEur: 0, stagedCapitalPlan: { ...portfolio.stagedCapitalPlan, availableEur: 0 }
