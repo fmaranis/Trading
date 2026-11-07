@@ -265,9 +265,11 @@ function researchPairedCloseCorrelation(
     return { correlation: null, sessions: 0 };
   }
   const asOf = ca.asOfDate < cb.asOfDate ? ca.asOfDate : cb.asOfDate;
-  const makePrices = (bars: typeof a.bars): Map<string, number> => new Map(
+  const makePrices = (
+    bars: AssetUniverseScanResult['acceptedDataset']['assets'][number]['bars']
+  ): Map<string, number> => new Map<string, number>(
     bars.filter(bar => bar.timestamp.slice(0, 10) <= asOf && Number.isFinite(bar.close) && bar.close > 0)
-      .map(bar => [bar.timestamp.slice(0, 10), bar.close])
+      .map((bar): [string, number] => [bar.timestamp.slice(0, 10), bar.close])
   );
   const aPrices = makePrices(a.bars), bPrices = makePrices(b.bars);
   const dates = [...aPrices.keys()].filter(date => bPrices.has(date)).sort().slice(-61);
