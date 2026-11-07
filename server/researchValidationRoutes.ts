@@ -157,9 +157,12 @@ const JOBS: JobDefinition[] = [
   {
     id: 'product-surface-closure-v1',
     name: 'Producto · cierre rápido',
-    description: 'Verificación rápida de la superficie productiva integrada y seguridad privada: decisión única, auth/ADMIN, plan ejecutable, cartera, salud de posiciones, broker, fiscalidad y TypeScript. No ejecuta replay, no consulta un checkpoint prospectivo y no escribe en replay-results.',
-    visibility: 'ARCHIVED',
+    description: 'Comprobación de regresión de producto y trazabilidad de decisiones: guards de asignación, replay causal en pruebas unitarias, seguridad, ejecución, fiscalidad y TypeScript. No abre un backtest histórico, no descarga datos ni modifica replay-results.',
+    visibility: 'CURRENT',
     steps: [
+      { label: 'Guard asignación y trazabilidad opt-in', command: 'npx', args: ['tsx', 'tests/currentCapitalAllocation.unit.ts'] },
+      { label: 'Guard paridad replay / traza opt-in', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
+      { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'Guard cierre de superficie', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
       { label: 'Guard usuarios privados', command: 'npx', args: ['tsx', 'tests/privateUserSecurity.unit.ts'] },
       { label: 'Guard decisión productiva única', command: 'npx', args: ['tsx', 'tests/productDecisionSurface.unit.ts'] },
@@ -572,7 +575,7 @@ const JOBS: JobDefinition[] = [
     name: 'Investigación · ETFs factoriales · patrimonio neto vs EUNL',
     description: 'Único diagnóstico research-only: 100% EUNL vs 50% EUNL + 1/6 XDEM/XDEQ/XDEV; 13.000 EUR y sensibilidades congeladas, NEXT_OPEN whole shares, fees y fiscalidad. 2017–2025 ya consumido; NO promoción.',
     marker: 'STATIC_UCITS_FACTOR_ECONOMIC_DIAGNOSTIC_R1_RESULT',
-    visibility: 'CURRENT',
+    visibility: 'PARKED',
     steps: [
       { label: 'Guard ejecución causal ETF y paridad legado', command: 'npx', args: ['tsx', 'tests/staticUcitsFactorEconomicR1.unit.ts'] },
       { label: 'Guard protocolo de fuente Yahoo y BCE', command: 'node', args: ['tests/staticUcitsFactorIssuerAnnualReconciliationV1.unit.mjs'] },
