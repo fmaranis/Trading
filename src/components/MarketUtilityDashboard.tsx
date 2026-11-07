@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import type { EodhdCrossValidationResult } from '../investment/data/marketData/eodhdCrossValidation';
 import {
   applyTaxAwareExecutionOverlay,
+  buildH2CapitalMobilityReadout,
   AssetUniverseScanResult,
   buildPortfolioExecutionPlan,
   CashBenchmarkService,
@@ -12,10 +13,12 @@ import {
   MYINVESTOR_AVAILABILITY_UPDATED_EVENT,
   SPANISH_TAX_SETTINGS_UPDATED_EVENT,
   SpanishTaxSettingsService,
+  TaxLotLedgerService,
   UserPortfolioService,
   type PortfolioExecutionPlan,
   type PortfolioPositionHealthResult
 } from '../investment/decision';
+import { downloadJsonFile } from '../jsonDownload';
 import { CurrentOpportunityAlertsPanel } from './CurrentOpportunityAlertsPanel';
 import { UserPortfolioPanel } from './UserPortfolioPanel';
 import { PortfolioExecutionPlanPanel } from './PortfolioExecutionPlanPanel';
@@ -56,6 +59,8 @@ function applyBrokerAvailabilityOverlay(plan: PortfolioExecutionPlan, scan: Asse
 export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
   const [taxRevision, setTaxRevision] = useState(0);
   const [brokerRevision, setBrokerRevision] = useState(0);
+  // Explicit local-only research opt-in; never stored or sent to the backend.
+  const [h2ResearchEnabled, setH2ResearchEnabled] = useState(false);
   const cashBenchmarkAnnualPct = CashBenchmarkService.load();
   // A portfolio save in the parent triggers a fresh positionHealth object before
   // this dashboard becomes actionable again. Memoizing the load prevents an
@@ -78,8 +83,30 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
     scan,
     decision,
     positionHealth: positionHealth?.byKey,
-    cashBenchmarkAnnualPct
-  }), [portfolio, scan, decision, positionHealth, cashBenchmarkAnnualPct]);
+    cashBenchmarkAnnualPct,
+    researchReachTrace: h2ResearchEnabled
+  }), [portfolio, scan, decision, positionHealth, cashBenchmarkAnnualPct, h2ResearchEnabled]);
+
+  const h2Readout = useMemo(() => {
+    if (!h2ResearchEnabled || !portfolioDecision.researchReachTrace) return null;
+    // Read only existing private FIFO coverage; do not expose lots, costs or
+    // tax amounts in the research readout. Mutual funds remain UNKNOWN.
+    const fiscalCoverageByAssetId: Record<string, 'FIFO_TRACKED' | 'UNKNOWN'> = {};
+    const holdingsByTicker = new Map(portfolio.holdings.map(row => [row.ticker.toUpperCase(), row]));
+    for (const pair of portfolioDecision.researchReachTrace.capitalMobilityShadow?.potentialPairs ?? []) {
+      const incumbent = scan.candidates.find(row => row.asset.assetId === pair.incumbentAssetId);
+      const ticker = incumbent?.asset.ticker.toUpperCase();
+      const holding = ticker ? holdingsByTicker.get(ticker) : undefined;
+      fiscalCoverageByAssetId[pair.incumbentAssetId] = holding && ticker
+        && TaxLotLedgerService.fifoCostBasis(ticker, holding.shares, holding.shares).precision === 'FIFO_TRACKED'
+        ? 'FIFO_TRACKED' : 'UNKNOWN';
+    }
+    return buildH2CapitalMobilityReadout({
+      informationDate: decision.asOfDate,
+      portfolioDecision,
+      fiscalCoverageByAssetId
+    });
+  }, [h2ResearchEnabled, portfolioDecision, portfolio, scan, decision.asOfDate, taxRevision]);
 
   const executionPlan = useMemo(() => {
     const raw = buildPortfolioExecutionPlan({
@@ -128,6 +155,23 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
         <ChevronDown className="h-4 w-4 shrink-0 text-slate-500"/>
       </summary>
       <div className="mt-4 space-y-4">
+        <div className="rounded-lg border border-slate-700 p-3 text-xs text-slate-300">
+          <div className="font-semibold text-slate-100">H2 · movilidad del capital (investigación)</div>
+          <p className="mt-1 text-slate-400">Diagnóstico opcional de la misma decisión. No propone ventas, no abre resultados futuros y no guarda datos automáticamente.</p>
+          <button type="button" className="mt-2 rounded-md border border-slate-600 px-3 py-2 text-slate-100"
+            onClick={() => setH2ResearchEnabled(value => !value)}>
+            {h2ResearchEnabled ? 'Desactivar diagnóstico H2' : 'Activar diagnóstico H2 (solo local)'}
+          </button>
+          {h2Readout && <div className="mt-2 space-y-1">
+            <p>Fecha de información: {h2Readout.informationDate}. Pares: {h2Readout.pairCount}; fuente REAL en ambos extremos: {h2Readout.realProvenancePairs}; cobertura FIFO conocida: {h2Readout.fifoCoveredPairs}.</p>
+            <p>Resultado económico neto: N/D. Las diferencias de momentum no son rentabilidad prevista.</p>
+            <button type="button" className="mt-1 rounded-md border border-slate-600 px-3 py-2 text-slate-100"
+              onClick={() => downloadJsonFile(`h2-research-${h2Readout.informationDate.slice(0, 10)}.json`, h2Readout)}>
+              Descargar evidencia H2 en este dispositivo
+            </button>
+            <p className="text-slate-500">El JSON puede incluir identificadores y valores de posiciones. No se envía a GitHub ni a otros usuarios mediante este botón.</p>
+          </div>}
+        </div>
         <StrategyConsensusPanel scan={scan} />
         <PortfolioExecutionPlanPanel scan={scan} executionPlan={executionPlan} onInspectAsset={onInspectAsset} />
       </div>
