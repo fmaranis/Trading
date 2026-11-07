@@ -1,0 +1,29 @@
+# H2 — inventario directo de evidencia prospectiva disponible
+
+Fecha de comprobación: 2026-11-07. Repo canónico `fmaranis/Trading`. Se inspeccionaron `main` y la rama durable `replay-results` mediante GitHub, sin ejecutar código ni abrir datos de rentabilidad futura H2.
+
+## Fuentes realmente encontradas
+
+1. **`replay-results:validation-runs/phase6-forward-risk-context-stage-a-r2-state.json`**. Blob `3446da76a37a9d85626dc3795fb6a21091b43dd2`, 517 bytes. `sampleState=OPENED_COLLECTING`, apertura `2026-09-20T19:22:33.001Z`, `lastInformationDate=null`, `observationCount=0`, `observations=[]`. No hay dato H2 aquí. **No** ejecutar evaluator F6 para obtener outcomes.
+
+2. **`replay-results:validation-runs/quality-allocation-dynamic-future-forward-v1-state.json`**. Blob `4006754a0d627f0846ef6d21a340f7c2ea9c633f`, 83.488 bytes. Un checkpoint: `calendarMonth=2026-09`, `marketAsOfDate=2026-09-08`, `checkpointRunDate=2026-09-09`, `observations.length=1`, `outcomes.length=0`. Es un fixture research `capitalEur=13000`, `noUserPortfolioData=true`, con `gate`, `scanner`, `decision` y brazos `legacy/quality`. **No** es un snapshot de cartera real ni de parejas H2 `capitalMobilityShadow`; no debe reutilizarse para decidir H2, tocar F7 ni anticipar sus outcomes.
+
+3. **`replay-results:validation-runs/latest-chatgpt-full.json`**. Blob `5cdb13dbf4bf83fc4b92a6045f361ae5474c4050`, 2.570.444 bytes. Contiene la muestra 2019–2022 **CONSUMED** que motivó H1/H2; no contiene la traza prospectiva nueva necesaria para inferir alcance causal neto. No volver a tratar sus 98 comparaciones históricas como fresh.
+
+4. **`replay-results:validation-runs/diagnostics/`**. Tres artefactos listados: `decision-audit-pilot-2019-2022-v1.json`, `decision-audit-trace-2019-2022-v1.json` e `investment-pivot-reach-audit-2019-2022-v1.json`. Son diagnósticos ya consumidos del mismo período.
+
+5. Listado raíz `replay-results:validation-runs/`: no aparece un estado/checkpoint específico H2, ni evidencia con un par `(informationDate, incumbent, challenger)` registrado prospectivamente. Esta es una constatación de **archivos disponibles en esa ubicación**, no prueba de inexistencia absoluta de datos en todos los posibles servicios locales.
+
+## Veredicto práctico
+
+`H2_FRESH_PAIR_EVIDENCE_NOT_PRESENT_IN_DURABLE_BRANCH`.
+
+El guard 951a y TypeScript del cierre rápido H2 ya están PASSED, pero validan **no intervención y paridad del código**, no eficacia económica. Los dos checkpoints prospectivos existentes pertenecen a F6/F7 y no deben contaminar H2. La rama `replay-results` no contiene un dataset H2 fresco para verificar reach, fiscalidad, comparabilidad ni riqueza relativa neta.
+
+**No procede** iniciar A/B, retocar umbrales, realizar replay largo, usar los resultados de F6/F7 o abrir un nuevo job de investigación sin definir primero un mecanismo de observación H2 aceptable y una política precongelada.
+
+## Acción de continuidad
+
+No exigir al usuario repetir `Producto · cierre rápido`. La siguiente tarea técnica, cuando se continúe el desarrollo, es inspeccionar el *punto de captura prospectiva read-only* dentro de la cadena actual y comprobar si puede registrar únicamente fecha, identidad de activos, estado real de la cartera, `gateStatus`, `capitalMobilityShadow`, incertidumbres de datos y hash sin introducir motor, pantalla ni decisión paralelos. Cualquier futura captura debe ser opt-in, privada, con procedencia REAL y sin historial reconstruido a posteriori. Si ese punto no existe, documentar bloqueo y diseñar un cambio mínimo sujeto a guards y autorización de persistencia privada; no inferir consentimiento para subir posiciones personales al repositorio público/compartido.
+
+No se ha ejecutado ningún colector ni abierto outcomes. Producción `LEGACY` intacta.
