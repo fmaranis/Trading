@@ -70,6 +70,28 @@ check('935 medium-risk high-conviction single-name amount respects concentration
 check('936 operational contributions explicitly carry current opportunity semantics', result.contributions.every(row => row.opportunityLevel != null && row.priorityScore != null));
 check('937 residual cash reconciles exactly with finite available capital', Math.abs(result.residualPlannedCashEur - (10000 - totalContribution)) < 1e-6);
 
+// Opt-in reach audit is informational: both outputs must be economically identical.
+const reachAudited = PortfolioDecisionEngine.evaluate({
+  portfolio, scan, decision, cashBenchmarkAnnualPct: 2.5, researchReachTrace: true
+});
+const { researchReachTrace: reachOnly, ...reachAuditedBaseline } = reachAudited;
+check('937a reach trace is completely absent unless explicitly requested', result.researchReachTrace === undefined);
+check('937b reach trace keeps every ordinary output identical', JSON.stringify(reachAuditedBaseline) === JSON.stringify(result));
+check('937c reach trace records the actual opportunity pool and funded positions',
+  Boolean(reachOnly?.opportunityAssetIds.includes('STRONG_TECH'))
+  && Boolean(reachOnly?.fundedAssetIds.includes('STRONG_TECH'))
+  && reachOnly?.baseDeployableToAssetsEur === 9000);
+const noDeployablePortfolio: any = {
+  ...portfolio, cashEur: 0, stagedCapitalPlan: { ...portfolio.stagedCapitalPlan, availableEur: 0 }
+};
+const reachWithoutCash = PortfolioDecisionEngine.evaluate({
+  portfolio: noDeployablePortfolio, scan, decision, cashBenchmarkAnnualPct: 2.5, researchReachTrace: true
+}).researchReachTrace;
+check('937d no-deployable-cash reason comes from the actual allocator branch',
+  Boolean(reachWithoutCash?.opportunityAssetIds.includes('STRONG_TECH'))
+  && reachWithoutCash?.nonFundingReasonByAssetId.STRONG_TECH === 'NO_DEPLOYABLE_CAPITAL');
+
+
 const techInitial = result.contributions.find(row => row.assetId === 'STRONG_TECH')!;
 const euInitial = result.contributions.find(row => row.assetId === 'STRONG_EU')!;
 const techPrice = candidates[0].lastClose;
