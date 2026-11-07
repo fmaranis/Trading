@@ -8,7 +8,7 @@ import type { EntryTimingSetup, EntryTimingState } from './entryTiming';
 import { HistoricalDecisionReplayEngine } from './historicalDecisionReplay';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
 import { PortfolioCandidateGate } from './portfolioCandidateGate';
-import { PortfolioDecisionEngine, type PortfolioPositionDecision } from './portfolioDecisionEngine';
+import { PortfolioDecisionEngine, type PortfolioDecisionResult, type PortfolioPositionDecision } from './portfolioDecisionEngine';
 import { assessDeteriorationStreak, classifyPositionHealth, isDiversifiedCoreCategory, type PortfolioPositionHealthSnapshot, type PositionHealthContext } from './portfolioPositionHealth';
 import { accrueRemuneratedCash, allCashBenchmark } from './remuneratedCash';
 import {
@@ -104,6 +104,12 @@ export interface DynamicReplaySignal {
     presentInAllocatorShortlist: boolean;
     allocatorNonFundingReason: string | null;
     baseDeployableToAssetsEur: number | null;
+    /** No orders: relative momentum, overlapping close returns, fees and tax uncertainty. */
+    capitalMobilityComparison?: {
+      candidatePoolCount: number;
+      displayedCandidateCount: number;
+      comparedPairs: NonNullable<NonNullable<PortfolioDecisionResult['researchReachTrace']>['capitalMobilityShadow']>['potentialPairs'];
+    };
   };
   executed: boolean;
   unitsDelta: number;
@@ -1393,7 +1399,16 @@ export class DynamicHistoricalReplayEngine {
             ?? (gateEntry?.status !== 'ELIGIBLE' ? 'GATE_REJECTED'
               : !(allocatorTrace?.opportunityAssetIds.includes(assetId)) ? 'NOT_IN_OPPORTUNITY_POOL'
                 : 'NON_FUNDED_REASON_UNAVAILABLE'),
-          baseDeployableToAssetsEur: allocatorTrace?.baseDeployableToAssetsEur ?? null
+          baseDeployableToAssetsEur: allocatorTrace?.baseDeployableToAssetsEur ?? null,
+          ...(allocatorTrace?.capitalMobilityShadow ? {
+            capitalMobilityComparison: {
+              candidatePoolCount: allocatorTrace.capitalMobilityShadow.comparedOpportunityCount,
+              displayedCandidateCount: allocatorTrace.capitalMobilityShadow.displayedOpportunityCount,
+              comparedPairs: allocatorTrace.capitalMobilityShadow.potentialPairs.filter(
+                pair => pair.challengerAssetId === assetId
+              )
+            }
+          } : {})
         } : undefined;
         const traceReason = holding
           ? health?.reason ?? 'La cadena operativa actual no exige mover esta posición en esta fecha.'
