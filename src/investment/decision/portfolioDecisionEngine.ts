@@ -100,6 +100,32 @@ export interface PortfolioDecisionResult {
     nonFundingReasonByAssetId: Record<string, string>;
     baseDeployableToAssetsEur: number;
     availablePortfolioSlots: number;
+    /** Research-only current-date opportunity audit, no counterfactual orders. */
+    opportunityAllocationAudit: Array<{
+      assetId: string;
+      ticker: string;
+      name: string;
+      category: AssetUniverseCategory | 'UNKNOWN';
+      rankingScore: number;
+      allocationPriority: number;
+      level: CurrentOpportunityAlert['level'];
+      timingState: CurrentOpportunityAlert['timingState'];
+      suggestedInitialFraction: number;
+      consensusScore: number;
+      favorableVotes: number;
+      momentum20Pct: number | null;
+      momentum60Pct: number | null;
+      momentum120Pct: number | null;
+      annualizedVolatilityPct: number | null;
+      excessVsCashPctPoints: number | null;
+      inAllocatorShortlist: boolean;
+      plannedAmountEur: number;
+      fundingReason: string;
+      targetGapEur: number | null;
+      minimumMeaningfulGapEur: number | null;
+    }>;
+    newPositionDecisionLimit: number;
+    bootstrapDeploymentActive: boolean;
     /**
      * Shadow-only paired opportunity costs. Descriptive price-only features, not
      * predicted returns, actionable switches or a second allocation policy.
@@ -170,6 +196,10 @@ export function buildH2CapitalMobilityReadout(input: {
     availablePortfolioSlots: reach.availablePortfolioSlots,
     baseDeployableToAssetsEur: reach.baseDeployableToAssetsEur,
     opportunityCount: reach.opportunityAssetIds.length,
+    newPositionDecisionLimit: reach.newPositionDecisionLimit,
+    bootstrapDeploymentActive: reach.bootstrapDeploymentActive,
+    // Same canonical opportunity ordering and allocator results; not hindsight.
+    opportunityAllocationAudit: reach.opportunityAllocationAudit,
     allocatorShortlistCount: reach.allocatorShortlistAssetIds.length,
     plannedContributionCount: reach.plannedContributionAssetIds.length,
     nonFundingReasonByAssetId: reach.nonFundingReasonByAssetId,
@@ -584,6 +614,8 @@ export class PortfolioDecisionEngine {
     const baseDeployableToAssetsEur = Math.max(0, deployablePool - targetCashEur);
     const opportunities = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct, candidateSelectionPolicy, candidateSelectionContext);
     const nonFundingReasons = input.researchReachTrace ? new Map<string, string>() : null;
+    const researchGaps = input.researchReachTrace
+      ? new Map<string, { targetGapEur: number; minimumMeaningfulGapEur: number }>() : null;
     let allocatorShortlistAssetIds: string[] = [];
     const executionPolicy = executionPolicyForCapital(totalPlannedCapitalEur);
     const heldAssetIds = new Set(currentByAsset.keys());
@@ -755,6 +787,7 @@ export class PortfolioDecisionEngine {
           ? lastClose + brokerCommission(lastClose)
           : 0;
         const minimumMeaningfulGapEur = Math.max(executionPolicy.minimumOrderNotionalEur, wholeShareFloorEur);
+        researchGaps?.set(alert.assetId, { targetGapEur, minimumMeaningfulGapEur });
         if (targetGapEur < minimumMeaningfulGapEur - 1e-9) return reject('BELOW_MINIMUM_ORDER_GAP');
 
         const alreadyInCategory = currentByCategory.get(asset.category) ?? 0;
@@ -923,6 +956,37 @@ export class PortfolioDecisionEngine {
                 : 'NON_FUNDED_REASON_UNAVAILABLE')])),
       baseDeployableToAssetsEur,
       availablePortfolioSlots,
+      newPositionDecisionLimit,
+      bootstrapDeploymentActive,
+      opportunityAllocationAudit: opportunities.map(alert => {
+        const contribution = contributions.find(row => row.assetId === alert.assetId);
+        const candidate = assets.get(alert.assetId) ?? assets.get(alert.ticker.toUpperCase());
+        const gap = researchGaps?.get(alert.assetId);
+        return {
+          assetId: alert.assetId,
+          ticker: alert.ticker,
+          name: alert.name,
+          category: candidate?.category ?? 'UNKNOWN' as const,
+          rankingScore: alert.rankingScore,
+          allocationPriority: opportunityPriority(alert, opportunityAllocationPolicy),
+          level: alert.level,
+          timingState: alert.timingState,
+          suggestedInitialFraction: alert.suggestedInitialFraction,
+          consensusScore: alert.consensusScore,
+          favorableVotes: alert.favorableVotes,
+          momentum20Pct: alert.momentum20Pct,
+          momentum60Pct: alert.momentum60Pct,
+          momentum120Pct: alert.momentum120Pct,
+          annualizedVolatilityPct: alert.annualizedVolatilityPct,
+          excessVsCashPctPoints: alert.excessVsCashPctPoints,
+          inAllocatorShortlist: allocatorShortlistAssetIds.includes(alert.assetId),
+          plannedAmountEur: contribution?.amountEur ?? 0,
+          fundingReason: contribution ? 'PLANNED_CONTRIBUTION'
+            : nonFundingReasons?.get(alert.assetId) ?? 'NOT_FUNDED_REASON_UNAVAILABLE',
+          targetGapEur: gap?.targetGapEur ?? null,
+          minimumMeaningfulGapEur: gap?.minimumMeaningfulGapEur ?? null
+        };
+      }),
       ...(capitalMobilityShadow ? { capitalMobilityShadow } : {})
     } : undefined;
 
