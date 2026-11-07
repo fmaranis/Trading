@@ -131,6 +131,61 @@ export interface PortfolioDecisionResult {
   };
 }
 
+
+/**
+ * H2 research-only prospective readout of the single canonical decision.
+ * This does not make a second allocation decision, request future prices or
+ * evaluate profitability. Consumers may export it locally only by user action.
+ * Fiscal completeness is supplied independently by the user's private FIFO
+ * ledger; no tax lots or acquisition prices enter this object.
+ */
+export function buildH2CapitalMobilityReadout(input: {
+  informationDate: string;
+  portfolioDecision: PortfolioDecisionResult;
+  fiscalCoverageByAssetId: Record<string, 'FIFO_TRACKED' | 'UNKNOWN'>;
+}) {
+  const reach = input.portfolioDecision.researchReachTrace;
+  if (!reach) return null;
+  const shadow = reach.capitalMobilityShadow;
+  const pairs = (shadow?.potentialPairs ?? []).map(pair => {
+    const fiscalCoverage = input.fiscalCoverageByAssetId[pair.incumbentAssetId] ?? 'UNKNOWN';
+    const realOnly = pair.dataProvenance.incumbent === 'REAL'
+      && pair.dataProvenance.challenger === 'REAL';
+    return {
+      ...pair,
+      fiscalCoverage,
+      sourceEligibility: realOnly ? 'REAL_ONLY' as const : 'UNVERIFIED_PROVENANCE' as const,
+      netEconomicAssessment: 'NOT_ESTIMABLE' as const,
+      recommendation: 'NONE_RESEARCH_ONLY' as const
+    };
+  });
+  return {
+    version: 'H2_CAPITAL_MOBILITY_READOUT_V1' as const,
+    informationDate: input.informationDate,
+    source: 'CANONICAL_DECISION_OPT_IN' as const,
+    productionAuthority: false as const,
+    outcomeAccessed: false as const,
+    observationType: 'INSTANTANEOUS_DECISION_NOT_TRADE' as const,
+    capitalCondition: shadow?.condition ?? 'NO_H2_PAIR_CONDITION',
+    availablePortfolioSlots: reach.availablePortfolioSlots,
+    baseDeployableToAssetsEur: reach.baseDeployableToAssetsEur,
+    opportunityCount: reach.opportunityAssetIds.length,
+    allocatorShortlistCount: reach.allocatorShortlistAssetIds.length,
+    plannedContributionCount: reach.plannedContributionAssetIds.length,
+    nonFundingReasonByAssetId: reach.nonFundingReasonByAssetId,
+    comparedOpportunityCount: shadow?.comparedOpportunityCount ?? 0,
+    displayedOpportunityCount: shadow?.displayedOpportunityCount ?? 0,
+    comparedIncumbentCount: shadow?.comparedIncumbentCount ?? 0,
+    pairCount: pairs.length,
+    fifoCoveredPairs: pairs.filter(pair => pair.fiscalCoverage === 'FIFO_TRACKED').length,
+    realProvenancePairs: pairs.filter(pair => pair.sourceEligibility === 'REAL_ONLY').length,
+    pairs,
+    status: pairs.length ? 'SIGNAL_DIAGNOSTIC_ONLY' as const : 'NO_EVALUABLE_PAIRS' as const,
+    netEconomicVerdict: 'N_D' as const,
+    caution: 'La cobertura FIFO no acredita FX, spreads, impuestos exactos ni beneficio futuro. No autoriza rotar.'
+  };
+}
+
 function instrumentType(asset?: AssetUniverseItem): InvestmentInstrumentType {
   return asset?.instrumentType ?? 'ETF_ETC';
 }
