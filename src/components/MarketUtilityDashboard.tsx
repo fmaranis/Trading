@@ -168,6 +168,30 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
           {h2Readout && <div className="mt-2 space-y-1">
             <p>Fecha de información: {h2Readout.informationDate}. Pares: {h2Readout.pairCount}; fuente REAL en ambos extremos: {h2Readout.realProvenancePairs}; cobertura FIFO conocida: {h2Readout.fifoCoveredPairs}.</p>
             <p>Resultado económico neto: N/D. Las diferencias de momentum no son rentabilidad prevista.</p>
+            <p>Entradas nuevas permitidas: {h2Readout.newPositionDecisionLimit}. Despliegue inicial ampliado: {h2Readout.bootstrapDeploymentActive ? 'sí' : 'no'}.</p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] text-left text-[11px]">
+                <thead><tr className="border-b border-slate-700 text-slate-400">
+                  <th className="py-1 pr-2">Oportunidad</th>
+                  <th className="py-1 pr-2">Ranking</th>
+                  <th className="py-1 pr-2">Prioridad</th>
+                  <th className="py-1 pr-2">Timing</th>
+                  <th className="py-1 pr-2">Vol. anual</th>
+                  <th className="py-1 pr-2">Propuesta</th>
+                  <th className="py-1">Motivo</th>
+                </tr></thead>
+                <tbody>{h2Readout.opportunityAllocationAudit.map(row => <tr key={row.assetId} className="border-b border-slate-800">
+                  <td className="py-1 pr-2">{row.ticker}</td>
+                  <td className="py-1 pr-2">{row.rankingScore.toFixed(2)}</td>
+                  <td className="py-1 pr-2">{row.allocationPriority.toFixed(2)}</td>
+                  <td className="py-1 pr-2">{row.timingState}</td>
+                  <td className="py-1 pr-2">{row.annualizedVolatilityPct == null ? 'N/D' : `${row.annualizedVolatilityPct.toFixed(1)}%`}</td>
+                  <td className="py-1 pr-2">{row.plannedAmountEur.toFixed(2)} €</td>
+                  <td className="py-1">{row.fundingReason}{row.targetGapEur != null && row.minimumMeaningfulGapEur != null ? ` · gap ${row.targetGapEur.toFixed(2)} € / mínimo ${row.minimumMeaningfulGapEur.toFixed(2)} €` : ''}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+            <p className="text-slate-500">Ranking y prioridad son medidas actuales, no rentabilidad futura. Un gap N/D significa que la evaluación quedó bloqueada antes de calcularlo.</p>
             <button type="button" className="mt-1 rounded-md border border-slate-600 px-3 py-2 text-slate-100"
               onClick={() => downloadJsonFile(`h2-research-${h2Readout.informationDate.slice(0, 10)}.json`, h2Readout)}>
               Descargar evidencia H2 en este dispositivo
