@@ -52,9 +52,17 @@ check('1005 validation results expose a native HTTP JSON attachment', () => {
   assert.match(validationRoutes, /attachment; filename=/);
 });
 check('1006 future-forward token is preflighted before the job is launched', () => {
-  const prereq = validationRoutes.indexOf('const missing = prerequisiteError(job);');
-  const run = validationRoutes.indexOf('void runJob(job);');
-  assert.ok(prereq >= 0 && run >= 0 && prereq < run);
+  // Validate the real POST handler rather than a stale synchronous helper call.
+  const handlerStart = validationRoutes.indexOf("researchValidationRouter.post('/jobs/:id/run'");
+  assert.ok(handlerStart >= 0, 'job launch POST handler must exist');
+  const prereq = validationRoutes.indexOf('const missing = await asyncPrerequisiteError(job);', handlerStart);
+  const failure = validationRoutes.indexOf('res.status(412).json(', handlerStart);
+  const run = validationRoutes.indexOf('void runJob(job);', handlerStart);
+  assert.ok(prereq >= handlerStart && failure > prereq && run > failure,
+    'async prerequisite check must block execution with HTTP 412 before runJob');
+  const guarded = validationRoutes.slice(prereq, run);
+  assert.match(guarded, /if \(missing\) \{/);
+  assert.match(guarded, /return;/);
   assert.match(validationRoutes, /QUALITY_FF_DURABLE_GITHUB_TOKEN_REQUIRED/);
 });
 check('1007 future-forward UI explains verification/no-rewrite without requiring JSON interpretation', () => {
