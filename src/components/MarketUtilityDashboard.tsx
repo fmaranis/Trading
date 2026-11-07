@@ -15,6 +15,7 @@ import {
   SpanishTaxSettingsService,
   TaxLotLedgerService,
   UserPortfolioService,
+  type UserHolding,
   type PortfolioExecutionPlan,
   type PortfolioPositionHealthResult
 } from '../investment/decision';
@@ -92,7 +93,9 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
     // Read only existing private FIFO coverage; do not expose lots, costs or
     // tax amounts in the research readout. Mutual funds remain UNKNOWN.
     const fiscalCoverageByAssetId: Record<string, 'FIFO_TRACKED' | 'UNKNOWN'> = {};
-    const holdingsByTicker = new Map(portfolio.holdings.map(row => [row.ticker.toUpperCase(), row]));
+    const holdingsByTicker = new Map<string, UserHolding>(
+      portfolio.holdings.map((row): [string, UserHolding] => [row.ticker.toUpperCase(), row])
+    );
     for (const pair of portfolioDecision.researchReachTrace.capitalMobilityShadow?.potentialPairs ?? []) {
       const incumbent = scan.candidates.find(row => row.asset.assetId === pair.incumbentAssetId);
       const ticker = incumbent?.asset.ticker.toUpperCase();
