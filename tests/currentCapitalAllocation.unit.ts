@@ -256,6 +256,38 @@ check('951d H2 is absent when not explicitly requested',
   }) === null);
 
 
+const fundedAudit = PortfolioDecisionEngine.evaluate({
+  portfolio: freeSlotRotationPortfolio, scan: rotationScan, decision: rotationDecision,
+  positionHealth: rotationHealth, cashBenchmarkAnnualPct: 2.5, researchReachTrace: true
+});
+const fundedReadout = buildH2CapitalMobilityReadout({
+  informationDate: '2026-11-07',
+  portfolioDecision: fundedAudit,
+  fiscalCoverageByAssetId: {}
+});
+const fundedRow = fundedReadout?.opportunityAllocationAudit.find(row => row.assetId === 'STRONG_TECH');
+check('951e opt-in allocation audit exposes actual ranking, priority, amount and reason, even without H2 pairs',
+  fundedReadout?.pairCount === 0
+  && fundedReadout.opportunityAllocationAudit.length === fundedAudit.researchReachTrace?.opportunityAssetIds.length
+  && fundedReadout.newPositionDecisionLimit === 2
+  && fundedRow?.inAllocatorShortlist === true
+  && fundedRow?.fundingReason === 'PLANNED_CONTRIBUTION'
+  && fundedRow.plannedAmountEur > 0
+  && Number.isFinite(fundedRow.rankingScore)
+  && Number.isFinite(fundedRow.allocationPriority)
+  && fundedRow.targetGapEur != null
+  && fundedRow.minimumMeaningfulGapEur != null);
+check('951f excluded opportunity audit carries observed reason and never invents future returns or extra orders',
+  h2Readout?.opportunityAllocationAudit.some(row =>
+    row.assetId === 'STRONG_TECH'
+    && row.plannedAmountEur === 0
+    && row.fundingReason !== 'PLANNED_CONTRIBUTION'
+  ) === true
+  && h2Readout?.outcomeAccessed === false
+  && h2Readout?.netEconomicVerdict === 'N_D'
+  && JSON.stringify(cashLockedWithoutTrace) === JSON.stringify(cashLockedBaseline));
+
+
 const rotationPortfolio: any = {
   cashEur: 0,
   holdings: [{ ticker: 'INC.DE', shares: 2000 / incumbentPrice }],
