@@ -71,9 +71,23 @@ check('1007 future-forward UI explains verification/no-rewrite without requiring
   assert.match(validationCenter, /expectedObservationMonth/);
   assert.match(validationCenter, /Evidencia JSON/);
 });
-check('1008 validation UI uses the native result endpoint rather than Blob download code', () => {
-  assert.match(validationCenter, /result\.json/);
-  assert.doesNotMatch(validationCenter, /new Blob|createObjectURL|downloadResultJson/);
+check('1008 validation evidence downloads parsed JSON, not an auth-gate HTML page', () => {
+  // In embedded AI Studio previews, direct navigation to result.json may return
+  // an authentication HTML page saved under a .json filename. Keep the
+  // intentionally local JSON evidence downloader; do not confuse it with the
+  // separate Kronos checkpoint download that also uses Blob.
+  const start = validationCenter.indexOf('function downloadJobEvidence(job: ValidationJob)');
+  const end = validationCenter.indexOf('export const ResearchValidationCenter', start);
+  assert.ok(start >= 0 && end > start, 'local evidence downloader must exist');
+  const downloader = validationCenter.slice(start, end);
+  assert.match(downloader, /job\.result == null/);
+  assert.match(downloader, /JSON\.stringify\(payload, null, 2\)/);
+  assert.match(downloader, /new Blob\(/);
+  assert.match(downloader, /application\/json/);
+  assert.match(downloader, /URL\.createObjectURL\(blob\)/);
+  assert.match(downloader, /link\.download = filename/);
+  assert.match(validationCenter, /onClick=\{\(\) => downloadJobEvidence\(job\)\}/);
+  assert.doesNotMatch(validationCenter, /href=\{\x60\$\{BASE\}\/jobs\/\$\{[^}]+\}\/result\.json\x60\}/);
 });
 check('1009 replay export uses the dedicated browser-storage JSON helper', () => {
   assert.match(replayJsonControls, /downloadJsonFile/);
