@@ -100,6 +100,34 @@ export interface PortfolioDecisionResult {
     nonFundingReasonByAssetId: Record<string, string>;
     baseDeployableToAssetsEur: number;
     availablePortfolioSlots: number;
+    /**
+     * Shadow-only paired opportunity costs. Descriptive price-only features, not
+     * predicted returns, actionable switches or a second allocation policy.
+     */
+    capitalMobilityShadow?: {
+      condition: 'FREE_SLOTS_NO_DEPLOYABLE_NEW_MONEY';
+      comparedOpportunityCount: number;
+      displayedOpportunityCount: number;
+      comparedIncumbentCount: number;
+      potentialPairs: Array<{
+        challengerAssetId: string;
+        incumbentAssetId: string;
+        incumbentAction: PortfolioPositionAction;
+        incumbentValueEur: number;
+        sameCategory: boolean;
+        sameIsin: boolean;
+        relativeMomentum20PctPoints: number | null;
+        relativeMomentum60PctPoints: number | null;
+        relativeMomentum120PctPoints: number | null;
+        relativeAnnualizedVolatilityPctPoints: number | null;
+        closeReturnCorrelation60: number | null;
+        alignedPriceReturnSessions: number;
+        estimatedBrokerCommissionsEur: number;
+        dataProvenance: { challenger: string; incumbent: string };
+        taxAssessment: 'NOT_ESTIMABLE_FROM_PORTFOLIO_STATE';
+        recommendation: 'NONE_RESEARCH_ONLY';
+      }>;
+    };
   };
 }
 
@@ -219,6 +247,46 @@ function incumbentSelectionScore(candidate: AssetUniverseScanResult['candidates'
 function estimatedRotationRoundTripFeeDragPct(notionalEur: number, type: InvestmentInstrumentType): number {
   if (!(notionalEur > 0) || type === 'MUTUAL_FUND') return 0;
   return brokerCommission(notionalEur) * 2 / notionalEur * 100;
+}
+
+/** Paired CLOSE-price correlation over up to 60 jointly observed returns.
+ * Diagnostic only: close-to-close prices are not dividend-adjusted total returns.
+ * Each joint date must precede or equal both assets' as-of dates.
+ */
+function researchPairedCloseCorrelation(
+  scan: AssetUniverseScanResult, challengerId: string, incumbentId: string
+): { correlation: number | null; sessions: number } {
+  if (scan.acceptedDataset.timeframe.toLowerCase() !== '1d') return { correlation: null, sessions: 0 };
+  const a = scan.acceptedDataset.assets.find(row => row.assetId === challengerId);
+  const b = scan.acceptedDataset.assets.find(row => row.assetId === incumbentId);
+  const ca = scan.candidates.find(row => row.asset.assetId === challengerId);
+  const cb = scan.candidates.find(row => row.asset.assetId === incumbentId);
+  if (!a || !b || !ca?.asOfDate || !cb?.asOfDate || !ca.asset.currency || ca.asset.currency !== cb.asset.currency) {
+    return { correlation: null, sessions: 0 };
+  }
+  const asOf = ca.asOfDate < cb.asOfDate ? ca.asOfDate : cb.asOfDate;
+  const makePrices = (bars: typeof a.bars): Map<string, number> => new Map(
+    bars.filter(bar => bar.timestamp.slice(0, 10) <= asOf && Number.isFinite(bar.close) && bar.close > 0)
+      .map(bar => [bar.timestamp.slice(0, 10), bar.close])
+  );
+  const aPrices = makePrices(a.bars), bPrices = makePrices(b.bars);
+  const dates = [...aPrices.keys()].filter(date => bPrices.has(date)).sort().slice(-61);
+  if (dates.length < 31) return { correlation: null, sessions: Math.max(0, dates.length - 1) };
+  const ra: number[] = [], rb: number[] = [];
+  for (let index = 1; index < dates.length; index++) {
+    const previousA = aPrices.get(dates[index - 1])!, previousB = bPrices.get(dates[index - 1])!;
+    ra.push(aPrices.get(dates[index])! / previousA - 1);
+    rb.push(bPrices.get(dates[index])! / previousB - 1);
+  }
+  const n = ra.length, ma = ra.reduce((sum, value) => sum + value, 0) / n;
+  const mb = rb.reduce((sum, value) => sum + value, 0) / n;
+  let covariance = 0, varianceA = 0, varianceB = 0;
+  for (let index = 0; index < n; index++) {
+    const da = ra[index] - ma, db = rb[index] - mb;
+    covariance += da * db; varianceA += da * da; varianceB += db * db;
+  }
+  const denominator = Math.sqrt(varianceA * varianceB);
+  return { correlation: denominator > 1e-12 ? Math.max(-1, Math.min(1, covariance / denominator)) : null, sessions: n };
 }
 
 export class PortfolioDecisionEngine {
@@ -723,6 +791,68 @@ export class PortfolioDecisionEngine {
     if (opportunityAllocationPolicy === 'QUALITY_ALLOCATION_BRIDGE_V1') warnings.push('QUALITY_ALLOCATION_BRIDGE_V1 research-only: la corrección QUALITY_V1 congelada modula ±15% como máximo la prioridad relativa entre oportunidades ya elegibles. No altera cash, consenso, timing, slots, starter/build, caps, rotaciones ni hard gates; producción sigue LEGACY.');
     if (opportunityAllocationPolicy === 'TIMESFM_ALLOCATION_BRIDGE_V1') warnings.push('TIMESFM_ALLOCATION_BRIDGE_V1 post-hoc research-only: TimesFM decide sólo el orden en que oportunidades ya elegibles consumen slots/capital escaso. La fórmula LEGACY de prioridad económica sigue calculando target/sizing; no cambian cash, gates, starter/build, caps, costes, fiscalidad ni producción.');
 
+    // A FREE portfolio slot is not deployable cash. Current production rotation
+    // runs only when all slots are occupied; the shadow asks whether a challenger
+    // competes with ALREADY INVESTED capital even while slots remain free.
+    // Never converts an observation into an EXIT or a proposed BUY.
+    const capitalMobilityShadow = input.researchReachTrace
+      && !hasMissingValuation && !systemicStress
+      && availablePortfolioSlots > 0 && currentInvestedValueEur > 0
+      && baseDeployableToAssetsEur < executionPolicy.minimumOrderNotionalEur
+      && opportunities.some(alert => !heldAssetIds.has(alert.assetId))
+      ? (() => {
+        const challengers = opportunities.filter(alert => !heldAssetIds.has(alert.assetId));
+        const shown = challengers.slice(0, maxOpportunityPositions(decision.riskProfile));
+        const incumbents = existingPositions.filter(row =>
+          row.assetId != null && (row.currentValueEur ?? 0) > 0
+          && (row.action === 'HOLD' || row.action === 'WATCH')
+        );
+        const candidateById = new Map(scan.candidates.map(row => [row.asset.assetId, row]));
+        const datasetById = new Map(scan.acceptedDataset.assets.map(row => [row.assetId, row]));
+        const spread = (challengerValue: number | null, incumbentValue: number | null): number | null =>
+          challengerValue != null && incumbentValue != null
+            && Number.isFinite(challengerValue) && Number.isFinite(incumbentValue)
+            ? challengerValue - incumbentValue : null;
+        const potentialPairs = shown.flatMap(challenger => incumbents.flatMap(incumbent => {
+          const candidateA = candidateById.get(challenger.assetId);
+          const candidateB = candidateById.get(incumbent.assetId!);
+          if (!candidateA || !candidateB) return [];
+          const correlation = researchPairedCloseCorrelation(scan, challenger.assetId, incumbent.assetId!);
+          const incumbentValue = incumbent.currentValueEur ?? 0;
+          const sellFee = incumbent.instrumentType === 'MUTUAL_FUND' ? 0 : brokerCommission(incumbentValue);
+          const buyFee = instrumentType(candidateA.asset) === 'MUTUAL_FUND' ? 0 : brokerCommission(incumbentValue);
+          return [{
+            challengerAssetId: challenger.assetId,
+            incumbentAssetId: incumbent.assetId!,
+            incumbentAction: incumbent.action,
+            incumbentValueEur: incumbentValue,
+            sameCategory: candidateA.asset.category === candidateB.asset.category,
+            sameIsin: Boolean(candidateA.asset.isin && candidateA.asset.isin === candidateB.asset.isin),
+            relativeMomentum20PctPoints: spread(candidateA.momentum20Pct, candidateB.momentum20Pct),
+            relativeMomentum60PctPoints: spread(candidateA.momentum60Pct, candidateB.momentum60Pct),
+            relativeMomentum120PctPoints: spread(candidateA.momentum120Pct, candidateB.momentum120Pct),
+            relativeAnnualizedVolatilityPctPoints: spread(candidateA.annualizedVolatilityPct, candidateB.annualizedVolatilityPct),
+            closeReturnCorrelation60: correlation.correlation,
+            alignedPriceReturnSessions: correlation.sessions,
+            estimatedBrokerCommissionsEur: sellFee + buyFee,
+            dataProvenance: {
+              challenger: datasetById.get(challenger.assetId)?.provenance?.sourceType ?? 'UNKNOWN',
+              incumbent: datasetById.get(incumbent.assetId!)?.provenance?.sourceType ?? 'UNKNOWN'
+            },
+            taxAssessment: 'NOT_ESTIMABLE_FROM_PORTFOLIO_STATE' as const,
+            recommendation: 'NONE_RESEARCH_ONLY' as const
+          }];
+        }));
+        return {
+          condition: 'FREE_SLOTS_NO_DEPLOYABLE_NEW_MONEY' as const,
+          comparedOpportunityCount: challengers.length,
+          displayedOpportunityCount: shown.length,
+          comparedIncumbentCount: incumbents.length,
+          potentialPairs
+        };
+      })()
+      : undefined;
+
     const researchReachTrace = input.researchReachTrace ? {
       opportunityAssetIds: opportunities.map(alert => alert.assetId),
       allocatorShortlistAssetIds,
@@ -735,7 +865,8 @@ export class PortfolioDecisionEngine {
               : !allocatorShortlistAssetIds.includes(alert.assetId) ? 'OUTSIDE_ALLOCATOR_SHORTLIST'
                 : 'NON_FUNDED_REASON_UNAVAILABLE')])),
       baseDeployableToAssetsEur,
-      availablePortfolioSlots
+      availablePortfolioSlots,
+      ...(capitalMobilityShadow ? { capitalMobilityShadow } : {})
     } : undefined;
 
     return {
