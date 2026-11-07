@@ -96,7 +96,7 @@ export interface PortfolioDecisionResult {
   researchReachTrace?: {
     opportunityAssetIds: string[];
     allocatorShortlistAssetIds: string[];
-    fundedAssetIds: string[];
+    plannedContributionAssetIds: string[];
     nonFundingReasonByAssetId: Record<string, string>;
     baseDeployableToAssetsEur: number;
     availablePortfolioSlots: number;
@@ -726,7 +726,7 @@ export class PortfolioDecisionEngine {
     const researchReachTrace = input.researchReachTrace ? {
       opportunityAssetIds: opportunities.map(alert => alert.assetId),
       allocatorShortlistAssetIds,
-      fundedAssetIds: contributions.map(row => row.assetId),
+      plannedContributionAssetIds: contributions.map(row => row.assetId),
       nonFundingReasonByAssetId: Object.fromEntries(opportunities
         .filter(alert => !contributions.some(row => row.assetId === alert.assetId))
         .map(alert => [alert.assetId, nonFundingReasons?.get(alert.assetId)
