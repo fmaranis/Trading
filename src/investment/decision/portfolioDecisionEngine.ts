@@ -605,7 +605,7 @@ export class PortfolioDecisionEngine {
         const currentAssetValueEur = Math.max(0, currentByAsset.get(alert.assetId) ?? 0);
         const isExisting = currentAssetValueEur > 0.01;
         const isRotationEntry = rotationChallengerIds.has(alert.assetId);
-        if (!isExisting && newPositionsAllocated >= newPositionBudget) return reject('NEW_POSITION_DECISION_BUDGET');
+        if (!isExisting && newPositionsAllocated >= newPositionBudget) return reject(availablePortfolioSlots === 0 && !isRotationEntry ? 'NO_PORTFOLIO_SLOT' : 'NEW_POSITION_DECISION_BUDGET');
         if (!isExisting && availablePortfolioSlots === 0 && !isRotationEntry) return reject('NO_PORTFOLIO_SLOT');
 
         const rawTargetValueEur = stableOpportunityPoolEur * Math.max(0.01, priority) / totalPriority;
