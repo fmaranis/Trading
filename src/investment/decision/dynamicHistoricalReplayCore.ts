@@ -1382,7 +1382,7 @@ export class DynamicHistoricalReplayEngine {
         const currentWeight = current.equityEur > 0 ? heldValue / current.equityEur : 0;
         const traceAction: DynamicReplaySignalAction = holding ? (health?.action === 'WATCH' ? 'WATCH' : 'HOLD') : 'AVOID';
         const allocatorTrace = portfolioDecision.researchReachTrace;
-        const gateStatus = gateEntry?.status ?? 'UNKNOWN';
+        const gateStatus: NonNullable<DynamicReplaySignal['researchDecisionReach']>['gateStatus'] = gateEntry?.status ?? 'UNKNOWN';
         const researchDecisionReach = input.researchDecisionReachTrace && traceAction === 'AVOID' ? {
           gateStatus,
           gateReason: gateEntry?.reason ?? null,
