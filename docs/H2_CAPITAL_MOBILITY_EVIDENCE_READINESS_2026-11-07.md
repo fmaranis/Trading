@@ -53,3 +53,20 @@ Todos los puntos siguientes requieren evidencia verificable **antes de abrir out
 Cuando exista un snapshot prospectivo REAL utilizable en el runtime local, **auditar read-only** su trazabilidad H2 (fechas, pares, datos faltantes y razones `N/D`) antes de abrir resultados futuros. Separar calidad de señal y política económica. Si no hay datos suficientes, registrar `INSUFFICIENT_REAL_PIT_OR_TAX_LOT_EVIDENCE` y no iniciar ningún replay largo.
 
 F6/F7 mantienen sus calendarios y sellos propios; `LEGACY` permanece en producción. Ruptura de precio/volumen continúa como backlog independiente, sin desplazar H2.
+
+## 2026-11-08 — diagnóstico del snapshot real 2026-11-06: presupuesto de entradas, no H2
+
+Fuente: JSON compartido por el usuario `h2-research-2026-11-06.json`, leído como evidencia **de una decisión contemporánea**, no como historial de resultados ni como autorización para operar. `informationDate=2026-11-06`, `source=CANONICAL_DECISION_OPT_IN`, `productionAuthority=false`, `outcomeAccessed=false`.
+
+**Hechos observados:** `availablePortfolioSlots=10`; `baseDeployableToAssetsEur=7661.790234153747`; `opportunityCount=6`; `allocatorShortlistCount=6`; `plannedContributionCount=2`; `capitalCondition=NO_H2_PAIR_CONDITION`; `pairCount=0`; `netEconomicVerdict=N_D`. No afirmar que el efectivo entero se invirtió ni que dos compras se ejecutaron; son contribuciones planeadas.
+
+`nonFundingReasonByAssetId` informa: `OPEN_BTS_VI`, `OPEN_VIG_VI`, `OPEN_BIRG_IR` => `NEW_POSITION_DECISION_BUDGET`; `EQ_ALLIANZ` => `BELOW_MINIMUM_ORDER_GAP`. La lista exacta de las dos contribuciones financiadas, ranking, importes por activo y descomposición monetaria del gap no están en este **readout resumido**, por lo que no se puede establecer rendimiento relativo ni coste de oportunidad de los rechazados.
+
+**Código comprobado en `src/investment/decision/portfolioDecisionEngine.ts`:**
+- `maxNewPositionsPerDecision('MEDIUM') = 2` y `maxBootstrapNewPositionsPerDecision('MEDIUM') = 4`.
+- El bootstrap exige capital invertido sobre patrimonio planificado `<0.50`, valoraciones completas, sin estrés, plazas libres y dinero >= mínima orden. La restricción `NEW_POSITION_DECISION_BUDGET` de tres candidatos, junto con solo dos propuestas, es consistente con `newPositionDecisionLimit=2` en esta evaluación; no inferir el porcentaje exacto invertido sin patrimonio.
+- El shortlist se ordena por `rankingScore` (LEGACY), pero el presupuesto de entradas se cuenta **solo después de asignaciones nuevas con importe viable**; un candidato que falla la mínima orden no ocupa plaza presupuestaria. La razón `NEW_POSITION_DECISION_BUDGET` no implica calidad baja ni que tres activos debieran ser comprados.
+- `BELOW_MINIMUM_ORDER_GAP` usa `targetGapEur < max(executionPolicy.minimumOrderNotionalEur, lastClose + brokerCommission(lastClose))`; puede deberse a starter/timing y/o coste de una participación completa, no necesariamente al efectivo bruto disponible.
+- H2 está correctamente inactivo en esta fecha: requiere `baseDeployableToAssetsEur < minimumOrderNotionalEur`, entre otras condiciones; aquí hay capital desplegable y dos aportaciones propuestas.
+
+**Veredicto:** `H2_NO_REACH_ON_THIS_DATE / ALLOCATION_BUDGET_CONSTRAINT_OBSERVED / RELATIVE_OPPORTUNITY_VALUE_UNKNOWN`. No inferir fallo productivo ni cambiar de 2 a 3/4 nuevas entradas usando este snapshot ya visto. Para estudiar si las tres quedaron injustificadamente fuera, comparar los scores/volatilidad/timing/categoría, la capacidad residual y el portfolio resultante frente a las dos elegidas **en una muestra prospectiva diseñada antes de outcomes**, con mismas entradas externas y costes/riesgo. El JSON actual no contiene esas cifras, así que queda bloqueada cualquier conclusión de coste de oportunidad. El trabajo de captura económica de H2 sigue en espera de días con reach real; no crear una policy paralela para compensar un snapshot sin pares.
