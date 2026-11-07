@@ -92,6 +92,15 @@ export interface PortfolioDecisionResult {
   existingPositions: PortfolioPositionDecision[];
   contributions: ContributionRecommendation[];
   warnings: string[];
+  /** Opt-in research trace. Never drives ranking, sizing, execution or production decisions. */
+  researchReachTrace?: {
+    opportunityAssetIds: string[];
+    allocatorShortlistAssetIds: string[];
+    fundedAssetIds: string[];
+    nonFundingReasonByAssetId: Record<string, string>;
+    baseDeployableToAssetsEur: number;
+    availablePortfolioSlots: number;
+  };
 }
 
 function instrumentType(asset?: AssetUniverseItem): InvestmentInstrumentType {
@@ -224,6 +233,8 @@ export class PortfolioDecisionEngine {
     opportunityAllocationPolicy?: ResearchOpportunityAllocationPolicy;
     candidateSelectionPolicy?: CandidateSelectionPolicy;
     candidateSelectionContext?: CandidateSelectionContext;
+    /** Research-only readout of actual allocator branch decisions. Default is OFF. */
+    researchReachTrace?: boolean;
   }): PortfolioDecisionResult {
     const { portfolio, scan, decision } = input;
     const materialDrift = input.materialDriftPctPoints ?? 5;
@@ -447,6 +458,8 @@ export class PortfolioDecisionEngine {
     const deployablePool = currentCashEur + pendingCapitalEur;
     const baseDeployableToAssetsEur = Math.max(0, deployablePool - targetCashEur);
     const opportunities = CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmarkAnnualPct, candidateSelectionPolicy, candidateSelectionContext);
+    const nonFundingReasons = input.researchReachTrace ? new Map<string, string>() : null;
+    let allocatorShortlistAssetIds: string[] = [];
     const executionPolicy = executionPolicyForCapital(totalPlannedCapitalEur);
     const heldAssetIds = new Set(currentByAsset.keys());
     const maxPortfolioPositions = maxPortfolioPositionsForRisk(decision.riskProfile);
@@ -567,6 +580,7 @@ export class PortfolioDecisionEngine {
           return b.rankingScore - a.rankingScore;
         })
         .slice(0, Math.max(shortlistLimit, existingOpportunities.length));
+      if (input.researchReachTrace) allocatorShortlistAssetIds = shortlist.map(alert => alert.assetId);
       const priorities = shortlist.map(alert => ({
         alert,
         priority: opportunityPriority(alert, opportunityAllocationPolicy),
@@ -585,13 +599,14 @@ export class PortfolioDecisionEngine {
       const newPositionBudget = Math.min(effectiveNewSlots, newPositionDecisionLimit);
 
       const allocated = priorities.map<ContributionRecommendation | null>(({ alert, priority, qualityMultiplier }) => {
+        const reject = (reason: string): null => { nonFundingReasons?.set(alert.assetId, reason); return null; };
         const asset = assets.get(alert.assetId) ?? assets.get(alert.ticker.toUpperCase());
-        if (!asset) return null;
+        if (!asset) return reject('CATALOG_ASSET_UNAVAILABLE');
         const currentAssetValueEur = Math.max(0, currentByAsset.get(alert.assetId) ?? 0);
         const isExisting = currentAssetValueEur > 0.01;
         const isRotationEntry = rotationChallengerIds.has(alert.assetId);
-        if (!isExisting && newPositionsAllocated >= newPositionBudget) return null;
-        if (!isExisting && availablePortfolioSlots === 0 && !isRotationEntry) return null;
+        if (!isExisting && newPositionsAllocated >= newPositionBudget) return reject('NEW_POSITION_DECISION_BUDGET');
+        if (!isExisting && availablePortfolioSlots === 0 && !isRotationEntry) return reject('NO_PORTFOLIO_SLOT');
 
         const rawTargetValueEur = stableOpportunityPoolEur * Math.max(0.01, priority) / totalPriority;
         const assetCapValueEur = stableOpportunityPoolEur * maxAssetShare(decision.riskProfile, alert.level);
@@ -615,7 +630,7 @@ export class PortfolioDecisionEngine {
           ? lastClose + brokerCommission(lastClose)
           : 0;
         const minimumMeaningfulGapEur = Math.max(executionPolicy.minimumOrderNotionalEur, wholeShareFloorEur);
-        if (targetGapEur < minimumMeaningfulGapEur - 1e-9) return null;
+        if (targetGapEur < minimumMeaningfulGapEur - 1e-9) return reject('BELOW_MINIMUM_ORDER_GAP');
 
         const alreadyInCategory = currentByCategory.get(asset.category) ?? 0;
         const alreadyAdded = categoryAdded.get(asset.category) ?? 0;
@@ -624,7 +639,13 @@ export class PortfolioDecisionEngine {
         const remainingRotation = Math.max(0, plannedRotationProceedsEur - allocatedRotationEur);
         const availableForRow = isRotationEntry ? remainingBase + remainingRotation : remainingBase;
         const amountEur = Math.max(0, Math.min(targetGapEur, categoryCapacity, availableForRow));
-        if (amountEur < minimumMeaningfulGapEur - 1e-9) return null;
+        if (amountEur < minimumMeaningfulGapEur - 1e-9) return reject(
+          categoryCapacity < minimumMeaningfulGapEur - 1e-9
+            ? 'CATEGORY_CAPACITY'
+            : availableForRow < minimumMeaningfulGapEur - 1e-9
+              ? 'NO_AVAILABLE_CAPITAL_FOR_ORDER'
+              : 'BELOW_MINIMUM_ORDER_AFTER_CAPS'
+        );
 
         const baseUse = Math.min(amountEur, remainingBase);
         allocatedBaseEur += baseUse;
@@ -702,6 +723,21 @@ export class PortfolioDecisionEngine {
     if (opportunityAllocationPolicy === 'QUALITY_ALLOCATION_BRIDGE_V1') warnings.push('QUALITY_ALLOCATION_BRIDGE_V1 research-only: la corrección QUALITY_V1 congelada modula ±15% como máximo la prioridad relativa entre oportunidades ya elegibles. No altera cash, consenso, timing, slots, starter/build, caps, rotaciones ni hard gates; producción sigue LEGACY.');
     if (opportunityAllocationPolicy === 'TIMESFM_ALLOCATION_BRIDGE_V1') warnings.push('TIMESFM_ALLOCATION_BRIDGE_V1 post-hoc research-only: TimesFM decide sólo el orden en que oportunidades ya elegibles consumen slots/capital escaso. La fórmula LEGACY de prioridad económica sigue calculando target/sizing; no cambian cash, gates, starter/build, caps, costes, fiscalidad ni producción.');
 
+    const researchReachTrace = input.researchReachTrace ? {
+      opportunityAssetIds: opportunities.map(alert => alert.assetId),
+      allocatorShortlistAssetIds,
+      fundedAssetIds: contributions.map(row => row.assetId),
+      nonFundingReasonByAssetId: Object.fromEntries(opportunities
+        .filter(alert => !contributions.some(row => row.assetId === alert.assetId))
+        .map(alert => [alert.assetId, nonFundingReasons?.get(alert.assetId)
+          ?? (hasMissingValuation ? 'PORTFOLIO_VALUATION_MISSING'
+            : deployableToAssetsEur <= 0.01 ? 'NO_DEPLOYABLE_CAPITAL'
+              : !allocatorShortlistAssetIds.includes(alert.assetId) ? 'OUTSIDE_ALLOCATOR_SHORTLIST'
+                : 'NON_FUNDED_REASON_UNAVAILABLE')])),
+      baseDeployableToAssetsEur,
+      availablePortfolioSlots
+    } : undefined;
+
     return {
       currentInvestedValueEur,
       currentCashEur,
@@ -718,7 +754,8 @@ export class PortfolioDecisionEngine {
       exposures,
       existingPositions,
       contributions,
-      warnings
+      warnings,
+      ...(researchReachTrace ? { researchReachTrace } : {})
     };
   }
 }
