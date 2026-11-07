@@ -205,9 +205,18 @@ try {
 // The reach audit reuses this SAME replay. It must never alter cash, orders or dates.
 {
   const shortDataset = dataset(false, 560);
+  const reachCatalog: AssetUniverseItem[] = [...catalog];
+  // Six same-category candidates deliberately exceed normal starter slots.
+  // This confirms an AVOID exists and captures the Top-N vs opportunity-stage distinction.
+  const reference = shortDataset.assets[0];
+  for (let i = 2; i <= 6; i++) {
+    const assetId = `RISK${i}`, ticker = `RISK${i}.DE`;
+    reachCatalog.push({ ...catalog[0], assetId, ticker, name: assetId });
+    shortDataset.assets.push({ ...reference, assetId, ticker, name: assetId });
+  }
   const dates = shortDataset.assets[0].bars.map(row => row.timestamp.slice(0, 10));
   const options = {
-    dataset: shortDataset, catalog, startDate: dates[400],
+    dataset: shortDataset, catalog: reachCatalog, startDate: dates[400],
     explicitDecisionDates: [dates[400], dates[450], dates[500]],
     frequency: 'DAILY' as const, initialCapitalEur: 10_000,
     riskProfile: 'MEDIUM' as const, horizonYears: 3 as const,
