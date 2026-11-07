@@ -308,4 +308,4 @@ const confirmedBuild = confirmedBuildResult.contributions.find(row => row.assetI
 check('964 a filled starter may grow only when position health independently confirms ADD while timing remains strong', Boolean(confirmedBuild) && confirmedBuild?.positionStage === 'BUILD' && (confirmedBuild.portfolioShareCapPct ?? 0) === 8);
 check('965 confirmed BUILD remains incremental and cannot jump beyond the eight-percent medium-risk build cap', Boolean(confirmedBuild) && (confirmedBuild?.executableTargetAssetValueEur ?? Infinity) <= 800 + 1e-6 && (confirmedBuild?.amountEur ?? Infinity) <= 300 + 1e-6);
 
-console.log(`Current finite-capital allocation: ${passed}/35 invariants passed.`);
+console.log(`Current finite-capital allocation: ${passed} invariants passed.`);
