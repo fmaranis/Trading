@@ -163,6 +163,7 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard asignación y trazabilidad opt-in', command: 'npx', args: ['tsx', 'tests/currentCapitalAllocation.unit.ts'] },
       { label: 'Guard paridad replay / traza opt-in', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
+      { label: 'Guard runtime del Centro de validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
       { label: 'Guard cierre de superficie', command: 'npx', args: ['tsx', 'tests/productSurfaceClosureV1.unit.ts'] },
       { label: 'Guard usuarios privados', command: 'npx', args: ['tsx', 'tests/privateUserSecurity.unit.ts'] },
       { label: 'Guard decisión productiva única', command: 'npx', args: ['tsx', 'tests/productDecisionSurface.unit.ts'] },
