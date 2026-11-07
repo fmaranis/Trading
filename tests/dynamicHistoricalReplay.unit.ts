@@ -221,6 +221,7 @@ try {
   assert.deepEqual(traced.equityPath, normal.equityPath, 'opt-in diagnostic does not change portfolio valuation');
   assert.equal(traced.finalValueEur, normal.finalValueEur, 'opt-in diagnostic does not change terminal wealth');
   assert.ok(normal.signals.every(signal => signal.researchDecisionReach === undefined), 'default replay never emits the optional diagnostic');
+  assert.ok(traced.signals.some(signal => signal.action === 'AVOID'), 'short test must actually exercise the non-funded diagnostic path');
   assert.ok(traced.signals.filter(signal => signal.action === 'AVOID').every(signal =>
     signal.researchDecisionReach != null
     && ['ELIGIBLE', 'REJECTED', 'UNKNOWN'].includes(signal.researchDecisionReach.gateStatus)
