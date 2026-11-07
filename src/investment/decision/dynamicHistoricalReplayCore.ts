@@ -1382,8 +1382,9 @@ export class DynamicHistoricalReplayEngine {
         const currentWeight = current.equityEur > 0 ? heldValue / current.equityEur : 0;
         const traceAction: DynamicReplaySignalAction = holding ? (health?.action === 'WATCH' ? 'WATCH' : 'HOLD') : 'AVOID';
         const allocatorTrace = portfolioDecision.researchReachTrace;
+        const gateStatus = gateEntry?.status ?? 'UNKNOWN';
         const researchDecisionReach = input.researchDecisionReachTrace && traceAction === 'AVOID' ? {
-          gateStatus: gateEntry?.status ?? 'UNKNOWN' as const,
+          gateStatus,
           gateReason: gateEntry?.reason ?? null,
           selectedInGateTopN: dateGate.scan.selected.some(row => row.asset.assetId === assetId),
           presentInOpportunityPool: allocatorTrace?.opportunityAssetIds.includes(assetId) ?? false,
