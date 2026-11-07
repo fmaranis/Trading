@@ -1,4 +1,4 @@
-import { CurrentOpportunityAlertEngine, PortfolioDecisionEngine } from '../src/investment/decision';
+import { buildH2CapitalMobilityReadout, CurrentOpportunityAlertEngine, PortfolioDecisionEngine } from '../src/investment/decision';
 
 let passed = 0;
 function check(name: string, condition: boolean) {
@@ -223,6 +223,37 @@ check('951a with free slots but no deployable cash the shadow compares existing 
   && competingPair?.taxAssessment === 'NOT_ESTIMABLE_FROM_PORTFOLIO_STATE'
   && competingPair?.recommendation === 'NONE_RESEARCH_ONLY'
   && JSON.stringify(cashLockedWithoutTrace) === JSON.stringify(cashLockedBaseline));
+
+
+const h2Readout = buildH2CapitalMobilityReadout({
+  informationDate: '2026-11-07',
+  portfolioDecision: cashLockedAudited,
+  fiscalCoverageByAssetId: { INCUMBENT: 'FIFO_TRACKED' }
+});
+const h2UnknownTax = buildH2CapitalMobilityReadout({
+  informationDate: '2026-11-07',
+  portfolioDecision: cashLockedAudited,
+  fiscalCoverageByAssetId: {}
+});
+check('951b H2 opt-in snapshot comes from existing decision without changing its plan', 
+  h2Readout?.productionAuthority === false
+  && h2Readout?.outcomeAccessed === false
+  && h2Readout?.pairCount === constrainedReach?.capitalMobilityShadow?.potentialPairs.length
+  && h2Readout?.status === 'SIGNAL_DIAGNOSTIC_ONLY'
+  && h2Readout?.netEconomicVerdict === 'N_D'
+  && JSON.stringify(cashLockedWithoutTrace) === JSON.stringify(cashLockedBaseline));
+check('951c H2 FIFO coverage is informational and must not create a net return, tax amount or order',
+  h2Readout?.pairs[0]?.fiscalCoverage === 'FIFO_TRACKED'
+  && h2Readout?.pairs[0]?.netEconomicAssessment === 'NOT_ESTIMABLE'
+  && h2Readout?.pairs[0]?.recommendation === 'NONE_RESEARCH_ONLY'
+  && h2UnknownTax?.pairs[0]?.fiscalCoverage === 'UNKNOWN'
+  && h2UnknownTax?.pairs[0]?.netEconomicAssessment === 'NOT_ESTIMABLE');
+check('951d H2 is absent when not explicitly requested',
+  buildH2CapitalMobilityReadout({
+    informationDate: '2026-11-07',
+    portfolioDecision: cashLockedBaseline,
+    fiscalCoverageByAssetId: {}
+  }) === null);
 
 
 const rotationPortfolio: any = {
