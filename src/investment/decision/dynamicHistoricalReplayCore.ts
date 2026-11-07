@@ -95,6 +95,16 @@ export interface DynamicReplaySignal {
   trendSma20SlopeAnnualizedPct?: number | null;
   trendBreakdown20?: boolean | null;
   isInitialAllocation?: boolean;
+  /** Opt-in diagnostic, absent from ordinary production/replay results. */
+  researchDecisionReach?: {
+    gateStatus: 'ELIGIBLE' | 'REJECTED' | 'UNKNOWN';
+    gateReason: string | null;
+    selectedInGateTopN: boolean;
+    presentInOpportunityPool: boolean;
+    presentInAllocatorShortlist: boolean;
+    allocatorNonFundingReason: string | null;
+    baseDeployableToAssetsEur: number | null;
+  };
   executed: boolean;
   unitsDelta: number;
   notionalEur: number;
@@ -878,6 +888,8 @@ export class DynamicHistoricalReplayEngine {
     researchDirectSelector?: DynamicReplayResearchDirectSelector;
     /** Opt-in passive research execution, prohibited in the normal engine. */
     researchStaticBuyHold?: DynamicReplayResearchStaticBuyHold;
+    /** Research-only: annotates existing signal rows; no changes to orders or wealth. */
+    researchDecisionReachTrace?: boolean;
   }): DynamicHistoricalReplayResult {
     if (!(input.initialCapitalEur > 0)) throw new Error('El capital del replay dinámico debe ser > 0.');
     const frequency = input.frequency ?? 'MONTHLY';
@@ -885,6 +897,9 @@ export class DynamicHistoricalReplayEngine {
     const simulationMode = input.simulationMode ?? 'CUSTODIA_ENGINE';
     if (input.researchDirectSelector && simulationMode !== 'CUSTODIA_ENGINE') {
       throw new Error('REPLAY_DIRECT_SELECTOR_REQUIRES_CUSTODIA_ENGINE');
+    }
+    if (input.researchDecisionReachTrace && simulationMode !== 'CUSTODIA_ENGINE') {
+      throw new Error('REPLAY_REACH_TRACE_REQUIRES_CUSTODIA_ENGINE');
     }
     if (input.researchStaticBuyHold && (simulationMode !== 'HOLD_ONLY' || input.initialPortfolio || input.researchDirectSelector || input.externalCashFlows?.length)) {
       throw new Error('REPLAY_STATIC_BUY_HOLD_REQUIRES_CASH_HOLD_ONLY_WITHOUT_FLOWS');
@@ -1168,7 +1183,8 @@ export class DynamicHistoricalReplayEngine {
         decision: liveDecision,
         fundMarketValues: simulated.fundMarketValues,
         positionHealth: healthMap,
-        cashBenchmarkAnnualPct
+        cashBenchmarkAnnualPct,
+        researchReachTrace: input.researchDecisionReachTrace === true
       });
 
       const plannedByAsset = new Map<string, PlannedSignal>();
@@ -1365,6 +1381,19 @@ export class DynamicHistoricalReplayEngine {
         const heldValue = holding ? holdingValue(input.dataset, holding, decisionDate) : 0;
         const currentWeight = current.equityEur > 0 ? heldValue / current.equityEur : 0;
         const traceAction: DynamicReplaySignalAction = holding ? (health?.action === 'WATCH' ? 'WATCH' : 'HOLD') : 'AVOID';
+        const allocatorTrace = portfolioDecision.researchReachTrace;
+        const researchDecisionReach = input.researchDecisionReachTrace && traceAction === 'AVOID' ? {
+          gateStatus: gateEntry?.status ?? 'UNKNOWN' as const,
+          gateReason: gateEntry?.reason ?? null,
+          selectedInGateTopN: dateGate.scan.selected.some(row => row.asset.assetId === assetId),
+          presentInOpportunityPool: allocatorTrace?.opportunityAssetIds.includes(assetId) ?? false,
+          presentInAllocatorShortlist: allocatorTrace?.allocatorShortlistAssetIds.includes(assetId) ?? false,
+          allocatorNonFundingReason: allocatorTrace?.nonFundingReasonByAssetId[assetId]
+            ?? (gateEntry?.status !== 'ELIGIBLE' ? 'GATE_REJECTED'
+              : !(allocatorTrace?.opportunityAssetIds.includes(assetId)) ? 'NOT_IN_OPPORTUNITY_POOL'
+                : 'NON_FUNDED_REASON_UNAVAILABLE'),
+          baseDeployableToAssetsEur: allocatorTrace?.baseDeployableToAssetsEur ?? null
+        } : undefined;
         const traceReason = holding
           ? health?.reason ?? 'La cadena operativa actual no exige mover esta posición en esta fecha.'
           : gateEntry?.timingState === 'WAIT'
@@ -1388,6 +1417,7 @@ export class DynamicHistoricalReplayEngine {
             suggestedInitialFraction: gateEntry?.suggestedInitialFraction ?? null,
             ...healthAuditFields(health),
             ...trendAuditFields(assessment),
+            ...(researchDecisionReach ? { researchDecisionReach } : {}),
             executed: false, unitsDelta: 0, notionalEur: 0, feeEur: 0, realizedGainEur: 0, estimatedTaxEur: 0, taxDeferredTransferEur: 0, executionPriceEur: null,
             reason: traceReason
           }
@@ -1633,6 +1663,7 @@ export class DynamicHistoricalReplayEngine {
         'La fecha operativa de señal es siempre la fecha de decisión solicitada; el asOfDate de los datos puede ser anterior sin desplazar la señal fuera de la ventana del replay.',
         'DAILY revisa cada sesión disponible; WEEKLY/MONTHLY/QUARTERLY reducen la frecuencia de decisión. La ejecución siempre ocurre después de la señal.',
         'Las señales conservan timingState, timingSetup, timingScore y suggestedInitialFraction; WAIT queda auditado como NO COMPRAR y READY/STRONG permanecen visibles aunque el candidato no reciba capital.',
+        ...(input.researchDecisionReachTrace ? ['Research-only reach trace: AVOID incluye gate, selección Top-N informativa, oportunidades y motivo real de no asignación; la capa de oportunidades reevalúa hasta 1000 y Top-N no es necesariamente el bloqueo final. La traza no cambia órdenes ni patrimonio.'] : []),
         'Las posiciones existentes conservan auditoría causal de retorno, MFE, giveback, persistencia de deterioro y clasificación core/satélite. WATCH es explícito pero no operativo; REDUCE por giveback se reserva a satélites y requiere persistencia, MFE previo y momentum 20d no recuperado.',
         'TREND_PROTECTION_V1 es sólo diagnóstico en este replay: registra pendientes 20/60, aceleración, ruptura, protección de ganador y fallo de tesis, pero NO altera ninguna orden ni la trayectoria patrimonial baseline.',
         'Tras un ADD o un REDUCE ejecutado se reinicia la referencia MFE de la posición resultante para no mezclar el máximo de una exposición anterior con la nueva base/tramo restante.',
