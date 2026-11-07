@@ -201,6 +201,38 @@ try {
   (HistoricalMarketDataService as any).getHistoricalBars = originalGetHistoricalBars;
 }
 
+
+// The reach audit reuses this SAME replay. It must never alter cash, orders or dates.
+{
+  const shortDataset = dataset(false, 560);
+  const dates = shortDataset.assets[0].bars.map(row => row.timestamp.slice(0, 10));
+  const options = {
+    dataset: shortDataset, catalog, startDate: dates[400],
+    explicitDecisionDates: [dates[400], dates[450], dates[500]],
+    frequency: 'DAILY' as const, initialCapitalEur: 10_000,
+    riskProfile: 'MEDIUM' as const, horizonYears: 3 as const,
+    cashBenchmarkAnnualPct: 2.5, minimumBars: 252
+  };
+  const normal = DynamicHistoricalReplayEngine.run(options);
+  const traced = DynamicHistoricalReplayEngine.run({ ...options, researchDecisionReachTrace: true });
+  const stripped = traced.signals.map(({ researchDecisionReach, ...rest }) => rest);
+  assert.deepEqual(stripped, normal.signals, 'opt-in diagnostic does not change baseline signals or executed amounts');
+  assert.deepEqual(traced.events, normal.events, 'opt-in diagnostic does not change executed transactions');
+  assert.deepEqual(traced.equityPath, normal.equityPath, 'opt-in diagnostic does not change portfolio valuation');
+  assert.equal(traced.finalValueEur, normal.finalValueEur, 'opt-in diagnostic does not change terminal wealth');
+  assert.ok(normal.signals.every(signal => signal.researchDecisionReach === undefined), 'default replay never emits the optional diagnostic');
+  assert.ok(traced.signals.filter(signal => signal.action === 'AVOID').every(signal =>
+    signal.researchDecisionReach != null
+    && ['ELIGIBLE', 'REJECTED', 'UNKNOWN'].includes(signal.researchDecisionReach.gateStatus)
+    && typeof signal.researchDecisionReach.selectedInGateTopN === 'boolean'
+    && typeof signal.researchDecisionReach.presentInOpportunityPool === 'boolean'
+    && typeof signal.researchDecisionReach.allocatorNonFundingReason === 'string'
+  ), 'AVOID rows carry actual gate and allocator-stage evidence when opted in');
+  assert.throws(() => DynamicHistoricalReplayEngine.run({
+    ...options, simulationMode: 'HOLD_ONLY', researchDecisionReachTrace: true
+  }), /REPLAY_REACH_TRACE_REQUIRES_CUSTODIA_ENGINE/, 'reach tracing must not pretend HOLD_ONLY makes investment decisions');
+}
+
 console.log('Dynamic Historical Replay: causal boundary, timing audit, staged deployment horizons, market-data prefix invariance, costs/tax accounting and future isolation passed.');
 
 
