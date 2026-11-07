@@ -160,6 +160,7 @@ const JOBS: JobDefinition[] = [
     description: 'Comprobación de regresión de producto y trazabilidad de decisiones: guards de asignación, replay causal en pruebas unitarias, seguridad, ejecución, fiscalidad y TypeScript. No abre un backtest histórico, no descarga datos ni modifica replay-results.',
     visibility: 'CURRENT',
     steps: [
+      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Guard asignación y trazabilidad opt-in', command: 'npx', args: ['tsx', 'tests/currentCapitalAllocation.unit.ts'] },
       { label: 'Guard paridad replay / traza opt-in', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
@@ -171,8 +172,7 @@ const JOBS: JobDefinition[] = [
       { label: 'Guard cartera', command: 'npx', args: ['tsx', 'tests/userPortfolio.unit.ts'] },
       { label: 'Guard salud de posiciones', command: 'npx', args: ['tsx', 'tests/portfolioPositionHealth.unit.ts'] },
       { label: 'Guard disponibilidad broker', command: 'npx', args: ['tsx', 'tests/brokerAvailability.unit.ts'] },
-      { label: 'Guard fiscalidad de ejecución', command: 'npx', args: ['tsx', 'tests/taxAwareExecutionOverlay.unit.ts'] },
-      { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] }
+      { label: 'Guard fiscalidad de ejecución', command: 'npx', args: ['tsx', 'tests/taxAwareExecutionOverlay.unit.ts'] }
     ]
   },
   {
