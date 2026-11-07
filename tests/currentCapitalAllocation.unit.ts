@@ -77,7 +77,7 @@ const reachAudited = PortfolioDecisionEngine.evaluate({
 const { researchReachTrace: reachOnly, ...reachAuditedBaseline } = reachAudited;
 check('937a reach trace is completely absent unless explicitly requested', result.researchReachTrace === undefined);
 check('937b reach trace keeps every ordinary output identical', JSON.stringify(reachAuditedBaseline) === JSON.stringify(result));
-check('937c reach trace records the actual opportunity pool and funded positions',
+check('937c reach trace records the actual opportunity pool and planned contributions',
   Boolean(reachOnly?.opportunityAssetIds.includes('STRONG_TECH'))
   && Boolean(reachOnly?.plannedContributionAssetIds.includes('STRONG_TECH'))
   && reachOnly?.baseDeployableToAssetsEur === 9000);
