@@ -219,7 +219,7 @@ check('951a with free slots but no deployable cash the shadow compares existing 
   && constrainedReach?.capitalMobilityShadow?.condition === 'FREE_SLOTS_NO_DEPLOYABLE_NEW_MONEY'
   && Boolean(competingPair)
   && competingPair?.relativeMomentum120PctPoints != null
-  && competingPair?.estimatedBrokerCommissionsEur > 0
+  && (competingPair?.estimatedBrokerCommissionsEur ?? 0) > 0
   && competingPair?.taxAssessment === 'NOT_ESTIMABLE_FROM_PORTFOLIO_STATE'
   && competingPair?.recommendation === 'NONE_RESEARCH_ONLY'
   && JSON.stringify(cashLockedWithoutTrace) === JSON.stringify(cashLockedBaseline));
