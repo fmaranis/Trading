@@ -1,0 +1,55 @@
+# H2 — Auditoría de disponibilidad de evidencia y puerta económica
+
+Fecha: 2026-11-07. Base: `fmaranis/Trading/main`, HEAD revisado `54cdcce52f5063db39f2c76c8fc127b2d232128d`.
+
+**Estado:** `TECHNICAL_GUARDS_PASS / SIGNAL_DIAGNOSTIC_ONLY / NET_ECONOMIC_EVIDENCE_BLOCKED / NO_POLICY_FREEZE / NO_OUTCOMES_OPENED`.
+
+Este documento no propone una política de compraventa, no es un preregistro de un holdout económico y no modifica los protocolos F6/F7. Su única finalidad es precisar qué se puede medir hoy y qué falta antes de comprometer una nueva muestra.
+
+## 1. Pregunta y unidad de análisis
+
+Pregunta: cuando existen posiciones en cartera, plazas libres, una oportunidad elegible y efectivo insuficiente para una orden mínima, ¿aporta información útil comparar el challenger con el **incumbent que habría que vender**, en lugar de compararlo únicamente con cash?
+
+La unidad descriptiva es `(informationDate, incumbentAssetId, challengerAssetId)`. No es un trade, ni un episodio independiente, ni una rentabilidad futura.
+
+Control necesario para una eventual prueba económica: mismo patrimonio y flujos, exposición equivalente y misma fecha de información, ejecución posterior a la señal, costes e impuestos realizables, y dos alternativas mutuamente excluyentes: **mantener incumbent** frente a **vender incumbent/comprar challenger**.
+
+## 2. Auditoría de implementación real
+
+| Requisito | Disponible en HEAD | Límite / interpretación |
+|---|---|---|
+| Candidatos elegibles y motivos por etapa | Sí, `PortfolioDecisionEngine.researchReachTrace` opt-in | Solo lista/shortlist/no financiación y decisiones del estado que se ejecuta; no reconstruye retrospectivamente los motivos de un motor antiguo |
+| Condición de plazas libres sin capital nuevo ejecutable | Sí, `capitalMobilityShadow` | Requiere valoraciones presentes, ausencia de estrés sistémico, posiciones y oportunidades aceptadas |
+| Pares incumbent/challenger | Sí, shadow `potentialPairs` | Solo holdings `HOLD/WATCH`; `displayedOpportunityCount` puede ser menor que `comparedOpportunityCount`; no representa todas las alternativas |
+| Momentum 20/60/120, volatilidad, correlación y categoría/ISIN | Sí, métricas descriptivas | Correlación PRICE-ONLY en cierres comunes <= fecha; no total return ni efecto causal de dividendos, FX o solapamiento sectorial |
+| Comisiones de compra/venta | Estimación del broker para un nocional aproximado | No es el coste ejecutado; no incluye spread/slippage ni verificabilidad broker por ISIN |
+| Coste fiscal de la **cartera real** | **No** | La traza usa `taxAssessment=NOT_ESTIMABLE_FROM_PORTFOLIO_STATE`: faltan lotes, base fiscal de adquisición y datos de FX/costes; prohibido inferir impuesto neto o venta fiscalmente rentable |
+| Lotes y fiscalidad en el **replay histórico** | Sí, `dynamicHistoricalReplayCore.ts` modela `ReplayLot {units,costEur,acquisitionDate}`, `realizedGainEur` y `estimatedTaxEur` | La existencia de la estructura en replay no prueba que haya cobertura REAL/PIT y ejecución correcta para una nueva pareja; no sustituye la base fiscal de la cartera real |
+| `NEXT_OPEN`, cash, costes, `externalCashFlows` | Infraestructura integrada en replay | Solo sirve para un A/B económico después de congelar universo, política, calendario y controles |
+| Universo histórico PIT completo, incluidas bajas | **No acreditado** | `HISTORICAL_INSTRUMENT_MASTER_V1` está implementado, pero población real completa pendiente; prohibido reconstruir universo histórico con Yahoo current |
+| Observaciones H2 prospectivas fresh con alcance por etapa | **No acreditadas en la evidencia consultada** | Las 329 señales/98 comparaciones guardadas pertenecen a 2019–2022 CONSUMED y no son observaciones fresh |
+
+## 3. Resultado permitido y resultado prohibido
+
+**Permitido ahora:** diagnóstico read-only de alcance por etapa en snapshots prospectivos REAL, calidad de datos, número de fechas/pares realmente evaluables y motivos explícitos de `N/D`. El flag opt-in no puede emitir órdenes. La ejecución de validación técnica H2 superó TypeScript, guard 951a y resto de cierre rápido en el backend del usuario (log aportado 2026-11-07).
+
+**No permitido:** atribuir alpha a diferencias de pendiente; tratar 98 pares como 98 operaciones; usar 2019–2022 para fijar threshold; inventar beneficios, impuestos o spreads; confundir una plaza disponible con efectivo; retunear V8/V9/V10/V11; modificar `LEGACY` o implementar una venta competitiva automática.
+
+## 4. Puerta previa a un futuro experimento económico
+
+Todos los puntos siguientes requieren evidencia verificable **antes de abrir outcomes**:
+
+1. **Población y fechas**: definir universo instrumentado PIT/REAL, instrumentos, fechas de información, reglas de inclusión y exclusión y horizonte; conservar historial de delistings/alias cuando se afirme PIT completo; de lo contrario etiquetar cobertura parcial y limitar conclusiones.
+2. **Datos de decisión**: capturar prospectivamente con `researchDecisionReachTrace=true` el `gateStatus`, shortlist, efectivo desplegable, holdings y parejas, sin filtrar fechas por rentabilidad posterior. Dedupe por fecha/identidad económica; nunca confundir señales repetidas con observaciones independientes.
+3. **Datos económicos**: asegurar lotes fiscales as-of para la simulación de ambos brazos, divisa/FX, precio negociable NEXT_OPEN o NAV causal según instrumento, corporate actions/dividendos, comisiones, spread/slippage y elegibilidad broker. Si algún coste no puede estimarse de manera defendible, el contraste NETO queda `N/D`, no cero.
+4. **Comparabilidad**: A = mantener y seguir la política canónica; B = **una** intervención explícita y precongelada dentro del mismo motor/replay; igual capital, flujos, reglas de cash BCE, fiscalidad, exposición/riesgo y calendario de revisión. Control adicional = structural core cuando los mismos flujos sean replicables. No doble contabilización de impuestos o rentas.
+5. **Regla económica y guardrails**: congelar **antes** de outcomes la definición de «cuándo cambiar», criterio de selección de un solo incumbent/challenger si hay varios, mínimo de ventaja neta, límites de concentración/solapamiento, criterio de downside, mínimo de reach, métricas y condición de FAIL. Ningún parámetro se elige desde los 98 pares históricos.
+6. **Evidencia**: persistir manifiesto/seal, hashes de fuentes, apertura de muestra antes de primera lectura de mercado y resultados sin selección por desenlace. Exigir validación fresh/blind y confirmación independiente antes de cualquier promoción.
+
+**Decisión en esta revisión:** la puerta 1/2/3 no está acreditada para H2; por tanto **no se congela una política ni se ejecuta un A/B económico**. No se añaden jobs, pantallas, señales ni motores. Se conserva la infraestructura shadow actual y la prioridad de la cadena económica existente.
+
+## 5. Siguiente acción específica
+
+Cuando exista un snapshot prospectivo REAL utilizable en el runtime local, **auditar read-only** su trazabilidad H2 (fechas, pares, datos faltantes y razones `N/D`) antes de abrir resultados futuros. Separar calidad de señal y política económica. Si no hay datos suficientes, registrar `INSUFFICIENT_REAL_PIT_OR_TAX_LOT_EVIDENCE` y no iniciar ningún replay largo.
+
+F6/F7 mantienen sus calendarios y sellos propios; `LEGACY` permanece en producción. Ruptura de precio/volumen continúa como backlog independiente, sin desplazar H2.
