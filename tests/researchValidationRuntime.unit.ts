@@ -39,7 +39,7 @@ assert.match(ucitsBlock, /visibility: 'ARCHIVED'/);
 assert.match(ucitsBlock, /2532\/2532/);
 assert.match(issuerBlock, /visibility: 'ARCHIVED'/);
 assert.match(issuerBlock, /36\/36 PASS/);
-assert.match(economicBlock, /visibility: 'CURRENT'/);
+assert.match(economicBlock, /visibility: 'PARKED'/);
 assert.match(economicBlock, /tests\/staticUcitsFactorEconomicR1\.unit\.ts/);
 assert.match(economicBlock, /tests\/staticUcitsFactorIssuerAnnualReconciliationV1\.unit\.mjs/);
 assert.match(economicBlock, /tests\/unifiedInvestmentUniverse\.unit\.ts/);
@@ -52,8 +52,21 @@ assert.ok(economicBlock.indexOf("args: ['run', 'lint']") < economicBlock.indexOf
 assert.ok(!economicBlock.includes("scripts/staticUcitsFactorMarketDataPreflightV1.mjs") &&
   !economicBlock.includes("scripts/staticUcitsFactorIssuerAnnualReconciliationV1.mjs"),
   'Existing data-quality jobs must not be rerun as extra validation jobs');
+const quickStart = routes.indexOf("id: 'product-surface-closure-v1'");
+const quickEnd = routes.indexOf("id: 'phase4-reentry-cash-custody-v1'", quickStart);
+assert.ok(quickStart >= 0 && quickEnd > quickStart, 'Quick closure stays integrated into the existing validation center');
+const quickBlock = routes.slice(quickStart, quickEnd);
+assert.match(quickBlock, /visibility: 'CURRENT'/);
+for (const guard of [
+  'tests/currentCapitalAllocation.unit.ts',
+  'tests/dynamicHistoricalReplay.unit.ts',
+  'tests/coreArchitectureV1.unit.ts',
+  'tests/productSurfaceClosureV1.unit.ts'
+]) assert.ok(quickBlock.includes(guard), `quick closure missing ${guard}`);
+assert.match(quickBlock, /args: \['run', 'lint'\]/);
+assert.doesNotMatch(quickBlock, /scripts\/.*(?:Replay|Live)\.ts|Checkpoint prospectivo/, 'Quick closure cannot launch a long replay or live research');
 const currentVisibilityCount = (routes.match(/visibility: 'CURRENT'/g) ?? []).length;
-assert.equal(currentVisibilityCount, 1, 'Exactly one research line should be visible as CURRENT');
+assert.equal(currentVisibilityCount, 1, 'Only the quick product regression check should be visible as CURRENT');
 const parkedVisibilityCount = (routes.match(/visibility: 'PARKED'/g) ?? []).length;
 assert.ok(parkedVisibilityCount >= 3, 'Parallel research lines should remain parked, not visible');
 assert.match(routes, /tests\/peadEarningsSourceAuditV1\.unit\.mjs/);
