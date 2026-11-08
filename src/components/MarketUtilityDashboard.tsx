@@ -4,6 +4,7 @@ import type { EodhdCrossValidationResult } from '../investment/data/marketData/e
 import {
   applyTaxAwareExecutionOverlay,
   buildH2CapitalMobilityReadout,
+  buildH2CurrentScanIdentity,
   AssetUniverseScanResult,
   buildPortfolioExecutionPlan,
   CashBenchmarkService,
@@ -107,7 +108,8 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
     return buildH2CapitalMobilityReadout({
       informationDate: decision.asOfDate,
       portfolioDecision,
-      fiscalCoverageByAssetId
+      fiscalCoverageByAssetId,
+      scanIdentity: buildH2CurrentScanIdentity(scan)
     });
   }, [h2ResearchEnabled, portfolioDecision, portfolio, scan, decision.asOfDate, taxRevision]);
 
@@ -168,6 +170,7 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
           {h2Readout && <div className="mt-2 space-y-1">
             <p>Fecha de información: {h2Readout.informationDate}. Pares: {h2Readout.pairCount}; fuente REAL en ambos extremos: {h2Readout.realProvenancePairs}; cobertura FIFO conocida: {h2Readout.fifoCoveredPairs}.</p>
             <p>Resultado económico neto: N/D. Las diferencias de momentum no son rentabilidad prevista.</p>
+            <p>Identidad del escaneo: {h2Readout.scanIdentity?.candidateSetFingerprint ?? 'N/D'}; candidatos: {h2Readout.scanIdentity?.scannedCount ?? 'N/D'}. El instante de exportación se añade al descargar, no es la fecha de mercado.</p>
             <p>Entradas nuevas permitidas: {h2Readout.newPositionDecisionLimit}. Despliegue inicial ampliado: {h2Readout.bootstrapDeploymentActive ? 'sí' : 'no'}.</p>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[700px] text-left text-[11px]">
@@ -193,7 +196,11 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
             </div>
             <p className="text-slate-500">Ranking y prioridad son medidas actuales, no rentabilidad futura. Un gap N/D significa que la evaluación quedó bloqueada antes de calcularlo.</p>
             <button type="button" className="mt-1 rounded-md border border-slate-600 px-3 py-2 text-slate-100"
-              onClick={() => downloadJsonFile(`h2-research-${h2Readout.informationDate.slice(0, 10)}.json`, h2Readout)}>
+              onClick={() => downloadJsonFile(`h2-research-${h2Readout.informationDate.slice(0, 10)}.json`, {
+                ...h2Readout,
+                exportedAtUtc: new Date().toISOString(),
+                captureSemantics: 'LIVE_EXPORT_CURRENT_SCANNER_NOT_HISTORICAL_RECONSTRUCTION'
+              })}>
               Descargar evidencia H2 en este dispositivo
             </button>
             <p className="text-slate-500">El JSON puede incluir identificadores y valores de posiciones. No se envía a GitHub ni a otros usuarios mediante este botón.</p>
