@@ -1,4 +1,4 @@
-import { buildH2CapitalMobilityReadout, CurrentOpportunityAlertEngine, PortfolioDecisionEngine } from '../src/investment/decision';
+import { buildH2CapitalMobilityReadout, buildH2CurrentScanIdentity, CurrentOpportunityAlertEngine, PortfolioDecisionEngine } from '../src/investment/decision';
 
 let passed = 0;
 function check(name: string, condition: boolean) {
@@ -285,6 +285,37 @@ check('951f excluded opportunity audit carries observed reason and never invents
   ) === true
   && h2Readout?.outcomeAccessed === false
   && h2Readout?.netEconomicVerdict === 'N_D'
+  && JSON.stringify(cashLockedWithoutTrace) === JSON.stringify(cashLockedBaseline));
+
+
+const identityOriginal = buildH2CurrentScanIdentity(rotationScan);
+const identitySameCandidatesDifferentOrder = buildH2CurrentScanIdentity({
+  ...rotationScan, candidates: [...rotationScan.candidates].reverse()
+});
+const identityDifferentQuote = buildH2CurrentScanIdentity({
+  ...rotationScan,
+  candidates: rotationScan.candidates.map((row: any) => row.asset.assetId === 'STRONG_TECH'
+    ? { ...row, lastClose: row.lastClose + 1 } : row)
+});
+const identityDifferentSelection = buildH2CurrentScanIdentity({
+  ...rotationScan, selected: [...rotationScan.selected].reverse()
+});
+const identifiedReadout = buildH2CapitalMobilityReadout({
+  informationDate: '2026-11-07',
+  portfolioDecision: fundedAudit,
+  fiscalCoverageByAssetId: {},
+  scanIdentity: identityOriginal
+});
+check('951g H2 scan fingerprint is stable if candidate enumeration order changes',
+  identityOriginal.candidateSetFingerprint === identitySameCandidatesDifferentOrder.candidateSetFingerprint
+  && identityOriginal.candidateIds.length === rotationScan.candidates.length
+  && identityOriginal.currentDiscoveryIsHistoricalPIT === false);
+check('951h H2 identity detects a changed scanner quote or selected ordering without future outcomes',
+  identityOriginal.candidateSetFingerprint !== identityDifferentQuote.candidateSetFingerprint
+  && identityOriginal.selectedSetFingerprint !== identityDifferentSelection.selectedSetFingerprint
+  && identifiedReadout?.scanIdentity?.candidateSetFingerprint === identityOriginal.candidateSetFingerprint
+  && identifiedReadout?.outcomeAccessed === false
+  && identifiedReadout?.productionAuthority === false
   && JSON.stringify(cashLockedWithoutTrace) === JSON.stringify(cashLockedBaseline));
 
 
