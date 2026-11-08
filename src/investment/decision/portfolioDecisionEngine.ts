@@ -159,6 +159,69 @@ export interface PortfolioDecisionResult {
 
 
 /**
+ * A stable, non-cryptographic identity for the *actual current scanner input*.
+ * The digest is not a signature and does not make current Yahoo discovery PIT.
+ * No portfolio state, fiscal lots or account identifiers enter this payload.
+ */
+export function buildH2CurrentScanIdentity(scan: AssetUniverseScanResult) {
+  const candidates = scan.candidates.map(row => ({
+    assetId: row.asset.assetId,
+    ticker: row.asset.ticker,
+    status: row.status,
+    asOfDate: row.asOfDate,
+    bars: row.bars,
+    lastClose: row.lastClose,
+    score: row.score,
+    rejectionReason: row.reason ?? null,
+    sourceType: row.response?.provenance.sourceType ?? 'UNKNOWN',
+    provider: row.response?.provenance.provider ?? null,
+    datasetFingerprint: row.response?.provenance.datasetFingerprint ?? null,
+    fetchedAt: row.response?.provenance.fetchedAt ?? null
+  })).sort((a, b) => a.assetId.localeCompare(b.assetId) || a.ticker.localeCompare(b.ticker));
+  const selectedAssetIds = scan.selected.map(row => row.asset.assetId);
+  const discovery = scan.currentOpenDiscovery ?? null;
+  // FNV-1a 64-bit is deterministic across browsers; not collision resistant.
+  const digest = (value: unknown): string => {
+    const payload = JSON.stringify(value);
+    let hash = 0xcbf29ce484222325n;
+    for (let i = 0; i < payload.length; i++) {
+      hash ^= BigInt(payload.charCodeAt(i));
+      hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
+    }
+    return `fnv64_${hash.toString(16).padStart(16, '0')}`;
+  };
+  return {
+    schema: 'H2_CURRENT_SCAN_IDENTITY_V1' as const,
+    fingerprintAlgorithm: 'FNV1A64_NON_CRYPTOGRAPHIC' as const,
+    candidateSetFingerprint: digest(candidates),
+    selectedSetFingerprint: digest(selectedAssetIds),
+    scannedCount: scan.scanned,
+    acceptedCount: scan.accepted,
+    rejectedCount: scan.rejected,
+    selectedAssetIds,
+    // Keep individual identities for comparison of changed constituents;
+    // prices are only recorded in the digest input, not exported in bulk.
+    candidateIds: candidates.map(row => row.assetId),
+    candidateProvenance: candidates.map(row => ({
+      assetId: row.assetId,
+      asOfDate: row.asOfDate,
+      sourceType: row.sourceType,
+      provider: row.provider,
+      datasetFingerprint: row.datasetFingerprint,
+      fetchedAt: row.fetchedAt
+    })),
+    missingDatasetFingerprintCount: candidates.filter(row => row.datasetFingerprint == null).length,
+    currentOpenDiscovery: discovery ? {
+      attempted: discovery.attempted,
+      promotedAssets: discovery.promotedAssets,
+      generatedAt: discovery.generatedAt,
+      error: discovery.error
+    } : null,
+    currentDiscoveryIsHistoricalPIT: false as const
+  };
+}
+
+/**
  * H2 research-only prospective readout of the single canonical decision.
  * This does not make a second allocation decision, request future prices or
  * evaluate profitability. Consumers may export it locally only by user action.
@@ -169,6 +232,7 @@ export function buildH2CapitalMobilityReadout(input: {
   informationDate: string;
   portfolioDecision: PortfolioDecisionResult;
   fiscalCoverageByAssetId: Record<string, 'FIFO_TRACKED' | 'UNKNOWN'>;
+  scanIdentity?: ReturnType<typeof buildH2CurrentScanIdentity>;
 }) {
   const reach = input.portfolioDecision.researchReachTrace;
   if (!reach) return null;
@@ -188,6 +252,7 @@ export function buildH2CapitalMobilityReadout(input: {
   return {
     version: 'H2_CAPITAL_MOBILITY_READOUT_V1' as const,
     informationDate: input.informationDate,
+    scanIdentity: input.scanIdentity ?? null,
     source: 'CANONICAL_DECISION_OPT_IN' as const,
     productionAuthority: false as const,
     outcomeAccessed: false as const,
