@@ -139,4 +139,10 @@ const mixedDiscovery = mergeOpenMarketAssets(base, [
 assert.ok(mixedDiscovery.some(asset => asset.assetId === 'OPEN_US_TEST' && asset.currency === 'USD'),
   'current market discovery must retain explicitly tagged USD candidates without rewriting their quote currency');
 
+const dualListing = mergeOpenMarketAssets(
+  [{ assetId: 'USD_NVDA', ticker: 'NVDA', name: 'NVIDIA Corporation', category: 'SEMICONDUCTORS', currency: 'USD' }],
+  [discovered({ assetId: 'EUR_NVDA', ticker: 'NVD.DE', name: 'NVIDIA Corporation', category: 'SEMICONDUCTORS', currency: 'EUR' })]
+);
+assert.equal(dualListing.length, 2, 'USD research quote must not suppress an independent EUR executable cross-listing');
+
 console.log('dynamicMarketShortlist.unit: PASS');
