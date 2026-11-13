@@ -70,3 +70,30 @@ Fuente: JSON compartido por el usuario `h2-research-2026-11-06.json`, leído com
 - H2 está correctamente inactivo en esta fecha: requiere `baseDeployableToAssetsEur < minimumOrderNotionalEur`, entre otras condiciones; aquí hay capital desplegable y dos aportaciones propuestas.
 
 **Veredicto:** `H2_NO_REACH_ON_THIS_DATE / ALLOCATION_BUDGET_CONSTRAINT_OBSERVED / RELATIVE_OPPORTUNITY_VALUE_UNKNOWN`. No inferir fallo productivo ni cambiar de 2 a 3/4 nuevas entradas usando este snapshot ya visto. Para estudiar si las tres quedaron injustificadamente fuera, comparar los scores/volatilidad/timing/categoría, la capacidad residual y el portfolio resultante frente a las dos elegidas **en una muestra prospectiva diseñada antes de outcomes**, con mismas entradas externas y costes/riesgo. El JSON actual no contiene esas cifras, así que queda bloqueada cualquier conclusión de coste de oportunidad. El trabajo de captura económica de H2 sigue en espera de días con reach real; no crear una policy paralela para compensar un snapshot sin pares.
+
+## 2026-11-13 — siguiente puerta: distinguir capital disponible sin asignar de H2 real
+
+**Contexto:** tras completar las pruebas de H2, comprobar la selección/financiación de oportunidades y separar una rama de análisis USD que queda pendiente de prueba, el plan principal sigue siendo medir valor de la decisión y de la política económica SIN multiplicar motores ni retunear las muestras vistas.
+
+### Auditoría de lógica actual, solo lectura
+
+- `PortfolioDecisionEngine.evaluate` define `baseDeployableToAssetsEur = max(0, currentCashEur + pendingCapitalEur - targetCashEur)`. Aquí `pendingCapitalEur` es capital disponible ya declarado, NO aportación recurrente. Si este valor es positivo y sobran plazas, H2 `FREE_SLOTS_NO_DEPLOYABLE_NEW_MONEY` **no es aplicable**.
+- Las oportunidades se ordenan por `rankingScore`; `opportunityPriority` dimensiona la proporción teórica, pero no es automáticamente el orden de compra. Cada nueva posición consume presupuesto sólo después de superar objetivos autorizados, mínimos de orden y límites aplicables.
+- En MEDIUM, `maxNewPositionsPerDecision=2` salvo bootstrap (4), condicionado por `investedShareOfPlanned<0.5`, valoraciones completas, ausencia de estrés y cash suficiente. Las plazas libres de cartera NO anulan el presupuesto de entradas por evaluación.
+- El starter MEDIUM `ENTRY_READY` tiene cap del 3% del capital planificado, y el timing puede autorizar el 25%; estas restricciones son INDEPENDIENTES del efectivo bruto. El término `NEW_POSITION_DECISION_BUDGET` aparece **antes** de calcular `targetGapEur` para ese activo, por lo que la cantidad económicamente realizable de un excluido NO se conoce.
+- En el snapshot revisado 2026-11-06, cuatro alertas eran `GOOD_ENTRY/ENTRY_READY`, dos propuestas y dos bloqueadas por presupuesto. La suma de propuestas equivale a alrededor de una séptima parte de `baseDeployableToAssetsEur`; no significa que todo el resto debiera invertirse ni demuestra que extender el límite produzca beneficio. **No publicar el nominal de la cartera privada o valores monetarios del usuario en documentos públicos.**
+- Distinción ineludible: `baseDeployableToAssetsEur` ya descuenta `targetCashEur`; `residualPlannedCashEur` es contabilidad posterior y no debe mezclarse para duplicar capital. Las `contributions` son órdenes teóricas antes del filtro final de broker/impuestos/ejecución.
+
+### Hipótesis y observaciones a seguir sin retuning
+
+**H1 — presupuesto de entradas con efectivo suficiente**: capturar el alcance de `NEW_POSITION_DECISION_BUDGET` y distinguirlo del importe restante por cap starter, categoría, mínimo de orden, riesgo y timing. Medidas causalmente observables: oportunidades/shortlist, `baseDeployableToAssetsEur`, `plannedContributionCount`, importes propuestos, `newPositionDecisionLimit`, `bootstrapDeploymentActive`, motivos y gaps medidos; reportar gaps `null` cuando no fueron calculados. Esto es **calidad de ejecución de la política**, no validez predictiva del activo excluido.
+
+**H2 — sustitución de capital ya invertido**: observar sólo si hay posiciones existentes y `baseDeployableToAssetsEur` insuficiente para una orden, manteniendo los gates de estrés/valoraciones. Evaluar pares challenger-incumbent, FIFO, costes, divisa y oportunidad de **no vender**. Si `pairCount=0`, la respuesta correcta es `NO_REACH`, no inventar parejas.
+
+### Regla para cualquier contraste económico posterior
+
+- **No abrir un A/B económico todavía**: falta una secuencia durable de snapshots REAL/fresh con identidad de universo/datos, cobertura de ejecución NEXT_OPEN, fiscalidad y costes. Los JSON del 2026-11-06 se usaron para diagnóstico y quedan CONSUMED para promoción. La rama `replay-results` revisada no aporta un nuevo H2 prospective seal/outcome; no extrapolar.
+- Antes de abrir un holdout, definir y congelar la política experimental **independiente de las fechas consumidas**, su universo elegible y calendario, exposición/riesgo, spread+comisiones+fiscalidad reales, mínimos, definición de éxito/fallo y tratamiento de datos ausentes. Comparador primario: mantener `LEGACY` con el mismo capital/cash, flujos y fechas; cualquier brazo extra debe ejecutarse dentro de la misma cadena y del replay causal. No introducir dinero por frecuencia ni por `stagedCapitalPlan`.
+- Las señales de las oportunidades financiadas y excluidas pueden compararse en su **calidad predictiva** sin asumir que la política de compra que las use sea rentable. Evaluaciones de retorno neto requieren comparabilidad económica; de otro modo `N/D`, no cero.
+- Siguiente paso programático SOLO cuando un conjunto fresh apto esté realmente sellado/persistido: usar el mismo `ResearchValidationCenter` y el replay integrado, con guards/TypeScript antes de abrir un cálculo largo. No utilizar GitHub Actions, no repetir el FULL 2019–2022 y no ajustar parámetros desde el 6/11.
+- No quedan tests ni capturas adicionales exigibles al usuario para **esta** auditoría de solo lectura. El código USD research es una tarea lateral con validación rápida pendiente, separada de H1/H2.
