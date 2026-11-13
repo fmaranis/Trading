@@ -53,9 +53,9 @@ function findCatalogAsset(input: { ticker?: string | null; isin?: string | null;
   const isin = String(input.isin ?? '').trim().toUpperCase();
   const name = normalizeSearch(String(input.name ?? ''));
   return EUR_PORTFOLIO_DISCOVERY_UNIVERSE.find(asset =>
-    (ticker && asset.ticker.toUpperCase() === ticker)
+    asset.currency === 'EUR' && ((ticker && asset.ticker.toUpperCase() === ticker)
     || (isin && String(asset.isin ?? '').toUpperCase() === isin)
-    || (name && normalizeSearch(asset.name) === name)
+    || (name && normalizeSearch(asset.name) === name))
   ) ?? null;
 }
 function assetSearchText(asset: (typeof EUR_PORTFOLIO_DISCOVERY_UNIVERSE)[number]): string {
@@ -79,7 +79,7 @@ export const ReplayInitialPortfolioControls: React.FC<Props> = ({ value, disable
     const query = normalizeSearch(assetSearch);
     if (!query) return [];
     return EUR_PORTFOLIO_DISCOVERY_UNIVERSE
-      .filter(asset => assetSearchText(asset).includes(query))
+      .filter(asset => asset.currency === 'EUR' && assetSearchText(asset).includes(query))
       .slice(0, 12);
   }, [assetSearch, marketRevision]);
 
@@ -148,6 +148,10 @@ export const ReplayInitialPortfolioControls: React.FC<Props> = ({ value, disable
   const addAsset = () => {
     const amountEur = Math.max(0, Number(amountToAdd) || 0);
     if (!assetToAdd || !(amountEur > 0)) return;
+    if (EUR_PORTFOLIO_DISCOVERY_UNIVERSE.some(asset => asset.assetId === assetToAdd && asset.currency !== 'EUR')) {
+      setLoadError('El replay actual solo admite posiciones EUR. Una cotización USD necesita histórico FX y costes fiscales propios.');
+      return;
+    }
     onChange({ ...value, allocations: normalizeAllocations([...value.allocations, { assetId: assetToAdd, amountEur }]) });
   };
   const chooseSearchResult = (assetId: string) => {
@@ -211,7 +215,7 @@ export const ReplayInitialPortfolioControls: React.FC<Props> = ({ value, disable
     {value.source !== 'ZERO' && <>
       <div className="mt-3 grid gap-3 lg:grid-cols-[180px_minmax(260px,1fr)_minmax(320px,1.2fr)_150px_auto] lg:items-end">
         <label className="text-[10px] text-slate-400">Cash inicial (€)<input type="number" min="0" step="100" value={value.cashEur} disabled={disabled} onChange={e => onChange({ ...value, cashEur: Math.max(0, Number(e.target.value) || 0) })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"/></label>
-        <label className="text-[10px] text-slate-400">Descubiertos / catálogo<select value={assetToAdd} disabled={disabled} onChange={e => setAssetToAdd(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60">{EUR_PORTFOLIO_DISCOVERY_UNIVERSE.map(asset => <option key={asset.assetId} value={asset.assetId}>{asset.ticker} · {asset.name}{asset.isin ? ` · ${asset.isin}` : ''}</option>)}</select></label>
+        <label className="text-[10px] text-slate-400">Descubiertos / catálogo<select value={assetToAdd} disabled={disabled} onChange={e => setAssetToAdd(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60">{EUR_PORTFOLIO_DISCOVERY_UNIVERSE.filter(asset => asset.currency === 'EUR').map(asset => <option key={asset.assetId} value={asset.assetId}>{asset.ticker} · {asset.name}{asset.isin ? ` · ${asset.isin}` : ''}</option>)}</select></label>
         <div className="relative text-[10px] text-slate-400">Buscar nombre, ticker o ISIN
           <div className="mt-1 flex gap-2"><input type="text" value={assetSearch} disabled={disabled} onChange={e => { setAssetSearch(e.target.value); setMarketResults([]); setMarketSearchError(null); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void searchOpenMarket(); } }} placeholder="Cualquier ISIN, ticker o nombre" className="min-w-0 flex-1 rounded-lg border border-cyan-500/30 bg-slate-950 px-3 py-2 text-xs text-white placeholder:text-slate-700 disabled:opacity-60"/><button type="button" disabled={disabled || marketSearching || assetSearch.trim().length < 2} onClick={() => void searchOpenMarket()} className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 text-[9px] font-bold text-cyan-100 disabled:opacity-40">{marketSearching ? 'Buscando…' : 'Buscar mercado'}</button></div>
           {assetSearch.trim() && (searchResults.length > 0 || marketResults.length > 0 || marketSearchError) && <div className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-slate-700 bg-slate-950 shadow-2xl">
