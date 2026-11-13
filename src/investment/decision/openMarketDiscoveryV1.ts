@@ -46,7 +46,12 @@ export const OPEN_MARKET_DISCOVERY_V1_QUERIES: readonly OpenMarketDiscoveryQuery
   { id: 'EQ_HEALTH', query: 'European healthcare stock EUR', category: 'HEALTHCARE', breadth: 'SECTOR' },
   { id: 'EQ_ENERGY', query: 'European energy stock EUR', category: 'ENERGY', breadth: 'SECTOR' },
   { id: 'EQ_DIVIDEND', query: 'European dividend stock EUR', category: 'DIVIDEND', breadth: 'SECTOR' },
-  { id: 'EQ_US_EUR_LISTING', query: 'US mega cap stock EUR Germany', category: 'US_EQUITY', breadth: 'BROAD' }
+  { id: 'EQ_US_EUR_LISTING', query: 'US mega cap stock EUR Germany', category: 'US_EQUITY', breadth: 'BROAD' },
+  // Live USD-listed US equities are explored alongside EUR instruments, never
+  // retrospectively and never as executable orders until USD FX costs are closed.
+  { id: 'EQ_US_NASDAQ', query: 'US NASDAQ large cap stock technology', category: 'US_EQUITY', breadth: 'BROAD' },
+  { id: 'EQ_US_SEMICONDUCTORS', query: 'US NASDAQ semiconductor chip manufacturer stock', category: 'SEMICONDUCTORS', breadth: 'SECTOR' },
+  { id: 'EQ_US_NYSE', query: 'US NYSE large cap stock company', category: 'US_EQUITY', breadth: 'BROAD' }
 ] as const;
 
 export interface OpenMarketDiscoveryV1Asset {
@@ -69,6 +74,7 @@ export interface OpenMarketDiscoveryV1Snapshot {
   queryCount: number;
   rawCandidates: number;
   acceptedEurCandidates: number;
+  acceptedUsdCandidates?: number;
   assets: OpenMarketDiscoveryV1Asset[];
   limitations: readonly string[];
 }
@@ -187,5 +193,6 @@ export const OPEN_MARKET_DISCOVERY_V1_LIMITATIONS = [
   'Historical replay may use only a frozen catalogue plus REAL bars available by each decision date; it must not call current Yahoo discovery to invent the past universe.',
   'Pre-listing look-ahead is blocked by minimum historical bars at the decision date.',
   'Survivorship bias is not fully removed until a provider supplies point-in-time listings and delistings; V1 must label historical coverage accordingly.',
-  'Discovery proposes candidates only. AssetUniverseScanner and PortfolioCandidateGate retain their existing authority.'
+  'Discovery proposes candidates only. AssetUniverseScanner and PortfolioCandidateGate retain their existing authority.',
+  'USD securities may be scanned with REAL causal EUR valuation for research, but USD broker orders remain blocked until FX execution, spreads and tax lots are verified.'
 ] as const;
