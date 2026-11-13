@@ -317,11 +317,16 @@ export class AssetUniverseScanner {
     const minimumBars = options.minimumBars ?? 252; const maxDataAgeDays = options.maxDataAgeDays ?? 7;
     const dynamicCurrentMarket = isCurrentDynamicMarketScan(universe, endDate, options.currentOpenDiscovery);
     const expanded = await expandCurrentOperationalUniverse(universe, endDate, options.currentOpenDiscovery);
+    // USD discovery is CURRENT/LIVE research, not a retrospective instrument
+    // master. Historical scans keep the original EUR-only candidate universe.
+    const evaluatedUniverse = dynamicCurrentMarket
+      ? expanded.universe
+      : expanded.universe.filter(asset => asset.currency === 'EUR');
     // FX is loaded ONCE per scan, not once per USD company. If unavailable,
     // reject USD rows without changing a single EUR candidate or product order.
     let fxUsdPerEur: ScannerResponse | undefined;
     let fxFailure: string | null = null;
-    if (expanded.universe.some(asset => asset.currency === 'USD')) {
+    if (evaluatedUniverse.some(asset => asset.currency === 'USD')) {
       try {
         const fxStart = new Date(`${startDate}T00:00:00Z`);
         fxStart.setUTCDate(fxStart.getUTCDate() - 10);
@@ -337,7 +342,7 @@ export class AssetUniverseScanner {
         fxFailure = error?.message || String(error);
       }
     }
-    const candidates = await mapLimit(expanded.universe, options.concurrency ?? 3, async asset => {
+    const candidates = await mapLimit(evaluatedUniverse, options.concurrency ?? 3, async asset => {
       try {
         if (asset.currency === 'USD' && fxFailure) {
           throw new Error(`USD_FX_UNAVAILABLE:${fxFailure}`);
@@ -381,9 +386,10 @@ export class AssetUniverseScanner {
     const requestedMax = dynamicCurrentMarket ? DYNAMIC_MARKET_SHORTLIST_TARGET : (options.maxSelected ?? 8);
     // Until broker FX costs, EUR settlement and tax-lot accounting are audited,
     // USD may be scanned and ranked in research but never displace EUR Top64.
+    const eurCandidates = candidates.filter(row => row.asset.currency === 'EUR');
     const selected = dynamicCurrentMarket
-      ? rankDynamicMarketShortlist(candidates.filter(row => row.asset.currency === 'EUR'), requestedMax)
-      : chooseDiversifiedLegacy(candidates, Math.min(requestedMax, 10));
+      ? rankDynamicMarketShortlist(eurCandidates, requestedMax)
+      : chooseDiversifiedLegacy(eurCandidates, Math.min(requestedMax, 10));
     if (selected.length < 1) throw new Error('El escáner no encontró ninguna exposición REAL válida.');
     const rejectionCounts: Record<string, number> = {}; for (const c of candidates.filter(c => c.status === 'REJECTED')) rejectionCounts[c.reason ?? 'UNKNOWN'] = (rejectionCounts[c.reason ?? 'UNKNOWN'] ?? 0) + 1;
     return {
