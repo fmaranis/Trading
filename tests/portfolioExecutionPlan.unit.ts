@@ -36,6 +36,49 @@ const portfolioDecision: any = {
   ], warnings: []
 };
 const plan = buildPortfolioExecutionPlan({ portfolio, scan, decisionAsOf: '2026-08-28', portfolioDecision, cashBenchmarkAnnualPct: 2.5 });
+
+const usdCandidate = {
+  asset: {
+    assetId: 'USD_NVDA', ticker: 'NVDA', isin: 'US67066G1040',
+    name: 'NVIDIA Corporation', category: 'SEMICONDUCTORS',
+    currency: 'USD', instrumentType: 'ETF_ETC'
+  },
+  lastClose: 100, momentum120Pct: 30
+};
+const usdScan = { ...scan, candidates: [...scan.candidates, usdCandidate] };
+const usdBuyDecision = {
+  ...portfolioDecision, existingPositions: [],
+  contributions: [{
+    category: 'SEMICONDUCTORS', assetId: 'USD_NVDA', ticker: 'NVDA',
+    name: 'NVIDIA Corporation', instrumentType: 'ETF_ETC',
+    amountEur: 300, targetCategoryGapEur: 300, reason: 'USD_RESEARCH_ONLY'
+  }]
+};
+const usdBuyPlan = buildPortfolioExecutionPlan({
+  portfolio, scan: usdScan, decisionAsOf: '2026-08-28',
+  portfolioDecision: usdBuyDecision, cashBenchmarkAnnualPct: 2.5
+});
+ok(usdBuyPlan.lines.some(line => line.targetTicker === 'NVDA' && line.action === 'REVIEW')
+  && !usdBuyPlan.lines.some(line => line.targetTicker === 'NVDA' && line.action === 'BUY_ETF'),
+  'even an injected USD buy contribution cannot become an executable EUR order');
+const usdSellDecision = {
+  ...portfolioDecision, contributions: [],
+  existingPositions: [{
+    id: 'NVDA', label: 'NVIDIA', instrumentType: 'ETF_ETC',
+    category: 'SEMICONDUCTORS', currentValueEur: 300,
+    action: 'EXIT', reason: 'USD_RESEARCH_ONLY'
+  }]
+};
+const usdSellPlan = buildPortfolioExecutionPlan({
+  portfolio: { ...portfolio, holdings: [...portfolio.holdings, { ticker: 'NVDA', shares: 3 }] },
+  scan: usdScan, decisionAsOf: '2026-08-28',
+  portfolioDecision: usdSellDecision, cashBenchmarkAnnualPct: 2.5
+});
+ok(usdSellPlan.lines.some(line => line.targetTicker === 'NVDA' && line.action === 'REVIEW')
+  && !usdSellPlan.lines.some(line => line.targetTicker === 'NVDA' && line.action === 'SELL_ETF'),
+  'USD exit guidance remains REVIEW until actual broker FX and tax-lot settlement is supported');
+
+
 ok(plan.lines.some(x => x.action === 'BUY_ETF' && x.shares === 4 && x.amountEur === 160 && x.estimatedFeeEur === 1), 'ETF contribution becomes whole-share costed buy instruction when it beats cash');
 ok(plan.lines.some(x => x.action === 'SUBSCRIBE_FUND' && x.targetIsin === 'NEW456' && x.amountEur === 200), 'fund contribution becomes subscription when it beats cash');
 ok(plan.lines.some(x => x.action === 'SELL_ETF' && x.shares === 2 && x.amountEur === 100 && x.estimatedFeeEur === 1), 'ETF overweight becomes quantified costed partial sale');
