@@ -170,6 +170,16 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
           {h2Readout && <div className="mt-2 space-y-1">
             <p>Fecha de información: {h2Readout.informationDate}. Pares: {h2Readout.pairCount}; fuente REAL en ambos extremos: {h2Readout.realProvenancePairs}; cobertura FIFO conocida: {h2Readout.fifoCoveredPairs}.</p>
             <p>Resultado económico neto: N/D. Las diferencias de momentum no son rentabilidad prevista.</p>
+            <p>H1 · financiación: capital desplegable {h2Readout.newMoneyAllocationAudit.baseDeployableToAssetsEur.toFixed(2)} €; propuestas {h2Readout.newMoneyAllocationAudit.proposedContributionsEur == null ? 'N/D por rotaciones' : `${h2Readout.newMoneyAllocationAudit.proposedContributionsEur.toFixed(2)} €`}; sin asignar {h2Readout.newMoneyAllocationAudit.unassignedDeployableEur == null ? 'N/D' : `${h2Readout.newMoneyAllocationAudit.unassignedDeployableEur.toFixed(2)} €`}. El remanente no equivale a una oportunidad perdida ni a dinero nuevo.</p>
+            {(h2Readout.scanIdentity?.usdResearchCandidates.length ?? 0) > 0 && <div className="mt-2 border-t border-slate-700 pt-2">
+              <p className="font-bold text-cyan-200">Mercado USD · investigación integrada</p>
+              <p className="text-slate-400">Candidatos americanos evaluados en EUR mediante FX REAL causal. No compiten por órdenes productivas hasta verificar cambio de divisa, bróker y fiscalidad.</p>
+              <div className="mt-1 overflow-x-auto"><table className="w-full min-w-[580px] text-left text-[11px]">
+                <thead><tr className="border-b border-slate-700 text-slate-400"><th className="py-1 pr-2">Ticker</th><th className="py-1 pr-2">Estado</th><th className="py-1 pr-2">Score</th><th className="py-1 pr-2">Momentum 120d</th><th className="py-1 pr-2">FX hasta</th><th className="py-1">Motivo</th></tr></thead>
+                <tbody>{h2Readout.scanIdentity?.usdResearchCandidates.map(row => <tr key={row.assetId} className="border-b border-slate-800"><td className="py-1 pr-2 font-mono">{row.ticker}</td><td className="py-1 pr-2">{row.status}</td><td className="py-1 pr-2">{row.scannerScore?.toFixed(2) ?? 'N/D'}</td><td className="py-1 pr-2">{row.momentum120Pct?.toFixed(1) ?? 'N/D'}%</td><td className="py-1 pr-2">{row.fxObservationDate ?? 'N/D'}</td><td className="py-1">{row.rejectedReason ?? 'RESEARCH_ONLY_NO_USD_ORDER'}</td></tr>)}</tbody>
+              </table></div>
+            </div>}
+
             <p>Identidad del escaneo: {h2Readout.scanIdentity?.candidateSetFingerprint ?? 'N/D'}; candidatos: {h2Readout.scanIdentity?.scannedCount ?? 'N/D'}. El instante de exportación se añade al descargar, no es la fecha de mercado.</p>
             <p>Entradas nuevas permitidas: {h2Readout.newPositionDecisionLimit}. Despliegue inicial ampliado: {h2Readout.bootstrapDeploymentActive ? 'sí' : 'no'}.</p>
             <div className="overflow-x-auto">
