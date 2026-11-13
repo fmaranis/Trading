@@ -168,7 +168,7 @@ export const HistoricalDecisionReplayPanel: React.FC<Props> = ({ scan, capitalEu
       await new Promise(resolve => window.setTimeout(resolve, 0));
       const result = DynamicHistoricalReplayEngine.run({
         dataset: nextHistoricalScan.acceptedDataset,
-        catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
+        catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE.filter(asset => asset.currency === 'EUR'),
         startDate,
         frequency,
         initialCapitalEur: capital,
