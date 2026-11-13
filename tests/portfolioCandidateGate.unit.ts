@@ -180,4 +180,22 @@ const historicalLiveLikeScan: any = { ...liveScan, dynamicMarketShortlist: undef
 const historicalGate = PortfolioCandidateGate.apply(historicalLiveLikeScan, 2.5, 12);
 check('721 historical/research semantics remain unchanged: the original two-per-category cap still applies', historicalGate.scan.selected.filter(row => row.asset.category === 'EUROPE_EQUITY').length <= 2);
 
-console.log(`Portfolio candidate gate: ${passed}/21 invariants passed.`);
+
+const usdResearchProbe = {
+  ...candidates[0],
+  asset: { ...candidates[0].asset, assetId: 'USD_NVDA', ticker: 'NVDA', name: 'NVIDIA Corporation', currency: 'USD' }
+};
+const usdProbeScan: any = {
+  ...scan,
+  scanned: 1, accepted: 1, rejected: 0,
+  candidates: [usdResearchProbe], selected: [usdResearchProbe],
+  dynamicMarketShortlist: undefined
+};
+const usdProbeResult = PortfolioCandidateGate.apply(usdProbeScan, 2.5, 12);
+check('722 USD research cannot pass the production candidate gate without verified FX execution',
+  usdProbeResult.entries.length === 1
+  && usdProbeResult.entries[0].status === 'REJECTED'
+  && usdProbeResult.entries[0].reason === 'USD_RESEARCH_ONLY_FX_EXECUTION_UNVERIFIED'
+  && usdProbeResult.scan.selected.length === 0);
+
+console.log(`Portfolio candidate gate: ${passed} invariants passed.`);
