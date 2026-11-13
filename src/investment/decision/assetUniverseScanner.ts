@@ -399,7 +399,10 @@ export class AssetUniverseScanner {
       selected,
       candidates,
       dataset: toDataset(selected),
-      acceptedDataset: toDataset(acceptedCandidates),
+      // Historical/replay and current production consumers must continue to
+      // receive the EUR-only investment dataset. USD candidates remain visible
+      // in candidates/H1-H2 readouts, not a new replay instrument master.
+      acceptedDataset: toDataset(acceptedCandidates.filter(row => row.asset.currency === 'EUR')),
       rejectionCounts,
       dynamicMarketShortlist: dynamicCurrentMarket ? {
         mode: 'DYNAMIC_CURRENT_DISCOVERY',
