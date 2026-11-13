@@ -26,6 +26,11 @@ export const FIXED_PRODUCT_UNIVERSE_FORBIDDEN = true as const;
  * class without a risky cross-cutting type migration.
  */
 export const EUR_PORTFOLIO_EXPANSION_UNIVERSE: AssetUniverseItem[] = [
+  // USD research seed / resilience only. Never an executable broker authorization.
+  // Dynamic Yahoo current discovery remains the open market source, not this list.
+  { assetId: 'USD_NVDA', ticker: 'NVDA', isin: 'US67066G1040', name: 'NVIDIA Corporation', category: 'SEMICONDUCTORS', currency: 'USD', marketDataProvider: 'YAHOO' },
+  { assetId: 'USD_MSFT', ticker: 'MSFT', isin: 'US5949181045', name: 'Microsoft Corporation', category: 'TECHNOLOGY', currency: 'USD', marketDataProvider: 'YAHOO' },
+  { assetId: 'USD_AAPL', ticker: 'AAPL', isin: 'US0378331005', name: 'Apple Inc.', category: 'TECHNOLOGY', currency: 'USD', marketDataProvider: 'YAHOO' },
   { assetId: 'EQ_ASML', ticker: 'ASML.AS', isin: 'NL0010273215', name: 'ASML Holding', category: 'SEMICONDUCTORS', currency: 'EUR' },
   { assetId: 'EQ_SAP', ticker: 'SAP.DE', isin: 'DE0007164600', name: 'SAP SE', category: 'TECHNOLOGY', currency: 'EUR' },
   { assetId: 'EQ_SIEMENS', ticker: 'SIE.DE', isin: 'DE0007236101', name: 'Siemens AG', category: 'EUROPE_EQUITY', currency: 'EUR' },
