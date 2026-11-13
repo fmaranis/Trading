@@ -166,4 +166,10 @@ for (const replayUi of [
     'historical replay must not receive USD current-discovery research instruments');
 }
 
+const initialReplayControls = readFileSync('src/components/ReplayInitialPortfolioControls.tsx', 'utf8');
+assert.match(initialReplayControls, /EUR_PORTFOLIO_DISCOVERY_UNIVERSE\.filter\(asset => asset\.currency === 'EUR'\)\.map/,
+  'initial replay selector must not offer research-only USD instruments');
+assert.match(initialReplayControls, /asset\.currency === 'EUR' && assetSearchText/,
+  'historical initial-state search cannot silently admit USD current-only symbols');
+
 console.log('dynamicMarketShortlist.unit: PASS');
