@@ -343,7 +343,7 @@ export const HistoricalReplayRobustnessPanel: React.FC<Props> = ({ capitalEur, r
       worker.postMessage({
         type: 'INIT',
         dataset: nextScan.acceptedDataset,
-        catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
+        catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE.filter(asset => asset.currency === 'EUR'),
         startDate,
         frequency,
         initialCapitalEur: capital,
