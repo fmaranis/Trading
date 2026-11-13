@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   rankDynamicMarketShortlist,
   type AssetScanCandidate
@@ -144,5 +145,13 @@ const dualListing = mergeOpenMarketAssets(
   [discovered({ assetId: 'EUR_NVDA', ticker: 'NVD.DE', name: 'NVIDIA Corporation', category: 'SEMICONDUCTORS', currency: 'EUR' })]
 );
 assert.equal(dualListing.length, 2, 'USD research quote must not suppress an independent EUR executable cross-listing');
+
+const scannerSource = readFileSync('src/investment/decision/assetUniverseScanner.ts', 'utf8');
+assert.match(scannerSource, /const evaluatedUniverse = dynamicCurrentMarket\s*\? expanded\.universe\s*:\s*expanded\.universe\.filter\(asset => asset\.currency === 'EUR'\)/,
+  'USD discovery must never leak into historical scanner sessions');
+assert.match(scannerSource, /chooseDiversifiedLegacy\(eurCandidates, /,
+  'historical EUR selector must not promote current-only USD to production');
+assert.match(scannerSource, /rankDynamicMarketShortlist\(eurCandidates, requestedMax\)/,
+  'current product Top64 must not be displaced by research-only USD quotes');
 
 console.log('dynamicMarketShortlist.unit: PASS');
