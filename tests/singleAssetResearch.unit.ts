@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { SingleAssetResearchEngine } from '../src/investment/decision';
+import { SingleAssetResearchEngine, convertUsdBarsToEurCausally } from '../src/investment/decision';
 import type { PriceBar } from '../src/investment/backtesting/types';
 
 function makeBars(): PriceBar[] {
@@ -46,5 +46,34 @@ const alteredResult = SingleAssetResearchEngine.run({
 });
 const alteredBefore = alteredResult.signals.filter(s => s.signalDate <= cutoff).map(s => `${s.action}:${s.signalDate}:${s.executionDate}`);
 assert.deepEqual(alteredBefore, baseBefore, 'future prices must not change earlier weekly research signals');
+
+
+assert.ok(result.currentCandidateGate?.status === 'ELIGIBLE' || result.currentCandidateGate?.status === 'REJECTED',
+  'single-asset current research must use the existing PortfolioCandidateGate without a separate policy');
+
+const usd = [
+  { timestamp: '2026-01-02T00:00:00.000Z', open: 100, high: 110, low: 95, close: 105, volume: 100 },
+  { timestamp: '2026-01-05T00:00:00.000Z', open: 120, high: 125, low: 110, close: 118, volume: 150 }
+];
+const fx = [
+  { timestamp: '2026-01-01T00:00:00.000Z', open: 1.2, high: 1.21, low: 1.19, close: 1.2 },
+  { timestamp: '2026-01-02T00:00:00.000Z', open: 1.25, high: 1.27, low: 1.23, close: 1.25 },
+  { timestamp: '2026-01-05T00:00:00.000Z', open: 1.8, high: 1.85, low: 1.75, close: 1.8 }
+];
+const converted = convertUsdBarsToEurCausally(usd, fx);
+assert.equal(converted.fxPair, 'EURUSD=X');
+assert.equal(converted.bars[0].close, 105 / 1.2, 'Friday must use Thursday USD/EUR FX close');
+assert.equal(converted.bars[1].open, 120 / 1.25, 'Monday NEXT_OPEN must use prior Friday FX, not Monday future FX');
+assert.equal(converted.fxObservationDate, '2026-01-02');
+assert.equal(converted.maxObservedFxAgeDays, 3);
+const futureFxChanged = fx.map(bar => bar.timestamp.startsWith('2026-01-05') ? { ...bar, close: 100 } : bar);
+assert.deepEqual(convertUsdBarsToEurCausally(usd, futureFxChanged).bars, converted.bars,
+  'FX observed on or after a quote date cannot change the earlier research signal or NEXT_OPEN mark');
+assert.throws(() => convertUsdBarsToEurCausally(usd, fx.slice(2)), /USD_FX_MISSING_OR_STALE/,
+  'missing prior REAL FX must block rather than invent a conversion');
+assert.throws(() => convertUsdBarsToEurCausally(usd, fx.map(row => ({ ...row, close: 0 }))), /USD_FX_MISSING_OR_STALE/,
+  'invalid REAL FX must block, with no synthetic fallback');
+assert.throws(() => convertUsdBarsToEurCausally(usd, []), /USD_FX_REAL_HISTORY_REQUIRED/,
+  'USD asset data alone is insufficient to assert EUR comparable returns');
 
 console.log(`Single Asset Research: weekly=${weekly.reviews} reviews, monthly=${result.reviews}; causal BUY/SELL and future isolation passed.`);
