@@ -4,7 +4,7 @@ import { CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatte
 import type { PriceBar } from '../investment/backtesting/types';
 import { HistoricalMarketDataService } from '../investment/data/marketData/historicalMarketDataService';
 import { FundMarketDataService } from '../investment/data/marketData/fundMarketData';
-import { CashBenchmarkService, SingleAssetResearchEngine, type SingleAssetResearchFrequency, type SingleAssetResearchResult, type SingleAssetResearchSignal } from '../investment/decision';
+import { CashBenchmarkService, SingleAssetResearchEngine, convertUsdBarsToEurCausally, type SingleAssetResearchFrequency, type SingleAssetResearchResult, type SingleAssetResearchSignal } from '../investment/decision';
 import { SingleAssetOperationFocus } from './SingleAssetOperationFocus';
 
 interface Props {
@@ -30,6 +30,7 @@ const researchCache = new Map<string, CachedResearch>();
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function yearsAgo(years: number): string { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - years); return isoDate(d); }
 function warmupStart(date: string): string { const d = new Date(`${date}T00:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() - 2); return isoDate(d); }
+function priorFxStart(date: string): string { const d = new Date(`${date}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 10); return isoDate(d); }
 function signed(value: number | null): string { return value == null ? 'N/D' : `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`; }
 function looksLikeIsin(value: string): boolean { return /^[A-Z]{2}[A-Z0-9]{10}$/.test(value); }
 function rollingAverage(values: number[], index: number, lookback: number): number | null {
@@ -158,9 +159,37 @@ const SingleAssetResearchPanelImpl: React.FC<Props> = ({ requestedSymbol, sugges
         bars = fund.points.map(point => ({ timestamp: `${point.date}T00:00:00.000Z`, open: point.nav, high: point.nav, low: point.nav, close: point.nav, volume: 0 }));
         nextMetadata = { currency: fund.currency, exchange: 'Fondo / NAV EODHD', providerName: 'EODHD', symbol: fund.symbol, fetchedAt: fund.fetchedAt };
       } else {
-        const response = await HistoricalMarketDataService.getHistoricalBars({ symbol: clean, startDate: warmupStart(startDate), endDate, timeframe: '1d', adjusted: true }, { forceRefresh: false, maxRetries: 1 });
+        // Yahoo split-adjusted Close, not retrospectively dividend-adjusted Adj Close:
+        // later dividend events cannot rewrite the decision history prefix.
+        const response = await HistoricalMarketDataService.getHistoricalBars({ symbol: clean, startDate: warmupStart(startDate), endDate, timeframe: '1d', adjusted: false }, { forceRefresh: false, maxRetries: 1 });
+        if (response.provenance.sourceType !== 'REAL') throw new Error('RESEARCH_REQUIRES_REAL_EQUITY_DATA');
         bars = response.bars;
         nextMetadata = response.metadata;
+      }
+      const quoteCurrency = String(nextMetadata.currency ?? '').trim().toUpperCase();
+      if (quoteCurrency === 'USD') {
+        const fx = await HistoricalMarketDataService.getHistoricalBars({
+          symbol: 'EURUSD=X', startDate: priorFxStart(warmupStart(startDate)), endDate,
+          timeframe: '1d', adjusted: false
+        }, { forceRefresh: false, maxRetries: 1 });
+        if (fx.provenance.sourceType !== 'REAL') throw new Error('USD_FX_REAL_HISTORY_REQUIRED');
+        const converted = convertUsdBarsToEurCausally(bars, fx.bars);
+        bars = converted.bars;
+        nextMetadata = {
+          ...nextMetadata,
+          quoteCurrency: 'USD', currency: 'EUR', analysisCurrency: 'EUR',
+          currencyConversion: 'USD_TO_EUR_CAUSAL_PREVIOUS_FX_CLOSE',
+          fxPair: converted.fxPair, fxAsOf: converted.fxObservationDate,
+          fxRateUsdPerEur: converted.fxRateUsdPerEur,
+          fxMaxAgeDays: converted.maxObservedFxAgeDays,
+          fxProvider: fx.provenance.provider, fxDatasetFingerprint: fx.provenance.datasetFingerprint,
+          equityDatasetFingerprint: nextMetadata.datasetFingerprint,
+          executionAuthority: 'RESEARCH_ONLY_NO_USD_ORDERS'
+        };
+      } else if (quoteCurrency === 'EUR') {
+        nextMetadata = { ...nextMetadata, quoteCurrency: 'EUR', analysisCurrency: 'EUR' };
+      } else {
+        throw new Error(`RESEARCH_UNSUPPORTED_OR_UNVERIFIED_CURRENCY:${quoteCurrency || 'UNKNOWN'}`);
       }
       if (requestId !== requestIdRef.current) return;
       const next = SingleAssetResearchEngine.run({ symbol: clean, bars, displayStartDate: startDate, endDate, frequency: reviewFrequency, cashBenchmarkAnnualPct: CashBenchmarkService.load() });
@@ -227,16 +256,32 @@ const SingleAssetResearchPanelImpl: React.FC<Props> = ({ requestedSymbol, sugges
 
   return <section id="single-asset-research" className="scroll-mt-4 rounded-2xl border border-cyan-500/25 bg-slate-900 p-5">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-cyan-300"/><h2 className="font-bold text-white">Analizar cualquier valor</h2></div><p className="mt-1 max-w-3xl text-xs text-slate-400">Puedes escribir o pegar manualmente cualquier ticker/ISIN o elegir uno del catálogo. Editar el campo no recalcula la gráfica: el análisis solo se lanza al pulsar Analizar/Enter o al abrir expresamente la gráfica de una oportunidad.</p></div>
+      <div><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-cyan-300"/><h2 className="font-bold text-white">Analizar cualquier valor</h2></div><p className="mt-1 max-w-3xl text-xs text-slate-400">Puedes escribir cualquier ticker/ISIN, incluido un valor estadounidense como NVDA o MSFT. Los USD se analizan en EUR con FX REAL causal (si no hay FX válido, se bloquea). Es investigación, no una orden de compra. El análisis solo se lanza al pulsar Analizar/Enter.</p></div>
       {current && <div className={`rounded-xl border px-4 py-2 text-xs font-black ${current.newMoneyAction === 'BUY' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : current.newMoneyAction === 'AVOID' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>{currentLabel}</div>}
     </div>
 
     <ResearchControls currentSymbol={symbol} suggestions={suggestions} startDate={startDate} frequency={frequency} loading={loading} onStartDateChange={setStartDate} onFrequencyChange={changeFrequency} onAnalyze={value => void analyzeSymbol(value)} />
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
+      <span>Mercados USD, por ejemplo:</span>
+      {['NVDA', 'MSFT', 'AAPL'].map(ticker => <button key={ticker} type="button" disabled={loading} onClick={() => void analyzeSymbol(ticker)} className="rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1 font-mono text-cyan-200 disabled:opacity-50">{ticker}</button>)}
+      <span>Las cotizaciones se obtienen de Yahoo; no son precios intradía garantizados.</span>
+    </div>
 
     {!result && !loading && !error && <div className="mt-3 rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-xs text-slate-500">Escribe, pega o selecciona un ticker/ISIN y pulsa <b className="text-slate-300">Analizar</b>. No se ejecuta un análisis pesado por defecto al entrar en esta pantalla.</div>}
     {error && <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">{error}</div>}
 
     {result && <>
+      <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-[11px] text-slate-300">
+        <b className="text-amber-200">Análisis en EUR · solo investigación</b>
+        <div>Mercado: {metadata?.quoteCurrency ?? 'N/D'} · precios y señales del gráfico: EUR · última sesión utilizada: {result.endDate}.</div>
+        {metadata?.quoteCurrency === 'USD' && <div>Tipo de cambio: {metadata.fxPair} (USD por EUR), {Number(metadata.fxRateUsdPerEur).toFixed(5)} de {metadata.fxAsOf}. Se aplica el cierre FX anterior a cada sesión, sin información futura. Riesgo de divisa incluido en las variaciones expresadas en EUR.</div>}
+        <div>La señal del activo no tiene autoridad para comprar acciones USD, ni calcula comisiones de cambio, fiscalidad, spread o disponibilidad del broker. Una barra de hoy puede ser provisional.</div>
+      </div>
+      <div className="mt-2 rounded-xl border border-slate-700 bg-slate-950/60 p-3 text-xs">
+        <b className="text-white">Filtro actual de candidatos (mismo PortfolioCandidateGate)</b>
+        <div className="mt-1 text-slate-300">{result.currentCandidateGate?.status ?? 'N/D'} · {result.currentCandidateGate?.timingState ?? 'Timing N/D'} · {result.currentCandidateGate?.reason ?? 'Sin evaluación válida'}.</div>
+        <div className="mt-1 text-[10px] text-slate-500">Es un diagnóstico del activo con benchmark de cash en EUR, no una asignación de cartera ni una orden. No anticipa los resultados empresariales.</div>
+      </div>
       <div className="mt-4 flex flex-wrap gap-2 text-[10px]"><span className="rounded-full border border-cyan-500/25 bg-cyan-500/5 px-3 py-1 font-bold text-cyan-200">Frecuencia: {frequency === 'WEEKLY' ? 'SEMANAL' : frequency === 'MONTHLY' ? 'MENSUAL' : 'TRIMESTRAL'}</span><span className="rounded-full border border-slate-700 px-3 py-1 text-slate-400">{result.reviews} revisiones causales</span></div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5 text-xs">
         <div className="rounded-xl bg-slate-950 p-3"><div className="text-[9px] uppercase text-slate-500">Valor</div><b className="font-mono text-white">{result.symbol}</b><div className="text-[9px] text-slate-500">{metadata?.currency ?? 'divisa N/D'} · {metadata?.exchange ?? metadata?.providerName ?? 'mercado'}</div></div>
