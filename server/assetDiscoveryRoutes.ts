@@ -269,7 +269,10 @@ async function buildOpenSweep() {
     const symbol = String(row.quote.symbol ?? '').toUpperCase();
     const currency = String(row.quote.currency ?? '').toUpperCase();
     if (row.mechanism === 'LOOKUP' && !primaryEurSuffix(symbol)) return false;
-    return !currency || currency === 'EUR';
+    return !currency || currency === 'EUR'
+      || (currency === 'USD' && row.mechanism === 'SEARCH'
+        && row.family.id.startsWith('EQ_US_')
+        && String(row.quote.quoteType ?? '').toUpperCase() === 'EQUITY');
   });
   const inspected = await mapLimit(prefiltered, 6, async row => ({
     ...row,
@@ -281,7 +284,10 @@ async function buildOpenSweep() {
     const symbol = String(row.quote.symbol ?? '').trim().toUpperCase();
     const type = String(row.inspection?.instrumentType ?? row.quote.quoteType ?? '').toUpperCase();
     const currency = String(row.inspection?.currency ?? row.quote.currency ?? '').toUpperCase();
-    if (!symbol || currency !== 'EUR' || !row.inspection || row.inspection.bars < 252 || !OPEN_SWEEP_TYPES.has(type)) continue;
+    if (!symbol || (currency !== 'EUR' && currency !== 'USD') || !row.inspection || row.inspection.bars < 252 || !OPEN_SWEEP_TYPES.has(type)) continue;
+    // Only explicit current US equity search families may introduce USD quotes;
+    // never misclassify an unrelated secondary/OTC listing as USD investable.
+    if (currency === 'USD' && (row.mechanism !== 'SEARCH' || !row.family.id.startsWith('EQ_US_') || type !== 'EQUITY')) continue;
     const isEquity = type === 'EQUITY';
     const name = row.quote.longname || row.quote.shortname || symbol;
     const classified = row.mechanism === 'LOOKUP' && !isEquity
@@ -292,8 +298,8 @@ async function buildOpenSweep() {
         assetId: openAssetId(symbol),
         ticker: symbol,
         name,
-        category: isEquity ? 'EUROPE_EQUITY' : classified.category,
-        currency: 'EUR',
+        category: isEquity ? (currency === 'USD' ? row.family.category : 'EUROPE_EQUITY') : classified.category,
+        currency: currency as 'EUR' | 'USD',
         defensive: isEquity ? false : classified.defensive,
         // Existing execution semantics group EUR-listed whole-share instruments
         // under ETF_ETC. This is not a claim that an EQUITY is economically an ETF.
@@ -328,7 +334,8 @@ async function buildOpenSweep() {
     rawCandidates: unique.size,
     searchRawCandidates: searchRaw.length,
     lookupRawCandidates: new Set(lookup.rows.map(row => String(row.quote.symbol ?? '').toUpperCase()).filter(Boolean)).size,
-    acceptedEurCandidates: assets.length,
+    acceptedEurCandidates: assets.filter(row => row.asset.currency === 'EUR').length,
+    acceptedUsdCandidates: assets.filter(row => row.asset.currency === 'USD').length,
     discoveryMechanismCounts: mechanismCounts,
     assets,
     queryFailures: queryResults.filter(row => row.error).map(row => ({ id: row.family.id, error: row.error })),
