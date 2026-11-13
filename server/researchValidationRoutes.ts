@@ -163,6 +163,8 @@ const JOBS: JobDefinition[] = [
       { label: 'TypeScript', command: 'npm', args: ['run', 'lint'] },
       { label: 'Guard asignación y trazabilidad opt-in', command: 'npx', args: ['tsx', 'tests/currentCapitalAllocation.unit.ts'] },
       { label: 'Guard activo USD y FX causal', command: 'npx', args: ['tsx', 'tests/singleAssetResearch.unit.ts'] },
+      { label: 'Guard USD frente a CandidateGate productivo', command: 'npx', args: ['tsx', 'tests/portfolioCandidateGate.unit.ts'] },
+      { label: 'Guard shortlist EUR y discovery multidivisa', command: 'npx', args: ['tsx', 'tests/dynamicMarketShortlist.unit.ts'] },
       { label: 'Guard paridad replay / traza opt-in', command: 'npx', args: ['tsx', 'tests/dynamicHistoricalReplay.unit.ts'] },
       { label: 'Guard arquitectura core', command: 'npx', args: ['tsx', 'tests/coreArchitectureV1.unit.ts'] },
       { label: 'Guard runtime del Centro de validación', command: 'npx', args: ['tsx', 'tests/researchValidationRuntime.unit.ts'] },
