@@ -5,6 +5,7 @@ import {
 } from '../src/investment/decision/assetUniverseScanner';
 import {
   DYNAMIC_MARKET_SHORTLIST_TARGET,
+  EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
   FIXED_PRODUCT_UNIVERSE_FORBIDDEN,
   PRODUCT_MARKET_UNIVERSE_MODE
 } from '../src/investment/decision/portfolioDiscoveryUniverse';
@@ -127,5 +128,15 @@ assert.equal(merged.some(row => row.assetId === 'OPEN_IWDA_AS'), false);
 assert.equal(merged.some(row => row.assetId === 'OPEN_SAN_PA'), true);
 assert.equal(merged.some(row => row.assetId === 'OPEN_NEW_AS'), true);
 assert.equal(merged.length, base.length + 2);
+
+const usdResearchSeeds = EUR_PORTFOLIO_DISCOVERY_UNIVERSE.filter(asset => asset.currency === 'USD');
+assert.deepEqual(usdResearchSeeds.map(asset => asset.ticker).sort(), ['AAPL', 'MSFT', 'NVDA']);
+assert.ok(usdResearchSeeds.every(asset => asset.marketDataProvider === 'YAHOO'),
+  'USD research must use the REAL Yahoo provider rather than synthetic price proxies');
+const mixedDiscovery = mergeOpenMarketAssets(base, [
+  discovered({ assetId: 'OPEN_US_TEST', ticker: 'NEWUSA', name: 'Distinct New US Corporation', category: 'US_EQUITY', currency: 'USD' })
+]);
+assert.ok(mixedDiscovery.some(asset => asset.assetId === 'OPEN_US_TEST' && asset.currency === 'USD'),
+  'current market discovery must retain explicitly tagged USD candidates without rewriting their quote currency');
 
 console.log('dynamicMarketShortlist.unit: PASS');
