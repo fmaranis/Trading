@@ -100,6 +100,12 @@ export interface PortfolioDecisionResult {
     nonFundingReasonByAssetId: Record<string, string>;
     baseDeployableToAssetsEur: number;
     availablePortfolioSlots: number;
+    newMoneyAllocationAudit: {
+      baseDeployableToAssetsEur: number;
+      proposedContributionsEur: number | null;
+      unassignedDeployableEur: number | null;
+      interpretation: 'NO_ROTATION_UNASSIGNED_NOT_PROFIT' | 'ROTATION_MIXED_FLOWS_NOT_SEPARABLE';
+    };
     /** Research-only current-date opportunity audit, no counterfactual orders. */
     opportunityAllocationAudit: Array<{
       assetId: string;
@@ -176,7 +182,11 @@ export function buildH2CurrentScanIdentity(scan: AssetUniverseScanResult) {
     sourceType: row.response?.provenance.sourceType ?? 'UNKNOWN',
     provider: row.response?.provenance.provider ?? null,
     datasetFingerprint: row.response?.provenance.datasetFingerprint ?? null,
-    fetchedAt: row.response?.provenance.fetchedAt ?? null
+    fetchedAt: row.response?.provenance.fetchedAt ?? null,
+    quoteCurrency: row.asset.currency,
+    analysisCurrency: row.response?.metadata.currency ?? null,
+    fxDatasetFingerprint: row.response?.metadata.fxDatasetFingerprint ?? null,
+    fxObservationDate: row.response?.metadata.fxObservationDate ?? null
   })).sort((a, b) => a.assetId.localeCompare(b.assetId) || a.ticker.localeCompare(b.ticker));
   const selectedAssetIds = scan.selected.map(row => row.asset.assetId);
   const discovery = scan.currentOpenDiscovery ?? null;
@@ -202,13 +212,33 @@ export function buildH2CurrentScanIdentity(scan: AssetUniverseScanResult) {
     // Keep individual identities for comparison of changed constituents;
     // prices are only recorded in the digest input, not exported in bulk.
     candidateIds: candidates.map(row => row.assetId),
+    usdResearchCandidates: scan.candidates.filter(row => row.asset.currency === 'USD').map(row => ({
+      assetId: row.asset.assetId,
+      ticker: row.asset.ticker,
+      quoteCurrency: 'USD' as const,
+      analysisCurrency: row.response?.metadata.currency ?? null,
+      status: row.status,
+      rejectedReason: row.reason ?? null,
+      scannerScore: row.score,
+      momentum120Pct: row.momentum120Pct,
+      volatilityPct: row.annualizedVolatilityPct,
+      asOfDate: row.asOfDate,
+      latestValueEur: row.lastClose,
+      fxObservationDate: row.response?.metadata.fxObservationDate ?? null,
+      researchOnly: true as const,
+      productionAuthority: false as const
+    })),
     candidateProvenance: candidates.map(row => ({
       assetId: row.assetId,
       asOfDate: row.asOfDate,
       sourceType: row.sourceType,
       provider: row.provider,
       datasetFingerprint: row.datasetFingerprint,
-      fetchedAt: row.fetchedAt
+      fetchedAt: row.fetchedAt,
+      quoteCurrency: row.quoteCurrency,
+      analysisCurrency: row.analysisCurrency,
+      fxDatasetFingerprint: row.fxDatasetFingerprint,
+      fxObservationDate: row.fxObservationDate
     })),
     missingDatasetFingerprintCount: candidates.filter(row => row.datasetFingerprint == null).length,
     currentOpenDiscovery: discovery ? {
@@ -260,6 +290,7 @@ export function buildH2CapitalMobilityReadout(input: {
     capitalCondition: shadow?.condition ?? 'NO_H2_PAIR_CONDITION',
     availablePortfolioSlots: reach.availablePortfolioSlots,
     baseDeployableToAssetsEur: reach.baseDeployableToAssetsEur,
+    newMoneyAllocationAudit: reach.newMoneyAllocationAudit,
     opportunityCount: reach.opportunityAssetIds.length,
     newPositionDecisionLimit: reach.newPositionDecisionLimit,
     bootstrapDeploymentActive: reach.bootstrapDeploymentActive,
@@ -1021,6 +1052,17 @@ export class PortfolioDecisionEngine {
                 : 'NON_FUNDED_REASON_UNAVAILABLE')])),
       baseDeployableToAssetsEur,
       availablePortfolioSlots,
+      // Only attribute unused new money if there are NO rotation proceeds:
+      // otherwise the current result merges new and recycled capital.
+      newMoneyAllocationAudit: {
+        baseDeployableToAssetsEur,
+        proposedContributionsEur: plannedRotationProceedsEur <= 0.01 ? recommendedNewInvestmentEur : null,
+        unassignedDeployableEur: plannedRotationProceedsEur <= 0.01
+          ? Math.max(0, baseDeployableToAssetsEur - recommendedNewInvestmentEur) : null,
+        interpretation: plannedRotationProceedsEur <= 0.01
+          ? 'NO_ROTATION_UNASSIGNED_NOT_PROFIT' as const
+          : 'ROTATION_MIXED_FLOWS_NOT_SEPARABLE' as const
+      },
       newPositionDecisionLimit,
       bootstrapDeploymentActive,
       opportunityAllocationAudit: opportunities.map(alert => {
