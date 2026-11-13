@@ -222,6 +222,13 @@ export class PortfolioCandidateGate {
         entries.push(baseEntry({ candidate, status: 'REJECTED', reason: candidate.reason ?? 'DATA_REJECTED', ...qualityFields }));
         continue;
       }
+      // USD prices are evaluated with causal REAL FX, but portfolio orders still
+      // lack verified broker spread/settlement/FIFO. Never treat EUR-valued
+      // research bars as permission to execute a USD security.
+      if (candidate.asset.currency !== 'EUR') {
+        entries.push(baseEntry({ candidate, status: 'REJECTED', reason: 'USD_RESEARCH_ONLY_FX_EXECUTION_UNVERIFIED', ...qualityFields }));
+        continue;
+      }
       if (dynamicShortlistIds && !dynamicShortlistIds.has(candidate.asset.assetId)) {
         entries.push(baseEntry({ candidate, status: 'REJECTED', reason: 'OUTSIDE_DYNAMIC_MARKET_SHORTLIST', ...qualityFields }));
         continue;
