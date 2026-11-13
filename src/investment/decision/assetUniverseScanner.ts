@@ -292,6 +292,7 @@ async function loadAsset(asset: AssetUniverseItem, startDate: string, endDate: s
     bars: converted.bars,
     provenance: {
       ...response.provenance,
+      sourceType: 'REAL',
       datasetFingerprint: computeAssetDatasetFingerprint(asset.assetId, asset.ticker, converted.bars),
       notes: 'REAL USD prices converted causally to EUR; each session uses prior EURUSD=X close. RESEARCH_ONLY; no executable USD order.'
     },
