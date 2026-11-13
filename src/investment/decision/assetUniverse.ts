@@ -24,7 +24,8 @@ export interface AssetUniverseItem {
   ticker: string;
   name: string;
   category: AssetUniverseCategory;
-  currency: 'EUR';
+  /** Original Yahoo quote currency. USD may enter only via explicitly FX-normalized research. */
+  currency: 'EUR' | 'USD';
   defensive?: boolean;
   instrumentType?: InvestmentInstrumentType;
   isin?: string;
