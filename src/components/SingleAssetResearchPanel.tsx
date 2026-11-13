@@ -23,7 +23,7 @@ interface ResearchControlsProps {
   onAnalyze: (value: string) => void;
 }
 
-type CachedResearch = { result: SingleAssetResearchResult; metadata: Record<string, any> };
+type CachedResearch = { result: SingleAssetResearchResult; metadata: Record<string, any>; cachedAtMs: number };
 type ChartRange = '1M' | '3M' | '6M' | '1Y' | 'ALL';
 const researchCache = new Map<string, CachedResearch>();
 
@@ -145,11 +145,14 @@ const SingleAssetResearchPanelImpl: React.FC<Props> = ({ requestedSymbol, sugges
     const endDate = isoDate(new Date());
     const cacheKey = `${clean}|${startDate}|${endDate}|${reviewFrequency}`;
     const cached = researchCache.get(cacheKey);
+    const requestId = ++requestIdRef.current;
     setSymbol(clean);
     setError(null);
-    if (cached) { setResult(cached.result); setMetadata(cached.metadata); setLoading(false); return; }
-
-    const requestId = ++requestIdRef.current;
+    // Today's Yahoo bars and FX can change. Do not reuse an all-day cached
+    // research signal or let an older asynchronous request overwrite it.
+    if (cached && Date.now() - cached.cachedAtMs < 5 * 60 * 1000) {
+      setResult(cached.result); setMetadata(cached.metadata); setLoading(false); return;
+    }
     setLoading(true);
     try {
       let bars: PriceBar[];
@@ -194,7 +197,7 @@ const SingleAssetResearchPanelImpl: React.FC<Props> = ({ requestedSymbol, sugges
       if (requestId !== requestIdRef.current) return;
       const next = SingleAssetResearchEngine.run({ symbol: clean, bars, displayStartDate: startDate, endDate, frequency: reviewFrequency, cashBenchmarkAnnualPct: CashBenchmarkService.load() });
       if (requestId !== requestIdRef.current) return;
-      researchCache.set(cacheKey, { result: next, metadata: nextMetadata });
+      researchCache.set(cacheKey, { result: next, metadata: nextMetadata, cachedAtMs: Date.now() });
       if (researchCache.size > 12) researchCache.delete(researchCache.keys().next().value as string);
       setResult(next);
       setMetadata(nextMetadata);
@@ -251,13 +254,16 @@ const SingleAssetResearchPanelImpl: React.FC<Props> = ({ requestedSymbol, sugges
   }, [result, visibleChartData]);
 
   const current = result?.currentAssessment ?? null;
-  const currentLabel = current?.newMoneyAction === 'BUY' ? 'CANDIDATO A COMPRAR' : current?.newMoneyAction === 'AVOID' ? 'NO COMPRAR AHORA' : current ? 'VIGILAR' : 'SIN ANÁLISIS';
+  const currentGate = result?.currentCandidateGate;
+  const currentLabel = currentGate?.status === 'ELIGIBLE' ? 'SEÑAL APTA · INVESTIGACIÓN'
+    : currentGate?.status === 'REJECTED' ? 'NO APTO PARA ENTRAR'
+      : current ? 'EVALUACIÓN INCOMPLETA' : 'SIN ANÁLISIS';
   const changeFrequency = (next: SingleAssetResearchFrequency) => { setFrequency(next); if (symbol) void analyzeSymbol(symbol, next); };
 
   return <section id="single-asset-research" className="scroll-mt-4 rounded-2xl border border-cyan-500/25 bg-slate-900 p-5">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
       <div><div className="flex items-center gap-2"><Activity className="h-5 w-5 text-cyan-300"/><h2 className="font-bold text-white">Analizar cualquier valor</h2></div><p className="mt-1 max-w-3xl text-xs text-slate-400">Puedes escribir cualquier ticker/ISIN, incluido un valor estadounidense como NVDA o MSFT. Los USD se analizan en EUR con FX REAL causal (si no hay FX válido, se bloquea). Es investigación, no una orden de compra. El análisis solo se lanza al pulsar Analizar/Enter.</p></div>
-      {current && <div className={`rounded-xl border px-4 py-2 text-xs font-black ${current.newMoneyAction === 'BUY' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : current.newMoneyAction === 'AVOID' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>{currentLabel}</div>}
+      {current && <div className={`rounded-xl border px-4 py-2 text-xs font-black ${currentGate?.status === 'ELIGIBLE' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : currentGate?.status === 'REJECTED' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>{currentLabel}</div>}
     </div>
 
     <ResearchControls currentSymbol={symbol} suggestions={suggestions} startDate={startDate} frequency={frequency} loading={loading} onStartDateChange={setStartDate} onFrequencyChange={changeFrequency} onAnalyze={value => void analyzeSymbol(value)} />
