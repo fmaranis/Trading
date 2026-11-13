@@ -109,6 +109,9 @@ function reduceFundPosition(funds: FundPosition[], line: PortfolioExecutionLine,
 export function applyPortfolioExecutionLine(portfolio: UserPortfolioState, line: PortfolioExecutionLine): PortfolioStateExecutionReceipt {
   if (line.status !== 'PENDING') throw new Error('La operación ya no está pendiente.');
   if (line.action === 'REVIEW') throw new Error('Una línea de revisión no puede aplicarse como operación ejecutada.');
+  if (line.quoteCurrency === 'USD') {
+    throw new Error('USD_EXECUTION_NOT_SUPPORTED: falta tipo de cambio efectivo, costes y fiscalidad; no se puede registrar como EUR.');
+  }
 
   const liquidityBeforeEur = liquidity(portfolio);
   let next: UserPortfolioState = {
