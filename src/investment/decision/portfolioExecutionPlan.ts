@@ -14,6 +14,8 @@ export interface PortfolioExecutionLine {
   id: string; action: PortfolioExecutionAction; status: PortfolioExecutionStatus; instrumentType: InvestmentInstrumentType;
   sourceId?: string; sourceLabel?: string; sourceIsin?: string; targetAssetId?: string; targetTicker?: string; targetName?: string; targetIsin?: string;
   category: string; amountEur: number | null; shares: number | null; estimatedPriceEur: number | null; estimatedFeeEur?: number | null;
+  /** Original quote currency; an USD review may never be registered as an EUR-priced trade. */
+  quoteCurrency?: 'EUR' | 'USD';
   estimatedAnnualReturnProxyPct?: number | null; cashBenchmarkAnnualPct?: number; excessReturnVsCashPctPoints?: number | null;
   instruction: string; rationale: string; taxNote?: string;
 }
@@ -56,7 +58,7 @@ export function buildPortfolioExecutionPlan(input: { portfolio: UserPortfolioSta
       lines.push({
         id: uid('review_usd_buy', lines.length), action: 'REVIEW', status: 'PENDING',
         instrumentType: contribution.instrumentType, targetAssetId: contribution.assetId,
-        targetTicker: contribution.ticker, targetName: contribution.name, targetIsin: asset.isin,
+        quoteCurrency: 'USD', targetTicker: contribution.ticker, targetName: contribution.name, targetIsin: asset.isin,
         category: contribution.category, amountEur: contribution.amountEur, shares: null,
         estimatedPriceEur: null, estimatedFeeEur: null, cashBenchmarkAnnualPct,
         instruction: `No comprar automáticamente ${contribution.ticker} (USD): falta verificar tipo de cambio negociable, spread, comisiones, broker y fiscalidad.`,
@@ -136,7 +138,7 @@ export function buildPortfolioExecutionPlan(input: { portfolio: UserPortfolioSta
       lines.push({
         id: uid('review_usd_sell', lines.length), action: 'REVIEW', status: 'PENDING',
         instrumentType: 'ETF_ETC', sourceId: position.id, sourceLabel: position.label,
-        targetTicker: holding?.ticker ?? position.id, targetIsin: sourceAsset.isin,
+        quoteCurrency: 'USD', targetTicker: holding?.ticker ?? position.id, targetIsin: sourceAsset.isin,
         category: position.category, amountEur: amount, shares: null, estimatedPriceEur: null,
         estimatedFeeEur: null, cashBenchmarkAnnualPct,
         instruction: 'Revisar manualmente la posición USD: no existe un precio de liquidación EUR con FX/spread/costes verificados.',
