@@ -49,6 +49,21 @@ export function buildPortfolioExecutionPlan(input: { portfolio: UserPortfolioSta
   for (const contribution of portfolioDecision.contributions) {
     const candidate = findCandidate(scan, contribution.assetId) ?? findCandidate(scan, contribution.ticker);
     const asset = candidate?.asset;
+    // Defense in depth: even a malformed/manual future USD allocation MUST NOT
+    // be mistaken for a EUR executable order without broker FX spread/tax basis.
+    if (asset?.currency === 'USD') {
+      warnings.push(`USD_EXECUTION_NOT_VERIFIED:${contribution.ticker}`);
+      lines.push({
+        id: uid('review_usd_buy', lines.length), action: 'REVIEW', status: 'PENDING',
+        instrumentType: contribution.instrumentType, targetAssetId: contribution.assetId,
+        targetTicker: contribution.ticker, targetName: contribution.name, targetIsin: asset.isin,
+        category: contribution.category, amountEur: contribution.amountEur, shares: null,
+        estimatedPriceEur: null, estimatedFeeEur: null, cashBenchmarkAnnualPct,
+        instruction: `No comprar automáticamente ${contribution.ticker} (USD): falta verificar tipo de cambio negociable, spread, comisiones, broker y fiscalidad.`,
+        rationale: 'USD_RESEARCH_ONLY; la valoración normalizada a EUR no es un precio de ejecución.'
+      });
+      continue;
+    }
     const price = candidatePrice(scan, contribution.ticker), isFund = contribution.instrumentType === 'MUTUAL_FUND';
     let shares: number | null = null, amount = contribution.amountEur, estimatedFee: number | null = null;
     if (!isFund && price) {
@@ -115,6 +130,20 @@ export function buildPortfolioExecutionPlan(input: { portfolio: UserPortfolioSta
     }
 
     const holding = portfolio.holdings.find(h => h.ticker.toUpperCase() === position.id.toUpperCase());
+    const sourceAsset = findAsset(scan, holding?.ticker ?? position.id);
+    if (sourceAsset?.currency === 'USD') {
+      warnings.push(`USD_SELL_EXECUTION_NOT_VERIFIED:${holding?.ticker ?? position.id}`);
+      lines.push({
+        id: uid('review_usd_sell', lines.length), action: 'REVIEW', status: 'PENDING',
+        instrumentType: 'ETF_ETC', sourceId: position.id, sourceLabel: position.label,
+        targetTicker: holding?.ticker ?? position.id, targetIsin: sourceAsset.isin,
+        category: position.category, amountEur: amount, shares: null, estimatedPriceEur: null,
+        estimatedFeeEur: null, cashBenchmarkAnnualPct,
+        instruction: 'Revisar manualmente la posición USD: no existe un precio de liquidación EUR con FX/spread/costes verificados.',
+        rationale: position.reason
+      });
+      continue;
+    }
     const derivedPrice = holding && position.currentValueEur != null && holding.shares > 0 ? position.currentValueEur / holding.shares : null;
     const price = candidatePrice(scan, holding?.ticker ?? position.id) ?? derivedPrice;
     let shares: number | null = null, notional = amount;
