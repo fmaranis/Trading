@@ -147,5 +147,15 @@ ok(transferred.portfolio.funds?.some((f: any) => f.isin === 'DST456' && f.curren
 let reviewRejected = false;
 try { applyPortfolioExecutionLine(baseState, { ...buyLine, id: 'review', action: 'REVIEW' }); } catch { reviewRejected = true; }
 ok(reviewRejected, 'review-only line cannot be applied as an executed portfolio operation');
+let usdRegistrationRejected = false;
+try {
+  applyPortfolioExecutionLine(baseState, {
+    ...buyLine, id: 'usd_forged_buy', targetTicker: 'NVDA', quoteCurrency: 'USD'
+  });
+} catch (error: any) {
+  usdRegistrationRejected = String(error?.message ?? '').includes('USD_EXECUTION_NOT_SUPPORTED');
+}
+ok(usdRegistrationRejected, 'state mutation itself rejects an explicitly USD-priced fake BUY as EUR');
+
 
 console.log(`Portfolio Execution Plan + state transactions: ${passed}/${passed} invariants passed.`);
