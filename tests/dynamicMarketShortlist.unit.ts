@@ -154,4 +154,16 @@ assert.match(scannerSource, /chooseDiversifiedLegacy\(eurCandidates, /,
 assert.match(scannerSource, /rankDynamicMarketShortlist\(eurCandidates, requestedMax\)/,
   'current product Top64 must not be displaced by research-only USD quotes');
 
+assert.match(scannerSource, /acceptedDataset: toDataset\(acceptedCandidates\.filter\(row => row\.asset\.currency === 'EUR'\)\)/,
+  'the accepted replay dataset must remain EUR only despite current USD research');
+for (const replayUi of [
+  'src/components/HistoricalReplayProgressivePanel.tsx',
+  'src/components/HistoricalDecisionReplayPanel.tsx',
+  'src/components/HistoricalReplayRobustnessPanel.tsx'
+]) {
+  assert.match(readFileSync(replayUi, 'utf8'),
+    /catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE\.filter\(asset => asset\.currency === 'EUR'\)/,
+    'historical replay must not receive USD current-discovery research instruments');
+}
+
 console.log('dynamicMarketShortlist.unit: PASS');
