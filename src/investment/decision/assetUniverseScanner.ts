@@ -1,4 +1,5 @@
 import { HistoricalMarketDataService } from '../data/marketData/historicalMarketDataService';
+import { convertUsdBarsToEurCausally } from '../data/marketData/usdEurConversion';
 import { FundMarketDataService } from '../data/marketData/fundMarketData';
 import { MultiAssetDataset, computeAssetDatasetFingerprint } from '../portfolioBacktesting';
 import { assessAssetSelectionQuality } from './assetSelectionQuality';
@@ -214,7 +215,7 @@ function promotableCurrentDiscovery(rows: readonly OpenMarketDiscoveryV1Asset[])
   // They still have no investment authority: the scanner ranking, candidate gate,
   // cash hurdle, consensus, timing and allocator remain mandatory downstream.
   return rows.filter(row =>
-    row.asset.currency === 'EUR'
+    (row.asset.currency === 'EUR' || row.asset.currency === 'USD')
     && (row.quoteType === 'ETF' || row.quoteType === 'EQUITY')
     && row.historyBars3y >= 252
     && row.historicalPointInTimeSafe === false
@@ -258,7 +259,10 @@ async function expandCurrentOperationalUniverse(
   }
 }
 
-async function loadAsset(asset: AssetUniverseItem, startDate: string, endDate: string, forceRefresh: boolean): Promise<ScannerResponse> {
+async function loadAsset(asset: AssetUniverseItem, startDate: string, endDate: string, forceRefresh: boolean, fxUsdPerEur?: ScannerResponse): Promise<ScannerResponse> {
+  if (asset.currency === 'USD' && asset.instrumentType === 'MUTUAL_FUND') {
+    throw new Error('USD_MUTUAL_FUND_NOT_SUPPORTED');
+  }
   if (asset.marketDataProvider === 'EODHD_FUND' || asset.instrumentType === 'MUTUAL_FUND') {
     const isin = asset.isin ?? asset.ticker;
     const fund = await FundMarketDataService.history(isin, startDate, endDate);
@@ -276,7 +280,35 @@ async function loadAsset(asset: AssetUniverseItem, startDate: string, endDate: s
   // end date. The scanner therefore uses split-adjusted Close (adjusted:false)
   // for both current and historical decisions so the same prefix stays stable.
   const response = await HistoricalMarketDataService.getHistoricalBars({ symbol: asset.ticker, startDate, endDate, timeframe: '1d', adjusted: false }, { forceRefresh, maxRetries: 1 });
-  return response as ScannerResponse;
+  if (asset.currency !== 'USD') return response as ScannerResponse;
+  if (response.provenance.sourceType !== 'REAL' || String(response.metadata.currency ?? '').toUpperCase() !== 'USD') {
+    throw new Error('USD_QUOTE_NOT_VERIFIED_REAL_USD');
+  }
+  if (!fxUsdPerEur || fxUsdPerEur.provenance.sourceType !== 'REAL') {
+    throw new Error('USD_FX_REAL_HISTORY_REQUIRED');
+  }
+  const converted = convertUsdBarsToEurCausally(response.bars, fxUsdPerEur.bars);
+  return {
+    bars: converted.bars,
+    provenance: {
+      ...response.provenance,
+      datasetFingerprint: computeAssetDatasetFingerprint(asset.assetId, asset.ticker, converted.bars),
+      notes: 'REAL USD prices converted causally to EUR; each session uses prior EURUSD=X close. RESEARCH_ONLY; no executable USD order.'
+    },
+    metadata: {
+      ...response.metadata,
+      currency: 'EUR',
+      quoteCurrency: 'USD',
+      valuationCurrency: 'EUR',
+      fxPair: converted.fxPair,
+      fxObservationDate: converted.fxObservationDate,
+      fxRateUsdPerEur: converted.fxRateUsdPerEur,
+      fxMaxAgeDays: converted.maxObservedFxAgeDays,
+      fxDatasetFingerprint: fxUsdPerEur.provenance.datasetFingerprint,
+      rawAssetDatasetFingerprint: response.provenance.datasetFingerprint,
+      foreignExecutionAuthority: 'RESEARCH_ONLY'
+    }
+  };
 }
 
 export class AssetUniverseScanner {
@@ -284,9 +316,32 @@ export class AssetUniverseScanner {
     const minimumBars = options.minimumBars ?? 252; const maxDataAgeDays = options.maxDataAgeDays ?? 7;
     const dynamicCurrentMarket = isCurrentDynamicMarketScan(universe, endDate, options.currentOpenDiscovery);
     const expanded = await expandCurrentOperationalUniverse(universe, endDate, options.currentOpenDiscovery);
+    // FX is loaded ONCE per scan, not once per USD company. If unavailable,
+    // reject USD rows without changing a single EUR candidate or product order.
+    let fxUsdPerEur: ScannerResponse | undefined;
+    let fxFailure: string | null = null;
+    if (expanded.universe.some(asset => asset.currency === 'USD')) {
+      try {
+        const fxStart = new Date(`${startDate}T00:00:00Z`);
+        fxStart.setUTCDate(fxStart.getUTCDate() - 10);
+        const fx = await HistoricalMarketDataService.getHistoricalBars({
+          symbol: 'EURUSD=X', startDate: fxStart.toISOString().slice(0, 10), endDate,
+          timeframe: '1d', adjusted: false
+        }, { forceRefresh: options.forceRefresh ?? false, maxRetries: 1 });
+        if (fx.provenance.sourceType !== 'REAL' || String(fx.metadata.currency ?? '').toUpperCase() !== 'USD') {
+          throw new Error('FX_PAIR_PROVENANCE_NOT_REAL_USD_PER_EUR');
+        }
+        fxUsdPerEur = fx as ScannerResponse;
+      } catch (error: any) {
+        fxFailure = error?.message || String(error);
+      }
+    }
     const candidates = await mapLimit(expanded.universe, options.concurrency ?? 3, async asset => {
       try {
-        const response = await loadAsset(asset, startDate, endDate, options.forceRefresh ?? false);
+        if (asset.currency === 'USD' && fxFailure) {
+          throw new Error(`USD_FX_UNAVAILABLE:${fxFailure}`);
+        }
+        const response = await loadAsset(asset, startDate, endDate, options.forceRefresh ?? false, fxUsdPerEur);
         const providerCurrency = response.metadata.currency;
         const asOfDate = response.bars.at(-1)?.timestamp.slice(0, 10) ?? null;
         const lastClose = response.bars.at(-1)?.close ?? null;
@@ -323,8 +378,10 @@ export class AssetUniverseScanner {
     // callers may still pass maxSelected:12 from the pre-dynamic era; that option
     // remains honored only for non-current/historical/research scans.
     const requestedMax = dynamicCurrentMarket ? DYNAMIC_MARKET_SHORTLIST_TARGET : (options.maxSelected ?? 8);
+    // Until broker FX costs, EUR settlement and tax-lot accounting are audited,
+    // USD may be scanned and ranked in research but never displace EUR Top64.
     const selected = dynamicCurrentMarket
-      ? rankDynamicMarketShortlist(candidates, requestedMax)
+      ? rankDynamicMarketShortlist(candidates.filter(row => row.asset.currency === 'EUR'), requestedMax)
       : chooseDiversifiedLegacy(candidates, Math.min(requestedMax, 10));
     if (selected.length < 1) throw new Error('El escáner no encontró ninguna exposición REAL válida.');
     const rejectionCounts: Record<string, number> = {}; for (const c of candidates.filter(c => c.status === 'REJECTED')) rejectionCounts[c.reason ?? 'UNKNOWN'] = (rejectionCounts[c.reason ?? 'UNKNOWN'] ?? 0) + 1;
