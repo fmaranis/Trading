@@ -81,6 +81,30 @@ check('937c reach trace records the actual opportunity pool and planned contribu
   Boolean(reachOnly?.opportunityAssetIds.includes('STRONG_TECH'))
   && Boolean(reachOnly?.plannedContributionAssetIds.includes('STRONG_TECH'))
   && reachOnly?.baseDeployableToAssetsEur === 9000);
+
+check('937e H1 decomposes unused new money only when rotations are absent, without claiming economic loss',
+  reachOnly?.newMoneyAllocationAudit.baseDeployableToAssetsEur === 9000
+  && Math.abs((reachOnly?.newMoneyAllocationAudit.proposedContributionsEur ?? -1) - totalContribution) < 1e-6
+  && Math.abs((reachOnly?.newMoneyAllocationAudit.unassignedDeployableEur ?? -1) - (9000 - totalContribution)) < 1e-6
+  && reachOnly?.newMoneyAllocationAudit.interpretation === 'NO_ROTATION_UNASSIGNED_NOT_PROFIT'
+  && JSON.stringify(reachAuditedBaseline) === JSON.stringify(result));
+
+const usdMarketCandidate = {
+  ...scan.candidates[0],
+  asset: { ...scan.candidates[0].asset, assetId: 'USD_NVDA', ticker: 'NVDA', name: 'NVIDIA', currency: 'USD' },
+  response: { ...scan.candidates[0].response, metadata: { currency: 'EUR', fxObservationDate: '2026-11-12', fxDatasetFingerprint: 'fx_real_001' } }
+};
+const scanWithUsdResearch = { ...scan, candidates: [...scan.candidates, usdMarketCandidate] };
+const usdIdentity = buildH2CurrentScanIdentity(scanWithUsdResearch);
+check('937f H1/H2 scan identity exposes USD research FX provenance without making it an order',
+  usdIdentity.usdResearchCandidates.length === 1
+  && usdIdentity.usdResearchCandidates[0].ticker === 'NVDA'
+  && usdIdentity.usdResearchCandidates[0].productionAuthority === false
+  && usdIdentity.candidateProvenance.some(row =>
+    row.assetId === 'USD_NVDA' && row.quoteCurrency === 'USD'
+    && row.analysisCurrency === 'EUR' && row.fxDatasetFingerprint === 'fx_real_001')
+  && usdIdentity.candidateSetFingerprint !== buildH2CurrentScanIdentity(scan).candidateSetFingerprint);
+
 const noDeployablePortfolio: any = {
   ...portfolio, cashEur: 0, stagedCapitalPlan: { ...portfolio.stagedCapitalPlan, availableEur: 0 }
 };
