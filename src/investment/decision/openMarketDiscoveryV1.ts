@@ -108,6 +108,10 @@ function nearSameProductName(a: AssetUniverseItem, b: AssetUniverseItem): boolea
   return shorter.length >= 20 && longer.length - shorter.length <= 4 && longer.startsWith(shorter);
 }
 function sameEconomicListing(a: AssetUniverseItem, b: AssetUniverseItem): boolean {
+  // A USD research quote must not suppress an otherwise executable EUR
+  // cross-listing of the same company. Economic identity remains visible
+  // for risk audit, while only EUR enters the production Top64.
+  if (a.currency !== b.currency) return false;
   if (normalizedTicker(a) === normalizedTicker(b)) return true;
   const aIsin = normalizedIsin(a);
   const bIsin = normalizedIsin(b);
