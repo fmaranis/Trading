@@ -719,7 +719,7 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
       };
       worker.onerror = event => { setError(`El proceso aislado falló: ${event.message || 'WORKER_ERROR'}.`); setStatus('IDLE'); setAutoRunning(false); autoRunningRef.current = false; };
       worker.postMessage({
-        type: 'INIT', dataset: nextScan.acceptedDataset, catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE, startDate, frequency,
+        type: 'INIT', dataset: nextScan.acceptedDataset, catalog: EUR_PORTFOLIO_DISCOVERY_UNIVERSE.filter(asset => asset.currency === 'EUR'), startDate, frequency,
         initialCapitalEur: capital, riskProfile, horizonYears, cashBenchmarkMode, cashBenchmarkAnnualPct, minimumBars: 252,
         taxSettings: SpanishTaxSettingsService.load(), simulationMode: scenario.simulationMode, initialPortfolio: scenarioPortfolio
       });
