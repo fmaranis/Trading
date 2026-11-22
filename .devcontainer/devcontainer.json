@@ -1,0 +1,15 @@
+{
+  "name": "Trading · OpenCode remoto (Codespaces)",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22-bookworm",
+  "forwardPorts": [
+    4096
+  ],
+  "portsAttributes": {
+    "4096": {
+      "label": "OpenCode · privado",
+      "onAutoForward": "silent",
+      "visibility": "private"
+    }
+  },
+  "postCreateCommand": "npm install -g @opencode/cli"
+}
