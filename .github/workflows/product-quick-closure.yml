@@ -45,6 +45,8 @@ jobs:
         run: npx --no-install tsx tests/productSurfaceClosureV1.unit.ts
       - name: Production decision architecture
         run: npx --no-install tsx tests/coreArchitectureV1.unit.ts
+      - name: Historical replay export invariants (fixture-only; no replay)
+        run: node tests/historicalReplayEvidenceAudit.unit.mjs
       - name: Candidate selection and causal price-volume guards
         run: npx --no-install tsx tests/portfolioCandidateGate.unit.ts
       - name: Single decision and executable plan guards
