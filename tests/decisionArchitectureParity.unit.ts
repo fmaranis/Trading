@@ -98,7 +98,7 @@ forbidText(forwardRisk, 'PortfolioDecisionEngine.', 'FORWARD_RISK_MUST_NOT_CALL_
 // engine would create parallel authorities and contradict CORE_ARCHITECTURE_V1.
 requireText(marketUtility, 'const portfolioDecision = useMemo(() => evaluatePortfolioDecision({', 'LIVE_PRODUCT_MUST_USE_SHARED_DECISION_ENTRY_ONCE');
 forbidText(marketUtility, 'PortfolioDecisionEngine.evaluate({', 'LIVE_PRODUCT_MUST_NOT_BYPASS_SHARED_CORE_POLICY');
-requireText(marketUtility, '<CurrentOpportunityAlertsPanel scan={scan} decision={decision} portfolioDecision={portfolioDecision} executionPlan={executionPlan}', 'CURRENT_SUMMARY_MUST_CONSUME_CANONICAL_DECISION_AND_PLAN');
+requireText(marketUtility, '<CurrentOpportunityAlertsPanel scan={scan} candidateGate={candidateGate} decision={decision} portfolioDecision={portfolioDecision} executionPlan={executionPlan}', 'CURRENT_SUMMARY_MUST_CONSUME_CANONICAL_DECISION_AND_PLAN');
 requireText(marketUtility, '<RealPurchaseRegistrationPanel scan={scan} executionPlan={executionPlan}', 'PURCHASE_REGISTRATION_MUST_CONSUME_CANONICAL_PLAN');
 requireText(marketUtility, '<UserPortfolioPanel scan={scan} portfolioDecision={portfolioDecision}', 'REAL_PORTFOLIO_MUST_CONSUME_CANONICAL_DECISION');
 requireText(marketUtility, '<PilotOperationsPanel scan={scan} decision={decision} portfolioDecision={portfolioDecision} executionPlan={executionPlan}', 'V1_PILOT_MUST_CONSUME_CANONICAL_DECISION_AND_PLAN');
