@@ -88,6 +88,8 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, portfolioDecision, p
   const missingValuations = missingListedValuations + missingFundValuations;
 
   const investedEur = listedHoldingsValue + fundRegisteredValue;
+  const fundRecordedCostEur = funds.reduce((sum, fund) => sum + fund.investedEur, 0);
+  const fundUnrealizedDifferenceEur = missingFundValuations === 0 ? fundRegisteredValue - fundRecordedCostEur : null;
   const liquidityEur = Math.max(0, cash) + Math.max(0, plan.availableEur);
   const totalEur = investedEur + liquidityEur;
   const monthly = monthlyStagedAmount(plan);
@@ -130,9 +132,11 @@ export const UserPortfolioPanel: React.FC<Props> = ({ scan, portfolioDecision, p
       <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4"><div className="text-[10px] uppercase text-violet-300">Capital total controlado</div><div className="mt-1 font-mono text-xl font-black text-violet-100">{missingValuations > 0 ? `≥ ${totalEur.toFixed(2)} €` : `${totalEur.toFixed(2)} €`}</div><div className="mt-1 text-[10px] text-slate-500">Valor de mercado conocido + liquidez. No usa coste inicial para rellenar huecos.</div></div>
     </div>
 
+    {funds.length > 0 && <div className="mt-3 text-xs text-slate-300">Fondos registrados: coste de adquisición {fundRecordedCostEur.toFixed(2)} € · valor actual {missingFundValuations === 0 ? `${fundRegisteredValue.toFixed(2)} €` : 'N/D'} · diferencia no realizada {fundUnrealizedDifferenceEur == null ? 'N/D' : `${fundUnrealizedDifferenceEur >= 0 ? '+' : ''}${fundUnrealizedDifferenceEur.toFixed(2)} €`}. El capital pendiente de invertir no es beneficio ni está incluido en el coste de estos fondos.</div>}
+
     {missingValuations > 0 && <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[10px] text-amber-100">Hay {missingValuations} posición(es) sin valoración REAL actual. Hasta resolverlas, el total se muestra como mínimo conocido y el motor no debe fingir que su valor coincide con lo invertido originalmente.</div>}
 
-    <PortfolioEvolutionChart scan={scan} funds={funds} holdings={holdings} cashEur={cash} pendingCapitalEur={plan.availableEur} revision={savedRevision}/>
+    <PortfolioEvolutionChart scan={scan} funds={funds} holdings={holdings} cashEur={cash} pendingCapitalEur={plan.availableEur} currentInvestedEur={missingValuations === 0 ? investedEur : null} revision={savedRevision}/>
 
     <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
       <div className="flex items-center justify-between gap-3"><div><b className="text-sm">Posiciones actuales</b><div className="text-[10px] text-slate-500">Valor actual, coste de entrada y salud son conceptos separados.</div></div><span className="text-[10px] text-slate-500">{funds.length + holdings.length} posiciones</span></div>
