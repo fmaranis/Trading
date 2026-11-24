@@ -31,6 +31,7 @@ const secureAppGate = read('src/auth/SecureAppGate.tsx');
 const authSecurity = read('server/authSecurity.ts');
 const portfolioManagementAlerts = read('server/portfolioManagementAlerts.ts');
 const telegramNotifier = read('server/telegramNotifier.ts');
+const portfolioEvolution = read('src/components/PortfolioEvolutionChart.tsx');
 
 check('1001 root product starts at the canonical decision entrypoint', () => {
   assert.match(indexHtml, /src\/decisionMain\.tsx/);
@@ -259,4 +260,18 @@ check('1034 backend portfolio alerts cannot create a parallel rotation recommend
   assert.doesNotMatch(telegramNotifier, /rotationEvent|• ROTAR/);
 });
 
-console.log(`Product surface closure V1: ${passed}/34 invariants passed.`);
+check('1035 unverified historical financing cannot appear as real portfolio performance', () => {
+  // Manual portfolio entries are not proof of new cash arriving on their purchase date.
+  assert.match(portfolioEvolution, /externalContributionEur: 0, cashDeltaEur: -fund\.investedEur/);
+  // Any balance top-up fabricated from incomplete historical flow records is audited.
+  assert.match(portfolioEvolution, /inferredContributionsEur \+= external/);
+  // The live stored liquidity and the reconstructed cash MUST reconcile before charts,
+  // historical capital or performance are displayed.
+  assert.match(portfolioEvolution, /last\.cashEur - registeredLiquidityEur/);
+  assert.match(portfolioEvolution, /Math\.abs\(cashReconciliationGapEur\) <= 1 && inferredContributionsEur < 0\.005/);
+  assert.match(portfolioEvolution, /last && !evidenceReconciled/);
+  assert.match(portfolioEvolution, /HISTÓRICO NO CONCILIADO · rentabilidad N\/D/);
+  assert.match(portfolioEvolution, /last && evidenceReconciled/);
+});
+
+console.log(`Product surface closure V1: ${passed}/35 invariants passed.`);
