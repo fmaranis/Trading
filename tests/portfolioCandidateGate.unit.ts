@@ -276,4 +276,17 @@ check('735 2x volume reports the raw ratio but cannot trigger the frozen 2.5x la
   moderateVolume.relativeVolume50 === 2 && moderateVolume.priceBreakout20 === true
   && moderateVolume.highVolumeBreakout === false);
 
+const currentlyOpenBar = assessPriceVolumeEvidence({
+  ...volumeInput,
+  informationDate: priceVolumeDate,
+  observedAtUtc: priceVolumeDate + 'T19:00:00.000Z'
+});
+check('736 current-day volume cannot be advertised as confirmed close before next UTC day',
+  currentlyOpenBar.state === 'UNCONFIRMED_DAILY_CLOSE' &&
+  currentlyOpenBar.highVolumeBreakout === null &&
+  assessPriceVolumeEvidence({
+    ...volumeInput, bars: breakoutBars,
+    observedAtUtc: new Date(Date.parse(priceVolumeDate + 'T00:00:00Z') + 86400000).toISOString()
+  }).highVolumeBreakout === true);
+
 console.log(`Portfolio candidate gate: ${passed} invariants passed.`);
