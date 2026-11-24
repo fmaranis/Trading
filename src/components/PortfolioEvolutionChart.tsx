@@ -29,7 +29,7 @@ interface EvolutionPoint {
   eventValueEur: number | null;
   eventLabels: string[];
 }
-interface EvolutionResult { points: EvolutionPoint[]; warnings: string[]; inferredEvents: number; reusedScanSeries: number; }
+interface EvolutionResult { points: EvolutionPoint[]; warnings: string[]; inferredEvents: number; inferredContributionsEur: number; reusedScanSeries: number; }
 
 interface Props {
   scan: AssetUniverseScanResult;
@@ -112,7 +112,7 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
   const validLoaded = loaded.filter(Boolean) as Array<{ series: PriceSeries; reused: boolean }>;
   const seriesByKey = new Map(validLoaded.map(row => [row.series.descriptor.key, row.series]));
   const reusedScanSeries = validLoaded.filter(row => row.reused).length;
-  if (!seriesByKey.size) return { points: [], warnings: warnings.length ? warnings : ['No hay series REAL suficientes para reconstruir la cartera.'], inferredEvents: 0, reusedScanSeries };
+  if (!seriesByKey.size) return { points: [], warnings: warnings.length ? warnings : ['No hay series REAL suficientes para reconstruir la cartera.'], inferredEvents: 0, inferredContributionsEur: 0, reusedScanSeries };
 
   const events: EvolutionEvent[] = [];
   let inferredEvents = 0;
@@ -135,7 +135,9 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
     const units = fund.units && fund.units > 0 ? fund.units : price && fund.investedEur > 0 ? fund.investedEur / price : 0;
     if (!(units > 0)) { warnings.push(`${fund.isin}: posición manual sin unidades reconstruibles.`); continue; }
     if (fund.units == null) inferredEvents++;
-    events.push({ id: `manual_${fund.id}`, date: fund.acquisitionDate, key: keyFund(fund.isin), unitsDelta: units, externalContributionEur: fund.investedEur, cashDeltaEur: -fund.investedEur, label: `Posición registrada ${fund.name}: ${fund.investedEur.toFixed(2)} €` });
+    // A manually registered holding is a purchase, not proof of an external contribution.
+    // Finance it from dated cash flows if present; any missing financing is inferred and flagged below.
+    events.push({ id: `manual_${fund.id}`, date: fund.acquisitionDate, key: keyFund(fund.isin), unitsDelta: units, externalContributionEur: 0, cashDeltaEur: -fund.investedEur, label: `Posición registrada ${fund.name}: ${fund.investedEur.toFixed(2)} €` });
   }
   for (const holding of holdings) {
     if (historyListedTargets.has(holding.ticker.toUpperCase())) continue;
@@ -182,7 +184,7 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
   for (const flow of cashFlows) cashFlowsByDate.set(flow.date, [...(cashFlowsByDate.get(flow.date) ?? []), flow]);
 
   const firstEventDate = [...events.map(event => event.date), ...cashFlows.map(flow => flow.date)].sort()[0];
-  if (!firstEventDate) return { points: [], warnings, inferredEvents, reusedScanSeries };
+  if (!firstEventDate) return { points: [], warnings, inferredEvents, inferredContributionsEur: 0, reusedScanSeries };
   const endDate = today();
   const settlementDates = new Set(monthEndDates(firstEventDate, endDate));
   const allDates = [...new Set([
@@ -197,6 +199,7 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
   for (const event of events) eventsByDate.set(event.date, [...(eventsByDate.get(event.date) ?? []), event]);
   const effectiveDailyRate = cashAnnualPct > 0 ? Math.pow(1 + cashAnnualPct / 100, 1 / 365) - 1 : 0;
   let cashEur = 0, contributedEur = 0, pendingInterestEur = 0, creditedInterestEur = 0;
+  let inferredContributionsEur = 0;
   let previousDate = allDates[0];
   const points: EvolutionPoint[] = [];
 
@@ -226,6 +229,7 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
       const external = Math.max(event.externalContributionEur, requiredCash);
       if (external > 0) {
         contributedEur += external;
+        inferredContributionsEur += external;
         cashEur += external;
         labels.push(`Aportación inferida para ejecutar operación: +${external.toFixed(2)} €`);
       }
@@ -249,7 +253,7 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
     });
     previousDate = date;
   }
-  return { points, warnings, inferredEvents, reusedScanSeries };
+  return { points, warnings, inferredEvents, inferredContributionsEur, reusedScanSeries };
 }
 
 function EvolutionTooltip({ active, payload, label }: any) {
@@ -274,18 +278,30 @@ export const PortfolioEvolutionChart: React.FC<Props> = ({ scan, funds, holdings
   }, []);
 
   const last = result?.points.at(-1) ?? null;
-  const gain = last ? last.valueEur - last.contributedEur : null;
-  const gainPct = last && gain != null && last.contributedEur > 0 ? gain / last.contributedEur * 100 : null;
   const registeredLiquidityEur = Math.max(0, cashEur) + Math.max(0, pendingCapitalEur);
+  const cashReconciliationGapEur = last ? last.cashEur - registeredLiquidityEur : null;
+  const inferredContributionsEur = result?.inferredContributionsEur ?? 0;
+  // Never publish reconstructed capital, profit or returns as real when recorded
+  // liquidity disagrees or the history had to invent financing for past buys.
+  const evidenceReconciled = last != null && cashReconciliationGapEur != null
+    && Math.abs(cashReconciliationGapEur) <= 1 && inferredContributionsEur < 0.005;
+  const gain = evidenceReconciled && last ? last.valueEur - last.contributedEur : null;
+  const gainPct = evidenceReconciled && last && gain != null && last.contributedEur > 0 ? gain / last.contributedEur * 100 : null;
   const warnings = useMemo(() => result?.warnings ?? [], [result]);
 
   return <div className="mt-4 rounded-xl border border-cyan-500/20 bg-slate-950/55 p-4">
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex items-center gap-2"><Activity className="h-4 w-4 text-cyan-300"/><b className="text-sm text-white">Evolución real registrada</b></div><div className="mt-1 text-[10px] text-slate-500">Reconstruye en la misma gráfica inversiones y cuenta operativa desde la aportación inicial hasta hoy. La cuenta sube por aportaciones e interés mensual al {cashBenchmarkAnnualPct.toFixed(2)}% TAE y baja/sube exactamente en las fechas de compras, ventas y reembolsos.</div></div>{loading && <span className="text-[10px] text-cyan-300">Actualizando histórico…</span>}</div>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex items-center gap-2"><Activity className="h-4 w-4 text-cyan-300"/><b className="text-sm text-white">Evolución reconstruida de la cartera</b></div><div className="mt-1 text-[10px] text-slate-500">Reconstruye en la misma gráfica inversiones y cuenta operativa desde la aportación inicial hasta hoy. La cuenta sube por aportaciones e interés mensual al {cashBenchmarkAnnualPct.toFixed(2)}% TAE y baja/sube exactamente en las fechas de compras, ventas y reembolsos.</div></div>{loading && <span className="text-[10px] text-cyan-300">Actualizando histórico…</span>}</div>
     {error && <div className="mt-3 rounded-lg border border-rose-500/20 bg-rose-500/5 p-3 text-[10px] text-rose-200">{error}</div>}
-    {last && <>
+    {last && !evidenceReconciled && <div role="alert" className="mt-3 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-100">
+      <b>HISTÓRICO NO CONCILIADO · rentabilidad N/D</b>
+      <p className="mt-2">La liquidez reconstruida ({last.cashEur.toFixed(2)} €) no se considera un saldo real verificado. Liquidez registrada actualmente: {registeredLiquidityEur.toFixed(2)} €; diferencia: {cashReconciliationGapEur?.toFixed(2) ?? 'N/D'} €.</p>
+      {inferredContributionsEur >= 0.005 && <p className="mt-2">La reconstrucción necesitó {inferredContributionsEur.toFixed(2)} € de financiación inferida para compras anteriores. No es una aportación externa acreditada.</p>}
+      <p className="mt-2">El patrimonio real actual se muestra arriba en Mi cartera real. No se publican aquí capital histórico, beneficio, intereses ni rentabilidad reconstruidos hasta conciliar las fechas y los movimientos con el registro de efectivo. No se modifica ninguna posición ni movimiento guardado.</p>
+    </div>}
+    {last && evidenceReconciled && <>
       <div className="mt-3 grid gap-2 sm:grid-cols-4 text-xs"><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Valor reconstruido</div><b className="font-mono">{last.valueEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Aportación externa neta</div><b className="font-mono">{last.contributedEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Resultado reconstruido</div><b className={`font-mono ${gain != null && gain >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>{gain == null ? 'N/D' : `${gain >= 0 ? '+' : ''}${gain.toFixed(2)} €`}</b><div className={`mt-1 font-mono text-[10px] ${gainPct != null && gainPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{gainPct == null ? 'Rentabilidad N/D' : `${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}% sobre aportación neta`}</div></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Cuenta remunerada reconstruida</div><b className="font-mono text-sky-200">{last.cashEur.toFixed(2)} €</b><div className="mt-1 text-[9px] text-slate-500">Interés abonado +{last.cashInterestEur.toFixed(2)} € · principal registrado hoy {registeredLiquidityEur.toFixed(2)} €</div></div></div>
       <div className="mt-3 h-[300px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={result!.points} margin={{ top: 10, right: 10, left: 5, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/><XAxis dataKey="date" minTickGap={38} tick={{ fontSize: 9, fill: '#94a3b8' }}/><YAxis width={70} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={value => `${Number(value).toFixed(0)}€`}/><Tooltip content={<EvolutionTooltip/>}/><Legend wrapperStyle={{ fontSize: 10 }}/><Line type="monotone" dataKey="valueEur" name="Valor real reconstruido" stroke="#22d3ee" strokeWidth={2} dot={false}/><Line type="stepAfter" dataKey="contributedEur" name="Aportación externa neta" stroke="#94a3b8" strokeDasharray="5 4" dot={false}/><Line type="stepAfter" dataKey="cashEur" name={`Cuenta remunerada · ${cashBenchmarkAnnualPct.toFixed(2)}% TAE`} stroke="#38bdf8" strokeWidth={2.5} dot={false}/><Scatter dataKey="eventValueEur" name="Movimiento real" fill="#22c55e"/></ComposedChart></ResponsiveContainer></div>
-      <div className="mt-1 text-[9px] text-slate-600">Series reutilizadas del scan actual: {result!.reusedScanSeries}. La historia termina hoy; no contiene ninguna proyección futura.</div>
+      <div className="mt-1 text-[9px] text-slate-600">Series reutilizadas del scan actual: {result!.reusedScanSeries}. La historia termina hoy; no contiene ninguna proyección futura. El interés de efectivo es un cálculo teórico al tipo TAE configurado, no un abono bancario verificado.</div>
     </>}
     {!loading && result && result.points.length === 0 && <div className="mt-3 text-xs text-slate-500">Todavía no hay historia suficiente para dibujar la evolución.</div>}
     {(warnings.length > 0 || (result?.inferredEvents ?? 0) > 0) && <details className="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/5 p-3"><summary className="flex cursor-pointer list-none items-center gap-2 text-[10px] font-bold text-amber-100"><AlertTriangle className="h-3.5 w-3.5"/>Precisión de la reconstrucción</summary><div className="mt-2 space-y-1 text-[9px] text-slate-400">{(result?.inferredEvents ?? 0) > 0 && <div>• {result!.inferredEvents} operación(es) sin unidades exactas se han convertido a unidades usando el NAV/precio de esa fecha.</div>}{warnings.map(warning => <div key={warning}>• {warning}</div>)}<div>• La aportación inicial real se registra una sola vez en la cuenta y las compras iniciales salen de ese mismo saldo; no se autofinancia cada posición por separado.</div><div>• La TAE se convierte a rendimiento diario equivalente y se abona visualmente al cierre de cada mes; no significa 2,5% cada mes.</div></div></details>}
