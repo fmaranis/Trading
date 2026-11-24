@@ -59,7 +59,12 @@ export function auditHistoricalReplayEvidence(document) {
     requireEvidence(assetResidual <= 0.02, 'INVESTED_ASSET_SUM_MISMATCH');
     minimumCashEur = Math.min(minimumCashEur, point.cashEur);
   }
-  requireEvidence(close(path[0].equityEur, session.initialCapitalEur), 'INITIAL_WEALTH_MISMATCH');
+  const externalFlowsRecorded = [
+    session.externalCashFlows, session.appliedExternalCashFlows, session.summary?.appliedExternalCashFlows
+  ].some(rows => Array.isArray(rows) && rows.length > 0);
+  if (!externalFlowsRecorded) {
+    requireEvidence(close(path[0].equityEur, session.initialCapitalEur), 'INITIAL_WEALTH_MISMATCH');
+  }
 
   const signalsById = new Map();
   let previousSignalDate = '';
@@ -100,8 +105,12 @@ export function auditHistoricalReplayEvidence(document) {
   const summary = session.summary;
   const final = path.at(-1);
   requireEvidence(summary && close(summary.engineFinalEur, final.equityEur), 'ENGINE_FINAL_MISMATCH');
-  requireEvidence(close(summary.engineReturnPct, (final.equityEur / session.initialCapitalEur - 1) * 100),
-    'RETURN_MISMATCH');
+  // With dated external flows, a simple final/initial return is invalid.
+  // Flow-adjusted evidence must be audited separately; never infer CAGR or alpha.
+  if (!externalFlowsRecorded) {
+    requireEvidence(close(summary.engineReturnPct, (final.equityEur / session.initialCapitalEur - 1) * 100),
+      'RETURN_MISMATCH');
+  }
   const drawdown = maxDrawdownPct(path);
   requireEvidence(close(summary.engineMaxDrawdownPct, drawdown, 1e-6), 'DRAWDOWN_MISMATCH');
   requireEvidence(close(summary.engineFeesEur,
@@ -113,7 +122,7 @@ export function auditHistoricalReplayEvidence(document) {
   requireEvidence(close(session.checkpoints.at(-1).finalValueEur, final.equityEur),
     'FINAL_CHECKPOINT_MISMATCH');
   const core = summary.structuralCoreBenchmark;
-  if (core?.available) {
+  if (core?.available && !externalFlowsRecorded) {
     requireEvidence(finite(core.finalEur) && core.finalEur > 0, 'CORE_BENCHMARK_NOT_FINITE');
     requireEvidence(close(core.returnPct, (core.finalEur / session.initialCapitalEur - 1) * 100),
       'CORE_BENCHMARK_RETURN_MISMATCH');
@@ -127,7 +136,9 @@ export function auditHistoricalReplayEvidence(document) {
   if (finite(cashHold) && finite(final.cashBenchmarkEur)) {
     requireEvidence(close(cashHold, final.cashBenchmarkEur), 'CASH_BENCHMARK_FINAL_MISMATCH');
   }
-  const externalFlowsRecorded = Array.isArray(session.externalCashFlows) && session.externalCashFlows.length > 0;
+  const nextPortfolioSessionExecutionCount = session.executions.filter(trade =>
+    path.find(row => row.date > trade.signalDate)?.date === trade.executionDate
+  ).length;
   const years = [...new Set(path.map(p => p.date.slice(0, 4)))].map(year => {
     const rows = path.filter(p => p.date.startsWith(year));
     const prior = path.findLast(p => p.date < rows[0].date);
@@ -157,17 +168,19 @@ export function auditHistoricalReplayEvidence(document) {
       decisions: new Set(session.signals.map(s => s.signalDate)).size,
       pathSessions: path.length, executedTrades: executed },
     technical: { accounting: 'PASS', executionChronology: 'PASS', signalExecutionParity: 'PASS',
-      benchmarkArithmetic: core?.available ? 'PASS_REPORTED_TOTALS_ONLY' : 'N_D',
+      benchmarkArithmetic: core?.available && !externalFlowsRecorded ? 'PASS_REPORTED_TOTALS_ONLY' : 'N_D',
+      nextPortfolioSessionExecutionCount,
       maxEquityResidualEur: largestEquityResidualEur,
       maxAssetResidualEur: largestAssetResidualEur,
       minimumCashEur },
     economic: { engineFinalEur: Number(final.equityEur.toFixed(2)),
-      engineReturnPct: Number(((final.equityEur / session.initialCapitalEur - 1) * 100).toFixed(3)),
+      engineReturnPct: !externalFlowsRecorded ? Number(((final.equityEur / session.initialCapitalEur - 1) * 100).toFixed(3)) : null,
       engineMaxDrawdownPct: Number(drawdown.toFixed(3)),
-      reportedCoreFinalEur: core?.available ? Number(core.finalEur.toFixed(2)) : null,
-      reportedCoreReturnPct: core?.available ? Number(core.returnPct.toFixed(3)) : null,
-      engineMinusCoreEur: core?.available ? Number((summary.engineFinalEur - core.finalEur).toFixed(2)) : null,
-      beatsCore: core?.available ? summary.engineFinalEur > core.finalEur : null,
+      reportedCoreFinalEur: core?.available && !externalFlowsRecorded ? Number(core.finalEur.toFixed(2)) : null,
+      reportedCoreReturnPct: core?.available && !externalFlowsRecorded ? Number(core.returnPct.toFixed(3)) : null,
+      engineMinusCoreEur: core?.available && !externalFlowsRecorded
+        ? Number((summary.engineFinalEur - core.finalEur).toFixed(2)) : null,
+      beatsCore: core?.available && !externalFlowsRecorded ? summary.engineFinalEur > core.finalEur : null,
       feesEur: Number(summary.engineFeesEur.toFixed(2)),
       taxEur: Number(summary.engineTaxEur.toFixed(2)),
       readyButUnfundedSignals: readyAvoid.length,
@@ -184,7 +197,11 @@ export function auditHistoricalReplayEvidence(document) {
       sampleUsedForResearchAndNotFresh: true,
       productionPromotionAllowed: false
     },
-    verdict: 'LEDGER_CONSISTENT_CORE_OUTPERFORMANCE_NOT_PROVEN'
+    verdict: externalFlowsRecorded ? 'LEDGER_CONSISTENT_FLOW_ADJUSTED_RETURNS_NOT_AUDITED'
+      : !core?.available ? 'LEDGER_CONSISTENT_CORE_BENCHMARK_UNAVAILABLE'
+      : summary.engineFinalEur > core.finalEur
+        ? 'LEDGER_CONSISTENT_CORE_OUTPERFORMANCE_CONSUMED_SAMPLE'
+        : 'LEDGER_CONSISTENT_CORE_UNDERPERFORMANCE'
   };
 }
 
