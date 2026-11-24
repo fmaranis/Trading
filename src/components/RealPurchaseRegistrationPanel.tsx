@@ -21,6 +21,7 @@ type Draft = { amount: string; shares: string; fee: string };
 
 export const RealPurchaseRegistrationPanel: React.FC<Props> = ({ scan, executionPlan }) => {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [confirmedAtBroker, setConfirmedAtBroker] = useState<Record<string, boolean>>({});
   const [lastExecution, setLastExecution] = useState<PortfolioStateExecutionReceipt | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,6 +42,9 @@ export const RealPurchaseRegistrationPanel: React.FC<Props> = ({ scan, execution
   const register = (line: PortfolioExecutionLine) => {
     setError(null);
     try {
+      if (!confirmedAtBroker[line.id]) {
+        throw new Error('Confirma primero que MyInvestor ya ha ejecutado esta operación.');
+      }
       const draft = draftFor(line);
       const actualLine = buildExecutedPurchaseLine(line, {
         amountEur: Number(draft.amount),
@@ -49,6 +53,7 @@ export const RealPurchaseRegistrationPanel: React.FC<Props> = ({ scan, execution
       });
       const receipt = PortfolioStateExecutionService.execute(actualLine);
       setLastExecution(receipt);
+      setConfirmedAtBroker(previous => ({ ...previous, [line.id]: false }));
       setDrafts(previous => { const next = { ...previous }; delete next[line.id]; return next; });
     } catch (cause: any) {
       setError(cause?.message || String(cause));
@@ -80,7 +85,10 @@ export const RealPurchaseRegistrationPanel: React.FC<Props> = ({ scan, execution
           <label className="text-[10px] text-slate-400">Importe real ejecutado €<input type="number" min="0" step="0.01" value={draft.amount} onChange={event => patchDraft(line, { amount: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm text-white"/></label>
           {isFund ? <label className="text-[10px] text-slate-400">Participaciones añadidas <span className="text-slate-600">(opcional)</span><input type="number" min="0" step="0.000001" value={draft.shares} onChange={event => patchDraft(line, { shares: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm text-white"/></label> : <label className="text-[10px] text-slate-400">Títulos reales<input type="number" min="1" step="1" value={draft.shares} onChange={event => patchDraft(line, { shares: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm text-white"/></label>}
           {!isFund && <label className="text-[10px] text-slate-400">Comisión real €<input type="number" min="0" step="0.01" value={draft.fee} onChange={event => patchDraft(line, { fee: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 font-mono text-sm text-white"/></label>}
-          <button type="button" disabled={unavailable} onClick={() => register(line)} className="touch-target flex w-full items-center justify-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 sm:w-auto"><CheckCircle2 className="h-4 w-4"/>Añadir a mi cartera</button>
+          <div className="flex flex-col gap-2">
+            <label className="flex items-start gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={Boolean(confirmedAtBroker[line.id])} onChange={event => setConfirmedAtBroker(previous => ({ ...previous, [line.id]: event.target.checked }))} className="mt-0.5"/>MyInvestor ya ha ejecutado esta operación y he comprobado el importe real.</label>
+            <button type="button" disabled={unavailable || !confirmedAtBroker[line.id]} onClick={() => register(line)} className="touch-target flex w-full items-center justify-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400 sm:w-auto"><CheckCircle2 className="h-4 w-4"/>Registrar ejecución confirmada</button>
+          </div>
         </div>
         {unavailable && <div className="mt-2 text-[10px] text-rose-200">Este instrumento está marcado por ti como no disponible en MyInvestor y no se puede registrar desde la recomendación.</div>}
       </article>;
