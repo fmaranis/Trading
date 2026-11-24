@@ -1,3 +1,4 @@
+import { summarizeReplayWaitPriceVolume } from '../investment/decision/priceVolumeEvidence';
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import { hydrateDynamicPortfolioDiscoveryCatalog } from '../investment/decision/dynamicPortfolioDiscovery';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
@@ -142,6 +143,9 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
       ? baseline
       : appendRotationCounterfactualAudit({ result: baseline, dataset, catalog: configuration.catalog });
 
+    // Diagnostic only: evaluate the complete original WAIT ledger before compaction.
+    const researchPriceVolumeOutcomes = input.simulationMode === 'HOLD_ONLY' ? undefined
+      : summarizeReplayWaitPriceVolume({ signals: result.signals, dataset, catalog: configuration.catalog });
     const fullSignalCount = result.signals.length;
     result.signals = compactAuditSignals(result.signals);
     const structuralCoreBenchmark = {
@@ -173,7 +177,7 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
     workerScope.postMessage({
       type: 'RESULT',
       requestedEndDate: message.endDate,
-      result,
+      result: { ...result, ...(researchPriceVolumeOutcomes ? { researchPriceVolumeOutcomes } : {}) },
       rotationExperiment: REPLAY_ROTATION_EXPERIMENT,
       trendProtectionV2Counterfactual: false,
       forwardRiskResearchData: null,
