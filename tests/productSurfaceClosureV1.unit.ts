@@ -343,4 +343,12 @@ check('1039 both manual portfolio registration paths require explicit broker con
   assert.match(execution, /He comprobado que MyInvestor ya ha ejecutado esta operación/);
 });
 
-console.log(`Product surface closure V1: ${passed}/39 invariants passed.`);
+check('1040 lack of accepted REAL quotes cannot masquerade as no investment opportunity', () => {
+  assert.match(interactive, /label: 'MERCADO SIN DATOS VERIFICABLES'/);
+  assert.match(interactive, /NO_ACCEPTED_REAL_MARKET_DATA/);
+  assert.match(interactive, /hasAcceptedMarketData = scan\.candidates\.some\(candidate => candidate\.status === 'ACCEPTED'\)/);
+  assert.match(interactive, /cashRole\(result, candidateGate\?\.eligibleCount \?\? null, \(rawScan\?\.accepted \?\? 0\) > 0\)/);
+  assert.match(interactive, /100% corresponde al capital para nuevas operaciones, no a toda tu cartera/);
+});
+
+console.log(`Product surface closure V1: ${passed}/40 invariants passed.`);
