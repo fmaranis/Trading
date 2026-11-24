@@ -1,0 +1,55 @@
+# Fast, deterministic closure only. Never run historical replays, market
+# downloads, research sweeps or GitHub-hosted long calculations in this workflow.
+name: Producto - cierre rápido (código)
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "server/**"
+      - "tests/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "vite.config.*"
+      - ".github/workflows/product-quick-closure.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: product-quick-closure-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  product-quick-closure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install pinned dependencies
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript
+        run: npm run lint
+      - name: Product surface contracts
+        run: npx --no-install tsx tests/productSurfaceClosureV1.unit.ts
+      - name: Production decision architecture
+        run: npx --no-install tsx tests/coreArchitectureV1.unit.ts
+      - name: Candidate selection and causal price-volume guards
+        run: npx --no-install tsx tests/portfolioCandidateGate.unit.ts
+      - name: Single decision and executable plan guards
+        run: |
+          npx --no-install tsx tests/productDecisionSurface.unit.ts
+          npx --no-install tsx tests/portfolioExecutionPlan.unit.ts
+      - name: Portfolio and tax safety
+        run: |
+          npx --no-install tsx tests/userPortfolio.unit.ts
+          npx --no-install tsx tests/taxAwareExecutionOverlay.unit.ts
