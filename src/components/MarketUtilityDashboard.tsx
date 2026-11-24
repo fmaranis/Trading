@@ -120,8 +120,12 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, candidateGate, d
   // no selector, no threshold change and no authority to create orders.
   const priceVolumeResearch = useMemo(() => {
     if (!h2ResearchEnabled) return null;
-    const gateByAssetId = new Map((candidateGate?.entries ?? []).map(row => [row.assetId, row] as const));
-    const seriesByAssetId = new Map(scan.acceptedDataset.assets.map(row => [row.assetId, row] as const));
+    const gateByAssetId = new Map<string, PortfolioCandidateGateResult['entries'][number]>(
+      (candidateGate?.entries ?? []).map(row => [row.assetId, row] as const)
+    );
+    const seriesByAssetId = new Map<string, AssetUniverseScanResult['acceptedDataset']['assets'][number]>(
+      scan.acceptedDataset.assets.map(row => [row.assetId, row] as const)
+    );
     const rows = scan.candidates.filter(candidate => candidate.status === 'ACCEPTED').map(candidate => {
       const series = seriesByAssetId.get(candidate.asset.assetId);
       const evidence = assessPriceVolumeEvidence({
