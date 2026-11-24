@@ -7,6 +7,10 @@ on:
     paths:
       - "src/**"
       - "server/**"
+      - "server.ts"
+      - "index.html"
+      - "portfolio.html"
+      - "legacy.html"
       - "tests/**"
       - "scripts/**"
       - "package.json"
@@ -63,10 +67,22 @@ jobs:
             exit 1
           fi
           node -e 'const fs=require("node:fs"); const h=JSON.parse(fs.readFileSync("/tmp/trading-health.json","utf8")); if(h.status!=="ok"||h.buildCommitSha!==process.env.GITHUB_SHA||h.buildProvenance!=="GITHUB_CI_SHA") { console.error("BUILD_IDENTITY_MISMATCH",h); process.exit(1); }'
-          curl --fail --silent --show-error http://127.0.0.1:3109/ -o /tmp/trading-home.html
+          curl --fail --silent --show-error -D /tmp/trading-home-headers.txt http://127.0.0.1:3109/ -o /tmp/trading-home.html
           grep -q 'assets/index-' /tmp/trading-home.html
-          curl --fail --silent --show-error http://127.0.0.1:3109/portfolio.html -o /tmp/trading-portfolio.html
+          grep -Eiq '^cache-control:.*no-store' /tmp/trading-home-headers.txt
+          curl --fail --silent --show-error -D /tmp/trading-portfolio-headers.txt http://127.0.0.1:3109/portfolio.html -o /tmp/trading-portfolio.html
           grep -q 'assets/' /tmp/trading-portfolio.html
+          grep -Eiq '^cache-control:.*no-store' /tmp/trading-portfolio-headers.txt
+          curl --fail --silent --show-error -D /tmp/trading-health-headers.txt http://127.0.0.1:3109/api/health -o /dev/null
+          grep -Eiq '^cache-control:.*no-store' /tmp/trading-health-headers.txt
+          # Inspect compiled assets, not just source, for the reconciled portfolio UI.
+          grep -rlF --include='*.js' 'sin crear aportaciones ni intereses bancarios supuestos' dist/assets > /tmp/trading-reconciled-bundles.txt
+          grep -rlF --include='*.js' 'rentabilidad N/D' dist/assets > /tmp/trading-reconciled-labels.txt
+          if grep -rFl --include='*.js' 'Interés abonado' dist/assets; then
+            echo 'STALE_PORTFOLIO_INTEREST_LABEL_IN_BUNDLE'
+            exit 1
+          fi
+          grep -rlF --include='*.js' 'Candidatos realmente evaluados por los filtros de entrada' dist/assets > /tmp/trading-gate-explanation.txt
       - name: Product surface contracts
         run: npx --no-install tsx tests/productSurfaceClosureV1.unit.ts
       - name: Production decision architecture
