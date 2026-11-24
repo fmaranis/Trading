@@ -120,6 +120,7 @@ interface PositionSummary {
 }
 
 interface ReplaySummary {
+  researchPriceVolumeOutcomes?: DynamicHistoricalReplayResult['researchPriceVolumeOutcomes'];
   endDate: string;
   engineFinalEur: number;
   engineProfitEur: number;
@@ -627,7 +628,8 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     };
     Object.assign(nextSummary, {
       timingStateCounts: result.timingStateCounts,
-      deploymentHorizons: result.deploymentHorizons
+      deploymentHorizons: result.deploymentHorizons,
+      ...(result.researchPriceVolumeOutcomes ? { researchPriceVolumeOutcomes: result.researchPriceVolumeOutcomes } : {})
     });
     const nextPositions = buildPositionSummaries(scan, currentExecutions, result.endDate);
 
