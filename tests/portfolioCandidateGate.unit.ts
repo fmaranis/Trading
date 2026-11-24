@@ -9,6 +9,8 @@ import {
   assessPriceVolumeEvidence
 } from '../src/investment/decision';
 
+import { summarizeReplayWaitPriceVolume } from '../src/investment/decision/priceVolumeEvidence';
+
 let passed = 0;
 function check(name: string, condition: boolean) {
   if (!condition) throw new Error(`FAIL ${name}`);
@@ -338,5 +340,66 @@ check('743 100 positive price and volume scale variants preserve the breakout an
     });
     return scaled.highVolumeBreakout === true && scaled.relativeVolume50 === 2.5;
   }));
+
+
+// Fixture-only: the research readout must consume WAIT observations without
+// altering any original signal or manufacturing a trade or index return.
+const replayVolumeBars = (ratio: number) => Array.from({ length: 125 }, (_, i) => {
+  const close = i < 50 ? 100 : i === 50 ? 104 : 110;
+  return { timestamp: new Date(Date.UTC(2024, 0, i + 1)).toISOString(),
+    open: i === 51 ? 105 : close, high: Math.max(close, i === 51 ? 105 : close) + 1,
+    low: Math.min(close, i === 51 ? 105 : close) - 1, close,
+    volume: i === 50 ? ratio * 1000 : 1000 };
+});
+const replayWorldBars = replayVolumeBars(1).map((bar, i) => ({
+  ...bar, open: 100, close: i >= 70 ? 102 : 100, high: 103, low: 99
+}));
+const replayVolumeDataset: any = { timeframe: '1d', assets: [
+  { assetId: 'HIGH', ticker: 'HIGH.DE', currency: 'EUR', bars: replayVolumeBars(3), provenance: { sourceType: 'REAL' } },
+  { assetId: 'LOW', ticker: 'LOW.DE', currency: 'EUR', bars: replayVolumeBars(1), provenance: { sourceType: 'REAL' } },
+  { assetId: 'EUNL', ticker: 'EUNL.DE', currency: 'EUR', bars: replayWorldBars, provenance: { sourceType: 'REAL' } },
+  { assetId: 'BAD', ticker: 'BAD.DE', currency: 'EUR', bars: replayVolumeBars(3), provenance: { sourceType: 'SYNTHETIC' } }
+] };
+const replayVolumeCatalog: any = replayVolumeDataset.assets.map((row: any) => ({
+  assetId: row.assetId, ticker: row.ticker, currency: 'EUR', instrumentType: 'ETF_ETC'
+}));
+const replaySignalDate = replayVolumeDataset.assets[0].bars[50].timestamp.slice(0, 10);
+const replayVolumeSignals = ['HIGH', 'LOW', 'BAD', 'EUNL'].map(assetId => ({
+  assetId, signalDate: replaySignalDate, action: 'AVOID', timingState: 'WAIT', executed: false
+}));
+const replayVolumeInput = { signals: replayVolumeSignals, dataset: replayVolumeDataset, catalog: replayVolumeCatalog };
+const replayVolumeSnapshot = JSON.stringify(replayVolumeInput);
+const replayVolumeAudit = summarizeReplayWaitPriceVolume(replayVolumeInput);
+const highReplayGroup = replayVolumeAudit.allObservations.find(row => row.group === 'HIGH_VOLUME_BREAKOUT')!;
+const lowReplayGroup = replayVolumeAudit.allObservations.find(row => row.group === 'PRICE_ONLY_BREAKOUT')!;
+check('744 replay audit keeps actual WAIT denominator, excludes benchmark self and rejects synthetic data',
+  replayVolumeAudit.waitCount === 4 && replayVolumeAudit.coverageAvailable === 2
+  && replayVolumeAudit.benchmarkSelfExcluded === 1 && replayVolumeAudit.unavailable.NON_REAL_OR_NON_EUR === 1
+  && highReplayGroup.observations === 1 && lowReplayGroup.observations === 1);
+check('745 replay outcome starts at NEXT_OPEN and matches benchmark entry and exit dates exactly',
+  highReplayGroup.horizons[0].benchmarkMatched === 1
+  && Math.abs(highReplayGroup.horizons[0].meanGrossReturnPct! - (110 / 105 - 1) * 100) < 1e-9
+  && Math.abs(highReplayGroup.horizons[0].meanExcessVsWorldPct! - ((110 / 105 - 1) * 100 - 2)) < 1e-9);
+check('746 replay audit is read-only', JSON.stringify(replayVolumeInput) === replayVolumeSnapshot);
+const unavailableBenchmark = summarizeReplayWaitPriceVolume({
+  ...replayVolumeInput, dataset: { ...replayVolumeDataset, assets: replayVolumeDataset.assets.filter((row: any) => row.assetId !== 'EUNL') }
+});
+check('747 missing world benchmark leaves excess N/D rather than using another asset',
+  !unavailableBenchmark.benchmarkAvailable && unavailableBenchmark.allObservations[0].horizons[0].benchmarkMatched === 0
+  && unavailableBenchmark.allObservations[0].horizons[0].meanExcessVsWorldPct === null
+  && unavailableBenchmark.allObservations[0].horizons[0].evaluated === 1);
+const immatureAudit = summarizeReplayWaitPriceVolume({
+  ...replayVolumeInput, dataset: { ...replayVolumeDataset, assets: replayVolumeDataset.assets.map((row: any) => ({ ...row, bars: row.bars.slice(0, 65) })) }
+});
+check('748 incomplete outcomes retain the causal event but are not treated as losses or zero',
+  immatureAudit.allObservations[0].observations === 1 && immatureAudit.allObservations[0].horizons[0].evaluated === 0
+  && immatureAudit.allObservations[0].horizons[0].positiveRatePct === null);
+const missingDate = summarizeReplayWaitPriceVolume({ ...replayVolumeInput, dataset: {
+  ...replayVolumeDataset, assets: replayVolumeDataset.assets.map((row: any) => row.assetId === 'EUNL' ? {
+    ...row, bars: row.bars.filter((_: any, i: number) => i !== 51)
+  } : row)
+} });
+check('749 benchmark date mismatch is never forward-filled', missingDate.allObservations[0].horizons[0].benchmarkMatched === 0
+  && missingDate.allObservations[0].horizons[0].meanExcessVsWorldPct === null);
 
 console.log(`Portfolio candidate gate: ${passed} invariants passed.`);
