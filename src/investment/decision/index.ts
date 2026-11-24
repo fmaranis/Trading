@@ -33,6 +33,7 @@ export * from './replayQualitySizingExperiment';
 export * from './replaySlopeSelectionExperiment';
 export * from './strategyConsensusEngine';
 export * from './entryTiming';
+export * from './priceVolumeEvidence';
 export * from './singleAssetResearch';
 export * from './brokerExecution';
 export * from './brokerBacktestFeasibility';
