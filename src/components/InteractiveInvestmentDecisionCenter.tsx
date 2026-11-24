@@ -277,7 +277,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
 
       {scan && result && !positionHealthLoading && positionHealth == null && <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100"><b>Decisión operativa bloqueada.</b><div className="mt-1 text-[11px] text-slate-300">No se ha podido cerrar la evaluación de salud de la cartera. Se conservan los datos de mercado, pero no se muestran compras, ventas ni rotaciones como decisión final.</div></div>}
 
-      {scan && result && !positionHealthLoading && positionHealth != null && <MarketUtilityDashboard scan={scan} decision={result} eodhdValidation={eodhdValidation} positionHealth={positionHealth} onInspectAsset={inspectAsset}/>}
+      {scan && result && !positionHealthLoading && positionHealth != null && <MarketUtilityDashboard scan={scan} candidateGate={candidateGate} decision={result} eodhdValidation={eodhdValidation} positionHealth={positionHealth} onInspectAsset={inspectAsset}/>}
 
       {result && cashDecision && <details className={`rounded-2xl border p-4 ${cashDecision.className}`}>
         <summary className="touch-target flex cursor-pointer list-none items-center justify-between gap-3"><div className="flex items-center gap-2"><CircleDollarSign className="h-5 w-5"/><div><div className="font-bold">Papel del cash · {cashDecision.label}</div><div className="mt-0.5 text-[10px] opacity-70">Explicación secundaria de la misma decisión; no sustituye la orden principal.</div></div></div><span className="rounded-full border border-current/20 px-3 py-1 text-[9px] font-black">{pct(result.cashWeight)}</span></summary>
