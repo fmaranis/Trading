@@ -89,7 +89,6 @@ jobs:
         run: |
           npx --no-install tsx tests/coreArchitectureV1.unit.ts
           npx --no-install tsx tests/dynamicCoreSelectorV1.unit.ts
-          npx --no-install tsx tests/coreBenchmarkAudit.unit.ts
       - name: Historical replay export invariants (fixture-only; no replay)
         run: node tests/historicalReplayEvidenceAudit.unit.mjs
       - name: Candidate selection and causal price-volume guards

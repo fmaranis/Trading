@@ -168,7 +168,6 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
       auditCarrier.auditExtensions = {
         ...(auditCarrier.auditExtensions ?? {}),
         structuralCoreBenchmark,
-        ...(result.matchedCoreBuyHoldAudit ? { matchedCoreBuyHoldAudit: result.matchedCoreBuyHoldAudit } : {}),
         ...(researchPriceVolumeOutcomes ? { researchPriceVolumeOutcomes } : {}),
         replayPolicy: REPLAY_ROTATION_EXPERIMENT,
         forwardRiskResearchStatus: 'RETIRED_FROM_REPLAY_V3_1_ADVERSARIAL_HOLDOUT_FAILED'

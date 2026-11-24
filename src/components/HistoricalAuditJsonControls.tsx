@@ -72,18 +72,13 @@ function attachAuditExtensionsToSummary(session: any): any {
   const directVolume = session?.summary?.researchPriceVolumeOutcomes;
   const researchPriceVolumeOutcomes = validVolumeReport(directVolume) ? directVolume
     : (Array.isArray(session?.signals) ? session.signals : []).map((signal: any) => signal?.auditExtensions?.researchPriceVolumeOutcomes).find(validVolumeReport);
-  const validMatchedCore = (value: any) => value?.version === 'MATCHED_CORE_BUY_HOLD_DIAGNOSTIC_V1' && value?.authority === 'RESEARCH_ONLY';
-  const directMatchedCore = session?.summary?.matchedCoreBuyHoldAudit;
-  const matchedCoreBuyHoldAudit = validMatchedCore(directMatchedCore) ? directMatchedCore
-    : (Array.isArray(session?.signals) ? session.signals : []).map((signal: any) => signal?.auditExtensions?.matchedCoreBuyHoldAudit).find(validMatchedCore);
-  if (!counterfactual && !structuralCoreBenchmark && !researchPriceVolumeOutcomes && !matchedCoreBuyHoldAudit) return session;
+  if (!counterfactual && !structuralCoreBenchmark && !researchPriceVolumeOutcomes) return session;
   return {
     ...session,
     summary: {
       ...(session.summary ?? {}),
       ...(counterfactual ? { trendProtectionV2Counterfactual: counterfactual } : {}),
       ...(structuralCoreBenchmark ? { structuralCoreBenchmark } : {}),
-      ...(matchedCoreBuyHoldAudit ? { matchedCoreBuyHoldAudit } : {}),
       ...(researchPriceVolumeOutcomes ? { researchPriceVolumeOutcomes } : {})
     }
   };

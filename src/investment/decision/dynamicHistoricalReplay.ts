@@ -9,7 +9,7 @@ import {
   DynamicHistoricalReplayEngine as DynamicHistoricalReplayCoreEngine,
   type DynamicHistoricalReplayResult as CoreDynamicHistoricalReplayResult
 } from './dynamicHistoricalReplayCore';
-import { STRATEGIC_GROWTH_CORE_PRIORITY, isStrategicGrowthCoreAssetId } from './portfolioAssetRole';
+import { STRATEGIC_GROWTH_CORE_PRIORITY } from './portfolioAssetRole';
 
 export type {
   DynamicReplayFrequency,
@@ -40,7 +40,6 @@ export interface DynamicHistoricalReplayResult extends CoreDynamicHistoricalRepl
   cashBenchmarkFixedAnnualPct: number;
   cashInterestTaxEur: number;
   cashInterestNetEur: number;
-  matchedCoreBuyHoldAudit?: ReturnType<typeof buildMatchedCoreBuyHoldAudit>;
   structuralCoreBenchmarkAssetId: string | null;
   structuralCoreBenchmarkTicker: string | null;
   structuralCoreBenchmarkStartDate: string | null;
@@ -91,69 +90,6 @@ function calendarDaysBetween(startDate: string, endDate: string): number {
     : Number.POSITIVE_INFINITY;
 }
 
-/** A reference asset must be an identified broad-global core with actual EUR prices. */
-function realEurCoreBars(input: Pick<DynamicHistoricalReplayInput, 'catalog' | 'dataset'>, assetId: string) {
-  const item = input.catalog.find(asset => asset.assetId === assetId);
-  const series = input.dataset.assets.find(asset => asset.assetId === assetId);
-  if (!item || !isStrategicGrowthCoreAssetId(assetId) || item.currency !== 'EUR'
-    || !series?.bars.length || series.currency !== 'EUR'
-    || series.provenance?.sourceType !== 'REAL'
-    || series.ticker.toUpperCase() !== item.ticker.toUpperCase()
-    || input.dataset.timeframe !== '1d') return null;
-  let previous = '';
-  for (const bar of series.bars) {
-    const date = isoDate(bar.timestamp);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date + 'T00:00:00Z'))
-      || date <= previous || !Number.isFinite(bar.close) || bar.close <= 0) return null;
-    previous = date;
-  }
-  return series.bars;
-}
-
-/**
- * Descriptive comparison only: all existing structural cores at the exact same
- * entry/exit dates. The reference determines the first next session, not future
- * returns or the date Custodia chooses to deploy. No policy is altered.
- */
-export function buildMatchedCoreBuyHoldAudit(input: Pick<DynamicHistoricalReplayInput,
-  'catalog' | 'dataset' | 'initialCapitalEur'>, window: {
-  firstDecisionDate: string; endDate: string; referenceAssetId: string | null;
-  initialPortfolioSpecified: boolean; hasExternalFlows: boolean;
-}) {
-  const version = 'MATCHED_CORE_BUY_HOLD_DIAGNOSTIC_V1' as const;
-  if (window.initialPortfolioSpecified || window.hasExternalFlows || !window.referenceAssetId) return null;
-  const reference = realEurCoreBars(input, window.referenceAssetId);
-  const entryDate = reference?.find(bar => isoDate(bar.timestamp) > window.firstDecisionDate)?.timestamp.slice(0, 10) ?? null;
-  if (!entryDate || entryDate >= window.endDate
-    || calendarDaysBetween(window.firstDecisionDate, entryDate) > MAX_CORE_BENCHMARK_EDGE_LAG_DAYS
-    || !reference?.some(bar => isoDate(bar.timestamp) === window.endDate)) return null;
-  const rows = input.catalog.filter(item => isStrategicGrowthCoreAssetId(item.assetId)).map(item => {
-    const bars = realEurCoreBars(input, item.assetId);
-    const start = bars?.find(bar => isoDate(bar.timestamp) === entryDate);
-    const end = bars?.find(bar => isoDate(bar.timestamp) === window.endDate);
-    const entryPrice = item.instrumentType === 'MUTUAL_FUND' ? start?.close : start?.open;
-    const grossReturnPct = entryPrice != null && Number.isFinite(entryPrice) && entryPrice > 0 && end
-      ? (end.close / entryPrice - 1) * 100 : null;
-    const valid = grossReturnPct != null && Number.isFinite(grossReturnPct);
-    return {
-      assetId: item.assetId, ticker: item.ticker,
-      entryConvention: item.instrumentType === 'MUTUAL_FUND' ? 'NEXT_NAV' : 'NEXT_OPEN',
-      entryPriceEur: valid ? entryPrice! : null, endPriceEur: valid ? end!.close : null,
-      grossReturnPct: valid ? grossReturnPct : null,
-      grossFinalEur: valid ? input.initialCapitalEur * (1 + grossReturnPct! / 100) : null,
-      availability: valid ? 'EXACT_REAL_EUR' : 'MISSING_OR_INVALID_EXACT_REAL_EUR'
-    };
-  });
-  const referenceReturn = rows.find(row => row.assetId === window.referenceAssetId)?.grossReturnPct ?? null;
-  return {
-    version, authority: 'RESEARCH_ONLY' as const, referenceAssetId: window.referenceAssetId,
-    firstDecisionDate: window.firstDecisionDate, entryDate, endDate: window.endDate,
-    rows: rows.map(row => ({ ...row, excessVsReferencePctPoints: row.grossReturnPct == null || referenceReturn == null
-      ? null : row.grossReturnPct - referenceReturn })),
-    note: 'Matched next-session gross buy-and-hold, EUR only; no fees, tax, dealing delay or additional flows. No outcome-based selection.'
-  };
-}
-
 function structuralCoreBenchmark(input: DynamicHistoricalReplayInput, result: CoreDynamicHistoricalReplayResult) {
   // A benchmark that receives only the initial lump sum is not economically
   // comparable with a replay that later receives/withdraws external money.
@@ -161,7 +97,7 @@ function structuralCoreBenchmark(input: DynamicHistoricalReplayInput, result: Co
   if (result.appliedExternalCashFlows.length > 0) return null;
 
   const fallbackIds = input.catalog
-    .filter(asset => isStrategicGrowthCoreAssetId(asset.assetId))
+    .filter(asset => asset.category === 'GLOBAL_EQUITY' && !asset.assetId.startsWith('EQ_'))
     .map(asset => asset.assetId);
   const candidateIds = [...new Set<string>([...STRATEGIC_GROWTH_CORE_PRIORITY, ...fallbackIds])];
 
@@ -169,8 +105,9 @@ function structuralCoreBenchmark(input: DynamicHistoricalReplayInput, result: Co
     const item = input.catalog.find(asset => asset.assetId === assetId);
     const series = input.dataset.assets.find(asset => asset.assetId === assetId);
     if (!item || !series?.bars.length) continue;
-    const validBars = realEurCoreBars(input, assetId);
-    if (!validBars) continue;
+    const validBars = [...series.bars]
+      .filter(bar => Number.isFinite(bar.close) && bar.close > 0)
+      .sort((a, b) => isoDate(a.timestamp).localeCompare(isoDate(b.timestamp)));
     const startBar = validBars.find(bar => {
       const date = isoDate(bar.timestamp);
       return date >= result.startDate && date <= result.endDate;
@@ -256,10 +193,6 @@ export class DynamicHistoricalReplayEngine {
     const excessFinalEurVsStructuralCore = benchmark == null ? null : coreResult!.finalValueEur - benchmark.finalEur;
     const excessReturnVsStructuralCorePctPoints = benchmark == null ? null : coreResult!.totalReturnPct - benchmark.returnPct;
     const hasExternalFlows = coreResult!.appliedExternalCashFlows.length > 0;
-    const matchedCoreBuyHoldAudit = buildMatchedCoreBuyHoldAudit(input, {
-      firstDecisionDate: coreResult!.startDate, endDate: coreResult!.endDate,
-      referenceAssetId: benchmark?.assetId ?? null, initialPortfolioSpecified: Boolean(input.initialPortfolio), hasExternalFlows
-    });
 
     return {
       ...coreResult!,
@@ -269,7 +202,6 @@ export class DynamicHistoricalReplayEngine {
       cashInterestTaxEur,
       cashInterestNetEur,
       totalEstimatedTaxEur: coreResult!.totalEstimatedTaxEur + cashInterestTaxEur,
-      matchedCoreBuyHoldAudit,
       structuralCoreBenchmarkAssetId: benchmark?.assetId ?? null,
       structuralCoreBenchmarkTicker: benchmark?.ticker ?? null,
       structuralCoreBenchmarkStartDate: benchmark?.startDate ?? null,

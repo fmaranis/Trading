@@ -121,7 +121,6 @@ interface PositionSummary {
 }
 
 interface ReplaySummary {
-  matchedCoreBuyHoldAudit?: DynamicHistoricalReplayResult['matchedCoreBuyHoldAudit'];
   researchPriceVolumeOutcomes?: DynamicHistoricalReplayResult['researchPriceVolumeOutcomes'];
   endDate: string;
   engineFinalEur: number;
@@ -636,7 +635,6 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     Object.assign(nextSummary, {
       timingStateCounts: result.timingStateCounts,
       deploymentHorizons: result.deploymentHorizons,
-      ...(result.matchedCoreBuyHoldAudit ? { matchedCoreBuyHoldAudit: result.matchedCoreBuyHoldAudit } : {}),
       ...(result.researchPriceVolumeOutcomes ? { researchPriceVolumeOutcomes: result.researchPriceVolumeOutcomes } : {})
     });
     const nextPositions = buildPositionSummaries(scan, currentExecutions, result.endDate);
