@@ -32,6 +32,7 @@ const authSecurity = read('server/authSecurity.ts');
 const portfolioManagementAlerts = read('server/portfolioManagementAlerts.ts');
 const telegramNotifier = read('server/telegramNotifier.ts');
 const portfolioEvolution = read('src/components/PortfolioEvolutionChart.tsx');
+const userPortfolioPanel = read('src/components/UserPortfolioPanel.tsx');
 
 check('1001 root product starts at the canonical decision entrypoint', () => {
   assert.match(indexHtml, /src\/decisionMain\.tsx/);
@@ -272,6 +273,17 @@ check('1035 unverified historical financing cannot appear as real portfolio perf
   assert.match(portfolioEvolution, /last && !evidenceReconciled/);
   assert.match(portfolioEvolution, /HISTÓRICO NO CONCILIADO · rentabilidad N\/D/);
   assert.match(portfolioEvolution, /last && evidenceReconciled/);
+  // Current fund market value and current liquidity must both match the reconstructed endpoint.
+  assert.match(portfolioEvolution, /last\.investedEur - currentInvestedEur/);
+  assert.match(portfolioEvolution, /Math\.abs\(investedReconciliationGapEur\) <= 1/);
+  assert.match(userPortfolioPanel, /currentInvestedEur=\{missingValuations === 0 \? investedEur : null\}/);
+  // Cost basis for existing funds must not be confused with cash awaiting investment.
+  assert.match(userPortfolioPanel, /fundRecordedCostEur = funds\.reduce/);
+  assert.match(userPortfolioPanel, /fundUnrealizedDifferenceEur/);
+  // A passive chart must never persist a baseline or credit an unverified benchmark yield.
+  assert.doesNotMatch(portfolioEvolution, /PortfolioCashFlowHistoryService\.ensureBaseline/);
+  assert.doesNotMatch(portfolioEvolution, /creditedInterestEur|pendingInterestEur|cashAnnualPct|cashInterestEur/);
+  assert.match(portfolioEvolution, /externalContributionEur: 0, cashDeltaEur: -lot\.acquisitionCostEur/);
 });
 
 console.log(`Product surface closure V1: ${passed}/35 invariants passed.`);
