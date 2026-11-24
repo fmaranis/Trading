@@ -317,4 +317,20 @@ check('1037 actionable zero-order explanation reuses product gate without a para
   assert.doesNotMatch(alerts, /PortfolioCandidateGate\.apply\(/);
 });
 
-console.log(`Product surface closure V1: ${passed}/37 invariants passed.`);
+check('1038 a failed/in-flight refresh clears stale actionable orders before new market data arrives', () => {
+  const start = interactive.indexOf('const refreshMarket = async');
+  const end = interactive.indexOf('\n  useEffect(() => {', start);
+  assert.ok(start > 0 && end > start);
+  const refresh = interactive.slice(start, end);
+  const startScan = refresh.indexOf('AssetUniverseScanner.scan(');
+  for (const clear of ['setRawScan(null)', 'setScan(null)', 'setCandidateGate(null)', 'setResult(null)', 'setPositionHealth(null)']) {
+    const at = refresh.indexOf(clear);
+    assert.ok(at >= 0 && at < startScan, 'missing pre-refresh fail-closed '+clear);
+  }
+  assert.match(refresh, /marketRefreshInFlight\.current = true/);
+  assert.match(refresh, /marketRefreshInFlight\.current = false/);
+  assert.match(interactive, /No se presentan órdenes operativas/);
+  assert.match(interactive, /scan && result && !positionHealthLoading && positionHealth != null && <MarketUtilityDashboard/);
+});
+
+console.log(`Product surface closure V1: ${passed}/38 invariants passed.`);
