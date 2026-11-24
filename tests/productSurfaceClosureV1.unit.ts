@@ -33,6 +33,9 @@ const portfolioManagementAlerts = read('server/portfolioManagementAlerts.ts');
 const telegramNotifier = read('server/telegramNotifier.ts');
 const portfolioEvolution = read('src/components/PortfolioEvolutionChart.tsx');
 const priceVolumeEvidenceSource = read('src/investment/decision/priceVolumeEvidence.ts');
+const serverEntrypoint = read('server.ts');
+const buildIdentityScript = read('scripts/writeBuildIdentity.mjs');
+const packageManifest = read('package.json');
 const marketUtilityDashboard = read('src/components/MarketUtilityDashboard.tsx');
 const userPortfolioPanel = read('src/components/UserPortfolioPanel.tsx');
 
@@ -364,4 +367,15 @@ check('1041 detailed execution records actual settlements and buys use the singl
   assert.match(execution, /La estimación fiscal del plan puede cambiar con la ejecución real/);
 });
 
-console.log(`Product surface closure V1: ${passed}/41 invariants passed.`);
+check('1042 production build identifies exact source SHA or explicitly reports it as unverified', () => {
+  assert.match(packageManifest, /node scripts\/writeBuildIdentity\.mjs/);
+  assert.match(buildIdentityScript, /GITHUB_SHA/);
+  assert.match(buildIdentityScript, /git\(\['rev-parse', '--verify', 'HEAD'\]\)/);
+  assert.match(buildIdentityScript, /git\(\['status', '--porcelain', '--untracked-files=no'\]\)/);
+  assert.match(buildIdentityScript, /commitSha: null, provenance: 'UNVERIFIED_BUILD_SOURCE'/);
+  assert.match(serverEntrypoint, /app\.get\('\/api\/health', async/);
+  assert.match(serverEntrypoint, /buildCommitSha, buildProvenance/);
+  assert.match(serverEntrypoint, /process\.env\.NODE_ENV === 'production'/);
+});
+
+console.log(`Product surface closure V1: ${passed}/42 invariants passed.`);
