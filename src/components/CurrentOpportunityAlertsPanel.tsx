@@ -9,6 +9,7 @@ import {
   type CurrentOpportunityAlert,
   type InvestmentDecisionResult,
   type PortfolioDecisionResult,
+  type PortfolioCandidateGateResult,
   type PortfolioExecutionLine,
   type PortfolioExecutionPlan,
   type PortfolioPositionDecision
@@ -17,6 +18,7 @@ import { AlertAutomationStatusPanel } from './AlertAutomationStatusPanel';
 
 interface Props {
   scan: AssetUniverseScanResult;
+  candidateGate: PortfolioCandidateGateResult | null;
   decision: InvestmentDecisionResult;
   portfolioDecision: PortfolioDecisionResult;
   executionPlan: PortfolioExecutionPlan;
@@ -33,6 +35,21 @@ function levelClass(level: CurrentOpportunityAlert['level'] | undefined): string
   if (level === 'HIGH_CONVICTION') return 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100';
   if (level === 'GOOD_ENTRY') return 'border-cyan-500/30 bg-cyan-500/10 text-cyan-100';
   return 'border-slate-700 bg-slate-900 text-slate-200';
+}
+
+/** Production gate reason labels, not a second set of investing rules. */
+function gateRejectionLabel(reason: string): string {
+  switch (reason) {
+    case 'DOES_NOT_BEAT_CASH': return 'Momentum pasado insuficiente frente al efectivo';
+    case 'ENTRY_TIMING_WAIT': return 'No hay punto de entrada confirmado';
+    case 'CONSENSUS_WATCH': return 'Consenso de señales insuficiente';
+    case 'CONSENSUS_AVOID': return 'Consenso de señales desfavorable';
+    case 'CONSENSUS_UNAVAILABLE': return 'Sin datos suficientes para el consenso';
+    case 'STRUCTURAL_DOWNTREND': return 'Deterioro estructural de tendencia';
+    case 'CASH_COMPARISON_UNAVAILABLE': return 'Comparación frente al efectivo no verificable';
+    case 'USD_RESEARCH_ONLY_FX_EXECUTION_UNVERIFIED': return 'USD: investigación, no ejecutable';
+    default: return reason;
+  }
 }
 
 function positionIdentity(scan: AssetUniverseScanResult, position: PortfolioPositionDecision) {
@@ -62,7 +79,7 @@ function positionLine(lines: PortfolioExecutionLine[], position: PortfolioPositi
     .some(value => keys.has(String(value).toUpperCase())));
 }
 
-export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision, portfolioDecision, executionPlan, onInspectAsset }) => {
+export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, candidateGate, decision, portfolioDecision, executionPlan, onInspectAsset }) => {
   const cashBenchmark = CashBenchmarkService.load();
   const alerts = useMemo(() => CurrentOpportunityAlertEngine.evaluate(scan, cashBenchmark), [scan, decision.asOfDate, cashBenchmark]);
   const alertByAsset = useMemo(() => new Map(alerts.map(alert => [alert.assetId, alert])), [alerts]);
@@ -91,6 +108,29 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
   const hasTransfers = transferLines.length > 0;
   const hasActions = hasBuys || hasSales || hasTransfers;
   const availableCapital = Math.max(0, portfolioDecision.currentCashEur + portfolioDecision.pendingCapitalEur);
+  // Reuse the exact PortfolioCandidateGate result that produced the product scan.
+  // Excluded pre-shortlist names are counted separately; they were not tested
+  // against cash/consensus/timing and must not appear as failed predictions.
+  const gateExplanation = useMemo(() => {
+    if (!candidateGate || candidateGate.scan !== scan) return null;
+    const rejected = candidateGate.entries.filter(row => row.status === 'REJECTED');
+    const outsideShortlist = rejected.filter(row => row.reason === 'OUTSIDE_DYNAMIC_MARKET_SHORTLIST').length;
+    const counts = new Map<string, number>();
+    for (const row of rejected) {
+      if (row.reason === 'OUTSIDE_DYNAMIC_MARKET_SHORTLIST') continue;
+      counts.set(row.reason, (counts.get(row.reason) ?? 0) + 1);
+    }
+    return {
+      eligible: candidateGate.eligibleCount,
+      evaluated: candidateGate.entries.length - outsideShortlist,
+      outsideShortlist,
+      reasons: [...counts.entries()]
+        .map(([reason, count]) => ({ reason, label: gateRejectionLabel(reason), count }))
+        .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason))
+    };
+  }, [candidateGate, scan]);
+
+
 
   const headline = (hasBuys && (hasSales || hasTransfers)) || (hasSales && hasTransfers)
     ? 'HOY: REORDENAR CARTERA'
@@ -186,6 +226,14 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, decision,
     {hasTransfers && <div className="mt-4 rounded-xl border border-violet-400/35 bg-violet-500/10 p-4">
       <div className="flex items-center gap-2"><Repeat2 className="h-4 w-4 text-violet-300"/><b className="text-xs uppercase tracking-wider text-violet-200">Traspaso / rotación ejecutable</b></div>
       <div className="mt-3 space-y-2">{transferLines.map(line => <div key={line.id} className="rounded-lg border border-violet-400/20 bg-slate-950/40 p-3"><div className="font-mono text-sm font-black text-violet-100">{line.sourceLabel ?? line.sourceIsin ?? 'Origen'} → {line.targetTicker ?? line.targetName ?? 'Destino'}{line.amountEur == null ? '' : ` · ≈ ${line.amountEur.toFixed(2)} €`}</div><div className="mt-1 text-[10px] text-slate-400">{line.instruction}</div>{onInspectAsset && line.targetTicker && <button type="button" onClick={() => onInspectAsset(line.targetTicker!)} className="touch-target mt-2 flex items-center gap-1 text-[10px] font-bold text-violet-200"><BarChart3 className="h-3.5 w-3.5"/>Ver destino</button>}</div>)}</div>
+    </div>}
+
+    {!hasActions && availableCapital > 0 && gateExplanation && <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-xs text-slate-300">
+      <div className="font-bold text-slate-100">Por qué hoy no se invierte el capital disponible</div>
+      <p className="mt-1">Candidatos realmente evaluados por los filtros de entrada: {gateExplanation.evaluated}; cumplen todos: {gateExplanation.eligible}. {gateExplanation.outsideShortlist > 0 ? `${gateExplanation.outsideShortlist} quedan fuera de la preselección y no fueron evaluados por esos filtros.` : ''}</p>
+      {gateExplanation.reasons.length > 0 && <p className="mt-2 text-slate-400">{gateExplanation.reasons.slice(0, 4).map(row => `${row.label}: ${row.count}`).join(' · ')}</p>}
+      {gateExplanation.eligible > 0 && <p className="mt-2 text-amber-200">Hay oportunidades elegibles, pero la asignación o los controles de ejecución no han autorizado una compra. Ver el plan para conocer el motivo.</p>}
+      <p className="mt-2 text-[10px] text-slate-500">La comparación con el efectivo usa una aproximación basada en momentum histórico de 120 sesiones: no es una predicción de rentabilidad ni garantiza que esperar sea lo más rentable.</p>
     </div>}
 
     {!hasActions && <div className="mt-4 rounded-xl border border-dashed border-slate-700 bg-slate-950/50 p-4 text-sm text-slate-400">No hay una orden ejecutable hoy. Si existe una idea teórica aplazada por coste, cash, datos o fiscalidad, queda abajo como REVIEW y no se confunde con una operación.</div>}
