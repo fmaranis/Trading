@@ -36,6 +36,7 @@ check('archived replay shape audits independently without importing production s
   const result=auditHistoricalReplayEvidence(fixture());
   assert.equal(result.technical.accounting,'PASS');
   assert.equal(result.technical.signalExecutionParity,'PASS');
+  assert.equal(result.technical.nextPortfolioSessionExecutionCount,1);
   assert.equal(result.economic.engineMinusCoreEur,-6);
   assert.equal(result.economic.beatsCore,false);
   assert.equal(result.evidenceLimits.productionPromotionAllowed,false);
@@ -56,5 +57,8 @@ check('additional paid-in capital does not silently count as investment return',
   const result=auditHistoricalReplayEvidence(x);
   assert.equal(result.evidenceLimits.externalFlows,'RETURN_N_D_UNTIL_FLOW_ADJUSTED_AUDIT');
   assert.equal(result.economic.calendarYears[0].returnPct,null);
+  assert.equal(result.economic.engineReturnPct,null);
+  assert.equal(result.economic.beatsCore,null);
+  assert.equal(result.verdict,'LEDGER_CONSISTENT_FLOW_ADJUSTED_RETURNS_NOT_AUDITED');
 });
 console.log('Historical replay evidence independent unit: '+count+'/'+count+' PASS (no market data or replay).');
