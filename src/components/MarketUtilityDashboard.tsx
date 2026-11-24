@@ -142,6 +142,12 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, candidateGate, d
     });
     const highVolumeBreakouts = rows.filter(row => row.highVolumeBreakout === true);
     const highVolumeBreakdowns = rows.filter(row => row.highVolumeBreakdown === true);
+    const gateRejectionByReason = new Map<string, number>();
+    for (const entry of candidateGate?.entries ?? []) {
+      if (entry.status === 'REJECTED') {
+        gateRejectionByReason.set(entry.reason, (gateRejectionByReason.get(entry.reason) ?? 0) + 1);
+      }
+    }
     return {
       version: 'PRICE_VOLUME_RESEARCH_READOUT_V1' as const,
       informationDate: decision.asOfDate,
@@ -150,6 +156,10 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, candidateGate, d
       unavailableCount: rows.filter(row => row.state !== 'REAL_EOD_AVAILABLE').length,
       highVolumeBreakoutCount: highVolumeBreakouts.length,
       highVolumeBreakdownCount: highVolumeBreakdowns.length,
+      gateEligibleCount: candidateGate?.eligibleCount ?? null,
+      gateRejectionByReason: [...gateRejectionByReason.entries()]
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)),
       topBreakouts: [...highVolumeBreakouts]
         .sort((a, b) => (b.relativeVolume50 ?? 0) - (a.relativeVolume50 ?? 0))
         .slice(0, 8),
@@ -218,6 +228,8 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, candidateGate, d
             {priceVolumeResearch && <div className="mt-3 border-t border-slate-700 pt-2">
               <p className="font-bold text-cyan-200">Rupturas precio-volumen · investigación causal</p>
               <p>Activos evaluados: {priceVolumeResearch.observedCount}; OHLCV REAL completo: {priceVolumeResearch.realVolumeAvailableCount}; sin volumen verificable: {priceVolumeResearch.unavailableCount}; rupturas alcistas con volumen elevado: {priceVolumeResearch.highVolumeBreakoutCount}; rupturas bajistas: {priceVolumeResearch.highVolumeBreakdownCount}.</p>
+              <p>Veto real de entrada: {priceVolumeResearch.gateEligibleCount ?? 'N/D'} elegibles después de los filtros actuales. Motivos principales: {priceVolumeResearch.gateRejectionByReason.slice(0, 5).map(row => `${row.reason} (${row.count})`).join(' · ') || 'N/D'}.</p>
+              <p className="text-slate-400">El veto se lee de la única decisión canónica; no se vuelve a calcular el gate ni se cambia ninguna regla.</p>
               <p className="text-slate-400">Referencia: máximos/mínimos de 20 sesiones anteriores, volumen de la última barra diaria respecto a las 50 anteriores y contracción de las 5 sesiones previas frente a las 5 precedentes. Datos de cierre sujetos a confirmación del proveedor. No identifica compras institucionales, no predice rentabilidad y no modifica las órdenes.</p>
               {priceVolumeResearch.topBreakouts.length > 0 && <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[520px] text-left text-[11px]">
                 <thead><tr className="border-b border-slate-700 text-slate-400"><th className="py-1 pr-2">Ticker</th><th className="py-1 pr-2">Volumen/50d</th><th className="py-1 pr-2">Contracción 5/5</th><th className="py-1">Veto actual del motor</th></tr></thead>
