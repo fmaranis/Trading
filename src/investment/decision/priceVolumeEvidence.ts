@@ -121,3 +121,161 @@ export function assessPriceVolumeEvidence(input: {
     highVolumeBreakdown: priceBreakdown20 && relativeVolume50 >= 2.5
   };
 }
+
+/**
+ * Frozen, descriptive outcome audit of the canonical replay's unfunded WAIT
+ * observations. No order or hypothetical portfolio is created. Primary horizon
+ * 20 sessions; 60 is secondary. EUNL is fixed before any outcomes are read.
+ * Exact matched dates only, with no forward fill or substitute benchmark.
+ */
+export interface ReplayWaitVolumeSignal {
+  assetId: string;
+  signalDate: string;
+  action: string;
+  timingState: string | null;
+  executed: boolean;
+  isInitialAllocation?: boolean;
+}
+
+type WaitVolumeGroup = 'HIGH_VOLUME_BREAKOUT' | 'PRICE_ONLY_BREAKOUT' | 'NO_BREAKOUT';
+type WaitVolumeHorizon = 20 | 60;
+interface WaitVolumeOutcome {
+  horizon: WaitVolumeHorizon;
+  exitDate: string;
+  grossReturnPct: number;
+  excessVsWorldPct: number | null;
+}
+interface WaitVolumeRow {
+  assetId: string;
+  date: string;
+  group: WaitVolumeGroup;
+  index: number;
+  outcomes: WaitVolumeOutcome[];
+}
+
+export function summarizeReplayWaitPriceVolume(input: {
+  signals: readonly ReplayWaitVolumeSignal[];
+  dataset: import('../portfolioBacktesting/types').MultiAssetDataset;
+  catalog: readonly import('./assetUniverse').AssetUniverseItem[];
+}) {
+  const groups: WaitVolumeGroup[] = ['HIGH_VOLUME_BREAKOUT', 'PRICE_ONLY_BREAKOUT', 'NO_BREAKOUT'];
+  const horizons: WaitVolumeHorizon[] = [20, 60];
+  const assets = new Map(input.dataset.assets.map(asset => [asset.assetId, asset] as const));
+  const catalog = new Map(input.catalog.map(asset => [asset.assetId, asset] as const));
+  const date = (bar: PriceVolumeObservation) => bar.timestamp.slice(0, 10);
+  const validPrice = (value: number) => Number.isFinite(value) && value > 0;
+  const dateIndex = new Map<string, Map<string, number>>();
+  for (const asset of input.dataset.assets) {
+    const byDate = new Map<string, number>();
+    let previous = '';
+    let valid = true;
+    for (let i = 0; i < asset.bars.length; i++) {
+      const d = date(asset.bars[i]);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d <= previous) { valid = false; break; }
+      byDate.set(d, i);
+      previous = d;
+    }
+    if (valid) dateIndex.set(asset.assetId, byDate);
+  }
+  const benchmarkId = 'EUNL';
+  const benchmark = assets.get(benchmarkId);
+  const benchmarkDates = dateIndex.get(benchmarkId);
+  const benchmarkValid = benchmark?.provenance.sourceType === 'REAL' && benchmark.currency === 'EUR'
+    && benchmark.ticker === 'EUNL.DE' && benchmarkDates != null;
+  const rows: WaitVolumeRow[] = [];
+  const unavailable: Record<string, number> = {};
+  let waitCount = 0;
+  let benchmarkSelfExcluded = 0;
+  const reject = (reason: string) => { unavailable[reason] = (unavailable[reason] ?? 0) + 1; };
+  const seen = new Set<string>();
+  for (const signal of input.signals) {
+    if (signal.action !== 'AVOID' || signal.timingState !== 'WAIT' || signal.executed || signal.isInitialAllocation) continue;
+    const key = signal.assetId + '|' + signal.signalDate;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    waitCount++;
+    if (signal.assetId === benchmarkId) { benchmarkSelfExcluded++; continue; }
+    const asset = assets.get(signal.assetId);
+    const item = catalog.get(signal.assetId);
+    const idx = dateIndex.get(signal.assetId)?.get(signal.signalDate);
+    if (!asset || !item || asset.provenance.sourceType !== 'REAL' || item.currency !== 'EUR' || asset.currency !== 'EUR') {
+      reject('NON_REAL_OR_NON_EUR'); continue;
+    }
+    if (input.dataset.timeframe !== '1d' || idx == null) { reject('NO_EXACT_DAILY_BAR'); continue; }
+    if (item.instrumentType === 'MUTUAL_FUND') { reject('NO_RELIABLE_LISTED_VOLUME'); continue; }
+    // Only the 51-bar causal prefix is exposed to the descriptor, never outcomes.
+    const evidence = assessPriceVolumeEvidence({
+      bars: asset.bars.slice(Math.max(0, idx - 50), idx + 1),
+      informationDate: signal.signalDate,
+      provenance: 'REAL',
+      instrumentType: item.instrumentType,
+      observedAtUtc: new Date(Date.parse(signal.signalDate + 'T00:00:00Z') + 86400000).toISOString()
+    });
+    if (evidence.state !== 'REAL_EOD_AVAILABLE') { reject(evidence.state); continue; }
+    const group: WaitVolumeGroup = evidence.highVolumeBreakout ? 'HIGH_VOLUME_BREAKOUT'
+      : evidence.priceBreakout20 ? 'PRICE_ONLY_BREAKOUT' : 'NO_BREAKOUT';
+    const outcomes: WaitVolumeOutcome[] = [];
+    const entry = asset.bars[idx + 1];
+    for (const horizon of horizons) {
+      const exit = asset.bars[idx + horizon];
+      if (!entry || !exit || !validPrice(entry.open) || !validPrice(exit.close)) continue;
+      const grossReturnPct = (exit.close / entry.open - 1) * 100;
+      if (!Number.isFinite(grossReturnPct)) continue;
+      const bi = benchmarkValid ? benchmarkDates?.get(date(entry)) : undefined;
+      const bx = benchmarkValid ? benchmarkDates?.get(date(exit)) : undefined;
+      const bo = bi == null ? undefined : benchmark?.bars[bi]?.open;
+      const bc = bx == null ? undefined : benchmark?.bars[bx]?.close;
+      const benchmarkReturn = bo != null && bc != null && validPrice(bo) && validPrice(bc)
+        ? (bc / bo - 1) * 100 : null;
+      const excess = benchmarkReturn == null ? null : grossReturnPct - benchmarkReturn;
+      outcomes.push({ horizon, exitDate: date(exit), grossReturnPct,
+        excessVsWorldPct: excess != null && Number.isFinite(excess) ? excess : null });
+    }
+    rows.push({ assetId: signal.assetId, date: signal.signalDate, index: idx, group, outcomes });
+  }
+  const mean = (values: number[]) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+  const summarize = (selected: WaitVolumeRow[]) => groups.map(group => {
+    const members = selected.filter(row => row.group === group);
+    return {
+      group, observations: members.length, distinctAssets: new Set(members.map(row => row.assetId)).size,
+      horizons: horizons.map(horizon => {
+        const completed = members.flatMap(row => row.outcomes.filter(outcome => outcome.horizon === horizon));
+        const returns = completed.map(row => row.grossReturnPct);
+        const excess = completed.flatMap(row => row.excessVsWorldPct == null ? [] : [row.excessVsWorldPct]);
+        return {
+          sessions: horizon, evaluated: returns.length, benchmarkMatched: excess.length,
+          meanGrossReturnPct: mean(returns), positiveRatePct: mean(returns.map(value => value > 0 ? 100 : 0)),
+          meanExcessVsWorldPct: mean(excess), outperformRatePct: mean(excess.map(value => value > 0 ? 100 : 0))
+        };
+      })
+    };
+  });
+  // Select first price breakout across BOTH volume groups per asset. Do not use
+  // its outcome or volume label to choose which consecutive event to retain.
+  const lastByAsset = new Map<string, number>();
+  const separated = [...rows].sort((a, b) => a.date.localeCompare(b.date) || a.assetId.localeCompare(b.assetId))
+    .filter(row => {
+      if (row.group === 'NO_BREAKOUT') return false;
+      const last = lastByAsset.get(row.assetId);
+      if (last != null && row.index - last < 20) return false;
+      lastByAsset.set(row.assetId, row.index);
+      return true;
+    });
+  return {
+    version: 'REPLAY_WAIT_PRICE_VOLUME_DIAGNOSTIC_V1' as const,
+    authority: 'RESEARCH_ONLY' as const,
+    scope: 'UNFUNDED_AVOID_WAIT_AT_REPLAY_DECISION_DATES' as const,
+    benchmark: 'EUNL.DE' as const, benchmarkAvailable: benchmarkValid,
+    primaryHorizonSessions: 20 as const, waitCount, benchmarkSelfExcluded,
+    coverageAvailable: rows.length, unavailable,
+    allObservations: summarize(rows),
+    firstBreakoutsSeparated20Sessions: summarize(separated).filter(row => row.group !== 'NO_BREAKOUT'),
+    notes: [
+      'Gross price returns from next session open to horizon close; no costs, taxes or dividends modeled.',
+      'Only AVOID/WAIT rows, not every gate rejection; decision frequency determines reach.',
+      'Benchmark uses the same exact entry and exit dates; no substitute or fill.',
+      'Nonoverlap sensitivity separates 20 sessions per asset, not cross-asset correlation or 60-session overlap.',
+      'Existing replay universe may have survivorship bias; descriptive only, not fresh validation or a trading policy.'
+    ]
+  };
+}
