@@ -351,4 +351,17 @@ check('1040 lack of accepted REAL quotes cannot masquerade as no investment oppo
   assert.match(interactive, /100% corresponde al capital para nuevas operaciones, no a toda tu cartera/);
 });
 
-console.log(`Product surface closure V1: ${passed}/40 invariants passed.`);
+check('1041 detailed execution records actual settlements and buys use the single actual-purchase form', () => {
+  assert.match(execution, /\['SELL_ETF', 'REDEEM_FUND', 'TRANSFER_FUND'\]\.includes\(line\.action\)/);
+  assert.match(execution, /const actualLine: PortfolioExecutionPlan\['lines'\]\[number\]/);
+  assert.match(execution, /amountEur: Number\(draft\.amount\)/);
+  assert.match(execution, /shares: line\.action === 'SELL_ETF' \? Number\(draft\.shares\)/);
+  assert.match(execution, /estimatedFeeEur: line\.action === 'SELL_ETF' \? Number\(draft\.fee\)/);
+  assert.match(execution, /PortfolioStateExecutionService\.execute\(actualLine\)/);
+  assert.match(execution, /setBrokerConfirmedLineId\(null\);/);
+  assert.match(execution, /href="#register-real-purchase"/);
+  assert.match(execution, /onChange=\{event => editSettlement\(line,/);
+  assert.match(execution, /La estimación fiscal del plan puede cambiar con la ejecución real/);
+});
+
+console.log(`Product surface closure V1: ${passed}/41 invariants passed.`);
