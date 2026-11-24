@@ -39,6 +39,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: TypeScript
         run: npm run lint
+      - name: Production bundle (web and server)
+        run: npm run build
       - name: Product surface contracts
         run: npx --no-install tsx tests/productSurfaceClosureV1.unit.ts
       - name: Production decision architecture
