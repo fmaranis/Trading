@@ -154,8 +154,10 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, candidateGate, d
       observedCount: rows.length,
       realVolumeAvailableCount: rows.filter(row => row.state === 'REAL_EOD_AVAILABLE').length,
       unavailableCount: rows.filter(row => row.state !== 'REAL_EOD_AVAILABLE').length,
+      priceBreakoutCount: rows.filter(row => row.priceBreakout20 === true).length,
       highVolumeBreakoutCount: highVolumeBreakouts.length,
       highVolumeBreakdownCount: highVolumeBreakdowns.length,
+      highVolumeBreakoutsPassedGate: highVolumeBreakouts.filter(row => row.gateStatus === 'ELIGIBLE').length,
       gateEligibleCount: candidateGate?.eligibleCount ?? null,
       gateRejectionByReason: [...gateRejectionByReason.entries()]
         .map(([reason, count]) => ({ reason, count }))
@@ -227,7 +229,7 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, candidateGate, d
             <p>H1 · financiación: capital desplegable {h2Readout.newMoneyAllocationAudit.baseDeployableToAssetsEur.toFixed(2)} €; propuestas {h2Readout.newMoneyAllocationAudit.proposedContributionsEur == null ? 'N/D por rotaciones' : `${h2Readout.newMoneyAllocationAudit.proposedContributionsEur.toFixed(2)} €`}; sin asignar {h2Readout.newMoneyAllocationAudit.unassignedDeployableEur == null ? 'N/D' : `${h2Readout.newMoneyAllocationAudit.unassignedDeployableEur.toFixed(2)} €`}. El remanente no equivale a una oportunidad perdida ni a dinero nuevo.</p>
             {priceVolumeResearch && <div className="mt-3 border-t border-slate-700 pt-2">
               <p className="font-bold text-cyan-200">Rupturas precio-volumen · investigación causal</p>
-              <p>Activos evaluados: {priceVolumeResearch.observedCount}; OHLCV REAL completo: {priceVolumeResearch.realVolumeAvailableCount}; sin volumen verificable: {priceVolumeResearch.unavailableCount}; rupturas alcistas con volumen elevado: {priceVolumeResearch.highVolumeBreakoutCount}; rupturas bajistas: {priceVolumeResearch.highVolumeBreakdownCount}.</p>
+              <p>Activos evaluados: {priceVolumeResearch.observedCount}; OHLCV REAL completo: {priceVolumeResearch.realVolumeAvailableCount}; sin volumen verificable: {priceVolumeResearch.unavailableCount}; rupturas alcistas por precio: {priceVolumeResearch.priceBreakoutCount}; confirmadas con volumen ≥2,5×: {priceVolumeResearch.highVolumeBreakoutCount}; de estas, autorizadas por el gate actual: {priceVolumeResearch.highVolumeBreakoutsPassedGate}; rupturas bajistas con volumen ≥2,5×: {priceVolumeResearch.highVolumeBreakdownCount}.</p>
               <p>Veto real de entrada: {priceVolumeResearch.gateEligibleCount ?? 'N/D'} elegibles después de los filtros actuales. Motivos principales: {priceVolumeResearch.gateRejectionByReason.slice(0, 5).map(row => `${row.reason} (${row.count})`).join(' · ') || 'N/D'}.</p>
               <p className="text-slate-400">El veto se lee de la única decisión canónica; no se vuelve a calcular el gate ni se cambia ninguna regla.</p>
               <p className="text-slate-400">Referencia: máximos/mínimos de 20 sesiones anteriores, volumen de la última barra diaria respecto a las 50 anteriores y contracción de las 5 sesiones previas frente a las 5 precedentes. Datos de cierre sujetos a confirmación del proveedor. No identifica compras institucionales, no predice rentabilidad y no modifica las órdenes.</p>
