@@ -5,7 +5,8 @@ import {
   candidateQualityAdjustment,
   candidateSlopeAdjustment,
   isValidIsin,
-  PortfolioCandidateGate
+  PortfolioCandidateGate,
+  assessPriceVolumeEvidence
 } from '../src/investment/decision';
 
 let passed = 0;
@@ -197,5 +198,75 @@ check('722 USD research cannot pass the production candidate gate without verifi
   && usdProbeResult.entries[0].status === 'REJECTED'
   && usdProbeResult.entries[0].reason === 'USD_RESEARCH_ONLY_FX_EXECUTION_UNVERIFIED'
   && usdProbeResult.scan.selected.length === 0);
+
+// PRICE_VOLUME_EVIDENCE_V1 is research context only. It never changes any
+// legacy gate, timing, allocation, execution or signal returned by this suite.
+const priceVolumeBars = Array.from({ length: 75 }, (_, index) => ({
+  timestamp: new Date(Date.UTC(2025, 0, index + 1)).toISOString(),
+  open: 100, high: 101, low: 99, close: 100, volume: 1000
+}));
+const priceVolumeDate = priceVolumeBars.at(-1)!.timestamp.slice(0, 10);
+const volumeInput = {
+  bars: priceVolumeBars,
+  informationDate: priceVolumeDate,
+  provenance: 'REAL' as const,
+  instrumentType: 'EQUITY'
+};
+const noEvent = assessPriceVolumeEvidence(volumeInput);
+check('723 price/volume uses REAL daily bars but does not pretend to identify an institution',
+  noEvent.state === 'REAL_EOD_AVAILABLE' && noEvent.institutionalBuyerIdentified === false
+  && noEvent.highVolumeBreakout === false && noEvent.highVolumeBreakdown === false);
+
+const breakoutBars = priceVolumeBars.map(bar => ({ ...bar }));
+breakoutBars.at(-1)!.close = 104;
+breakoutBars.at(-1)!.high = 105;
+breakoutBars.at(-1)!.volume = 3000;
+const breakout = assessPriceVolumeEvidence({ ...volumeInput, bars: breakoutBars });
+check('724 20-session close breakout with 3x previous-50-session volume is measured',
+  breakout.priceBreakout20 === true && breakout.highVolumeBreakout === true
+  && breakout.relativeVolume50 === 3 && breakout.prior20High === 101);
+check('725 adding future prices and volume cannot change the earlier research snapshot',
+  JSON.stringify(breakout) === JSON.stringify(assessPriceVolumeEvidence({
+    ...volumeInput, bars: [...breakoutBars, {
+      timestamp: '2025-07-01T00:00:00.000Z', open: 150, high: 200, low: 100,
+      close: 190, volume: 1_000_000
+    }]
+  })));
+const wickBars = priceVolumeBars.map(bar => ({ ...bar }));
+wickBars.at(-1)!.high = 120;
+wickBars.at(-1)!.volume = 3000;
+check('726 a high-volume intraday wick without confirmed closing breakout is not a breakout',
+  assessPriceVolumeEvidence({ ...volumeInput, bars: wickBars }).highVolumeBreakout === false);
+const breakdownBars = priceVolumeBars.map(bar => ({ ...bar }));
+breakdownBars.at(-1)!.close = 95;
+breakdownBars.at(-1)!.low = 94;
+breakdownBars.at(-1)!.volume = 3000;
+const breakdown = assessPriceVolumeEvidence({ ...volumeInput, bars: breakdownBars });
+check('727 breakdown context is not a purchase or executable SELL instruction',
+  breakdown.highVolumeBreakdown === true && breakdown.highVolumeBreakout === false
+  && breakdown.authority === 'RESEARCH_ONLY');
+check('728 funds without actual listed volume are unavailable, not a failed volume signal',
+  assessPriceVolumeEvidence({ ...volumeInput, instrumentType: 'MUTUAL_FUND' }).state === 'NO_RELIABLE_LISTED_VOLUME');
+check('729 provenance fail-closed forbids synthetic and static reference data',
+  ['SYNTHETIC', 'STATIC_REFERENCE'].every(provenance =>
+    assessPriceVolumeEvidence({ ...volumeInput, provenance: provenance as 'SYNTHETIC' | 'STATIC_REFERENCE' }).state === 'NON_REAL_SOURCE'));
+const invalidVolumeBars = priceVolumeBars.map(bar => ({ ...bar }));
+invalidVolumeBars.at(-2)!.volume = 0;
+check('730 incomplete 50-session volume history cannot turn missing data into a positive or zero signal',
+  assessPriceVolumeEvidence({ ...volumeInput, bars: invalidVolumeBars }).state === 'NO_RELIABLE_LISTED_VOLUME');
+const contractedVolumeBars = priceVolumeBars.map(bar => ({ ...bar }));
+for (let index = contractedVolumeBars.length - 11; index < contractedVolumeBars.length - 6; index++) contractedVolumeBars[index].volume = 2000;
+for (let index = contractedVolumeBars.length - 6; index < contractedVolumeBars.length - 1; index++) contractedVolumeBars[index].volume = 500;
+check('731 consolidation volume contraction uses only previous sessions, never entry-day volume',
+  assessPriceVolumeEvidence({ ...volumeInput, bars: contractedVolumeBars }).preBreakoutVolumeContraction5v5 === 0.25);
+check('732 invalid OHLC cannot claim institutional evidence',
+  assessPriceVolumeEvidence({ ...volumeInput, bars: [...priceVolumeBars.slice(0, -1), {
+    ...priceVolumeBars.at(-1)!, close: -1
+  }] }).state === 'INVALID_OHLCV');
+check('733 late/missing daily bar refuses to infer an observation at an unobserved information date',
+  assessPriceVolumeEvidence({ ...volumeInput, informationDate: '2025-09-30' }).state === 'NO_BAR_AT_INFORMATION_DATE');
+const unchangedGateAfterPriceVolume = PortfolioCandidateGate.apply(scan, 2.5, 12);
+check('734 price-volume readout never changes the unique production gate or its selected instruments',
+  JSON.stringify(unchangedGateAfterPriceVolume) === JSON.stringify(result));
 
 console.log(`Portfolio candidate gate: ${passed} invariants passed.`);
