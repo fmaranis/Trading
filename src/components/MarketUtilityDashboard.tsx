@@ -3,9 +3,11 @@ import { ChevronDown } from 'lucide-react';
 import type { EodhdCrossValidationResult } from '../investment/data/marketData/eodhdCrossValidation';
 import {
   applyTaxAwareExecutionOverlay,
+  assessPriceVolumeEvidence,
   buildH2CapitalMobilityReadout,
   buildH2CurrentScanIdentity,
   AssetUniverseScanResult,
+  type PortfolioCandidateGateResult,
   buildPortfolioExecutionPlan,
   CashBenchmarkService,
   evaluatePortfolioDecision,
@@ -30,6 +32,7 @@ import { PilotOperationsPanel } from './PilotOperationsPanel';
 
 interface Props {
   scan: AssetUniverseScanResult;
+  candidateGate: PortfolioCandidateGateResult | null;
   decision: InvestmentDecisionResult;
   eodhdValidation: EodhdCrossValidationResult | null;
   positionHealth: PortfolioPositionHealthResult | null;
@@ -58,7 +61,7 @@ function applyBrokerAvailabilityOverlay(plan: PortfolioExecutionPlan, scan: Asse
   return { ...plan, lines, warnings: [...plan.warnings, `BROKER_USER_CONFIRMED_UNAVAILABLE:${blocked}`] };
 }
 
-export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positionHealth, onInspectAsset }) => {
+export const MarketUtilityDashboard: React.FC<Props> = ({ scan, candidateGate, decision, positionHealth, onInspectAsset }) => {
   const [taxRevision, setTaxRevision] = useState(0);
   const [brokerRevision, setBrokerRevision] = useState(0);
   // Explicit local-only research opt-in; never stored or sent to the backend.
@@ -112,6 +115,47 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
       scanIdentity: buildH2CurrentScanIdentity(scan)
     });
   }, [h2ResearchEnabled, portfolioDecision, portfolio, scan, decision.asOfDate, taxRevision]);
+
+  // Read-only OHLCV context for the SAME gate/decision. No second scanner,
+  // no selector, no threshold change and no authority to create orders.
+  const priceVolumeResearch = useMemo(() => {
+    if (!h2ResearchEnabled) return null;
+    const gateByAssetId = new Map((candidateGate?.entries ?? []).map(row => [row.assetId, row] as const));
+    const seriesByAssetId = new Map(scan.acceptedDataset.assets.map(row => [row.assetId, row] as const));
+    const rows = scan.candidates.filter(candidate => candidate.status === 'ACCEPTED').map(candidate => {
+      const series = seriesByAssetId.get(candidate.asset.assetId);
+      const evidence = assessPriceVolumeEvidence({
+        bars: candidate.response?.bars ?? series?.bars ?? null,
+        informationDate: candidate.asOfDate ?? decision.asOfDate.slice(0, 10),
+        provenance: candidate.response?.provenance.sourceType ?? series?.provenance.sourceType ?? null,
+        instrumentType: candidate.asset.instrumentType
+      });
+      const gate = gateByAssetId.get(candidate.asset.assetId);
+      return {
+        assetId: candidate.asset.assetId,
+        ticker: candidate.asset.ticker,
+        quoteCurrency: candidate.asset.currency,
+        gateStatus: gate?.status ?? 'UNKNOWN',
+        gateReason: gate?.reason ?? 'UNKNOWN',
+        ...evidence
+      };
+    });
+    const highVolumeBreakouts = rows.filter(row => row.highVolumeBreakout === true);
+    const highVolumeBreakdowns = rows.filter(row => row.highVolumeBreakdown === true);
+    return {
+      version: 'PRICE_VOLUME_RESEARCH_READOUT_V1' as const,
+      informationDate: decision.asOfDate,
+      observedCount: rows.length,
+      realVolumeAvailableCount: rows.filter(row => row.state === 'REAL_EOD_AVAILABLE').length,
+      unavailableCount: rows.filter(row => row.state !== 'REAL_EOD_AVAILABLE').length,
+      highVolumeBreakoutCount: highVolumeBreakouts.length,
+      highVolumeBreakdownCount: highVolumeBreakdowns.length,
+      topBreakouts: [...highVolumeBreakouts]
+        .sort((a, b) => (b.relativeVolume50 ?? 0) - (a.relativeVolume50 ?? 0))
+        .slice(0, 8),
+      rows
+    };
+  }, [h2ResearchEnabled, scan, candidateGate, decision.asOfDate]);
 
   const executionPlan = useMemo(() => {
     const raw = buildPortfolioExecutionPlan({
@@ -171,6 +215,21 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
             <p>Fecha de información: {h2Readout.informationDate}. Pares: {h2Readout.pairCount}; fuente REAL en ambos extremos: {h2Readout.realProvenancePairs}; cobertura FIFO conocida: {h2Readout.fifoCoveredPairs}.</p>
             <p>Resultado económico neto: N/D. Las diferencias de momentum no son rentabilidad prevista.</p>
             <p>H1 · financiación: capital desplegable {h2Readout.newMoneyAllocationAudit.baseDeployableToAssetsEur.toFixed(2)} €; propuestas {h2Readout.newMoneyAllocationAudit.proposedContributionsEur == null ? 'N/D por rotaciones' : `${h2Readout.newMoneyAllocationAudit.proposedContributionsEur.toFixed(2)} €`}; sin asignar {h2Readout.newMoneyAllocationAudit.unassignedDeployableEur == null ? 'N/D' : `${h2Readout.newMoneyAllocationAudit.unassignedDeployableEur.toFixed(2)} €`}. El remanente no equivale a una oportunidad perdida ni a dinero nuevo.</p>
+            {priceVolumeResearch && <div className="mt-3 border-t border-slate-700 pt-2">
+              <p className="font-bold text-cyan-200">Rupturas precio-volumen · investigación causal</p>
+              <p>Activos evaluados: {priceVolumeResearch.observedCount}; OHLCV REAL completo: {priceVolumeResearch.realVolumeAvailableCount}; sin volumen verificable: {priceVolumeResearch.unavailableCount}; rupturas alcistas con volumen elevado: {priceVolumeResearch.highVolumeBreakoutCount}; rupturas bajistas: {priceVolumeResearch.highVolumeBreakdownCount}.</p>
+              <p className="text-slate-400">Referencia: máximos/mínimos de 20 sesiones anteriores, volumen de la última barra diaria respecto a las 50 anteriores y contracción de las 5 sesiones previas frente a las 5 precedentes. Datos de cierre sujetos a confirmación del proveedor. No identifica compras institucionales, no predice rentabilidad y no modifica las órdenes.</p>
+              {priceVolumeResearch.topBreakouts.length > 0 && <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[520px] text-left text-[11px]">
+                <thead><tr className="border-b border-slate-700 text-slate-400"><th className="py-1 pr-2">Ticker</th><th className="py-1 pr-2">Volumen/50d</th><th className="py-1 pr-2">Contracción 5/5</th><th className="py-1">Veto actual del motor</th></tr></thead>
+                <tbody>{priceVolumeResearch.topBreakouts.map(row => <tr key={row.assetId} className="border-b border-slate-800">
+                  <td className="py-1 pr-2 font-mono">{row.ticker} ({row.quoteCurrency})</td>
+                  <td className="py-1 pr-2">{row.relativeVolume50?.toFixed(2) ?? 'N/D'}×</td>
+                  <td className="py-1 pr-2">{row.preBreakoutVolumeContraction5v5?.toFixed(2) ?? 'N/D'}×</td>
+                  <td className="py-1">{row.gateStatus}: {row.gateReason}</td>
+                </tr>)}</tbody>
+              </table></div>}
+              {priceVolumeResearch.topBreakouts.length === 0 && <p className="text-slate-400">Ninguna ruptura alcista con volumen elevado registrada en este escaneo; ausencia de evento no equivale a señal de venta ni a rentabilidad futura negativa.</p>}
+            </div>}
             {(h2Readout.scanIdentity?.usdResearchCandidates.length ?? 0) > 0 && <div className="mt-2 border-t border-slate-700 pt-2">
               <p className="font-bold text-cyan-200">Mercado USD · investigación integrada</p>
               <p className="text-slate-400">Candidatos americanos evaluados en EUR mediante FX REAL causal. No compiten por órdenes productivas hasta verificar cambio de divisa, bróker y fiscalidad.</p>
@@ -208,6 +267,7 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, decision, positi
             <button type="button" className="mt-1 rounded-md border border-slate-600 px-3 py-2 text-slate-100"
               onClick={() => downloadJsonFile(`h2-research-${h2Readout.informationDate.slice(0, 10)}.json`, {
                 ...h2Readout,
+                priceVolumeEvidence: priceVolumeResearch,
                 exportedAtUtc: new Date().toISOString(),
                 captureSemantics: 'LIVE_EXPORT_CURRENT_SCANNER_NOT_HISTORICAL_RECONSTRUCTION'
               })}>
