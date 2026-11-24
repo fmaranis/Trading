@@ -304,4 +304,17 @@ check('1036 volume evidence stays inside opt-in audit of one production decision
   assert.doesNotMatch(priceVolumeEvidenceSource, /PortfolioCandidateGate|InvestmentDecisionEngine|PortfolioDecisionEngine|buildPortfolioExecutionPlan|applyPortfolioExecutionLine/);
 });
 
-console.log(`Product surface closure V1: ${passed}/36 invariants passed.`);
+check('1037 actionable zero-order explanation reuses product gate without a parallel recommendation', () => {
+  assert.match(interactive, /setCandidateGate\(gate\); setScan\(gate\.scan\)/);
+  assert.match(interactive, /candidateGate=\{candidateGate\}/);
+  assert.match(marketDashboard, /<CurrentOpportunityAlertsPanel scan=\{scan\} candidateGate=\{candidateGate\}/);
+  assert.match(alerts, /candidateGate: PortfolioCandidateGateResult \| null/);
+  assert.match(alerts, /candidateGate\.scan !== scan/);
+  assert.match(alerts, /gateExplanation\.reasons\.slice\(0, 4\)/);
+  assert.match(alerts, /Por qué hoy no se invierte el capital disponible/);
+  assert.match(alerts, /aproximación basada en momentum histórico de 120 sesiones/);
+  assert.match(alerts, /OUTSIDE_DYNAMIC_MARKET_SHORTLIST/);
+  assert.doesNotMatch(alerts, /PortfolioCandidateGate\.apply\(/);
+});
+
+console.log(`Product surface closure V1: ${passed}/37 invariants passed.`);
