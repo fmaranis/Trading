@@ -117,7 +117,7 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, candidate
     const outsideShortlist = rejected.filter(row => row.reason === 'OUTSIDE_DYNAMIC_MARKET_SHORTLIST').length;
     // A rejected scanner row (e.g. missing FX) never reached the economic filters.
     // Use the gate's own scan; USD rows are diagnostic-only even if data is valid.
-    const candidatesById = new Map(scan.candidates.map(candidate => [candidate.asset.assetId, candidate] as const));
+    const candidatesById = new Map<string, AssetUniverseScanResult['candidates'][number]>(scan.candidates.map(candidate => [candidate.asset.assetId, candidate] as const));
     const evaluated = candidateGate.entries.filter(row => {
       const candidate = candidatesById.get(row.assetId);
       return candidate?.status === 'ACCEPTED' && candidate.asset.currency === 'EUR' && row.reason !== 'OUTSIDE_DYNAMIC_MARKET_SHORTLIST';
