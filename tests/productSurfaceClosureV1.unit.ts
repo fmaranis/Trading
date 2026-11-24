@@ -32,6 +32,8 @@ const authSecurity = read('server/authSecurity.ts');
 const portfolioManagementAlerts = read('server/portfolioManagementAlerts.ts');
 const telegramNotifier = read('server/telegramNotifier.ts');
 const portfolioEvolution = read('src/components/PortfolioEvolutionChart.tsx');
+const priceVolumeEvidenceSource = read('src/investment/decision/priceVolumeEvidence.ts');
+const marketUtilityDashboard = read('src/components/MarketUtilityDashboard.tsx');
 const userPortfolioPanel = read('src/components/UserPortfolioPanel.tsx');
 
 check('1001 root product starts at the canonical decision entrypoint', () => {
@@ -286,4 +288,18 @@ check('1035 unverified historical financing cannot appear as real portfolio perf
   assert.match(portfolioEvolution, /externalContributionEur: 0, cashDeltaEur: -lot\.acquisitionCostEur/);
 });
 
-console.log(`Product surface closure V1: ${passed}/35 invariants passed.`);
+check('1036 volume evidence stays inside opt-in audit of one production decision', () => {
+  assert.match(priceVolumeEvidenceSource, /authority: 'RESEARCH_ONLY'/);
+  assert.match(priceVolumeEvidenceSource, /institutionalBuyerIdentified: false/);
+  assert.match(priceVolumeEvidenceSource, /if \(input\.provenance !== 'REAL'\)/);
+  assert.match(priceVolumeEvidenceSource, /bar\.timestamp\.slice\(0, 10\) <= input\.informationDate/);
+  assert.match(marketUtilityDashboard, /if \(!h2ResearchEnabled\) return null/);
+  assert.match(marketUtilityDashboard, /assessPriceVolumeEvidence\(/);
+  assert.match(marketUtilityDashboard, /priceVolumeEvidence: priceVolumeResearch/);
+  assert.match(marketUtilityDashboard, /const portfolioDecision = useMemo/);
+  assert.match(marketUtilityDashboard, /const executionPlan = useMemo/);
+  assert.match(interactive, /candidateGate=\{candidateGate\}/);
+  assert.doesNotMatch(priceVolumeEvidenceSource, /PortfolioCandidateGate|InvestmentDecisionEngine|PortfolioDecisionEngine|buildPortfolioExecutionPlan|applyPortfolioExecutionLine/);
+});
+
+console.log(`Product surface closure V1: ${passed}/36 invariants passed.`);
