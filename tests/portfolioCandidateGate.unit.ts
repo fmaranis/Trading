@@ -269,4 +269,11 @@ const unchangedGateAfterPriceVolume = PortfolioCandidateGate.apply(scan, 2.5, 12
 check('734 price-volume readout never changes the unique production gate or its selected instruments',
   JSON.stringify(unchangedGateAfterPriceVolume) === JSON.stringify(result));
 
+const moderateVolumeBars = breakoutBars.map(bar => ({ ...bar }));
+moderateVolumeBars.at(-1)!.volume = 2000;
+const moderateVolume = assessPriceVolumeEvidence({ ...volumeInput, bars: moderateVolumeBars });
+check('735 2x volume reports the raw ratio but cannot trigger the frozen 2.5x large-volume label',
+  moderateVolume.relativeVolume50 === 2 && moderateVolume.priceBreakout20 === true
+  && moderateVolume.highVolumeBreakout === false);
+
 console.log(`Portfolio candidate gate: ${passed} invariants passed.`);
