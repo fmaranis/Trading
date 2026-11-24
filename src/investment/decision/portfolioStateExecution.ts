@@ -18,8 +18,33 @@ function liquidity(state: UserPortfolioState): number {
   return Math.max(0, state.cashEur) + Math.max(0, state.stagedCapitalPlan?.availableEur ?? 0);
 }
 
+function requirePositiveFiniteEur(value: number | null | undefined, label: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    throw new Error(`Importe inválido en ${label}: debe ser un número real y positivo.`);
+  }
+  return value;
+}
+
+function requireValidFee(value: number | null | undefined): number {
+  if (value == null) return 0;
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error('Comisión inválida: debe ser finita y no negativa.');
+  }
+  return value;
+}
+
+function requireValidShares(value: number | null | undefined, wholeShares: boolean): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 ||
+    (wholeShares && !Number.isSafeInteger(value))) {
+    throw new Error(wholeShares
+      ? 'Cantidad de títulos inválida: se requieren títulos enteros y positivos.'
+      : 'Participaciones inválidas: se requiere una cantidad finita y positiva.');
+  }
+  return value;
+}
+
 function consumeLiquidity(state: UserPortfolioState, amountEur: number): UserPortfolioState {
-  const amount = Math.max(0, amountEur);
+  const amount = requirePositiveFiniteEur(amountEur, 'operación');
   const available = liquidity(state);
   if (amount > available + 1e-6) throw new Error(`Liquidez insuficiente: se necesitan ${amount.toFixed(2)} € y hay ${available.toFixed(2)} € disponibles.`);
 
@@ -91,7 +116,11 @@ function reduceFundPosition(funds: FundPosition[], line: PortfolioExecutionLine,
   const source = funds.find(fund => fund.id === line.sourceId || (!!line.sourceIsin && fund.isin.toUpperCase() === line.sourceIsin.toUpperCase()));
   if (!source) throw new Error('No se encuentra el fondo origen en la cartera actual.');
   const currentValue = Math.max(0, source.currentValueEur ?? source.investedEur);
-  const amount = Math.min(currentValue, Math.max(0, requestedAmountEur));
+  const requested = requirePositiveFiniteEur(requestedAmountEur, 'reembolso o traspaso del fondo');
+  if (requested > currentValue + 0.005) {
+    throw new Error('No se puede registrar un reembolso o traspaso superior al valor disponible del fondo.');
+  }
+  const amount = Math.min(currentValue, requested);
   if (amount <= 0) throw new Error('El importe a reducir del fondo no es válido.');
   const remainingValue = Math.max(0, currentValue - amount);
   const ratio = currentValue > 0 ? remainingValue / currentValue : 0;
@@ -112,6 +141,11 @@ export function applyPortfolioExecutionLine(portfolio: UserPortfolioState, line:
   if (line.quoteCurrency === 'USD') {
     throw new Error('USD_EXECUTION_NOT_SUPPORTED: falta tipo de cambio efectivo, costes y fiscalidad; no se puede registrar como EUR.');
   }
+  if (!Number.isFinite(portfolio.cashEur) || portfolio.cashEur < 0 ||
+    !Number.isFinite(portfolio.stagedCapitalPlan?.availableEur ?? 0) ||
+    (portfolio.stagedCapitalPlan?.availableEur ?? 0) < 0) {
+    throw new Error('LIQUIDITY_STATE_INVALID: revisar los saldos antes de registrar una operación.');
+  }
 
   const liquidityBeforeEur = liquidity(portfolio);
   let next: UserPortfolioState = {
@@ -128,42 +162,43 @@ export function applyPortfolioExecutionLine(portfolio: UserPortfolioState, line:
 
   if (line.action === 'BUY_ETF') {
     const ticker = line.targetTicker;
-    const shares = Number(line.shares ?? 0);
-    const notional = Number(line.amountEur ?? 0);
-    const fee = Math.max(0, Number(line.estimatedFeeEur ?? 0));
-    if (!ticker || shares <= 0 || notional <= 0) throw new Error('La compra ETF no tiene ticker, títulos o importe válidos.');
+    if (!ticker) throw new Error('La compra ETF no tiene ticker.');
+    const shares = requireValidShares(line.shares, true);
+    const notional = requirePositiveFiniteEur(line.amountEur, 'compra de títulos');
+    const fee = requireValidFee(line.estimatedFeeEur);
     next = consumeLiquidity(next, notional + fee);
     next.holdings = addHolding(next.holdings, ticker, shares);
     description = `Compra aplicada: +${shares} ${ticker}; liquidez -${(notional + fee).toFixed(2)} €.`;
   } else if (line.action === 'SELL_ETF') {
     const ticker = line.targetTicker ?? line.sourceId;
-    const shares = Number(line.shares ?? 0);
-    const notional = Number(line.amountEur ?? 0);
-    const fee = Math.max(0, Number(line.estimatedFeeEur ?? 0));
-    if (!ticker || shares <= 0 || notional <= 0) throw new Error('La venta ETF no tiene ticker, títulos o importe válidos.');
+    if (!ticker) throw new Error('La venta ETF no tiene ticker.');
+    const shares = requireValidShares(line.shares, true);
+    const notional = requirePositiveFiniteEur(line.amountEur, 'venta de títulos');
+    const fee = requireValidFee(line.estimatedFeeEur);
+    if (fee > notional) throw new Error('La comisión supera el nominal de la venta.');
     next.holdings = reduceHolding(next.holdings, ticker, shares);
     next.cashEur += Math.max(0, notional - fee);
     description = `Venta aplicada: -${shares} ${ticker}; efectivo +${Math.max(0, notional - fee).toFixed(2)} € netos de comisión. La reserva fiscal estimada se muestra en el plan y no se descuenta del saldo real del broker.`;
   } else if (line.action === 'SUBSCRIBE_FUND') {
-    const amount = Number(line.amountEur ?? 0);
-    if (amount <= 0) throw new Error('La suscripción no tiene un importe válido.');
+    const amount = requirePositiveFiniteEur(line.amountEur, 'suscripción de fondo');
+    if (line.shares != null) requireValidShares(line.shares, false);
     next = consumeLiquidity(next, amount);
     next.funds = addFundPosition(next.funds ?? [], line, amount);
     const units = line.shares != null && Number(line.shares) > 0 ? ` · +${Number(line.shares)} participaciones registradas` : ' · participaciones pendientes de confirmar';
     description = `Suscripción aplicada: ${line.targetName ?? line.targetIsin ?? 'fondo'} +${amount.toFixed(2)} €${units}.`;
   } else if (line.action === 'REDEEM_FUND') {
-    const requested = Number(line.amountEur ?? 0);
-    if (requested <= 0) throw new Error('El reembolso no tiene un importe válido.');
+    const requested = requirePositiveFiniteEur(line.amountEur, 'reembolso de fondo');
     const reduced = reduceFundPosition(next.funds ?? [], line, requested);
     next.funds = reduced.funds;
     next.cashEur += reduced.amountEur;
     description = `Reembolso aplicado: ${line.sourceLabel ?? line.sourceIsin ?? 'fondo'} -${reduced.amountEur.toFixed(2)} €; efectivo bruto actualizado. La estimación fiscal queda separada del saldo real.`;
   } else if (line.action === 'TRANSFER_FUND') {
-    const requested = Number(line.amountEur ?? 0);
-    if (requested <= 0) throw new Error('El traspaso no tiene un importe válido.');
+    const requested = requirePositiveFiniteEur(line.amountEur, 'traspaso de fondo');
     const reduced = reduceFundPosition(next.funds ?? [], line, requested);
     next.funds = addFundPosition(reduced.funds, line, reduced.amountEur);
     description = `Traspaso aplicado: ${reduced.amountEur.toFixed(2)} € de ${line.sourceLabel ?? 'fondo origen'} a ${line.targetName ?? 'fondo destino'}; la liquidez no cambia.`;
+  } else {
+    throw new Error('Acción de ejecución desconocida: operación no registrada.');
   }
 
   next.updatedAt = new Date().toISOString();
