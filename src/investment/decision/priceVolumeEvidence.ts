@@ -171,7 +171,7 @@ export function summarizeReplayWaitPriceVolume(input: {
     let valid = true;
     for (let i = 0; i < asset.bars.length; i++) {
       const d = date(asset.bars[i]);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d <= previous) { valid = false; break; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !Number.isFinite(Date.parse(d + 'T00:00:00Z')) || d <= previous) { valid = false; break; }
       byDate.set(d, i);
       previous = d;
     }
