@@ -100,8 +100,9 @@ export function assessPriceVolumeEvidence(input: {
     relativeVolume50,
     preBreakoutVolumeContraction5v5,
     // Research descriptors, not optimized production thresholds.
-    // >=1.5x volume is the published generic "above-average" category.
-    highVolumeBreakout: priceBreakout20 && relativeVolume50 >= 1.5,
-    highVolumeBreakdown: priceBreakdown20 && relativeVolume50 >= 1.5
+    // >=2.5x is a predeclared large-volume research convention from
+    // published O\u0027Neil-style breakout analyses, not a tuned production gate.
+    highVolumeBreakout: priceBreakout20 && relativeVolume50 >= 2.5,
+    highVolumeBreakdown: priceBreakdown20 && relativeVolume50 >= 2.5
   };
 }
