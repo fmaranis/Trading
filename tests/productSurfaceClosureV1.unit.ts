@@ -271,7 +271,9 @@ check('1035 unverified historical financing cannot appear as real portfolio perf
   // The live stored liquidity and the reconstructed cash MUST reconcile before charts,
   // historical capital or performance are displayed.
   assert.match(portfolioEvolution, /last\.cashEur - registeredLiquidityEur/);
-  assert.match(portfolioEvolution, /Math\.abs\(cashReconciliationGapEur\) <= 1 && inferredContributionsEur < 0\.005/);
+  assert.match(portfolioEvolution, /Math\.abs\(cashReconciliationGapEur\) <= 1/);
+  assert.match(portfolioEvolution, /inferredContributionsEur < 0\.005/);
+  assert.match(portfolioEvolution, /result\?\.inferredEvents === 0/);
   assert.match(portfolioEvolution, /last && !evidenceReconciled/);
   assert.match(portfolioEvolution, /HISTÓRICO NO CONCILIADO · rentabilidad N\/D/);
   assert.match(portfolioEvolution, /last && evidenceReconciled/);
