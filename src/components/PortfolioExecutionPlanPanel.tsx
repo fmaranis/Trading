@@ -60,6 +60,7 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, executionPl
   const [lastExecution, setLastExecution] = useState<PortfolioStateExecutionReceipt | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [brokerConfirmedLineId, setBrokerConfirmedLineId] = useState<string | null>(null);
+  const [settlementDrafts, setSettlementDrafts] = useState<Record<string, { amount: string; shares: string; fee: string }>>({});
 
   useEffect(() => {
     setPlan(PortfolioExecutionPlanService.save(executionPlan));
@@ -68,6 +69,19 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, executionPl
   const pending = useMemo(() => plan.lines.filter(line => line.status === 'PENDING').length, [plan]);
   const actionable = useMemo(() => plan.lines.filter(line => line.status === 'PENDING' && ['BUY_ETF','SELL_ETF','SUBSCRIBE_FUND','TRANSFER_FUND','REDEEM_FUND'].includes(line.action)), [plan]);
   const reviews = useMemo(() => plan.lines.filter(line => line.status === 'PENDING' && line.action === 'REVIEW'), [plan]);
+
+  const settlementDraft = (line: PortfolioExecutionPlan['lines'][number]) => settlementDrafts[line.id] ?? {
+    amount: line.amountEur == null ? '' : line.amountEur.toFixed(2),
+    shares: line.shares == null ? '' : String(line.shares),
+    fee: line.estimatedFeeEur == null ? '0' : line.estimatedFeeEur.toFixed(2)
+  };
+  const editSettlement = (line: PortfolioExecutionPlan['lines'][number], patch: Partial<{ amount: string; shares: string; fee: string }>) => {
+    setSettlementDrafts(previous => ({
+      ...previous,
+      [line.id]: { ...settlementDraft(line), ...patch }
+    }));
+    setBrokerConfirmedLineId(null);
+  };
 
   const saveTaxSettings = () => {
     const saved = SpanishTaxSettingsService.save(taxSettings);
@@ -80,9 +94,22 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, executionPl
       if (brokerConfirmedLineId !== line.id) {
         throw new Error('Confirma primero que esta operación consta ejecutada en MyInvestor.');
       }
-      const receipt = PortfolioStateExecutionService.execute(line);
+      // Buy/subscription fills have their own single actual-amount registration
+      // form above. Detailed plan execution is for sales and fund movements.
+      if (!['SELL_ETF', 'REDEEM_FUND', 'TRANSFER_FUND'].includes(line.action)) {
+        throw new Error('Registra compras y suscripciones en el formulario de compra ejecutada.');
+      }
+      const draft = settlementDraft(line);
+      const actualLine: PortfolioExecutionPlan['lines'][number] = {
+        ...line,
+        amountEur: Number(draft.amount),
+        shares: line.action === 'SELL_ETF' ? Number(draft.shares) : line.shares,
+        estimatedFeeEur: line.action === 'SELL_ETF' ? Number(draft.fee) : line.estimatedFeeEur
+      };
+      const receipt = PortfolioStateExecutionService.execute(actualLine);
       setLastExecution(receipt);
       setBrokerConfirmedLineId(null);
+      setSettlementDrafts(previous => { const next = { ...previous }; delete next[line.id]; return next; });
       setPlan(previous => ({ ...previous, lines: previous.lines.map(row => row.id === line.id ? { ...row, status: 'DONE' } : row) }));
     } catch (error: any) {
       setExecutionError(error?.message || String(error));
@@ -129,15 +156,32 @@ export const PortfolioExecutionPlanPanel: React.FC<Props> = ({ scan, executionPl
       const availabilityKey = targetAsset ? (targetAsset.isin ?? targetAsset.ticker) : (line.targetIsin ?? line.targetTicker ?? null);
       const needsTargetAvailability = ['BUY_ETF', 'SUBSCRIBE_FUND', 'TRANSFER_FUND'].includes(line.action) && Boolean(availabilityKey);
       const unavailable = needsTargetAvailability && availability?.status === 'USER_CONFIRMED_UNAVAILABLE';
-      const canApply = line.status === 'PENDING' && ['BUY_ETF','SELL_ETF','SUBSCRIBE_FUND','TRANSFER_FUND','REDEEM_FUND'].includes(line.action) && !unavailable;
+      const isPurchase = line.status === 'PENDING' && ['BUY_ETF', 'SUBSCRIBE_FUND'].includes(line.action) && !unavailable;
+      const canApply = line.status === 'PENDING' && ['SELL_ETF', 'TRANSFER_FUND', 'REDEEM_FUND'].includes(line.action) && !unavailable;
+      const actualDraft = settlementDraft(line);
       const displayTicker = line.targetTicker ?? targetAsset?.ticker ?? null;
       const inspectKey = line.instrumentType === 'MUTUAL_FUND' ? (line.targetIsin ?? line.sourceIsin ?? line.targetTicker ?? null) : (line.targetTicker ?? line.targetIsin ?? null);
       return <article key={line.id} className={`rounded-xl border p-4 ${line.status === 'DONE' ? 'border-emerald-500/20 bg-emerald-500/5 opacity-70' : 'border-slate-800 bg-slate-950/70'}`}>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs text-slate-500">{index + 1}</span><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${actionClass(line.action)}`}>{actionLabel(line.action, displayTicker)}</span>{line.status === 'DONE' && <span className="rounded-full border border-emerald-500/25 px-2 py-1 text-[9px] font-bold text-emerald-200">REGISTRADA</span>}</div><div className="mt-2 text-sm font-semibold text-white">{line.instruction}</div><details className="mt-2"><summary className="touch-target flex cursor-pointer items-center text-[10px] text-slate-500">Por qué</summary><div className="mt-1 text-[10px] text-slate-500">{line.rationale}</div></details></div>{line.status === 'PENDING' && <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">{inspectKey && onInspectAsset && <button type="button" onClick={() => onInspectAsset(inspectKey)} className="touch-target flex items-center justify-center gap-1 rounded-lg border border-cyan-500/30 px-3 py-2 text-[10px] font-bold text-cyan-200"><BarChart3 className="h-3 w-3"/>Ver gráfica</button>}{canApply && <div className="flex flex-col gap-2">
-          <label className="flex max-w-64 items-start gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={brokerConfirmedLineId === line.id} onChange={event => setBrokerConfirmedLineId(event.target.checked ? line.id : null)} className="mt-0.5"/>He comprobado que MyInvestor ya ha ejecutado esta operación.</label>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs text-slate-500">{index + 1}</span><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${actionClass(line.action)}`}>{actionLabel(line.action, displayTicker)}</span>{line.status === 'DONE' && <span className="rounded-full border border-emerald-500/25 px-2 py-1 text-[9px] font-bold text-emerald-200">REGISTRADA</span>}</div><div className="mt-2 text-sm font-semibold text-white">{line.instruction}</div><details className="mt-2"><summary className="touch-target flex cursor-pointer items-center text-[10px] text-slate-500">Por qué</summary><div className="mt-1 text-[10px] text-slate-500">{line.rationale}</div></details></div>{line.status === 'PENDING' && <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">{inspectKey && onInspectAsset && <button type="button" onClick={() => onInspectAsset(inspectKey)} className="touch-target flex items-center justify-center gap-1 rounded-lg border border-cyan-500/30 px-3 py-2 text-[10px] font-bold text-cyan-200"><BarChart3 className="h-3 w-3"/>Ver gráfica</button>}{isPurchase && <a href="#register-real-purchase" className="touch-target flex items-center justify-center rounded-lg border border-emerald-500/30 px-3 py-2 text-[10px] font-bold text-emerald-200">Registrar importe real de compra</a>}{canApply && <div className="flex flex-col gap-2">
+          <label className="flex max-w-64 items-start gap-2 text-[10px] text-slate-300"><input type="checkbox" checked={brokerConfirmedLineId === line.id} onChange={event => setBrokerConfirmedLineId(event.target.checked ? line.id : null)} className="mt-0.5"/>He comprobado que MyInvestor ya ha ejecutado esta operación y estos importes son los reales.</label>
           <button type="button" disabled={brokerConfirmedLineId !== line.id} onClick={() => applyLine(line)} className="touch-target flex items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"><Check className="h-3 w-3"/>Registrar operación ejecutada</button>
         </div>}</div>}</div>
         <div className="mt-3 flex flex-wrap gap-2 text-[10px]">{line.targetTicker && <span className="rounded-lg bg-slate-900 px-2 py-1 font-mono">Ticker {line.targetTicker}</span>}{line.targetIsin && <span className="rounded-lg bg-slate-900 px-2 py-1 font-mono text-cyan-200">ISIN {line.targetIsin}</span>}{line.amountEur != null && <span className="rounded-lg bg-slate-900 px-2 py-1">{line.amountEur.toFixed(2)} €</span>}{line.shares != null && <span className="rounded-lg bg-slate-900 px-2 py-1">{line.shares} títulos</span>}{line.estimatedFeeEur != null && <span className="rounded-lg bg-slate-900 px-2 py-1">comisión {line.estimatedFeeEur.toFixed(2)} €</span>}</div>
+        {canApply && <div className="mt-3 grid gap-2 rounded-lg border border-cyan-500/20 bg-slate-900/60 p-3 sm:grid-cols-3">
+          <label className="text-[10px] text-slate-300">Importe bruto realmente ejecutado (€)
+            <input type="number" min="0" step="0.01" value={actualDraft.amount} onChange={event => editSettlement(line, { amount: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 p-2 font-mono text-xs text-white"/>
+          </label>
+          {line.action === 'SELL_ETF' && <>
+            <label className="text-[10px] text-slate-300">Títulos realmente vendidos
+              <input type="number" min="1" step="1" value={actualDraft.shares} onChange={event => editSettlement(line, { shares: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 p-2 font-mono text-xs text-white"/>
+            </label>
+            <label className="text-[10px] text-slate-300">Comisión real (€)
+              <input type="number" min="0" step="0.01" value={actualDraft.fee} onChange={event => editSettlement(line, { fee: event.target.value })} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 p-2 font-mono text-xs text-white"/>
+            </label>
+          </>}
+          {line.action !== 'SELL_ETF' && <p className="text-[10px] text-slate-400 sm:col-span-2">El importe registrado debe coincidir con el reembolso o traspaso confirmado. La estimación fiscal del plan puede cambiar con la ejecución real.</p>}
+        </div>}
+
         {needsTargetAvailability && availability && availabilityKey && <div className={`mt-3 rounded-lg border p-3 text-[10px] ${availabilityClass(availability.status)}`}><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><b>MyInvestor:</b> {availabilityLabel(availability.status, availability.evidence)}<div className="mt-1 opacity-75">Código de búsqueda: <span className="font-mono">{availabilityKey}</span></div></div><div>{availability.status === 'USER_CONFIRMED_UNAVAILABLE' ? <button type="button" onClick={() => resetAvailability(availabilityKey)} className="touch-target rounded-md border border-cyan-500/40 px-2 py-1 font-bold text-cyan-200">Volver a asumir disponible</button> : <button type="button" onClick={() => markUnavailable(availabilityKey)} className="touch-target rounded-md border border-rose-500/40 px-2 py-1 text-rose-200">No está disponible</button>}</div></div></div>}
         {line.taxNote && <details className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 text-[10px] text-amber-100"><summary className="touch-target flex cursor-pointer items-center font-bold">Fiscalidad / fricción de salida</summary><div className="mt-1">{line.taxNote}</div></details>}
       </article>;
