@@ -92,7 +92,8 @@ function cashOnlyDecision(scan: AssetUniverseScanResult, capitalEur: number, ris
   const asOfDate = scan.candidates.filter(c => c.status === 'ACCEPTED' && c.asOfDate).map(c => c.asOfDate!).sort().at(-1) ?? isoDate(new Date());
   return {
     generatedAt: new Date().toISOString(), asOfDate, dataAgeDays: 0, currency: 'EUR', capitalEur, riskProfile, horizonYears,
-    marketRegime: 'UNKNOWN', regimeTrendPct: null, regimeVolatilityPct: null, confidence: 'MEDIUM', confidenceScore: 70,
+    marketRegime: 'UNKNOWN', regimeTrendPct: null, regimeVolatilityPct: null,
+    confidence: hasAcceptedMarketData ? 'MEDIUM' : 'LOW', confidenceScore: hasAcceptedMarketData ? 70 : 0,
     recommendedMethod: methodFor(riskProfile), cashWeight: 1, cashAmountEur: capitalEur, assets: [],
     portfolioDatasetFingerprint: `CASH_ONLY:${asOfDate}`, evidence: 'REAL_ONLY',
     warnings: hasAcceptedMarketData
