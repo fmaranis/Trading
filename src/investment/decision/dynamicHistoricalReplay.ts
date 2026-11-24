@@ -35,6 +35,7 @@ export type {
 } from './replayExternalCashFlows';
 
 export interface DynamicHistoricalReplayResult extends CoreDynamicHistoricalReplayResult {
+  researchPriceVolumeOutcomes?: ReturnType<typeof import('./priceVolumeEvidence').summarizeReplayWaitPriceVolume>;
   cashBenchmarkMode: CashBenchmarkMode;
   cashBenchmarkFixedAnnualPct: number;
   cashInterestTaxEur: number;
