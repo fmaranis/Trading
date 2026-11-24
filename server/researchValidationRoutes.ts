@@ -2,9 +2,29 @@ import express, { Request, Response } from 'express';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { readRemoteKronosCheckpoint, countKronosPaths, assertKronosMonotone } from '../scripts/kronosStageBDurableStore.mjs';
+import { pathToFileURL } from 'node:url';
 import { loadDurableJobState, reconcileLoadedJobState, saveDurableJobState } from './researchValidationStateStore.mjs';
 import { checkTimesFmRemoteEndpoint, fetchTimesFmMultivariateRunnerStatus, fetchTimesFmRemoteState, fetchTimesFmZeroGpuQuota, reconcileTimesFmState, timesFmHfTokenConfigured, timesFmRemoteRunnerConfigured, TIMESFM_REMOTE_JOB_ID } from './timesfmRemoteRunner';
+
+interface KronosDurableStoreModule {
+  readRemoteKronosCheckpoint: () => Promise<Record<string, any> | null>;
+  countKronosPaths: (p: Record<string, any>) => number;
+  assertKronosMonotone: (previous: Record<string, any>, next: Record<string, any>) => boolean;
+}
+
+const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
+let kronosDurableStorePromise: Promise<KronosDurableStoreModule> | null = null;
+
+function loadKronosDurableStore(): Promise<KronosDurableStoreModule> {
+  if (!kronosDurableStorePromise) {
+    const storeUrl = pathToFileURL(path.resolve(process.cwd(), 'scripts', 'kronosStageBDurableStore.mjs')).href;
+    kronosDurableStorePromise = importEsm<KronosDurableStoreModule>(storeUrl).catch((error) => {
+      kronosDurableStorePromise = null;
+      throw error;
+    });
+  }
+  return kronosDurableStorePromise;
+}
 
 export const researchValidationRouter = express.Router();
 
@@ -1020,6 +1040,7 @@ researchValidationRouter.get('/kronos-stage-b/checkpoint/status', async (_req: R
   if (process.env.NODE_ENV === 'production') { res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY' }); return; }
   res.setHeader('Cache-Control', 'no-store');
   try {
+    const { readRemoteKronosCheckpoint, countKronosPaths, assertKronosMonotone } = await loadKronosDurableStore();
     const local = readKronosCheckpoint();
     if (local) validateKronosCheckpointData(local);
     // Remote is authoritative across AI Studio rebuilds; unavailable remote is
@@ -1048,6 +1069,7 @@ researchValidationRouter.get('/kronos-stage-b/checkpoint/status', async (_req: R
 researchValidationRouter.get('/kronos-stage-b/checkpoint/download', async (_req: Request, res: Response): Promise<void> => {
   if (process.env.NODE_ENV === 'production') { res.status(403).json({ error: 'RESEARCH_VALIDATION_LOCAL_ONLY' }); return; }
   try {
+    const { readRemoteKronosCheckpoint, countKronosPaths, assertKronosMonotone } = await loadKronosDurableStore();
     const local = readKronosCheckpoint();
     if (local) validateKronosCheckpointData(local);
     const remote = await readRemoteKronosCheckpoint();
