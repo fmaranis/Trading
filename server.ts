@@ -377,7 +377,22 @@ async function startServer() {
     next();
   });
 
-  app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+  app.get('/api/health', async (_req, res) => {
+    let buildCommitSha: string | null = null;
+    let buildProvenance = process.env.NODE_ENV === 'production' ? 'UNVERIFIED_BUILD_SOURCE' : 'DEV_RUNTIME_UNVERSIONED';
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        const manifest = JSON.parse(await readFile(path.resolve(process.cwd(), 'dist/build-identity.json'), 'utf8'));
+        if (typeof manifest.commitSha === 'string' && /^[0-9a-f]{40}$/.test(manifest.commitSha)) {
+          buildCommitSha = manifest.commitSha;
+          buildProvenance = manifest.provenance === 'GITHUB_CI_SHA' ? 'GITHUB_CI_SHA' : 'CLEAN_GIT_HEAD';
+        }
+      } catch {
+        // Never infer a commit from the current timestamp or cloud revision.
+      }
+    }
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), buildCommitSha, buildProvenance });
+  });
   app.get('/api/validation/latest-broker-aware', async (_req, res) => {
     try {
       const validationPath = path.join(process.cwd(), 'validation-results', 'latest-broker-aware-execution-sweep.json');
