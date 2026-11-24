@@ -363,7 +363,12 @@ async function clearGithubReplayArchive(): Promise<Record<string, unknown>> {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  // Cloud Run and other managed runtimes assign PORT. Keep 3000 for AI Studio/local.
+  const configuredPort = Number(process.env.PORT ?? 3000);
+  if (!Number.isSafeInteger(configuredPort) || configuredPort < 1 || configuredPort > 65535) {
+    throw new Error('INVALID_SERVER_PORT');
+  }
+  const PORT = configuredPort;
   app.use(express.json({ limit: `${MAX_HISTORICAL_AUDIT_BYTES}b` }));
 
   app.use((req, res, next) => {
