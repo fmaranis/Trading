@@ -115,6 +115,14 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, candidate
     if (!candidateGate || candidateGate.scan !== scan) return null;
     const rejected = candidateGate.entries.filter(row => row.status === 'REJECTED');
     const outsideShortlist = rejected.filter(row => row.reason === 'OUTSIDE_DYNAMIC_MARKET_SHORTLIST').length;
+    // A rejected scanner row (e.g. missing FX) never reached the economic filters.
+    // Use the gate's own scan; USD rows are diagnostic-only even if data is valid.
+    const candidatesById = new Map(scan.candidates.map(candidate => [candidate.asset.assetId, candidate] as const));
+    const evaluated = candidateGate.entries.filter(row => {
+      const candidate = candidatesById.get(row.assetId);
+      return candidate?.status === 'ACCEPTED' && candidate.asset.currency === 'EUR' && row.reason !== 'OUTSIDE_DYNAMIC_MARKET_SHORTLIST';
+    }).length;
+    const prefilterExcluded = candidateGate.entries.length - outsideShortlist - evaluated;
     const counts = new Map<string, number>();
     for (const row of rejected) {
       if (row.reason === 'OUTSIDE_DYNAMIC_MARKET_SHORTLIST') continue;
@@ -122,7 +130,8 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, candidate
     }
     return {
       eligible: candidateGate.eligibleCount,
-      evaluated: candidateGate.entries.length - outsideShortlist,
+      evaluated,
+      prefilterExcluded,
       outsideShortlist,
       reasons: [...counts.entries()]
         .map(([reason, count]) => ({ reason, label: gateRejectionLabel(reason), count }))
@@ -230,7 +239,7 @@ export const CurrentOpportunityAlertsPanel: React.FC<Props> = ({ scan, candidate
 
     {!hasActions && availableCapital > 0 && gateExplanation && <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-xs text-slate-300">
       <div className="font-bold text-slate-100">Por qué hoy no se invierte el capital disponible</div>
-      <p className="mt-1">Candidatos realmente evaluados por los filtros de entrada: {gateExplanation.evaluated}; cumplen todos: {gateExplanation.eligible}. {gateExplanation.outsideShortlist > 0 ? `${gateExplanation.outsideShortlist} quedan fuera de la preselección y no fueron evaluados por esos filtros.` : ''}</p>
+      <p className="mt-1">Candidatos realmente evaluados por los filtros de entrada: {gateExplanation.evaluated}; cumplen todos: {gateExplanation.eligible}. {gateExplanation.prefilterExcluded > 0 ? `${gateExplanation.prefilterExcluded} se excluyeron antes por datos o por no tener autorización productiva.` : ''} {gateExplanation.outsideShortlist > 0 ? `${gateExplanation.outsideShortlist} quedan fuera de la preselección y no fueron evaluados por esos filtros.` : ''}</p>
       {gateExplanation.reasons.length > 0 && <p className="mt-2 text-slate-400">{gateExplanation.reasons.slice(0, 4).map(row => `${row.label}: ${row.count}`).join(' · ')}</p>}
       {gateExplanation.eligible > 0 && <p className="mt-2 text-amber-200">Hay oportunidades elegibles, pero la asignación o los controles de ejecución no han autorizado una compra. Ver el plan para conocer el motivo.</p>}
       <p className="mt-2 text-[10px] text-slate-500">La comparación con el efectivo usa una aproximación basada en momentum histórico de 120 sesiones: no es una predicción de rentabilidad ni garantiza que esperar sea lo más rentable.</p>
