@@ -62,7 +62,7 @@ jobs:
             cat /tmp/trading-http-smoke.log
             exit 1
           fi
-          node -e 'const fs=require("node:fs"); const h=JSON.parse(fs.readFileSync("/tmp/trading-health.json","utf8")); if(h.status!=="ok") process.exit(1)'
+          node -e 'const fs=require("node:fs"); const h=JSON.parse(fs.readFileSync("/tmp/trading-health.json","utf8")); if(h.status!=="ok"||h.buildCommitSha!==process.env.GITHUB_SHA||h.buildProvenance!=="GITHUB_CI_SHA") { console.error("BUILD_IDENTITY_MISMATCH",h); process.exit(1); }'
           curl --fail --silent --show-error http://127.0.0.1:3109/ -o /tmp/trading-home.html
           grep -q 'assets/index-' /tmp/trading-home.html
           curl --fail --silent --show-error http://127.0.0.1:3109/portfolio.html -o /tmp/trading-portfolio.html
