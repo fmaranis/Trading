@@ -128,6 +128,8 @@ export function assessPriceVolumeEvidence(input: {
  * 20 sessions; 60 is secondary. EUNL is fixed before any outcomes are read.
  * Exact matched dates only, with no forward fill or substitute benchmark.
  */
+export const REPLAY_WAIT_PRICE_VOLUME_VERSION = 'REPLAY_WAIT_PRICE_VOLUME_DIAGNOSTIC_V1' as const;
+
 export interface ReplayWaitVolumeSignal {
   assetId: string;
   signalDate: string;
@@ -262,7 +264,7 @@ export function summarizeReplayWaitPriceVolume(input: {
       return true;
     });
   return {
-    version: 'REPLAY_WAIT_PRICE_VOLUME_DIAGNOSTIC_V1' as const,
+    version: REPLAY_WAIT_PRICE_VOLUME_VERSION,
     authority: 'RESEARCH_ONLY' as const,
     scope: 'UNFUNDED_AVOID_WAIT_AT_REPLAY_DECISION_DATES' as const,
     benchmark: 'EUNL.DE' as const, benchmarkAvailable: benchmarkValid,

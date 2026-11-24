@@ -1,3 +1,4 @@
+import { REPLAY_WAIT_PRICE_VOLUME_VERSION } from '../investment/decision/priceVolumeEvidence';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, Loader2, Pause, PlayCircle, RotateCcw, ShieldCheck, Square } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -35,7 +36,7 @@ interface Props {
 type RunMode = 'MANUAL' | 'AUTO';
 type SessionStatus = 'IDLE' | 'LOADING_DATA' | 'READY' | 'RUNNING' | 'DONE';
 type WorkerResponse =
-  | { type: 'READY' }
+  | { type: 'READY'; researchPriceVolumeVersion?: string }
   | { type: 'RESULT'; requestedEndDate: string; result: DynamicHistoricalReplayResult }
   | { type: 'ERROR'; error: string; requestedEndDate?: string }
   | { type: 'RESET_DONE' };
@@ -578,6 +579,11 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
     const scan = scanRef.current;
     if (!scan) { setError('Se perdió el dataset REAL de la sesión. Prepara de nuevo.'); setStatus('IDLE'); setAutoRunning(false); autoRunningRef.current = false; return; }
 
+    if (configRef.current?.simulationMode === 'CUSTODIA_ENGINE' && result.researchPriceVolumeOutcomes?.version !== REPLAY_WAIT_PRICE_VOLUME_VERSION) {
+      setError('Resultado sin diagnóstico precio-volumen obligatorio. No se reemplaza el último checkpoint válido. Actualiza la aplicación antes de continuar.');
+      setStatus('READY'); setAutoRunning(false); autoRunningRef.current = false; return;
+    }
+
     const currentExecutions = result.signals.filter(signal => signal.executed && signal.executionDate && MATERIAL_ACTIONS.has(signal.action)).map(toAuditExecution).sort((a, b) => a.executionDate.localeCompare(b.executionDate) || a.id.localeCompare(b.id));
     const currentById = new Map(currentExecutions.map(item => [item.id, item]));
     for (const previous of executionsRef.current) {
@@ -710,6 +716,11 @@ export const HistoricalReplayProgressivePanel: React.FC<Props> = ({ capitalEur, 
       worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
         const response = event.data;
         if (response.type === 'READY') {
+          if (config.simulationMode === 'CUSTODIA_ENGINE' && response.researchPriceVolumeVersion !== REPLAY_WAIT_PRICE_VOLUME_VERSION) {
+            worker.terminate(); workerRef.current = null;
+            setError('El proceso de replay no corresponde a la versión del diagnóstico precio-volumen. Actualiza la aplicación antes de ejecutar el cálculo.');
+            setStatus('IDLE'); setAutoRunning(false); autoRunningRef.current = false; return;
+          }
           const alreadyDone = checkpointsRef.current.length >= ends.length;
           setStatus(alreadyDone ? 'DONE' : 'READY');
           const cashLabel = cashBenchmarkMode === 'HISTORICAL_ECB_DFR_FLOOR_0' ? cashBenchmarkModeLabel(cashBenchmarkMode) : `${cashBenchmarkAnnualPct.toFixed(2)}% TAE fija`;

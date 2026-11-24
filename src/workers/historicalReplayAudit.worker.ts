@@ -1,4 +1,4 @@
-import { summarizeReplayWaitPriceVolume } from '../investment/decision/priceVolumeEvidence';
+import { REPLAY_WAIT_PRICE_VOLUME_VERSION, summarizeReplayWaitPriceVolume } from '../investment/decision/priceVolumeEvidence';
 import { appendRotationCounterfactualAudit } from '../investment/decision/rotationCounterfactualAudit';
 import { hydrateDynamicPortfolioDiscoveryCatalog } from '../investment/decision/dynamicPortfolioDiscovery';
 import { runDynamicReplayWithRotationExperiment } from '../investment/decision/replayRotationPolicyExperiment';
@@ -129,7 +129,7 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
     // ETFs preserve their existing Yahoo identity inside the exact replay path.
     hydrateDynamicPortfolioDiscoveryCatalog(rest.catalog);
     sourceDataset = dataset; configuration = rest;
-    workerScope.postMessage({ type: 'READY', rotationExperiment: REPLAY_ROTATION_EXPERIMENT }); return;
+    workerScope.postMessage({ type: 'READY', researchPriceVolumeVersion: REPLAY_WAIT_PRICE_VOLUME_VERSION, rotationExperiment: REPLAY_ROTATION_EXPERIMENT }); return;
   }
   if (!configuration || !sourceDataset) {
     workerScope.postMessage({ type: 'ERROR', error: 'AUDIT_WORKER_NOT_INITIALIZED' }); return;
@@ -168,6 +168,7 @@ workerScope.onmessage = async (event: MessageEvent<IncomingMessage>) => {
       auditCarrier.auditExtensions = {
         ...(auditCarrier.auditExtensions ?? {}),
         structuralCoreBenchmark,
+        ...(researchPriceVolumeOutcomes ? { researchPriceVolumeOutcomes } : {}),
         replayPolicy: REPLAY_ROTATION_EXPERIMENT,
         forwardRiskResearchStatus: 'RETIRED_FROM_REPLAY_V3_1_ADVERSARIAL_HOLDOUT_FAILED'
       };

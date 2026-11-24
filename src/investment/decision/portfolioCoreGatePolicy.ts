@@ -337,12 +337,15 @@ export function applyCoreArchitectureV1(
   const total = Math.max(0, result.totalPlannedCapitalEur);
   const coreSelection = selectDynamicCoreV1(input, result);
   const core = coreSelection.selected;
+  const selectedCoreHealthy = core != null && coreSelection.candidateScores.some(row => row.assetId === core.asset.assetId && row.healthy);
+  const selectedCoreDescription = selectedCoreHealthy ? 'core global sano' : 'core global mejor clasificado, aunque no supera el filtro de salud';
   const oldRotationProceeds = result.plannedRotationProceedsEur;
   const oldRecommended = result.recommendedNewInvestmentEur;
 
   // 0) Explicit structural replacement. This is the only path that may replace
   // a core product: the largest incumbent core is no longer healthy and another
-  // accepted broad-global core is healthy on the same causal decision date.
+  // accepted broad-global replacement is preferred by the causal selector,
+  // even when no alternative passes its fresh-money health hurdle.
   if (
     core
     && coreSelection.reason === 'REPLACE_UNHEALTHY_INCUMBENT'
@@ -357,12 +360,12 @@ export function applyCoreArchitectureV1(
       incumbent.suggestedReductionPct = 100;
       incumbent.rotationChallengerAssetId = core.asset.assetId;
       incumbent.rotationChallengerTicker = core.asset.ticker;
-      incumbent.reason = `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER] El core actual ${incumbent.label} ha dejado de superar el gate causal de salud; se transfiere al mejor core global sano disponible en esta fecha, ${core.asset.ticker}. No se usa rentabilidad futura ni prioridad fija de producto. ${incumbent.reason}`;
+      incumbent.reason = `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER] El core actual ${incumbent.label} ha dejado de superar el gate causal de salud; se transfiere al ${selectedCoreDescription} disponible en esta fecha, ${core.asset.ticker}. No se usa rentabilidad futura ni prioridad fija de producto. ${incumbent.reason}`;
       addOrMergeCoreContribution(
         input,
         result,
         transferAmount,
-        `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER] ${transferAmount.toFixed(2)} € pasan del core deteriorado al core global sano seleccionado causalmente ${core.asset.ticker}.`,
+        `[${DYNAMIC_CORE_SELECTOR_V1}:STRUCTURAL_TRANSFER] ${transferAmount.toFixed(2)} € pasan del core deteriorado al ${selectedCoreDescription} seleccionado causalmente ${core.asset.ticker}.`,
         'ROTATION_ENTRY'
       );
     }
@@ -476,7 +479,7 @@ export function applyCoreArchitectureV1(
     input,
     result,
     coreTopUpEur,
-    `[${CORE_ARCHITECTURE_V1}:CORE_TOP_UP] Cash residual por encima de la reserva operativa ${(limits.operationalCashReserveShare * 100).toFixed(0)}% se invierte en ${core?.asset.ticker ?? 'el core'} porque ${DYNAMIC_CORE_SELECTOR_V1} lo ha seleccionado como core global sano en esta fecha.`,
+    `[${CORE_ARCHITECTURE_V1}:CORE_TOP_UP] Cash residual por encima de la reserva operativa ${(limits.operationalCashReserveShare * 100).toFixed(0)}% se invierte en ${core?.asset.ticker ?? 'el core'} porque ${DYNAMIC_CORE_SELECTOR_V1} lo ha seleccionado como ${selectedCoreDescription} en esta fecha.`,
     'BUILD'
   )) {
     counters.coreTopUps += 1;

@@ -204,6 +204,8 @@ function result(existingCore?: 'EUNL' | 'FUND_VANGUARD_GLOBAL'): PortfolioDecisi
   assert.equal(incumbent.rotationChallengerAssetId, 'FUND_VANGUARD_GLOBAL');
   assert.ok(replacement);
   assert.equal(replacement.positionStage, 'ROTATION_ENTRY');
+  assert.ok(incumbent.reason.includes('aunque no supera el filtro de salud'));
+  assert.ok(replacement.reason.includes('aunque no supera el filtro de salud'));
 }
 
 // If the incumbent is itself the best of a bad set, a late reactive EXIT is

@@ -378,4 +378,14 @@ check('1042 production build identifies exact source SHA or explicitly reports i
   assert.match(serverEntrypoint, /process\.env\.NODE_ENV === 'production'/);
 });
 
-console.log(`Product surface closure V1: ${passed}/42 invariants passed.`);
+check('1043 replay worker declares its diagnostic version before execution and preserves report in both export carriers', () => {
+  const panel = read('src/components/HistoricalReplayProgressivePanel.tsx');
+  assert.match(replayWorker, /researchPriceVolumeVersion: REPLAY_WAIT_PRICE_VOLUME_VERSION/);
+  assert.match(panel, /response.researchPriceVolumeVersion !== REPLAY_WAIT_PRICE_VOLUME_VERSION/);
+  assert.match(panel, /result.researchPriceVolumeOutcomes\?\.version !== REPLAY_WAIT_PRICE_VOLUME_VERSION/);
+  assert.match(replayWorker, /auditCarrier.auditExtensions = \{[\s\S]*?researchPriceVolumeOutcomes/);
+  assert.match(replayJsonControls, /auditExtensions\?\.researchPriceVolumeOutcomes/);
+  assert.match(replayJsonControls, /researchPriceVolumeOutcomes \? \{ researchPriceVolumeOutcomes \}/);
+});
+
+console.log(`Product surface closure V1: ${passed}/43 invariants passed.`);

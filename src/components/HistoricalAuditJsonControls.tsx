@@ -1,3 +1,4 @@
+import { REPLAY_WAIT_PRICE_VOLUME_VERSION } from '../investment/decision/priceVolumeEvidence';
 import React, { useEffect, useRef, useState } from 'react';
 import { Download, FileJson, Save, Trash2, Upload } from 'lucide-react';
 import { downloadJsonFile } from '../jsonDownload';
@@ -67,13 +68,18 @@ function extractStructuralCoreBenchmark(session: any): any | null {
 function attachAuditExtensionsToSummary(session: any): any {
   const counterfactual = extractTrendProtectionV2Counterfactual(session);
   const structuralCoreBenchmark = extractStructuralCoreBenchmark(session);
-  if (!counterfactual && !structuralCoreBenchmark) return session;
+  const validVolumeReport = (value: any) => value?.version === REPLAY_WAIT_PRICE_VOLUME_VERSION && value?.authority === 'RESEARCH_ONLY';
+  const directVolume = session?.summary?.researchPriceVolumeOutcomes;
+  const researchPriceVolumeOutcomes = validVolumeReport(directVolume) ? directVolume
+    : (Array.isArray(session?.signals) ? session.signals : []).map((signal: any) => signal?.auditExtensions?.researchPriceVolumeOutcomes).find(validVolumeReport);
+  if (!counterfactual && !structuralCoreBenchmark && !researchPriceVolumeOutcomes) return session;
   return {
     ...session,
     summary: {
       ...(session.summary ?? {}),
       ...(counterfactual ? { trendProtectionV2Counterfactual: counterfactual } : {}),
-      ...(structuralCoreBenchmark ? { structuralCoreBenchmark } : {})
+      ...(structuralCoreBenchmark ? { structuralCoreBenchmark } : {}),
+      ...(researchPriceVolumeOutcomes ? { researchPriceVolumeOutcomes } : {})
     }
   };
 }
