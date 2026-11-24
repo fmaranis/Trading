@@ -193,7 +193,7 @@ export const MarketUtilityDashboard: React.FC<Props> = ({ scan, candidateGate, d
 
   return <section className="space-y-4">
     {/* One canonical portfolio decision plus one canonical executable plan. */}
-    <CurrentOpportunityAlertsPanel scan={scan} decision={decision} portfolioDecision={portfolioDecision} executionPlan={executionPlan} onInspectAsset={onInspectAsset} />
+    <CurrentOpportunityAlertsPanel scan={scan} candidateGate={candidateGate} decision={decision} portfolioDecision={portfolioDecision} executionPlan={executionPlan} onInspectAsset={onInspectAsset} />
 
     {/* Registration is derived from the exact executable plan shown above. */}
     <RealPurchaseRegistrationPanel scan={scan} executionPlan={executionPlan} />
