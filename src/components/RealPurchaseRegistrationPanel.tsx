@@ -37,6 +37,8 @@ export const RealPurchaseRegistrationPanel: React.FC<Props> = ({ scan, execution
 
   const patchDraft = (line: PortfolioExecutionLine, patch: Partial<Draft>) => {
     setDrafts(previous => ({ ...previous, [line.id]: { ...draftFor(line), ...patch } }));
+    // Any edit invalidates the user's prior confirmation of the actual fill.
+    setConfirmedAtBroker(previous => ({ ...previous, [line.id]: false }));
   };
 
   const register = (line: PortfolioExecutionLine) => {
