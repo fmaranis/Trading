@@ -45,11 +45,18 @@ function portfolioDeployableCapital(): number {
 function methodFor(profile: InvestorRiskProfile): InvestmentDecisionResult['recommendedMethod'] {
   return profile === 'LOW' ? 'INVERSE_VOLATILITY' : profile === 'MEDIUM' ? 'RISK_PARITY_ERC' : 'RELATIVE_MOMENTUM';
 }
-function cashRole(result: InvestmentDecisionResult, eligibleCount: number | null): { label: string; reason: string; className: string } {
+function cashRole(result: InvestmentDecisionResult, eligibleCount: number | null, hasAcceptedMarketData: boolean): { label: string; reason: string; className: string } {
+  if (!hasAcceptedMarketData) {
+    return {
+      label: 'MERCADO SIN DATOS VERIFICABLES',
+      reason: 'No existen suficientes cotizaciones de mercado aceptadas para valorar alternativas. Se bloquean las compras por falta de datos; esto NO demuestra que mantener efectivo sea económicamente mejor.',
+      className: 'border-rose-500/35 bg-rose-500/10 text-rose-100'
+    };
+  }
   if (result.cashWeight >= 0.999999) {
     return {
       label: 'CASH PRIORITARIO',
-      reason: 'El motor no encuentra una asignación de riesgo que justifique sacar dinero de la cuenta remunerada. Mantener 100% cash es una decisión explícita, no un fallo de asignación.',
+      reason: 'Los filtros actuales no autorizan invertir la liquidez disponible. El 100% corresponde al capital para nuevas operaciones, no a toda tu cartera. La comparación con la cuenta remunerada se basa en momentum pasado, no en una rentabilidad futura garantizada.',
       className: 'border-sky-500/35 bg-sky-500/10 text-sky-100'
     };
   }
@@ -81,17 +88,22 @@ function cashRole(result: InvestmentDecisionResult, eligibleCount: number | null
   };
 }
 function cashOnlyDecision(scan: AssetUniverseScanResult, capitalEur: number, riskProfile: InvestorRiskProfile, horizonYears: InvestmentHorizonYears): InvestmentDecisionResult {
+  const hasAcceptedMarketData = scan.candidates.some(candidate => candidate.status === 'ACCEPTED');
   const asOfDate = scan.candidates.filter(c => c.status === 'ACCEPTED' && c.asOfDate).map(c => c.asOfDate!).sort().at(-1) ?? isoDate(new Date());
   return {
     generatedAt: new Date().toISOString(), asOfDate, dataAgeDays: 0, currency: 'EUR', capitalEur, riskProfile, horizonYears,
     marketRegime: 'UNKNOWN', regimeTrendPct: null, regimeVolatilityPct: null, confidence: 'MEDIUM', confidenceScore: 70,
     recommendedMethod: methodFor(riskProfile), cashWeight: 1, cashAmountEur: capitalEur, assets: [],
     portfolioDatasetFingerprint: `CASH_ONLY:${asOfDate}`, evidence: 'REAL_ONLY',
-    warnings: ['Ningún candidato supera simultáneamente la referencia de efectivo y el consenso mínimo para dinero nuevo. No se fuerza una inversión.'],
-    summary: capitalEur > 0
-      ? `Ningún candidato supera los gates actuales; mantener ${capitalEur.toFixed(2)} € en efectivo hasta que aparezca una alternativa que justifique el riesgo frente a la cuenta remunerada.`
-      : 'No hay liquidez nueva disponible y ningún candidato supera los gates actuales; no se genera ninguna orden.',
-    methodology: ['Descubrimiento amplio REAL.', 'Filtro previo: superar efectivo + consenso BUY.', 'Si ningún activo pasa, el resultado correcto es 100% cash.']
+    warnings: hasAcceptedMarketData
+      ? ['Ningún candidato supera los filtros actuales para dinero nuevo. No se fuerza una inversión.']
+      : ['NO_ACCEPTED_REAL_MARKET_DATA: no es posible distinguir oportunidades de ausencia de datos. Ninguna orden se autoriza.'],
+    summary: !hasAcceptedMarketData
+      ? 'Mercado sin cotizaciones aceptadas y verificables. No se pueden justificar compras ni concluir que mantener efectivo sea mejor.'
+      : capitalEur > 0
+        ? `Ningún candidato supera los gates actuales; mantener ${capitalEur.toFixed(2)} € de liquidez disponible hasta una nueva decisión con datos verificables.`
+        : 'No hay liquidez nueva disponible y ningún candidato supera los gates actuales; no se genera ninguna orden.',
+    methodology: ['Descubrimiento REAL y fail-closed ante falta de datos.', 'Filtro previo: superar efectivo + consenso BUY.', 'La ausencia de elegibles no prueba rentabilidad futura del cash.']
   };
 }
 function decisionWithZeroDeployableCapital(scan: AssetUniverseScanResult, riskProfile: InvestorRiskProfile, horizonYears: InvestmentHorizonYears): InvestmentDecisionResult {
@@ -268,7 +280,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
     } catch (e: any) { setResult(null); setError(e?.message || String(e)); }
   }, [scan, capital, riskProfile, horizon, cashRevision]);
 
-  const cashDecision = result ? cashRole(result, candidateGate?.eligibleCount ?? null) : null;
+  const cashDecision = result ? cashRole(result, candidateGate?.eligibleCount ?? null, (rawScan?.accepted ?? 0) > 0) : null;
   const oneYearCashInterestEur = result ? result.cashAmountEur * cashBenchmarkAnnualPct / 100 : 0;
 
   return <div className="space-y-5">
