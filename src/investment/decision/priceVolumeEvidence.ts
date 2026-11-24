@@ -21,7 +21,8 @@ export type PriceVolumeEvidenceState =
   | 'NO_RELIABLE_LISTED_VOLUME'
   | 'INSUFFICIENT_HISTORY'
   | 'INVALID_OHLCV'
-  | 'NO_BAR_AT_INFORMATION_DATE';
+  | 'NO_BAR_AT_INFORMATION_DATE'
+  | 'UNCONFIRMED_DAILY_CLOSE';
 
 export interface PriceVolumeEvidence {
   version: 'PRICE_VOLUME_EVIDENCE_V1';
@@ -44,6 +45,8 @@ export function assessPriceVolumeEvidence(input: {
   informationDate: string;
   provenance: 'REAL' | 'STATIC_REFERENCE' | 'SYNTHETIC' | null | undefined;
   instrumentType?: string | null;
+  /** UTC observation time, injectable to verify incomplete current-session bars. */
+  observedAtUtc?: string;
 }): PriceVolumeEvidence {
   const result: PriceVolumeEvidence = {
     version: 'PRICE_VOLUME_EVIDENCE_V1', authority: 'RESEARCH_ONLY',
@@ -63,6 +66,14 @@ export function assessPriceVolumeEvidence(input: {
   if (bars.length < 51) return result;
   if (bars.at(-1)!.timestamp.slice(0, 10) !== input.informationDate) {
     return { ...result, state: 'NO_BAR_AT_INFORMATION_DATE' };
+  }
+  // A 1d provider candle dated today can represent a trading session still
+  // in progress (especially US listings during European evening hours). Since
+  // we lack per-exchange close confirmation, fail closed until the next UTC
+  // calendar day rather than present partial volume as a closed-day breakout.
+  const observedAtUtc = input.observedAtUtc ?? new Date().toISOString();
+  if (input.informationDate >= observedAtUtc.slice(0, 10)) {
+    return { ...result, state: 'UNCONFIRMED_DAILY_CLOSE' };
   }
   const sample = bars.slice(-51);
   if (sample.some((bar, index) =>
