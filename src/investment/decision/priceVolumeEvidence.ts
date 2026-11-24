@@ -72,7 +72,8 @@ export function assessPriceVolumeEvidence(input: {
   // we lack per-exchange close confirmation, fail closed until the next UTC
   // calendar day rather than present partial volume as a closed-day breakout.
   const observedAtUtc = input.observedAtUtc ?? new Date().toISOString();
-  if (input.informationDate >= observedAtUtc.slice(0, 10)) {
+  if (!Number.isFinite(Date.parse(observedAtUtc)) || !/^\d{4}-\d{2}-\d{2}T.*Z$/.test(observedAtUtc)
+    || input.informationDate >= observedAtUtc.slice(0, 10)) {
     return { ...result, state: 'UNCONFIRMED_DAILY_CLOSE' };
   }
   const sample = bars.slice(-51);
@@ -99,6 +100,9 @@ export function assessPriceVolumeEvidence(input: {
   const priorFive = before.slice(-10, -5);
   const lastFive = before.slice(-5);
   const preBreakoutVolumeContraction5v5 = mean(lastFive) / mean(priorFive);
+  if (![average50, relativeVolume50, preBreakoutVolumeContraction5v5].every(value => Number.isFinite(value) && value > 0)) {
+    return { ...result, state: 'NO_RELIABLE_LISTED_VOLUME' };
+  }
   const priceBreakout20 = current.close > prior20High;
   const priceBreakdown20 = current.close < prior20Low;
   return {
