@@ -289,4 +289,54 @@ check('736 current-day volume cannot be advertised as confirmed close before nex
     observedAtUtc: new Date(Date.parse(priceVolumeDate + 'T00:00:00Z') + 86400000).toISOString()
   }).highVolumeBreakout === true);
 
+// Adversarial checks for research-only volume context. All inputs below are
+// deterministic test fixtures, not evidence from the market or economic outcomes.
+const confirmedVolumeClock = '2025-04-01T00:00:00.000Z';
+const thresholdVolumeBars = breakoutBars.map(bar => ({ ...bar }));
+thresholdVolumeBars.at(-1)!.volume = 2500;
+check('737 frozen volume threshold includes exactly 2.5x', assessPriceVolumeEvidence({
+  ...volumeInput, bars: thresholdVolumeBars, observedAtUtc: confirmedVolumeClock
+}).highVolumeBreakout === true);
+const belowThresholdVolumeBars = thresholdVolumeBars.map(bar => ({ ...bar }));
+belowThresholdVolumeBars.at(-1)!.volume = 2499;
+const belowThresholdEvidence = assessPriceVolumeEvidence({
+  ...volumeInput, bars: belowThresholdVolumeBars, observedAtUtc: confirmedVolumeClock
+});
+check('738 identical price breakout below 2.5x is price-only', belowThresholdEvidence.priceBreakout20 === true
+  && belowThresholdEvidence.highVolumeBreakout === false);
+check('739 invalid or non-UTC observation clock cannot confirm a closed session',
+  ['not-a-date', '2025-04-01T00:00:00'].every(observedAtUtc =>
+    assessPriceVolumeEvidence({ ...volumeInput, bars: thresholdVolumeBars, observedAtUtc }).state === 'UNCONFIRMED_DAILY_CLOSE'));
+const overflowVolumeBars = priceVolumeBars.map((bar, index) => ({
+  ...bar, volume: index === priceVolumeBars.length - 1 ? 1000 : Number.MAX_VALUE
+}));
+check('740 overflow in the historical volume mean cannot produce valid evidence or NaN',
+  assessPriceVolumeEvidence({ ...volumeInput, bars: overflowVolumeBars, observedAtUtc: confirmedVolumeClock }).state === 'NO_RELIABLE_LISTED_VOLUME');
+const duplicateVolumeBars = priceVolumeBars.map(bar => ({ ...bar }));
+duplicateVolumeBars.at(-2)!.timestamp = duplicateVolumeBars.at(-3)!.timestamp;
+check('741 duplicate session cannot contribute twice to a research signal',
+  assessPriceVolumeEvidence({ ...volumeInput, bars: duplicateVolumeBars, observedAtUtc: confirmedVolumeClock }).state === 'INVALID_OHLCV');
+const frozenThresholdEvidence = assessPriceVolumeEvidence({
+  ...volumeInput, bars: thresholdVolumeBars, observedAtUtc: confirmedVolumeClock
+});
+check('742 250 adversarial future price and volume mutations leave past evidence byte-identical',
+  Array.from({ length: 250 }, (_, i) => i).every(i =>
+    JSON.stringify(assessPriceVolumeEvidence({
+      ...volumeInput, observedAtUtc: confirmedVolumeClock, bars: [...thresholdVolumeBars, {
+        timestamp: '2025-05-01T00:00:00Z', open: 100 + i, high: 150 + i,
+        low: 1, close: 120 + i, volume: 1000 * (i + 1)
+      }]
+    })) === JSON.stringify(frozenThresholdEvidence)));
+check('743 100 positive price and volume scale variants preserve the breakout and relative volume',
+  Array.from({ length: 100 }, (_, i) => i + 1).every(scale => {
+    const scaled = assessPriceVolumeEvidence({
+      ...volumeInput, observedAtUtc: confirmedVolumeClock,
+      bars: thresholdVolumeBars.map(bar => ({
+        ...bar, open: bar.open * scale, high: bar.high * scale,
+        low: bar.low * scale, close: bar.close * scale, volume: bar.volume * scale
+      }))
+    });
+    return scaled.highVolumeBreakout === true && scaled.relativeVolume50 === 2.5;
+  }));
+
 console.log(`Portfolio candidate gate: ${passed} invariants passed.`);
