@@ -378,6 +378,7 @@ async function startServer() {
   });
 
   app.get('/api/health', async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     let buildCommitSha: string | null = null;
     let buildProvenance = process.env.NODE_ENV === 'production' ? 'UNVERIFIED_BUILD_SOURCE' : 'DEV_RUNTIME_UNVERSIONED';
     if (process.env.NODE_ENV === 'production') {
@@ -493,13 +494,30 @@ async function startServer() {
   app.use('/api/eodhd', eodhdRouter);
   app.use('/api/alerts', alertAutomationRouter);
 
+  // Revalidate navigation HTML so an old entrypoint cannot keep selecting old hashed bundles.
+  // Do not disable Vite's normal caching of JS/CSS modules or production assets.
+  app.use((req, res, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      if (req.path === '/' || req.path.endsWith('.html') || req.headers.accept?.includes('text/html')) {
+        res.setHeader('Cache-Control', 'no-store');
+      }
+    }
+    next();
+  });
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-store');
+      },
+    }));
+    app.get('*', (_req, res) => {
+      res.setHeader('Cache-Control', 'no-store');
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {
