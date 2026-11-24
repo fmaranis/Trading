@@ -83,3 +83,10 @@ jobs:
         run: |
           npx --no-install tsx tests/userPortfolio.unit.ts
           npx --no-install tsx tests/taxAwareExecutionOverlay.unit.ts
+      - name: Broker registration, private account and position-health guards
+        run: |
+          npx --no-install tsx tests/executedPurchaseRegistration.unit.ts
+          npx --no-install tsx tests/brokerAvailability.unit.ts
+          npx --no-install tsx tests/portfolioPositionHealth.unit.ts
+          npx --no-install tsx tests/privateUserSecurity.unit.ts
+          npx --no-install tsx tests/decisionArchitectureParity.unit.ts
