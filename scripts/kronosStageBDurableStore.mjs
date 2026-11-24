@@ -185,7 +185,10 @@ export async function syncKronosDurableState() {
   if(hash(existing)!==hash(remote.progress)) await writeRemote(c,existing,remote.sha);
   return {saved:countKronosPaths(existing),remote:true};
 }
-if(process.argv[1] && path.resolve(process.argv[1])===path.resolve(new URL(import.meta.url).pathname)) {
+// This module is also imported by the Express server. Keep CLI-only execution
+// behind an explicit entrypoint check and inside an async function, so esbuild's
+// production CommonJS server bundle never sees top-level await or runs CLI IO.
+async function runKronosDurableCli() {
   const action=process.argv[2];
   try {
     const outcome=action==='bootstrap'?await bootstrapKronosDurableState()
@@ -194,4 +197,8 @@ if(process.argv[1] && path.resolve(process.argv[1])===path.resolve(new URL(impor
     if(!outcome) throw new Error('KRONOS_DURABLE_UNKNOWN_ACTION');
     console.log('[Kronos durable]',JSON.stringify(outcome));
   }catch(e){console.error('[Kronos durable]',e?.message||String(e));process.exitCode=1;}
+}
+if(typeof import.meta.url==='string' && process.argv[1] &&
+   path.resolve(process.argv[1])===path.resolve(new URL(import.meta.url).pathname)) {
+  void runKronosDurableCli();
 }
