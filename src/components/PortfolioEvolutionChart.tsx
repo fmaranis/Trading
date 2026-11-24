@@ -3,14 +3,10 @@ import { Activity, AlertTriangle } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from 'recharts';
 import type { AssetUniverseScanResult, FundPosition, UserHolding } from '../investment/decision';
 import {
-  calendarDaysBetween,
-  CASH_BENCHMARK_UPDATED_EVENT,
-  CashBenchmarkService,
   PortfolioCashFlowHistoryService,
   PortfolioExecutionHistoryService,
   TaxLotLedgerService,
-  USER_REAL_FUND_POSITIONS,
-  USER_REAL_STAGED_CAPITAL_PLAN
+  USER_REAL_FUND_POSITIONS
 } from '../investment/decision';
 import { FundMarketDataService } from '../investment/data/marketData/fundMarketData';
 import { HistoricalMarketDataService } from '../investment/data/marketData/historicalMarketDataService';
@@ -25,7 +21,6 @@ interface EvolutionPoint {
   contributedEur: number;
   cashEur: number;
   investedEur: number;
-  cashInterestEur: number;
   eventValueEur: number | null;
   eventLabels: string[];
 }
@@ -37,6 +32,7 @@ interface Props {
   holdings: UserHolding[];
   cashEur: number;
   pendingCapitalEur: number;
+  currentInvestedEur: number | null;
   revision?: number;
 }
 
@@ -46,19 +42,6 @@ function keyFund(isin: string): string { return `FUND:${isin.trim().toUpperCase(
 function keyListed(ticker: string): string { return `LISTED:${ticker.trim().toUpperCase()}`; }
 function priceOnOrAfter(series: PriceSeries, date: string): number | null { for (const d of series.dates) if (d >= date) return series.prices.get(d) ?? null; return null; }
 function priceOnOrBefore(series: PriceSeries, date: string): number | null { for (let i = series.dates.length - 1; i >= 0; i--) if (series.dates[i] <= date) return series.prices.get(series.dates[i]) ?? null; return null; }
-function monthEndDates(fromDate: string, toDate: string): string[] {
-  const out: string[] = [];
-  const start = new Date(`${fromDate.slice(0, 7)}-01T00:00:00Z`);
-  const end = new Date(`${toDate}T00:00:00Z`);
-  for (let cursor = start; cursor <= end;) {
-    const monthEnd = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0));
-    const date = monthEnd.toISOString().slice(0, 10);
-    if (date >= fromDate && date <= toDate) out.push(date);
-    cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
-  }
-  return out;
-}
-
 function seriesFromScan(descriptor: InstrumentDescriptor, scan: AssetUniverseScanResult): PriceSeries | null {
   const code = descriptor.code.toUpperCase();
   const candidate = scan.candidates.find(row => row.asset.ticker.toUpperCase() === code || row.asset.isin?.toUpperCase() === code);
@@ -84,7 +67,7 @@ async function loadSeries(descriptor: InstrumentDescriptor, scan: AssetUniverseS
   return { series: { descriptor, prices, dates: [...prices.keys()].sort() }, reused: false };
 }
 
-async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan: AssetUniverseScanResult, cashAnnualPct: number): Promise<EvolutionResult> {
+async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan: AssetUniverseScanResult): Promise<EvolutionResult> {
   const history = PortfolioExecutionHistoryService.load();
   const descriptors = new Map<string, InstrumentDescriptor>();
   const warnings: string[] = [];
@@ -142,7 +125,7 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
   for (const holding of holdings) {
     if (historyListedTargets.has(holding.ticker.toUpperCase())) continue;
     const lots = TaxLotLedgerService.lots(holding.ticker);
-    for (const [index, lot] of lots.entries()) events.push({ id: `lot_${holding.ticker}_${index}_${lot.acquisitionDate}`, date: lot.acquisitionDate, key: keyListed(holding.ticker), unitsDelta: lot.shares, externalContributionEur: lot.acquisitionCostEur, cashDeltaEur: -lot.acquisitionCostEur, label: `Compra ${holding.ticker}: ${lot.shares} títulos · ${lot.acquisitionCostEur.toFixed(2)} €` });
+    for (const [index, lot] of lots.entries()) events.push({ id: `lot_${holding.ticker}_${index}_${lot.acquisitionDate}`, date: lot.acquisitionDate, key: keyListed(holding.ticker), unitsDelta: lot.shares, externalContributionEur: 0, cashDeltaEur: -lot.acquisitionCostEur, label: `Compra ${holding.ticker}: ${lot.shares} títulos · ${lot.acquisitionCostEur.toFixed(2)} €` });
   }
   for (const row of history) {
     const date = isoDate(row.appliedAt), amount = Math.max(0, row.amountEur ?? 0), fee = Math.max(0, row.feeEur);
@@ -176,9 +159,7 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
 
   events.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 
-  const baselineDate = USER_REAL_FUND_POSITIONS.map(fund => fund.acquisitionDate).sort()[0] ?? events[0]?.date ?? today();
-  const baselineCapitalEur = USER_REAL_FUND_POSITIONS.reduce((sum, fund) => sum + fund.investedEur, 0) + USER_REAL_STAGED_CAPITAL_PLAN.availableEur;
-  PortfolioCashFlowHistoryService.ensureBaseline(baselineCapitalEur, baselineDate, `Aportación inicial a cuenta: +${baselineCapitalEur.toFixed(2)} €`);
+  // Historical graph is read-only. A component must never invent an initial deposit.
   const cashFlows = PortfolioCashFlowHistoryService.load();
   const cashFlowsByDate = new Map<string, typeof cashFlows>();
   for (const flow of cashFlows) cashFlowsByDate.set(flow.date, [...(cashFlowsByDate.get(flow.date) ?? []), flow]);
@@ -186,36 +167,23 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
   const firstEventDate = [...events.map(event => event.date), ...cashFlows.map(flow => flow.date)].sort()[0];
   if (!firstEventDate) return { points: [], warnings, inferredEvents, inferredContributionsEur: 0, reusedScanSeries };
   const endDate = today();
-  const settlementDates = new Set(monthEndDates(firstEventDate, endDate));
   const allDates = [...new Set([
     ...[...seriesByKey.values()].flatMap(series => series.dates).filter(date => date >= firstEventDate && date <= endDate),
     ...events.map(event => event.date).filter(date => date >= firstEventDate && date <= endDate),
     ...cashFlows.map(flow => flow.date).filter(date => date >= firstEventDate && date <= endDate),
-    ...settlementDates,
     endDate
   ])].sort();
 
   const units = new Map<string, number>(), lastPrice = new Map<string, number>(), eventsByDate = new Map<string, EvolutionEvent[]>();
   for (const event of events) eventsByDate.set(event.date, [...(eventsByDate.get(event.date) ?? []), event]);
-  const effectiveDailyRate = cashAnnualPct > 0 ? Math.pow(1 + cashAnnualPct / 100, 1 / 365) - 1 : 0;
-  let cashEur = 0, contributedEur = 0, pendingInterestEur = 0, creditedInterestEur = 0;
+  // Investment comparison TAE is not evidence of actual bank payments.
+  let cashEur = 0, contributedEur = 0;
   let inferredContributionsEur = 0;
-  let previousDate = allDates[0];
   const points: EvolutionPoint[] = [];
 
   for (const date of allDates) {
-    const elapsedDays = date === previousDate ? 0 : calendarDaysBetween(previousDate, date);
-    if (elapsedDays > 0 && cashEur > 0 && effectiveDailyRate > 0) pendingInterestEur += cashEur * effectiveDailyRate * elapsedDays;
-
     for (const [key, series] of seriesByKey) { const price = series.prices.get(date); if (price != null && price > 0) lastPrice.set(key, price); }
     const labels: string[] = [];
-
-    if (settlementDates.has(date) && pendingInterestEur > 0.000001) {
-      cashEur += pendingInterestEur;
-      creditedInterestEur += pendingInterestEur;
-      labels.push(`Interés teórico mensual ${cashAnnualPct.toFixed(2)}% TAE: +${pendingInterestEur.toFixed(2)} €`);
-      pendingInterestEur = 0;
-    }
 
     for (const flow of cashFlowsByDate.get(date) ?? []) {
       cashEur = Math.max(0, cashEur + flow.amountEur);
@@ -247,11 +215,9 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
       contributedEur,
       cashEur,
       investedEur,
-      cashInterestEur: creditedInterestEur,
       eventValueEur: labels.length ? valueEur : null,
       eventLabels: labels
     });
-    previousDate = date;
   }
   return { points, warnings, inferredEvents, inferredContributionsEur, reusedScanSeries };
 }
@@ -259,51 +225,49 @@ async function reconstruct(funds: FundPosition[], holdings: UserHolding[], scan:
 function EvolutionTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
-  return <div className="max-w-[350px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-[10px] shadow-xl"><div className="font-mono text-slate-400">{label}</div><div className="mt-1 font-bold text-white">Valor reconstruido {Number(row?.valueEur ?? 0).toFixed(2)} €</div><div className="text-slate-400">Invertido {Number(row?.investedEur ?? 0).toFixed(2)} € · cuenta remunerada {Number(row?.cashEur ?? 0).toFixed(2)} €</div><div className="text-sky-300">Interés teórico calculado {Number(row?.cashInterestEur ?? 0).toFixed(2)} €</div><div className="text-slate-500">Aportación externa neta {Number(row?.contributedEur ?? 0).toFixed(2)} €</div>{row?.eventLabels?.length > 0 && <div className="mt-2 border-t border-slate-800 pt-2 text-cyan-200">{row.eventLabels.map((labelText: string) => <div key={labelText}>• {labelText}</div>)}</div>}</div>;
+  return <div className="max-w-[350px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-[10px] shadow-xl"><div className="font-mono text-slate-400">{label}</div><div className="mt-1 font-bold text-white">Valor reconstruido {Number(row?.valueEur ?? 0).toFixed(2)} €</div><div className="text-slate-400">Invertido {Number(row?.investedEur ?? 0).toFixed(2)} € · liquidez {Number(row?.cashEur ?? 0).toFixed(2)} €</div><div className="text-slate-500">Aportación externa neta {Number(row?.contributedEur ?? 0).toFixed(2)} €</div>{row?.eventLabels?.length > 0 && <div className="mt-2 border-t border-slate-800 pt-2 text-cyan-200">{row.eventLabels.map((labelText: string) => <div key={labelText}>• {labelText}</div>)}</div>}</div>;
 }
 
-export const PortfolioEvolutionChart: React.FC<Props> = ({ scan, funds, holdings, cashEur, pendingCapitalEur, revision = 0 }) => {
+export const PortfolioEvolutionChart: React.FC<Props> = ({ scan, funds, holdings, cashEur, pendingCapitalEur, currentInvestedEur, revision = 0 }) => {
   const [result, setResult] = useState<EvolutionResult | null>(null), [loading, setLoading] = useState(false), [error, setError] = useState<string | null>(null);
-  const [cashBenchmarkAnnualPct, setCashBenchmarkAnnualPct] = useState(() => CashBenchmarkService.load());
   useEffect(() => {
     let active = true;
     setLoading(true); setError(null);
-    reconstruct(funds, holdings, scan, cashBenchmarkAnnualPct).then(value => { if (active) setResult(value); }).catch((e: any) => { if (active) setError(e?.message || String(e)); }).finally(() => { if (active) setLoading(false); });
+    reconstruct(funds, holdings, scan).then(value => { if (active) setResult(value); }).catch((e: any) => { if (active) setError(e?.message || String(e)); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [funds, holdings, scan, revision, cashBenchmarkAnnualPct]);
-  useEffect(() => {
-    const sync = () => setCashBenchmarkAnnualPct(CashBenchmarkService.load());
-    window.addEventListener(CASH_BENCHMARK_UPDATED_EVENT, sync as EventListener);
-    return () => window.removeEventListener(CASH_BENCHMARK_UPDATED_EVENT, sync as EventListener);
-  }, []);
+  }, [funds, holdings, scan, revision]);
 
   const last = result?.points.at(-1) ?? null;
   const registeredLiquidityEur = Math.max(0, cashEur) + Math.max(0, pendingCapitalEur);
   const cashReconciliationGapEur = last ? last.cashEur - registeredLiquidityEur : null;
+  const investedReconciliationGapEur = last && currentInvestedEur != null ? last.investedEur - currentInvestedEur : null;
   const inferredContributionsEur = result?.inferredContributionsEur ?? 0;
   // Never publish reconstructed capital, profit or returns as real when recorded
   // liquidity disagrees or the history had to invent financing for past buys.
-  const evidenceReconciled = last != null && cashReconciliationGapEur != null
-    && Math.abs(cashReconciliationGapEur) <= 1 && inferredContributionsEur < 0.005;
+  const evidenceReconciled = last != null && cashReconciliationGapEur != null && investedReconciliationGapEur != null
+    && Math.abs(cashReconciliationGapEur) <= 1
+    && Math.abs(investedReconciliationGapEur) <= 1
+    && inferredContributionsEur < 0.005
+    && result?.inferredEvents === 0;
   const gain = evidenceReconciled && last ? last.valueEur - last.contributedEur : null;
   const gainPct = evidenceReconciled && last && gain != null && last.contributedEur > 0 ? gain / last.contributedEur * 100 : null;
   const warnings = useMemo(() => result?.warnings ?? [], [result]);
 
   return <div className="mt-4 rounded-xl border border-cyan-500/20 bg-slate-950/55 p-4">
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex items-center gap-2"><Activity className="h-4 w-4 text-cyan-300"/><b className="text-sm text-white">Evolución reconstruida de la cartera</b></div><div className="mt-1 text-[10px] text-slate-500">Reconstruye en la misma gráfica inversiones y cuenta operativa desde la aportación inicial hasta hoy. La cuenta se simula con aportaciones y movimientos registrados, aplicando un interés teórico al {cashBenchmarkAnnualPct.toFixed(2)}% TAE. No equivale a un extracto bancario ni certifica pagos reales de intereses.</div></div>{loading && <span className="text-[10px] text-cyan-300">Actualizando histórico…</span>}</div>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex items-center gap-2"><Activity className="h-4 w-4 text-cyan-300"/><b className="text-sm text-white">Evolución reconstruida de la cartera</b></div><div className="mt-1 text-[10px] text-slate-500">Reconstruye compras y flujos de efectivo fechados, sin crear aportaciones ni intereses bancarios supuestos. Solo muestra rentabilidad cuando el resultado concilia con el patrimonio actual.</div></div>{loading && <span className="text-[10px] text-cyan-300">Actualizando histórico…</span>}</div>
     {error && <div className="mt-3 rounded-lg border border-rose-500/20 bg-rose-500/5 p-3 text-[10px] text-rose-200">{error}</div>}
     {last && !evidenceReconciled && <div role="alert" className="mt-3 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-xs text-amber-100">
       <b>HISTÓRICO NO CONCILIADO · rentabilidad N/D</b>
-      <p className="mt-2">La liquidez reconstruida ({last.cashEur.toFixed(2)} €) no se considera un saldo real verificado. Liquidez registrada actualmente: {registeredLiquidityEur.toFixed(2)} €; diferencia: {cashReconciliationGapEur?.toFixed(2) ?? 'N/D'} €.</p>
+      <p className="mt-2">Liquidez reconstruida: {last.cashEur.toFixed(2)} €; liquidez actual registrada: {registeredLiquidityEur.toFixed(2)} €; diferencia: {cashReconciliationGapEur?.toFixed(2) ?? 'N/D'} €. Inversión reconstruida: {last.investedEur.toFixed(2)} €; valor actual: {currentInvestedEur?.toFixed(2) ?? 'N/D'} €.</p>
       {inferredContributionsEur >= 0.005 && <p className="mt-2">La reconstrucción necesitó {inferredContributionsEur.toFixed(2)} € de financiación inferida para compras anteriores. No es una aportación externa acreditada.</p>}
-      <p className="mt-2">El patrimonio real actual se muestra arriba en Mi cartera real. No se publican aquí capital histórico, beneficio, intereses ni rentabilidad reconstruidos hasta conciliar las fechas y los movimientos con el registro de efectivo. No se modifica ninguna posición ni movimiento guardado.</p>
+      <p className="mt-2">El patrimonio actual se muestra arriba en Mi cartera real. No se publican aquí capital histórico, beneficio ni rentabilidad reconstruidos hasta conciliar fechas, movimientos y posiciones. No se modifica ninguna posición ni movimiento guardado.</p>
     </div>}
     {last && evidenceReconciled && <>
-      <div className="mt-3 grid gap-2 sm:grid-cols-4 text-xs"><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Valor reconstruido</div><b className="font-mono">{last.valueEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Aportación externa neta</div><b className="font-mono">{last.contributedEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Resultado reconstruido</div><b className={`font-mono ${gain != null && gain >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>{gain == null ? 'N/D' : `${gain >= 0 ? '+' : ''}${gain.toFixed(2)} €`}</b><div className={`mt-1 font-mono text-[10px] ${gainPct != null && gainPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{gainPct == null ? 'Rentabilidad N/D' : `${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}% sobre aportación neta`}</div></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Cuenta remunerada reconstruida</div><b className="font-mono text-sky-200">{last.cashEur.toFixed(2)} €</b><div className="mt-1 text-[9px] text-slate-500">Interés teórico +{last.cashInterestEur.toFixed(2)} € · principal registrado hoy {registeredLiquidityEur.toFixed(2)} €</div></div></div>
-      <div className="mt-3 h-[300px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={result!.points} margin={{ top: 10, right: 10, left: 5, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/><XAxis dataKey="date" minTickGap={38} tick={{ fontSize: 9, fill: '#94a3b8' }}/><YAxis width={70} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={value => `${Number(value).toFixed(0)}€`}/><Tooltip content={<EvolutionTooltip/>}/><Legend wrapperStyle={{ fontSize: 10 }}/><Line type="monotone" dataKey="valueEur" name="Valor real reconstruido" stroke="#22d3ee" strokeWidth={2} dot={false}/><Line type="stepAfter" dataKey="contributedEur" name="Aportación externa neta" stroke="#94a3b8" strokeDasharray="5 4" dot={false}/><Line type="stepAfter" dataKey="cashEur" name={`Cuenta remunerada · ${cashBenchmarkAnnualPct.toFixed(2)}% TAE`} stroke="#38bdf8" strokeWidth={2.5} dot={false}/><Scatter dataKey="eventValueEur" name="Movimiento real" fill="#22c55e"/></ComposedChart></ResponsiveContainer></div>
-      <div className="mt-1 text-[9px] text-slate-600">Series reutilizadas del scan actual: {result!.reusedScanSeries}. La historia termina hoy; no contiene ninguna proyección futura. El interés de efectivo es un cálculo teórico al tipo TAE configurado, no un abono bancario verificado.</div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-4 text-xs"><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Valor reconstruido</div><b className="font-mono">{last.valueEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Aportación externa neta</div><b className="font-mono">{last.contributedEur.toFixed(2)} €</b></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Resultado reconstruido</div><b className={`font-mono ${gain != null && gain >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>{gain == null ? 'N/D' : `${gain >= 0 ? '+' : ''}${gain.toFixed(2)} €`}</b><div className={`mt-1 font-mono text-[10px] ${gainPct != null && gainPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{gainPct == null ? 'Rentabilidad N/D' : `${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}% sobre aportación neta`}</div></div><div className="rounded-lg bg-slate-900 p-3"><div className="text-[9px] uppercase text-slate-500">Liquidez reconstruida</div><b className="font-mono text-sky-200">{last.cashEur.toFixed(2)} €</b><div className="mt-1 text-[9px] text-slate-500">Efectivo y capital pendiente; sin intereses supuestos.</div></div></div>
+      <div className="mt-3 h-[300px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={result!.points} margin={{ top: 10, right: 10, left: 5, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/><XAxis dataKey="date" minTickGap={38} tick={{ fontSize: 9, fill: '#94a3b8' }}/><YAxis width={70} tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={value => `${Number(value).toFixed(0)}€`}/><Tooltip content={<EvolutionTooltip/>}/><Legend wrapperStyle={{ fontSize: 10 }}/><Line type="monotone" dataKey="valueEur" name="Valor histórico reconciliado" stroke="#22d3ee" strokeWidth={2} dot={false}/><Line type="stepAfter" dataKey="contributedEur" name="Aportación externa neta" stroke="#94a3b8" strokeDasharray="5 4" dot={false}/><Line type="stepAfter" dataKey="cashEur" name="Liquidez reconstruida" stroke="#38bdf8" strokeWidth={2.5} dot={false}/><Scatter dataKey="eventValueEur" name="Movimiento real" fill="#22c55e"/></ComposedChart></ResponsiveContainer></div>
+      <div className="mt-1 text-[9px] text-slate-600">Series reutilizadas del scan actual: {result!.reusedScanSeries}. La historia termina hoy; no contiene proyecciones futuras, intereses supuestos ni aportaciones implícitas.</div>
     </>}
     {!loading && result && result.points.length === 0 && <div className="mt-3 text-xs text-slate-500">Todavía no hay historia suficiente para dibujar la evolución.</div>}
-    {(warnings.length > 0 || (result?.inferredEvents ?? 0) > 0) && <details className="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/5 p-3"><summary className="flex cursor-pointer list-none items-center gap-2 text-[10px] font-bold text-amber-100"><AlertTriangle className="h-3.5 w-3.5"/>Precisión de la reconstrucción</summary><div className="mt-2 space-y-1 text-[9px] text-slate-400">{(result?.inferredEvents ?? 0) > 0 && <div>• {result!.inferredEvents} operación(es) sin unidades exactas se han convertido a unidades usando el NAV/precio de esa fecha.</div>}{warnings.map(warning => <div key={warning}>• {warning}</div>)}<div>• Las compras manuales se cargan contra los flujos fechados existentes; cualquier falta de efectivo exige financiación inferida, que bloquea la presentación de rentabilidad hasta poder conciliarla.</div><div>• La TAE se convierte a rendimiento diario equivalente y se abona visualmente al cierre de cada mes; no significa 2,5% cada mes.</div></div></details>}
+    {(warnings.length > 0 || (result?.inferredEvents ?? 0) > 0) && <details className="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/5 p-3"><summary className="flex cursor-pointer list-none items-center gap-2 text-[10px] font-bold text-amber-100"><AlertTriangle className="h-3.5 w-3.5"/>Precisión de la reconstrucción</summary><div className="mt-2 space-y-1 text-[9px] text-slate-400">{(result?.inferredEvents ?? 0) > 0 && <div>• {result!.inferredEvents} operación(es) sin unidades exactas se han convertido a unidades usando el NAV/precio de esa fecha.</div>}{warnings.map(warning => <div key={warning}>• {warning}</div>)}<div>• Las compras manuales se cargan contra los flujos fechados existentes; cualquier falta de efectivo exige financiación inferida, que bloquea la presentación de rentabilidad hasta poder conciliarla.</div><div>• La TAE es una referencia de decisiones y no se acredita como interés efectivo en este histórico.</div></div></details>}
   </div>;
 };
