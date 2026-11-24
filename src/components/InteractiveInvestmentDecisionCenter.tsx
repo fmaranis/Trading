@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BarChart3, CircleDollarSign, Radar, RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
 import {
   AssetUniverseScanResult,
@@ -127,6 +127,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   const [cashRevision, setCashRevision] = useState(0);
   const [result, setResult] = useState<InvestmentDecisionResult | null>(null);
   const [marketLoading, setMarketLoading] = useState(false);
+  const marketRefreshInFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [lastMarketRefresh, setLastMarketRefresh] = useState<string | null>(null);
   const [localRevision, setLocalRevision] = useState(0);
@@ -183,8 +184,20 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
   };
 
   const refreshMarket = async (forceRefresh: boolean) => {
-    if (marketLoading) return;
+    // Fail closed: an unsuccessful or in-flight refresh must never leave an old
+    // BUY/SELL plan visible as though it had been confirmed with current data.
+    // The old scan can remain in persisted research exports but cannot fund
+    // an actionable order until the fresh canonical chain completes again.
+    if (marketRefreshInFlight.current) return;
+    marketRefreshInFlight.current = true;
     setMarketLoading(true); setError(null);
+    setRawScan(null);
+    setScan(null);
+    setCandidateGate(null);
+    setResult(null);
+    setPositionHealth(null);
+    setEodhdValidation(null);
+    setAlphaValidation(null);
     try {
       const scanResult = await AssetUniverseScanner.scan(
         EUR_PORTFOLIO_DISCOVERY_UNIVERSE,
@@ -194,9 +207,11 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       );
       setRawScan(scanResult);
       setLastMarketRefresh(new Date().toLocaleString('es-ES'));
-      setEodhdValidation(null); setAlphaValidation(null);
     } catch (e: any) { setError(e?.message || String(e)); }
-    finally { setMarketLoading(false); }
+    finally {
+      marketRefreshInFlight.current = false;
+      setMarketLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -262,7 +277,7 @@ export const InteractiveInvestmentDecisionCenter: React.FC = () => {
       <button onClick={() => setWorkspace('RESEARCH')} className={`touch-target rounded-xl px-4 py-4 text-left transition ${workspace === 'RESEARCH' ? 'bg-violet-500/15 text-violet-100 ring-1 ring-violet-500/30' : 'text-slate-400 hover:bg-slate-900'}`}><div className="flex items-center gap-2"><Radar className="h-5 w-5"/><b>Estudio y señales</b></div><div className="mt-1 text-[10px] opacity-70">Buscar valores, ranking, gráfico y puntos de compra/venta.</div></button>
     </nav>
 
-    {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200"><b>No puedo calcular el mercado actual.</b> {error}</div>}
+    {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200"><b>No puedo calcular el mercado actual. No se presentan órdenes operativas.</b> {error}</div>}
     {marketLoading && !scan && <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">Actualizando automáticamente el mercado REAL ampliado…</div>}
 
     {workspace === 'PORTFOLIO' && <>
