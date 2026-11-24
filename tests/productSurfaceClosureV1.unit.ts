@@ -333,4 +333,14 @@ check('1038 a failed/in-flight refresh clears stale actionable orders before new
   assert.match(interactive, /scan && result && !positionHealthLoading && positionHealth != null && <MarketUtilityDashboard/);
 });
 
-console.log(`Product surface closure V1: ${passed}/38 invariants passed.`);
+check('1039 both manual portfolio registration paths require explicit broker confirmation', () => {
+  assert.match(registration, /if \(!confirmedAtBroker\[line\.id\]\)/);
+  assert.match(registration, /disabled=\{unavailable \|\| !confirmedAtBroker\[line\.id\]\}/);
+  assert.match(registration, /MyInvestor ya ha ejecutado esta operación/);
+  assert.match(registration, /setConfirmedAtBroker\(previous => \(\{ \.\.\.previous, \[line\.id\]: false \}\)\)/);
+  assert.match(execution, /if \(brokerConfirmedLineId !== line\.id\)/);
+  assert.match(execution, /disabled=\{brokerConfirmedLineId !== line\.id\}/);
+  assert.match(execution, /He comprobado que MyInvestor ya ha ejecutado esta operación/);
+});
+
+console.log(`Product surface closure V1: ${passed}/39 invariants passed.`);
