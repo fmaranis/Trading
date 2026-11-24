@@ -158,4 +158,30 @@ try {
 ok(usdRegistrationRejected, 'state mutation itself rejects an explicitly USD-priced fake BUY as EUR');
 
 
+
+function rejectsInvalidExecution(line: any, state: any = baseState): boolean {
+  try { applyPortfolioExecutionLine(state, line); return false; }
+  catch { return true; }
+}
+ok(rejectsInvalidExecution({ ...buyLine, amountEur: Number.NaN }), 'real ETF buy rejects NaN amount without modifying cash');
+ok(rejectsInvalidExecution({ ...buyLine, amountEur: Infinity }), 'real ETF buy rejects infinite nominal instead of persisting null');
+ok(rejectsInvalidExecution({ ...buyLine, shares: 1.5 }), 'real ETF buy requires whole-share quantity');
+ok(rejectsInvalidExecution({ ...buyLine, shares: Infinity }), 'real ETF buy rejects infinite shares');
+ok(rejectsInvalidExecution({ ...buyLine, estimatedFeeEur: Number.NaN }), 'real ETF buy rejects NaN broker fee');
+ok(rejectsInvalidExecution({ ...buyLine, estimatedFeeEur: -1 }), 'real ETF buy rejects negative broker fee');
+ok(rejectsInvalidExecution({ ...sellLine, amountEur: Infinity }), 'ETF sale cannot create infinite cash');
+ok(rejectsInvalidExecution({ ...sellLine, shares: 1.2 }), 'ETF sale cannot book fractional shares');
+ok(rejectsInvalidExecution({ ...sellLine, estimatedFeeEur: 300 }), 'ETF sale rejects commission greater than sale proceeds');
+ok(rejectsInvalidExecution({ ...subscribeLine, amountEur: NaN }), 'fund subscription cannot create NaN units or portfolio value');
+ok(rejectsInvalidExecution({ ...subscribeLine, shares: Infinity }), 'fund subscription cannot store unbounded units');
+ok(rejectsInvalidExecution({ ...transferLine, amountEur: 450 }), 'fund transfer cannot silently clip requested 450 EUR against 300 EUR available');
+ok(rejectsInvalidExecution({ ...transferLine, amountEur: Infinity }), 'fund transfer cannot create infinite value');
+ok(rejectsInvalidExecution({ ...transferLine, action: 'REDEEM_FUND', amountEur: 301 }), 'fund redemption cannot silently clip requested amount');
+ok(rejectsInvalidExecution({ ...buyLine, action: 'UNRECOGNIZED' }), 'unknown action cannot return a fake executed receipt');
+ok(rejectsInvalidExecution(buyLine, { ...baseState, cashEur: NaN }), 'corrupted nonfinite cash blocks execution');
+ok(rejectsInvalidExecution(buyLine, {
+  ...baseState,
+  stagedCapitalPlan: { ...baseState.stagedCapitalPlan, availableEur: Infinity }
+}), 'corrupted nonfinite pending capital blocks execution');
+
 console.log(`Portfolio Execution Plan + state transactions: ${passed}/${passed} invariants passed.`);
