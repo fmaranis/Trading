@@ -129,4 +129,41 @@ assert.throws(
   /HISTORICAL_INSTRUMENT_MASTER_EXECUTION_BAR_GAP/
 );
 
+// An instrument cannot silently disappear from a held portfolio on a non-rebalance day.
+const afterFirstExecution = dateAt(253);
+const delistedMaster: HistoricalInstrumentMaster = {
+  ...pitMaster,
+  records: pitMaster.records.map(record => ({
+    ...record,
+    delistingDate: firstSelection.executionDate,
+    aliases: record.aliases.map(alias => ({ ...alias, validTo: firstSelection.executionDate }))
+  }))
+};
+assert.throws(
+  () => CausalUniverseBacktestEngine.run(dataset(), catalog, config, 4, delistedMaster),
+  /HISTORICAL_INSTRUMENT_MASTER_HELD_IDENTITY_GAP/
+);
+const missingHeldDataset = dataset();
+for (const asset of missingHeldDataset.assets) {
+  if (firstSelection.selectedAssetIds.includes(asset.assetId)) {
+    asset.bars = asset.bars.filter(bar => bar.timestamp.slice(0, 10) !== afterFirstExecution);
+  }
+}
+assert.throws(
+  () => CausalUniverseBacktestEngine.run(missingHeldDataset, catalog, config, 4, pitMaster),
+  /HISTORICAL_INSTRUMENT_MASTER_HELD_BAR_GAP/
+);
+const executionIdentityGapMaster: HistoricalInstrumentMaster = {
+  ...pitMaster,
+  records: pitMaster.records.map(record => ({
+    ...record,
+    delistingDate: firstSelection.informationEndDate,
+    aliases: record.aliases.map(alias => ({ ...alias, validTo: firstSelection.informationEndDate }))
+  }))
+};
+assert.throws(
+  () => CausalUniverseBacktestEngine.run(dataset(), catalog, config, 4, executionIdentityGapMaster),
+  /HISTORICAL_INSTRUMENT_MASTER_EXECUTION_IDENTITY_GAP/
+);
+
 console.log('Causal Universe Backtest: legacy invariants and PIT raw-session regressions passed.');

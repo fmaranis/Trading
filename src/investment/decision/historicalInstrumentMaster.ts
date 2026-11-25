@@ -249,6 +249,15 @@ export function historicalInstrumentMasterCoverageSummary(master: HistoricalInst
 }
 
 
+/** COMPLETE coverage is a time-bounded assertion, not a permanent label. */
+export function assertHistoricalMasterCoverageAtDate(master: HistoricalInstrumentMaster, date: string): void {
+  assertIsoDate(date, 'COVERAGE_QUERY_DATE');
+  if (master.coverage !== 'COMPLETE_POINT_IN_TIME') return;
+  if (date > master.asOfDate || master.records.some(record => date > record.evidenceAsOfDate)) {
+    throw new Error(`HISTORICAL_INSTRUMENT_MASTER_COMPLETE_EVIDENCE_HORIZON:${date}`);
+  }
+}
+
 export function historicalCatalogAtDate(
   master: HistoricalInstrumentMaster,
   catalog: AssetUniverseItem[],
@@ -258,6 +267,7 @@ export function historicalCatalogAtDate(
   if (master.coverage === 'CURRENT_REFERENCE_ONLY') {
     throw new Error('HISTORICAL_INSTRUMENT_MASTER_CURRENT_REFERENCE_CANNOT_FILTER_HISTORICAL_UNIVERSE');
   }
+  assertHistoricalMasterCoverageAtDate(master, date);
   return catalog.filter(item => {
     const record = resolveHistoricalInstrumentRecord(master, {
       assetId: item.assetId,
@@ -279,6 +289,7 @@ export function historicalTradableRecordsAtDate(
   if (master.coverage === 'CURRENT_REFERENCE_ONLY') {
     throw new Error('HISTORICAL_INSTRUMENT_MASTER_CURRENT_REFERENCE_HAS_NO_HISTORICAL_TRADABLE_SET');
   }
+  assertHistoricalMasterCoverageAtDate(master, date);
   return master.records.filter(record => historicalInstrumentStatusAtDate(master, record, date) === 'TRADABLE_VERIFIED');
 }
 

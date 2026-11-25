@@ -4,6 +4,7 @@ import { MultiAssetDataset, PortfolioBacktestConfig, PortfolioTrade } from '../p
 import { AssetUniverseItem } from './assetUniverse';
 import { InvestmentDecisionEngine } from './investmentDecisionEngine';
 import {
+  assertHistoricalMasterCoverageAtDate,
   historicalCatalogAtDate,
   historicalMasterMissingFromCatalogAtDate,
   validateHistoricalInstrumentMaster,
@@ -245,6 +246,28 @@ export class CausalUniverseBacktestEngine {
 
     for (let i = 0; i < dates.length; i++) {
       const executionDate = dates[i];
+      if (historicalInstrumentMaster) {
+        assertHistoricalMasterCoverageAtDate(historicalInstrumentMaster, executionDate);
+        const heldIds = Object.values(positions).filter(position => position.shares > 0).map(position => position.assetId);
+        if (heldIds.length) {
+          const heldCatalog = catalog.filter(item => heldIds.includes(item.assetId));
+          const activeHeldIds = new Set(historicalCatalogAtDate(historicalInstrumentMaster, heldCatalog, executionDate).map(item => item.assetId));
+          const unresolvedHeld = heldIds.filter(assetId => !activeHeldIds.has(assetId)).sort();
+          if (unresolvedHeld.length) {
+            throw new Error(`HISTORICAL_INSTRUMENT_MASTER_HELD_IDENTITY_GAP:${executionDate}:${unresolvedHeld.join(',')}`);
+          }
+          // Conservative until exchange-specific calendars, suspensions and
+          // corporate-action proceeds are modelled. A stale mark is not a
+          // certified end-of-session valuation of a PIT holding.
+          const missingHeld = heldIds.filter(assetId => !actualPitBarAtDate(
+            universeDataset.assets.find(asset => asset.assetId === assetId),
+            heldCatalog.find(item => item.assetId === assetId), executionDate
+          )).sort();
+          if (missingHeld.length) {
+            throw new Error(`HISTORICAL_INSTRUMENT_MASTER_HELD_BAR_GAP:${executionDate}:${missingHeld.join(',')}`);
+          }
+        }
+      }
       const previousDate = i > 0 ? dates[i - 1] : null;
       const scheduled = i >= warmupBars && previousDate != null && (!allocated || isRebalanceDate(previousDate, executionDate, 'MONTHLY'));
 
@@ -271,6 +294,12 @@ export class CausalUniverseBacktestEngine {
               ...selection.assetIds,
               ...Object.values(positions).filter(position => position.shares > 0).map(position => position.assetId)
             ]);
+            const executionCatalog = catalog.filter(item => executionIds.has(item.assetId));
+            const activeExecutionIds = new Set(historicalCatalogAtDate(historicalInstrumentMaster, executionCatalog, executionDate).map(item => item.assetId));
+            const unresolvedExecution = [...executionIds].filter(assetId => !activeExecutionIds.has(assetId)).sort();
+            if (unresolvedExecution.length) {
+              throw new Error(`HISTORICAL_INSTRUMENT_MASTER_EXECUTION_IDENTITY_GAP:${executionDate}:${unresolvedExecution.join(',')}`);
+            }
             const missingOpen = [...executionIds].filter(assetId => !actualPitBarAtDate(
               universeDataset.assets.find(asset => asset.assetId === assetId),
               catalog.find(item => item.assetId === assetId),

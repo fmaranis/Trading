@@ -5,6 +5,7 @@ import {
   HISTORICAL_INSTRUMENT_MASTER_V1,
   buildCurrentReferenceOnlyInstrumentMaster,
   historicalCatalogAtDate,
+  historicalTradableRecordsAtDate,
   historicalMasterMissingFromCatalogAtDate,
   historicalInstrumentMasterCoverageSummary,
   historicalInstrumentStatusAtDate,
@@ -111,6 +112,22 @@ const expiredAliasCatalog = [{ ...fixtureCatalog[0], ticker: 'OLD.DE' }];
 assert(historicalCatalogAtDate(verifiedFixture, expiredAliasCatalog, '2018-01-02').length === 0, 'EXPIRED_ALIAS_BLOCKED');
 const secondIdentityCatalog = [{ ...fixtureCatalog[0], assetId: 'FIXTURE-2', isin: 'TEST-ISIN-2', ticker: 'OLD.DE' }];
 assert(historicalMasterMissingFromCatalogAtDate(reusedTickerMaster, [...expiredAliasCatalog, ...secondIdentityCatalog], '2018-01-02').join(',') === 'TEST-ISIN-1', 'COMPLETE_SCOPE_REQUIRES_ACTIVE_ALIAS');
+
+const shortEvidenceFixture: HistoricalInstrumentMaster = {
+  ...verifiedFixture,
+  records: [{ ...fixture, evidenceAsOfDate: '2018-12-31' }]
+};
+function expectCoverageHorizonFailure(action: () => unknown, label: string): void {
+  let rejected = false;
+  try { action(); } catch (error) {
+    rejected = String(error).includes('HISTORICAL_INSTRUMENT_MASTER_COMPLETE_EVIDENCE_HORIZON');
+  }
+  assert(rejected, label);
+}
+expectCoverageHorizonFailure(() => historicalCatalogAtDate(verifiedFixture, fixtureCatalog, '2021-01-04'), 'COMPLETE_CATALOG_AFTER_MASTER_HORIZON');
+expectCoverageHorizonFailure(() => historicalTradableRecordsAtDate(shortEvidenceFixture, '2019-01-02'), 'COMPLETE_TRADABLE_AFTER_RECORD_HORIZON');
+assert(historicalCatalogAtDate({ ...shortEvidenceFixture, coverage: 'PARTIAL_POINT_IN_TIME' }, fixtureCatalog, '2019-01-02').length === 0, 'PARTIAL_HORIZON_FILTER');
+assert(historicalCatalogAtDate(shortEvidenceFixture, fixtureCatalog, '2018-12-31').length === 1, 'INCLUSIVE_EVIDENCE_BOUNDARY');
 
 let currentReferenceCannotVerify = false;
 try {
