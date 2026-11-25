@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { AssetUniverseItem, CAUSAL_UNIVERSE_MINIMUM_HISTORY_BARS, CausalUniverseBacktestEngine } from '../src/investment/decision';
 import { MultiAssetDataset } from '../src/investment/portfolioBacktesting';
+import { HISTORICAL_INSTRUMENT_MASTER_V1, type HistoricalInstrumentMaster } from '../src/investment/decision/historicalInstrumentMaster';
 
 function dateAt(i: number): string {
   const d = new Date(Date.UTC(2019, 0, 1 + i));
@@ -81,4 +82,51 @@ assert.deepEqual(
   mutated.equityCurve.filter(x => x.timestamp <= cutoff).map(x => [x.timestamp, Number(x.equity.toFixed(8))])
 );
 
-console.log('Causal Universe Backtest: 13/13 selection/lookahead/history/accounting invariants passed.');
+// Synthetic fixtures exercise PIT plumbing only, not market evidence.
+const pitMaster: HistoricalInstrumentMaster = {
+  version: HISTORICAL_INSTRUMENT_MASTER_V1,
+  targetUniverse: 'UNIT_TEST_UNIVERSE',
+  coverage: 'COMPLETE_POINT_IN_TIME',
+  asOfDate: dateAt(759),
+  notes: ['Unit test fixture only.'],
+  records: catalog.map(item => ({
+    canonicalInstrumentId: item.assetId,
+    isin: null,
+    name: item.name,
+    instrumentType: 'LISTED_INSTRUMENT',
+    currency: 'EUR',
+    listingDate: dateAt(0),
+    delistingDate: null,
+    aliases: [{ ticker: item.ticker, venue: 'XETRA', validFrom: dateAt(0), validTo: null }],
+    authority: 'EXCHANGE_OFFICIAL',
+    authorityReference: 'fixture://pit',
+    evidenceAsOfDate: dateAt(759),
+    pointInTimeVerified: true,
+    dataProvenance: 'STATIC_REFERENCE'
+  }))
+};
+function removeBarAt(assetId: string, date: string): MultiAssetDataset {
+  const ds = dataset();
+  return { ...ds, assets: ds.assets.map(asset => asset.assetId === assetId
+    ? { ...asset, bars: asset.bars.filter(bar => bar.timestamp.slice(0, 10) !== date) }
+    : asset) };
+}
+const firstSelection = base.selectionHistory[0];
+const firstAsset = firstSelection.selectedAssetIds[0];
+assert.throws(
+  () => CausalUniverseBacktestEngine.run(removeBarAt(firstAsset, firstSelection.informationEndDate), catalog, config, 4, pitMaster),
+  /HISTORICAL_INSTRUMENT_MASTER_COMPLETE_DATASET_GAP/
+);
+const partialMaster: HistoricalInstrumentMaster = { ...pitMaster, coverage: 'PARTIAL_POINT_IN_TIME' };
+const partial = CausalUniverseBacktestEngine.run(removeBarAt(firstAsset, firstSelection.informationEndDate), catalog, config, 4, partialMaster);
+assert.ok(!partial.selectionHistory[0].selectedAssetIds.includes(firstAsset));
+assert.throws(
+  () => CausalUniverseBacktestEngine.run(removeBarAt(firstAsset, firstSelection.executionDate), catalog, config, 4, pitMaster),
+  /HISTORICAL_INSTRUMENT_MASTER_EXECUTION_BAR_GAP/
+);
+assert.throws(
+  () => CausalUniverseBacktestEngine.run(removeBarAt(firstAsset, firstSelection.executionDate), catalog, config, 4, partialMaster),
+  /HISTORICAL_INSTRUMENT_MASTER_EXECUTION_BAR_GAP/
+);
+
+console.log('Causal Universe Backtest: legacy invariants and PIT raw-session regressions passed.');

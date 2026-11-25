@@ -139,6 +139,22 @@ function scoreCandidate(prices: number[], defensive: boolean): number | null {
   return m20 * 0.20 + m60 * 0.35 + m120 * 0.45 - vol * 0.30 - dd * 0.25 + (defensive ? 2.5 : 0);
 }
 
+// A PIT identity does not prove a quote was observed on a particular session.
+// Never use a forward-filled mark as evidence of a negotiable historical price.
+function actualPitBarAtDate(
+  asset: MultiAssetDataset['assets'][number] | undefined,
+  item: AssetUniverseItem | undefined,
+  date: string
+): PriceBar | null {
+  if (!asset || !item || asset.ticker.trim().toUpperCase() !== item.ticker.trim().toUpperCase()) return null;
+  const rows = asset.bars.filter(bar => bar.timestamp.slice(0, 10) === date);
+  if (rows.length !== 1) return null;
+  const bar = rows[0];
+  if (![bar.open, bar.high, bar.low, bar.close].every(value => Number.isFinite(value) && value > 0)) return null;
+  if (bar.high < Math.max(bar.open, bar.close, bar.low) || bar.low > Math.min(bar.open, bar.close)) return null;
+  return bar;
+}
+
 function selectDiversified(
   dataset: MultiAssetDataset,
   catalog: AssetUniverseItem[],
@@ -153,7 +169,10 @@ function selectDiversified(
   const ranked = dataset.assets.map(asset => {
     const item = catalogById.get(asset.assetId);
     const prices = asset.bars.filter(b => b.timestamp.slice(0, 10) <= informationEndDate).map(b => b.close);
-    return { asset, item, score: scoreCandidate(prices, Boolean(item?.defensive)) };
+    const score = historicalInstrumentMaster && !actualPitBarAtDate(asset, item, informationEndDate)
+      ? null
+      : scoreCandidate(prices, Boolean(item?.defensive));
+    return { asset, item, score };
   }).filter(x => x.item && x.score != null)
     .sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
 
@@ -236,14 +255,31 @@ export class CausalUniverseBacktestEngine {
             throw new Error(`HISTORICAL_INSTRUMENT_MASTER_COMPLETE_CATALOG_GAP:${previousDate}:${missingCatalog.join(',')}`);
           }
           const pitCatalog = historicalCatalogAtDate(historicalInstrumentMaster, catalog, previousDate);
-          const datasetIds = new Set(universeDataset.assets.map(asset => asset.assetId));
-          const missingDataset = pitCatalog.filter(item => !datasetIds.has(item.assetId)).map(item => item.assetId).sort();
+          const missingDataset = pitCatalog.filter(item => !actualPitBarAtDate(
+            universeDataset.assets.find(asset => asset.assetId === item.assetId), item, previousDate
+          )).map(item => item.assetId).sort();
           if (missingDataset.length) {
             throw new Error(`HISTORICAL_INSTRUMENT_MASTER_COMPLETE_DATASET_GAP:${previousDate}:${missingDataset.join(',')}`);
           }
         }
         const selection = selectDiversified(universeDataset, catalog, previousDate, Math.min(maxSelected, 8), historicalInstrumentMaster);
         if (selection.assetIds.length >= 2) {
+          if (historicalInstrumentMaster) {
+            // Missing opening data must stop the PIT replay, not modify the
+            // historical signal using future knowledge or invent a liquidation.
+            const executionIds = new Set([
+              ...selection.assetIds,
+              ...Object.values(positions).filter(position => position.shares > 0).map(position => position.assetId)
+            ]);
+            const missingOpen = [...executionIds].filter(assetId => !actualPitBarAtDate(
+              universeDataset.assets.find(asset => asset.assetId === assetId),
+              catalog.find(item => item.assetId === assetId),
+              executionDate
+            )).sort();
+            if (missingOpen.length) {
+              throw new Error(`HISTORICAL_INSTRUMENT_MASTER_EXECUTION_BAR_GAP:${executionDate}:${missingOpen.join(',')}`);
+            }
+          }
           const historicalSelected = sliceDataset(universeDataset, selection.assetIds, previousDate);
           const equityBefore = cash + universeDataset.assets.reduce((sum, asset) => {
             const p = bars[asset.assetId]?.get(previousDate);
