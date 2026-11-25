@@ -138,11 +138,29 @@ export function resolveHistoricalInstrumentRecord(
   const assetId = identity.assetId?.trim() || null;
   const isin = identity.isin?.trim().toUpperCase() || null;
   const ticker = identity.ticker?.trim().toUpperCase() || null;
-  return master.records.find(record =>
-    (assetId != null && record.canonicalInstrumentId === assetId)
-    || (isin != null && record.isin?.toUpperCase() === isin)
-    || (ticker != null && record.aliases.some(alias => alias.ticker.toUpperCase() === ticker))
-  ) ?? null;
+  const byId = assetId == null ? [] : master.records.filter(record => record.canonicalInstrumentId === assetId);
+  if (byId.length > 1) return null;
+  if (isin != null) {
+    const byIsin = master.records.filter(record => record.isin?.trim().toUpperCase() === isin);
+    if (byIsin.length !== 1) return null;
+    if (byId.length === 1 && byId[0] !== byIsin[0]) return null;
+    return byIsin[0];
+  }
+  if (byId.length === 1) return byId[0];
+  if (ticker == null) return null;
+  // An unqualified ticker is not a stable economic identity. Reused or
+  // ambiguous symbols require explicit identity evidence, not array order.
+  const byTicker = master.records.filter(record =>
+    record.aliases.some(alias => alias.ticker.trim().toUpperCase() === ticker));
+  return byTicker.length === 1 ? byTicker[0] : null;
+}
+
+function catalogTickerActiveAtDate(record: HistoricalInstrumentRecord, ticker: string, date: string): boolean {
+  const normalized = ticker.trim().toUpperCase();
+  return record.aliases.some(alias =>
+    alias.ticker.trim().toUpperCase() === normalized
+    && (alias.validFrom == null || alias.validFrom <= date)
+    && (alias.validTo == null || date <= alias.validTo));
 }
 
 export function historicalInstrumentStatusAtDate(
@@ -246,7 +264,9 @@ export function historicalCatalogAtDate(
       isin: item.isin ?? null,
       ticker: item.ticker
     });
-    return historicalInstrumentStatusAtDate(master, record, date) === 'TRADABLE_VERIFIED';
+    return record != null
+      && historicalInstrumentStatusAtDate(master, record, date) === 'TRADABLE_VERIFIED'
+      && catalogTickerActiveAtDate(record, item.ticker, date);
   });
 }
 
@@ -268,8 +288,9 @@ export function historicalMasterMissingFromCatalogAtDate(
   date: string
 ): string[] {
   const tradable = historicalTradableRecordsAtDate(master, date);
+  const activeCatalog = historicalCatalogAtDate(master, catalog, date);
   return tradable
-    .filter(record => !catalog.some(item => resolveHistoricalInstrumentRecord(master, {
+    .filter(record => !activeCatalog.some(item => resolveHistoricalInstrumentRecord(master, {
       assetId: item.assetId,
       isin: item.isin ?? null,
       ticker: item.ticker

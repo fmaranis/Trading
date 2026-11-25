@@ -5,6 +5,7 @@ import {
   HISTORICAL_INSTRUMENT_MASTER_V1,
   buildCurrentReferenceOnlyInstrumentMaster,
   historicalCatalogAtDate,
+  historicalMasterMissingFromCatalogAtDate,
   historicalInstrumentMasterCoverageSummary,
   historicalInstrumentStatusAtDate,
   historicalTickerAtDate,
@@ -84,6 +85,32 @@ const fixtureCatalog = [{ assetId: 'FIXTURE', ticker: 'NEW.DE', isin: 'TEST-ISIN
 assert(historicalCatalogAtDate(verifiedFixture, fixtureCatalog, '2018-01-02').length === 1, 'VERIFIED_PIT_CATALOG_FILTER_FAILED');
 assert(historicalCatalogAtDate(verifiedFixture, fixtureCatalog, '2009-12-31').length === 0, 'PRE_LISTING_ASSET_LEAKED_INTO_CATALOG');
 assert(historicalCatalogAtDate(verifiedFixture, fixtureCatalog, '2020-07-01').length === 0, 'DELISTED_ASSET_LEAKED_INTO_CATALOG');
+
+// Reused symbols and inactive aliases must fail closed, independently of row order.
+const reusedTickerRecord = {
+  ...fixture,
+  canonicalInstrumentId: 'TEST-ISIN-2',
+  isin: 'TEST-ISIN-2',
+  name: 'Second economic identity',
+  listingDate: '2016-01-01',
+  delistingDate: null,
+  aliases: [{ ticker: 'OLD.DE', venue: 'XETRA', validFrom: '2016-01-01', validTo: null }]
+};
+const reusedTickerMaster: HistoricalInstrumentMaster = {
+  ...verifiedFixture,
+  records: [fixture, reusedTickerRecord]
+};
+validateHistoricalInstrumentMaster(reusedTickerMaster);
+assert(resolveHistoricalInstrumentRecord(reusedTickerMaster, { isin: 'TEST-ISIN-2', ticker: 'OLD.DE' })?.canonicalInstrumentId === 'TEST-ISIN-2', 'ISIN_PRIORITY');
+assert(resolveHistoricalInstrumentRecord({ ...reusedTickerMaster, records: [reusedTickerRecord, fixture] }, { isin: 'TEST-ISIN-2', ticker: 'OLD.DE' })?.canonicalInstrumentId === 'TEST-ISIN-2', 'IDENTITY_ORDER_INVARIANCE');
+assert(resolveHistoricalInstrumentRecord(reusedTickerMaster, { isin: 'UNKNOWN-ISIN', ticker: 'NEW.DE' }) === null, 'UNKNOWN_ISIN_NO_TICKER_FALLBACK');
+assert(resolveHistoricalInstrumentRecord(reusedTickerMaster, { assetId: 'TEST-ISIN-1', isin: 'TEST-ISIN-2' }) === null, 'CONFLICTING_IDENTITIES_BLOCKED');
+assert(resolveHistoricalInstrumentRecord(reusedTickerMaster, { ticker: 'OLD.DE' }) === null, 'AMBIGUOUS_TICKER_BLOCKED');
+assert(historicalCatalogAtDate(verifiedFixture, fixtureCatalog, '2014-01-02').length === 0, 'FUTURE_ALIAS_BLOCKED');
+const expiredAliasCatalog = [{ ...fixtureCatalog[0], ticker: 'OLD.DE' }];
+assert(historicalCatalogAtDate(verifiedFixture, expiredAliasCatalog, '2018-01-02').length === 0, 'EXPIRED_ALIAS_BLOCKED');
+const secondIdentityCatalog = [{ ...fixtureCatalog[0], assetId: 'FIXTURE-2', isin: 'TEST-ISIN-2', ticker: 'OLD.DE' }];
+assert(historicalMasterMissingFromCatalogAtDate(reusedTickerMaster, [...expiredAliasCatalog, ...secondIdentityCatalog], '2018-01-02').join(',') === 'TEST-ISIN-1', 'COMPLETE_SCOPE_REQUIRES_ACTIVE_ALIAS');
 
 let currentReferenceCannotVerify = false;
 try {
