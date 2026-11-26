@@ -4175,3 +4175,25 @@ Prospectivo:
   LYV|2020-12-31|-8.12|-0.02|ND|2021-03 (10-K)|https://www.sec.gov/Archives/edgar/data/1335258/000133525821000009/lyv-20201231.htm
 - Cobertura nominal siguiendo recuento previo: 14 crecimientos calculables adicionales de 15 pares (LYV prior negativo). 2021: 26/40 nombres con par o extracción previa, 25/40 crecimiento definido. 2018: 40/40 datos, 35/40 crecimiento. Total 66/80 nombres, 60/80 crecimiento (75%). No equivale a panel PIT certificado. Quedan HWM ARE GPC LVS LNC A EPAM ADM NWSA ACN EMR HPE JCI? Revisión orden exacto: HWM JCI ARE GPC LVS LNC HON A EPAM ADM NWSA ACN EMR HPE (14). No retuning, no promoción.
 - ALGN: estado consolidado del 10-K 2020 líneas de ingresos/gastos muestra operating income 387.171M vs 542.493M (-28.63%), beneficio fiscal 1396.939M en 2020 frente a gasto 112.347M en 2019; BPA +305.24%, ventas 2471.941M/2406.796M. No equiparar al crecimiento operativo. Conservar datos sin sustituir métrica original; tratamiento de excepcionales requiere diseño previo independiente. No se han ejecutado pruebas económicas, cambiado código ni contratado servicios.
+
+
+### 2026-11-26 — Cierre nominal de la muestra de 80 empresas: BPA anual
+
+- HEAD entrada 85e761ca034863a8dd5c2b0405af3fb1b113050d; leídos PROJECT_STATE y roadmap. Últimos 14 tickers en orden congelado, sin acceder a outcomes durante extracción. Fuente directa: SEC 10-K / exhibits originales / comunicados del emisor publicados antes del 2021-12-31; no TTM, no adjusted. Mantener comparativos dentro del documento. Fecha exacta sólo cuando verificada; fechas mensuales aproximadas. HWM BPA total reconstruido 259M/439.296141M y 477M/462.827223M redondeados a dos decimales; no suma de EPS continuing/discontinued, que pueden redondear distinto; fila provisional. EPAM 10-K indica 5.60/4.53, proxy 2021 (000119312521145153) presenta 6.34/5.42 etiquetados GAAP; se prefiere 10-K y se conserva discrepancia para auditoría. GPC se utiliza total, no continuing. A comunicado preliminar. No afirmar último vintage certificado.
+- ticker|end|BPA actual|BPA previo|growth% o ND|publicación|tipo|URL:
+  HWM|2020-12-31|0.59|1.03|-42.718447|2021-02-03|total derived from net income available to common / diluted shares; not sum of components|https://www.howmet.com/press-release/2021-02-03/howmet-aerospace-reports-fourth-quarter-2020-and-full-year-2020-results/
+  JCI|2021-09-30|2.27|0.84|170.238095|2021-11|10-K|https://www.sec.gov/Archives/edgar/data/833444/000083344421000046/jci-20210930.htm
+  ARE|2020-12-31|6.01|3.12|92.628205|2021-02|10-K|https://www.sec.gov/Archives/edgar/data/1035443/000103544321000044/R82.htm
+  GPC|2020-12-31|-0.2|4.24|-104.716981|2021-02|exhibit total|https://www.sec.gov/Archives/edgar/data/40987/000004098721000006/gpc-earn4q20.htm
+  LVS|2020-12-31|-2.21|3.5|-163.142857|2021-01|issuer release|https://www.sands.com/news/press/las-vegas-sands-reports-fourth-quarter-2020-results/
+  LNC|2020-12-31|2.56|4.38|-41.552511|2021-02-03|exhibit|https://www.sec.gov/Archives/edgar/data/59558/000005955821000007/lnc-20210203xex99_1.htm
+  HON|2020-12-31|6.72|8.41|-20.095125|2021-02|10-K|https://www.sec.gov/Archives/edgar/data/773840/000077384021000015/R23.htm
+  A|2021-10-31|3.94|2.3|71.304348|2021-11-22|preliminary exhibit|https://www.sec.gov/Archives/edgar/data/1090872/000109087221000022/exhibit991-q421pressrelease.htm
+  EPAM|2020-12-31|5.6|4.53|23.620309|2021-02|10-K; proxy conflicts, prefer audited|https://www.sec.gov/Archives/edgar/data/1352010/000135201021000010/epam-20201231.htm
+  ADM|2020-12-31|3.15|2.44|29.098361|2021-02|10-K|https://www.sec.gov/Archives/edgar/data/7084/000000708421000008/adm-20201231.htm
+  NWSA|2021-06-30|0.56|-2.16|ND|2021-08|10-K|https://www.sec.gov/Archives/edgar/data/1564708/000156470821000029/R91.htm
+  ACN|2021-08-31|9.16|7.89|16.096324|2021-10|10-K|https://www.sec.gov/Archives/edgar/data/1467373/000146737321000229/R10.htm
+  EMR|2021-09-30|3.82|3.24|17.901235|2021-11-15|10-K|https://ir.emerson.com/sec-filings/all-sec-filings/content/0000032604-21-000038/emr-20210930.htm
+  HPE|2021-10-31|2.58|-0.25|ND|2021-12-10|10-K|https://www.sec.gov/Archives/edgar/data/1645590/000164559021000068/hpe-20211031.htm
+- Rectificación PPG conocida antes del corte 2018: 10-K/A de junio 2018, https://www.sec.gov/Archives/edgar/data/79879/000007987918000039/R17.htm: 6.18/3.27, crecimiento 88.990826%; se preserva 6.17/3.28 original y se usa en sensibilidad causal alternativa. No datos futuros.
+- Cobertura nominal 80/80 identidades con datos, 72/80 crecimiento definido (35/40 2018, 37/40 2021); 8 denominadores previos no positivos (2018 SLB AIG AES VRTX FCX; 2021 LYV NWSA HPE). No asignar N/D a cero ni tratar ausencia como pérdida. No equivale a validación PIT certificada de cada cifra ni a panel completo de valoración. Antes del cruce: separar análisis descriptivo por cohorte, crecimiento >0 vs <=0 entre valores definidos, y categoría pérdida→beneficio sin porcentaje; no seleccionar umbrales adicionales por resultado. Mantener faltantes de precio y no sustituir. Sólo diagnóstico CONSUMED, no promoción. Sin nuevas cuentas, Railway, cambios de producción o jobs.
