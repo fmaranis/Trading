@@ -4197,3 +4197,93 @@ Prospectivo:
   HPE|2021-10-31|2.58|-0.25|ND|2021-12-10|10-K|https://www.sec.gov/Archives/edgar/data/1645590/000164559021000068/hpe-20211031.htm
 - Rectificación PPG conocida antes del corte 2018: 10-K/A de junio 2018, https://www.sec.gov/Archives/edgar/data/79879/000007987918000039/R17.htm: 6.18/3.27, crecimiento 88.990826%; se preserva 6.17/3.28 original y se usa en sensibilidad causal alternativa. No datos futuros.
 - Cobertura nominal 80/80 identidades con datos, 72/80 crecimiento definido (35/40 2018, 37/40 2021); 8 denominadores previos no positivos (2018 SLB AIG AES VRTX FCX; 2021 LYV NWSA HPE). No asignar N/D a cero ni tratar ausencia como pérdida. No equivale a validación PIT certificada de cada cifra ni a panel completo de valoración. Antes del cruce: separar análisis descriptivo por cohorte, crecimiento >0 vs <=0 entre valores definidos, y categoría pérdida→beneficio sin porcentaje; no seleccionar umbrales adicionales por resultado. Mantener faltantes de precio y no sustituir. Sólo diagnóstico CONSUMED, no promoción. Sin nuevas cuentas, Railway, cambios de producción o jobs.
+
+
+### 2026-11-26 — BPA de las 80 empresas: cruce económico descriptivo completo sobre muestra consumida
+
+- Se releyó el panel de BPA de las cuatro recuperaciones documentales más el último bloque del estado anterior, sin alterar selección; se reextrajeron 14 JSON por accession/filed/form/duración 350–380d desde daggerok/fundamentals@e775590c0daef2be0c1a7115a2a3fea8b358a5a7: 13 pares coincidentes con cifras previas, D ambiguo/ausente con ese tag en mirror; reconciliado con 10-K original https://www.sec.gov/Archives/edgar/data/715957/000156459021008442/R46.htm, -0.57/1.62, no imputar cero. Total 80/80 pares, 72 crecimientos definidos. Fuentes mixtas, revisiones y consolidación no auditadas de forma exhaustiva; HWM estimado a partir de numerador/denominador redondeados; no certificación PIT. PPG revisión pre-corte no cambia grupo de signo.
+- Se recuperaron todos los 80 CSV de AndyLongest/HistoricalIndexPrices@bdb5c01084b314a94edfad155547d9373d0d8191, paths data/sp500/constituents/{ticker}/prices_daily.csv; se recalculó retorno open 2019-01-02 / close 2021-12-31 (757 sesiones) y open 2022-01-03 / close 2024-12-31 (753), estrictamente positivo OHLC coherente y orden, USD, ticker exacto, base split_and_dividend_adjusted, has_ohlcv. Muestra estricta 67/80 con 252 barras anteriores y señal exacta, idéntica cobertura previa. Sensibilidad pertinente a BPA (no necesita warmup técnico) incorpora 6 recorridos completos BR FTNT KEYS CZR GNRC EPAM previamente excluidos por warmup, criterios de precios iguales. 73/80 recorridos exactos de la fuente, no mezclar aproximaciones de fuentes externas para faltantes; faltan SLG DRE TIF ABC ANTM ILMN LNC. No asumir quiebra ni reemplazar. No certificación de calendario sesión por sesión ni splits/ajustes; fuente STATIC_REFERENCE con sesgo potencial por pertenencia histórica. Sin costes, FX, fiscalidad ni replay de cartera.
+- Contraste descriptivo fijado por signo antes del cálculo: crecimiento positivo vs no positivo (prior>0); transición pérdida→beneficio y restantes prior<=0 por separado. Sin corte nuevo, sin promoción. Retornos brutos, media/mediana, positivos, duplicaciones, pérdidas; beatApproxCalendarTR usa referencia S&P500 TR calendario aproximada +100.3811%/+29.2943%, NO mismo NEXT_OPEN ni structural core comparable, no benchmark de promoción.
+- Métricas exactas JS: {"2018":{"strict":{"GROWTH_POSITIVE":{"total":23,"n":19,"mean":79.15069931578947,"median":74.150047,"win":16,"beatApproxCalendarTR":6,"doubles":6,"losses":3},"GROWTH_NONPOSITIVE":{"total":12,"n":9,"mean":86.28607666666667,"median":88.252243,"win":9,"beatApproxCalendarTR":4,"doubles":4,"losses":0},"LOSS_TO_PROFIT":{"total":2,"n":2,"mean":182.5327585,"median":182.5327585,"win":2,"beatApproxCalendarTR":1,"doubles":1,"losses":0},"PRIOR_LOSS_OTHER":{"total":3,"n":3,"mean":46.837425333333336,"median":60.220095,"win":2,"beatApproxCalendarTR":0,"doubles":0,"losses":1}},"expanded":{"GROWTH_POSITIVE":{"total":23,"n":21,"mean":87.82607676190476,"median":76.151614,"win":18,"beatApproxCalendarTR":8,"doubles":8,"losses":3},"GROWTH_NONPOSITIVE":{"total":12,"n":10,"mean":120.0634178,"median":97.19589300000001,"win":10,"beatApproxCalendarTR":5,"doubles":5,"losses":0},"LOSS_TO_PROFIT":{"total":2,"n":2,"mean":182.5327585,"median":182.5327585,"win":2,"beatApproxCalendarTR":1,"doubles":1,"losses":0},"PRIOR_LOSS_OTHER":{"total":3,"n":3,"mean":46.837425333333336,"median":60.220095,"win":2,"beatApproxCalendarTR":0,"doubles":0,"losses":1}}},"2021":{"strict":{"GROWTH_POSITIVE":{"total":15,"n":13,"mean":-1.2212226923076912,"median":-11.233748,"win":6,"beatApproxCalendarTR":4,"doubles":0,"losses":7},"GROWTH_NONPOSITIVE":{"total":22,"n":18,"mean":29.189234055555556,"median":9.629718,"win":10,"beatApproxCalendarTR":8,"doubles":2,"losses":8},"LOSS_TO_PROFIT":{"total":2,"n":2,"mean":36.81698,"median":36.81698,"win":2,"beatApproxCalendarTR":1,"doubles":0,"losses":0},"PRIOR_LOSS_OTHER":{"total":1,"n":1,"mean":7.388676,"median":7.388676,"win":1,"beatApproxCalendarTR":0,"doubles":0,"losses":0}},"expanded":{"GROWTH_POSITIVE":{"total":15,"n":15,"mean":-9.146142533333329,"median":-13.741207,"win":6,"beatApproxCalendarTR":4,"doubles":0,"losses":9},"GROWTH_NONPOSITIVE":{"total":22,"n":19,"mean":24.271228999999998,"median":3.467174,"win":10,"beatApproxCalendarTR":8,"doubles":2,"losses":9},"LOSS_TO_PROFIT":{"total":2,"n":2,"mean":36.81698,"median":36.81698,"win":2,"beatApproxCalendarTR":1,"doubles":0,"losses":0},"PRIOR_LOSS_OTHER":{"total":1,"n":1,"mean":7.388676,"median":7.388676,"win":1,"beatApproxCalendarTR":0,"doubles":0,"losses":0}}}}
+- Filas reproducibles cohort|ticker|BPA actual|previo|growth% o ND|grupo|retorno estricto%|retorno ampliado%|status:
+  2018|PSA|6.73|6.81|-1.174743|GROWTH_NONPOSITIVE|106.139543|106.139543|FULL_WITH_WARMUP
+  2018|GM|-2.6|6|-143.333333|GROWTH_NONPOSITIVE|88.252243|88.252243|FULL_WITH_WARMUP
+  2018|FCX|1.25|-3.16|ND|LOSS_TO_PROFIT|328.845681|328.845681|FULL_WITH_WARMUP
+  2018|FFIV|7.32|6.5|12.615385|GROWTH_POSITIVE|54.693725|54.693725|FULL_WITH_WARMUP
+  2018|MGM|3.35|1.92|74.479167|GROWTH_POSITIVE|93.216361|93.216361|FULL_WITH_WARMUP
+  2018|SLB|-1.08|-1.24|ND|PRIOR_LOSS_OTHER|-6.125268|-6.125268|FULL_WITH_WARMUP
+  2018|TSN|8.19|4.79|70.981211|GROWTH_POSITIVE|76.151614|76.151614|FULL_WITH_WARMUP
+  2018|ALLE|2.85|2.36|20.762712|GROWTH_POSITIVE|74.150047|74.150047|FULL_WITH_WARMUP
+  2018|SLG|0.87|2.34|-62.820513|GROWTH_NONPOSITIVE|ND|ND|MISSING
+  2018|SHW|18.67|11.99|55.713094|GROWTH_POSITIVE|178.469029|178.469029|FULL_WITH_WARMUP
+  2018|CHD|2.9|1.75|65.714286|GROWTH_POSITIVE|63.181351|63.181351|FULL_WITH_WARMUP
+  2018|BR|3.56|2.7|31.851852|GROWTH_POSITIVE|ND|102.884193|FULL_NO_WARMUP
+  2018|FIS|3.93|1.72|128.488372|GROWTH_POSITIVE|11.868847|11.868847|FULL_WITH_WARMUP
+  2018|TPR|1.38|2.09|-33.971292|GROWTH_NONPOSITIVE|31.984175|31.984175|FULL_WITH_WARMUP
+  2018|HCA|5.95|7.3|-18.493151|GROWTH_NONPOSITIVE|114.661627|114.661627|FULL_WITH_WARMUP
+  2018|FTNT|0.18|0.18|0.000000|GROWTH_NONPOSITIVE|ND|424.059488|FULL_NO_WARMUP
+  2018|CCI|1.01|0.95|6.315789|GROWTH_POSITIVE|113.29365|113.29365|FULL_WITH_WARMUP
+  2018|PSX|9.85|2.92|237.328767|GROWTH_POSITIVE|-2.90095|-2.90095|FULL_WITH_WARMUP
+  2018|NUE|4.1|2.48|65.322581|GROWTH_POSITIVE|144.443019|144.443019|FULL_WITH_WARMUP
+  2018|GE|-0.72|0.89|-180.898876|GROWTH_NONPOSITIVE|66.650065|66.650065|FULL_WITH_WARMUP
+  2018|NI|0.39|1.02|-61.764706|GROWTH_NONPOSITIVE|20.324434|20.324434|FULL_WITH_WARMUP
+  2018|GD|9.56|8.29|15.319662|GROWTH_POSITIVE|45.103929|45.103929|FULL_WITH_WARMUP
+  2018|AIG|-6.54|-0.78|ND|PRIOR_LOSS_OTHER|60.220095|60.220095|FULL_WITH_WARMUP
+  2018|DRE|4.56|0.88|418.181818|GROWTH_POSITIVE|ND|ND|MISSING
+  2018|COO|2.81|7.52|-62.632979|GROWTH_NONPOSITIVE|66.640068|66.640068|FULL_WITH_WARMUP
+  2018|MTD|14.24|14.22|0.140647|GROWTH_POSITIVE|204.443212|204.443212|FULL_WITH_WARMUP
+  2018|ULTA|8.96|6.52|37.423313|GROWTH_POSITIVE|71.836966|71.836966|FULL_WITH_WARMUP
+  2018|CCL|4.44|3.59|23.676880|GROWTH_POSITIVE|-56.688083|-56.688083|FULL_WITH_WARMUP
+  2018|KEYS|0.86|0.56|53.571429|GROWTH_POSITIVE|ND|237.600132|FULL_NO_WARMUP
+  2018|ZTS|1.75|1.65|6.060606|GROWTH_POSITIVE|193.87423|193.87423|FULL_WITH_WARMUP
+  2018|TIF|2.96|3.55|-16.619718|GROWTH_NONPOSITIVE|ND|ND|MISSING
+  2018|WY|0.77|1.39|-44.604317|GROWTH_NONPOSITIVE|116.37845|116.37845|FULL_WITH_WARMUP
+  2018|HRL|1.86|1.57|18.471338|GROWTH_POSITIVE|22.844766|22.844766|FULL_WITH_WARMUP
+  2018|PPG|6.17|3.28|88.109756|GROWTH_POSITIVE|79.399642|79.399642|FULL_WITH_WARMUP
+  2018|IT|0.04|2.31|-98.268398|GROWTH_NONPOSITIVE|165.544085|165.544085|FULL_WITH_WARMUP
+  2018|ALK|8.3|6.54|26.911315|GROWTH_POSITIVE|-10.6545|-10.6545|FULL_WITH_WARMUP
+  2018|AES|-1.76|-1.72|ND|PRIOR_LOSS_OTHER|86.417449|86.417449|FULL_WITH_WARMUP
+  2018|ABC|7.53|1.64|359.146341|GROWTH_POSITIVE|ND|ND|MISSING
+  2018|SBAC|0.86|0.61|40.983607|GROWTH_POSITIVE|147.136432|147.136432|FULL_WITH_WARMUP
+  2018|VRTX|1.04|-0.46|ND|LOSS_TO_PROFIT|36.219836|36.219836|FULL_WITH_WARMUP
+  2021|CTSH|2.57|3.29|-21.884498|GROWTH_NONPOSITIVE|-8.95629|-8.95629|FULL_WITH_WARMUP
+  2021|VRSN|7.07|5.15|37.281553|GROWTH_POSITIVE|-18.042136|-18.042136|FULL_WITH_WARMUP
+  2021|CHTR|15.4|7.45|106.711409|GROWTH_POSITIVE|-46.671336|-46.671336|FULL_WITH_WARMUP
+  2021|PEG|3.76|3.33|12.912913|GROWTH_POSITIVE|39.873737|39.873737|FULL_WITH_WARMUP
+  2021|ALGN|22.41|5.53|305.244123|GROWTH_POSITIVE|-68.229468|-68.229468|FULL_WITH_WARMUP
+  2021|CZR|-13.5|1.03|-1410.679612|GROWTH_NONPOSITIVE|ND|-64.252862|FULL_NO_WARMUP
+  2021|CSX|3.6|4.17|-13.669065|GROWTH_NONPOSITIVE|-10.324891|-10.324891|FULL_WITH_WARMUP
+  2021|GPN|1.95|2.16|-9.722222|GROWTH_NONPOSITIVE|-15.240247|-15.240247|FULL_WITH_WARMUP
+  2021|LIN|4.71|4.19|12.410501|GROWTH_POSITIVE|25.934484|25.934484|FULL_WITH_WARMUP
+  2021|T|-0.75|1.89|-139.682540|GROWTH_NONPOSITIVE|48.14742|48.14742|FULL_WITH_WARMUP
+  2021|COF|5.18|11.05|-53.122172|GROWTH_NONPOSITIVE|29.607943|29.607943|FULL_WITH_WARMUP
+  2021|NRG|2.07|16.81|-87.685901|GROWTH_NONPOSITIVE|130.73339|130.73339|FULL_WITH_WARMUP
+  2021|ECL|-4.2|5.41|-177.634011|GROWTH_NONPOSITIVE|3.467174|3.467174|FULL_WITH_WARMUP
+  2021|ILMN|4.45|6.74|-33.976261|GROWTH_NONPOSITIVE|ND|ND|MISSING
+  2021|V|5.63|4.89|15.132924|GROWTH_POSITIVE|48.681817|48.681817|FULL_WITH_WARMUP
+  2021|ANTM|17.98|18.47|-2.652951|GROWTH_NONPOSITIVE|ND|ND|MISSING
+  2021|CPRT|3.9|2.93|33.105802|GROWTH_POSITIVE|51.324985|51.324985|FULL_WITH_WARMUP
+  2021|EMN|3.5|5.48|-36.131387|GROWTH_NONPOSITIVE|-16.498532|-16.498532|FULL_WITH_WARMUP
+  2021|RTX|-2.59|6.41|-140.405616|GROWTH_NONPOSITIVE|44.509169|44.509169|FULL_WITH_WARMUP
+  2021|JPM|8.88|10.72|-17.164179|GROWTH_NONPOSITIVE|63.09754|63.09754|FULL_WITH_WARMUP
+  2021|RMD|3.24|4.27|-24.121780|GROWTH_NONPOSITIVE|-9.135442|-9.135442|FULL_WITH_WARMUP
+  2021|GNRC|5.48|4.03|35.980149|GROWTH_POSITIVE|ND|-56.198091|FULL_NO_WARMUP
+  2021|LYV|-8.12|-0.02|ND|PRIOR_LOSS_OTHER|7.388676|7.388676|FULL_WITH_WARMUP
+  2021|HWM|0.59|1.03|-42.718447|GROWTH_NONPOSITIVE|245.086415|245.086415|FULL_WITH_WARMUP
+  2021|JCI|2.27|0.84|170.238095|GROWTH_POSITIVE|4.391368|4.391368|FULL_WITH_WARMUP
+  2021|ARE|6.01|3.12|92.628205|GROWTH_POSITIVE|-50.708363|-50.708363|FULL_WITH_WARMUP
+  2021|GPC|-0.2|4.24|-104.716981|GROWTH_NONPOSITIVE|-10.253163|-10.253163|FULL_WITH_WARMUP
+  2021|LVS|-2.21|3.5|-163.142857|GROWTH_NONPOSITIVE|38.507219|38.507219|FULL_WITH_WARMUP
+  2021|PLD|2.01|2.46|-18.292683|GROWTH_NONPOSITIVE|-31.677867|-31.677867|FULL_WITH_WARMUP
+  2021|LNC|2.56|4.38|-41.552511|GROWTH_NONPOSITIVE|ND|ND|MISSING
+  2021|HON|6.72|8.41|-20.095125|GROWTH_NONPOSITIVE|15.792262|15.792262|FULL_WITH_WARMUP
+  2021|A|3.94|2.3|71.304348|GROWTH_POSITIVE|-13.741207|-13.741207|FULL_WITH_WARMUP
+  2021|EPAM|5.6|4.53|23.620309|GROWTH_POSITIVE|ND|-65.118152|FULL_NO_WARMUP
+  2021|ADM|3.15|2.44|29.098361|GROWTH_POSITIVE|-19.273416|-19.273416|FULL_WITH_WARMUP
+  2021|NWSA|0.56|-2.16|ND|LOSS_TO_PROFIT|26.705029|26.705029|FULL_WITH_WARMUP
+  2021|ACN|9.16|7.89|16.096324|GROWTH_POSITIVE|-11.233748|-11.233748|FULL_WITH_WARMUP
+  2021|C|4.72|8.04|-41.293532|GROWTH_NONPOSITIVE|29.868274|29.868274|FULL_WITH_WARMUP
+  2021|EMR|3.82|3.24|17.901235|GROWTH_POSITIVE|41.817388|41.817388|FULL_WITH_WARMUP
+  2021|D|-0.57|1.62|-135.185185|GROWTH_NONPOSITIVE|-21.324161|-21.324161|FULL_WITH_WARMUP
+  2021|HPE|2.58|-0.25|ND|LOSS_TO_PROFIT|46.928931|46.928931|FULL_WITH_WARMUP
+- Diagnóstico sobre observaciones históricas ya consumidas, no inferencia ni prueba de estrategia. No cambiar LEGACY, no gastar, no pedir intervención del usuario. No confundir crecimiento EPS, rentabilidad absoluta, rentabilidad relativa ni valor económico de política. Cierre descriptivo BPA; fundamentales completos y valoración causal siguen abiertos por falta de panel SEC completo y nominal price/share basis. No repetir tuning ni proponer política sin preregistro fresh.
